@@ -1,0 +1,24 @@
+{
+  "name": "@tessera/auth",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@tessera/db": "workspace:*",
+    "@tessera/env": "workspace:*",
+    "better-auth": "catalog:",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tessera/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

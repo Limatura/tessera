@@ -1,0 +1,44 @@
+{
+  "name": "tessera",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "check-types": "turbo run check-types",
+    "dev:web": "turbo run dev -F web",
+    "dev:tui": "turbo run dev -F tui",
+    "db:push": "turbo run db:push -F @tessera/db",
+    "db:studio": "turbo run db:studio -F @tessera/db",
+    "db:generate": "turbo run db:generate -F @tessera/db",
+    "db:migrate": "turbo run db:migrate -F @tessera/db",
+    "db:local": "turbo run db:local -F @tessera/db",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "check": "ultracite check",
+    "fix": "ultracite fix",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@tessera/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tessera/config": "workspace:*",
+    "@types/node": "catalog:",
+    "husky": "latest",
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "turbo": "^2.10.7",
+    "typescript": "catalog:",
+    "ultracite": "7.9.4"
+  },
+  "packageManager": "pnpm@10.30.3"
+}

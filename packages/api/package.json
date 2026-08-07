@@ -1,0 +1,28 @@
+{
+  "name": "@tessera/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@orpc/client": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/zod": "catalog:",
+    "@tessera/auth": "workspace:*",
+    "@tessera/db": "workspace:*",
+    "@tessera/env": "workspace:*",
+    "dotenv": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@tessera/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,15 @@
+[mcp_servers.better-t-stack]
+command = "pnpm"
+args = ["dlx", "create-better-t-stack@latest", "mcp"]
+
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+
+[mcp_servers.shadcn]
+command = "npx"
+args = ["-y", "shadcn@latest", "mcp"]
+
+[mcp_servers.better-auth]
+type = "http"
+url = "https://mcp.inkeep.com/better-auth/mcp"

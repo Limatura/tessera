@@ -1,0 +1,21 @@
+{
+  "name": "tui",
+  "private": true,
+  "type": "module",
+  "module": "src/index.tsx",
+  "scripts": {
+    "dev": "bun run --watch src/index.tsx",
+    "check-types": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opentui/core": "^0.5.1",
+    "@opentui/react": "^0.5.1",
+    "react": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}
