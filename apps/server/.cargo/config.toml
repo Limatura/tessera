@@ -1,0 +1,6 @@
+# sqlx offline mode is always on: `query!`-family macros resolve against the
+# committed `.sqlx/` metadata instead of a live database, so `cargo build`,
+# clippy and CI never need a running server. Regenerate with:
+#   cargo sqlx prepare -- --all-targets --all-features
+[env]
+SQLX_OFFLINE = "true"

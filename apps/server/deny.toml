@@ -1,0 +1,65 @@
+[graph]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-musl",
+]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # `paste` is archived upstream with no security impact — it is a compile-time
+  # macro helper with no runtime surface. It reaches us only through
+  # utoipa-axum, so the fix is upstream migrating to `pastey`, not a change here.
+  # Revisit whenever utoipa-axum is bumped.
+  { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro helper pulled in by utoipa-axum; no runtime exposure, no upgrade path on our side" },
+]
+
+[licenses]
+version = 2
+# Permissive licences only. Anything copyleft would contaminate a distributed
+# single binary, so it has to be an explicit, reviewed exception.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+  "CC0-1.0",
+  # webpki-roots (via sqlx's TLS stack) ships Mozilla's CA bundle under the
+  # Community Data License Agreement. It is a permissive *data* licence with no
+  # obligations attached to distributing a compiled binary.
+  "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+# The allow-list is a policy statement, not an inventory. Entries that no current
+# dependency happens to use are how the policy stays stable across dependency
+# churn, so an unused entry is not a finding.
+unused-allowed-license = "allow"
+# tessera-server itself is `publish = false` and carries no licence field.
+private = { ignore = true }
+
+[bans]
+# Duplicate versions are a size and audit-surface problem, not a correctness one,
+# and the current duplicates come from transitive dependencies we do not control
+# (reqwest pulls an older tower-http through object_store). Warn, and revisit if
+# the binary size regresses.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+# Guard rails against dependencies we deliberately kept out of the tree.
+deny = [
+  { name = "openssl-sys", reason = "link no system OpenSSL — use rustls" },
+  { name = "openssl", reason = "link no system OpenSSL — use rustls" },
+]
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

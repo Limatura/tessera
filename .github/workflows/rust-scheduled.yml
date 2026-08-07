@@ -1,0 +1,83 @@
+name: rust (scheduled)
+
+# Mutation testing and benchmarks are too slow, and too noisy, to gate a PR.
+# They run on a schedule and on demand, where a long runtime costs nobody's
+# review latency.
+on:
+  schedule:
+    # 03:00 UTC every Monday.
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: Which job to run
+        type: choice
+        default: both
+        options: [both, mutants, bench]
+
+concurrency:
+  group: rust-scheduled-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  SQLX_OFFLINE: "true"
+
+defaults:
+  run:
+    working-directory: apps/server
+
+jobs:
+  mutants:
+    name: mutation testing
+    if: github.event_name == 'schedule' || inputs.job == 'both' || inputs.job == 'mutants'
+    runs-on: ubuntu-latest
+    # A full mutation run rebuilds the crate once per surviving mutant.
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/server
+          key: mutants
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-mutants,cargo-nextest
+
+      # `--in-place` is deliberately avoided: cargo-mutants copies the tree so a
+      # cancelled run cannot leave mutated source behind.
+      - name: Run cargo-mutants
+        run: cargo mutants --no-shuffle --test-tool nextest -- --all-features
+
+      - name: Upload the mutants report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutants-report
+          path: apps/server/mutants.out/
+          if-no-files-found: ignore
+
+  bench:
+    name: benchmarks
+    if: github.event_name == 'schedule' || inputs.job == 'both' || inputs.job == 'bench'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/server
+          key: bench
+
+      # Shared runners are too noisy for a pass/fail regression gate; the
+      # criterion output is published as an artefact for a human to compare.
+      - run: cargo bench --bench api
+
+      - name: Upload criterion output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: criterion-report
+          path: apps/server/target/criterion/
+          if-no-files-found: ignore

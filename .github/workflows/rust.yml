@@ -1,0 +1,180 @@
+name: rust
+
+# Deliberately separate from the TypeScript pipeline and outside Turborepo:
+# the two toolchains share no cache, no dependency graph and no failure modes,
+# and coupling them would make every frontend PR wait on a Rust rebuild.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/server/**"
+      - "openapi.json"
+      - ".github/workflows/rust.yml"
+  pull_request:
+    paths:
+      - "apps/server/**"
+      - "openapi.json"
+      - ".github/workflows/rust.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: rust-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # Fail on warnings everywhere, not just where a command passes `-D warnings`.
+  RUSTFLAGS: -D warnings
+  # sqlx macros resolve against the committed .sqlx metadata; CI never needs a
+  # live database.
+  SQLX_OFFLINE: "true"
+
+defaults:
+  run:
+    working-directory: apps/server
+
+jobs:
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # rustfmt.toml uses import grouping, which is still nightly-gated. The
+      # pinned stable toolchain builds and lints; only formatting needs nightly.
+      - name: Install nightly rustfmt
+        run: rustup toolchain install nightly --profile minimal --component rustfmt
+
+      - run: cargo +nightly fmt --all --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/server
+          key: clippy
+
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/server
+          key: test
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - run: cargo nextest run --profile ci --all-features
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextest-junit
+          path: apps/server/target/nextest/ci/junit.xml
+          if-no-files-found: ignore
+
+  contract:
+    name: openapi contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/server
+          key: contract
+
+      # The contract is generated, never hand-edited. Regenerating it here and
+      # diffing against the committed file is what stops the frontend and the
+      # Discord bot from generating clients against a stale spec.
+      - name: Regenerate openapi.json
+        run: cargo run --locked --bin tessera-openapi
+
+      - name: Fail if the contract drifted
+        run: |
+          if ! git diff --exit-code -- ../../openapi.json; then
+            echo "::error::openapi.json is out of date. Run 'pnpm server:openapi' and commit the result."
+            exit 1
+          fi
+
+  audit:
+    name: security & licences
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+
+      - run: cargo deny check
+      - run: cargo audit --deny warnings
+
+  unused-deps:
+    name: unused dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-machete
+
+      - run: cargo machete
+
+  docker:
+    name: docker image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          tags: tessera-server:ci
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The single-binary, low-footprint pitch is the product. Guard it in CI so
+      # a careless dependency cannot quietly double the image.
+      - name: Enforce the image size budget
+        working-directory: .
+        run: |
+          BUDGET_MB=50
+          SIZE_BYTES=$(docker image inspect tessera-server:ci --format '{{.Size}}')
+          SIZE_MB=$(( SIZE_BYTES / 1000000 ))
+          echo "image size: ${SIZE_MB} MB (budget ${BUDGET_MB} MB)"
+          if [ "$SIZE_MB" -gt "$BUDGET_MB" ]; then
+            echo "::error::image is ${SIZE_MB} MB, over the ${BUDGET_MB} MB budget"
+            exit 1
+          fi
+
+      - name: Smoke-test the image
+        working-directory: .
+        run: |
+          docker run -d --name tessera-smoke -p 8787:8787 tessera-server:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8787/health > /dev/null; then
+              echo "health check passed"
+              curl -fsS http://localhost:8787/openapi.json > /dev/null
+              docker rm -f tessera-smoke
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::the container never became healthy"
+          docker logs tessera-smoke
+          exit 1

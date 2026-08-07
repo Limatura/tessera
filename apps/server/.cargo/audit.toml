@@ -1,0 +1,14 @@
+# cargo-audit configuration.
+#
+# CI runs `cargo audit --deny warnings`, so an unmaintained-crate notice fails the
+# build unless it is listed here with a reason. Keep this list short and dated —
+# an ignore is a decision to accept risk, not a way to silence the tool.
+
+[advisories]
+ignore = [
+  # RUSTSEC-2024-0436 — `paste` is archived upstream. It is a compile-time
+  # proc-macro helper with no runtime surface, and it reaches us only through
+  # utoipa-axum, so there is no upgrade available on our side. Revisit whenever
+  # utoipa-axum is bumped.
+  "RUSTSEC-2024-0436",
+]

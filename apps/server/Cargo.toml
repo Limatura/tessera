@@ -1,0 +1,148 @@
+[package]
+name = "tessera-server"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97"
+publish = false
+description = "Tessera — anonymous file courier backend (single-binary Rust monolith)"
+
+[[bin]]
+name = "tessera-server"
+path = "src/main.rs"
+
+# Emits the OpenAPI contract. Kept as a separate binary so the contract can be
+# regenerated in CI without booting a database or a storage backend.
+[[bin]]
+name = "tessera-openapi"
+path = "src/bin/openapi.rs"
+
+[[bench]]
+name = "api"
+harness = false
+
+# Lint policy lives here rather than as `#![deny(...)]` in each crate root: a
+# package has four roots (lib, two bins, build script) plus every test and bench
+# target, and `[lints]` covers all of them from one place. Test code is exempted
+# from the unwrap/expect/panic denials via clippy.toml, not via `#[allow]`.
+[lints.rust]
+unsafe_code = "forbid"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+
+[lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+exit = "deny"
+mem_forget = "deny"
+str_to_string = "deny"
+
+[features]
+default = []
+# Data layer: SQLite always compiles in (it is the shipped default for homelab
+# deploys). Postgres is opt-in for people who already run one.
+postgres = ["sqlx/postgres", "sqlx/tls-rustls-ring"]
+# Storage layer: the local filesystem always compiles in. S3-compatible is opt-in
+# because it drags in a TLS stack and roughly doubles build time.
+s3 = ["object_store/aws"]
+
+[dependencies]
+# --- web ---
+axum = { version = "0.8.9", features = ["macros", "http2"] }
+tokio = { version = "1.53", features = [
+  "rt-multi-thread",
+  "macros",
+  "signal",
+  "net",
+  "fs",
+  "time",
+] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = [
+  "trace",
+  "cors",
+  "compression-gzip",
+  "compression-br",
+  "limit",
+  "timeout",
+  "request-id",
+  "catch-panic",
+] }
+
+# --- data ---
+sqlx = { version = "0.9", default-features = false, features = [
+  "runtime-tokio",
+  "macros",
+  "migrate",
+  "sqlite",
+  "sqlite-bundled",
+  "time",
+] }
+
+# --- storage ---
+object_store = { version = "0.14", features = ["fs"] }
+
+# --- contract ---
+utoipa = { version = "5.5", features = ["axum_extras", "time"] }
+utoipa-axum = "0.2"
+utoipa-swagger-ui = { version = "9.0", features = ["axum", "vendored"] }
+
+# --- serialization ---
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# --- errors ---
+thiserror = "2"
+anyhow = "1"
+
+# --- observability ---
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "fmt",
+  "json",
+  "registry",
+] }
+
+# --- configuration ---
+figment = { version = "0.10", features = ["toml", "env"] }
+
+# --- misc ---
+parking_lot = "0.12"
+rust-embed = "8.12"
+mime_guess = "2"
+bytes = "1"
+ulid = { version = "3", features = ["serde"] }
+time = { version = "0.3", features = ["serde", "formatting", "macros"] }
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["async_tokio"] }
+# `Jail` lets the environment-override tests set variables in a scoped, restored
+# way instead of calling `std::env::set_var`, which is unsound under a threaded
+# test runner (and banned in clippy.toml).
+figment = { version = "0.10", features = ["test"] }
+http-body-util = "0.1"
+insta = { version = "1.48", features = ["json", "redactions"] }
+proptest = "1.11"
+rstest = "0.26"
+tempfile = "3"
+
+[profile.release]
+# Single-binary distribution: optimise for size and startup, not compile time.
+# `panic` is deliberately left at "unwind" — tower-http's CatchPanicLayer can only
+# turn a panicking handler into a 500 if the panic is unwindable.
+opt-level = "z"
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
+
+[profile.bench]
+inherits = "release"
+strip = "none"
+debug = 1

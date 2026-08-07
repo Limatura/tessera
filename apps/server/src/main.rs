@@ -1,0 +1,176 @@
+//! Process entry point.
+//!
+//! Start-up order is the whole point of this file: configuration is loaded and
+//! validated *before* anything is opened, so a bad value fails the process
+//! immediately instead of surfacing as a 500 on the first request that touches it.
+//!
+//! `anyhow` is used here and nowhere else — this is the boundary where a typed
+//! error stops being actionable and becomes a message for an operator.
+
+use std::{
+    net::{IpAddr, SocketAddr},
+    sync::Arc,
+    time::Duration,
+};
+
+use anyhow::{Context as _, bail};
+use tessera_server::{
+    api,
+    config::Config,
+    db::Database,
+    state::{AppState, ServiceStatus},
+    storage, telemetry,
+};
+use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+use tokio_util::sync::CancellationToken;
+
+/// Argument that turns the binary into its own health probe.
+const HEALTH_CHECK_FLAG: &str = "--health-check";
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    // 1. Configuration. Nothing is opened before this succeeds.
+    let config = Config::load().context("configuration is not usable")?;
+
+    // The distroless runtime image has no shell and no curl, so `HEALTHCHECK`
+    // re-executes this binary instead. It shares the configuration, which means
+    // the probe always targets the port the server actually listens on.
+    if std::env::args().skip(1).any(|arg| arg == HEALTH_CHECK_FLAG) {
+        return probe_health(&config).await;
+    }
+
+    // 2. Logging, so every step below is observable.
+    telemetry::init(&config.telemetry).context("could not install the tracing subscriber")?;
+    tracing::info!(
+        version = tessera_server::VERSION,
+        docs = config.server.enable_docs,
+        "starting tessera"
+    );
+
+    // 3. Dependencies.
+    let db = Database::connect(&config.database)
+        .await
+        .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
+    if config.database.run_migrations {
+        db.migrate().await.context("could not apply migrations")?;
+        tracing::info!(backend = db.backend().as_str(), "migrations applied");
+    }
+
+    let store = storage::build(&config.storage).context("could not open the object store")?;
+
+    // 4. Listener. Bound before announcing readiness so a port clash is fatal.
+    let addr = SocketAddr::new(config.server.host, config.server.port);
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("could not bind {addr}"))?;
+    let local_addr = listener.local_addr().unwrap_or(addr);
+
+    let config = Arc::new(config);
+    let state = AppState::new(Arc::clone(&config), db.clone(), store);
+    let app = api::build(state.clone());
+
+    state.set_status(ServiceStatus::Ready);
+    tracing::info!(
+        address = %local_addr,
+        docs = %format_args!("http://{local_addr}{}", api::DOCS_PATH),
+        "listening"
+    );
+
+    let shutdown = CancellationToken::new();
+    let signal_task = tokio::spawn(watch_for_shutdown(shutdown.clone()));
+
+    let drain = shutdown.clone();
+    let state_for_drain = state.clone();
+    // Served exactly as `api::build` returns it — no outer service wrapper — so
+    // that the integration tests exercise the same stack this process does.
+    axum::serve(listener, app.into_make_service())
+        .with_graceful_shutdown(async move {
+            drain.cancelled().await;
+            // Flip to draining first: an orchestrator polling `/health` sees 503
+            // and stops routing while in-flight requests finish.
+            state_for_drain.set_status(ServiceStatus::Draining);
+            tracing::info!("draining in-flight requests");
+        })
+        .await
+        .context("the HTTP server stopped unexpectedly")?;
+
+    signal_task.abort();
+    // Closing the pool checkpoints the SQLite WAL, so the next start-up does not
+    // have to replay it.
+    db.close().await;
+    tracing::info!("stopped");
+    Ok(())
+}
+
+/// Issues `GET /health` against the locally configured listener and succeeds
+/// only on a 200.
+///
+/// Hand-rolled over a raw socket rather than pulling in an HTTP client: a probe
+/// that needs `reqwest` would add a TLS stack and several megabytes to an image
+/// whose entire selling point is that it is small.
+async fn probe_health(config: &Config) -> anyhow::Result<()> {
+    // `0.0.0.0` / `::` mean "every interface"; they are not connectable targets.
+    let host = match config.server.host {
+        IpAddr::V4(v4) if v4.is_unspecified() => IpAddr::from([127, 0, 0, 1]),
+        IpAddr::V6(v6) if v6.is_unspecified() => IpAddr::from([0, 0, 0, 0, 0, 0, 0, 1]),
+        other => other,
+    };
+    let addr = SocketAddr::new(host, config.server.port);
+
+    let status_line = tokio::time::timeout(Duration::from_secs(2), async {
+        let mut socket = tokio::net::TcpStream::connect(addr).await?;
+        socket
+            .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
+            .await?;
+
+        // The status line is the first ~15 bytes; there is no reason to read the
+        // rest of the response.
+        let mut head = [0_u8; 64];
+        let read = socket.read(&mut head).await?;
+        Ok::<_, std::io::Error>(String::from_utf8_lossy(&head[..read]).into_owned())
+    })
+    .await
+    .with_context(|| format!("health probe to {addr} timed out"))?
+    .with_context(|| format!("health probe to {addr} failed"))?;
+
+    if status_line.starts_with("HTTP/1.1 200") {
+        Ok(())
+    } else {
+        let reported = status_line.lines().next().unwrap_or("<no response>");
+        bail!("health probe to {addr} returned `{reported}`");
+    }
+}
+
+/// Resolves when the process is asked to stop, by `Ctrl-C` or by `SIGTERM`
+/// (which is what `docker stop` and systemd send).
+async fn watch_for_shutdown(token: CancellationToken) {
+    let ctrl_c = async {
+        if tokio::signal::ctrl_c().await.is_err() {
+            // No console attached: fall back to SIGTERM alone.
+            std::future::pending::<()>().await;
+        }
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(mut signal) => {
+                signal.recv().await;
+            }
+            Err(error) => {
+                tracing::warn!(?error, "could not install the SIGTERM handler");
+                std::future::pending::<()>().await;
+            }
+        }
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        () = ctrl_c => tracing::info!("received Ctrl-C"),
+        () = terminate => tracing::info!("received SIGTERM"),
+    }
+
+    token.cancel();
+}

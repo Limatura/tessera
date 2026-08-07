@@ -1,0 +1,127 @@
+---
+source: tests/contract.rs
+expression: document
+---
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Tessera API",
+    "description": "Anonymous file courier. Upload a file or a note, hand out a retrieval code, and the payload destroys itself once it expires or runs out of retrievals.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Reports whether the service is ready to take traffic.",
+        "description": "Deliberately both a liveness and a readiness probe: the process only reaches\n[`ServiceStatus::Ready`] once migrations have run, and it flips to\n[`ServiceStatus::Draining`] the moment a shutdown signal arrives, so an\norchestrator can stop routing before the listener actually closes.\n\n# Errors\n\nReturns [`Error::Unavailable`] (503) while starting up or draining, and when\nthe database round-trip fails.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "The service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Starting up, draining, or a dependency is unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorBody": {
+        "type": "object",
+        "description": "The JSON body returned for every non-2xx response.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "Stable identifier the client can branch on."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable explanation. Never contains internal details."
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "description": "Stable, machine-readable identifier for an [`Error`].\n\nClients branch on this; the human-readable `message` is free to change.",
+        "enum": [
+          "not_found",
+          "bad_request",
+          "payload_too_large",
+          "unavailable",
+          "internal"
+        ]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "description": "Body of a successful `GET /health`.",
+        "required": [
+          "status",
+          "version",
+          "uptime_seconds",
+          "database"
+        ],
+        "properties": {
+          "database": {
+            "type": "string",
+            "description": "Relational backend currently in use.",
+            "example": "sqlite"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ServiceStatus",
+            "description": "Where the process is in its lifecycle."
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Whole seconds since the process started.",
+            "example": 3600,
+            "minimum": 0
+          },
+          "version": {
+            "type": "string",
+            "description": "Version of the running binary.",
+            "example": "0.1.0"
+          }
+        }
+      },
+      "ServiceStatus": {
+        "type": "string",
+        "description": "Where the process is in its lifecycle.\n\nLoad balancers and `docker healthcheck` need to distinguish \"still migrating\"\nfrom \"draining\" from \"healthy\"; a bare 200/500 cannot express that.",
+        "enum": [
+          "starting",
+          "ready",
+          "draining"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "system",
+      "description": "Health and service metadata"
+    }
+  ]
+}

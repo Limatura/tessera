@@ -1,0 +1,28 @@
+[store]
+dir = "target/nextest"
+
+[profile.default]
+# A test that takes longer than this is almost certainly hung on I/O.
+slow-timeout = { period = "20s", terminate-after = 3 }
+failure-output = "immediate-final"
+fail-fast = false
+status-level = "fail"
+final-status-level = "slow"
+
+[profile.ci]
+# Retries absorb genuinely flaky network/filesystem timing on shared runners.
+# They do not absorb deterministic failures — those still fail the run.
+retries = { backoff = "exponential", count = 2, delay = "1s", jitter = true }
+slow-timeout = { period = "30s", terminate-after = 4 }
+failure-output = "immediate-final"
+fail-fast = false
+status-level = "retry"
+
+[profile.ci.junit]
+path = "junit.xml"
+
+# Integration tests touch the filesystem and SQLite files; keeping them serial
+# avoids cross-test interference on temp directories without needing locks.
+[[profile.default.overrides]]
+filter = 'kind(test)'
+threads-required = 2

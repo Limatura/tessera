@@ -41,6 +41,10 @@ lerna-debug.log*
 .turbo
 .nx
 
+# Rust — apps/server keeps its own .gitignore for crate-local artefacts
+target/
+mutants.out*/
+
 # Better-T-Stack
 .alchemy
 .vercel
