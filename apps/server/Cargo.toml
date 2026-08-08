@@ -48,7 +48,6 @@ storage-gcs = ["object_store/gcp"]
 storage-azure = ["object_store/azure"]
 storage-http = ["object_store/http"]       # WebDAV and plain HTTP stores
 
-
 [dependencies]
 tessera-core = { workspace = true }
 

@@ -6,15 +6,21 @@ name: rust
 on:
   push:
     branches: [main]
-    paths:
+    paths: &rust-paths
       - "apps/server/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "clippy.toml"
+      - "rustfmt.toml"
+      - "deny.toml"
+      - "rust-toolchain.toml"
+      - ".cargo/**"
+      - ".config/**"
       - "openapi.json"
       - ".github/workflows/rust.yml"
   pull_request:
-    paths:
-      - "apps/server/**"
-      - "openapi.json"
-      - ".github/workflows/rust.yml"
+    paths: *rust-paths
   workflow_dispatch:
 
 concurrency:
@@ -23,15 +29,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # Fail on warnings everywhere, not just where a command passes `-D warnings`.
+  # Lint levels in Cargo.toml are `warn` so that local development is never
+  # blocked mid-experiment. This is where they become blocking.
   RUSTFLAGS: -D warnings
-  # sqlx macros resolve against the committed .sqlx metadata; CI never needs a
-  # live database.
-  SQLX_OFFLINE: "true"
-
-defaults:
-  run:
-    working-directory: apps/server
 
 jobs:
   fmt:
@@ -53,11 +53,63 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/server
-          key: clippy
+        with: { key: clippy }
 
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  docs:
+    name: rustdoc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with: { key: docs }
+
+      # The module docs carry this project's architectural reasoning, so a broken
+      # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
+      # this is what actually runs rustdoc to find out.
+      - run: cargo doc --workspace --no-deps --all-features --document-private-items
+
+  boundary:
+    name: core stays pure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # `tessera-core` holds the domain rules and must not learn about HTTP, SQL
+      # or async IO. Its Cargo.toml already omits them, but a banned crate can
+      # still arrive transitively through something innocuous — which is exactly
+      # the case review would miss. Walk the resolved tree instead of trusting
+      # the manifest.
+      - name: Assert no IO crate reaches tessera-core
+        run: |
+          cargo tree -p tessera-core --edges normal --prefix none \
+            | sed 's/ v[0-9].*//' | sort -u > /tmp/core-deps.txt
+          status=0
+          for banned in axum tokio sea-orm sqlx object_store hyper reqwest figment; do
+            if grep -qx "$banned" /tmp/core-deps.txt; then
+              echo "::error::\`$banned\` reached tessera-core. The domain crate must stay IO-free."
+              cargo tree -p tessera-core --edges normal -i "$banned" || true
+              status=1
+            fi
+          done
+          echo "tessera-core depends on $(wc -l < /tmp/core-deps.txt) crates"
+          exit $status
+
+  features:
+    name: feature matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with: { key: features }
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-hack }
+
+      # Every backend is `#[cfg]`-gated. Checking only the empty and full sets
+      # leaves the middle combinations unbuilt — which is where a missing `cfg`
+      # hides. `--depth 2` keeps the run bounded while still pairing backends.
+      - run: cargo hack --feature-powerset --depth 2 --no-dev-deps check -p tessera-server
 
   test:
     name: test
@@ -65,23 +117,76 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/server
-          key: test
-
+        with: { key: test }
       - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-nextest
+        with: { tool: cargo-nextest }
 
-      - run: cargo nextest run --profile ci --all-features
+      - run: cargo nextest run --workspace --profile ci --all-features
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: nextest-junit
-          path: apps/server/target/nextest/ci/junit.xml
+          path: target/nextest/ci/junit.xml
           if-no-files-found: ignore
+
+  backends:
+    name: ${{ matrix.backend }} backend
+    runs-on: ubuntu-latest
+    # Without this job, `postgres` and `mysql` are only ever proven to *compile*.
+    # The hand-written per-dialect migration SQL especially needs a real server:
+    # "sqlite was updated and the others were forgotten" is the failure mode that
+    # choosing readable SQL over a schema builder buys, and this is the price.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - backend: postgres
+            url: postgres://tessera:tessera@localhost:5432/tessera_test
+          - backend: mysql
+            url: mysql://tessera:tessera@localhost:3306/tessera_test
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: tessera
+          POSTGRES_PASSWORD: tessera
+          POSTGRES_DB: tessera_test
+        ports: ["5432:5432"]
+        # `pg_isready` alone reports ready during initdb, before the role and
+        # database exist — naming both is what makes the probe mean something.
+        options: >-
+          --health-cmd "pg_isready -U tessera -d tessera_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      mysql:
+        image: mysql:9
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: tessera
+          MYSQL_PASSWORD: tessera
+          MYSQL_DATABASE: tessera_test
+        ports: ["3306:3306"]
+        # Likewise: `mysqladmin ping` answers long before the user is created,
+        # so the probe runs a real query as the user the tests will use.
+        options: >-
+          --health-cmd "mysql -utessera -ptessera -e 'SELECT 1' tessera_test"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: Swatinem/rust-cache@v2
+        with: { key: backends }
+      - uses: taiki-e/install-action@v2
+        with: { tool: cargo-nextest }
+
+      # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
+      # demand a database; `--run-ignored all` is what opts into them.
+      - name: Run the backend suite
+        env:
+          TESSERA_TEST_DATABASE_URL: ${{ matrix.url }}
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(backends)'
 
   contract:
     name: openapi contract
@@ -89,9 +194,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/server
-          key: contract
+        with: { key: contract }
 
       # The contract is generated, never hand-edited. Regenerating it here and
       # diffing against the committed file is what stops the frontend and the
@@ -101,7 +204,7 @@ jobs:
 
       - name: Fail if the contract drifted
         run: |
-          if ! git diff --exit-code -- ../../openapi.json; then
+          if ! git diff --exit-code -- openapi.json; then
             echo "::error::openapi.json is out of date. Run 'pnpm server:openapi' and commit the result."
             exit 1
           fi
@@ -111,24 +214,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-
       - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-deny,cargo-audit
+        with: { tool: "cargo-deny,cargo-machete" }
 
+      # cargo-deny covers advisories, licences, banned crates and sources.
+      # cargo-audit is deliberately absent — see the comment in deny.toml.
       - run: cargo deny check
-      - run: cargo audit --deny warnings
-
-  unused-deps:
-    name: unused dependencies
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-machete
-
       - run: cargo machete
 
   docker:
@@ -147,29 +238,61 @@ jobs:
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # `.git` is not in the build context, so the commit has to be passed in
+          # or `/health` reports `unknown`.
+          build-args: |
+            TESSERA_BUILD_REV=${{ github.sha }}
 
-      # The single-binary, low-footprint pitch is the product. Guard it in CI so
-      # a careless dependency cannot quietly double the image.
-      - name: Enforce the image size budget
-        working-directory: .
+      # "Functional, but not bloated" is a product decision, not a taste. Once it
+      # is a number the build enforces, adding a dependency becomes a concrete
+      # question — is this feature worth 3 MB? — instead of an argument.
+      #
+      # The rootfs is measured with `docker export`, which flattens the container
+      # filesystem: unlike `docker image inspect`, it means the same thing whether
+      # the daemon uses the classic or the containerd image store.
+      - name: Enforce the footprint budget
         run: |
-          BUDGET_MB=50
-          SIZE_BYTES=$(docker image inspect tessera-server:ci --format '{{.Size}}')
-          SIZE_MB=$(( SIZE_BYTES / 1000000 ))
-          echo "image size: ${SIZE_MB} MB (budget ${BUDGET_MB} MB)"
-          if [ "$SIZE_MB" -gt "$BUDGET_MB" ]; then
-            echo "::error::image is ${SIZE_MB} MB, over the ${BUDGET_MB} MB budget"
-            exit 1
+          BINARY_BUDGET_MB=28
+          ROOTFS_BUDGET_MB=34
+
+          cid=$(docker create tessera-server:ci)
+          docker cp "$cid:/usr/local/bin/tessera-server" /tmp/tessera-server
+          rootfs=$(docker export "$cid" | wc -c)
+          docker rm "$cid" > /dev/null
+
+          binary=$(stat -c%s /tmp/tessera-server)
+          binary_mb=$(( binary / 1000000 ))
+          rootfs_mb=$(( rootfs / 1000000 ))
+
+          echo "binary : ${binary_mb} MB (budget ${BINARY_BUDGET_MB} MB)"
+          echo "rootfs : ${rootfs_mb} MB (budget ${ROOTFS_BUDGET_MB} MB)"
+          echo "pull   : $(docker image inspect tessera-server:ci --format '{{.Size}}' | awk '{printf "%.1f MB", $1/1000000}') as reported by this daemon"
+
+          status=0
+          if [ "$binary_mb" -gt "$BINARY_BUDGET_MB" ]; then
+            echo "::error::binary is ${binary_mb} MB, over the ${BINARY_BUDGET_MB} MB budget"
+            status=1
           fi
+          if [ "$rootfs_mb" -gt "$ROOTFS_BUDGET_MB" ]; then
+            echo "::error::image rootfs is ${rootfs_mb} MB, over the ${ROOTFS_BUDGET_MB} MB budget"
+            status=1
+          fi
+          exit $status
 
       - name: Smoke-test the image
-        working-directory: .
         run: |
           docker run -d --name tessera-smoke -p 8787:8787 tessera-server:ci
           for _ in $(seq 1 30); do
             if curl -fsS http://localhost:8787/health > /dev/null; then
               echo "health check passed"
               curl -fsS http://localhost:8787/openapi.json > /dev/null
+              # The commit must reach the binary, or bug reports lose their anchor.
+              rev=$(curl -fsS http://localhost:8787/health | grep -o '"build_rev":"[^"]*"')
+              echo "reported ${rev}"
+              case "$rev" in *unknown*)
+                echo "::error::build_rev is 'unknown' — the build arg did not reach build.rs"
+                exit 1 ;;
+              esac
               docker rm -f tessera-smoke
               exit 0
             fi

@@ -6,6 +6,20 @@ targets = [
 ]
 all-features = true
 
+# cargo-deny is the *only* vulnerability check in this project. cargo-audit used
+# to run alongside it and was removed, for a concrete reason: cargo-audit scans
+# `Cargo.lock`, which lists every crate the resolver considered, while cargo-deny
+# resolves the actual graph with features applied.
+#
+# The difference is not academic. `rkyv` 0.7 sits in our lockfile as an optional
+# dependency of sea-orm that nothing turns on; cargo-audit reported
+# RUSTSEC-2026-0235 against it and cargo-deny correctly did not, because the crate
+# is never compiled. Keeping both tools would have meant a second ignore list,
+# maintained in parallel, whose entries suppress findings that were never real —
+# and an ignore list nobody trusts is how a genuine advisory gets waved through.
+#
+# Both read the same RustSec database, so this is a gain in precision, not a
+# reduction in coverage.
 [advisories]
 version = 2
 yanked = "deny"

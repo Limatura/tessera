@@ -21,11 +21,6 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  SQLX_OFFLINE: "true"
-
-defaults:
-  run:
-    working-directory: apps/server
 
 jobs:
   mutants:
@@ -37,9 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/server
-          key: mutants
+        with: { key: mutants }
 
       - uses: taiki-e/install-action@v2
         with:
@@ -55,7 +48,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mutants-report
-          path: apps/server/mutants.out/
+          path: mutants.out/
           if-no-files-found: ignore
 
   bench:
@@ -66,9 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: apps/server
-          key: bench
+        with: { key: bench }
 
       # Shared runners are too noisy for a pass/fail regression gate; the
       # criterion output is published as an artefact for a human to compare.
@@ -79,5 +70,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: criterion-report
-          path: apps/server/target/criterion/
+          path: target/criterion/
           if-no-files-found: ignore
