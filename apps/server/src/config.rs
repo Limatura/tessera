@@ -7,7 +7,7 @@
 //! unsupported database URL therefore fails during start-up, not on the first
 //! request that happens to touch it.
 
-use std::{net::IpAddr, path::PathBuf, time::Duration};
+use std::{collections::BTreeMap, net::IpAddr, time::Duration};
 
 use figment::{
     Figment,
@@ -99,8 +99,8 @@ pub struct ServerConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DatabaseConfig {
-    /// Connection URL. `sqlite://…` always works; `postgres://…` needs the
-    /// `postgres` cargo feature.
+    /// Connection URL: `sqlite://…`, `postgres://…` or `mysql://…`. Each scheme
+    /// needs its matching cargo feature, all of which are on by default.
     pub url: String,
     /// Upper bound on pooled connections.
     pub max_connections: u32,
@@ -110,43 +110,30 @@ pub struct DatabaseConfig {
     pub run_migrations: bool,
 }
 
-/// Which blob backend to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum StorageBackend {
-    /// A directory on the local filesystem.
-    Local,
-    /// Any S3-compatible endpoint. Requires the `s3` cargo feature.
-    S3,
-}
-
 /// Blob store settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StorageConfig {
-    /// Selected backend.
-    pub backend: StorageBackend,
-    /// Root directory for [`StorageBackend::Local`]. Created if missing.
-    pub local_path: PathBuf,
-    /// Settings for [`StorageBackend::S3`].
-    pub s3: S3Config,
-}
+    /// Where blobs live.
+    ///
+    /// A bare path is a local directory, created if missing — the homelab
+    /// default. Anything with a scheme is handed to `object_store`:
+    /// `s3://bucket/prefix`, `gs://bucket`, `az://container`,
+    /// `https://host/dav`, `memory://`.
+    pub url: String,
 
-/// S3-compatible endpoint settings. Credentials are read from the standard AWS
-/// environment variables rather than from this file, so they never land in a
-/// config file that might get committed.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct S3Config {
-    /// Target bucket.
-    pub bucket: String,
-    /// Region name. Many self-hosted gateways ignore this but still require it.
-    pub region: String,
-    /// Custom endpoint, e.g. a MinIO or Garage address.
-    pub endpoint: Option<String>,
-    /// Address the bucket as a path segment instead of a subdomain. Required by
-    /// most self-hosted gateways.
-    pub allow_http: bool,
+    /// Backend-specific options, passed through verbatim.
+    ///
+    /// Keys are whatever the chosen backend understands (`aws_region`,
+    /// `endpoint`, `allow_http`, …). The standard `AWS_*`, `GOOGLE_*` and
+    /// `AZURE_*` environment variables are merged in automatically, so
+    /// credentials need not be written into a file that might get committed;
+    /// anything set here wins over the environment.
+    ///
+    /// A `BTreeMap` rather than a `HashMap` so that iteration — and therefore
+    /// any log or error listing the options — is deterministic.
+    #[serde(default)]
+    pub options: BTreeMap<String, String>,
 }
 
 /// How log records are rendered.
@@ -199,9 +186,8 @@ impl Default for DatabaseConfig {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            backend: StorageBackend::Local,
-            local_path: PathBuf::from("data/blobs"),
-            s3: S3Config::default(),
+            url: "data/blobs".to_owned(),
+            options: BTreeMap::new(),
         }
     }
 }
@@ -348,32 +334,18 @@ impl DatabaseConfig {
 
 impl StorageConfig {
     fn validate(&self) -> Result<(), ConfigError> {
-        match self.backend {
-            StorageBackend::Local => {
-                if self.local_path.as_os_str().is_empty() {
-                    return Err(ConfigError::Invalid {
-                        field: "storage.local_path",
-                        reason: "must not be empty when the backend is `local`".to_owned(),
-                    });
-                }
-                Ok(())
-            }
-            StorageBackend::S3 => {
-                if !cfg!(feature = "s3") {
-                    return Err(ConfigError::MissingFeature {
-                        feature: "s3",
-                        detail: "storage.backend is `s3`".to_owned(),
-                    });
-                }
-                if self.s3.bucket.is_empty() {
-                    return Err(ConfigError::Invalid {
-                        field: "storage.s3.bucket",
-                        reason: "must be set when the backend is `s3`".to_owned(),
-                    });
-                }
-                Ok(())
-            }
+        // Deliberately shallow. Whether a given scheme is compiled in, and
+        // whether its options make sense, is knowledge that lives in
+        // `object_store` — duplicating it here would mean a second list to keep
+        // in step. `storage::build` surfaces those failures during start-up,
+        // which is early enough.
+        if self.url.trim().is_empty() {
+            return Err(ConfigError::Invalid {
+                field: "storage.url",
+                reason: "must name a directory or an object-store URL".to_owned(),
+            });
         }
+        Ok(())
     }
 }
 
@@ -401,10 +373,18 @@ mod tests {
         Config::default().validate().unwrap();
     }
 
+    /// Wrapped in a `Jail` even though it sets nothing: the jail gives the test a
+    /// clean environment *and* takes figment's global lock. Without it this test
+    /// reads whatever `TESSERA_*` variables a concurrently running jail happens
+    /// to have set — invisible under nextest, which forks per test, and flaky
+    /// under any thread-based runner.
     #[test]
     fn missing_config_file_is_not_an_error() {
-        let config = Config::load_from("/nonexistent/tessera.toml").unwrap();
-        assert_eq!(config, Config::default());
+        figment::Jail::expect_with(|_| {
+            let config = Config::load_from("/nonexistent/tessera.toml").expect("no file, no error");
+            assert_eq!(config, Config::default());
+            Ok(())
+        });
     }
 
     #[rstest]
@@ -418,7 +398,7 @@ mod tests {
     })]
     #[case::zero_pool("database.max_connections", |c: &mut Config| c.database.max_connections = 0)]
     #[case::bad_url("database.url", |c: &mut Config| c.database.url = "mongodb://x".to_owned())]
-    #[case::empty_path("storage.local_path", |c: &mut Config| c.storage.local_path = "".into())]
+    #[case::empty_storage("storage.url", |c: &mut Config| c.storage.url = "  ".to_owned())]
     #[case::bad_filter("telemetry.filter", |c: &mut Config| {
         c.telemetry.filter = "=====".to_owned();
     })]
@@ -492,24 +472,28 @@ mod tests {
         });
     }
 
-    #[test]
-    fn s3_backend_requires_the_s3_feature_or_a_bucket() {
+    #[rstest]
+    #[case("postgres://localhost/tessera", "postgres")]
+    #[case("mysql://localhost/tessera", "mysql")]
+    #[case("sqlite://data/tessera.db", "sqlite")]
+    fn a_backend_this_build_lacks_names_the_missing_feature(
+        #[case] url: &str,
+        #[case] feature: &str,
+    ) {
         let mut config = Config::default();
-        config.storage.backend = StorageBackend::S3;
-        let err = config.validate().unwrap_err();
-        if cfg!(feature = "s3") {
-            assert!(matches!(
-                err,
-                ConfigError::Invalid {
-                    field: "storage.s3.bucket",
-                    ..
-                }
-            ));
-        } else {
-            assert!(matches!(
-                err,
-                ConfigError::MissingFeature { feature: "s3", .. }
-            ));
+        config.database.url = url.to_owned();
+        let compiled_in =
+            crate::db::Backend::from_url(url).is_some_and(crate::db::Backend::is_compiled_in);
+
+        match config.validate() {
+            Ok(()) => assert!(compiled_in, "{feature} accepted but not compiled in"),
+            Err(err) => {
+                assert!(!compiled_in, "{feature} rejected but is compiled in: {err}");
+                assert!(
+                    err.to_string().contains(feature),
+                    "error should name `{feature}`: {err}"
+                );
+            }
         }
     }
 }

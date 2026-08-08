@@ -48,7 +48,7 @@ fn router_assembly(c: &mut Criterion) {
             ..Default::default()
         },
         storage: StorageConfig {
-            local_path: temp.path().join("blobs"),
+            url: temp.path().join("blobs").display().to_string(),
             ..Default::default()
         },
         ..Config::default()

@@ -72,7 +72,7 @@ impl TestApp {
                 ..Default::default()
             },
             storage: StorageConfig {
-                local_path: blob_root.path().join("blobs"),
+                url: blob_root.path().join("blobs").display().to_string(),
                 ..Default::default()
             },
             ..Config::default()

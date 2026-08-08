@@ -28,7 +28,7 @@ workspace = true
 # every backend, and nobody should have to rebuild to point at S3. The flags stay
 # so that someone building from source for a constrained box can strip back down
 # — `--no-default-features --features sqlite,storage-fs` is a much smaller binary.
-default = ["sqlite", "postgres", "mysql"]
+default = ["sqlite", "postgres", "mysql", "storage-fs", "storage-s3", "storage-gcs", "storage-azure", "storage-http"]
 
 # --- data ---
 # Each backend pulls in our direct sqlx dependency, which is what pins the TLS
@@ -42,8 +42,11 @@ postgres = ["dep:sqlx", "sea-orm/sqlx-postgres"]
 mysql = ["dep:sqlx", "sea-orm/sqlx-mysql"]
 
 # --- storage ---
-# Renamed and joined by the other object stores in the commit that reworks this.
-s3 = ["object_store/aws"]
+storage-fs = []                            # always available; a flag for symmetry
+storage-s3 = ["object_store/aws"]
+storage-gcs = ["object_store/gcp"]
+storage-azure = ["object_store/azure"]
+storage-http = ["object_store/http"]       # WebDAV and plain HTTP stores
 
 
 [dependencies]
@@ -107,6 +110,9 @@ sqlx = { version = "0.9", default-features = false, features = [
 
 # --- storage ---
 object_store = { version = "0.14", features = ["fs"] }
+# `object_store::parse_url_opts` takes a `Url`; this is the same crate it already
+# depends on, so naming it here costs nothing beyond the import.
+url = "2"
 
 # --- contract ---
 utoipa = { workspace = true }
