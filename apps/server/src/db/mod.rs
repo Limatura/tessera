@@ -12,7 +12,9 @@
 //! it is CI — the repository tests run against all three real servers, which is
 //! narrower feedback but wider coverage.
 
+pub mod entity;
 pub mod migration;
+pub mod repository;
 
 use sea_orm::{ConnectOptions, DatabaseConnection, DbBackend};
 use sea_orm_migration::MigratorTrait as _;

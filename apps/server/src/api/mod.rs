@@ -5,6 +5,7 @@
 //! (see the `tessera-openapi` binary). The frontend and the Discord bot generate
 //! their clients from that file; the server emits no TypeScript.
 
+pub mod capabilities;
 pub mod health;
 
 use std::{sync::Arc, time::Duration};
@@ -41,6 +42,15 @@ pub const OPENAPI_PATH: &str = "/openapi.json";
 /// Path the Swagger UI is mounted at.
 pub const DOCS_PATH: &str = "/docs";
 
+/// Prefix every versioned endpoint sits behind.
+///
+/// `/health` and `/docs` stay at the root: orchestrators and humans expect them
+/// there, and neither is part of the contract third parties generate clients
+/// from. Everything that *is* carries a version, because the frontend, a Discord
+/// bot and a CLI will each generate against it independently and cannot all be
+/// updated at once.
+pub const API_PREFIX: &str = "/api/v1";
+
 /// Root of the generated OpenAPI document.
 #[derive(Debug, OpenApi)]
 #[openapi(
@@ -73,7 +83,15 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 
 /// The routed part of the service: everything that appears in the contract.
 fn api_routes() -> OpenApiRouter<AppState> {
-    OpenApiRouter::with_openapi(ApiDoc::openapi()).routes(routes!(health::health))
+    OpenApiRouter::with_openapi(ApiDoc::openapi())
+        .routes(routes!(health::health))
+        .nest(API_PREFIX, versioned_routes())
+}
+
+/// Endpoints under [`API_PREFIX`]. Nesting rewrites their paths in the generated
+/// document too, so a handler declares the path it owns and not the prefix.
+fn versioned_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new().routes(routes!(capabilities::capabilities))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
@@ -84,7 +102,7 @@ pub fn build(state: AppState) -> Router {
 
     let mut app = Router::new().merge(routes).with_state(state);
 
-    if config.server.enable_docs {
+    if config.features.docs {
         // No trailing-slash normalisation anywhere in this stack: the Swagger UI
         // redirects `/docs` to `/docs/`, so a layer that rewrote `/docs/` back to
         // `/docs` would produce an infinite redirect. See the regression test in

@@ -15,13 +15,18 @@ publish.workspace = true
 # forgotten. CI walks the resolved tree as well, which catches a banned crate
 # arriving transitively.
 #
-# It is currently empty because the crate is: `serde`, `thiserror`, `time` and
-# `utoipa` are all declared in `[workspace.dependencies]` ready to be switched on
-# with `{ workspace = true }` when the domain types land. Declaring them before
-# anything uses them would only teach `cargo machete` to be ignored.
-#
-# Before adding one, check it against the test in src/lib.rs: can this crate
-# still be tested without starting a runtime, a database or a server?
+# Before adding one, ask: can this crate still be tested without starting a
+# runtime, a database or a server?
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+# ULIDs are the identifier type — time-ordered so indexes stay append-mostly,
+# unguessable so account counts do not leak. Pure computation, no IO.
+ulid = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.11"
+rstest = "0.26"
 
 [lints]
 workspace = true

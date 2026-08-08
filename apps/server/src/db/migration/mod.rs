@@ -23,6 +23,7 @@
 //! resulting schemas.
 
 mod m20260808_000001_initial;
+mod m20260809_000001_users;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -33,7 +34,10 @@ pub struct Migrator;
 #[async_trait::async_trait]
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(m20260808_000001_initial::Migration)]
+        vec![
+            Box::new(m20260808_000001_initial::Migration),
+            Box::new(m20260809_000001_users::Migration),
+        ]
     }
 }
 
@@ -159,28 +163,71 @@ mod tests {
         assert_eq!(found, ["CREATE TABLE a (x INTEGER)"]);
     }
 
-    /// Every dialect file must contain the same set of statements, or one of them
-    /// has been updated and the others forgotten. This is the cheap half of the
-    /// guard; CI applies all three for real and compares the resulting schemas.
+    /// Every migration, with its three dialect files. Adding a migration means
+    /// adding a line here — deliberately manual, so that forgetting shows up as
+    /// a missing entry rather than as silently reduced coverage.
+    const DIALECT_FILES: [(&str, &str, &str, &str); 2] = [
+        (
+            "m20260808_000001_initial",
+            m20260808_000001_initial::SQLITE,
+            m20260808_000001_initial::POSTGRES,
+            m20260808_000001_initial::MYSQL,
+        ),
+        (
+            "m20260809_000001_users",
+            m20260809_000001_users::SQLITE,
+            m20260809_000001_users::POSTGRES,
+            m20260809_000001_users::MYSQL,
+        ),
+    ];
+
+    /// Hand-writing one file per dialect buys readable SQL and risks updating one
+    /// and forgetting the rest. This is the cheap half of the guard against that;
+    /// CI applies all three against real servers for the other half.
     #[test]
     fn every_dialect_file_has_the_same_statement_count() {
-        let files = [
-            ("sqlite", m20260808_000001_initial::SQLITE),
-            ("postgres", m20260808_000001_initial::POSTGRES),
-            ("mysql", m20260808_000001_initial::MYSQL),
-        ];
-        let counts: Vec<_> = files
-            .iter()
-            .map(|(name, sql)| (*name, statements(sql).count()))
-            .collect();
+        for (migration, sqlite, postgres, mysql) in DIALECT_FILES {
+            let expected = statements(sqlite).count();
+            assert!(expected > 0, "{migration} (sqlite) does nothing");
 
-        let first = counts[0].1;
-        for (name, count) in &counts {
-            assert_eq!(
-                *count, first,
-                "{name} has {count} statements but sqlite has {first} — a dialect was missed"
-            );
+            for (dialect, sql) in [("postgres", postgres), ("mysql", mysql)] {
+                let actual = statements(sql).count();
+                assert_eq!(
+                    actual, expected,
+                    "{migration}: {dialect} has {actual} statements but sqlite has {expected} \
+                     — a dialect was missed"
+                );
+            }
         }
-        assert!(first > 0, "the initial migration must do something");
+    }
+
+    /// A migration whose dialects disagree about which tables they create is the
+    /// same bug the statement count is guarding against, seen from another angle.
+    #[test]
+    fn every_dialect_file_touches_the_same_tables() {
+        fn tables(sql: &str) -> std::collections::BTreeSet<String> {
+            statements(sql)
+                .filter_map(|statement| {
+                    let lower = statement.to_lowercase();
+                    let marker = lower.find("create table")?;
+                    lower
+                        .get(marker..)?
+                        .split_whitespace()
+                        .find(|word| !matches!(*word, "create" | "table" | "if" | "not" | "exists"))
+                        .map(|name| name.trim_matches(['(', '`', '"']).to_owned())
+                })
+                .collect()
+        }
+
+        for (migration, sqlite, postgres, mysql) in DIALECT_FILES {
+            let expected = tables(sqlite);
+            for (dialect, sql) in [("postgres", postgres), ("mysql", mysql)] {
+                assert_eq!(
+                    tables(sql),
+                    expected,
+                    "{migration}: {dialect} creates different tables than sqlite"
+                );
+            }
+        }
     }
 }

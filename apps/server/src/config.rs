@@ -1,19 +1,29 @@
 //! Configuration loading and validation.
 //!
-//! Precedence, lowest to highest: built-in defaults → optional TOML file →
+//! Precedence, lowest to highest: built-in defaults → optional config file →
 //! environment variables (`TESSERA_` prefix, `__` separates nesting levels).
+//!
+//! The file may be YAML or TOML. YAML is looked for first because operators of a
+//! self-hosted service spend their day in docker-compose, and asking them to
+//! switch formats to configure one more thing is friction for nothing.
 //!
 //! Every value is validated in [`Config::load`]. A bad log filter or an
 //! unsupported database URL therefore fails during start-up, not on the first
 //! request that happens to touch it.
 
-use std::{collections::BTreeMap, net::IpAddr, time::Duration};
+use std::{
+    collections::BTreeMap,
+    net::IpAddr,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use figment::{
     Figment,
-    providers::{Env, Format, Serialized, Toml},
+    providers::{Env, Format, Serialized, Toml, Yaml},
 };
 use serde::{Deserialize, Serialize};
+use tessera_core::PasswordPolicy;
 
 /// Prefix for every environment variable that feeds configuration.
 pub const ENV_PREFIX: &str = "TESSERA_";
@@ -25,8 +35,33 @@ pub const ENV_NESTED_SEPARATOR: &str = "__";
 /// Environment variable naming the TOML file to read, if any.
 pub const ENV_CONFIG_FILE: &str = "TESSERA_CONFIG_FILE";
 
-/// Path used when [`ENV_CONFIG_FILE`] is unset. Absence is not an error.
-pub const DEFAULT_CONFIG_FILE: &str = "tessera.toml";
+/// Files looked for, in order, when [`ENV_CONFIG_FILE`] is unset.
+///
+/// The first that exists wins; they are not merged, because a value silently
+/// coming from the second of two files is a debugging session nobody enjoys.
+/// Absence of all of them is not an error — the environment alone is a complete
+/// way to configure the service, and is what docker-compose uses.
+pub const CONFIG_FILE_CANDIDATES: [&str; 3] = ["tessera.yaml", "tessera.yml", "tessera.toml"];
+
+/// File written on first run when none of [`CONFIG_FILE_CANDIDATES`] exists.
+pub const GENERATED_CONFIG_FILE: &str = "tessera.yaml";
+
+/// Preamble of the generated template. Explains why nothing in it is active.
+const TEMPLATE_HEADER: &str = "\
+# tessera configuration
+#
+# Every line below is commented out on purpose. These are the values the binary
+# is using right now, shown for reference — leaving them commented means you keep
+# tracking the defaults, including improvements in later releases. Uncomment a
+# line only when you want to pin it.
+#
+# Every setting can also be given as an environment variable: prefix TESSERA_ and
+# separate nesting with __, e.g. server.port -> TESSERA_SERVER__PORT=9000.
+# The environment wins over this file.
+#
+# This file is optional. Deleting it changes nothing.
+
+";
 
 /// Variables that share the [`ENV_PREFIX`] namespace without being settings.
 ///
@@ -86,8 +121,83 @@ pub struct Config {
     pub database: DatabaseConfig,
     /// Blob store settings.
     pub storage: StorageConfig,
+    /// Which parts of the service exist on this instance.
+    pub features: FeatureConfig,
+    /// Account and session settings.
+    pub auth: AuthConfig,
     /// Logging and tracing settings.
     pub telemetry: TelemetryConfig,
+}
+
+/// Which parts of the service this instance exposes.
+///
+/// These are *runtime* switches: a disabled feature's routes are never mounted,
+/// so calling one is a plain 404 rather than a 403 that confirms it exists.
+/// Turning something off does not make the binary smaller — for that there are
+/// cargo features, which gate whole backends (`postgres`, `storage-s3`) where
+/// the saving is measured in megabytes rather than kilobytes.
+///
+/// `GET /api/v1/capabilities` reports the effective answer, because a
+/// single-page app cannot know from a static contract which of these an
+/// instance turned on.
+// `struct_excessive_bools` suggests modelling this as a state machine. That is
+// good advice when the flags are really one value in disguise, and wrong here:
+// these switches are independent by design — the whole point of separating
+// `accounts` from `anonymous_upload` is that every combination is a real
+// deployment somebody wants.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "independent switches, not a state machine; see the comment above"
+)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FeatureConfig {
+    /// Registration, login and sessions.
+    ///
+    /// Off means the instance has no accounts at all — the right shape for one
+    /// person behind a VPN who wants a file drop and nothing else.
+    pub accounts: bool,
+
+    /// Administrative endpoints, used by the separate admin front-end.
+    pub admin: bool,
+
+    /// Whether a caller without a session may upload.
+    ///
+    /// Deliberately independent of [`accounts`](Self::accounts): wanting an
+    /// admin panel is not the same as wanting to force everyone to register,
+    /// and coupling the two is how self-hosted tools end up unusable for the
+    /// case they were built for.
+    pub anonymous_upload: bool,
+
+    /// The browsable Swagger UI at `/docs`.
+    pub docs: bool,
+}
+
+/// Who may create an account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RegistrationPolicy {
+    /// Anyone may register.
+    Open,
+    /// Only with an invitation.
+    Invite,
+    /// Nobody; accounts are created by an administrator.
+    Closed,
+}
+
+/// Account and session settings.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthConfig {
+    /// Who may create an account.
+    pub registration: RegistrationPolicy,
+
+    /// How long a browser session stays valid, in hours.
+    pub session_ttl_hours: u64,
+
+    /// Password length policy. Composition rules are deliberately absent — see
+    /// [`PasswordPolicy`].
+    pub password: PasswordPolicy,
 }
 
 /// HTTP listener and middleware settings.
@@ -105,8 +215,6 @@ pub struct ServerConfig {
     /// Origins allowed to call the API from a browser. Empty means same-origin
     /// only, which is the correct default for the single-binary deployment.
     pub cors_allowed_origins: Vec<String>,
-    /// Whether to serve the Swagger UI at `/docs`.
-    pub enable_docs: bool,
 }
 
 /// Relational store settings.
@@ -181,7 +289,6 @@ impl Default for ServerConfig {
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
             cors_allowed_origins: Vec::new(),
-            enable_docs: true,
         }
     }
 }
@@ -206,6 +313,36 @@ impl Default for StorageConfig {
     }
 }
 
+impl Default for FeatureConfig {
+    fn default() -> Self {
+        // Everything on. The shipped image is meant to work out of the box; an
+        // operator who wants less says so, rather than having to discover which
+        // switch was off by default.
+        Self {
+            accounts: true,
+            admin: true,
+            anonymous_upload: true,
+            docs: true,
+        }
+    }
+}
+
+impl Default for AuthConfig {
+    fn default() -> Self {
+        Self {
+            // Open by default because the instance belongs to whoever deployed
+            // it, and the common case is a person setting it up for people they
+            // know. An instance facing the open internet should close it.
+            registration: RegistrationPolicy::Open,
+            // 30 days. Long, on purpose: this is a tool people reach for
+            // occasionally, and being logged out between uses is the kind of
+            // friction that makes a self-hosted service go unused.
+            session_ttl_hours: 24 * 30,
+            password: PasswordPolicy::default(),
+        }
+    }
+}
+
 impl Default for TelemetryConfig {
     fn default() -> Self {
         Self {
@@ -224,6 +361,14 @@ impl ServerConfig {
     }
 }
 
+impl AuthConfig {
+    /// Session lifetime as a [`Duration`].
+    #[must_use]
+    pub const fn session_ttl(&self) -> Duration {
+        Duration::from_secs(self.session_ttl_hours.saturating_mul(3600))
+    }
+}
+
 impl DatabaseConfig {
     /// Connection acquisition timeout as a [`Duration`].
     #[must_use]
@@ -233,8 +378,8 @@ impl DatabaseConfig {
 }
 
 impl Config {
-    /// Loads and validates configuration from defaults, an optional TOML file and
-    /// the environment.
+    /// Loads and validates configuration from defaults, an optional config file
+    /// and the environment.
     ///
     /// # Errors
     ///
@@ -242,21 +387,52 @@ impl Config {
     /// unusable, or if the configuration selects a backend this binary was not
     /// compiled with.
     pub fn load() -> Result<Self, ConfigError> {
-        let file =
-            std::env::var(ENV_CONFIG_FILE).unwrap_or_else(|_| DEFAULT_CONFIG_FILE.to_owned());
-        Self::load_from(&file)
+        match std::env::var(ENV_CONFIG_FILE) {
+            // An explicit path is a statement of intent, so it is used whether or
+            // not it exists — a typo there should surface as "no settings came
+            // from the file" rather than being papered over by the candidates.
+            Ok(path) => Self::load_from(Path::new(&path)),
+            Err(_) => Self::load_from(&Self::discover_file()),
+        }
     }
 
-    /// Same as [`Config::load`], but reads the TOML file from `path`.
+    /// The config file this process would read.
     ///
-    /// A missing file is not an error — it simply contributes nothing.
+    /// The first of [`CONFIG_FILE_CANDIDATES`] that exists, falling back to the
+    /// first candidate so callers always have a path to talk about.
+    #[must_use]
+    pub fn discover_file() -> PathBuf {
+        CONFIG_FILE_CANDIDATES
+            .iter()
+            .map(PathBuf::from)
+            .find(|candidate| candidate.is_file())
+            .unwrap_or_else(|| PathBuf::from(CONFIG_FILE_CANDIDATES[0]))
+    }
+
+    /// Same as [`Config::load`], but reads the file at `path`.
+    ///
+    /// A missing file is not an error — it simply contributes nothing, which is
+    /// what makes an environment-only deployment work.
     ///
     /// # Errors
     ///
     /// See [`Config::load`].
-    pub fn load_from(path: &str) -> Result<Self, ConfigError> {
-        let config: Self = Figment::from(Serialized::defaults(Self::default()))
-            .merge(Toml::file(path))
+    pub fn load_from(path: &Path) -> Result<Self, ConfigError> {
+        let figment = Figment::from(Serialized::defaults(Self::default()));
+
+        // Chosen by extension rather than by sniffing the contents: a file named
+        // `.yaml` that fails to parse should say so, not be quietly retried as
+        // TOML and produce a confusing second error.
+        let figment = if path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
+        {
+            figment.merge(Toml::file(path))
+        } else {
+            figment.merge(Yaml::file(path))
+        };
+
+        let config: Self = figment
             .merge(
                 Env::prefixed(ENV_PREFIX)
                     .split(ENV_NESTED_SEPARATOR)
@@ -266,6 +442,57 @@ impl Config {
             .map_err(Box::new)?;
         config.validate()?;
         Ok(config)
+    }
+
+    /// Writes a fully commented-out config file, if none exists yet.
+    ///
+    /// Returns the path written, or `None` if a file was already there.
+    ///
+    /// # Why every line is commented out
+    ///
+    /// The obvious version of this feature writes the current defaults as live
+    /// settings. That freezes them: an operator who never touched
+    /// `max_body_bytes` still has last year's value pinned in their file, and a
+    /// later release that improves the default silently does nothing for them.
+    ///
+    /// Commented out, the file is documentation — it shows every option and what
+    /// it is currently set to — while the values keep coming from the binary and
+    /// keep improving with it. Uncommenting a line is then an explicit decision
+    /// to stop tracking the default.
+    ///
+    /// The body is generated from [`Config::default`] rather than hand-written,
+    /// so it cannot drift from the struct.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] only if the defaults cannot be serialised, which
+    /// would be a bug. **Failing to write is not an error**: a read-only
+    /// container filesystem is a perfectly good way to run this service, and the
+    /// environment alone configures it completely.
+    pub fn write_template_if_absent(path: &Path) -> Result<Option<PathBuf>, ConfigError> {
+        if path.exists() {
+            return Ok(None);
+        }
+
+        let body =
+            serde_yaml::to_string(&Self::default()).map_err(|error| ConfigError::Invalid {
+                field: "config",
+                reason: format!("could not render the default configuration: {error}"),
+            })?;
+
+        let mut out = String::with_capacity(body.len() * 2);
+        out.push_str(TEMPLATE_HEADER);
+        for line in body.lines() {
+            if line.trim().is_empty() {
+                out.push('\n');
+            } else {
+                out.push_str("# ");
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+
+        Ok(std::fs::write(path, out).ok().map(|()| path.to_path_buf()))
     }
 
     /// Rejects any configuration this binary cannot honour.
@@ -278,6 +505,8 @@ impl Config {
         self.server.validate()?;
         self.database.validate()?;
         self.storage.validate()?;
+        self.features.validate()?;
+        self.auth.validate()?;
         self.telemetry.validate()
     }
 }
@@ -367,6 +596,42 @@ impl StorageConfig {
     }
 }
 
+impl FeatureConfig {
+    fn validate(self) -> Result<(), ConfigError> {
+        // An instance with neither accounts nor anonymous upload can receive
+        // nothing at all. That is never what anybody meant, and it is far kinder
+        // to say so at start-up than to let every upload fail with a 403.
+        if !self.accounts && !self.anonymous_upload {
+            return Err(ConfigError::Invalid {
+                field: "features.anonymous_upload",
+                reason: "must be enabled when `features.accounts` is off, or nothing could \
+                         ever be uploaded"
+                    .to_owned(),
+            });
+        }
+        Ok(())
+    }
+}
+
+impl AuthConfig {
+    fn validate(&self) -> Result<(), ConfigError> {
+        if self.session_ttl_hours == 0 {
+            return Err(ConfigError::Invalid {
+                field: "auth.session_ttl_hours",
+                reason: "must be at least 1 hour".to_owned(),
+            });
+        }
+        // The policy's own bounds live in the domain crate, so the rule is the
+        // same whether it arrives from a file or from a test.
+        self.password
+            .validate()
+            .map_err(|error| ConfigError::Invalid {
+                field: "auth.password",
+                reason: error.to_string(),
+            })
+    }
+}
+
 impl TelemetryConfig {
     fn validate(&self) -> Result<(), ConfigError> {
         // Parsing here rather than in telemetry::init is the whole point of
@@ -399,7 +664,8 @@ mod tests {
     #[test]
     fn missing_config_file_is_not_an_error() {
         figment::Jail::expect_with(|_| {
-            let config = Config::load_from("/nonexistent/tessera.toml").expect("no file, no error");
+            let config = Config::load_from(Path::new("/nonexistent/tessera.yaml"))
+                .expect("no file, no error");
             assert_eq!(config, Config::default());
             Ok(())
         });
@@ -444,14 +710,14 @@ mod tests {
             )?;
             // Nested keys use the `__` separator; scalars and lists both parse.
             jail.set_env("TESSERA_SERVER__PORT", "9999");
-            jail.set_env("TESSERA_SERVER__ENABLE_DOCS", "false");
+            jail.set_env("TESSERA_FEATURES__DOCS", "false");
             jail.set_env("TESSERA_DATABASE__URL", "sqlite://custom.db");
 
-            let config = Config::load_from("tessera.toml").expect("valid configuration");
+            let config = Config::load_from(Path::new("tessera.toml")).expect("valid configuration");
 
             // Environment beats file...
             assert_eq!(config.server.port, 9999);
-            assert!(!config.server.enable_docs);
+            assert!(!config.features.docs);
             assert_eq!(config.database.url, "sqlite://custom.db");
             // ...file beats defaults...
             assert_eq!(config.telemetry.filter, "warn");
@@ -467,7 +733,7 @@ mod tests {
             // `EnvFilter` is permissive — it treats most junk as a bare target
             // name. This is one of the shapes it genuinely refuses.
             jail.set_env("TESSERA_TELEMETRY__FILTER", "=====");
-            let err = Config::load_from("tessera.toml").expect_err("must be rejected");
+            let err = Config::load_from(Path::new("tessera.toml")).expect_err("must be rejected");
             assert!(matches!(
                 err,
                 ConfigError::Invalid {
@@ -489,11 +755,113 @@ mod tests {
     fn namespace_neighbours_are_not_mistaken_for_settings(#[case] key: &str, #[case] value: &str) {
         figment::Jail::expect_with(|jail| {
             jail.set_env(key, value);
-            let config = Config::load_from("tessera.toml")
+            let config = Config::load_from(Path::new("tessera.toml"))
                 .unwrap_or_else(|e| panic!("{key} must not be read as a setting: {e}"));
             assert_eq!(config, Config::default());
             Ok(())
         });
+    }
+
+    /// The property the whole feature rests on: the generated file must contain
+    /// no *active* settings. If it did, an operator's defaults would be frozen at
+    /// whatever version first started the service.
+    #[test]
+    fn the_generated_template_is_entirely_commented_out() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("tessera.yaml");
+
+        let written = Config::write_template_if_absent(&path).unwrap();
+        assert_eq!(written.as_deref(), Some(path.as_path()));
+
+        let text = std::fs::read_to_string(&path).unwrap();
+        for (number, line) in text.lines().enumerate() {
+            assert!(
+                line.trim().is_empty() || line.trim_start().starts_with('#'),
+                "line {} is active: {line}",
+                number + 1
+            );
+        }
+
+        // And it must really be a config file, not an empty one.
+        assert!(
+            text.contains("port"),
+            "the template should list the settings"
+        );
+        assert!(text.contains("accounts"));
+    }
+
+    /// Loading the generated file must change nothing — it is documentation.
+    #[test]
+    fn the_generated_template_parses_and_changes_nothing() {
+        figment::Jail::expect_with(|jail| {
+            let path = jail.directory().join("tessera.yaml");
+            Config::write_template_if_absent(&path).expect("template");
+            let config = Config::load_from(&path).expect("the template must be loadable");
+            assert_eq!(config, Config::default());
+            Ok(())
+        });
+    }
+
+    #[test]
+    fn an_existing_config_file_is_never_overwritten() {
+        let temp = tempfile::tempdir().unwrap();
+        let path = temp.path().join("tessera.yaml");
+        std::fs::write(&path, "server:\n  port: 9999\n").unwrap();
+
+        assert_eq!(Config::write_template_if_absent(&path).unwrap(), None);
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            "server:\n  port: 9999\n"
+        );
+    }
+
+    /// A read-only filesystem is a legitimate way to run this service.
+    #[test]
+    fn failing_to_write_the_template_is_not_an_error() {
+        let path = Path::new("/proc/definitely/not/writable/tessera.yaml");
+        assert_eq!(Config::write_template_if_absent(path).unwrap(), None);
+    }
+
+    #[test]
+    fn yaml_and_toml_are_both_understood() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "server:\n  port: 9101\n")?;
+            let from_yaml = Config::load_from(Path::new("tessera.yaml")).expect("yaml");
+            assert_eq!(from_yaml.server.port, 9101);
+
+            jail.create_file("tessera.toml", "[server]\nport = 9102\n")?;
+            let from_toml = Config::load_from(Path::new("tessera.toml")).expect("toml");
+            assert_eq!(from_toml.server.port, 9102);
+            Ok(())
+        });
+    }
+
+    /// An instance that accepts neither anonymous uploads nor accounts can
+    /// receive nothing at all, which is never what anybody configured on purpose.
+    #[test]
+    fn rejects_an_instance_that_could_never_receive_anything() {
+        let mut config = Config::default();
+        config.features.accounts = false;
+        config.features.anonymous_upload = false;
+
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains("anonymous_upload"), "got: {err}");
+    }
+
+    #[test]
+    fn accounts_off_with_anonymous_upload_on_is_a_valid_instance() {
+        let mut config = Config::default();
+        config.features.accounts = false;
+        config.features.anonymous_upload = true;
+        config.validate().unwrap();
+    }
+
+    #[test]
+    fn rejects_a_password_policy_the_domain_would_not_accept() {
+        let mut config = Config::default();
+        config.auth.password.min_length = 4;
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains("auth.password"), "got: {err}");
     }
 
     #[test]
@@ -501,7 +869,7 @@ mod tests {
         figment::Jail::expect_with(|jail| {
             // A typo in a config file must not silently do nothing.
             jail.create_file("tessera.toml", "[server]\nprot = 9001\n")?;
-            let err = Config::load_from("tessera.toml").expect_err("must be rejected");
+            let err = Config::load_from(Path::new("tessera.toml")).expect_err("must be rejected");
             assert!(matches!(err, ConfigError::Source(_)), "got {err}");
             Ok(())
         });

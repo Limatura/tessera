@@ -62,6 +62,32 @@ async fn request_ids_are_unique_per_request() {
 }
 
 #[tokio::test]
+async fn capabilities_report_what_this_instance_exposes() {
+    let app = TestApp::ready().await;
+    let response = expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await;
+    let body = body_json(response).await;
+
+    // Defaults: everything on, registration open.
+    assert_eq!(body["accounts"], true);
+    assert_eq!(body["admin"], true);
+    assert_eq!(body["anonymous_upload"], true);
+    assert_eq!(body["registration"], "open");
+    assert_eq!(body["version"], tessera_server::VERSION);
+    assert!(body["password_min_length"].is_u64());
+    assert!(body["max_upload_bytes"].is_u64());
+}
+
+/// The endpoint has to be reachable before a client knows whether logging in is
+/// possible, so it cannot itself require a session.
+#[tokio::test]
+async fn capabilities_need_no_credentials() {
+    let app = TestApp::ready().await;
+    let response = app.get("/api/v1/capabilities").await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(!response.headers().contains_key(header::WWW_AUTHENTICATE));
+}
+
+#[tokio::test]
 async fn contract_is_served_as_json() {
     let app = TestApp::ready().await;
     let response = expect_status(app.get(api::OPENAPI_PATH).await, StatusCode::OK).await;
@@ -69,6 +95,12 @@ async fn contract_is_served_as_json() {
 
     assert_eq!(document["info"]["title"], "Tessera API");
     assert!(document["paths"]["/health"]["get"].is_object());
+    // Nesting must rewrite the path in the document, not just in the router —
+    // otherwise a generated client would call `/capabilities` and get the SPA.
+    assert!(
+        document["paths"]["/api/v1/capabilities"]["get"].is_object(),
+        "versioned paths must appear with their prefix"
+    );
 }
 
 #[tokio::test]

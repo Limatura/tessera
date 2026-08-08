@@ -6,6 +6,28 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/capabilities": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Reports which optional parts of the service this instance exposes.",
+        "description": "# Errors\n\nInfallible in practice; the signature matches the rest of the API so that a\nfuture version can start failing without changing every caller.",
+        "operationId": "capabilities",
+        "responses": {
+          "200": {
+            "description": "What this instance exposes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [
@@ -41,6 +63,55 @@
   },
   "components": {
     "schemas": {
+      "Capabilities": {
+        "type": "object",
+        "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact: it describes every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade. A single-page app generated from the contract therefore cannot know\nwhether to render a login button — the contract says login exists, and on\nthis deployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is deliberately unauthenticated: a client needs the answer before\nit can know whether logging in is even possible.",
+        "required": [
+          "accounts",
+          "admin",
+          "anonymous_upload",
+          "registration",
+          "password_min_length",
+          "max_upload_bytes",
+          "version"
+        ],
+        "properties": {
+          "accounts": {
+            "type": "boolean",
+            "description": "Whether accounts exist at all on this instance.\n\n`false` means there is no registration, no login and no session — the\nshape for a personal instance behind a VPN."
+          },
+          "admin": {
+            "type": "boolean",
+            "description": "Whether the administrative endpoints are mounted.\n\nThe administration front-end is a separate deployment, so this says only\nthat the API half is present."
+          },
+          "anonymous_upload": {
+            "type": "boolean",
+            "description": "Whether a caller without a session may upload.\n\nIndependent of [`accounts`](Self::accounts): an instance can have\naccounts *and* accept anonymous uploads, which is the default."
+          },
+          "max_upload_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Longest accepted request body, in bytes.",
+            "example": 104857600,
+            "minimum": 0
+          },
+          "password_min_length": {
+            "type": "integer",
+            "description": "Shortest password this instance accepts, so a client can say so before\nthe round trip rather than after it.",
+            "example": 12,
+            "minimum": 0
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationPolicy",
+            "description": "Who may create an account. Meaningless when\n[`accounts`](Self::accounts) is `false`."
+          },
+          "version": {
+            "type": "string",
+            "description": "Version of the running server, for a client that wants to warn about a\nmismatch with the contract it was generated from.",
+            "example": "0.1.0"
+          }
+        }
+      },
       "ErrorBody": {
         "type": "object",
         "description": "The JSON body returned for every non-2xx response.",
@@ -108,6 +179,15 @@
             "example": "0.1.0"
           }
         }
+      },
+      "RegistrationPolicy": {
+        "type": "string",
+        "description": "Who may create an account.",
+        "enum": [
+          "open",
+          "invite",
+          "closed"
+        ]
       },
       "ServiceStatus": {
         "type": "string",

@@ -45,14 +45,27 @@ async fn main() -> anyhow::Result<()> {
 
     // 2. Logging, so every step below is observable.
     telemetry::init(&config.telemetry).context("could not install the tracing subscriber")?;
+
+    // 3. A commented reference file, for operators who would rather edit YAML
+    // than compose environment variables. Best-effort by design: a read-only
+    // filesystem is a fine way to run this, and the environment configures it
+    // completely on its own.
+    match Config::write_template_if_absent(&Config::discover_file()) {
+        Ok(Some(path)) => tracing::info!(
+            path = %path.display(),
+            "wrote a reference configuration file; every line is commented out"
+        ),
+        Ok(None) => {}
+        Err(error) => tracing::warn!(?error, "could not render the reference configuration"),
+    }
     tracing::info!(
         version = tessera_server::VERSION,
         build_rev = tessera_server::BUILD_REV,
-        docs = config.server.enable_docs,
+        docs = config.features.docs,
         "starting tessera"
     );
 
-    // 3. Dependencies.
+    // 4. Dependencies.
     let db = db::connect(&config.database)
         .await
         .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
@@ -65,7 +78,7 @@ async fn main() -> anyhow::Result<()> {
 
     let store = storage::build(&config.storage).context("could not open the object store")?;
 
-    // 4. Listener. Bound before announcing readiness so a port clash is fatal.
+    // 5. Listener. Bound before announcing readiness so a port clash is fatal.
     let addr = SocketAddr::new(config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(addr)
         .await

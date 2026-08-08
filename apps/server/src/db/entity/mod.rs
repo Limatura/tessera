@@ -1,0 +1,12 @@
+//! SeaORM entities: the shape of each table.
+//!
+//! Entities live here rather than in `tessera-core` because they carry SeaORM's
+//! derives, and letting that crate depend on an ORM would dissolve the boundary
+//! the workspace split exists to enforce.
+//!
+//! The cost is a conversion at the edge — see `db::repository`. It is a real
+//! cost, and it is the one being paid deliberately: the domain rules stay
+//! testable without a database, and swapping the persistence layer stays a
+//! change to one module rather than to every type in the program.
+
+pub mod user;
