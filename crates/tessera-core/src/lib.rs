@@ -43,7 +43,7 @@ mod username;
 pub use crate::{
     email::EmailAddress,
     error::DomainError,
-    id::UserId,
+    id::{ApiTokenId, SessionId, UserId},
     password::{Password, PasswordPolicy},
     username::Username,
 };

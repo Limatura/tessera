@@ -9,4 +9,6 @@
 //! testable without a database, and swapping the persistence layer stays a
 //! change to one module rather than to every type in the program.
 
+pub mod api_token;
+pub mod session;
 pub mod user;

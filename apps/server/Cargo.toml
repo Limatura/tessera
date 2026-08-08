@@ -149,6 +149,22 @@ figment = { version = "0.10", features = ["toml", "yaml", "env"] }
 # A hand-written template drifts from the struct; a generated one cannot.
 serde_yaml = "0.9"
 
+# --- authentication ---
+# Argon2id is OWASP's current recommendation for password storage. The `std`
+# feature brings the PHC string format, so a stored hash carries its own
+# parameters and a future change to them does not invalidate existing passwords.
+argon2 = { version = "0.5", features = ["std"] }
+# Session and API tokens are high-entropy random values, so they are stored under
+# a fast hash rather than Argon2: there is nothing to brute-force, and paying
+# ~50 ms of key derivation on every authenticated request would be absurd.
+sha2 = "0.10"
+# Constant-time comparison, for the one place a secret is compared in process.
+subtle = "2"
+# Cookie jar extractor. `cookie-private`/`cookie-signed` are deliberately not
+# enabled: the session cookie carries an opaque random token that means nothing
+# without the database row, so signing it would protect nothing.
+axum-extra = { version = "0.12", features = ["cookie"] }
+
 # --- misc ---
 parking_lot = "0.12"
 rust-embed = "8.12"

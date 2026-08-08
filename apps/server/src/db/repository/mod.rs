@@ -6,4 +6,6 @@
 //! should have been a [`Username`](tessera_core::Username), and never has to
 //! wonder whether a value has been validated.
 
+pub mod api_token;
+pub mod session;
 pub mod user;
