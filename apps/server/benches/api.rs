@@ -20,7 +20,7 @@ use criterion::{Criterion, criterion_group, criterion_main};
 use tessera_server::{
     api,
     config::{Config, DatabaseConfig, StorageConfig},
-    db::Database,
+    db,
     state::{AppState, ServiceStatus},
     storage,
 };
@@ -55,7 +55,7 @@ fn router_assembly(c: &mut Criterion) {
     };
 
     let db = runtime
-        .block_on(Database::connect(&config.database))
+        .block_on(db::connect(&config.database))
         .expect("sqlite pool");
     let store = storage::build(&config.storage).expect("local store");
     let state = AppState::new(Arc::new(config), db, store);

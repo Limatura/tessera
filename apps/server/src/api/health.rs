@@ -56,9 +56,9 @@ pub async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse
         return Err(Error::Unavailable);
     }
 
-    // A pool that cannot answer `SELECT 1` is not ready, whatever the lifecycle
-    // flag says. The cause goes to the log; the client gets a bare 503.
-    if let Err(error) = state.db.ping().await {
+    // A pool that cannot answer a ping is not ready, whatever the lifecycle flag
+    // says. The cause goes to the log; the client gets a bare 503.
+    if let Err(error) = crate::db::ping(&state.db).await {
         tracing::warn!(?error, "health check could not reach the database");
         return Err(Error::Unavailable);
     }
@@ -67,6 +67,6 @@ pub async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse
         status,
         version: crate::VERSION.to_owned(),
         uptime_seconds: state.uptime_seconds(),
-        database: state.db.backend().as_str().to_owned(),
+        database: crate::db::backend_name(&state.db).to_owned(),
     }))
 }

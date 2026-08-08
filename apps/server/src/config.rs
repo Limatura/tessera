@@ -329,22 +329,19 @@ impl DatabaseConfig {
                 reason: "must be at least 1 second".to_owned(),
             });
         }
-        match crate::db::Backend::from_url(&self.url) {
-            Some(crate::db::Backend::Sqlite) => Ok(()),
-            Some(crate::db::Backend::Postgres) => {
-                if cfg!(feature = "postgres") {
-                    Ok(())
-                } else {
-                    Err(ConfigError::MissingFeature {
-                        feature: "postgres",
-                        detail: "database.url uses the postgres scheme".to_owned(),
-                    })
-                }
-            }
-            None => Err(ConfigError::Invalid {
+        let Some(backend) = crate::db::Backend::from_url(&self.url) else {
+            return Err(ConfigError::Invalid {
                 field: "database.url",
-                reason: "expected a `sqlite:` or `postgres:` URL".to_owned(),
-            }),
+                reason: "expected a `sqlite:`, `postgres:` or `mysql:` URL".to_owned(),
+            });
+        };
+        if backend.is_compiled_in() {
+            Ok(())
+        } else {
+            Err(ConfigError::MissingFeature {
+                feature: backend.required_feature(),
+                detail: format!("database.url uses the {} scheme", backend.as_str()),
+            })
         }
     }
 }
@@ -420,7 +417,7 @@ mod tests {
         c.server.cors_allowed_origins = vec!["example.com".to_owned()];
     })]
     #[case::zero_pool("database.max_connections", |c: &mut Config| c.database.max_connections = 0)]
-    #[case::bad_url("database.url", |c: &mut Config| c.database.url = "mysql://x".to_owned())]
+    #[case::bad_url("database.url", |c: &mut Config| c.database.url = "mongodb://x".to_owned())]
     #[case::empty_path("storage.local_path", |c: &mut Config| c.storage.local_path = "".into())]
     #[case::bad_filter("telemetry.filter", |c: &mut Config| {
         c.telemetry.filter = "=====".to_owned();

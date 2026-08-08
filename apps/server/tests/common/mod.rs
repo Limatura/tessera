@@ -5,11 +5,16 @@
 //! test-code exemption has to be restated here. Both are the correct behaviour for
 //! a fixture: a fixture that cannot build its dependencies has nothing to report
 //! but a failure.
-#![allow(
+#![expect(
     clippy::expect_used,
     clippy::panic,
     reason = "test fixture; see module docs"
 )]
+// `allow` rather than `expect`: each test binary that includes this module uses
+// a different subset of the fixtures, so `dead_code` fires in some and not
+// others — an `#[expect]` would go unfulfilled in the binaries that use
+// everything, which is a warning of its own.
+#![allow(dead_code, reason = "each test binary uses a different subset")]
 
 use std::sync::Arc;
 
@@ -23,7 +28,7 @@ use tempfile::TempDir;
 use tessera_server::{
     api,
     config::{Config, DatabaseConfig, StorageConfig},
-    db::Database,
+    db,
     state::{AppState, ServiceStatus},
     storage,
 };
@@ -40,6 +45,10 @@ pub(crate) struct TestApp {
     _blob_root: TempDir,
 }
 
+/// Database every test uses unless it asks for something else. In-memory, so
+/// each test gets a private database and nothing has to be cleaned up.
+pub(crate) const IN_MEMORY_SQLITE: &str = "sqlite::memory:";
+
 impl TestApp {
     /// Builds an app backed by an in-memory SQLite database and a temporary blob
     /// directory, already migrated and marked ready.
@@ -49,11 +58,17 @@ impl TestApp {
 
     /// Same, but left in an arbitrary lifecycle state.
     pub(crate) async fn build(status: ServiceStatus) -> Self {
+        Self::with_database(IN_MEMORY_SQLITE, status).await
+    }
+
+    /// Same, against an arbitrary database URL — used by the Postgres suite,
+    /// which has to prove the *other* backend serves identical responses.
+    pub(crate) async fn with_database(url: &str, status: ServiceStatus) -> Self {
         let blob_root = tempfile::tempdir().expect("temp dir");
 
         let config = Config {
             database: DatabaseConfig {
-                url: "sqlite::memory:".to_owned(),
+                url: url.to_owned(),
                 ..Default::default()
             },
             storage: StorageConfig {
@@ -63,10 +78,8 @@ impl TestApp {
             ..Config::default()
         };
 
-        let db = Database::connect(&config.database)
-            .await
-            .expect("sqlite pool");
-        db.migrate().await.expect("migrations");
+        let db = db::connect(&config.database).await.expect("database pool");
+        db::migrate(&db).await.expect("migrations");
         let store = storage::build(&config.storage).expect("local store");
 
         let state = AppState::new(Arc::new(config), db, store);

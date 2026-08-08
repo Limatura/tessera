@@ -1,0 +1,128 @@
+//! Exercises a networked database backend against a real server.
+//!
+//! Until this file existed, the `postgres` and `mysql` features only ever proved
+//! that they *compiled* — the migrations, the pool options and the health path
+//! had never run against a live server. That is the gap this closes, and it is
+//! the gap that opened the moment the project chose three dialects: `sqlx::query!`
+//! verified one at compile time, so the other two were always going to need a
+//! real database somewhere.
+//!
+//! Every test here is `#[ignore]`d, because it needs a server that a plain
+//! `cargo nextest run` has no reason to provide. Ignoring rather than silently
+//! skipping is deliberate: a test that returns early when an environment
+//! variable is missing reports "passed" and teaches you to trust coverage that
+//! never ran.
+//!
+//! The target comes from `TESSERA_TEST_DATABASE_URL`, so the same suite runs
+//! against every backend rather than being copied per dialect:
+//!
+//! ```text
+//! docker run -d --name tessera-pg -p 5432:5432 \
+//!   -e POSTGRES_USER=tessera -e POSTGRES_PASSWORD=tessera \
+//!   -e POSTGRES_DB=tessera_test postgres:17-alpine
+//!
+//! TESSERA_TEST_DATABASE_URL=postgres://tessera:tessera@localhost:5432/tessera_test \
+//!   cargo nextest run --run-ignored all -E 'binary(backends)'
+//! ```
+#![cfg(any(feature = "postgres", feature = "mysql"))]
+// The helpers below sit outside a `#[test]` body, which is as far as
+// clippy.toml's test exemptions reach. A fixture that cannot resolve its target
+// has nothing to report but a failure.
+#![expect(clippy::expect_used, reason = "test fixture; see module docs")]
+
+mod common;
+
+use axum::http::StatusCode;
+use common::{TestApp, body_json, expect_status};
+use sea_orm::{ConnectionTrait as _, Statement};
+use tessera_server::{
+    config::DatabaseConfig,
+    db::{self, Backend},
+    state::ServiceStatus,
+};
+
+/// Overridable so the suite can point at an existing instance instead of the
+/// throwaway container the docs describe.
+const DEFAULT_URL: &str = "postgres://tessera:tessera@localhost:5432/tessera_test";
+
+fn database_url() -> String {
+    std::env::var("TESSERA_TEST_DATABASE_URL").unwrap_or_else(|_| DEFAULT_URL.to_owned())
+}
+
+fn database_config() -> DatabaseConfig {
+    DatabaseConfig {
+        url: database_url(),
+        ..Default::default()
+    }
+}
+
+/// Backend the configured URL points at. Asserting on this rather than hard-coding
+/// Postgres is what lets one suite cover every dialect.
+fn expected_backend() -> Backend {
+    Backend::from_url(&database_url()).expect("TESSERA_TEST_DATABASE_URL must name a known backend")
+}
+
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn connects_migrates_and_pings() {
+    let conn = db::connect(&database_config()).await.expect("pool");
+    assert_eq!(db::backend_of(&conn), Some(expected_backend()));
+
+    db::migrate(&conn).await.expect("migrations");
+    db::ping(&conn).await.expect("ping");
+    db::close(conn).await;
+}
+
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn migrations_are_idempotent() {
+    // Sequential re-application only. Concurrent first-time migration is *not*
+    // safe — sea-orm-migration does not lock before creating its bookkeeping
+    // table, so parallel runners collide on a virgin database. That is why this
+    // binary is pinned to one thread in `.config/nextest.toml`.
+    let conn = db::connect(&database_config()).await.expect("pool");
+    db::migrate(&conn).await.expect("first run");
+    db::migrate(&conn).await.expect("second run");
+    db::close(conn).await;
+}
+
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn the_initial_migration_creates_its_table() {
+    // The per-dialect SQL files are hand-written, so "sqlite was updated and the
+    // others were forgotten" is the failure this guards. The unit test compares
+    // statement counts; this one proves the statements actually ran.
+    let conn = db::connect(&database_config()).await.expect("pool");
+    db::migrate(&conn).await.expect("migrations");
+
+    let statement = Statement::from_string(
+        conn.get_database_backend(),
+        "SELECT COUNT(*) AS n FROM schema_metadata",
+    );
+    let row = conn
+        .query_one_raw(statement)
+        .await
+        .expect("the table must exist and be queryable")
+        .expect("one row");
+    let count: i64 = row.try_get("", "n").expect("column");
+    assert_eq!(
+        count, 0,
+        "the initial migration should leave the table empty"
+    );
+
+    db::close(conn).await;
+}
+
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn health_reports_this_backend() {
+    // The point of the abstraction is that everything above `db` is unaware of
+    // which backend is underneath. This asserts that end to end.
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    let response = expect_status(app.get("/health").await, StatusCode::OK).await;
+    let body = body_json(response).await;
+
+    assert_eq!(body["status"], "ready");
+    assert_eq!(body["database"], expected_backend().as_str());
+    assert_eq!(body["version"], tessera_server::VERSION);
+}

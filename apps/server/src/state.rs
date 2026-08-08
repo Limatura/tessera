@@ -4,11 +4,12 @@ use std::sync::Arc;
 
 use object_store::ObjectStore;
 use parking_lot::RwLock;
+use sea_orm::DatabaseConnection;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
-use crate::{config::Config, db::Database};
+use crate::config::Config;
 
 /// Where the process is in its lifecycle.
 ///
@@ -32,8 +33,8 @@ pub enum ServiceStatus {
 pub struct AppState {
     /// Validated configuration.
     pub config: Arc<Config>,
-    /// Relational store.
-    pub db: Database,
+    /// Relational store. One connection type covers SQLite, Postgres and MySQL.
+    pub db: DatabaseConnection,
     /// Blob store.
     pub storage: Arc<dyn ObjectStore>,
     /// Current lifecycle status.
@@ -49,7 +50,7 @@ impl AppState {
     /// Assembles state for a process that has connected its dependencies but is
     /// not yet serving traffic.
     #[must_use]
-    pub fn new(config: Arc<Config>, db: Database, storage: Arc<dyn ObjectStore>) -> Self {
+    pub fn new(config: Arc<Config>, db: DatabaseConnection, storage: Arc<dyn ObjectStore>) -> Self {
         Self {
             config,
             db,

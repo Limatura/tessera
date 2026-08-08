@@ -17,7 +17,7 @@ use anyhow::{Context as _, bail};
 use tessera_server::{
     api,
     config::Config,
-    db::Database,
+    db,
     state::{AppState, ServiceStatus},
     storage, telemetry,
 };
@@ -52,12 +52,14 @@ async fn main() -> anyhow::Result<()> {
     );
 
     // 3. Dependencies.
-    let db = Database::connect(&config.database)
+    let db = db::connect(&config.database)
         .await
         .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
     if config.database.run_migrations {
-        db.migrate().await.context("could not apply migrations")?;
-        tracing::info!(backend = db.backend().as_str(), "migrations applied");
+        db::migrate(&db)
+            .await
+            .context("could not apply migrations")?;
+        tracing::info!(backend = db::backend_name(&db), "migrations applied");
     }
 
     let store = storage::build(&config.storage).context("could not open the object store")?;
@@ -101,7 +103,7 @@ async fn main() -> anyhow::Result<()> {
     signal_task.abort();
     // Closing the pool checkpoints the SQLite WAL, so the next start-up does not
     // have to replay it.
-    db.close().await;
+    db::close(db).await;
     tracing::info!("stopped");
     Ok(())
 }

@@ -1,10 +1,10 @@
 [package]
 name = "tessera-server"
+description = "Tessera — anonymous file courier backend (single-binary Rust monolith)"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish.workspace = true
-description = "Tessera — anonymous file courier backend (single-binary Rust monolith)"
 
 [[bin]]
 name = "tessera-server"
@@ -24,13 +24,27 @@ harness = false
 workspace = true
 
 [features]
-default = []
-# Data layer: SQLite always compiles in (it is the shipped default for homelab
-# deploys). Postgres is opt-in for people who already run one.
-postgres = ["sqlx/postgres", "sqlx/tls-rustls-ring"]
-# Storage layer: the local filesystem always compiles in. S3-compatible is opt-in
-# because it drags in a TLS stack and roughly doubles build time.
+# Everything on by default: the product promise is that `docker pull` gives you
+# every backend, and nobody should have to rebuild to point at S3. The flags stay
+# so that someone building from source for a constrained box can strip back down
+# — `--no-default-features --features sqlite,storage-fs` is a much smaller binary.
+default = ["sqlite", "postgres", "mysql"]
+
+# --- data ---
+# Each backend pulls in our direct sqlx dependency, which is what pins the TLS
+# provider to aws-lc-rs. Routing TLS through sea-orm's `runtime-tokio-rustls`
+# instead would select ring — and since cargo features are additive and
+# object_store's cloud backends require aws-lc-rs, the binary ended up carrying
+# *both* crypto implementations. Only `sqlite` needs sqlx's own driver; the other
+# two reach sqlx through sea-orm.
+sqlite = ["dep:sqlx", "sqlx/sqlite", "sea-orm/sqlx-sqlite"]
+postgres = ["dep:sqlx", "sea-orm/sqlx-postgres"]
+mysql = ["dep:sqlx", "sea-orm/sqlx-mysql"]
+
+# --- storage ---
+# Renamed and joined by the other object stores in the commit that reworks this.
 s3 = ["object_store/aws"]
+
 
 [dependencies]
 tessera-core = { workspace = true }
@@ -52,40 +66,63 @@ tower-http = { version = "0.7", features = [
   "cors",
   "compression-gzip",
   "compression-br",
-  "limit",
-  "timeout",
   "request-id",
+  "timeout",
   "catch-panic",
 ] }
 
 # --- data ---
+# `runtime-tokio`, not `runtime-tokio-rustls`: the latter forwards to
+# `sqlx/tls-rustls`, which selects ring. TLS is configured on the sqlx dependency
+# below instead, so the whole binary agrees on one crypto provider.
+sea-orm = { version = "2.0", default-features = false, features = [
+  "macros",
+  "runtime-tokio",
+  "with-time",
+] }
+sea-orm-migration = { version = "2.0", default-features = false, features = [
+  "runtime-tokio",
+] }
+
+# sea-orm normally owns sqlx completely, and for Postgres and MySQL it does.
+# SQLite is the exception: `ConnectOptions` exposes pool settings but no way to
+# reach `SqliteConnectOptions`, and sqlx's URL parser *rejects* unknown query
+# parameters — so `?journal_mode=WAL` is a hard error, not a workaround. Setting
+# the pragmas after connecting does not work either: `journal_mode` is persistent
+# but `foreign_keys`, `busy_timeout` and `synchronous` are per-connection, and
+# pool connections are opened lazily.
+#
+# So for SQLite we build the sqlx pool ourselves and hand it to sea-orm via
+# `SqlxSqliteConnector::from_sqlx_sqlite_pool`. Same sqlx version sea-orm already
+# depends on, so cargo unifies it — this adds no second driver stack. Do not
+# "clean up" this dependency; see db::connect_sqlite.
+# It also owns the TLS choice for the whole binary: `tls-rustls-aws-lc-rs` rather
+# than the default ring, so that Postgres/MySQL connections and object_store's
+# cloud backends share one crypto implementation instead of linking two.
+# `sqlite` is added by the `sqlite` feature, not here.
 sqlx = { version = "0.9", default-features = false, features = [
   "runtime-tokio",
-  "macros",
-  "migrate",
-  "sqlite",
-  "sqlite-bundled",
-  "time",
-] }
+  "tls-rustls-aws-lc-rs",
+], optional = true }
 
 # --- storage ---
 object_store = { version = "0.14", features = ["fs"] }
 
 # --- contract ---
-utoipa = { version = "5.5", features = ["axum_extras", "time"] }
+utoipa = { workspace = true }
 utoipa-axum = "0.2"
 utoipa-swagger-ui = { version = "9.0", features = ["axum", "vendored"] }
 
 # --- serialization ---
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 # --- errors ---
-thiserror = "2"
+thiserror = { workspace = true }
 anyhow = "1"
 
 # --- observability ---
-tracing = "0.1"
+tracing = { workspace = true }
 tracing-subscriber = { version = "0.3", features = [
   "env-filter",
   "fmt",
@@ -102,7 +139,7 @@ rust-embed = "8.12"
 mime_guess = "2"
 bytes = "1"
 ulid = { version = "3", features = ["serde"] }
-time = { version = "0.3", features = ["serde", "formatting", "macros"] }
+time = { workspace = true }
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["async_tokio"] }

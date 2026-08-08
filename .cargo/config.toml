@@ -1,6 +1,7 @@
-# sqlx offline mode is always on: `query!`-family macros resolve against the
-# committed `.sqlx/` metadata instead of a live database, so `cargo build`,
-# clippy and CI never need a running server. Regenerate with:
-#   cargo sqlx prepare -- --all-targets --all-features
-[env]
-SQLX_OFFLINE = "true"
+# Reserved for workspace-wide cargo settings.
+#
+# `SQLX_OFFLINE` used to live here, back when the data layer used `sqlx::query!`
+# and needed committed `.sqlx` metadata to build without a database. SeaORM builds
+# its queries at runtime, so that machinery — the environment variable, the
+# `.sqlx` directory, and the "did you remember to run `cargo sqlx prepare`" step
+# — is gone. Nothing replaces it: `cargo build` needs no database.

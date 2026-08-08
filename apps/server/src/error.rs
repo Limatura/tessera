@@ -35,13 +35,10 @@ pub enum Error {
     #[error("service unavailable")]
     Unavailable,
 
-    /// A relational store operation failed.
+    /// A relational store operation failed. Covers migrations too — SeaORM
+    /// reports both through `DbErr`.
     #[error("database error")]
-    Database(#[from] sqlx::Error),
-
-    /// Applying migrations failed.
-    #[error("migration error")]
-    Migration(#[from] sqlx::migrate::MigrateError),
+    Database(#[from] sea_orm::DbErr),
 
     /// A blob store operation failed.
     #[error("storage error")]
@@ -83,29 +80,43 @@ pub struct ErrorBody {
     pub message: String,
 }
 
+impl ErrorCode {
+    /// HTTP status this code maps to.
+    #[must_use]
+    pub const fn status(self) -> StatusCode {
+        match self {
+            Self::NotFound => StatusCode::NOT_FOUND,
+            Self::BadRequest => StatusCode::BAD_REQUEST,
+            Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
+            Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
+            Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+
+    /// Generic, client-safe description of this class of failure.
+    #[must_use]
+    pub const fn message(self) -> &'static str {
+        match self {
+            Self::NotFound => "the requested resource does not exist",
+            Self::BadRequest => "the request could not be understood",
+            Self::PayloadTooLarge => "the request body exceeds the configured limit",
+            Self::Unavailable => "the service is not accepting requests right now",
+            Self::Internal => "an internal error occurred",
+        }
+    }
+}
+
 impl Error {
     /// Convenience constructor for [`Error::BadRequest`].
     pub fn bad_request(message: impl Into<String>) -> Self {
         Self::BadRequest(message.into())
     }
 
-    /// HTTP status this error maps to.
-    #[must_use]
-    pub const fn status(&self) -> StatusCode {
-        match self {
-            Self::NotFound => StatusCode::NOT_FOUND,
-            Self::BadRequest(_) => StatusCode::BAD_REQUEST,
-            Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
-            Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
-            Self::Database(_)
-            | Self::Migration(_)
-            | Self::Storage(_)
-            | Self::Io(_)
-            | Self::Config(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-
     /// Stable identifier for this error.
+    ///
+    /// This is the only place that classifies a variant. Status and message are
+    /// both derived from the result, so adding a variant cannot leave three
+    /// parallel `match`es two-thirds updated.
     #[must_use]
     pub const fn code(&self) -> ErrorCode {
         match self {
@@ -113,31 +124,30 @@ impl Error {
             Self::BadRequest(_) => ErrorCode::BadRequest,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
             Self::Unavailable => ErrorCode::Unavailable,
-            Self::Database(_)
-            | Self::Migration(_)
-            | Self::Storage(_)
-            | Self::Io(_)
-            | Self::Config(_) => ErrorCode::Internal,
+            Self::Database(_) | Self::Storage(_) | Self::Io(_) | Self::Config(_) => {
+                ErrorCode::Internal
+            }
         }
+    }
+
+    /// HTTP status this error maps to.
+    #[must_use]
+    pub const fn status(&self) -> StatusCode {
+        self.code().status()
     }
 
     /// Client-facing message.
     ///
-    /// Internal failures collapse to a fixed string: a database or storage error
-    /// can carry table names, paths and credentials, and an anonymous file service
-    /// hands that body to unauthenticated strangers.
+    /// Only [`Error::BadRequest`] carries its own text, because only it describes
+    /// something the caller did. Everything else collapses to the generic message
+    /// for its code: a database or storage error can carry table names, paths and
+    /// credentials, and an anonymous file service hands this body to
+    /// unauthenticated strangers.
     #[must_use]
     pub fn public_message(&self) -> String {
         match self {
             Self::BadRequest(message) => message.clone(),
-            Self::NotFound => "the requested resource does not exist".to_owned(),
-            Self::PayloadTooLarge => "the request body exceeds the configured limit".to_owned(),
-            Self::Unavailable => "the service is not accepting requests right now".to_owned(),
-            Self::Database(_)
-            | Self::Migration(_)
-            | Self::Storage(_)
-            | Self::Io(_)
-            | Self::Config(_) => "an internal error occurred".to_owned(),
+            other => other.code().message().to_owned(),
         }
     }
 
