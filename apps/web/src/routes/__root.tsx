@@ -1,60 +1,52 @@
-import type { QueryClient } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
+import { Toaster } from "@my-better-t-app/ui/components/sonner";
+import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
-import { Toaster } from "@tessera/ui/components/sonner";
 
-import type { orpc } from "@/utils/orpc";
+import Header from "@/components/header";
+import { ThemeProvider } from "@/components/theme-provider";
 
-import Header from "../components/header";
+import "../index.css";
 
-import appCss from "../index.css?url";
-export interface RouterAppContext {
-  orpc: typeof orpc;
-  queryClient: QueryClient;
-}
+export interface RouterAppContext {}
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
+  component: RootComponent,
   head: () => ({
     meta: [
       {
-        charSet: "utf-8",
+        title: "my-better-t-app",
       },
       {
-        name: "viewport",
-        content: "width=device-width, initial-scale=1",
-      },
-      {
-        title: "My App",
+        name: "description",
+        content: "my-better-t-app is a web application",
       },
     ],
     links: [
       {
-        rel: "stylesheet",
-        href: appCss,
+        rel: "icon",
+        href: "/favicon.ico",
       },
     ],
   }),
-
-  component: RootDocument,
 });
 
-function RootDocument() {
+function RootComponent() {
   return (
-    <html lang="en" className="dark">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <div className="grid h-svh grid-rows-[auto_1fr]">
+    <>
+      <HeadContent />
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="dark"
+        disableTransitionOnChange
+        storageKey="vite-ui-theme"
+      >
+        <div className="grid grid-rows-[auto_1fr] h-svh">
           <Header />
           <Outlet />
         </div>
         <Toaster richColors />
-        <TanStackRouterDevtools position="bottom-left" />
-        <ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />
-        <Scripts />
-      </body>
-    </html>
+      </ThemeProvider>
+      <TanStackRouterDevtools position="bottom-left" />
+    </>
   );
 }
