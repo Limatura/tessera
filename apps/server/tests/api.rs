@@ -18,6 +18,7 @@ async fn health_reports_ready() {
 
     assert_eq!(body["status"], "ready");
     assert_eq!(body["version"], tessera_server::VERSION);
+    assert_eq!(body["build_rev"], tessera_server::BUILD_REV);
     assert_eq!(body["database"], "sqlite");
     assert!(body["uptime_seconds"].is_u64());
 }

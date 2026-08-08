@@ -18,6 +18,10 @@ pub struct HealthResponse {
     /// Version of the running binary.
     #[schema(example = "0.1.0")]
     pub version: String,
+    /// Commit the running binary was built from, or `unknown` outside a git
+    /// checkout. Between releases this is what identifies a build.
+    #[schema(example = "v0.1.0-3-gab12cd34ef56")]
+    pub build_rev: String,
     /// Whole seconds since the process started.
     #[schema(example = 3600)]
     pub uptime_seconds: u64,
@@ -66,6 +70,7 @@ pub async fn health(State(state): State<AppState>) -> Result<Json<HealthResponse
     Ok(Json(HealthResponse {
         status,
         version: crate::VERSION.to_owned(),
+        build_rev: crate::BUILD_REV.to_owned(),
         uptime_seconds: state.uptime_seconds(),
         database: crate::db::backend_name(&state.db).to_owned(),
     }))

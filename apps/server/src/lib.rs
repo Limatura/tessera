@@ -43,5 +43,12 @@ pub use crate::{
 /// Version string reported by `/health` and embedded in the OpenAPI document.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
+/// Commit this binary was built from, or `unknown` outside a git checkout.
+///
+/// Between releases the version number is identical across dozens of builds, so
+/// this is what makes a bug report actionable. See `build.rs` for how it is
+/// resolved.
+pub const BUILD_REV: &str = env!("TESSERA_BUILD_REV");
+
 /// Crate name, used as the default `tracing` target filter prefix.
 pub const NAME: &str = env!("CARGO_PKG_NAME");

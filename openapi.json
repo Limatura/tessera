@@ -76,10 +76,16 @@
         "required": [
           "status",
           "version",
+          "build_rev",
           "uptime_seconds",
           "database"
         ],
         "properties": {
+          "build_rev": {
+            "type": "string",
+            "description": "Commit the running binary was built from, or `unknown` outside a git\ncheckout. Between releases this is what identifies a build.",
+            "example": "v0.1.0-3-gab12cd34ef56"
+          },
           "database": {
             "type": "string",
             "description": "Relational backend currently in use.",

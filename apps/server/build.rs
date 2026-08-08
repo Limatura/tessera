@@ -15,6 +15,7 @@ use std::{
     error::Error,
     fs,
     path::{Path, PathBuf},
+    process::Command,
 };
 
 const PLACEHOLDER: &str = r#"<!doctype html>
@@ -57,7 +58,51 @@ fn main() -> Result<(), Box<dyn Error>> {
         fs::write(embed_dir.join("index.html"), PLACEHOLDER)?;
     }
 
+    emit_build_revision(manifest_dir.as_path());
+
     Ok(())
+}
+
+/// Records which commit produced this binary, as `TESSERA_BUILD_REV`.
+///
+/// A version number alone cannot identify a build between releases, which is
+/// exactly when bug reports arrive. Resolution order:
+///
+/// 1. `TESSERA_BUILD_REV` from the environment — how a container build, which has no `.git`, gets a
+///    real answer.
+/// 2. `git describe`, for an ordinary checkout.
+/// 3. `unknown`, so a source tarball still builds.
+fn emit_build_revision(manifest_dir: &Path) {
+    println!("cargo::rerun-if-env-changed=TESSERA_BUILD_REV");
+
+    let revision = env::var("TESSERA_BUILD_REV")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| git_revision(manifest_dir))
+        .unwrap_or_else(|| "unknown".to_owned());
+
+    println!("cargo::rustc-env=TESSERA_BUILD_REV={revision}");
+}
+
+fn git_revision(manifest_dir: &Path) -> Option<String> {
+    // Rebuild when HEAD moves. Emitted only when the path exists — pointing
+    // `rerun-if-changed` at a missing file makes cargo rebuild every time.
+    let git_head = manifest_dir.join("../../.git/HEAD");
+    if git_head.is_file() {
+        println!("cargo::rerun-if-changed={}", git_head.display());
+    }
+
+    let output = Command::new("git")
+        .args(["-C", &manifest_dir.display().to_string()])
+        .args(["describe", "--always", "--dirty=-dirty", "--abbrev=12"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let revision = String::from_utf8(output.stdout).ok()?.trim().to_owned();
+    (!revision.is_empty()).then_some(revision)
 }
 
 fn is_empty(dir: &Path) -> Result<bool, Box<dyn Error>> {

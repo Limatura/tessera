@@ -28,6 +28,20 @@ pub const ENV_CONFIG_FILE: &str = "TESSERA_CONFIG_FILE";
 /// Path used when [`ENV_CONFIG_FILE`] is unset. Absence is not an error.
 pub const DEFAULT_CONFIG_FILE: &str = "tessera.toml";
 
+/// Variables that share the [`ENV_PREFIX`] namespace without being settings.
+///
+/// [`Config`] is `deny_unknown_fields`, so a typo like `TESSERA_SERVER__PROT`
+/// stops the process instead of being silently ignored — which is the behaviour
+/// we want. The cost is that anything else in the namespace is read as a setting
+/// too, and both of these would otherwise abort start-up:
+///
+/// - `CONFIG_FILE` selects the file to read, so it cannot be a field *in* it.
+/// - `BUILD_REV` is consumed by `build.rs` at compile time; cargo re-exports it to the process it
+///   builds, which broke every `cargo run` until this list existed.
+///
+/// Keep it minimal: every entry is a name a user can no longer typo-check.
+const NON_CONFIG_ENV_KEYS: &[&str] = &["CONFIG_FILE", "BUILD_REV"];
+
 /// Anything that can go wrong between "process started" and "configuration is
 /// known good".
 #[derive(Debug, thiserror::Error)]
@@ -243,7 +257,11 @@ impl Config {
     pub fn load_from(path: &str) -> Result<Self, ConfigError> {
         let config: Self = Figment::from(Serialized::defaults(Self::default()))
             .merge(Toml::file(path))
-            .merge(Env::prefixed(ENV_PREFIX).split(ENV_NESTED_SEPARATOR))
+            .merge(
+                Env::prefixed(ENV_PREFIX)
+                    .split(ENV_NESTED_SEPARATOR)
+                    .ignore(NON_CONFIG_ENV_KEYS),
+            )
             .extract()
             .map_err(Box::new)?;
         config.validate()?;
@@ -457,6 +475,23 @@ mod tests {
                     ..
                 }
             ));
+            Ok(())
+        });
+    }
+
+    /// Regression test. `TESSERA_CONFIG_FILE` is the documented way to point at
+    /// a config file, and `TESSERA_BUILD_REV` is exported into every `cargo run`
+    /// by the build script. Both sit inside the settings namespace, so
+    /// `deny_unknown_fields` rejected them and the process refused to start.
+    #[rstest]
+    #[case("TESSERA_CONFIG_FILE", "/etc/tessera.toml")]
+    #[case("TESSERA_BUILD_REV", "v0.1.0-3-gabcdef")]
+    fn namespace_neighbours_are_not_mistaken_for_settings(#[case] key: &str, #[case] value: &str) {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env(key, value);
+            let config = Config::load_from("tessera.toml")
+                .unwrap_or_else(|e| panic!("{key} must not be read as a setting: {e}"));
+            assert_eq!(config, Config::default());
             Ok(())
         });
     }

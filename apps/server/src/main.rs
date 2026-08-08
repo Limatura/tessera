@@ -47,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
     telemetry::init(&config.telemetry).context("could not install the tracing subscriber")?;
     tracing::info!(
         version = tessera_server::VERSION,
+        build_rev = tessera_server::BUILD_REV,
         docs = config.server.enable_docs,
         "starting tessera"
     );
