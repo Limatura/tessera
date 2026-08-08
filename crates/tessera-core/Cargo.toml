@@ -1,0 +1,27 @@
+[package]
+name = "tessera-core"
+description = "Tessera domain rules — pure, no IO, no framework"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# This dependency list is the architecture.
+#
+# There is no axum here, no sea-orm, no object_store, no tokio. That is not an
+# oversight — it is the boundary, enforced by cargo rather than by review. A rule
+# that says "keep business logic out of handlers" is only as good as the last
+# person who remembered it; a dependency list that lacks `axum` cannot be
+# forgotten. CI walks the resolved tree as well, which catches a banned crate
+# arriving transitively.
+#
+# It is currently empty because the crate is: `serde`, `thiserror`, `time` and
+# `utoipa` are all declared in `[workspace.dependencies]` ready to be switched on
+# with `{ workspace = true }` when the domain types land. Declaring them before
+# anything uses them would only teach `cargo machete` to be ignored.
+#
+# Before adding one, check it against the test in src/lib.rs: can this crate
+# still be tested without starting a runtime, a database or a server?
+
+[lints]
+workspace = true

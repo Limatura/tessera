@@ -7,7 +7,7 @@
 
 pub mod health;
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use axum::{
     Json, Router,
@@ -79,7 +79,7 @@ fn api_routes() -> OpenApiRouter<AppState> {
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
 /// and the middleware stack.
 pub fn build(state: AppState) -> Router {
-    let config = state.config.clone();
+    let config = Arc::clone(&state.config);
     let (routes, api) = api_routes().split_for_parts();
 
     let mut app = Router::new().merge(routes).with_state(state);

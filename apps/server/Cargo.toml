@@ -1,9 +1,9 @@
 [package]
 name = "tessera-server"
-version = "0.1.0"
-edition = "2024"
-rust-version = "1.97"
-publish = false
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
 description = "Tessera — anonymous file courier backend (single-binary Rust monolith)"
 
 [[bin]]
@@ -20,27 +20,8 @@ path = "src/bin/openapi.rs"
 name = "api"
 harness = false
 
-# Lint policy lives here rather than as `#![deny(...)]` in each crate root: a
-# package has four roots (lib, two bins, build script) plus every test and bench
-# target, and `[lints]` covers all of them from one place. Test code is exempted
-# from the unwrap/expect/panic denials via clippy.toml, not via `#[allow]`.
-[lints.rust]
-unsafe_code = "forbid"
-missing_debug_implementations = "warn"
-unreachable_pub = "warn"
-
-[lints.clippy]
-all = { level = "deny", priority = -1 }
-pedantic = { level = "deny", priority = -1 }
-unwrap_used = "deny"
-expect_used = "deny"
-panic = "deny"
-todo = "deny"
-unimplemented = "deny"
-dbg_macro = "deny"
-exit = "deny"
-mem_forget = "deny"
-str_to_string = "deny"
+[lints]
+workspace = true
 
 [features]
 default = []
@@ -52,6 +33,8 @@ postgres = ["sqlx/postgres", "sqlx/tls-rustls-ring"]
 s3 = ["object_store/aws"]
 
 [dependencies]
+tessera-core = { workspace = true }
+
 # --- web ---
 axum = { version = "0.8.9", features = ["macros", "http2"] }
 tokio = { version = "1.53", features = [
@@ -132,17 +115,3 @@ insta = { version = "1.48", features = ["json", "redactions"] }
 proptest = "1.11"
 rstest = "0.26"
 tempfile = "3"
-
-[profile.release]
-# Single-binary distribution: optimise for size and startup, not compile time.
-# `panic` is deliberately left at "unwind" — tower-http's CatchPanicLayer can only
-# turn a panicking handler into a 500 if the panic is unwindable.
-opt-level = "z"
-lto = "fat"
-codegen-units = 1
-strip = "symbols"
-
-[profile.bench]
-inherits = "release"
-strip = "none"
-debug = 1

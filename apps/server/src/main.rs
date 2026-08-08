@@ -27,6 +27,10 @@ use tokio_util::sync::CancellationToken;
 /// Argument that turns the binary into its own health probe.
 const HEALTH_CHECK_FLAG: &str = "--health-check";
 
+/// How much of a health-probe response to read before giving up on finding a
+/// status line. A well-formed one is about 15 bytes.
+const STATUS_LINE_CAP: usize = 256;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 1. Configuration. Nothing is opened before this succeeds.
@@ -123,11 +127,19 @@ async fn probe_health(config: &Config) -> anyhow::Result<()> {
             .write_all(b"GET /health HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n")
             .await?;
 
-        // The status line is the first ~15 bytes; there is no reason to read the
-        // rest of the response.
-        let mut head = [0_u8; 64];
-        let read = socket.read(&mut head).await?;
-        Ok::<_, std::io::Error>(String::from_utf8_lossy(&head[..read]).into_owned())
+        // Only the status line matters, but TCP is free to deliver it in
+        // fragments, so read until a newline shows up rather than trusting one
+        // `read` to have produced the whole thing.
+        let mut head = Vec::with_capacity(STATUS_LINE_CAP);
+        let mut chunk = [0_u8; 64];
+        while head.len() < STATUS_LINE_CAP && !head.contains(&b'\n') {
+            let read = socket.read(&mut chunk).await?;
+            if read == 0 {
+                break; // peer closed
+            }
+            head.extend_from_slice(chunk.get(..read).unwrap_or_default());
+        }
+        Ok::<_, std::io::Error>(String::from_utf8_lossy(&head).into_owned())
     })
     .await
     .with_context(|| format!("health probe to {addr} timed out"))?

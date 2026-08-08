@@ -11,6 +11,14 @@
 //! cargo run --bin tessera-openapi -- path.json # writes path.json
 //! cargo run --bin tessera-openapi -- -         # writes stdout
 //! ```
+//!
+//! The crate denies `print_stdout` / `print_stderr` so that the server logs
+//! through `tracing` and nothing else. This binary is the exception that proves
+//! it: it is a build-time CLI, and its standard streams *are* its interface.
+#![expect(
+    clippy::print_stderr,
+    reason = "build-time CLI: stderr is where it reports what it wrote"
+)]
 
 use std::{io::Write as _, path::PathBuf};
 

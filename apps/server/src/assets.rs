@@ -187,8 +187,10 @@ mod tests {
         let etag = quoted_etag(&[0xab; 32]);
         assert_eq!(etag.len(), 66);
         assert!(etag.starts_with('"') && etag.ends_with('"'));
+        let digits = etag.trim_matches('"');
+        assert_eq!(digits.len(), 64);
         assert!(
-            etag[1..65]
+            digits
                 .chars()
                 .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
         );

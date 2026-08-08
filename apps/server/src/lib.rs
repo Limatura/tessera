@@ -27,9 +27,18 @@ pub mod state;
 pub mod storage;
 pub mod telemetry;
 
-pub use config::Config;
-pub use error::{Error, Result};
-pub use state::AppState;
+/// The domain rules, re-exported so that callers depend on one crate.
+///
+/// Aliased to `domain` rather than re-exported under its own name: inside this
+/// crate `core` would collide with the standard library's, and the alias also
+/// says what the module *is* rather than which package it came from.
+pub use tessera_core as domain;
+
+pub use crate::{
+    config::Config,
+    error::{Error, Result},
+    state::AppState,
+};
 
 /// Version string reported by `/health` and embedded in the OpenAPI document.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
