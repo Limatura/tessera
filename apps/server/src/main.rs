@@ -15,9 +15,10 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use tessera_server::{
-    api,
+    api, auth,
     config::Config,
     db,
+    db::repository::user::UserRepository,
     state::{AppState, ServiceStatus},
     storage, telemetry,
 };
@@ -78,6 +79,14 @@ async fn main() -> anyhow::Result<()> {
 
     let store = storage::build(&config.storage).context("could not open the object store")?;
 
+    // Before the listener binds, so an instance exposed to the internet never
+    // spends a moment with no administrator for a passer-by to claim.
+    if config.features.accounts {
+        auth::bootstrap::ensure_admin(&UserRepository::new(db.clone()), &config.auth)
+            .await
+            .context("could not create the first administrator")?;
+    }
+
     // 5. Listener. Bound before announcing readiness so a port clash is fatal.
     let addr = SocketAddr::new(config.server.host, config.server.port);
     let listener = tokio::net::TcpListener::bind(addr)
@@ -90,11 +99,16 @@ async fn main() -> anyhow::Result<()> {
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
-    tracing::info!(
-        address = %local_addr,
-        docs = %format_args!("http://{local_addr}{}", api::DOCS_PATH),
-        "listening"
-    );
+    tracing::info!(address = %local_addr, "listening");
+    if config.features.docs {
+        // Worth a line of its own, because "the docs page is blank" is otherwise
+        // a confusing thing to debug — and the cause is on the *reader's* side.
+        // This server never fetches the renderer; the browser does.
+        tracing::info!(
+            url = %format_args!("http://{local_addr}{}", api::DOCS_PATH),
+            "API reference enabled; the browser opening it loads the renderer from a CDN"
+        );
+    }
 
     let shutdown = CancellationToken::new();
     let signal_task = tokio::spawn(watch_for_shutdown(shutdown.clone()));
@@ -103,16 +117,24 @@ async fn main() -> anyhow::Result<()> {
     let state_for_drain = state.clone();
     // Served exactly as `api::build` returns it — no outer service wrapper — so
     // that the integration tests exercise the same stack this process does.
-    axum::serve(listener, app.into_make_service())
-        .with_graceful_shutdown(async move {
-            drain.cancelled().await;
-            // Flip to draining first: an orchestrator polling `/health` sees 503
-            // and stops routing while in-flight requests finish.
-            state_for_drain.set_status(ServiceStatus::Draining);
-            tracing::info!("draining in-flight requests");
-        })
-        .await
-        .context("the HTTP server stopped unexpectedly")?;
+    //
+    // `with_connect_info` is what makes the peer address reachable from a
+    // handler. Login throttling needs it: without the address, the only key
+    // available is the account name, and keying on that alone lets anyone lock a
+    // known user out by guessing at them.
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(async move {
+        drain.cancelled().await;
+        // Flip to draining first: an orchestrator polling `/health` sees 503
+        // and stops routing while in-flight requests finish.
+        state_for_drain.set_status(ServiceStatus::Draining);
+        tracing::info!("draining in-flight requests");
+    })
+    .await
+    .context("the HTTP server stopped unexpectedly")?;
 
     signal_task.abort();
     // Closing the pool checkpoints the SQLite WAL, so the next start-up does not

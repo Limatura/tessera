@@ -6,8 +6,9 @@
 //! is — and because a row read back from a database written by an older version
 //! might not satisfy today's rules.
 //!
-//! Crossing between the two is [`User::from_model`], and it is fallible on
-//! purpose. See `db::repository::user` for what that buys.
+//! Crossing between the two is
+//! [`User::from_model`](crate::db::repository::user::User::from_model), and it
+//! is fallible on purpose. See `db::repository::user` for what that buys.
 
 use sea_orm::entity::prelude::*;
 

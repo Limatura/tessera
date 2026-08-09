@@ -5,8 +5,10 @@
 //! (see the `tessera-openapi` binary). The frontend and the Discord bot generate
 //! their clients from that file; the server emits no TypeScript.
 
+pub mod auth;
 pub mod capabilities;
 pub mod health;
+pub mod tokens;
 
 use std::{sync::Arc, time::Duration};
 
@@ -26,12 +28,24 @@ use tower_http::{
 use ulid::Ulid;
 use utoipa::OpenApi;
 use utoipa_axum::{router::OpenApiRouter, routes};
-use utoipa_swagger_ui::SwaggerUi;
+use utoipa_scalar::{Scalar, Servable as _};
 
 use crate::{assets, config::Config, state::AppState};
 
 /// Tag grouping infrastructure endpoints in the generated document.
 pub const SYSTEM_TAG: &str = "system";
+
+/// Tag grouping registration, sign-in and password endpoints.
+pub const AUTH_TAG: &str = "auth";
+
+/// Tag grouping API-token management.
+pub const TOKENS_TAG: &str = "tokens";
+
+/// Name of the cookie-based security scheme in the generated document.
+pub const SESSION_SCHEME: &str = "session";
+
+/// Name of the bearer-token security scheme in the generated document.
+pub const BEARER_SCHEME: &str = "bearer";
 
 /// Header carrying the per-request correlation id.
 pub const REQUEST_ID_HEADER: &str = "x-request-id";
@@ -62,10 +76,54 @@ pub const API_PREFIX: &str = "/api/v1";
     ),
     tags(
         (name = SYSTEM_TAG, description = "Health and service metadata"),
+        (name = AUTH_TAG, description = "Registration, sign-in and passwords"),
+        (name = TOKENS_TAG, description = "API tokens for non-browser callers"),
     ),
+    modifiers(&SecurityAddon),
     components(schemas(crate::error::ErrorBody, crate::error::ErrorCode)),
 )]
 pub struct ApiDoc;
+
+/// Declares the two ways a caller can prove who they are.
+///
+/// Written as a modifier rather than in the attribute because utoipa's derive has
+/// no syntax for an `apiKey` scheme in a cookie. Both are declared so the docs UI
+/// offers each: a browser gets the cookie for free after signing in, while a
+/// script pastes a token into the bearer field and can exercise the same
+/// endpoints from the same page.
+#[derive(Debug)]
+struct SecurityAddon;
+
+impl utoipa::Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        use utoipa::openapi::security::{
+            ApiKey, ApiKeyValue, HttpAuthScheme, HttpBuilder, SecurityScheme,
+        };
+
+        let components = openapi.components.get_or_insert_with(Default::default);
+        components.add_security_scheme(
+            SESSION_SCHEME,
+            SecurityScheme::ApiKey(ApiKey::Cookie(ApiKeyValue::with_description(
+                crate::auth::cookie::COOKIE_NAME,
+                "Set by `POST /auth/login`. A browser sends it automatically; it is \
+                 `HttpOnly`, so page scripts cannot read or set it.",
+            ))),
+        );
+        components.add_security_scheme(
+            BEARER_SCHEME,
+            SecurityScheme::Http(
+                HttpBuilder::new()
+                    .scheme(HttpAuthScheme::Bearer)
+                    .bearer_format("tsk_*")
+                    .description(Some(
+                        "An API token from `POST /api/v1/tokens`, sent as \
+                         `Authorization: Bearer tsk_…`. Shown once at creation.",
+                    ))
+                    .build(),
+            ),
+        );
+    }
+}
 
 /// Builds the OpenAPI document without touching a database or a storage backend.
 ///
@@ -90,8 +148,20 @@ fn api_routes() -> OpenApiRouter<AppState> {
 
 /// Endpoints under [`API_PREFIX`]. Nesting rewrites their paths in the generated
 /// document too, so a handler declares the path it owns and not the prefix.
+/// Every endpoint is mounted on every instance, including ones whose feature is
+/// switched off — those answer `404` from inside the handler instead. Mounting
+/// conditionally would make the served document depend on the instance, and the
+/// whole point of `/capabilities` is that it does not.
 fn versioned_routes() -> OpenApiRouter<AppState> {
-    OpenApiRouter::new().routes(routes!(capabilities::capabilities))
+    OpenApiRouter::new()
+        .routes(routes!(capabilities::capabilities))
+        .routes(routes!(auth::register))
+        .routes(routes!(auth::login))
+        .routes(routes!(auth::logout))
+        .routes(routes!(auth::session))
+        .routes(routes!(auth::change_password))
+        .routes(routes!(tokens::list, tokens::create))
+        .routes(routes!(tokens::revoke))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
@@ -100,24 +170,21 @@ pub fn build(state: AppState) -> Router {
     let config = Arc::clone(&state.config);
     let (routes, api) = api_routes().split_for_parts();
 
-    let mut app = Router::new().merge(routes).with_state(state);
+    // The contract is served unconditionally. Turning the browsable docs off is
+    // about not shipping a UI, not about hiding the API — client generators and
+    // the CI drift check both read this, and the spec is in the repository
+    // anyway.
+    let contract = api.clone();
+    let mut app = Router::new()
+        .merge(routes)
+        .route(
+            OPENAPI_PATH,
+            axum::routing::get(move || std::future::ready(Json(contract))),
+        )
+        .with_state(state);
 
     if config.features.docs {
-        // No trailing-slash normalisation anywhere in this stack: the Swagger UI
-        // redirects `/docs` to `/docs/`, so a layer that rewrote `/docs/` back to
-        // `/docs` would produce an infinite redirect. See the regression test in
-        // tests/api.rs.
-        //
-        // The Swagger UI owns `/openapi.json` when it is mounted, so that the
-        // browsable docs and the machine contract can never disagree.
-        app = app.merge(SwaggerUi::new(DOCS_PATH).url(OPENAPI_PATH, api));
-    } else {
-        // Docs off still has to serve the contract: client generators and the CI
-        // drift check read it from a running instance.
-        app = app.route(
-            OPENAPI_PATH,
-            axum::routing::get(move || std::future::ready(Json(api))),
-        );
+        app = app.merge(Scalar::with_url(DOCS_PATH, api));
     }
 
     let request_id_header = HeaderName::from_static(REQUEST_ID_HEADER);

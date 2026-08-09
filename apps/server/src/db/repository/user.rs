@@ -72,7 +72,11 @@ impl User {
 
         Ok(Self {
             id: UserId::parse(&model.id).map_err(fail)?,
-            username: Username::parse(&model.username).map_err(fail)?,
+            // Privileged parsing: reading a row back is not claiming the name.
+            // The bootstrap administrator is called `admin`, which the reserved
+            // list refuses — so the ordinary parser would declare the one row
+            // every instance has to be corrupt.
+            username: Username::parse_privileged(&model.username).map_err(fail)?,
             email: EmailAddress::parse(&model.email).map_err(fail)?,
             password_hash: model.password_hash,
             is_admin: model.is_admin,
@@ -191,6 +195,27 @@ impl UserRepository {
                 .one(&self.connection)
                 .await?,
         )
+    }
+
+    /// Replaces an account's password hash and clears the "must change" flag.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the update fails.
+    pub async fn set_password(
+        &self,
+        id: UserId,
+        password_hash: String,
+        now: OffsetDateTime,
+    ) -> Result<(), UserRepositoryError> {
+        UserEntity::update_many()
+            .col_expr(user::Column::PasswordHash, password_hash.into())
+            .col_expr(user::Column::MustChangePassword, false.into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(())
     }
 
     /// Whether any account exists.

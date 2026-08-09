@@ -16,7 +16,9 @@
 //! What both share is that the database stores only a digest. A stolen dump
 //! contains nothing that can be presented as a credential.
 
+pub mod bootstrap;
 pub mod cookie;
+pub mod extract;
 pub mod password;
 pub mod secret;
 pub mod throttle;

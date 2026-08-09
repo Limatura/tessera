@@ -116,7 +116,17 @@ url = "2"
 # --- contract ---
 utoipa = { workspace = true }
 utoipa-axum = "0.2"
-utoipa-swagger-ui = { version = "9.0", features = ["axum", "vendored"] }
+# Scalar rather than Swagger UI. Measured: swagger-ui embeds 16.7 MB of
+# unpacked assets — over half of them source maps and `.jsx` sources that serve
+# no runtime purpose — which was 11.3 MB of a 23.8 MB binary. utoipa-scalar is
+# 11 KB and loads its assets from a CDN.
+#
+# That trade only works because the docs UI is a development convenience,
+# disabled by default (`features.docs`), and a machine doing development has
+# outbound network. Vendoring the CDN bundle to make it work offline was
+# considered and rejected: it would put a 3.7 MB minified blob in the repository
+# that cargo-deny cannot audit and that we would own updating.
+utoipa-scalar = { version = "0.3", features = ["axum"] }
 
 # --- serialization ---
 serde = { workspace = true }

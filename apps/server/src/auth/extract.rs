@@ -1,0 +1,330 @@
+//! Turning a request into the account that made it.
+//!
+//! Three extractors, so a handler's signature states what it needs and the
+//! compiler enforces it:
+//!
+//! - [`CurrentUser`] — signed in, any account.
+//! - [`AdminUser`] — signed in and an administrator.
+//! - [`MaybeUser`] — signed in or not; for endpoints that serve both.
+//!
+//! A handler that forgets to check is not possible: there is no way to reach the
+//! account except by asking for it, and asking for [`AdminUser`] is the only way
+//! to get one.
+
+use std::{convert::Infallible, net::SocketAddr};
+
+use axum::{
+    extract::{ConnectInfo, FromRequestParts},
+    http::{HeaderMap, header, request::Parts},
+};
+use time::OffsetDateTime;
+
+use crate::{
+    auth::{cookie, secret::Secret},
+    db::repository::user::User,
+    error::Error,
+    state::AppState,
+};
+
+/// How a request proved who it was.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Credential {
+    /// A browser session cookie.
+    Session,
+    /// A bearer token, from a script, the CLI or a bot.
+    ApiToken,
+}
+
+/// An authenticated account.
+#[derive(Debug, Clone)]
+pub struct CurrentUser {
+    /// The account.
+    pub user: User,
+    /// Which mechanism proved it, so a handler can refuse one of them where
+    /// that matters — changing a password with an API token, for instance.
+    pub credential: Credential,
+}
+
+/// An authenticated administrator.
+#[derive(Debug, Clone)]
+pub struct AdminUser(pub CurrentUser);
+
+/// An account, if the request carried one.
+#[derive(Debug, Clone)]
+pub struct MaybeUser(pub Option<CurrentUser>);
+
+impl FromRequestParts<AppState> for MaybeUser {
+    type Rejection = Error;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        // An instance with accounts turned off has nobody to be. Answering
+        // "not signed in" rather than erroring keeps every endpoint that serves
+        // both cases working unchanged.
+        if !state.config.features.accounts {
+            return Ok(Self(None));
+        }
+        Ok(Self(authenticate(parts, state).await?))
+    }
+}
+
+impl FromRequestParts<AppState> for CurrentUser {
+    type Rejection = Error;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let MaybeUser(user) = MaybeUser::from_request_parts(parts, state).await?;
+        user.ok_or(Error::Unauthorized)
+    }
+}
+
+impl FromRequestParts<AppState> for AdminUser {
+    type Rejection = Error;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let current = CurrentUser::from_request_parts(parts, state).await?;
+        if current.user.is_admin {
+            Ok(Self(current))
+        } else {
+            // Forbidden rather than not-found: the caller is authenticated, so
+            // telling them the endpoint exists reveals nothing they could not
+            // already infer from the published contract.
+            Err(Error::Forbidden)
+        }
+    }
+}
+
+/// Where a request appears to have come from.
+///
+/// Used for throttle keys, never for authorisation: it is a hint, and a shared
+/// NAT or a VPN makes many people look like one address.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ClientAddress(pub String);
+
+impl FromRequestParts<AppState> for ClientAddress {
+    type Rejection = Infallible;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        // The peer address is only present when the server was started with
+        // `into_make_service_with_connect_info`. A test harness that calls the
+        // router directly has none, which is why this cannot fail.
+        let peer = parts
+            .extensions
+            .get::<ConnectInfo<SocketAddr>>()
+            .map(|ConnectInfo(address)| address.ip().to_string());
+        Ok(Self(resolve_client_address(
+            peer,
+            &parts.headers,
+            state.config.server.trusted_proxy,
+        )))
+    }
+}
+
+/// `X-Forwarded-For` is believed only behind a trusted proxy, for the same reason
+/// as `X-Forwarded-Proto`: otherwise a caller sets it themselves and every guess
+/// looks like it came from somewhere new, which is exactly the throttle's
+/// failure mode.
+fn resolve_client_address(
+    peer: Option<String>,
+    headers: &HeaderMap,
+    trusted_proxy: bool,
+) -> String {
+    if trusted_proxy
+        && let Some(forwarded) = headers
+            .get("x-forwarded-for")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.split(',').next())
+        && !forwarded.trim().is_empty()
+    {
+        return forwarded.trim().to_owned();
+    }
+    peer.unwrap_or_else(|| "unknown".to_owned())
+}
+
+/// Resolves whichever credential the request carried.
+///
+/// The cookie is tried first because a browser sends it on every request,
+/// whereas a bearer token is only present when something deliberately attached
+/// one. A request carrying both is a browser calling with an explicit token, and
+/// the explicit one should not be silently ignored — so the header wins.
+async fn authenticate(parts: &Parts, state: &AppState) -> Result<Option<CurrentUser>, Error> {
+    if let Some(secret) = bearer_token(parts) {
+        return authenticate_token(&secret, state).await;
+    }
+    if let Some(secret) = cookie::session_secret(&parts.headers) {
+        return authenticate_session(&secret, state).await;
+    }
+    Ok(None)
+}
+
+fn bearer_token(parts: &Parts) -> Option<Secret> {
+    parts
+        .headers
+        .get(header::AUTHORIZATION)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            let (scheme, token) = value.split_once(' ')?;
+            scheme
+                .eq_ignore_ascii_case("bearer")
+                .then(|| Secret::from_client(token.trim()))
+        })
+}
+
+async fn authenticate_session(
+    secret: &Secret,
+    state: &AppState,
+) -> Result<Option<CurrentUser>, Error> {
+    let Some(session) = state.sessions.find_by_secret(secret).await? else {
+        return Ok(None);
+    };
+
+    let now = OffsetDateTime::now_utc();
+    if !session.is_valid_at(now) {
+        // Expired sessions are removed on sight rather than left for the sweep:
+        // the row is already in hand, and a presented-but-dead session is the
+        // cheapest possible moment to clean one up.
+        state.sessions.delete(session.id).await?;
+        return Ok(None);
+    }
+
+    let Some(user) = state.users.find_by_id(session.user_id).await? else {
+        // The account is gone but the session was not. The foreign key should
+        // make this impossible; if it happens, the session is worthless.
+        state.sessions.delete(session.id).await?;
+        return Ok(None);
+    };
+
+    state.sessions.touch(session.id, now).await?;
+    Ok(Some(CurrentUser {
+        user,
+        credential: Credential::Session,
+    }))
+}
+
+async fn authenticate_token(
+    secret: &Secret,
+    state: &AppState,
+) -> Result<Option<CurrentUser>, Error> {
+    let Some(token) = state.tokens.find_by_secret(secret).await? else {
+        return Ok(None);
+    };
+
+    let now = OffsetDateTime::now_utc();
+    if !token.is_usable_at(now) {
+        // Revoked and expired both land here, and both look identical to the
+        // caller. Distinguishing them would tell someone holding a stolen token
+        // whether it was noticed.
+        return Ok(None);
+    }
+
+    let Some(user) = state.users.find_by_id(token.user_id).await? else {
+        return Ok(None);
+    };
+
+    state.tokens.touch(token.id, now).await?;
+    Ok(Some(CurrentUser {
+        user,
+        credential: Credential::ApiToken,
+    }))
+}
+
+#[cfg(test)]
+mod tests {
+    use axum::http::{HeaderValue, Request};
+
+    use super::*;
+
+    fn parts_with(header_name: &'static str, value: &str) -> Parts {
+        let mut request = Request::new(());
+        request.headers_mut().insert(
+            header_name,
+            HeaderValue::from_str(value).expect("valid header"),
+        );
+        request.into_parts().0
+    }
+
+    #[test]
+    fn reads_a_bearer_token() {
+        let parts = parts_with("authorization", "Bearer tsk_abc123");
+        assert_eq!(
+            bearer_token(&parts).map(|s| s.expose().to_owned()),
+            Some("tsk_abc123".to_owned())
+        );
+    }
+
+    /// RFC 7235 says the scheme is case-insensitive, and clients disagree about
+    /// which case to send.
+    #[test]
+    fn the_bearer_scheme_is_case_insensitive() {
+        for value in ["bearer x", "BEARER x", "BeArEr x"] {
+            assert!(
+                bearer_token(&parts_with("authorization", value)).is_some(),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    fn ignores_other_authorization_schemes() {
+        for value in ["Basic dXNlcjpwYXNz", "Digest something", "tsk_no_scheme"] {
+            assert!(
+                bearer_token(&parts_with("authorization", value)).is_none(),
+                "{value}"
+            );
+        }
+    }
+
+    #[test]
+    fn no_authorization_header_means_no_token() {
+        let parts = Request::new(()).into_parts().0;
+        assert!(bearer_token(&parts).is_none());
+    }
+
+    #[test]
+    fn an_untrusted_forwarded_for_is_ignored() {
+        let parts = parts_with("x-forwarded-for", "203.0.113.9");
+        assert_eq!(
+            resolve_client_address(Some("10.0.0.5".to_owned()), &parts.headers, false),
+            "10.0.0.5"
+        );
+    }
+
+    #[test]
+    fn a_trusted_forwarded_for_names_the_original_client() {
+        let parts = parts_with("x-forwarded-for", "203.0.113.9, 10.0.0.1");
+        assert_eq!(
+            resolve_client_address(Some("10.0.0.5".to_owned()), &parts.headers, true),
+            "203.0.113.9"
+        );
+    }
+
+    /// A proxy that sets the header but leaves it empty must not collapse every
+    /// caller onto one throttle key.
+    #[test]
+    fn an_empty_forwarded_for_falls_back_to_the_peer() {
+        let parts = parts_with("x-forwarded-for", "");
+        assert_eq!(
+            resolve_client_address(Some("10.0.0.5".to_owned()), &parts.headers, true),
+            "10.0.0.5"
+        );
+    }
+
+    #[test]
+    fn a_missing_peer_address_is_named_rather_than_dropped() {
+        let parts = Request::new(()).into_parts().0;
+        assert_eq!(
+            resolve_client_address(None, &parts.headers, false),
+            "unknown"
+        );
+    }
+}

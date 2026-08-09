@@ -25,6 +25,8 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use tessera_core::PasswordPolicy;
 
+use crate::auth::cookie::SecurePolicy;
+
 /// Prefix for every environment variable that feeds configuration.
 pub const ENV_PREFIX: &str = "TESSERA_";
 
@@ -169,7 +171,23 @@ pub struct FeatureConfig {
     /// case they were built for.
     pub anonymous_upload: bool,
 
-    /// The browsable Swagger UI at `/docs`.
+    /// The browsable API reference at `/docs`.
+    ///
+    /// Off by default: a development convenience rather than part of the
+    /// product.
+    ///
+    /// The page this serves is a few lines of HTML that pull the renderer from a
+    /// CDN. **The server never fetches it** — the browser does, so it is the
+    /// reader's network that matters, not the instance's. A server behind a
+    /// firewall with no outbound access still serves working docs to an operator
+    /// on an ordinary connection, which is the common homelab shape. Only a
+    /// genuinely air-gapped reader gets a blank page.
+    ///
+    /// Keeping the renderer remote is what holds ~11 MB of bundled UI out of the
+    /// binary, measured: 23.8 MB with it embedded, 12.5 MB without.
+    ///
+    /// `openapi.json` is served either way — turning this off is about not
+    /// shipping a UI, not about hiding the API.
     pub docs: bool,
 }
 
@@ -198,6 +216,22 @@ pub struct AuthConfig {
     /// Password length policy. Composition rules are deliberately absent — see
     /// [`PasswordPolicy`].
     pub password: PasswordPolicy,
+
+    /// When to mark the session cookie `Secure`.
+    pub cookie_secure: SecurePolicy,
+
+    /// Name for the administrator created on first run.
+    pub admin_username: String,
+
+    /// Address for the administrator created on first run.
+    pub admin_email: String,
+
+    /// Password for the administrator created on first run.
+    ///
+    /// Empty means "generate one and print it once". That is the friendlier
+    /// default *and* the safer one: a password written into a compose file or an
+    /// environment variable tends to stay there, and stay unchanged.
+    pub admin_password: String,
 }
 
 /// HTTP listener and middleware settings.
@@ -215,6 +249,14 @@ pub struct ServerConfig {
     /// Origins allowed to call the API from a browser. Empty means same-origin
     /// only, which is the correct default for the single-binary deployment.
     pub cors_allowed_origins: Vec<String>,
+
+    /// Whether a reverse proxy in front of this service may be believed.
+    ///
+    /// Turns on trust in `X-Forwarded-Proto`, which decides whether the session
+    /// cookie is marked `Secure`. Off by default: the header is set by whoever
+    /// spoke to us last, so on a direct connection that is the client, and
+    /// believing it would let anyone claim HTTPS.
+    pub trusted_proxy: bool,
 }
 
 /// Relational store settings.
@@ -289,6 +331,7 @@ impl Default for ServerConfig {
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
             cors_allowed_origins: Vec::new(),
+            trusted_proxy: false,
         }
     }
 }
@@ -322,7 +365,7 @@ impl Default for FeatureConfig {
             accounts: true,
             admin: true,
             anonymous_upload: true,
-            docs: true,
+            docs: false,
         }
     }
 }
@@ -339,6 +382,10 @@ impl Default for AuthConfig {
             // friction that makes a self-hosted service go unused.
             session_ttl_hours: 24 * 30,
             password: PasswordPolicy::default(),
+            cookie_secure: SecurePolicy::default(),
+            admin_username: "admin".to_owned(),
+            admin_email: "admin@localhost.invalid".to_owned(),
+            admin_password: String::new(),
         }
     }
 }

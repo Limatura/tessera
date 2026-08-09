@@ -9,7 +9,13 @@ use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
-use crate::config::Config;
+use crate::{
+    auth::throttle::Throttle,
+    config::Config,
+    db::repository::{
+        api_token::ApiTokenRepository, session::SessionRepository, user::UserRepository,
+    },
+};
 
 /// Where the process is in its lifecycle.
 ///
@@ -35,6 +41,18 @@ pub struct AppState {
     pub config: Arc<Config>,
     /// Relational store. One connection type covers SQLite, Postgres and MySQL.
     pub db: DatabaseConnection,
+    /// Accounts.
+    pub users: UserRepository,
+    /// Browser sessions.
+    pub sessions: SessionRepository,
+    /// API tokens.
+    pub tokens: ApiTokenRepository,
+    /// Failed-login counter.
+    ///
+    /// Shared rather than per-request: the whole point is that attempts
+    /// accumulate across requests. In memory, so it is state this process owns
+    /// and loses on restart — see [`Throttle`] for why that is the right trade.
+    pub login_throttle: Arc<Throttle>,
     /// Blob store.
     pub storage: Arc<dyn ObjectStore>,
     /// Current lifecycle status.
@@ -52,6 +70,10 @@ impl AppState {
     #[must_use]
     pub fn new(config: Arc<Config>, db: DatabaseConnection, storage: Arc<dyn ObjectStore>) -> Self {
         Self {
+            users: UserRepository::new(db.clone()),
+            sessions: SessionRepository::new(db.clone()),
+            tokens: ApiTokenRepository::new(db.clone()),
+            login_throttle: Arc::new(Throttle::default()),
             config,
             db,
             storage,

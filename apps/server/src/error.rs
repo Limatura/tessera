@@ -7,7 +7,7 @@
 
 use axum::{
     Json,
-    http::StatusCode,
+    http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
@@ -31,6 +31,29 @@ pub enum Error {
     #[error("payload too large")]
     PayloadTooLarge,
 
+    /// The caller did not prove who they are, or the proof is no longer good.
+    #[error("unauthorized")]
+    Unauthorized,
+
+    /// The caller is known but not allowed to do this.
+    #[error("forbidden")]
+    Forbidden,
+
+    /// The request conflicts with something that already exists.
+    #[error("{0}")]
+    Conflict(String),
+
+    /// The caller has been asked to slow down.
+    #[error("too many requests")]
+    TooManyRequests {
+        /// Seconds until the caller may try again.
+        retry_after_secs: u64,
+    },
+
+    /// A value failed a domain rule.
+    #[error("{0}")]
+    Domain(#[from] tessera_core::DomainError),
+
     /// The service is not ready to take traffic (starting up or shutting down).
     #[error("service unavailable")]
     Unavailable,
@@ -43,6 +66,11 @@ pub enum Error {
     /// A blob store operation failed.
     #[error("storage error")]
     Storage(#[from] object_store::Error),
+
+    /// Hashing or verifying a password failed. Never means "wrong password" —
+    /// that is a `bool`, not an error.
+    #[error("password hashing error")]
+    Password(#[from] crate::auth::password::PasswordError),
 
     /// Local filesystem access failed.
     #[error("io error")]
@@ -65,6 +93,14 @@ pub enum ErrorCode {
     BadRequest,
     /// See [`Error::PayloadTooLarge`].
     PayloadTooLarge,
+    /// See [`Error::Unauthorized`].
+    Unauthorized,
+    /// See [`Error::Forbidden`].
+    Forbidden,
+    /// See [`Error::Conflict`].
+    Conflict,
+    /// See [`Error::TooManyRequests`].
+    TooManyRequests,
     /// See [`Error::Unavailable`].
     Unavailable,
     /// Any failure whose cause is deliberately not exposed to the caller.
@@ -87,6 +123,10 @@ impl ErrorCode {
         match self {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::BadRequest => StatusCode::BAD_REQUEST,
+            Self::Unauthorized => StatusCode::UNAUTHORIZED,
+            Self::Forbidden => StatusCode::FORBIDDEN,
+            Self::Conflict => StatusCode::CONFLICT,
+            Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
@@ -99,6 +139,10 @@ impl ErrorCode {
         match self {
             Self::NotFound => "the requested resource does not exist",
             Self::BadRequest => "the request could not be understood",
+            Self::Unauthorized => "sign in to do that",
+            Self::Forbidden => "your account is not allowed to do that",
+            Self::Conflict => "that already exists",
+            Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
             Self::Unavailable => "the service is not accepting requests right now",
             Self::Internal => "an internal error occurred",
@@ -121,12 +165,18 @@ impl Error {
     pub const fn code(&self) -> ErrorCode {
         match self {
             Self::NotFound => ErrorCode::NotFound,
-            Self::BadRequest(_) => ErrorCode::BadRequest,
+            Self::BadRequest(_) | Self::Domain(_) => ErrorCode::BadRequest,
+            Self::Unauthorized => ErrorCode::Unauthorized,
+            Self::Forbidden => ErrorCode::Forbidden,
+            Self::Conflict(_) => ErrorCode::Conflict,
+            Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
             Self::Unavailable => ErrorCode::Unavailable,
-            Self::Database(_) | Self::Storage(_) | Self::Io(_) | Self::Config(_) => {
-                ErrorCode::Internal
-            }
+            Self::Database(_)
+            | Self::Storage(_)
+            | Self::Password(_)
+            | Self::Io(_)
+            | Self::Config(_) => ErrorCode::Internal,
         }
     }
 
@@ -146,7 +196,10 @@ impl Error {
     #[must_use]
     pub fn public_message(&self) -> String {
         match self {
-            Self::BadRequest(message) => message.clone(),
+            // These carry text the caller needs and that is safe to echo: it
+            // describes what they sent, not what the server holds.
+            Self::BadRequest(message) | Self::Conflict(message) => message.clone(),
+            Self::Domain(error) => error.to_string(),
             other => other.code().message().to_owned(),
         }
     }
@@ -170,9 +223,49 @@ impl IntoResponse for Error {
         } else {
             tracing::debug!(error = %self, "request rejected");
         }
-        (self.status(), Json(self.body())).into_response()
+        // A 429 without `Retry-After` tells a client to back off but not for how
+        // long, so every client invents its own answer. The body carries nothing
+        // the header does not — this is the field HTTP already has for it.
+        let retry_after = match self {
+            Self::TooManyRequests { retry_after_secs } => {
+                HeaderValue::from_str(&retry_after_secs.to_string()).ok()
+            }
+            _ => None,
+        };
+
+        let mut response = (self.status(), Json(self.body())).into_response();
+        if let Some(value) = retry_after {
+            response.headers_mut().insert(header::RETRY_AFTER, value);
+        }
+        response
     }
 }
+
+/// Repository failures collapse to [`Error::Database`].
+///
+/// A row that violates today's rules is an internal problem, not the caller's:
+/// they asked for something perfectly reasonable and our storage could not
+/// answer. It is logged with the offending row's id and reported as a 500.
+macro_rules! repository_error {
+    ($module:ident :: $error:ident) => {
+        impl From<crate::db::repository::$module::$error> for Error {
+            fn from(error: crate::db::repository::$module::$error) -> Self {
+                use crate::db::repository::$module::$error as Source;
+                match error {
+                    Source::Database(inner) => Self::Database(inner),
+                    Source::Corrupt(inner) => {
+                        tracing::error!(%inner, "a stored row is not usable");
+                        Self::Database(sea_orm::DbErr::Custom(inner.to_string()))
+                    }
+                }
+            }
+        }
+    };
+}
+
+repository_error!(user::UserRepositoryError);
+repository_error!(session::SessionRepositoryError);
+repository_error!(api_token::ApiTokenRepositoryError);
 
 #[cfg(test)]
 mod tests {
