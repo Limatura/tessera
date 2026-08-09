@@ -6,7 +6,10 @@
 
 mod common;
 
-use axum::http::{StatusCode, header};
+use axum::{
+    body::Body,
+    http::{Request, StatusCode, header},
+};
 use common::{TestApp, body_json, body_string, expect_status};
 use tessera_server::{api, state::ServiceStatus};
 
@@ -207,5 +210,72 @@ async fn no_cors_headers_are_issued_for_the_same_origin_default() {
         !response
             .headers()
             .contains_key(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+    );
+}
+
+/// A front-end on its own dev server has to be able to hold the session cookie.
+/// Without `Access-Control-Allow-Credentials` a browser drops it, and the app
+/// logs in and is immediately logged out again.
+#[tokio::test]
+async fn a_named_origin_may_carry_credentials() {
+    let app = TestApp::with_config(|config| {
+        config.server.cors_allowed_origins = vec!["http://localhost:3001".to_owned()];
+    })
+    .await;
+
+    let response = app
+        .send(
+            Request::builder()
+                .uri("/api/v1/capabilities")
+                .header(header::ORIGIN, "http://localhost:3001"),
+            Body::empty(),
+        )
+        .await;
+
+    assert_eq!(
+        response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+            .and_then(|value| value.to_str().ok()),
+        Some("http://localhost:3001")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_CREDENTIALS)
+            .and_then(|value| value.to_str().ok()),
+        Some("true")
+    );
+}
+
+/// The Fetch standard refuses credentials alongside a wildcard origin, and a
+/// browser drops the entire response rather than explaining why.
+#[tokio::test]
+async fn a_wildcard_origin_does_not_claim_to_carry_credentials() {
+    let app = TestApp::with_config(|config| {
+        config.server.cors_allowed_origins = vec!["*".to_owned()];
+    })
+    .await;
+
+    let response = app
+        .send(
+            Request::builder()
+                .uri("/api/v1/capabilities")
+                .header(header::ORIGIN, "http://anywhere.example"),
+            Body::empty(),
+        )
+        .await;
+
+    assert_eq!(
+        response
+            .headers()
+            .get(header::ACCESS_CONTROL_ALLOW_ORIGIN)
+            .and_then(|value| value.to_str().ok()),
+        Some("*")
+    );
+    assert!(
+        !response
+            .headers()
+            .contains_key(header::ACCESS_CONTROL_ALLOW_CREDENTIALS)
     );
 }

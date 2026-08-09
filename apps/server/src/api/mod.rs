@@ -247,7 +247,8 @@ fn cors(config: &Config) -> CorsLayer {
         return CorsLayer::new();
     }
 
-    let allow_origin = if origins.iter().any(|origin| origin == "*") {
+    let wildcard = origins.iter().any(|origin| origin == "*");
+    let allow_origin = if wildcard {
         AllowOrigin::any()
     } else {
         AllowOrigin::list(
@@ -259,6 +260,12 @@ fn cors(config: &Config) -> CorsLayer {
 
     CorsLayer::new()
         .allow_origin(allow_origin)
+        // Without this a browser will not send the session cookie to another
+        // origin, so a front-end running on its own dev server can log in and
+        // then find itself logged out on the next request. Named origins only:
+        // the Fetch standard refuses credentials alongside `*`, and a browser
+        // would drop the whole response rather than tell anyone why.
+        .allow_credentials(!wildcard)
         .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         .allow_headers([
             header::CONTENT_TYPE,
