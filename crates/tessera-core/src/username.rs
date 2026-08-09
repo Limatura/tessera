@@ -58,8 +58,32 @@ impl Username {
     ///
     /// Returns [`DomainError`] if the value is empty, outside
     /// [`MIN_LENGTH`](Self::MIN_LENGTH)..=[`MAX_LENGTH`](Self::MAX_LENGTH), contains a character
-    /// outside the alphabet, starts with punctuation, or is [`RESERVED`].
+    /// outside the alphabet, starts with punctuation, or is one of the reserved
+    /// names.
     pub fn parse(raw: &str) -> Result<Self, DomainError> {
+        Self::parse_inner(raw, false)
+    }
+
+    /// [`Username::parse`], but the reserved list does not apply.
+    ///
+    /// For the administrator an instance creates for itself at first run, and
+    /// nothing else. The reserved list exists to stop a *stranger* claiming a
+    /// name that would mislead — `admin`, `support`, `security`. The operator's
+    /// own administrator account is the one case where holding such a name is
+    /// accurate rather than misleading, and refusing it would mean the shipped
+    /// default configuration cannot start.
+    ///
+    /// Every other rule still applies, so this cannot produce a name that is
+    /// unrepresentable, unroutable or a Unicode look-alike.
+    ///
+    /// # Errors
+    ///
+    /// As [`Username::parse`], minus [`DomainError::Reserved`].
+    pub fn parse_privileged(raw: &str) -> Result<Self, DomainError> {
+        Self::parse_inner(raw, true)
+    }
+
+    fn parse_inner(raw: &str, allow_reserved: bool) -> Result<Self, DomainError> {
         let normalised = raw.trim().to_ascii_lowercase();
 
         if normalised.is_empty() {
@@ -93,7 +117,7 @@ impl Username {
             });
         }
 
-        if RESERVED.contains(&normalised.as_str()) {
+        if !allow_reserved && RESERVED.contains(&normalised.as_str()) {
             return Err(DomainError::Reserved { value: normalised });
         }
 
@@ -141,6 +165,29 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    /// The reserved list stops a stranger claiming a misleading name. The
+    /// instance's own administrator is the one caller for whom `admin` is
+    /// accurate, and the shipped default configuration depends on it.
+    #[test]
+    fn privileged_parsing_admits_reserved_names_and_nothing_else() {
+        for name in RESERVED {
+            assert!(Username::parse(name).is_err(), "{name} should be reserved");
+            assert_eq!(
+                Username::parse_privileged(name).map(|n| n.as_str().to_owned()),
+                Ok(name.to_owned()),
+                "{name} should be available to the instance itself"
+            );
+        }
+
+        // Every other rule still applies.
+        for bad in ["", "ab", "_leading", "has space", "\u{430}lice"] {
+            assert!(
+                Username::parse_privileged(bad).is_err(),
+                "`{bad}` should still be refused"
+            );
+        }
+    }
 
     #[rstest]
     #[case::simple("alice")]

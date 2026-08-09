@@ -36,6 +36,29 @@ impl PasswordPolicy {
     /// choose "1" would make the type's guarantee meaningless.
     pub const FLOOR: usize = 8;
 
+    /// The widest policy any instance could ever have had.
+    ///
+    /// # What this is for
+    ///
+    /// A policy describes passwords a person may *choose*. It must not describe
+    /// the ones they may *present*: an operator who raises `min_length` from 8
+    /// to 16 would otherwise lock out every account whose password is 12
+    /// characters long — not by refusing it, but by rejecting the input before
+    /// it ever reaches the hash, so the person sees "wrong password" for a
+    /// password that is right.
+    ///
+    /// So sign-in and change-password parse against this, and only choosing a
+    /// *new* password is checked against the configured policy. The bounds are
+    /// still real: they are the ones that make [`Password`] a meaningful type at
+    /// all, and they cap the work an unauthenticated request can ask for.
+    #[must_use]
+    pub const fn widest() -> Self {
+        Self {
+            min_length: Self::FLOOR,
+            max_length: Self::CEILING,
+        }
+    }
+
     /// Whether the policy is usable.
     ///
     /// # Errors
@@ -182,6 +205,32 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    /// The widest policy must accept anything any configured policy could have
+    /// accepted, or raising `min_length` silently locks existing accounts out.
+    #[test]
+    fn the_widest_policy_admits_every_valid_policy() {
+        let widest = PasswordPolicy::widest();
+        assert!(widest.validate().is_ok());
+
+        for min in [PasswordPolicy::FLOOR, 12, 64] {
+            for max in [64, 256, PasswordPolicy::CEILING] {
+                if min > max {
+                    continue;
+                }
+                let policy = PasswordPolicy {
+                    min_length: min,
+                    max_length: max,
+                };
+                assert!(policy.validate().is_ok(), "{policy:?} should be valid");
+                assert!(
+                    widest.min_length <= policy.min_length
+                        && widest.max_length >= policy.max_length,
+                    "{policy:?} is not covered by the widest policy"
+                );
+            }
+        }
+    }
 
     const POLICY: PasswordPolicy = PasswordPolicy {
         min_length: 12,
