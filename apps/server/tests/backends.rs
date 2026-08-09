@@ -33,7 +33,7 @@
 mod common;
 
 use axum::http::StatusCode;
-use common::{TestApp, body_json, expect_status};
+use common::{TestApp, account_lifecycle, body_json, expect_status};
 use sea_orm::{ConnectionTrait as _, Statement};
 use tessera_server::{
     config::DatabaseConfig,
@@ -125,4 +125,28 @@ async fn health_reports_this_backend() {
     assert_eq!(body["status"], "ready");
     assert_eq!(body["database"], expected_backend().as_str());
     assert_eq!(body["version"], tessera_server::VERSION);
+}
+
+/// The reason this suite exists at all, applied to the tables that carry data.
+///
+/// Connecting and migrating only prove the DDL parses. Whether the entities and
+/// the hand-written per-dialect SQL agree about every *column* — Postgres
+/// `TIMESTAMPTZ` against SQLite's TEXT, MySQL's `BOOLEAN` being `TINYINT(1)`,
+/// nullability, the unique indexes and the foreign keys — is only settled by
+/// writing rows and reading them back. That is what this does, through the HTTP
+/// surface, so a disagreement shows up as the wrong status code rather than as a
+/// panic nobody maps back to a schema.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn accounts_sessions_and_tokens_round_trip() {
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    // Unlike the in-memory SQLite the other suites use, this database survives
+    // the run — so the account names have to be unique or the second invocation
+    // fails on a conflict that says nothing about the schema.
+    // Whole seconds, because a username is capped at 32 characters and the
+    // backend name has already spent some of them.
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs());
+    account_lifecycle(&app, &format!("{}{suffix}", expected_backend().as_str())).await;
 }

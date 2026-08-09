@@ -104,38 +104,51 @@ async fn contract_is_served_as_json() {
 }
 
 #[tokio::test]
-async fn swagger_ui_is_served_when_docs_are_enabled() {
+async fn the_api_reference_is_off_by_default() {
+    // A development convenience, so the shipped defaults do not serve it. An
+    // instance that has not opted in answers `/docs` with the SPA, like any
+    // other unknown client-side route.
     let app = TestApp::ready().await;
-    // The UI redirects `/docs` to `/docs/` before serving the page.
-    let response = app.get("/docs/").await;
-    assert_eq!(response.status(), StatusCode::OK);
-    assert!(body_string(response).await.contains("swagger"));
+    let response = expect_status(app.get("/docs").await, StatusCode::OK).await;
+    let body = body_string(response).await;
+    assert!(
+        body.contains("<!doctype html>"),
+        "should be the SPA fallback"
+    );
+    assert!(
+        !body.contains("scalar"),
+        "the reference should not be mounted"
+    );
 }
 
-/// Regression test. The Swagger UI answers `/docs` with a redirect to `/docs/`;
-/// adding trailing-slash normalisation in front of it turns that into an
-/// infinite loop, which is exactly what happened the first time this stack ran
-/// in a container.
 #[tokio::test]
-async fn docs_redirect_terminates() {
-    let app = TestApp::ready().await;
+async fn the_api_reference_is_served_when_enabled() {
+    let app = TestApp::with_config(|config| config.features.docs = true).await;
+    let response = expect_status(app.get("/docs").await, StatusCode::OK).await;
+    assert!(body_string(response).await.contains("scalar"));
+}
 
-    let mut path = "/docs".to_owned();
-    for hop in 0..5 {
-        let response = app.get(&path).await;
-        let Some(location) = response.headers().get(header::LOCATION) else {
-            assert_eq!(
-                response.status(),
-                StatusCode::OK,
-                "settled on a non-200 at `{path}`"
-            );
-            return;
-        };
-        let next = location.to_str().expect("location header").to_owned();
-        assert_ne!(next, path, "`{path}` redirects to itself (hop {hop})");
-        path = next;
+/// Scalar serves the page directly, with no redirect. The previous UI answered
+/// `/docs` with a redirect to `/docs/`, which became an infinite loop the first
+/// time this stack ran behind trailing-slash normalisation — so the absence of a
+/// redirect is worth asserting rather than assuming.
+#[tokio::test]
+async fn the_api_reference_does_not_redirect() {
+    let app = TestApp::with_config(|config| config.features.docs = true).await;
+    let response = app.get("/docs").await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(!response.headers().contains_key(header::LOCATION));
+}
+
+/// Turning the UI off must not hide the contract: client generators and the CI
+/// drift check both read it from a running instance.
+#[tokio::test]
+async fn the_contract_is_served_whether_or_not_the_reference_is() {
+    for docs in [false, true] {
+        let app = TestApp::with_config(|config| config.features.docs = docs).await;
+        let response = app.get(api::OPENAPI_PATH).await;
+        assert_eq!(response.status(), StatusCode::OK, "docs = {docs}");
     }
-    panic!("`/docs` never stopped redirecting");
 }
 
 #[tokio::test]

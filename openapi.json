@@ -6,6 +6,250 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Signs in.",
+        "description": "# Errors\n\n`401` when the credentials do not match, `429` when too many attempts have\nfailed, `404` when the instance has no accounts.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed attempts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Ends the current session.",
+        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "operationId": "logout",
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/password": {
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Changes the caller's password.",
+        "description": "Every other session is ended, and a fresh one is issued so the caller stays\nsigned in where they are. Whoever knew the old password may be holding a\nsession, and changing a password is how a person says they want that to stop.\n\n# Errors\n\n`401` when the current password is wrong, `403` when authenticated with an\nAPI token, `400` when the new password fails the policy.",
+        "operationId": "change_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Changed; other sessions ended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The new password fails the policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The current password is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted with an API token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Creates an account and signs it in.",
+        "description": "# Errors\n\n`404` when the instance has no accounts, `403` when registration is closed,\n`409` when the name or address is taken, `400` when a value fails its rule.",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Account created and signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value failed its rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Registration is closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Name or address is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Reports who the caller is.",
+        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "operationId": "session",
+        "responses": {
+          "200": {
+            "description": "The signed-in account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/capabilities": {
       "get": {
         "tags": [
@@ -26,6 +270,175 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/tokens": {
+      "get": {
+        "tags": [
+          "tokens"
+        ],
+        "summary": "Lists the caller's tokens, newest first.",
+        "description": "# Errors\n\n`401` when nothing was signed in — which is also what an instance with\naccounts turned off answers, since there is nobody to be.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "The caller's tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TokenResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "tokens"
+        ],
+        "summary": "Issues a token and returns its secret, once.",
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with a token\nrather than a session, `400` when the name or lifetime is unusable.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Issued; the secret is shown only here",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The name or lifetime is unusable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted with an API token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tokens/{id}": {
+      "delete": {
+        "tags": [
+          "tokens"
+        ],
+        "summary": "Revokes one of the caller's tokens.",
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with a token,\n`404` when no live token of the caller's has that id.",
+        "operationId": "revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token's identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted with an API token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No live token of yours has that id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
       }
     },
     "/health": {
@@ -63,6 +476,42 @@
   },
   "components": {
     "schemas": {
+      "AccountResponse": {
+        "type": "object",
+        "description": "An account, as the API describes it. Never carries a hash.",
+        "required": [
+          "id",
+          "username",
+          "email",
+          "is_admin",
+          "must_change_password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Normalised address.",
+            "example": "alice@example.com"
+          },
+          "id": {
+            "type": "string",
+            "description": "Stable identifier.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "description": "Whether the account may reach the administrative endpoints."
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "description": "Whether the account must set a new password before doing anything else.\n\nSet on the administrator generated at first run. A client seeing this\nshould send the user to a change-password screen and nowhere else."
+          },
+          "username": {
+            "type": "string",
+            "description": "Normalised account name.",
+            "example": "alice"
+          }
+        }
+      },
       "Capabilities": {
         "type": "object",
         "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact: it describes every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade. A single-page app generated from the contract therefore cannot know\nwhether to render a login button — the contract says login exists, and on\nthis deployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is deliberately unauthenticated: a client needs the answer before\nit can know whether logging in is even possible.",
@@ -112,6 +561,70 @@
           }
         }
       },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "description": "Body of `PATCH /auth/password`.",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "description": "The password in force now. Required even though the caller is signed in:\nit is what stops a borrowed, unlocked browser from taking the account."
+          },
+          "new_password": {
+            "type": "string",
+            "description": "The replacement."
+          }
+        }
+      },
+      "CreateTokenRequest": {
+        "type": "object",
+        "description": "Body of `POST /tokens`.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "expires_in_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How long the token should last, in days. Omit for a token that lives\nuntil it is revoked.",
+            "example": 90,
+            "minimum": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "A label for the token, so its owner can recognise it later.",
+            "example": "backup script"
+          }
+        }
+      },
+      "CreatedTokenResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TokenResponse",
+            "description": "The token's metadata, identical to what a listing returns."
+          },
+          {
+            "type": "object",
+            "required": [
+              "secret"
+            ],
+            "properties": {
+              "secret": {
+                "type": "string",
+                "description": "The secret, in full.\n\n**Shown once.** Only its SHA-256 digest is stored, so this value cannot be\nrecovered — a client that does not keep it has to issue another token.",
+                "example": "tsk_a1b2c3d4e5f6..."
+              }
+            }
+          }
+        ],
+        "description": "A newly issued token. The only response that ever carries the secret."
+      },
       "ErrorBody": {
         "type": "object",
         "description": "The JSON body returned for every non-2xx response.",
@@ -137,6 +650,10 @@
           "not_found",
           "bad_request",
           "payload_too_large",
+          "unauthorized",
+          "forbidden",
+          "conflict",
+          "too_many_requests",
           "unavailable",
           "internal"
         ]
@@ -180,6 +697,52 @@
           }
         }
       },
+      "LoginRequest": {
+        "type": "object",
+        "description": "Body of `POST /auth/login`.",
+        "required": [
+          "identifier",
+          "password"
+        ],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Username or email address; either is accepted.",
+            "example": "alice"
+          },
+          "password": {
+            "type": "string",
+            "description": "The account's password.",
+            "example": "correct horse battery staple"
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "description": "Body of `POST /auth/register`.",
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Address to reach the account at.",
+            "example": "alice@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "At least `password_min_length` characters — see `/capabilities`.",
+            "example": "correct horse battery staple"
+          },
+          "username": {
+            "type": "string",
+            "description": "3–32 characters: letters, digits, `_` and `-`, starting with a letter or\ndigit. Stored lowercased.",
+            "example": "alice"
+          }
+        }
+      },
       "RegistrationPolicy": {
         "type": "string",
         "description": "Who may create an account.",
@@ -197,6 +760,72 @@
           "ready",
           "draining"
         ]
+      },
+      "TokenResponse": {
+        "type": "object",
+        "description": "An issued token, as a listing describes it. Never carries the secret.",
+        "required": [
+          "id",
+          "name",
+          "display_prefix",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was issued, RFC 3339."
+          },
+          "display_prefix": {
+            "type": "string",
+            "description": "Leading characters of the secret, so a person can tell two tokens apart\nwithout the service having to store either of them.",
+            "example": "tsk_a1b2"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it stops being accepted, or `null` to live until revoked."
+          },
+          "id": {
+            "type": "string",
+            "description": "Stable identifier; what `DELETE /tokens/{id}` takes.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S"
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was last accepted, if ever."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the owner called it.",
+            "example": "backup script"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was revoked, if it was."
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "tsk_*",
+        "description": "An API token from `POST /api/v1/tokens`, sent as `Authorization: Bearer tsk_…`. Shown once at creation."
+      },
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "tessera_session",
+        "description": "Set by `POST /auth/login`. A browser sends it automatically; it is `HttpOnly`, so page scripts cannot read or set it."
       }
     }
   },
@@ -204,6 +833,14 @@
     {
       "name": "system",
       "description": "Health and service metadata"
+    },
+    {
+      "name": "auth",
+      "description": "Registration, sign-in and passwords"
+    },
+    {
+      "name": "tokens",
+      "description": "API tokens for non-browser callers"
     }
   ]
 }
