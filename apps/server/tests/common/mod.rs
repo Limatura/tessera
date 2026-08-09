@@ -521,3 +521,15 @@ fn string_field(value: &serde_json::Value, key: &str) -> String {
 fn json_string(value: &str) -> serde_json::Value {
     serde_json::Value::String(value.to_owned())
 }
+
+/// Sets the flag directly. The bootstrap only sets it for a password it
+/// generated, and a test that wanted one would have to scrape a log line.
+pub(crate) async fn force_password_change(app: &TestApp, username: &str) {
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!("UPDATE users SET must_change_password = 1 WHERE username = '{username}'"),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("set the flag");
+}

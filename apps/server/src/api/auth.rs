@@ -16,7 +16,7 @@ use crate::{
     api::AUTH_TAG,
     auth::{
         cookie,
-        extract::{ClientAddress, Credential, CurrentUser},
+        extract::{ClientAddress, Credential, SelfServiceUser},
         password,
         throttle::Decision,
     },
@@ -286,7 +286,7 @@ pub async fn login(
 pub async fn logout(
     State(state): State<AppState>,
     headers: HeaderMap,
-    current: CurrentUser,
+    SelfServiceUser(current): SelfServiceUser,
 ) -> Result<Response> {
     // Only a session can be logged out of. A bearer token is revoked, not
     // signed out — treating logout as revocation would let a stolen token
@@ -328,7 +328,7 @@ pub async fn logout(
     ),
     security(("session" = []), ("bearer" = [])),
 )]
-pub async fn session(current: CurrentUser) -> Result<Json<AccountResponse>> {
+pub async fn session(SelfServiceUser(current): SelfServiceUser) -> Result<Json<AccountResponse>> {
     Ok(Json(AccountResponse::from(&current.user)))
 }
 
@@ -358,7 +358,7 @@ pub async fn session(current: CurrentUser) -> Result<Json<AccountResponse>> {
 pub async fn change_password(
     State(state): State<AppState>,
     headers: HeaderMap,
-    current: CurrentUser,
+    SelfServiceUser(current): SelfServiceUser,
     Json(body): Json<ChangePasswordRequest>,
 ) -> Result<Response> {
     // A leaked API token must not be able to take the account. Requiring the

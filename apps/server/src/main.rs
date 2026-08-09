@@ -19,6 +19,7 @@ use tessera_server::{
     config::Config,
     db,
     db::repository::user::UserRepository,
+    maintenance,
     state::{AppState, ServiceStatus},
     storage, telemetry,
 };
@@ -112,6 +113,10 @@ async fn main() -> anyhow::Result<()> {
 
     let shutdown = CancellationToken::new();
     let signal_task = tokio::spawn(watch_for_shutdown(shutdown.clone()));
+    let sweep_task = tokio::spawn(maintenance::sweep_expired_sessions(
+        state.sessions.clone(),
+        shutdown.clone(),
+    ));
 
     let drain = shutdown.clone();
     let state_for_drain = state.clone();
@@ -137,6 +142,13 @@ async fn main() -> anyhow::Result<()> {
     .context("the HTTP server stopped unexpectedly")?;
 
     signal_task.abort();
+    // Not aborted: the sweep watches the same token, so it is already returning,
+    // and letting it finish means the pool is never closed mid-`DELETE`. A join
+    // error here means the task panicked, which the sweep's own error handling
+    // makes unreachable and which is not worth failing shutdown over.
+    if let Err(error) = sweep_task.await {
+        tracing::warn!(?error, "the session sweep did not stop cleanly");
+    }
     // Closing the pool checkpoints the SQLite WAL, so the next start-up does not
     // have to replay it.
     db::close(db).await;

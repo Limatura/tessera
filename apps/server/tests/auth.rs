@@ -9,7 +9,10 @@
 mod common;
 
 use axum::http::{Method, StatusCode, header};
-use common::{Auth, TestApp, account_lifecycle, body_json, expect_status, session_cookie};
+use common::{
+    Auth, TestApp, account_lifecycle, body_json, expect_status, force_password_change,
+    session_cookie,
+};
 use tessera_server::config::RegistrationPolicy;
 
 /// Password used wherever the value itself does not matter.
@@ -583,4 +586,150 @@ async fn a_generated_administrator_password_must_be_changed() {
         admin.must_change_password,
         "a password nobody chose has been through a log file and must be replaced"
     );
+}
+
+/// A flag the server reports but does not enforce is a request that the client
+/// please behave — and the account carrying it administers the instance.
+#[tokio::test]
+async fn an_account_owing_a_password_change_can_only_fix_itself() {
+    // A configured password, then the flag set by hand. The bootstrap only sets
+    // the flag for a password it generated, and that password exists nowhere a
+    // test could read it — which is exactly why the flag has to be enforced.
+    let app = TestApp::with_config(|config| {
+        config.auth.admin_password = PASSWORD.to_owned();
+    })
+    .await;
+    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
+        .await
+        .expect("bootstrap");
+    force_password_change(&app, "admin").await;
+
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "admin", "password": PASSWORD }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let cookie = session_cookie(&response);
+
+    // Reading its own identity still works — a client has to be able to see why
+    // it is being refused.
+    let body = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(body["must_change_password"], true);
+
+    // Everything else is refused, with a code the client can branch on.
+    let refused = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/tokens",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "name": "too soon" }),
+        )
+        .await,
+        StatusCode::FORBIDDEN,
+    )
+    .await;
+    assert_eq!(body_json(refused).await["code"], "password_change_required");
+    expect_status(
+        app.empty(Method::GET, "/api/v1/tokens", Auth::Cookie(&cookie))
+            .await,
+        StatusCode::FORBIDDEN,
+    )
+    .await;
+
+    // Changing the password lifts it, in the same request.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/auth/password",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({
+                "current_password": PASSWORD,
+                "new_password": "an entirely different passphrase",
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // The change issued a fresh session; sign in again to pick one up.
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({
+                "identifier": "admin",
+                "password": "an entirely different passphrase",
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let cookie = session_cookie(&response);
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/tokens",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "name": "now allowed" }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+}
+
+/// Sessions nobody comes back for are only removed by the sweep — without it the
+/// table grows for as long as the instance lives.
+#[tokio::test]
+async fn the_sweep_removes_sessions_nobody_returns_for() {
+    let app = TestApp::ready().await;
+    register(&app, "abandoner").await;
+
+    let past = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!(
+            "UPDATE sessions SET expires_at = '{}'",
+            past.format(&time::format_description::well_known::Rfc3339)
+                .expect("formattable")
+        ),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("expire the session");
+
+    let removed = app
+        .state
+        .sessions
+        .delete_expired(time::OffsetDateTime::now_utc())
+        .await
+        .expect("sweep");
+    assert_eq!(removed, 1);
+
+    // And a live one is left alone.
+    register(&app, "stillhere").await;
+    let removed = app
+        .state
+        .sessions
+        .delete_expired(time::OffsetDateTime::now_utc())
+        .await
+        .expect("sweep");
+    assert_eq!(removed, 0);
 }

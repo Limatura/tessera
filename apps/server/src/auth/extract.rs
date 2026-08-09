@@ -35,7 +35,13 @@ pub enum Credential {
     ApiToken,
 }
 
-/// An authenticated account.
+/// An authenticated account that is free to act.
+///
+/// An account whose password must be changed is **not** one of these. That check
+/// lives here, in the extractor every handler already has to go through, rather
+/// than in each handler — a flag the server reports but does not enforce is a
+/// request that the client please behave, and the one account that carries it is
+/// the administrator of the instance.
 #[derive(Debug, Clone)]
 pub struct CurrentUser {
     /// The account.
@@ -44,6 +50,15 @@ pub struct CurrentUser {
     /// that matters — changing a password with an API token, for instance.
     pub credential: Credential,
 }
+
+/// An authenticated account, whether or not it owes a password change.
+///
+/// For the three endpoints that must keep working while an account is held in
+/// the change-password flow: reading its own identity, changing the password,
+/// and signing out. Everything else takes [`CurrentUser`], so forgetting to
+/// think about this state gives you the strict behaviour rather than the lax one.
+#[derive(Debug, Clone)]
+pub struct SelfServiceUser(pub CurrentUser);
 
 /// An authenticated administrator.
 #[derive(Debug, Clone)]
@@ -70,7 +85,7 @@ impl FromRequestParts<AppState> for MaybeUser {
     }
 }
 
-impl FromRequestParts<AppState> for CurrentUser {
+impl FromRequestParts<AppState> for SelfServiceUser {
     type Rejection = Error;
 
     async fn from_request_parts(
@@ -78,7 +93,22 @@ impl FromRequestParts<AppState> for CurrentUser {
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
         let MaybeUser(user) = MaybeUser::from_request_parts(parts, state).await?;
-        user.ok_or(Error::Unauthorized)
+        user.map(Self).ok_or(Error::Unauthorized)
+    }
+}
+
+impl FromRequestParts<AppState> for CurrentUser {
+    type Rejection = Error;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
+        let SelfServiceUser(current) = SelfServiceUser::from_request_parts(parts, state).await?;
+        if current.user.must_change_password {
+            return Err(Error::PasswordChangeRequired);
+        }
+        Ok(current)
     }
 }
 

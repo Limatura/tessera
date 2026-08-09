@@ -108,7 +108,8 @@ impl From<ApiToken> for TokenResponse {
 /// # Errors
 ///
 /// `401` when nothing was signed in — which is also what an instance with
-/// accounts turned off answers, since there is nobody to be.
+/// accounts turned off answers, since there is nobody to be. `403` when the
+/// account still owes a password change.
 #[utoipa::path(
     get,
     path = "/tokens",
@@ -116,6 +117,7 @@ impl From<ApiToken> for TokenResponse {
     responses(
         (status = 200, description = "The caller's tokens", body = Vec<TokenResponse>),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "A password change is due", body = crate::error::ErrorBody),
     ),
     security(("session" = []), ("bearer" = [])),
 )]
@@ -142,7 +144,7 @@ pub async fn list(
         (status = 201, description = "Issued; the secret is shown only here", body = CreatedTokenResponse),
         (status = 400, description = "The name or lifetime is unusable", body = crate::error::ErrorBody),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
-        (status = 403, description = "Not permitted with an API token", body = crate::error::ErrorBody),
+        (status = 403, description = "Authenticated with an API token, or a password change is due", body = crate::error::ErrorBody),
     ),
     security(("session" = [])),
 )]
@@ -213,7 +215,7 @@ pub async fn create(
     responses(
         (status = 204, description = "Revoked"),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
-        (status = 403, description = "Not permitted with an API token", body = crate::error::ErrorBody),
+        (status = 403, description = "Authenticated with an API token, or a password change is due", body = crate::error::ErrorBody),
         (status = 404, description = "No live token of yours has that id", body = crate::error::ErrorBody),
     ),
     security(("session" = [])),

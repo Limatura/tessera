@@ -39,6 +39,15 @@ pub enum Error {
     #[error("forbidden")]
     Forbidden,
 
+    /// The account must set a new password before it may do anything else.
+    ///
+    /// Distinct from [`Error::Forbidden`] because a client can act on it: the
+    /// answer is always "send the user to the change-password screen", and
+    /// collapsing it into a generic 403 leaves the client guessing which of the
+    /// several reasons it was.
+    #[error("password change required")]
+    PasswordChangeRequired,
+
     /// The request conflicts with something that already exists.
     #[error("{0}")]
     Conflict(String),
@@ -97,6 +106,8 @@ pub enum ErrorCode {
     Unauthorized,
     /// See [`Error::Forbidden`].
     Forbidden,
+    /// See [`Error::PasswordChangeRequired`].
+    PasswordChangeRequired,
     /// See [`Error::Conflict`].
     Conflict,
     /// See [`Error::TooManyRequests`].
@@ -124,7 +135,7 @@ impl ErrorCode {
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::BadRequest => StatusCode::BAD_REQUEST,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::Forbidden => StatusCode::FORBIDDEN,
+            Self::Forbidden | Self::PasswordChangeRequired => StatusCode::FORBIDDEN,
             Self::Conflict => StatusCode::CONFLICT,
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
@@ -141,6 +152,7 @@ impl ErrorCode {
             Self::BadRequest => "the request could not be understood",
             Self::Unauthorized => "sign in to do that",
             Self::Forbidden => "your account is not allowed to do that",
+            Self::PasswordChangeRequired => "set a new password before doing anything else",
             Self::Conflict => "that already exists",
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
@@ -168,6 +180,7 @@ impl Error {
             Self::BadRequest(_) | Self::Domain(_) => ErrorCode::BadRequest,
             Self::Unauthorized => ErrorCode::Unauthorized,
             Self::Forbidden => ErrorCode::Forbidden,
+            Self::PasswordChangeRequired => ErrorCode::PasswordChangeRequired,
             Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,

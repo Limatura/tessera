@@ -278,7 +278,7 @@
           "tokens"
         ],
         "summary": "Lists the caller's tokens, newest first.",
-        "description": "# Errors\n\n`401` when nothing was signed in — which is also what an instance with\naccounts turned off answers, since there is nobody to be.",
+        "description": "# Errors\n\n`401` when nothing was signed in — which is also what an instance with\naccounts turned off answers, since there is nobody to be. `403` when the\naccount still owes a password change.",
         "operationId": "list",
         "responses": {
           "200": {
@@ -296,6 +296,16 @@
           },
           "401": {
             "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A password change is due",
             "content": {
               "application/json": {
                 "schema": {
@@ -363,7 +373,7 @@
             }
           },
           "403": {
-            "description": "Not permitted with an API token",
+            "description": "Authenticated with an API token, or a password change is due",
             "content": {
               "application/json": {
                 "schema": {
@@ -414,7 +424,7 @@
             }
           },
           "403": {
-            "description": "Not permitted with an API token",
+            "description": "Authenticated with an API token, or a password change is due",
             "content": {
               "application/json": {
                 "schema": {
@@ -652,6 +662,7 @@
           "payload_too_large",
           "unauthorized",
           "forbidden",
+          "password_change_required",
           "conflict",
           "too_many_requests",
           "unavailable",
