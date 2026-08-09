@@ -30,7 +30,11 @@ export function getPageImageUrl(page: (typeof source)["$inferPage"]) {
 
   return {
     segments,
-    url: "/" + [page.locale, ...docsImageRoute.split("/"), ...segments].filter(Boolean).join("/"),
+    url:
+      "/" +
+      [page.locale, ...docsImageRoute.split("/"), ...segments]
+        .filter(Boolean)
+        .join("/"),
   };
 }
 
@@ -39,7 +43,11 @@ export function getPageMarkdownUrl(page: (typeof source)["$inferPage"]) {
 
   return {
     segments,
-    url: "/" + [page.locale, ...docsContentRoute.split("/"), ...segments].filter(Boolean).join("/"),
+    url:
+      "/" +
+      [page.locale, ...docsContentRoute.split("/"), ...segments]
+        .filter(Boolean)
+        .join("/"),
   };
 }
 

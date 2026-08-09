@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite dev --port 3001",
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite",
@@ -12,10 +12,11 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
-    "@my-better-t-app/env": "workspace:*",
-    "@my-better-t-app/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
+    "@tessera/env": "workspace:*",
+    "@tessera/i18n": "workspace:*",
+    "@tessera/ui": "workspace:*",
     "dotenv": "catalog:",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
@@ -25,9 +26,9 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@my-better-t-app/config": "workspace:*",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",
+    "@tessera/config": "workspace:*",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
