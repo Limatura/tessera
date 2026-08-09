@@ -10,5 +10,6 @@ export default defineConfig({
   rules: {
     "func-style": "off",
     "no-use-before-define": "off",
+    "react/no-unescaped-entities": "off",
   },
 });
