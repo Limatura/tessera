@@ -1,0 +1,11 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_language": "語言",
+  "common_switch_language": "切換語言",
+  "header_dashboard": "控制台",
+  "header_home": "首頁",
+  "home_api_status": "API 狀態",
+  "home_description": "預設語系已設定為繁體中文。",
+  "home_subtitle": "這個應用使用共享 monorepo 的 i18n 套件。",
+  "home_title": "歡迎來到 Web 應用"
+}

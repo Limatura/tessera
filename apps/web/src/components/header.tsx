@@ -1,11 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { useI18n } from "@tessera/i18n";
+
+import { m } from "@/paraglide/messages.js";
+import { getLocale, locales, setLocale } from "@/paraglide/runtime.js";
 
 import { ModeToggle } from "./mode-toggle";
 
 export default function Header() {
-  const { t, locale, setLocale, availableLocales } = useI18n();
-  const links = [{ label: t("header.home"), to: "/" }] as const;
+  const locale = getLocale();
+  const links = [{ label: m.header_home(), to: "/" }] as const;
 
   return (
     <div>
@@ -19,7 +21,7 @@ export default function Header() {
         </nav>
         <div className="flex items-center gap-2">
           <label className="text-sm" htmlFor="locale-switcher">
-            {t("common.language")}
+            {m.common_language()}
           </label>
           <select
             id="locale-switcher"
@@ -27,7 +29,7 @@ export default function Header() {
             value={locale}
             onChange={(event) => setLocale(event.target.value as typeof locale)}
           >
-            {availableLocales.map((availableLocale) => (
+            {locales.map((availableLocale) => (
               <option key={availableLocale} value={availableLocale}>
                 {availableLocale.toUpperCase()}
               </option>

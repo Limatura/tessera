@@ -1,0 +1,11 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_language": "Language",
+  "common_switch_language": "Switch language",
+  "header_dashboard": "Dashboard",
+  "header_home": "Home",
+  "home_api_status": "API Status",
+  "home_description": "The default locale is set to Traditional Chinese.",
+  "home_subtitle": "This app uses the shared monorepo i18n package.",
+  "home_title": "Welcome to the Web app"
+}

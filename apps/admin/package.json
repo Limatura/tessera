@@ -12,10 +12,10 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.5.7",
+    "@inlang/paraglide-js": "^2.23.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
     "@tessera/env": "workspace:*",
-    "@tessera/i18n": "workspace:*",
     "@tessera/ui": "workspace:*",
     "dotenv": "catalog:",
     "lucide-react": "catalog:",
@@ -26,6 +26,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@inlang/plugin-message-format": "^4.4.1",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",
     "@tessera/config": "workspace:*",

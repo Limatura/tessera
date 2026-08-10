@@ -1,0 +1,11 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_language": "語言",
+  "common_switch_language": "切換語言",
+  "header_home": "首頁",
+  "header_users": "使用者",
+  "home_api_status": "系統狀態",
+  "home_description": "預設語系已設定為繁體中文。",
+  "home_subtitle": "這個管理介面使用共享 i18n 套件。",
+  "home_title": "管理後台"
+}

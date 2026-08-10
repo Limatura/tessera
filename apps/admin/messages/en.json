@@ -1,0 +1,11 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_language": "Language",
+  "common_switch_language": "Switch language",
+  "header_home": "Home",
+  "header_users": "Users",
+  "home_api_status": "System Status",
+  "home_description": "The default locale is set to Traditional Chinese.",
+  "home_subtitle": "This admin interface uses the shared i18n package.",
+  "home_title": "Admin dashboard"
+}

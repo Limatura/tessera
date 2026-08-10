@@ -1,0 +1,11 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "common_language": "言語",
+  "common_switch_language": "言語を切り替える",
+  "header_dashboard": "ダッシュボード",
+  "header_home": "ホーム",
+  "home_api_status": "API ステータス",
+  "home_description": "デフォルトの言語は繁体字中国語に設定されています。",
+  "home_subtitle": "このアプリは共有モノレポの i18n パッケージを使用しています。",
+  "home_title": "Web アプリへようこそ"
+}
