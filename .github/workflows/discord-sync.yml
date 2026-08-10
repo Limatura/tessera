@@ -1,4 +1,3 @@
-# .github/workflows/discord-sync.yml
 name: Sync Issues to Discord Forum
 on:
   issues:
