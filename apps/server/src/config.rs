@@ -276,6 +276,17 @@ pub struct ShareConfig {
 
     /// Longest lifetime a share may be given, in hours. `0` means no ceiling.
     pub max_expiry_hours: u64,
+
+    /// How long a finished share is kept before it is removed, in hours.
+    ///
+    /// A share that has expired or been used up is kept for a while so that
+    /// following its link still says "this expired" rather than "no such code" —
+    /// which are different things to tell a person, and only one of them is
+    /// worth retyping. After this, the row and whatever it put in the blob store
+    /// both go.
+    ///
+    /// `0` removes them on the next sweep.
+    pub retain_after_death_hours: u64,
 }
 
 /// HTTP listener and middleware settings.
@@ -444,6 +455,10 @@ impl Default for ShareConfig {
             // never forgets anything eventually runs out of disk, and finding
             // that out is worse than being told at creation time.
             max_expiry_hours: 24 * 30,
+            // A week. Long enough that somebody coming back to a link they were
+            // sent gets told what happened, short enough that dead payloads do
+            // not become the reason the disk fills.
+            retain_after_death_hours: 24 * 7,
         }
     }
 }
@@ -622,6 +637,12 @@ impl ShareConfig {
     #[must_use]
     pub const fn ticket_ttl(&self) -> Duration {
         Duration::from_secs(self.ticket_ttl_hours.saturating_mul(3600))
+    }
+
+    /// How long a finished share is kept before removal.
+    #[must_use]
+    pub const fn retention(&self) -> Duration {
+        Duration::from_secs(self.retain_after_death_hours.saturating_mul(3600))
     }
 
     /// Longest lifetime a share may be given, or `None` when unbounded.

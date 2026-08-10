@@ -552,7 +552,7 @@ pub(crate) async fn share_repository_round_trip(app: &TestApp, suffix: &str) {
     shares.the_use_count_is_spent_in_the_database().await;
     shares.a_view_is_not_a_retrieval().await;
     shares.deleting_takes_the_content_with_it().await;
-    shares.expired_shares_are_listed_for_cleanup().await;
+    shares.dead_shares_are_listed_for_cleanup().await;
 }
 
 use tessera_core::{RetrievalCode, ShareId};
@@ -813,29 +813,59 @@ impl<'a> Shares<'a> {
         );
     }
 
-    /// Expired shares have to be findable *before* their rows go, so whatever is
-    /// in the blob store can be removed first — no database action reaches it.
-    async fn expired_shares_are_listed_for_cleanup(&self) {
-        let stale = Share {
+    /// Dead shares have to be findable *before* their rows go, so whatever is in
+    /// the blob store can be removed first — no database action reaches it.
+    ///
+    /// Two ways to be dead, and both have to be found. Cleaning only the expired
+    /// ones would leave every burn-after-reading share accumulating forever:
+    /// they are dead the moment they are read and have no expiry to notice.
+    async fn dead_shares_are_listed_for_cleanup(&self) {
+        let expired = Share {
             expires_at: Some(self.now - Duration::days(1)),
             ..self.blank(10)
         };
-        let live = self.blank(11);
-        self.repository.insert(&stale, None).await.expect("insert");
-        self.repository.insert(&live, None).await.expect("insert");
+        let exhausted = Share {
+            use_limit: Some(1),
+            ..self.blank(11)
+        };
+        let live = self.blank(12);
+        for share in [&expired, &exhausted, &live] {
+            self.repository.insert(share, None).await.expect("insert");
+        }
+        // Spending the last retrieval is what makes it dead, and what stamps the
+        // time its age is measured from.
+        assert!(
+            self.repository
+                .consume(exhausted.id, self.now - Duration::days(1))
+                .await
+                .expect("consume")
+        );
 
-        let expired = self
+        let dead = self
             .repository
-            .find_expired(self.now, 100)
+            .find_dead(self.now, 100)
+            .await
+            .expect("query");
+        let found = |id| dead.iter().any(|share: &Share| share.id == id);
+
+        assert!(found(expired.id), "an expired share should be swept");
+        assert!(
+            found(exhausted.id),
+            "a used-up share should be swept too — it holds bytes and nothing \
+             will ever ask for them again"
+        );
+        assert!(!found(live.id), "a live share must never be swept");
+
+        // Retention is what the cutoff expresses: measured from far enough back,
+        // nothing is old enough to remove yet.
+        let none_yet = self
+            .repository
+            .find_dead(self.now - Duration::days(7), 100)
             .await
             .expect("query");
         assert!(
-            expired.iter().any(|share| share.id == stale.id),
-            "an expired share should be listed for cleanup"
-        );
-        assert!(
-            !expired.iter().any(|share| share.id == live.id),
-            "a share with no expiry must never be swept"
+            !none_yet.iter().any(|share| share.id == expired.id),
+            "a share that died yesterday is not past a week's retention"
         );
     }
 }

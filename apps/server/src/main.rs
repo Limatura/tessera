@@ -116,11 +116,7 @@ async fn main() -> anyhow::Result<()> {
 
     let shutdown = CancellationToken::new();
     let signal_task = tokio::spawn(watch_for_shutdown(shutdown.clone()));
-    let sweep_task = tokio::spawn(maintenance::sweep_expired(
-        state.sessions.clone(),
-        state.tickets.clone(),
-        shutdown.clone(),
-    ));
+    let sweep_task = tokio::spawn(maintenance::sweep_expired(state.clone(), shutdown.clone()));
 
     let drain = shutdown.clone();
     let state_for_drain = state.clone();
@@ -151,7 +147,7 @@ async fn main() -> anyhow::Result<()> {
     // error here means the task panicked, which the sweep's own error handling
     // makes unreachable and which is not worth failing shutdown over.
     if let Err(error) = sweep_task.await {
-        tracing::warn!(?error, "the session sweep did not stop cleanly");
+        tracing::warn!(?error, "the housekeeping sweep did not stop cleanly");
     }
     // Closing the pool checkpoints the SQLite WAL, so the next start-up does not
     // have to replay it.

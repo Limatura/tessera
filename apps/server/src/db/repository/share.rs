@@ -504,21 +504,43 @@ impl ShareRepository {
         Ok(())
     }
 
-    /// Lists shares that have passed their expiry, so their objects can be
-    /// removed before the rows are.
+    /// Lists shares that are finished with and old enough to remove.
+    ///
+    /// Two ways to be finished: past an expiry, or having been retrieved as many
+    /// times as it was allowed to be. Cleaning only the first would leave the
+    /// second accumulating forever, which is the same bug with a longer fuse —
+    /// a burn-after-reading share is dead the moment it is read and has no
+    /// expiry to notice.
+    ///
+    /// `cutoff` is the retention boundary rather than "now": a dead share is
+    /// kept for a while so its link can still explain itself, and only then
+    /// removed.
+    ///
+    /// Returned rather than deleted here because the payload lives in the blob
+    /// store, which no database action reaches. The caller removes the object
+    /// first and the row second.
     ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails or a row is not
     /// usable.
-    pub async fn find_expired(
+    pub async fn find_dead(
         &self,
-        now: OffsetDateTime,
+        cutoff: OffsetDateTime,
         limit: u64,
     ) -> Result<Vec<Share>, ShareRepositoryError> {
+        let expired = share::Column::ExpiresAt
+            .is_not_null()
+            .and(share::Column::ExpiresAt.lt(cutoff));
+        let exhausted = share::Column::UseLimit
+            .is_not_null()
+            .and(Expr::col(share::Column::UseCount).gte(Expr::col(share::Column::UseLimit)))
+            .and(share::Column::LastAccessedAt.is_not_null())
+            .and(share::Column::LastAccessedAt.lt(cutoff));
+
         let models = ShareEntity::find()
-            .filter(share::Column::ExpiresAt.lt(now))
-            .order_by_asc(share::Column::ExpiresAt)
+            .filter(expired.or(exhausted))
+            .order_by_asc(share::Column::Id)
             .limit(limit)
             .all(&self.connection)
             .await?;
