@@ -271,7 +271,8 @@ jobs:
                   f"{webhook}?thread_id={thread_id}",
                   data=payload,
                   headers={
-                      "Content-Type": "application/json"
+                      "Content-Type": "application/json",
+                      "User-Agent": "Mozilla/5.0 (compatible; tessera-discord-sync/1.0)"
                   },
                   method="POST"
               )
@@ -455,7 +456,8 @@ jobs:
                   f"{webhook}?thread_id={thread_id}",
                   data=payload,
                   headers={
-                      "Content-Type": "application/json"
+                      "Content-Type": "application/json",
+                      "User-Agent": "Mozilla/5.0 (compatible; tessera-discord-sync/1.0)"
                   },
                   method="POST"
               )
@@ -801,7 +803,8 @@ jobs:
                   f"{webhook}?thread_id={thread_id}",
                   data=payload,
                   headers={
-                      "Content-Type": "application/json"
+                      "Content-Type": "application/json",
+                      "User-Agent": "Mozilla/5.0 (compatible; tessera-discord-sync/1.0)"
                   },
                   method="POST"
               )
@@ -925,7 +928,8 @@ jobs:
                   f"{webhook}?thread_id={thread_id}",
                   data=payload,
                   headers={
-                      "Content-Type": "application/json"
+                      "Content-Type": "application/json",
+                      "User-Agent": "Mozilla/5.0 (compatible; tessera-discord-sync/1.0)"
                   },
                   method="POST"
               )
