@@ -3,108 +3,623 @@ name: Sync Issues to Discord Forum
 on:
   issues:
     types: [opened]
+
   issue_comment:
     types: [created]
+
   workflow_dispatch:
     inputs:
       issue_number:
-        description: "要補同步的 issue 編號(留空 = 同步所有 open issue)"
+        description: "要補同步的 issue 編號（留空 = 同步所有 open issue）"
         required: false
+        type: string
 
 permissions:
   issues: write
   contents: read
 
 jobs:
-  # ── 1. 新開 issue 時,自動在 Discord 建立對應的論壇貼文 ──
+  # ============================================================
+  # 1. 新開 Issue
+  #    建立 Discord Forum Thread
+  #    並完整同步 Issue 內容
+  # ============================================================
+
   create_thread:
     if: github.event_name == 'issues'
     runs-on: ubuntu-latest
+
     env:
       WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
-      - name: Create Discord thread
+      - name: Create Discord Forum Thread
+        shell: bash
         run: |
-          TITLE=$(jq -r '.issue.title' "$GITHUB_EVENT_PATH")
-          BODY=$(jq -r '.issue.body // ""' "$GITHUB_EVENT_PATH" | head -c 1500)
+          set -euo pipefail
+
+          TITLE=$(jq -r '.issue.title // ""' "$GITHUB_EVENT_PATH")
+          BODY=$(jq -r '.issue.body // ""' "$GITHUB_EVENT_PATH")
           URL=$(jq -r '.issue.html_url' "$GITHUB_EVENT_PATH")
           NUM=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
 
-          PAYLOAD=$(jq -n --arg name "#$NUM $TITLE" --arg url "$URL" --arg body "$BODY" '{thread_name: $name, content: ("**Issue 連結:** " + $url + "\n\n" + $body)}')
+          echo "Issue #$NUM"
+          echo "Title: $TITLE"
 
-          RESP=$(curl -s -X POST "$WEBHOOK?wait=true" -H 'Content-Type: application/json' -d "$PAYLOAD")
-          THREAD_ID=$(echo "$RESP" | jq -r '.channel_id')
+          # Discord Forum Thread 名稱最大 100 字元
+          THREAD_NAME="#$NUM $TITLE"
 
-          gh api "repos/${{ github.repository }}/issues/$NUM/comments" -f body="<!-- discord-thread-id: $THREAD_ID -->"
+          THREAD_NAME=$(python3 - "$THREAD_NAME" <<'PY'
+          import sys
 
-          echo "Issue #$NUM -> thread $THREAD_ID"
+          text = sys.argv[1]
 
-  # ── 2. issue 底下有新留言時,同步到對應的 Discord 貼文 ──
+          # Discord thread name 最大 100 characters
+          print(text[:100])
+          PY
+          )
+
+          export THREAD_NAME
+          export URL
+          export BODY
+
+          # ------------------------------------------------------
+          # 建立 Thread
+          # Discord message content 最大 2000 字元
+          # 先送第一段
+          # ------------------------------------------------------
+
+          FIRST_MESSAGE=$(python3 <<'PY'
+          import os
+
+          body = os.environ.get("BODY", "")
+          url = os.environ.get("URL", "")
+
+          content = f"**Issue 連結:** {url}\n\n{body}"
+
+          # Discord 最大 2000
+          print(content[:1900])
+          PY
+          )
+
+          PAYLOAD=$(jq -n \
+            --arg name "$THREAD_NAME" \
+            --arg content "$FIRST_MESSAGE" \
+            '{
+              thread_name: $name,
+              content: $content
+            }'
+          )
+
+          echo "建立 Discord Forum Thread..."
+
+          RESP=$(curl -fsS \
+            -X POST \
+            "$WEBHOOK?wait=true" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+          )
+
+          echo "$RESP" | jq .
+
+          THREAD_ID=$(echo "$RESP" | jq -r '.channel_id // empty')
+
+          if [ -z "$THREAD_ID" ]; then
+            echo "ERROR: Discord 沒有回傳 channel_id"
+            exit 1
+          fi
+
+          echo "Discord Thread ID: $THREAD_ID"
+
+          # ------------------------------------------------------
+          # 儲存 Thread ID 到 GitHub Issue comment
+          # ------------------------------------------------------
+
+          gh api \
+            "repos/${{ github.repository }}/issues/$NUM/comments" \
+            -f body="<!-- discord-thread-id: $THREAD_ID -->"
+
+          # ------------------------------------------------------
+          # 把剩餘 Issue Body 分段送進 Discord
+          # ------------------------------------------------------
+
+          export THREAD_ID
+
+          python3 <<'PY'
+          import os
+          import json
+          import subprocess
+          import urllib.request
+          import urllib.error
+
+          webhook = os.environ["WEBHOOK"]
+          thread_id = os.environ["THREAD_ID"]
+          body = os.environ.get("BODY", "")
+          url = os.environ["URL"]
+
+          # 第一段已經包含：
+          # Issue URL + 前 1900 chars
+          first = f"**Issue 連結:** {url}\n\n{body}"[:1900]
+
+          # 如果完整內容超過第一段，繼續送剩餘內容
+          remaining = f"**Issue 連結:** {url}\n\n{body}"[1900:]
+
+          MAX = 1900
+
+          chunks = [
+              remaining[i:i + MAX]
+              for i in range(0, len(remaining), MAX)
+          ]
+
+          print(f"剩餘內容需要同步 {len(chunks)} 段")
+
+          for index, chunk in enumerate(chunks, start=2):
+              payload = json.dumps({
+                  "content": chunk
+              }).encode("utf-8")
+
+              request = urllib.request.Request(
+                  f"{webhook}?thread_id={thread_id}",
+                  data=payload,
+                  headers={
+                      "Content-Type": "application/json"
+                  },
+                  method="POST"
+              )
+
+              try:
+                  with urllib.request.urlopen(request) as response:
+                      print(
+                          f"Discord Issue Body 第 {index} 段 "
+                          f"HTTP {response.status}"
+                      )
+              except urllib.error.HTTPError as e:
+                  print(
+                      f"Discord API ERROR: "
+                      f"{e.code} {e.read().decode('utf-8', errors='replace')}"
+                  )
+                  raise
+
+          print("Issue 完整同步完成")
+
+  # ============================================================
+  # 2. Issue 新留言
+  #    完整同步到 Discord Forum Thread
+  # ============================================================
+
   sync_comment:
     if: github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
+
     env:
       WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    steps:
-      - name: Sync comment to Discord thread
-        run: |
-          NUM=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
-          AUTHOR=$(jq -r '.comment.user.login' "$GITHUB_EVENT_PATH")
-          BODY=$(jq -r '.comment.body' "$GITHUB_EVENT_PATH" | head -c 1800)
-          RAW_BODY=$(jq -r '.comment.body' "$GITHUB_EVENT_PATH")
 
-          if echo "$RAW_BODY" | grep -q "discord-thread-id:"; then
-            echo "這是 bot 自己寫的標記留言,略過"
+    steps:
+      - name: Sync GitHub Comment to Discord
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          NUM=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+          AUTHOR=$(jq -r '.comment.user.login // "unknown"' "$GITHUB_EVENT_PATH")
+          BODY=$(jq -r '.comment.body // ""' "$GITHUB_EVENT_PATH")
+          COMMENT_ID=$(jq -r '.comment.id' "$GITHUB_EVENT_PATH")
+
+          echo "Issue #$NUM"
+          echo "Comment ID: $COMMENT_ID"
+          echo "Author: $AUTHOR"
+
+          # ------------------------------------------------------
+          # 避免自己建立的 marker comment 再次同步
+          # ------------------------------------------------------
+
+          if echo "$BODY" | grep -q "discord-thread-id:"; then
+            echo "這是 Discord Thread ID marker，略過"
             exit 0
           fi
 
-          THREAD_ID=$(gh api "repos/${{ github.repository }}/issues/$NUM/comments" --jq '.[].body' | grep -oP 'discord-thread-id: \K[0-9]+' | head -1)
+          # ------------------------------------------------------
+          # 找 Discord Thread ID
+          #
+          # 重要：
+          # --paginate
+          #
+          # 避免 Issue 超過 30 個留言後找不到 marker
+          # ------------------------------------------------------
+
+          THREAD_ID=$(
+            gh api \
+              --paginate \
+              "repos/${{ github.repository }}/issues/$NUM/comments" \
+              --jq '.[].body' |
+              grep -oE 'discord-thread-id:[[:space:]]*[0-9]+' |
+              head -1 |
+              grep -oE '[0-9]{15,}' |
+              head -1 || true
+          )
 
           if [ -z "$THREAD_ID" ]; then
-            echo "找不到對應的 thread id,略過"
+            echo "找不到對應的 Discord Thread ID"
+            echo "Issue #$NUM 略過"
             exit 0
           fi
 
-          PAYLOAD=$(jq -n --arg author "$AUTHOR" --arg body "$BODY" '{content: ("**" + $author + " 留言:**\n\n" + $body)}')
+          echo "Discord Thread ID: $THREAD_ID"
 
-          curl -s -X POST "$WEBHOOK?thread_id=$THREAD_ID" -H 'Content-Type: application/json' -d "$PAYLOAD"
+          export THREAD_ID
+          export AUTHOR
+          export BODY
 
-  # ── 3. 手動觸發:補建立之前已存在的 issue(單一個或全部 open) ──
+          # ------------------------------------------------------
+          # 完整留言分段
+          # ------------------------------------------------------
+
+          python3 <<'PY'
+          import os
+          import json
+          import urllib.request
+          import urllib.error
+          import time
+
+          webhook = os.environ["WEBHOOK"]
+          thread_id = os.environ["THREAD_ID"]
+          author = os.environ["AUTHOR"]
+          body = os.environ.get("BODY", "")
+
+          content = f"**{author} 留言:**\n\n{body}"
+
+          # 留一點安全空間
+          MAX = 1900
+
+          chunks = [
+              content[i:i + MAX]
+              for i in range(0, len(content), MAX)
+          ]
+
+          if not chunks:
+              chunks = [f"**{author} 留言:**"]
+
+          print(f"留言總共 {len(content)} 字元")
+          print(f"需要同步 {len(chunks)} 段")
+
+          for index, chunk in enumerate(chunks, start=1):
+
+              # 如果是多段，標示段數
+              if len(chunks) > 1:
+                  prefix = f"**[{index}/{len(chunks)}]**\n"
+                  chunk = prefix + chunk
+
+                  if len(chunk) > 2000:
+                      chunk = chunk[:2000]
+
+              payload = json.dumps({
+                  "content": chunk
+              }).encode("utf-8")
+
+              request = urllib.request.Request(
+                  f"{webhook}?thread_id={thread_id}",
+                  data=payload,
+                  headers={
+                      "Content-Type": "application/json"
+                  },
+                  method="POST"
+              )
+
+              try:
+                  with urllib.request.urlopen(request) as response:
+                      print(
+                          f"Discord Comment 第 {index} 段 "
+                          f"HTTP {response.status}"
+                      )
+
+              except urllib.error.HTTPError as e:
+                  error_body = e.read().decode(
+                      "utf-8",
+                      errors="replace"
+                  )
+
+                  print(
+                      f"Discord API ERROR: "
+                      f"{e.code} {error_body}"
+                  )
+
+                  raise
+
+              # 避免短時間大量請求觸發 Discord rate limit
+              time.sleep(0.5)
+
+          print("GitHub Comment 完整同步完成")
+
+  # ============================================================
+  # 3. 手動 Backfill
+  #    同步既有 Issue
+  # ============================================================
+
   backfill:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+
     env:
       WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
-      - name: Create Discord thread for existing issue(s)
+      - name: Backfill Existing Issues
+        shell: bash
         run: |
+          set -euo pipefail
+
           if [ -n "${{ inputs.issue_number }}" ]; then
             ISSUES="${{ inputs.issue_number }}"
           else
-            ISSUES=$(gh issue list --repo ${{ github.repository }} --state open --json number --jq '.[].number')
+            ISSUES=$(
+              gh issue list \
+                --repo "${{ github.repository }}" \
+                --state open \
+                --limit 1000 \
+                --json number \
+                --jq '.[].number'
+            )
           fi
 
           for NUM in $ISSUES; do
-            EXIST=$(gh api "repos/${{ github.repository }}/issues/$NUM/comments" --jq '.[].body' | grep -c "discord-thread-id:" || true)
+
+            echo ""
+            echo "========================================"
+            echo "處理 Issue #$NUM"
+            echo "========================================"
+
+            # ----------------------------------------------------
+            # 使用 --paginate 查所有 comments
+            # ----------------------------------------------------
+
+            EXIST=$(
+              gh api \
+                --paginate \
+                "repos/${{ github.repository }}/issues/$NUM/comments" \
+                --jq '.[].body' |
+                grep -c "discord-thread-id:" || true
+            )
+
             if [ "$EXIST" -gt 0 ]; then
-              echo "Issue #$NUM 已同步過,略過"
+              echo "Issue #$NUM 已同步過，略過"
               continue
             fi
 
-            TITLE=$(gh issue view $NUM --repo ${{ github.repository }} --json title --jq '.title')
-            BODY=$(gh issue view $NUM --repo ${{ github.repository }} --json body --jq '.body' | head -c 1500)
+            TITLE=$(
+              gh issue view "$NUM" \
+                --repo "${{ github.repository }}" \
+                --json title \
+                --jq '.title'
+            )
+
+            BODY=$(
+              gh issue view "$NUM" \
+                --repo "${{ github.repository }}" \
+                --json body \
+                --jq '.body // ""'
+            )
+
             URL="https://github.com/${{ github.repository }}/issues/$NUM"
 
-            PAYLOAD=$(jq -n --arg name "#$NUM $TITLE" --arg url "$URL" --arg body "$BODY" '{thread_name: $name, content: ("**Issue 連結:** " + $url + "\n\n" + $body)}')
+            # Discord Thread Name <= 100
+            THREAD_NAME="#$NUM $TITLE"
 
-            RESP=$(curl -s -X POST "$WEBHOOK?wait=true" -H 'Content-Type: application/json' -d "$PAYLOAD")
-            THREAD_ID=$(echo "$RESP" | jq -r '.channel_id')
+            THREAD_NAME=$(
+              python3 - "$THREAD_NAME" <<'PY'
+          import sys
+          print(sys.argv[1][:100])
+          PY
+            )
 
-            gh api "repos/${{ github.repository }}/issues/$NUM/comments" -f body="<!-- discord-thread-id: $THREAD_ID -->"
+            export BODY
+            export URL
+            export THREAD_NAME
 
-            echo "Issue #$NUM -> thread $THREAD_ID"
+            # ----------------------------------------------------
+            # 建立 Thread
+            # ----------------------------------------------------
+
+            FIRST_MESSAGE=$(
+              python3 <<'PY'
+          import os
+
+          body = os.environ.get("BODY", "")
+          url = os.environ["URL"]
+
+          content = f"**Issue 連結:** {url}\n\n{body}"
+
+          print(content[:1900])
+          PY
+            )
+
+            PAYLOAD=$(
+              jq -n \
+                --arg name "$THREAD_NAME" \
+                --arg content "$FIRST_MESSAGE" \
+                '{
+                  thread_name: $name,
+                  content: $content
+                }'
+            )
+
+            RESP=$(
+              curl -fsS \
+                -X POST \
+                "$WEBHOOK?wait=true" \
+                -H "Content-Type: application/json" \
+                -d "$PAYLOAD"
+            )
+
+            THREAD_ID=$(echo "$RESP" | jq -r '.channel_id // empty')
+
+            if [ -z "$THREAD_ID" ]; then
+              echo "ERROR: Discord 沒有回傳 channel_id"
+              echo "$RESP"
+              continue
+            fi
+
+            echo "Discord Thread ID: $THREAD_ID"
+
+            # ----------------------------------------------------
+            # 儲存 Marker
+            # ----------------------------------------------------
+
+            gh api \
+              "repos/${{ github.repository }}/issues/$NUM/comments" \
+              -f body="<!-- discord-thread-id: $THREAD_ID -->"
+
+            # ----------------------------------------------------
+            # 同步剩餘 Issue Body
+            # ----------------------------------------------------
+
+            export THREAD_ID
+
+            python3 <<'PY'
+          import os
+          import json
+          import urllib.request
+          import urllib.error
+          import time
+
+          webhook = os.environ["WEBHOOK"]
+          thread_id = os.environ["THREAD_ID"]
+          body = os.environ.get("BODY", "")
+          url = os.environ["URL"]
+
+          content = f"**Issue 連結:** {url}\n\n{body}"
+
+          MAX = 1900
+
+          remaining = content[1900:]
+
+          chunks = [
+              remaining[i:i + MAX]
+              for i in range(0, len(remaining), MAX)
+          ]
+
+          for index, chunk in enumerate(chunks, start=2):
+
+              payload = json.dumps({
+                  "content": chunk
+              }).encode("utf-8")
+
+              request = urllib.request.Request(
+                  f"{webhook}?thread_id={thread_id}",
+                  data=payload,
+                  headers={
+                      "Content-Type": "application/json"
+                  },
+                  method="POST"
+              )
+
+              try:
+                  with urllib.request.urlopen(request) as response:
+                      print(
+                          f"Issue Body 第 {index} 段 "
+                          f"HTTP {response.status}"
+                      )
+              except urllib.error.HTTPError as e:
+                  print(
+                      f"Discord API ERROR: "
+                      f"{e.code} "
+                      f"{e.read().decode('utf-8', errors='replace')}"
+                  )
+                  raise
+
+              time.sleep(0.5)
+
+          print("Issue Body 同步完成")
+          PY
+
+            # ----------------------------------------------------
+            # 同步原本已存在的 GitHub Comments
+            # ----------------------------------------------------
+
+            gh api \
+              --paginate \
+              "repos/${{ github.repository }}/issues/$NUM/comments" \
+              --jq '.[] | [.id, .user.login, .body] | @base64' |
+            while IFS= read -r COMMENT; do
+
+              DECODED=$(echo "$COMMENT" | base64 --decode)
+
+              COMMENT_ID=$(echo "$DECODED" | jq -r '.[0]')
+              AUTHOR=$(echo "$DECODED" | jq -r '.[1]')
+              COMMENT_BODY=$(echo "$DECODED" | jq -r '.[2] // ""')
+
+              # Marker 不要同步
+              if echo "$COMMENT_BODY" | grep -q "discord-thread-id:"; then
+                continue
+              fi
+
+              export AUTHOR
+              export COMMENT_BODY
+
+              python3 <<'PY'
+          import os
+          import json
+          import urllib.request
+          import urllib.error
+          import time
+
+          webhook = os.environ["WEBHOOK"]
+          thread_id = os.environ["THREAD_ID"]
+          author = os.environ["AUTHOR"]
+          body = os.environ.get("COMMENT_BODY", "")
+
+          content = f"**{author} 留言:**\n\n{body}"
+
+          MAX = 1900
+
+          chunks = [
+              content[i:i + MAX]
+              for i in range(0, len(content), MAX)
+          ]
+
+          if not chunks:
+              chunks = [f"**{author} 留言:**"]
+
+          for index, chunk in enumerate(chunks, start=1):
+
+              if len(chunks) > 1:
+                  prefix = f"**[{index}/{len(chunks)}]**\n"
+                  chunk = prefix + chunk
+                  chunk = chunk[:2000]
+
+              payload = json.dumps({
+                  "content": chunk
+              }).encode("utf-8")
+
+              request = urllib.request.Request(
+                  f"{webhook}?thread_id={thread_id}",
+                  data=payload,
+                  headers={
+                      "Content-Type": "application/json"
+                  },
+                  method="POST"
+              )
+
+              try:
+                  with urllib.request.urlopen(request) as response:
+                      print(
+                          f"Comment 第 {index} 段 "
+                          f"HTTP {response.status}"
+                      )
+              except urllib.error.HTTPError as e:
+                  print(
+                      f"Discord API ERROR: "
+                      f"{e.code} "
+                      f"{e.read().decode('utf-8', errors='replace')}"
+                  )
+                  raise
+
+              time.sleep(0.5)
+
+            done
+            echo "Issue #$NUM 完整同步完成"
+
             sleep 1
           done
