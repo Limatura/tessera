@@ -803,7 +803,7 @@ pub async fn describe(
     ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Json<PublicShareResponse>> {
-    let share = gate::open(&state, &code).await?;
+    let share = gate::open(&state, &code, &source).await?;
 
     if !share.needs_password() {
         return Ok(Json(PublicShareResponse::unlocked(&share)));
@@ -852,7 +852,7 @@ pub async fn unlock(
     ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Json<TicketResponse>> {
-    let share = gate::open(&state, &code).await?;
+    let share = gate::open(&state, &code, &source).await?;
     // The password first, so a wrong guess never costs the share a retrieval.
     gate::unlock(&state, &share, &headers, &source).await?;
 

@@ -964,3 +964,69 @@ async fn guessing_a_share_password_is_throttled() {
         StatusCode::TOO_MANY_REQUESTS
     );
 }
+
+/// Walking the code space has to get expensive. The default eight-character
+/// code was never brute-forceable at any rate, but the reasoning written next to
+/// `share.code_length` says a short code depends on this — so it had better
+/// exist.
+#[tokio::test]
+async fn trying_codes_that_do_not_exist_is_throttled() {
+    let app = TestApp::ready().await;
+    let real = upload(&app, "", b"findable").await;
+    let real = real["code"].as_str().expect("a code").to_owned();
+
+    let mut refused = None;
+    for attempt in 0..200_u32 {
+        // Every guess is a different code, which is what makes counting per code
+        // useless and counting per source necessary.
+        let guess = format!("{attempt:08}");
+        let response = app.get(&format!("/api/v1/shares/{guess}")).await;
+        if response.status() == StatusCode::TOO_MANY_REQUESTS {
+            refused = Some(response);
+            break;
+        }
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    let refused = refused.expect("guessing codes must eventually be refused");
+    assert!(
+        refused
+            .headers()
+            .get(header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|seconds| seconds.parse::<u64>().is_ok_and(|s| s > 0)),
+        "a 429 without Retry-After leaves the client guessing"
+    );
+
+    // The block covers every route that resolves a code, not just the one that
+    // tripped it — otherwise the limit is one `curl` away from meaningless.
+    assert_eq!(
+        app.get(&format!("/s/{real}/raw")).await.status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}
+
+/// A share that exists but has expired is somebody returning to a link they were
+/// given, not somebody guessing — so it must not count towards the limit.
+#[tokio::test]
+async fn returning_to_a_dead_link_is_not_guessing() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?max_uses=1", b"read once").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+
+    // Far more attempts than the limit allows, all on a code that is real.
+    for _ in 0..100 {
+        assert_eq!(
+            app.get(&format!("/api/v1/shares/{code}")).await.status(),
+            StatusCode::GONE
+        );
+    }
+
+    // And a genuine miss is still counted afterwards, so the counter was not
+    // simply switched off.
+    assert_eq!(
+        app.get("/api/v1/shares/ZZZZZZZZ").await.status(),
+        StatusCode::NOT_FOUND
+    );
+}

@@ -72,17 +72,36 @@ const PRESENTING: PasswordPolicy = PasswordPolicy {
 ///
 /// # Errors
 ///
-/// `404` when nothing has that code, `410` when it existed and is finished with.
-pub async fn open(state: &AppState, code: &str) -> Result<Share> {
+/// `404` when nothing has that code, `410` when it existed and is finished with,
+/// `429` when this source has tried too many codes that do not exist.
+pub async fn open(state: &AppState, code: &str, source: &str) -> Result<Share> {
+    // Checked before the lookup, so a refused source costs a comparison rather
+    // than a query.
+    let throttles = &state.throttles;
+    if let Decision::Deny { retry_after } = throttles.lookup.check(source) {
+        return Err(Error::TooManyRequests {
+            retry_after_secs: retry_after.as_secs(),
+        });
+    }
+
     // An unparsable code and an unused one are the same answer. Distinguishing
     // them would tell someone walking the code space which shapes are worth
     // trying.
-    let code = RetrievalCode::parse(code).map_err(|_| Error::NotFound)?;
-    let share = state
-        .shares
-        .find_by_code(&code)
-        .await?
-        .ok_or(Error::NotFound)?;
+    let found = match RetrievalCode::parse(code) {
+        Ok(code) => state.shares.find_by_code(&code).await?,
+        Err(_) => None,
+    };
+    let Some(share) = found else {
+        // Only a miss counts. A share that exists but has expired is somebody
+        // returning to a link they were given, not somebody guessing.
+        //
+        // A hit deliberately does *not* reset the count either: an enumerator
+        // holding one code they know is real could otherwise clear the counter
+        // between batches and guess without limit. The window forgives it
+        // instead, which is slower to recover from and impossible to game.
+        throttles.lookup.record_failure(source);
+        return Err(Error::NotFound);
+    };
 
     match share.availability_at(OffsetDateTime::now_utc()) {
         Availability::Available => Ok(share),

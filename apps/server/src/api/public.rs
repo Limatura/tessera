@@ -63,7 +63,7 @@ async fn raw(
     ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
-    let share = gate::open(&state, &code).await?;
+    let share = gate::open(&state, &code, &source).await?;
     // Before authorising, not after: answering "you wanted the other route" is
     // the caller's mistake, and a mistake must not cost the share one of its
     // retrievals. Anything that can be refused without looking at the content
@@ -116,7 +116,7 @@ async fn download(
     ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
-    let share = gate::open(&state, &code).await?;
+    let share = gate::open(&state, &code, &source).await?;
     let payload = permit(
         &state,
         &share,

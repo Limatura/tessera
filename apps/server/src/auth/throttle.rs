@@ -321,6 +321,16 @@ pub struct Throttles {
     pub login: Throttle,
     /// Anything expensive, keyed on the source alone. Stops the key rotating.
     pub source: Throttle,
+    /// Retrieval codes tried and not found, keyed on the source alone.
+    ///
+    /// Keyed on the source because the *code* is what varies — that is what
+    /// walking the code space means, so counting per code would count nothing.
+    ///
+    /// Deliberately not routed through [`Throttles::check`]: a lookup is one
+    /// indexed `SELECT`, nothing like the cost of a hash, and letting a few
+    /// mistyped codes eat into the budget that protects the hasher would mean a
+    /// visitor guessing at links could stop somebody else signing in.
+    pub lookup: Throttle,
     /// Failed share-password attempts, keyed on the code and the source.
     ///
     /// A share password may be as short as four characters, which is the right
@@ -334,6 +344,7 @@ impl Default for Throttles {
         Self {
             login: Throttle::default(),
             source: Throttle::new(SOURCE_MAX_ATTEMPTS, SOURCE_WINDOW),
+            lookup: Throttle::new(LOOKUP_MAX_ATTEMPTS, SOURCE_WINDOW),
             share: Throttle::default(),
         }
     }
@@ -355,6 +366,17 @@ const SOURCE_MAX_ATTEMPTS: u32 = 120;
 /// How long a source is refused for. Deliberately much shorter than
 /// [`WINDOW`] — see [`SOURCE_MAX_ATTEMPTS`].
 const SOURCE_WINDOW: Duration = Duration::from_mins(1);
+
+/// Codes tried and not found, from one source, before it is refused.
+///
+/// A person who mistypes a code they were given tries two or three times. Sixty
+/// in a minute is not that.
+///
+/// The default eight-character code is 32^8 — about 1.1 x 10^12 — so walking it
+/// was never going to work at any rate. This matters for the instance that sets
+/// `share.code_length` to four: a million combinations fall in minutes without a
+/// limit, and in about eleven days with one.
+const LOOKUP_MAX_ATTEMPTS: u32 = 60;
 
 impl Throttles {
     /// Whether an attempt keyed on both `specific` and `source` may proceed.
