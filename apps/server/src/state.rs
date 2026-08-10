@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 
 use crate::{
-    auth::throttle::Throttle,
+    auth::throttle::Throttles,
     config::Config,
     db::repository::{
         api_token::ApiTokenRepository,
@@ -54,12 +54,13 @@ pub struct AppState {
     pub shares: ShareRepository,
     /// Download authorisations.
     pub tickets: ShareTicketRepository,
-    /// Failed-login counter.
+    /// Failed-attempt counters.
     ///
     /// Shared rather than per-request: the whole point is that attempts
     /// accumulate across requests. In memory, so it is state this process owns
-    /// and loses on restart — see [`Throttle`] for why that is the right trade.
-    pub login_throttle: Arc<Throttle>,
+    /// and loses on restart — see [`Throttles`] for why that is the right trade,
+    /// and why there is more than one counter.
+    pub throttles: Arc<Throttles>,
     /// Blob store.
     pub storage: Arc<dyn ObjectStore>,
     /// Current lifecycle status.
@@ -82,7 +83,7 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
-            login_throttle: Arc::new(Throttle::default()),
+            throttles: Arc::new(Throttles::default()),
             config,
             db,
             storage,

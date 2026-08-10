@@ -23,7 +23,7 @@ use tessera_core::{Password, PasswordPolicy, RetrievalCode};
 use time::OffsetDateTime;
 
 use crate::{
-    auth::{password, secret::Secret},
+    auth::{password, secret::Secret, throttle::Decision},
     db::repository::share::{Availability, Share},
     error::{Error, Result},
     state::AppState,
@@ -99,14 +99,36 @@ pub async fn open(state: &AppState, code: &str) -> Result<Share> {
 
 /// Verifies the share's password, when it has one.
 ///
+/// # Why this is throttled
+///
+/// A share password may be four characters, which is the right trade for
+/// something read out over the phone and worthless without a limit on guesses:
+/// measured, an unthrottled endpoint answered 246 attempts a second, so ten
+/// thousand combinations fell in under a minute. Each attempt also costs a full
+/// Argon2 verification, so the same requests are a way to make the server
+/// allocate.
+///
 /// # Errors
 ///
 /// `401` when the share needs a password and the request did not carry the
-/// right one.
-pub async fn unlock(share: &Share, headers: &HeaderMap) -> Result<()> {
+/// right one, `429` when too many attempts have failed.
+pub async fn unlock(
+    state: &AppState,
+    share: &Share,
+    headers: &HeaderMap,
+    source: &str,
+) -> Result<()> {
     let Some(stored) = share.password_hash.clone() else {
         return Ok(());
     };
+
+    let throttles = &state.throttles;
+    let key = format!("{}|{source}", share.code);
+    if let Decision::Deny { retry_after } = throttles.check(&throttles.share, &key, source) {
+        return Err(Error::TooManyRequests {
+            retry_after_secs: retry_after.as_secs(),
+        });
+    }
 
     let presented = headers
         .get(PASSWORD_HEADER)
@@ -117,11 +139,14 @@ pub async fn unlock(share: &Share, headers: &HeaderMap) -> Result<()> {
         .and_then(|raw| Password::parse(raw, PRESENTING).ok());
 
     let Some(presented) = presented else {
+        throttles.record_failure(&throttles.share, &key, source);
         return Err(Error::Unauthorized);
     };
     if password::verify(presented, stored).await? {
+        throttles.share.reset(&key);
         Ok(())
     } else {
+        throttles.record_failure(&throttles.share, &key, source);
         Err(Error::Unauthorized)
     }
 }

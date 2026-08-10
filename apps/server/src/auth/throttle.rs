@@ -231,6 +231,52 @@ mod tests {
         assert_eq!(throttle.check_at("alice", later), Decision::Allow);
     }
 
+    /// The hole the source counter exists to close: keying only on the target
+    /// means the key changes when the target does, so naming a different
+    /// account each time is never refused. Measured against a running server
+    /// before this existed — two hundred attempts, none blocked.
+    #[test]
+    fn rotating_the_target_does_not_escape_the_limit() {
+        let throttles = Throttles::default();
+        let source = "203.0.113.9";
+
+        // Every attempt names something new, so the per-target counter never
+        // sees the same key twice.
+        for attempt in 0..SOURCE_MAX_ATTEMPTS {
+            let key = format!("victim{attempt}|{source}");
+            assert_eq!(
+                throttles.check(&throttles.login, &key, source),
+                Decision::Allow,
+                "attempt {attempt} should still be allowed"
+            );
+            throttles.record_failure(&throttles.login, &key, source);
+        }
+
+        let fresh = format!("victim-new|{source}");
+        assert!(
+            matches!(
+                throttles.check(&throttles.login, &fresh, source),
+                Decision::Deny { .. }
+            ),
+            "a new target from a source that has already failed {SOURCE_MAX_ATTEMPTS} times \
+             must not get a clean slate"
+        );
+    }
+
+    /// One address failing must not refuse a different one.
+    #[test]
+    fn sources_are_counted_independently() {
+        let throttles = Throttles::default();
+        for attempt in 0..SOURCE_MAX_ATTEMPTS {
+            let key = format!("victim{attempt}|noisy");
+            throttles.record_failure(&throttles.login, &key, "noisy");
+        }
+        assert_eq!(
+            throttles.check(&throttles.login, "someone|quiet", "quiet"),
+            Decision::Allow
+        );
+    }
+
     /// Without a bound, cycling usernames is a memory-growth attack on an
     /// unauthenticated endpoint.
     #[test]
@@ -251,5 +297,86 @@ mod tests {
             throttle.attempts.lock().len() < MAX_TRACKED_KEYS,
             "expired entries should have been swept"
         );
+    }
+}
+
+/// The counters an instance keeps, and what each is keyed on.
+///
+/// # Why more than one
+///
+/// A single counter keyed on "who is being targeted" is the obvious design and
+/// it has a hole: the key changes when the target does. Someone guessing at
+/// `alice`, then `bob`, then `carol` gets a fresh key every time and is never
+/// refused — which was measurable, not theoretical. Two hundred sign-in
+/// attempts from one address, each naming a different account, were all
+/// answered.
+///
+/// So there is a second counter keyed on the source alone. It is deliberately
+/// looser: shared addresses are normal — an office, a school, a mobile carrier —
+/// and only *failures* count, which a real person rarely produces sixty of.
+#[derive(Debug)]
+pub struct Throttles {
+    /// Failed sign-ins, keyed on the account *and* the source. Stops one
+    /// account being ground down.
+    pub login: Throttle,
+    /// Anything expensive, keyed on the source alone. Stops the key rotating.
+    pub source: Throttle,
+    /// Failed share-password attempts, keyed on the code and the source.
+    ///
+    /// A share password may be as short as four characters, which is the right
+    /// trade for something read out over the phone — and worthless without
+    /// this: unthrottled, ten thousand combinations fall in under a minute.
+    pub share: Throttle,
+}
+
+impl Default for Throttles {
+    fn default() -> Self {
+        Self {
+            login: Throttle::default(),
+            source: Throttle::new(SOURCE_MAX_ATTEMPTS, SOURCE_WINDOW),
+            share: Throttle::default(),
+        }
+    }
+}
+
+/// Failures from one address before it is refused, whatever it was aiming at.
+///
+/// Higher than the per-target limit, and over a much shorter window, because it
+/// catches a different thing. The per-target counters are what stop a password
+/// being guessed; the hasher's own concurrency limit is what stops memory being
+/// exhausted. All this adds is a ceiling on how fast one source can *try*.
+///
+/// That means it can afford to be forgiving, and it needs to be: an address is
+/// shared — an office, a school, a mobile carrier — so refusing one refuses
+/// everybody behind it. A minute of that is a nuisance; fifteen would be a
+/// support ticket.
+const SOURCE_MAX_ATTEMPTS: u32 = 120;
+
+/// How long a source is refused for. Deliberately much shorter than
+/// [`WINDOW`] — see [`SOURCE_MAX_ATTEMPTS`].
+const SOURCE_WINDOW: Duration = Duration::from_mins(1);
+
+impl Throttles {
+    /// Whether an attempt keyed on both `specific` and `source` may proceed.
+    ///
+    /// Both counters are consulted, and the stricter answer wins.
+    #[must_use]
+    pub fn check(&self, counter: &Throttle, specific: &str, source: &str) -> Decision {
+        match (counter.check(specific), self.source.check(source)) {
+            (Decision::Allow, Decision::Allow) => Decision::Allow,
+            (Decision::Deny { retry_after }, Decision::Allow)
+            | (Decision::Allow, Decision::Deny { retry_after }) => Decision::Deny { retry_after },
+            (Decision::Deny { retry_after: a }, Decision::Deny { retry_after: b }) => {
+                Decision::Deny {
+                    retry_after: a.max(b),
+                }
+            }
+        }
+    }
+
+    /// Records a failure against both counters.
+    pub fn record_failure(&self, counter: &Throttle, specific: &str, source: &str) {
+        counter.record_failure(specific);
+        self.source.record_failure(source);
     }
 }

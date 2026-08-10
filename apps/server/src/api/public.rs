@@ -26,6 +26,7 @@ use crate::{
         extract::{ApiPath, ApiQuery},
         gate,
     },
+    auth::extract::ClientAddress,
     db::repository::share::{Share, ShareKind},
     error::{Error, Result},
     state::AppState,
@@ -59,6 +60,7 @@ async fn raw(
     method: Method,
     ApiPath(code): ApiPath<String>,
     ApiQuery(query): ApiQuery<RetrievalQuery>,
+    ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
     let share = gate::open(&state, &code).await?;
@@ -71,7 +73,15 @@ async fn raw(
             "this share is a file; use /download instead",
         ));
     }
-    let payload = permit(&state, &share, &headers, query.t.as_deref(), &method).await?;
+    let payload = permit(
+        &state,
+        &share,
+        &headers,
+        query.t.as_deref(),
+        &method,
+        &source,
+    )
+    .await?;
 
     let body = match payload {
         Payload::Headers => Body::empty(),
@@ -103,10 +113,19 @@ async fn download(
     method: Method,
     ApiPath(code): ApiPath<String>,
     ApiQuery(query): ApiQuery<RetrievalQuery>,
+    ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
     let share = gate::open(&state, &code).await?;
-    let payload = permit(&state, &share, &headers, query.t.as_deref(), &method).await?;
+    let payload = permit(
+        &state,
+        &share,
+        &headers,
+        query.t.as_deref(),
+        &method,
+        &source,
+    )
+    .await?;
     let etag = etag_for(&share);
 
     // `If-Range` is what keeps a resumed download from stitching two different
@@ -194,6 +213,7 @@ async fn permit(
     headers: &HeaderMap,
     ticket: Option<&str>,
     method: &Method,
+    source: &str,
 ) -> Result<Payload> {
     // `HEAD` asks what a `GET` would answer, and answering that is not a
     // retrieval. axum routes `HEAD` to the same handler as `GET`, so without
@@ -204,14 +224,14 @@ async fn permit(
     // The password is still required: `HEAD` reveals the size, and a locked
     // share should not describe itself.
     if method == Method::HEAD {
-        gate::unlock(share, headers).await?;
+        gate::unlock(state, share, headers, source).await?;
         return Ok(Payload::Headers);
     }
 
     if gate::holds_ticket(state, share, headers, ticket).await? {
         return Ok(Payload::Content);
     }
-    gate::unlock(share, headers).await?;
+    gate::unlock(state, share, headers, source).await?;
     gate::spend(state, share).await?;
     Ok(Payload::Content)
 }

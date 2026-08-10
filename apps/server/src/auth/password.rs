@@ -1,5 +1,7 @@
 //! Password hashing.
 
+use std::sync::LazyLock;
+
 use argon2::{
     Algorithm, Argon2, Params, Version,
     password_hash::{
@@ -34,6 +36,39 @@ const MEMORY_KIB: u32 = 19 * 1024;
 const ITERATIONS: u32 = 2;
 const LANES: u32 = 1;
 
+/// How many hashes may be in flight at once.
+///
+/// # Why there is a limit at all
+///
+/// Each hash holds [`MEMORY_KIB`] — 19 MiB — for its duration, and `spawn_blocking`
+/// will happily run hundreds in parallel. Without a bound, an unauthenticated
+/// stranger sending sign-in attempts as fast as the network allows makes the
+/// process allocate until it is killed. Measured before this existed: a few
+/// hundred requests over a couple of seconds took resident memory from 34 MB to
+/// 792 MB, and nothing in the request path stopped it.
+///
+/// Requests past the limit wait rather than fail. Hashing is CPU-bound, so more
+/// of it in parallel than there are cores buys nothing anyway; the queue is what
+/// turns "allocate without limit" into "take longer", and the request timeout is
+/// what ends it.
+///
+/// Clamped at both ends: at least two so a single slow hash cannot stall every
+/// sign-in, at most eight so a large machine does not reserve 300 MiB for a
+/// burst it will never see.
+static IN_FLIGHT: LazyLock<tokio::sync::Semaphore> = LazyLock::new(|| {
+    let permits = std::thread::available_parallelism()
+        .map_or(2, std::num::NonZero::get)
+        .clamp(2, 8);
+    tokio::sync::Semaphore::new(permits)
+});
+
+/// Peak memory the hasher can hold, for the start-up log.
+#[must_use]
+pub fn peak_memory_bytes() -> u64 {
+    let permits = u64::try_from(IN_FLIGHT.available_permits()).unwrap_or(0);
+    u64::from(MEMORY_KIB) * 1024 * permits
+}
+
 fn hasher() -> Result<Argon2<'static>, PasswordError> {
     let params =
         Params::new(MEMORY_KIB, ITERATIONS, LANES, None).map_err(|_| PasswordError::Hasher)?;
@@ -50,6 +85,10 @@ fn hasher() -> Result<Argon2<'static>, PasswordError> {
 ///
 /// Returns [`PasswordError`] if hashing fails or the runtime is shutting down.
 pub async fn hash(password: Password) -> Result<String, PasswordError> {
+    let _permit = IN_FLIGHT
+        .acquire()
+        .await
+        .map_err(|_| PasswordError::Cancelled)?;
     // Argon2 is deliberately slow and deliberately memory-hungry: it is CPU-bound
     // work measured in tens of milliseconds. Running it on an async worker would
     // block that thread for the duration, stalling every other request the
@@ -76,6 +115,12 @@ pub async fn hash(password: Password) -> Result<String, PasswordError> {
 ///
 /// Returns [`PasswordError::Cancelled`] if the runtime is shutting down.
 pub async fn verify(password: Password, stored: String) -> Result<bool, PasswordError> {
+    // Held for the whole verification — see `IN_FLIGHT`. This is the path an
+    // attacker reaches, because a wrong password still costs a full hash.
+    let _permit = IN_FLIGHT
+        .acquire()
+        .await
+        .map_err(|_| PasswordError::Cancelled)?;
     tokio::task::spawn_blocking(move || {
         let Ok(parsed) = PasswordHash::new(&stored) else {
             return false;
@@ -97,6 +142,24 @@ mod tests {
 
     fn password(raw: &str) -> Password {
         Password::parse(raw, PasswordPolicy::default()).expect("valid for the default policy")
+    }
+
+    /// The bound is what stops an unauthenticated stranger making the process
+    /// allocate until it dies. Asserted rather than assumed, because the failure
+    /// is invisible until the machine is out of memory.
+    #[test]
+    fn the_hasher_reserves_a_bounded_amount_of_memory() {
+        let peak = peak_memory_bytes();
+        assert!(peak > 0, "a zero bound would mean nothing can hash at all");
+        assert!(
+            peak <= u64::from(MEMORY_KIB) * 1024 * 8,
+            "at most eight hashes in flight, or a large machine reserves more \
+             than it will ever need: {peak} bytes"
+        );
+        assert!(
+            peak >= u64::from(MEMORY_KIB) * 1024 * 2,
+            "at least two, so one slow hash cannot stall every sign-in"
+        );
     }
 
     #[tokio::test]

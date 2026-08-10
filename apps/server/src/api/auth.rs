@@ -227,9 +227,12 @@ pub async fn login(
 
     // Keyed on the account *and* where the request came from. Account alone
     // would let anyone lock a known user out by guessing at them; address alone
-    // would let a botnet spread its guesses and never trip the limit.
+    // would let a botnet spread its guesses and never trip the limit. A second
+    // counter watches the address by itself, because otherwise naming a
+    // different account each time produces a fresh key and no limit at all.
     let key = format!("{}|{address}", body.identifier.to_lowercase());
-    if let Decision::Deny { retry_after } = state.login_throttle.check(&key) {
+    let throttles = &state.throttles;
+    if let Decision::Deny { retry_after } = throttles.check(&throttles.login, &key, &address) {
         return Err(Error::TooManyRequests {
             retry_after_secs: retry_after.as_secs(),
         });
@@ -256,11 +259,11 @@ pub async fn login(
     };
 
     let Some(user) = user.filter(|_| authenticated) else {
-        state.login_throttle.record_failure(&key);
+        throttles.record_failure(&throttles.login, &key, &address);
         return Err(Error::Unauthorized);
     };
 
-    state.login_throttle.reset(&key);
+    throttles.login.reset(&key);
     let now = OffsetDateTime::now_utc();
     let cookie = start_session(&state, &user, &headers, now).await?;
 

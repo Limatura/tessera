@@ -47,7 +47,7 @@ use crate::{
         gate,
     },
     auth::{
-        extract::{CurrentUser, MaybeUser},
+        extract::{ClientAddress, CurrentUser, MaybeUser},
         password,
         secret::Secret,
     },
@@ -800,6 +800,7 @@ pub struct TicketResponse {
 pub async fn describe(
     State(state): State<AppState>,
     ApiPath(code): ApiPath<String>,
+    ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Json<PublicShareResponse>> {
     let share = gate::open(&state, &code).await?;
@@ -813,7 +814,7 @@ pub async fn describe(
     if headers.get(gate::PASSWORD_HEADER).is_none() {
         return Ok(Json(PublicShareResponse::locked(&share)));
     }
-    gate::unlock(&share, &headers).await?;
+    gate::unlock(&state, &share, &headers, &source).await?;
     Ok(Json(PublicShareResponse::unlocked(&share)))
 }
 
@@ -848,11 +849,12 @@ pub async fn describe(
 pub async fn unlock(
     State(state): State<AppState>,
     ApiPath(code): ApiPath<String>,
+    ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Json<TicketResponse>> {
     let share = gate::open(&state, &code).await?;
     // The password first, so a wrong guess never costs the share a retrieval.
-    gate::unlock(&share, &headers).await?;
+    gate::unlock(&state, &share, &headers, &source).await?;
 
     let secret = gate::spend(&state, &share).await?;
     let expires_at = OffsetDateTime::now_utc().saturating_add(

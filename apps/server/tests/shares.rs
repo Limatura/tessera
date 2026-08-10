@@ -901,3 +901,66 @@ async fn a_download_always_states_its_length() {
     );
     assert_eq!(body_string(part).await.len(), 100);
 }
+
+/// A share password may be four characters, which is the right trade for
+/// something read out over the phone and worthless without a limit on guesses.
+/// Measured against a running server before this existed: 246 attempts a second,
+/// so ten thousand combinations fell in forty-two seconds.
+#[tokio::test]
+async fn guessing_a_share_password_is_throttled() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?max_uses=100")
+                .header("x-share-password", "4271"),
+            Body::from("the secret"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let guess = async |password: String| {
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/shares/{code}/unlock"))
+                .header("x-share-password", password),
+            Body::empty(),
+        )
+        .await
+    };
+
+    let mut refused = None;
+    for attempt in 0..20 {
+        let response = guess(format!("{:04}", 1000 + attempt)).await;
+        if response.status() == StatusCode::TOO_MANY_REQUESTS {
+            refused = Some(response);
+            break;
+        }
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    let refused = refused.expect("repeated wrong passwords must eventually be refused");
+    assert!(
+        refused
+            .headers()
+            .get(header::RETRY_AFTER)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|seconds| seconds.parse::<u64>().is_ok_and(|s| s > 0)),
+        "a 429 without Retry-After leaves the client guessing"
+    );
+
+    // And the right password is refused too while the block holds — otherwise
+    // the limit would be trivially sidestepped by trying the real one last.
+    assert_eq!(
+        guess("4271".to_owned()).await.status(),
+        StatusCode::TOO_MANY_REQUESTS
+    );
+}
