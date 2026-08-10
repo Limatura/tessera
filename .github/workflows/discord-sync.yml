@@ -968,6 +968,8 @@ jobs:
 
               time.sleep(0.5)
 
+          PY
+
             done
 
             echo "Issue #$NUM 完整同步完成"
