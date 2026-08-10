@@ -1,0 +1,66 @@
+# .github/workflows/discord-sync.yml
+name: Sync Issues to Discord Forum
+on:
+  issues:
+    types: [opened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Discord thread (new issue)
+        if: github.event_name == 'issues'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE=$(jq -r '.issue.title' "$GITHUB_EVENT_PATH")
+          BODY=$(jq -r '.issue.body // ""' "$GITHUB_EVENT_PATH" | head -c 1500)
+          URL=$(jq -r '.issue.html_url' "$GITHUB_EVENT_PATH")
+          NUM=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+
+          PAYLOAD=$(jq -n --arg name "#$NUM $TITLE" \
+            --arg content "**Issue 連結:** $URL $BODY" \
+            '{thread_name: $name, content: $content}')
+
+          RESP=$(curl -s -X POST "$WEBHOOK?wait=true" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD")
+
+          THREAD_ID=$(echo "$RESP" | jq -r '.channel_id')
+
+          # 把 thread id 藏進一則 bot comment,供之後留言同步時查詢
+          gh api "repos/${{ github.repository }}/issues/$NUM/comments" \
+            -f body="<!-- discord-thread-id: $THREAD_ID -->"
+
+      - name: Sync comment to Discord thread
+        if: github.event_name == 'issue_comment'
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NUM=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
+          AUTHOR=$(jq -r '.comment.user.login' "$GITHUB_EVENT_PATH")
+          BODY=$(jq -r '.comment.body' "$GITHUB_EVENT_PATH" | head -c 1800)
+          CURL_BODY=$(jq -r '.comment.body' "$GITHUB_EVENT_PATH")
+
+          # 避免把 bot 自己寫的隱藏 comment 又同步一次
+          if echo "$CURL_BODY" | grep -q "discord-thread-id:"; then
+            exit 0
+          fi
+
+          THREAD_ID=$(gh api "repos/${{ github.repository }}/issues/$NUM/comments" \
+            --jq '.[].body' | grep -oP 'discord-thread-id: \K[0-9]+' | head -1)
+
+          if [ -z "$THREAD_ID" ]; then
+            echo "找不到對應的 thread id,略過"
+            exit 0
+          fi
+
+          PAYLOAD=$(jq -n --arg content "**$AUTHOR 留言:** $BODY" '{content: $content}')
+
+          curl -s -X POST "$WEBHOOK?thread_id=$THREAD_ID" \
+            -H 'Content-Type: application/json' \
+            -d "$PAYLOAD"
