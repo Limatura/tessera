@@ -19,18 +19,25 @@ use std::{
 };
 
 const PLACEHOLDER: &str = r#"<!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tessera</title>
 <style>
   body { font: 16px/1.6 system-ui, sans-serif; margin: 4rem auto; max-width: 40rem; padding: 0 1rem; }
   code { background: #eee; padding: .15em .4em; border-radius: .25em; }
 </style>
+</head>
+<body>
 <h1>tessera</h1>
 <p>The API is running, but no frontend bundle was embedded in this binary.</p>
 <p>Build the SPA and recompile:</p>
 <pre><code>pnpm --filter web build
 cargo build --release</code></pre>
 <p>API docs: <a href="/docs">/docs</a> &middot; Health: <a href="/health">/health</a></p>
+</body>
+</html>
 "#;
 
 fn main() -> Result<(), Box<dyn Error>> {

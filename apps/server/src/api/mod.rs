@@ -36,6 +36,7 @@ pub mod capabilities;
 pub mod extract;
 pub mod gate;
 pub mod health;
+pub mod preview;
 pub mod public;
 pub mod shares;
 pub mod tokens;
@@ -224,6 +225,10 @@ pub fn build(state: AppState) -> Router {
             OPENAPI_PATH,
             axum::routing::get(move || std::future::ready(Json(contract))),
         )
+        // Attached before the state is applied because the fallback needs it:
+        // `/s/{code}` is served from the bundle like any client-side route, but
+        // with the share's link preview spliced into the HTML on the way out.
+        .fallback(assets::handler)
         .with_state(state);
 
     if config.features.docs {
@@ -232,7 +237,7 @@ pub fn build(state: AppState) -> Router {
 
     let request_id_header = HeaderName::from_static(REQUEST_ID_HEADER);
 
-    app.fallback(assets::handler)
+    app
         // Innermost first: `.layer` wraps, so the last call is the outermost.
         // Compression sits closest to the handler and therefore compresses the
         // final body exactly once.

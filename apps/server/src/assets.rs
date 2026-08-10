@@ -5,6 +5,7 @@
 //! with no web server in front of it.
 
 use axum::{
+    extract::State,
     http::{StatusCode, Uri, header},
     response::{IntoResponse, Response},
 };
@@ -56,7 +57,7 @@ pub fn normalize_asset_path(raw: &str) -> Option<String> {
 /// A miss on a path that looks like a file (it has an extension) is a 404; a miss
 /// on anything else is a client-side route, so `index.html` is returned with a
 /// 200 and the router in the browser takes over.
-pub async fn handler(uri: Uri) -> Response {
+pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> Response {
     let Some(path) = normalize_asset_path(uri.path()) else {
         return not_found();
     };
@@ -74,10 +75,60 @@ pub async fn handler(uri: Uri) -> Response {
         .extension()
         .is_some_and(|ext| !ext.is_empty());
     if looks_like_a_file {
-        not_found()
-    } else {
-        serve(INDEX)
+        return not_found();
     }
+
+    // A share page is the one client-side route the server knows something
+    // about, and the one whose link gets pasted where something will unfurl it.
+    if let Some(code) = share_code(&path) {
+        return serve_share_page(&state, code).await;
+    }
+    serve(INDEX)
+}
+
+/// The retrieval code in `/s/{code}`, if that is what this path is.
+///
+/// Only the bare share page: `/s/{code}/raw` and `/s/{code}/download` are real
+/// routes and never reach the fallback.
+fn share_code(path: &str) -> Option<&str> {
+    let rest = path.strip_prefix("s/")?;
+    (!rest.is_empty() && !rest.contains('/')).then_some(rest)
+}
+
+/// Serves the app with the share's link preview spliced into its `<head>`.
+///
+/// Every failure path here falls back to the plain page. A preview is worth
+/// having; it is not worth a share page that does not load.
+async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Response {
+    use crate::api::preview::{Preview, splice_into_document};
+
+    let Some(file) = Bundle::get(INDEX) else {
+        return not_found();
+    };
+    let Some(share) = preview_target(state, code).await else {
+        return respond(INDEX, file);
+    };
+    let Ok(html) = std::str::from_utf8(&file.data) else {
+        return respond(INDEX, file);
+    };
+    let tags = Preview::of(&share, time::OffsetDateTime::now_utc()).to_head_tags();
+    let page = splice_into_document(html, &tags);
+
+    (
+        [
+            (header::CONTENT_TYPE, "text/html".to_owned()),
+            (header::CACHE_CONTROL, NO_CACHE.to_owned()),
+        ],
+        page,
+    )
+        .into_response()
+}
+
+async fn preview_target(
+    state: &crate::state::AppState,
+    code: &str,
+) -> Option<crate::db::repository::share::Share> {
+    crate::api::preview::lookup(state, code).await
 }
 
 fn serve(path: &str) -> Response {

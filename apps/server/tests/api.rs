@@ -8,7 +8,7 @@ mod common;
 
 use axum::{
     body::Body,
-    http::{Request, StatusCode, header},
+    http::{Method, Request, StatusCode, header},
 };
 use common::{TestApp, body_json, body_string, expect_status};
 use tessera_server::{api, state::ServiceStatus};
@@ -319,4 +319,107 @@ fn the_compression_predicate_skips_opaque_media_types() {
     for worthwhile in ["text/plain; charset=utf-8", "application/json"] {
         assert!(judge(worthwhile), "{worthwhile} should be compressed");
     }
+}
+
+/// An unfurler fetches the URL and reads the HTML; it does not run JavaScript,
+/// so tags the app adds at runtime are invisible to it. They have to be in the
+/// bytes the server sends.
+#[tokio::test]
+async fn a_share_page_carries_its_link_preview() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=holiday.jpg&max_uses=3"),
+            Body::from(vec![0_u8; 2048]),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let share = body_json(created).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
+            .await;
+    assert!(
+        page.contains(r#"<meta property="og:title" content="holiday.jpg">"#),
+        "{page}"
+    );
+    assert!(page.contains("2.0 KiB"), "{page}");
+
+    // Fetching the preview must not spend a retrieval: an unfurler follows the
+    // link the moment it is pasted, before any person clicks.
+    for _ in 0..5 {
+        expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await;
+    }
+    let after = body_json(
+        expect_status(
+            app.get(&format!("/api/v1/shares/{code}")).await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(after["uses_remaining"], 3, "a preview is not a retrieval");
+}
+
+/// A preview is shown to everyone in the channel. A password-protected share
+/// announcing its file name there would make the password decorative.
+#[tokio::test]
+async fn a_locked_share_gives_nothing_away_in_its_preview() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=payroll.xlsx&title=Salaries")
+                .header("x-share-password", "1234"),
+            Body::from("secret"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
+            .await;
+    assert!(!page.contains("payroll"), "{page}");
+    assert!(!page.contains("Salaries"), "{page}");
+    assert!(page.contains("Password-protected share"), "{page}");
+}
+
+/// The title is attacker-supplied and goes into an attribute on a page served
+/// from this origin.
+#[tokio::test]
+async fn a_title_cannot_inject_script_into_the_page() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?title=%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E"),
+            Body::from("x"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
+            .await;
+    assert!(!page.contains("<script>alert(1)"), "{page}");
+    assert!(page.contains("&quot;&gt;&lt;script&gt;"), "{page}");
 }
