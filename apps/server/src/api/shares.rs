@@ -28,7 +28,7 @@
 use axum::{
     Json,
     body::Body,
-    extract::{Path, Query, State},
+    extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
 };
@@ -41,7 +41,10 @@ use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 
 use crate::{
-    api::SHARES_TAG,
+    api::{
+        SHARES_TAG,
+        extract::{ApiPath, ApiQuery},
+    },
     auth::{
         extract::{CurrentUser, MaybeUser},
         password,
@@ -81,6 +84,21 @@ const SHARE_PASSWORD_POLICY: PasswordPolicy = PasswordPolicy {
     min_length: 4,
     max_length: PasswordPolicy::CEILING,
 };
+
+/// Longest `filename` and `title` a share may carry, in characters.
+///
+/// Tied to the MySQL column width. Without a check here the value reaches the
+/// insert, and the three backends then disagree: SQLite and Postgres store it,
+/// MySQL refuses the row. The caller sees `201` or `500` depending on which
+/// database the operator chose — for the same request, which is the worst kind
+/// of difference to leave in.
+///
+/// 191 rather than a round number because that is what utf8mb4 allows in an
+/// indexable `VARCHAR`, and matching the column is what makes the limit real.
+const MAX_TEXT_FIELD: usize = 191;
+
+/// Longest `language` hint, matching its narrower column.
+const MAX_LANGUAGE: usize = 64;
 
 /// The request body of `POST /shares`: the content itself, as bytes.
 ///
@@ -222,13 +240,22 @@ fn format_timestamp(value: OffsetDateTime) -> String {
 pub async fn create(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
-    Query(params): Query<CreateShareParams>,
+    ApiQuery(params): ApiQuery<CreateShareParams>,
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response> {
     if current.is_none() && !state.config.features.anonymous_upload {
         return Err(Error::Unauthorized);
     }
+
+    if params.max_uses == Some(0) {
+        return Err(Error::bad_request(
+            "`max_uses` must be at least 1; omit it for a share that never runs out",
+        ));
+    }
+    let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;
+    let title = checked_label(params.title, "title", MAX_TEXT_FIELD)?;
+    let language = checked_label(params.language, "language", MAX_LANGUAGE)?;
 
     let now = OffsetDateTime::now_utc();
     let expires_at = resolve_expiry(&state, params.expires_in_hours, now)?;
@@ -238,7 +265,7 @@ pub async fn create(
     };
 
     let id = ShareId::generate();
-    let kind = if params.filename.is_some() {
+    let kind = if filename.is_some() {
         ShareKind::File
     } else {
         ShareKind::Text
@@ -249,6 +276,12 @@ pub async fn create(
         size_bytes,
         inline,
     } = ingest(&state, id, now, body).await?;
+
+    // A share of nothing has nothing to hand out, and the retrieval code it
+    // would occupy is not free.
+    if size_bytes == 0 {
+        return Err(Error::bad_request("the request body is empty"));
+    }
 
     // Anonymous uploads get a token so their author can take one back. A signed-in
     // uploader already has one — their account.
@@ -266,10 +299,13 @@ pub async fn create(
         use_count: 0,
         expires_at,
         disabled_at: None,
-        title: params.title,
-        filename: params.filename,
-        content_type: None,
-        language: params.language,
+        title,
+        filename,
+        // What the uploader claimed, recorded so a future feature can use it —
+        // and never echoed, because serving an attacker-chosen media type back
+        // is how a `text/html` upload becomes stored XSS on our own origin.
+        content_type: claimed_content_type(&headers),
+        language,
         size_bytes,
         storage,
         og_config: None,
@@ -340,7 +376,7 @@ pub async fn list(
 pub async fn delete(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
-    Path(code): Path<String>,
+    ApiPath(code): ApiPath<String>,
     headers: HeaderMap,
 ) -> Result<StatusCode> {
     let code = RetrievalCode::parse(&code).map_err(|_| Error::NotFound)?;
@@ -549,6 +585,34 @@ fn generate_code(length: usize) -> Result<RetrievalCode> {
     Ok(RetrievalCode::from_entropy(&entropy)?)
 }
 
+/// Checks a caller-supplied label: length, and that it cannot break a header.
+///
+/// Control characters are refused rather than stripped. `filename` is echoed in
+/// `Content-Disposition` when the share is downloaded, and a value containing
+/// CR or LF would end the header and let the caller append one of their own.
+/// Stripping would work, but silently changing what somebody named their file is
+/// worse than telling them it is not a name.
+fn checked_label(value: Option<String>, field: &'static str, max: usize) -> Result<Option<String>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let value = value.trim().to_owned();
+    if value.is_empty() {
+        return Ok(None);
+    }
+    if value.chars().count() > max {
+        return Err(Error::bad_request(format!(
+            "`{field}` must be at most {max} characters"
+        )));
+    }
+    if value.chars().any(char::is_control) {
+        return Err(Error::bad_request(format!(
+            "`{field}` must not contain control characters"
+        )));
+    }
+    Ok(Some(value))
+}
+
 /// Reads the optional share password from `X-Share-Password`.
 ///
 /// A header rather than a query parameter: query strings end up in access logs,
@@ -562,6 +626,17 @@ fn share_password(headers: &HeaderMap) -> Result<Option<Password>> {
         return Ok(None);
     };
     Ok(Some(Password::parse(raw, SHARE_PASSWORD_POLICY)?))
+}
+
+/// The media type the uploader claimed, if it said anything specific.
+fn claimed_content_type(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && value.chars().count() <= MAX_TEXT_FIELD)
+        .filter(|value| !value.chars().any(char::is_control))
+        .map(str::to_owned)
 }
 
 fn management_token(headers: &HeaderMap) -> Option<Secret> {

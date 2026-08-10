@@ -9,6 +9,7 @@ use axum::{
 use common::{Auth, TestApp, body_json, body_string, expect_status, share_repository_round_trip};
 use futures_util::TryStreamExt as _;
 use object_store::{ObjectStore as _, ObjectStoreExt as _};
+use tower::ServiceExt as _;
 
 #[tokio::test]
 async fn shares_round_trip_through_the_repository() {
@@ -387,4 +388,160 @@ async fn a_body_past_the_limit_is_refused() {
         listed.is_empty(),
         "a refused upload left objects behind: {listed:?}"
     );
+}
+
+/// The contract promises that every non-2xx response is an `ErrorBody` a client
+/// can branch on. axum's own extractors do not keep that promise — they reject
+/// with plain text, and with statuses of their own choosing including `422` and
+/// `415`, neither of which is in `ErrorCode`. A front-end switching on
+/// `error.code` gets `undefined` the first time somebody sends a bad request.
+#[tokio::test]
+async fn every_rejection_keeps_the_error_envelope() {
+    let app = TestApp::ready().await;
+
+    let cases: Vec<(&str, Request<Body>)> = vec![
+        (
+            "malformed json",
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from("{not json"))
+                .expect("request"),
+        ),
+        (
+            "missing field",
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(r#"{"identifier":"a"}"#))
+                .expect("request"),
+        ),
+        (
+            "wrong content type",
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .body(Body::from("{}"))
+                .expect("request"),
+        ),
+        (
+            "unknown query parameter",
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?nope=1")
+                .body(Body::from("x"))
+                .expect("request"),
+        ),
+        (
+            "unparsable query value",
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?expires_in_hours=soon")
+                .body(Body::from("x"))
+                .expect("request"),
+        ),
+    ];
+
+    for (label, request) in cases {
+        let response = app.router.clone().oneshot(request).await.expect("response");
+        let status = response.status();
+        let body = body_string(response).await;
+        let parsed: serde_json::Value = serde_json::from_str(&body)
+            .unwrap_or_else(|_| panic!("{label}: expected an ErrorBody, got `{body}`"));
+
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{label}");
+        assert_eq!(parsed["code"], "bad_request", "{label}");
+        assert!(
+            parsed["message"].as_str().is_some_and(|m| !m.is_empty()),
+            "{label}: the message should say what was wrong: {parsed}"
+        );
+    }
+}
+
+/// These columns are narrower on MySQL than on the others, so an unchecked value
+/// is `201` on SQLite and `500` on MySQL — the same request, two answers,
+/// decided by which database the operator happened to choose.
+#[tokio::test]
+async fn oversized_labels_are_refused_rather_than_left_to_the_database() {
+    let app = TestApp::ready().await;
+
+    for (label, query) in [
+        ("filename", format!("?filename={}", "a".repeat(300))),
+        ("title", format!("?title={}", "b".repeat(300))),
+        ("language", format!("?language={}", "c".repeat(100))),
+    ] {
+        let response = app
+            .send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/shares{query}")),
+                Body::from("x"),
+            )
+            .await;
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST, "{label}");
+    }
+}
+
+/// A filename is echoed in `Content-Disposition` when the share is downloaded,
+/// so a value carrying CR or LF would end the header and let the caller append
+/// one of their own.
+#[tokio::test]
+async fn a_filename_that_could_forge_a_header_is_refused() {
+    let app = TestApp::ready().await;
+    let response = app
+        .send(
+            Request::builder().method(Method::POST).uri(format!(
+                "/api/v1/shares?filename={}",
+                urlencoding_of("evil\r\nX-Injected: 1")
+            )),
+            Body::from("x"),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+fn urlencoding_of(value: &str) -> String {
+    value
+        .bytes()
+        .map(|byte| {
+            if byte.is_ascii_alphanumeric() {
+                char::from(byte).to_string()
+            } else {
+                format!("%{byte:02X}")
+            }
+        })
+        .collect()
+}
+
+#[tokio::test]
+async fn a_share_of_nothing_is_refused() {
+    let app = TestApp::ready().await;
+    let response = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+/// `max_uses=0` would create a share that is exhausted before anyone sees it —
+/// and `expires_in_hours=0` is already refused, so accepting this one was just
+/// inconsistent.
+#[tokio::test]
+async fn a_zero_use_limit_is_refused() {
+    let app = TestApp::ready().await;
+    let response = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?max_uses=0"),
+            Body::from("x"),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }

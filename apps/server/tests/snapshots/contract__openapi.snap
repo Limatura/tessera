@@ -328,9 +328,9 @@ expression: document
         "parameters": [
           {
             "name": "filename",
-            "in": "query",
+            "in": "path",
             "description": "Original file name. Its presence is what makes this a file share rather\nthan a note.",
-            "required": false,
+            "required": true,
             "schema": {
               "type": [
                 "string",
@@ -341,9 +341,9 @@ expression: document
           },
           {
             "name": "title",
-            "in": "query",
+            "in": "path",
             "description": "Display name, shown on the share page and in the link preview.",
-            "required": false,
+            "required": true,
             "schema": {
               "type": [
                 "string",
@@ -354,9 +354,9 @@ expression: document
           },
           {
             "name": "language",
-            "in": "query",
+            "in": "path",
             "description": "Syntax-highlighting hint for a text share.",
-            "required": false,
+            "required": true,
             "schema": {
               "type": [
                 "string",
@@ -367,9 +367,9 @@ expression: document
           },
           {
             "name": "expires_in_hours",
-            "in": "query",
+            "in": "path",
             "description": "How long the share should last. Omit to use the instance's default.",
-            "required": false,
+            "required": true,
             "schema": {
               "type": [
                 "integer",
@@ -382,9 +382,9 @@ expression: document
           },
           {
             "name": "max_uses",
-            "in": "query",
+            "in": "path",
             "description": "How many times it may be retrieved. Omit for unlimited; `1` is\nburn-after-reading.",
-            "required": false,
+            "required": true,
             "schema": {
               "type": [
                 "integer",

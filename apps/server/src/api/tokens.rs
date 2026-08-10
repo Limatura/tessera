@@ -3,7 +3,7 @@
 
 use axum::{
     Json,
-    extract::{Path, State},
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
@@ -13,7 +13,10 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 
 use crate::{
-    api::TOKENS_TAG,
+    api::{
+        TOKENS_TAG,
+        extract::{ApiJson, ApiPath},
+    },
     auth::extract::{Credential, CurrentUser},
     db::repository::api_token::ApiToken,
     error::{Error, Result},
@@ -151,7 +154,7 @@ pub async fn list(
 pub async fn create(
     State(state): State<AppState>,
     current: CurrentUser,
-    Json(body): Json<CreateTokenRequest>,
+    ApiJson(body): ApiJson<CreateTokenRequest>,
 ) -> Result<Response> {
     // A token may not mint another. Otherwise one leaked token is permanent
     // access: revoking it does nothing, because whoever took it has already
@@ -223,7 +226,7 @@ pub async fn create(
 pub async fn revoke(
     State(state): State<AppState>,
     current: CurrentUser,
-    Path(id): Path<String>,
+    ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     // Same reasoning as creation: a leaked token must not be able to revoke the
     // owner's other credentials.

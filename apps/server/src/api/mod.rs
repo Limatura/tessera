@@ -33,6 +33,7 @@
 
 pub mod auth;
 pub mod capabilities;
+pub mod extract;
 pub mod health;
 pub mod shares;
 pub mod tokens;

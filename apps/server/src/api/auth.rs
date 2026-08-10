@@ -13,7 +13,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 
 use crate::{
-    api::AUTH_TAG,
+    api::{AUTH_TAG, extract::ApiJson},
     auth::{
         cookie,
         extract::{ClientAddress, Credential, SelfServiceUser},
@@ -130,7 +130,7 @@ fn require_accounts(state: &AppState) -> Result<()> {
 pub async fn register(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Json(body): Json<RegisterRequest>,
+    ApiJson(body): ApiJson<RegisterRequest>,
 ) -> Result<Response> {
     require_accounts(&state)?;
 
@@ -221,7 +221,7 @@ pub async fn login(
     State(state): State<AppState>,
     ClientAddress(address): ClientAddress,
     headers: HeaderMap,
-    Json(body): Json<LoginRequest>,
+    ApiJson(body): ApiJson<LoginRequest>,
 ) -> Result<Response> {
     require_accounts(&state)?;
 
@@ -359,7 +359,7 @@ pub async fn change_password(
     State(state): State<AppState>,
     headers: HeaderMap,
     SelfServiceUser(current): SelfServiceUser,
-    Json(body): Json<ChangePasswordRequest>,
+    ApiJson(body): ApiJson<ChangePasswordRequest>,
 ) -> Result<Response> {
     // A leaked API token must not be able to take the account. Requiring the
     // browser credential keeps the blast radius of a leaked token to what the
