@@ -165,6 +165,10 @@ impl ApiTokenRepository {
         let models = ApiTokenEntity::find()
             .filter(api_token::Column::UserId.eq(user_id.to_string()))
             .order_by_desc(api_token::Column::CreatedAt)
+            // Tiebreak on the identifier, which is a ULID and therefore already
+            // in creation order. Two tokens issued in the same microsecond would
+            // otherwise come back in an order the database chose.
+            .order_by_desc(api_token::Column::Id)
             .all(&self.connection)
             .await?;
         models

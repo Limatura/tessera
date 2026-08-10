@@ -13,7 +13,8 @@ use crate::{
     auth::throttle::Throttle,
     config::Config,
     db::repository::{
-        api_token::ApiTokenRepository, session::SessionRepository, user::UserRepository,
+        api_token::ApiTokenRepository, session::SessionRepository, share::ShareRepository,
+        user::UserRepository,
     },
 };
 
@@ -47,6 +48,8 @@ pub struct AppState {
     pub sessions: SessionRepository,
     /// API tokens.
     pub tokens: ApiTokenRepository,
+    /// Shares.
+    pub shares: ShareRepository,
     /// Failed-login counter.
     ///
     /// Shared rather than per-request: the whole point is that attempts
@@ -73,6 +76,7 @@ impl AppState {
             users: UserRepository::new(db.clone()),
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),
+            shares: ShareRepository::new(db.clone()),
             login_throttle: Arc::new(Throttle::default()),
             config,
             db,

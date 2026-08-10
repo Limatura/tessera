@@ -8,4 +8,5 @@
 
 pub mod api_token;
 pub mod session;
+pub mod share;
 pub mod user;

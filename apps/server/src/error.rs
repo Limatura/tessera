@@ -279,6 +279,7 @@ macro_rules! repository_error {
 repository_error!(user::UserRepositoryError);
 repository_error!(session::SessionRepositoryError);
 repository_error!(api_token::ApiTokenRepositoryError);
+repository_error!(share::ShareRepositoryError);
 
 #[cfg(test)]
 mod tests {

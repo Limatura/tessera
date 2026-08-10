@@ -33,7 +33,7 @@
 mod common;
 
 use axum::http::StatusCode;
-use common::{TestApp, account_lifecycle, body_json, expect_status};
+use common::{TestApp, account_lifecycle, body_json, expect_status, share_repository_round_trip};
 use sea_orm::{ConnectionTrait as _, Statement};
 use tessera_server::{
     config::DatabaseConfig,
@@ -149,4 +149,18 @@ async fn accounts_sessions_and_tokens_round_trip() {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
     account_lifecycle(&app, &format!("{}{suffix}", expected_backend().as_str())).await;
+}
+
+/// Same reasoning as the account lifecycle, for the shares tables: `MEDIUMBLOB`
+/// on MySQL, `TIMESTAMPTZ` on Postgres, the nullable owner foreign key, and the
+/// atomic use-count update are all things only a live server can settle.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn shares_round_trip_through_the_repository() {
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    // Codes must be unique across runs, and the alphabet excludes I, L, O and U.
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs());
+    share_repository_round_trip(&app, &format!("{suffix}")).await;
 }

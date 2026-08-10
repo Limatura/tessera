@@ -533,3 +533,315 @@ pub(crate) async fn force_password_change(app: &TestApp, username: &str) {
         .await
         .expect("set the flag");
 }
+
+/// Writes shares and reads them back, through the repository.
+///
+/// Lives here so the cross-backend suite runs the same scenario: the tables are
+/// hand-written per dialect, and only writing rows and reading them back proves
+/// the entity and the schema agree about every column — Postgres `TIMESTAMPTZ`
+/// against SQLite's TEXT, MySQL's `MEDIUMBLOB`, the nullable owner foreign key,
+/// and the atomic use-count update.
+///
+/// `suffix` keeps the retrieval codes unique, because the networked backends run
+/// against a database that survives the run.
+pub(crate) async fn share_repository_round_trip(app: &TestApp, suffix: &str) {
+    let shares = Shares::new(app, suffix);
+    shares.inline_text_survives_the_round_trip().await;
+    shares.an_object_backed_share_has_no_inline_row().await;
+    shares.the_gate_reads_the_columns_it_should();
+    shares.the_use_count_is_spent_in_the_database().await;
+    shares.a_view_is_not_a_retrieval().await;
+    shares.deleting_takes_the_content_with_it().await;
+    shares.expired_shares_are_listed_for_cleanup().await;
+}
+
+use tessera_core::{RetrievalCode, ShareId};
+use tessera_server::db::repository::share::{
+    Availability, Share, ShareKind, ShareRepository, StorageLocation,
+};
+use time::{Duration, OffsetDateTime};
+
+/// Fixture for [`share_repository_round_trip`].
+struct Shares<'a> {
+    repository: &'a ShareRepository,
+    suffix: String,
+    now: OffsetDateTime,
+}
+
+impl<'a> Shares<'a> {
+    fn new(app: &'a TestApp, suffix: &str) -> Self {
+        Self {
+            repository: &app.state.shares,
+            suffix: suffix.to_owned(),
+            // Truncated to microseconds. Rust's clock is nanosecond-resolution
+            // and no backend stores that: Postgres `TIMESTAMPTZ` and MySQL
+            // `TIMESTAMP(6)` are both microseconds. Writing nanoseconds and then
+            // asserting the row reads back unchanged would fail on the precision
+            // rather than on anything this test is about.
+            now: truncate_to_microseconds(OffsetDateTime::now_utc()),
+        }
+    }
+
+    /// A distinct code per case. The alphabet excludes `I`, `L`, `O` and `U`, so
+    /// digits are the safe way to vary it.
+    fn code(&self, n: u8) -> RetrievalCode {
+        let raw = format!("{}{n:02}", self.suffix);
+        RetrievalCode::parse(&raw)
+            .unwrap_or_else(|error| panic!("`{raw}` should be a valid code: {error}"))
+    }
+
+    /// A share with nothing optional set, so each case can name only what it
+    /// cares about.
+    fn blank(&self, n: u8) -> Share {
+        Share {
+            id: ShareId::generate(),
+            code: self.code(n),
+            user_id: None,
+            kind: ShareKind::Text,
+            password_hash: None,
+            use_limit: None,
+            use_count: 0,
+            expires_at: None,
+            disabled_at: None,
+            title: None,
+            filename: None,
+            content_type: None,
+            language: None,
+            size_bytes: 0,
+            storage: StorageLocation::Inline,
+            og_config: None,
+            management_token_hash: None,
+            view_count: 0,
+            last_accessed_at: None,
+            created_at: self.now,
+            updated_at: self.now,
+        }
+    }
+
+    async fn stored(&self, id: ShareId) -> Share {
+        self.repository
+            .find_by_id(id)
+            .await
+            .expect("query")
+            .expect("the share should still be there")
+    }
+
+    /// Every optional column populated, so one the entity and the schema
+    /// disagree about cannot slip through as NULL.
+    fn populated_text(&self, content: &[u8]) -> Share {
+        Share {
+            kind: ShareKind::Text,
+            language: Some("typescript".to_owned()),
+            title: Some("a snippet".to_owned()),
+            password_hash: Some("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned()),
+            use_limit: Some(3),
+            expires_at: Some(self.now + Duration::hours(1)),
+            og_config: Some(r#"{"layout":"default"}"#.to_owned()),
+            management_token_hash: Some("a".repeat(64)),
+            size_bytes: u64::try_from(content.len()).expect("a test payload fits"),
+            ..self.blank(1)
+        }
+    }
+
+    async fn inline_text_survives_the_round_trip(&self) {
+        let content = "const foo = \"bar\";\n".repeat(64).into_bytes();
+        let share = self.populated_text(&content);
+        self.repository
+            .insert(&share, Some(content.clone()))
+            .await
+            .expect("insert");
+
+        let stored = self
+            .repository
+            .find_by_code(&share.code)
+            .await
+            .expect("query")
+            .expect("the share just written");
+        assert_eq!(stored, share, "a stored share must read back unchanged");
+        assert_eq!(
+            self.repository
+                .inline_content(share.id)
+                .await
+                .expect("query"),
+            Some(content),
+            "inline content must survive the round trip"
+        );
+    }
+
+    async fn an_object_backed_share_has_no_inline_row(&self) {
+        let share = Share {
+            kind: ShareKind::File,
+            filename: Some("專案.zip".to_owned()),
+            content_type: Some("application/zip".to_owned()),
+            size_bytes: 1_048_576,
+            storage: StorageLocation::Object {
+                key: format!("2026/08/{}", self.suffix),
+            },
+            ..self.blank(2)
+        };
+        self.repository.insert(&share, None).await.expect("insert");
+
+        assert_eq!(self.stored(share.id).await, share);
+        assert_eq!(
+            self.repository
+                .inline_content(share.id)
+                .await
+                .expect("query"),
+            None,
+            "an object-backed share has no inline row"
+        );
+    }
+
+    fn the_gate_reads_the_columns_it_should(&self) {
+        let live = Share {
+            password_hash: Some("irrelevant".to_owned()),
+            ..self.blank(3)
+        };
+        assert_eq!(live.availability_at(self.now), Availability::Available);
+        assert!(live.needs_password());
+
+        for (label, share, expected) in [
+            (
+                "expired",
+                Share {
+                    expires_at: Some(self.now - Duration::seconds(1)),
+                    ..self.blank(4)
+                },
+                Availability::Expired,
+            ),
+            (
+                "exhausted",
+                Share {
+                    use_limit: Some(2),
+                    use_count: 2,
+                    ..self.blank(5)
+                },
+                Availability::Exhausted,
+            ),
+            (
+                "disabled",
+                Share {
+                    disabled_at: Some(self.now),
+                    ..self.blank(6)
+                },
+                Availability::Disabled,
+            ),
+        ] {
+            assert_eq!(share.availability_at(self.now), expected, "{label}");
+        }
+    }
+
+    /// A share with three uses must yield exactly three, however many callers
+    /// ask — and the refusal has to come from the `WHERE` clause, not from a
+    /// check the handler could forget.
+    async fn the_use_count_is_spent_in_the_database(&self) {
+        let share = Share {
+            use_limit: Some(3),
+            ..self.blank(7)
+        };
+        self.repository.insert(&share, None).await.expect("insert");
+
+        for spent in 1..=3 {
+            assert!(
+                self.repository
+                    .consume(share.id, self.now)
+                    .await
+                    .expect("consume"),
+                "use {spent} of 3 should have been granted"
+            );
+        }
+        assert!(
+            !self
+                .repository
+                .consume(share.id, self.now)
+                .await
+                .expect("consume"),
+            "the fourth use must be refused"
+        );
+
+        let stored = self.stored(share.id).await;
+        assert_eq!(stored.use_count, 3);
+        assert_eq!(stored.availability_at(self.now), Availability::Exhausted);
+        assert!(stored.last_accessed_at.is_some());
+    }
+
+    async fn a_view_is_not_a_retrieval(&self) {
+        let share = self.blank(8);
+        self.repository.insert(&share, None).await.expect("insert");
+
+        // An unlimited share is never refused.
+        for _ in 0..5 {
+            assert!(
+                self.repository
+                    .consume(share.id, self.now)
+                    .await
+                    .expect("consume")
+            );
+        }
+        self.repository
+            .record_view(share.id)
+            .await
+            .expect("record view");
+
+        let stored = self.stored(share.id).await;
+        assert_eq!(stored.view_count, 1);
+        assert_eq!(stored.use_count, 5, "a view must not spend a use");
+    }
+
+    async fn deleting_takes_the_content_with_it(&self) {
+        let share = self.blank(9);
+        self.repository
+            .insert(&share, Some(b"gone shortly".to_vec()))
+            .await
+            .expect("insert");
+
+        self.repository.delete(share.id).await.expect("delete");
+        assert!(
+            self.repository
+                .find_by_id(share.id)
+                .await
+                .expect("query")
+                .is_none()
+        );
+        assert!(
+            self.repository
+                .inline_content(share.id)
+                .await
+                .expect("query")
+                .is_none(),
+            "ON DELETE CASCADE should have removed the content row"
+        );
+    }
+
+    /// Expired shares have to be findable *before* their rows go, so whatever is
+    /// in the blob store can be removed first — no database action reaches it.
+    async fn expired_shares_are_listed_for_cleanup(&self) {
+        let stale = Share {
+            expires_at: Some(self.now - Duration::days(1)),
+            ..self.blank(10)
+        };
+        let live = self.blank(11);
+        self.repository.insert(&stale, None).await.expect("insert");
+        self.repository.insert(&live, None).await.expect("insert");
+
+        let expired = self
+            .repository
+            .find_expired(self.now, 100)
+            .await
+            .expect("query");
+        assert!(
+            expired.iter().any(|share| share.id == stale.id),
+            "an expired share should be listed for cleanup"
+        );
+        assert!(
+            !expired.iter().any(|share| share.id == live.id),
+            "a share with no expiry must never be swept"
+        );
+    }
+}
+
+/// Drops sub-microsecond digits, which no backend keeps.
+fn truncate_to_microseconds(value: OffsetDateTime) -> OffsetDateTime {
+    let microseconds = value.nanosecond() / 1_000 * 1_000;
+    value.replace_nanosecond(microseconds).unwrap_or(value)
+}
