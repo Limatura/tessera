@@ -1,65 +1,110 @@
 name: Sync Issues to Discord Forum
+
 on:
   issues:
     types: [opened]
   issue_comment:
     types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "要補同步的 issue 編號(留空 = 同步所有 open issue)"
+        required: false
+
+permissions:
+  issues: write
+  contents: read
 
 jobs:
-  sync:
+  # ── 1. 新開 issue 時,自動在 Discord 建立對應的論壇貼文 ──
+  create_thread:
+    if: github.event_name == 'issues'
     runs-on: ubuntu-latest
+    env:
+      WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - name: Create Discord thread (new issue)
-        if: github.event_name == 'issues'
-        env:
-          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Discord thread
         run: |
           TITLE=$(jq -r '.issue.title' "$GITHUB_EVENT_PATH")
           BODY=$(jq -r '.issue.body // ""' "$GITHUB_EVENT_PATH" | head -c 1500)
           URL=$(jq -r '.issue.html_url' "$GITHUB_EVENT_PATH")
           NUM=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
 
-          PAYLOAD=$(jq -n --arg name "#$NUM $TITLE" \
-            --arg content "**Issue 連結:** $URL $BODY" \
-            '{thread_name: $name, content: $content}')
+          PAYLOAD=$(jq -n --arg name "#$NUM $TITLE" --arg url "$URL" --arg body "$BODY" '{thread_name: $name, content: ("**Issue 連結:** " + $url + "\n\n" + $body)}')
 
-          RESP=$(curl -s -X POST "$WEBHOOK?wait=true" \
-            -H 'Content-Type: application/json' \
-            -d "$PAYLOAD")
-
+          RESP=$(curl -s -X POST "$WEBHOOK?wait=true" -H 'Content-Type: application/json' -d "$PAYLOAD")
           THREAD_ID=$(echo "$RESP" | jq -r '.channel_id')
 
-          # 把 thread id 藏進一則 bot comment,供之後留言同步時查詢
-          gh api "repos/${{ github.repository }}/issues/$NUM/comments" \
-            -f body="<!-- discord-thread-id: $THREAD_ID -->"
+          gh api "repos/${{ github.repository }}/issues/$NUM/comments" -f body="<!-- discord-thread-id: $THREAD_ID -->"
 
+          echo "Issue #$NUM -> thread $THREAD_ID"
+
+  # ── 2. issue 底下有新留言時,同步到對應的 Discord 貼文 ──
+  sync_comment:
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    env:
+      WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
       - name: Sync comment to Discord thread
-        if: github.event_name == 'issue_comment'
-        env:
-          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           NUM=$(jq -r '.issue.number' "$GITHUB_EVENT_PATH")
           AUTHOR=$(jq -r '.comment.user.login' "$GITHUB_EVENT_PATH")
           BODY=$(jq -r '.comment.body' "$GITHUB_EVENT_PATH" | head -c 1800)
-          CURL_BODY=$(jq -r '.comment.body' "$GITHUB_EVENT_PATH")
+          RAW_BODY=$(jq -r '.comment.body' "$GITHUB_EVENT_PATH")
 
-          # 避免把 bot 自己寫的隱藏 comment 又同步一次
-          if echo "$CURL_BODY" | grep -q "discord-thread-id:"; then
+          if echo "$RAW_BODY" | grep -q "discord-thread-id:"; then
+            echo "這是 bot 自己寫的標記留言,略過"
             exit 0
           fi
 
-          THREAD_ID=$(gh api "repos/${{ github.repository }}/issues/$NUM/comments" \
-            --jq '.[].body' | grep -oP 'discord-thread-id: \K[0-9]+' | head -1)
+          THREAD_ID=$(gh api "repos/${{ github.repository }}/issues/$NUM/comments" --jq '.[].body' | grep -oP 'discord-thread-id: \K[0-9]+' | head -1)
 
           if [ -z "$THREAD_ID" ]; then
             echo "找不到對應的 thread id,略過"
             exit 0
           fi
 
-          PAYLOAD=$(jq -n --arg content "**$AUTHOR 留言:** $BODY" '{content: $content}')
+          PAYLOAD=$(jq -n --arg author "$AUTHOR" --arg body "$BODY" '{content: ("**" + $author + " 留言:**\n\n" + $body)}')
 
-          curl -s -X POST "$WEBHOOK?thread_id=$THREAD_ID" \
-            -H 'Content-Type: application/json' \
-            -d "$PAYLOAD"
+          curl -s -X POST "$WEBHOOK?thread_id=$THREAD_ID" -H 'Content-Type: application/json' -d "$PAYLOAD"
+
+  # ── 3. 手動觸發:補建立之前已存在的 issue(單一個或全部 open) ──
+  backfill:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Create Discord thread for existing issue(s)
+        run: |
+          if [ -n "${{ inputs.issue_number }}" ]; then
+            ISSUES="${{ inputs.issue_number }}"
+          else
+            ISSUES=$(gh issue list --repo ${{ github.repository }} --state open --json number --jq '.[].number')
+          fi
+
+          for NUM in $ISSUES; do
+            EXIST=$(gh api "repos/${{ github.repository }}/issues/$NUM/comments" --jq '.[].body' | grep -c "discord-thread-id:" || true)
+            if [ "$EXIST" -gt 0 ]; then
+              echo "Issue #$NUM 已同步過,略過"
+              continue
+            fi
+
+            TITLE=$(gh issue view $NUM --repo ${{ github.repository }} --json title --jq '.title')
+            BODY=$(gh issue view $NUM --repo ${{ github.repository }} --json body --jq '.body' | head -c 1500)
+            URL="https://github.com/${{ github.repository }}/issues/$NUM"
+
+            PAYLOAD=$(jq -n --arg name "#$NUM $TITLE" --arg url "$URL" --arg body "$BODY" '{thread_name: $name, content: ("**Issue 連結:** " + $url + "\n\n" + $body)}')
+
+            RESP=$(curl -s -X POST "$WEBHOOK?wait=true" -H 'Content-Type: application/json' -d "$PAYLOAD")
+            THREAD_ID=$(echo "$RESP" | jq -r '.channel_id')
+
+            gh api "repos/${{ github.repository }}/issues/$NUM/comments" -f body="<!-- discord-thread-id: $THREAD_ID -->"
+
+            echo "Issue #$NUM -> thread $THREAD_ID"
+            sleep 1
+          done
