@@ -775,3 +775,129 @@ async fn a_ticket_is_bound_to_its_share() {
     assert_eq!(served.status(), StatusCode::OK);
     assert_eq!(body_string(served).await, "theirs");
 }
+
+/// axum routes `HEAD` to the same handler as `GET`, so without an explicit check
+/// a link checker, a prefetch or a chat client probing the URL spends somebody's
+/// one-time share — the exact failure the ticket model exists to prevent,
+/// reached by a route nobody thinks about.
+#[tokio::test]
+async fn a_head_request_describes_without_spending() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=probe.bin&max_uses=2", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let head = app
+        .send(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(format!("/s/{code}/download")),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(head.status(), StatusCode::OK);
+    assert_eq!(
+        head.headers()
+            .get(header::CONTENT_LENGTH)
+            .and_then(|v| v.to_str().ok()),
+        Some("5"),
+        "a HEAD must still describe the response a GET would give"
+    );
+    assert!(head.headers().contains_key(header::ETAG));
+
+    let after_head = body_json(
+        expect_status(
+            app.get(&format!("/api/v1/shares/{code}")).await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(after_head["uses_remaining"], 2, "HEAD must cost nothing");
+
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+    let after_get = body_json(
+        expect_status(
+            app.get(&format!("/api/v1/shares/{code}")).await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(after_get["uses_remaining"], 1, "a GET is the retrieval");
+}
+
+/// A `416` without `Content-Range` does not tell the client what range *would*
+/// have worked, so it has to guess.
+#[tokio::test]
+async fn an_impossible_range_says_how_big_the_object_is() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=small.bin", b"0123456789").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let response = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/download"))
+                .header(header::RANGE, "bytes=9999-"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_RANGE)
+            .and_then(|v| v.to_str().ok()),
+        Some("bytes */10")
+    );
+    assert_eq!(body_json(response).await["code"], "range_not_satisfiable");
+}
+
+/// A streamed body has no length axum can infer, so it has to be set by hand —
+/// and without it the browser shows no progress bar and no time remaining.
+#[tokio::test]
+async fn a_download_always_states_its_length() {
+    let app = TestApp::with_config(|config| {
+        // Small enough that the payload goes to the blob store, which is the
+        // path that streams and therefore the one that can lose the length.
+        config.share.inline_threshold_bytes = 16;
+    })
+    .await;
+    let share = upload(&app, "?filename=big.bin", &vec![3_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let whole = expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        whole
+            .headers()
+            .get(header::CONTENT_LENGTH)
+            .and_then(|v| v.to_str().ok()),
+        Some("4096")
+    );
+    assert_eq!(body_string(whole).await.len(), 4096);
+
+    let part = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/download"))
+                .header(header::RANGE, "bytes=1000-1099"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(part.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(
+        part.headers()
+            .get(header::CONTENT_LENGTH)
+            .and_then(|v| v.to_str().ok()),
+        Some("100")
+    );
+    assert_eq!(body_string(part).await.len(), 100);
+}

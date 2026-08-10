@@ -1041,6 +1041,7 @@
           "forbidden",
           "password_change_required",
           "gone",
+          "range_not_satisfiable",
           "conflict",
           "too_many_requests",
           "unavailable",

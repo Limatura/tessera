@@ -56,6 +56,17 @@ pub enum Error {
     #[error("gone")]
     Gone(String),
 
+    /// The `Range` asked for bytes the object does not have.
+    ///
+    /// Carries the real size so the response can say what *is* available, which
+    /// is what RFC 9110 asks for and what lets a client retry sensibly instead
+    /// of guessing.
+    #[error("range not satisfiable")]
+    RangeNotSatisfiable {
+        /// Size of the object, in bytes.
+        size: u64,
+    },
+
     /// The request conflicts with something that already exists.
     #[error("{0}")]
     Conflict(String),
@@ -118,6 +129,8 @@ pub enum ErrorCode {
     PasswordChangeRequired,
     /// See [`Error::Gone`].
     Gone,
+    /// See [`Error::RangeNotSatisfiable`].
+    RangeNotSatisfiable,
     /// See [`Error::Conflict`].
     Conflict,
     /// See [`Error::TooManyRequests`].
@@ -147,6 +160,7 @@ impl ErrorCode {
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::PasswordChangeRequired => StatusCode::FORBIDDEN,
             Self::Gone => StatusCode::GONE,
+            Self::RangeNotSatisfiable => StatusCode::RANGE_NOT_SATISFIABLE,
             Self::Conflict => StatusCode::CONFLICT,
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
@@ -165,6 +179,7 @@ impl ErrorCode {
             Self::Forbidden => "your account is not allowed to do that",
             Self::PasswordChangeRequired => "set a new password before doing anything else",
             Self::Gone => "that is no longer available",
+            Self::RangeNotSatisfiable => "the requested range is not available",
             Self::Conflict => "that already exists",
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
@@ -194,6 +209,7 @@ impl Error {
             Self::Forbidden => ErrorCode::Forbidden,
             Self::PasswordChangeRequired => ErrorCode::PasswordChangeRequired,
             Self::Gone(_) => ErrorCode::Gone,
+            Self::RangeNotSatisfiable { .. } => ErrorCode::RangeNotSatisfiable,
             Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
@@ -251,19 +267,26 @@ impl IntoResponse for Error {
         } else {
             tracing::debug!(error = %self, "request rejected");
         }
-        // A 429 without `Retry-After` tells a client to back off but not for how
-        // long, so every client invents its own answer. The body carries nothing
-        // the header does not — this is the field HTTP already has for it.
-        let retry_after = match self {
-            Self::TooManyRequests { retry_after_secs } => {
-                HeaderValue::from_str(&retry_after_secs.to_string()).ok()
-            }
+        // Two errors carry a header the client needs, and both are headers HTTP
+        // already has for the purpose. A 429 without `Retry-After` tells a
+        // client to back off but not for how long, so every client invents its
+        // own answer; a 416 without `Content-Range` does not say what range
+        // *would* have worked.
+        let extra = match self {
+            Self::TooManyRequests { retry_after_secs } => Some((
+                header::RETRY_AFTER,
+                HeaderValue::from_str(&retry_after_secs.to_string()),
+            )),
+            Self::RangeNotSatisfiable { size } => Some((
+                header::CONTENT_RANGE,
+                HeaderValue::from_str(&format!("bytes */{size}")),
+            )),
             _ => None,
         };
 
         let mut response = (self.status(), Json(self.body())).into_response();
-        if let Some(value) = retry_after {
-            response.headers_mut().insert(header::RETRY_AFTER, value);
+        if let Some((name, Ok(value))) = extra {
+            response.headers_mut().insert(name, value);
         }
         response
     }
