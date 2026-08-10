@@ -120,6 +120,16 @@ declare_id!(
     "api_token_id"
 );
 
+declare_id!(
+    /// Identifies a share.
+    ///
+    /// Distinct from its [`RetrievalCode`](crate::RetrievalCode): this is the
+    /// share's identity, that is how a person refers to it. Keeping them apart
+    /// lets a code be regenerated without rewriting anything that points here.
+    ShareId,
+    "share_id"
+);
+
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;

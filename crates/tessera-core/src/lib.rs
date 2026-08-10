@@ -34,6 +34,7 @@
 //! declare one would cost the guarantee above while buying little: the
 //! swappability such a port usually provides is already supplied by SeaORM.
 
+mod code;
 mod email;
 mod error;
 mod id;
@@ -41,9 +42,10 @@ mod password;
 mod username;
 
 pub use crate::{
+    code::RetrievalCode,
     email::EmailAddress,
     error::DomainError,
-    id::{ApiTokenId, SessionId, UserId},
+    id::{ApiTokenId, SessionId, ShareId, UserId},
     password::{Password, PasswordPolicy},
     username::Username,
 };
