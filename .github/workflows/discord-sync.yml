@@ -881,24 +881,18 @@ jobs:
           import urllib.request
           import urllib.error
           import time
-
           webhook = os.environ["WEBHOOK"]
           thread_id = os.environ["THREAD_ID"]
-
           author = os.environ["AUTHOR"]
-
           body = os.environ.get(
               "COMMENT_BODY",
               ""
           )
-
           content = (
               f"**{author} 留言:**\n\n"
               f"{body}"
           )
-
           MAX = 1900
-
           chunks = [
               content[i:i + MAX]
               for i in range(
@@ -907,35 +901,26 @@ jobs:
                   MAX
               )
           ]
-
           if not chunks:
-
               chunks = [
                   f"**{author} 留言:**"
               ]
-
           for index, chunk in enumerate(
               chunks,
               start=1
           ):
-
               if len(chunks) > 1:
-
                   prefix = (
                       f"**[{index}/{len(chunks)}]**\n"
                   )
-
                   chunk = (
                       prefix +
                       chunk
                   )
-
                   chunk = chunk[:2000]
-
               payload = json.dumps({
                   "content": chunk
               }).encode("utf-8")
-
               request = urllib.request.Request(
                   f"{webhook}?thread_id={thread_id}",
                   data=payload,
@@ -944,36 +929,24 @@ jobs:
                   },
                   method="POST"
               )
-
               try:
-
                   with urllib.request.urlopen(
                       request
                   ) as response:
-
                       print(
                           f"Comment 第 {index} 段 "
                           f"HTTP {response.status}"
                       )
-
               except urllib.error.HTTPError as e:
-
                   print(
                       f"Discord API ERROR: "
                       f"{e.code} "
                       f"{e.read().decode('utf-8', errors='replace')}"
                   )
-
                   raise
-
               time.sleep(0.5)
-
           PY
-
             done
-
             echo "Issue #$NUM 完整同步完成"
-
             sleep 1
-
           done
