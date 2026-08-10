@@ -82,6 +82,18 @@ const SHARE_PASSWORD_POLICY: PasswordPolicy = PasswordPolicy {
     max_length: PasswordPolicy::CEILING,
 };
 
+/// The request body of `POST /shares`: the content itself, as bytes.
+///
+/// A named type only so the contract can say `format: binary`. Declaring the
+/// body as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI
+/// renders as a JSON array editor and a generated client types as `number[]` —
+/// neither of which can carry a file.
+#[derive(Debug, ToSchema)]
+#[schema(value_type = String, format = Binary)]
+pub struct ShareBody(
+    #[expect(dead_code, reason = "a schema marker; the body is read as a stream")] Vec<u8>,
+);
+
 /// Metadata for `POST /shares`, supplied as query parameters.
 #[derive(Debug, Default, Deserialize, IntoParams)]
 #[serde(deny_unknown_fields)]
@@ -195,7 +207,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
     tag = SHARES_TAG,
     params(CreateShareParams),
     request_body(
-        content = Vec<u8>,
+        content = ShareBody,
         description = "The content itself. Send the file as the raw body — no wrapper, no encoding.",
         content_type = "application/octet-stream",
     ),

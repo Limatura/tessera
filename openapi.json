@@ -397,12 +397,7 @@
           "content": {
             "application/octet-stream": {
               "schema": {
-                "type": "array",
-                "items": {
-                  "type": "integer",
-                  "format": "int32",
-                  "minimum": 0
-                }
+                "$ref": "#/components/schemas/ShareBody"
               }
             }
           },
@@ -1005,6 +1000,11 @@
           "ready",
           "draining"
         ]
+      },
+      "ShareBody": {
+        "type": "string",
+        "format": "binary",
+        "description": "The request body of `POST /shares`: the content itself, as bytes.\n\nA named type only so the contract can say `format: binary`. Declaring the\nbody as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI\nrenders as a JSON array editor and a generated client types as `number[]` —\nneither of which can carry a file."
       },
       "ShareResponse": {
         "type": "object",
