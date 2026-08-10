@@ -113,6 +113,15 @@ impl PartialEq for Secret {
 
 impl Eq for Secret {}
 
+/// Fills a buffer from the operating system's CSPRNG.
+///
+/// Exposed because a retrieval code needs raw bytes rather than a hex string,
+/// and it should come from the same source as everything else secret here — one
+/// place that decides where randomness comes from.
+pub fn fill_random(bytes: &mut [u8]) {
+    OsRng.fill_bytes(bytes);
+}
+
 fn random_hex() -> String {
     let mut bytes = [0_u8; SECRET_BYTES];
     // `OsRng` reads the operating system's CSPRNG directly — the same source the

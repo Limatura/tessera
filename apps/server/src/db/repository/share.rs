@@ -73,6 +73,18 @@ impl StorageLocation {
     const INLINE: &'static str = "inline";
     const OBJECT: &'static str = "object";
 
+    /// The blob-store key, when there is one.
+    ///
+    /// Saves every caller a `match` whose only other arm is "no key", and keeps
+    /// the two-variant shape from leaking into code that just wants the key.
+    #[must_use]
+    pub fn object_key(&self) -> Option<&str> {
+        match self {
+            Self::Inline => None,
+            Self::Object { key } => Some(key),
+        }
+    }
+
     /// The value stored in the `storage` column.
     #[must_use]
     pub const fn as_str(&self) -> &'static str {

@@ -3897,6 +3897,7 @@ dependencies = [
  "bytes",
  "criterion",
  "figment",
+ "futures-util",
  "http-body-util",
  "insta",
  "mime_guess",

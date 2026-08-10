@@ -34,6 +34,7 @@
 pub mod auth;
 pub mod capabilities;
 pub mod health;
+pub mod shares;
 pub mod tokens;
 
 use std::{sync::Arc, time::Duration};
@@ -69,6 +70,9 @@ pub const AUTH_TAG: &str = "auth";
 
 /// Tag grouping API-token management.
 pub const TOKENS_TAG: &str = "tokens";
+
+/// Tag grouping share creation and management.
+pub const SHARES_TAG: &str = "shares";
 
 /// Name of the cookie-based security scheme in the generated document.
 pub const SESSION_SCHEME: &str = "session";
@@ -107,6 +111,7 @@ pub const API_PREFIX: &str = "/api/v1";
         (name = SYSTEM_TAG, description = "Health and service metadata"),
         (name = AUTH_TAG, description = "Registration, sign-in and passwords"),
         (name = TOKENS_TAG, description = "API tokens for non-browser callers"),
+        (name = SHARES_TAG, description = "Creating and managing shares"),
     ),
     modifiers(&SecurityAddon),
     components(schemas(crate::error::ErrorBody, crate::error::ErrorCode)),
@@ -191,6 +196,8 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::change_password))
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
+        .routes(routes!(shares::list, shares::create))
+        .routes(routes!(shares::delete))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
