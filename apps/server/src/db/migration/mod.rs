@@ -26,6 +26,7 @@ mod m20260808_000001_initial;
 mod m20260809_000001_users;
 mod m20260809_000002_sessions;
 mod m20260809_000003_api_tokens;
+mod m20260810_000001_shares;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -41,6 +42,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260809_000001_users::Migration),
             Box::new(m20260809_000002_sessions::Migration),
             Box::new(m20260809_000003_api_tokens::Migration),
+            Box::new(m20260810_000001_shares::Migration),
         ]
     }
 }
@@ -170,7 +172,7 @@ mod tests {
     /// Every migration, with its three dialect files. Adding a migration means
     /// adding a line here — deliberately manual, so that forgetting shows up as
     /// a missing entry rather than as silently reduced coverage.
-    const DIALECT_FILES: [(&str, &str, &str, &str); 4] = [
+    const DIALECT_FILES: [(&str, &str, &str, &str); 5] = [
         (
             "m20260808_000001_initial",
             m20260808_000001_initial::SQLITE,
@@ -194,6 +196,12 @@ mod tests {
             m20260809_000003_api_tokens::SQLITE,
             m20260809_000003_api_tokens::POSTGRES,
             m20260809_000003_api_tokens::MYSQL,
+        ),
+        (
+            "m20260810_000001_shares",
+            m20260810_000001_shares::SQLITE,
+            m20260810_000001_shares::POSTGRES,
+            m20260810_000001_shares::MYSQL,
         ),
     ];
 

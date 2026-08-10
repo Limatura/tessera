@@ -1,3 +1,8 @@
+-- `TIMESTAMP(6)` and never a bare `TIMESTAMP`: MySQL's default precision is
+-- whole seconds, so a timestamp written from Rust would silently lose its
+-- fractional part and no longer equal what was stored. Six digits matches
+-- Postgres's `TIMESTAMPTZ`, which makes all three backends agree.
+--
 -- MySQL/MariaDB mirror of m20260808_000001_initial.sqlite.sql.
 --
 -- Two differences that are not stylistic:
@@ -8,5 +13,5 @@
 CREATE TABLE IF NOT EXISTS schema_metadata (
     `key`      VARCHAR(191) NOT NULL PRIMARY KEY,
     `value`    TEXT         NOT NULL,
-    updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;

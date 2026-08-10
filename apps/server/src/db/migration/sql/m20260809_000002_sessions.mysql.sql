@@ -7,9 +7,9 @@ CREATE TABLE IF NOT EXISTS sessions (
     id           CHAR(26)  NOT NULL PRIMARY KEY,
     user_id      CHAR(26)  NOT NULL,
     secret_hash  CHAR(64)  NOT NULL UNIQUE,
-    created_at   TIMESTAMP NOT NULL,
-    last_seen_at TIMESTAMP NOT NULL,
-    expires_at   TIMESTAMP NOT NULL,
+    created_at   TIMESTAMP(6) NOT NULL,
+    last_seen_at TIMESTAMP(6) NOT NULL,
+    expires_at   TIMESTAMP(6) NOT NULL,
     CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 

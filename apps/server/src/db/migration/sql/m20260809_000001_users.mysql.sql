@@ -16,9 +16,9 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     is_admin      BOOLEAN      NOT NULL DEFAULT FALSE,
     must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
-    email_verified_at    TIMESTAMP NULL DEFAULT NULL,
-    created_at    TIMESTAMP    NOT NULL,
-    updated_at    TIMESTAMP    NOT NULL
+    email_verified_at    TIMESTAMP(6) NULL DEFAULT NULL,
+    created_at    TIMESTAMP(6) NOT NULL,
+    updated_at    TIMESTAMP(6) NOT NULL
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 
 CREATE UNIQUE INDEX idx_users_username ON users (username);
