@@ -36,7 +36,7 @@ use bytes::Bytes;
 use http_body_util::BodyExt as _;
 use object_store::{MultipartUpload, ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{Password, PasswordPolicy, RetrievalCode, ShareId};
+use tessera_core::{Password, RetrievalCode, ShareId};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 
@@ -44,6 +44,7 @@ use crate::{
     api::{
         SHARES_TAG,
         extract::{ApiPath, ApiQuery},
+        gate,
     },
     auth::{
         extract::{CurrentUser, MaybeUser},
@@ -72,18 +73,6 @@ const PART_SIZE: usize = 8 * 1024 * 1024;
 /// of failures means the code space is genuinely crowded and the operator needs
 /// to hear about it rather than have the server keep trying.
 const CODE_ATTEMPTS: u8 = 8;
-
-/// How short a share's password may be.
-///
-/// Lower than an account's minimum on purpose. A share password is a second
-/// factor on a link that is already unguessable, and it gets read out over the
-/// phone — a four-digit code is a reasonable thing to want. An account password
-/// is the only thing between a stranger and the account, which is a different
-/// job.
-const SHARE_PASSWORD_POLICY: PasswordPolicy = PasswordPolicy {
-    min_length: 4,
-    max_length: PasswordPolicy::CEILING,
-};
 
 /// Longest `filename` and `title` a share may carry, in characters.
 ///
@@ -625,7 +614,7 @@ fn share_password(headers: &HeaderMap) -> Result<Option<Password>> {
     else {
         return Ok(None);
     };
-    Ok(Some(Password::parse(raw, SHARE_PASSWORD_POLICY)?))
+    Ok(Some(Password::parse(raw, gate::CHOOSING)?))
 }
 
 /// The media type the uploader claimed, if it said anything specific.
@@ -692,14 +681,6 @@ mod tests {
         assert_eq!(object_key(id, at), format!("shares/2026/01/{id}"));
     }
 
-    /// A share password is a second factor on an already-unguessable link, so it
-    /// is allowed to be the sort of thing people read out over the phone.
-    #[test]
-    fn a_short_share_password_is_accepted() {
-        assert!(Password::parse("1234", SHARE_PASSWORD_POLICY).is_ok());
-        assert!(Password::parse("123", SHARE_PASSWORD_POLICY).is_err());
-    }
-
     #[test]
     fn generated_codes_have_the_configured_length() {
         for length in [4, 8, 12] {
@@ -707,4 +688,183 @@ mod tests {
             assert_eq!(code.as_str().chars().count(), length);
         }
     }
+}
+
+/// A share as a public visitor sees it.
+///
+/// Everything but `code`, `kind` and `has_password` is withheld until the share
+/// is unlocked. A file name and a size are a description of the content, and a
+/// password-protected share should not describe itself to somebody who has not
+/// presented the password — the same reason its link preview must not.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PublicShareResponse {
+    /// The retrieval code.
+    #[schema(example = "0ZPQ4M7K")]
+    pub code: String,
+    /// `text` or `file`.
+    #[schema(example = "file")]
+    pub kind: String,
+    /// Whether a password must be presented before anything else is revealed.
+    pub has_password: bool,
+    /// Whether the fields below are filled in.
+    pub unlocked: bool,
+
+    /// Display name.
+    pub title: Option<String>,
+    /// Original file name.
+    pub filename: Option<String>,
+    /// Syntax-highlighting hint.
+    pub language: Option<String>,
+    /// Size of the content in bytes.
+    pub size_bytes: Option<u64>,
+    /// How many retrievals remain, or `null` for unlimited.
+    pub uses_remaining: Option<u32>,
+    /// When it stops being served, RFC 3339.
+    pub expires_at: Option<String>,
+    /// When it was created, RFC 3339.
+    pub created_at: Option<String>,
+}
+
+impl PublicShareResponse {
+    fn locked(share: &Share) -> Self {
+        Self {
+            code: share.code.as_str().to_owned(),
+            kind: share.kind.as_str().to_owned(),
+            has_password: true,
+            unlocked: false,
+            title: None,
+            filename: None,
+            language: None,
+            size_bytes: None,
+            uses_remaining: None,
+            expires_at: None,
+            created_at: None,
+        }
+    }
+
+    fn unlocked(share: &Share) -> Self {
+        Self {
+            has_password: share.needs_password(),
+            unlocked: true,
+            title: share.title.clone(),
+            filename: share.filename.clone(),
+            language: share.language.clone(),
+            size_bytes: Some(share.size_bytes),
+            uses_remaining: share
+                .use_limit
+                .map(|limit| limit.saturating_sub(share.use_count)),
+            expires_at: share.expires_at.map(format_timestamp),
+            created_at: Some(format_timestamp(share.created_at)),
+            ..Self::locked(share)
+        }
+    }
+}
+
+/// What `POST /shares/{code}/unlock` hands back.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct TicketResponse {
+    /// Present it as `X-Share-Ticket`, or as `?t=` on a download link.
+    #[schema(example = "9f2c...")]
+    pub ticket: String,
+    /// When the authorisation stops being honoured, RFC 3339.
+    pub expires_at: String,
+    /// How many retrievals remain after this one.
+    pub uses_remaining: Option<u32>,
+}
+
+/// Describes a share without spending one of its retrievals.
+///
+/// This is what the share page reads to decide what to render. It never
+/// consumes, so a link preview, a prefetch or a mail-scanner following the URL
+/// cannot destroy a one-time share.
+///
+/// # Errors
+///
+/// `404` when nothing has that code, `410` when it has expired or run out,
+/// `401` when it is password-protected and the password given was wrong.
+#[utoipa::path(
+    get,
+    path = "/shares/{code}",
+    tag = SHARES_TAG,
+    params(
+        ("code" = String, Path, description = "The retrieval code"),
+        ("X-Share-Password" = Option<String>, Header, description = "The share's password, if it has one"),
+    ),
+    responses(
+        (status = 200, description = "What this share is", body = PublicShareResponse),
+        (status = 401, description = "Wrong password", body = crate::error::ErrorBody),
+        (status = 404, description = "No such code", body = crate::error::ErrorBody),
+        (status = 410, description = "Expired or exhausted", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn describe(
+    State(state): State<AppState>,
+    ApiPath(code): ApiPath<String>,
+    headers: HeaderMap,
+) -> Result<Json<PublicShareResponse>> {
+    let share = gate::open(&state, &code).await?;
+
+    if !share.needs_password() {
+        return Ok(Json(PublicShareResponse::unlocked(&share)));
+    }
+    // A locked share still answers, so the page can render a password prompt
+    // rather than a dead end. What it answers is only "this exists and wants a
+    // password".
+    if headers.get(gate::PASSWORD_HEADER).is_none() {
+        return Ok(Json(PublicShareResponse::locked(&share)));
+    }
+    gate::unlock(&share, &headers).await?;
+    Ok(Json(PublicShareResponse::unlocked(&share)))
+}
+
+/// Spends one retrieval and returns a ticket for the transfer.
+///
+/// # Why this is a separate step
+///
+/// One authorisation costs one retrieval; the ticket it returns is then good for
+/// every request the transfer needs — each `Range`, each resumption, each retry.
+/// Counting requests instead would let a resumed download spend three uses of a
+/// share that allows three.
+///
+/// # Errors
+///
+/// `401` when the password is wrong, `404` when nothing has that code, `410`
+/// when it has expired or run out.
+#[utoipa::path(
+    post,
+    path = "/shares/{code}/unlock",
+    tag = SHARES_TAG,
+    params(
+        ("code" = String, Path, description = "The retrieval code"),
+        ("X-Share-Password" = Option<String>, Header, description = "The share's password, if it has one"),
+    ),
+    responses(
+        (status = 200, description = "Authorised", body = TicketResponse),
+        (status = 401, description = "Wrong password", body = crate::error::ErrorBody),
+        (status = 404, description = "No such code", body = crate::error::ErrorBody),
+        (status = 410, description = "Expired or exhausted", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn unlock(
+    State(state): State<AppState>,
+    ApiPath(code): ApiPath<String>,
+    headers: HeaderMap,
+) -> Result<Json<TicketResponse>> {
+    let share = gate::open(&state, &code).await?;
+    // The password first, so a wrong guess never costs the share a retrieval.
+    gate::unlock(&share, &headers).await?;
+
+    let secret = gate::spend(&state, &share).await?;
+    let expires_at = OffsetDateTime::now_utc().saturating_add(
+        time::Duration::try_from(state.config.share.ticket_ttl())
+            .unwrap_or_else(|_| time::Duration::days(1)),
+    );
+
+    Ok(Json(TicketResponse {
+        ticket: secret.expose().to_owned(),
+        expires_at: format_timestamp(expires_at),
+        uses_remaining: share
+            .use_limit
+            .map(|limit| limit.saturating_sub(share.use_count.saturating_add(1))),
+    }))
 }

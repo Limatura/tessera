@@ -10,15 +10,19 @@ use sea_orm::{
     QuerySelect as _,
     sea_query::{Expr, ExprTrait as _},
 };
-use tessera_core::{DomainError, RetrievalCode, ShareId, UserId};
+use tessera_core::{DomainError, RetrievalCode, ShareId, ShareTicketId, UserId};
 use time::OffsetDateTime;
 
-use crate::db::{
-    entity::{
-        share::{self, Entity as ShareEntity},
-        share_content::{self, Entity as ShareContentEntity},
+use crate::{
+    auth::secret::Secret,
+    db::{
+        entity::{
+            share::{self, Entity as ShareEntity},
+            share_content::{self, Entity as ShareContentEntity},
+            share_ticket::{self, Entity as ShareTicketEntity},
+        },
+        repository::user::CorruptRow,
     },
-    repository::user::CorruptRow,
 };
 
 /// What a share carries.
@@ -522,5 +526,123 @@ impl ShareRepository {
             .into_iter()
             .map(|model| Share::from_model(model).map_err(Into::into))
             .collect()
+    }
+}
+
+/// One authorisation to retrieve a share.
+///
+/// Issued when a retrieval is spent, then presented for every request the
+/// transfer needs. See the migration SQL for why it is a row rather than a
+/// signed value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShareTicket {
+    /// Stable identifier.
+    pub id: ShareTicketId,
+    /// The share this authorises, and only this share.
+    pub share_id: ShareId,
+    /// When the retrieval was authorised.
+    pub created_at: OffsetDateTime,
+    /// When the authorisation stops being honoured.
+    pub expires_at: OffsetDateTime,
+}
+
+impl ShareTicket {
+    /// Whether the ticket is still good at `now`.
+    #[must_use]
+    pub fn is_valid_at(&self, now: OffsetDateTime) -> bool {
+        now < self.expires_at
+    }
+
+    fn from_model(model: &share_ticket::Model) -> Result<Self, CorruptRow> {
+        let fail = |source| CorruptRow {
+            id: model.id.clone(),
+            source,
+        };
+        Ok(Self {
+            id: ShareTicketId::parse(&model.id).map_err(fail)?,
+            share_id: ShareId::parse(&model.share_id).map_err(fail)?,
+            created_at: model.created_at,
+            expires_at: model.expires_at,
+        })
+    }
+}
+
+/// Download authorisations.
+#[derive(Debug, Clone)]
+pub struct ShareTicketRepository {
+    connection: DatabaseConnection,
+}
+
+impl ShareTicketRepository {
+    /// Wraps a connection.
+    #[must_use]
+    pub const fn new(connection: DatabaseConnection) -> Self {
+        Self { connection }
+    }
+
+    /// Records an authorisation and returns the secret to hand to the caller.
+    ///
+    /// The secret is returned rather than stored: only its digest reaches the
+    /// database, so this is the one moment it exists in a presentable form.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the insert fails.
+    pub async fn issue(
+        &self,
+        share_id: ShareId,
+        now: OffsetDateTime,
+        expires_at: OffsetDateTime,
+    ) -> Result<(ShareTicket, Secret), ShareRepositoryError> {
+        let secret = Secret::generate_session();
+        let ticket = ShareTicket {
+            id: ShareTicketId::generate(),
+            share_id,
+            created_at: now,
+            expires_at,
+        };
+
+        ShareTicketEntity::insert(share_ticket::ActiveModel {
+            id: Set(ticket.id.to_string()),
+            share_id: Set(ticket.share_id.to_string()),
+            secret_hash: Set(secret.digest()),
+            created_at: Set(ticket.created_at),
+            expires_at: Set(ticket.expires_at),
+        })
+        .exec(&self.connection)
+        .await?;
+
+        Ok((ticket, secret))
+    }
+
+    /// Finds the authorisation a secret refers to, whether or not it is still
+    /// valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or the row is not
+    /// usable.
+    pub async fn find_by_secret(
+        &self,
+        secret: &Secret,
+    ) -> Result<Option<ShareTicket>, ShareRepositoryError> {
+        let model = ShareTicketEntity::find()
+            .filter(share_ticket::Column::SecretHash.eq(secret.digest()))
+            .one(&self.connection)
+            .await?;
+        Ok(model.as_ref().map(ShareTicket::from_model).transpose()?)
+    }
+
+    /// Removes authorisations that have run out.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the delete fails.
+    pub async fn delete_expired(&self, now: OffsetDateTime) -> Result<u64, ShareRepositoryError> {
+        let result = ShareTicketEntity::delete_many()
+            .filter(share_ticket::Column::ExpiresAt.lt(now))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected)
     }
 }

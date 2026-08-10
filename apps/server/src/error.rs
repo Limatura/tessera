@@ -48,6 +48,14 @@ pub enum Error {
     #[error("password change required")]
     PasswordChangeRequired,
 
+    /// The thing existed and does not any more.
+    ///
+    /// Distinct from [`Error::NotFound`] because a client can act on it: "that
+    /// code is wrong, check it" and "this expired" are different things to tell
+    /// a person, and only one of them is worth retyping.
+    #[error("gone")]
+    Gone(String),
+
     /// The request conflicts with something that already exists.
     #[error("{0}")]
     Conflict(String),
@@ -108,6 +116,8 @@ pub enum ErrorCode {
     Forbidden,
     /// See [`Error::PasswordChangeRequired`].
     PasswordChangeRequired,
+    /// See [`Error::Gone`].
+    Gone,
     /// See [`Error::Conflict`].
     Conflict,
     /// See [`Error::TooManyRequests`].
@@ -136,6 +146,7 @@ impl ErrorCode {
             Self::BadRequest => StatusCode::BAD_REQUEST,
             Self::Unauthorized => StatusCode::UNAUTHORIZED,
             Self::Forbidden | Self::PasswordChangeRequired => StatusCode::FORBIDDEN,
+            Self::Gone => StatusCode::GONE,
             Self::Conflict => StatusCode::CONFLICT,
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
@@ -153,6 +164,7 @@ impl ErrorCode {
             Self::Unauthorized => "sign in to do that",
             Self::Forbidden => "your account is not allowed to do that",
             Self::PasswordChangeRequired => "set a new password before doing anything else",
+            Self::Gone => "that is no longer available",
             Self::Conflict => "that already exists",
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
@@ -181,6 +193,7 @@ impl Error {
             Self::Unauthorized => ErrorCode::Unauthorized,
             Self::Forbidden => ErrorCode::Forbidden,
             Self::PasswordChangeRequired => ErrorCode::PasswordChangeRequired,
+            Self::Gone(_) => ErrorCode::Gone,
             Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
@@ -211,7 +224,9 @@ impl Error {
         match self {
             // These carry text the caller needs and that is safe to echo: it
             // describes what they sent, not what the server holds.
-            Self::BadRequest(message) | Self::Conflict(message) => message.clone(),
+            Self::BadRequest(message) | Self::Conflict(message) | Self::Gone(message) => {
+                message.clone()
+            }
             Self::Domain(error) => error.to_string(),
             other => other.code().message().to_owned(),
         }

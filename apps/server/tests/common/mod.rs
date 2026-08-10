@@ -845,3 +845,128 @@ fn truncate_to_microseconds(value: OffsetDateTime) -> OffsetDateTime {
     let microseconds = value.nanosecond() / 1_000 * 1_000;
     value.replace_nanosecond(microseconds).unwrap_or(value)
 }
+
+/// Walks a share from creation to retrieval, the way a person and a script both
+/// would.
+///
+/// Lives here so the cross-backend suite runs the same scenario: tickets are a
+/// table with a foreign key and a timestamp, and only writing rows and reading
+/// them back proves the three dialects agree.
+pub(crate) async fn share_retrieval_lifecycle(app: &TestApp) {
+    let Retrieval { code, ticket } = Retrieval::create(app).await;
+
+    // `create` already spent one of the two retrievals, at `unlock`. The
+    // metadata endpoint spends none — a link preview, a prefetch or a mail
+    // scanner following the URL must not destroy a one-time share.
+    let before = field(
+        &Retrieval::describe(app, &code, Some("1234")).await,
+        "uses_remaining",
+    );
+    assert_eq!(before, serde_json::json!(1));
+
+    // One authorisation, then as many transfer requests as it takes.
+    let full = Retrieval::download(app, &code, &ticket, None).await;
+    assert_eq!(full.0, StatusCode::OK);
+    assert_eq!(full.1.len(), 8192);
+
+    for range in ["bytes=0-99", "bytes=100-199", "bytes=8000-"] {
+        let (status, body) = Retrieval::download(app, &code, &ticket, Some(range)).await;
+        assert_eq!(status, StatusCode::PARTIAL_CONTENT, "{range}");
+        assert!(!body.is_empty(), "{range}");
+    }
+
+    let after = field(
+        &Retrieval::describe(app, &code, Some("1234")).await,
+        "uses_remaining",
+    );
+    assert_eq!(
+        after, before,
+        "four transfer requests under one ticket must cost nothing beyond the \
+         authorisation that issued it"
+    );
+}
+
+/// Fixture for [`share_retrieval_lifecycle`].
+struct Retrieval {
+    code: String,
+    ticket: String,
+}
+
+impl Retrieval {
+    async fn create(app: &TestApp) -> Self {
+        let content: Vec<u8> = (0..8192_u32)
+            .map(|i| u8::try_from(i % 256).unwrap_or(0))
+            .collect();
+        let created = body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/api/v1/shares?filename=probe.bin&max_uses=2")
+                        .header("x-share-password", "1234"),
+                    Body::from(content),
+                )
+                .await,
+                StatusCode::CREATED,
+            )
+            .await,
+        )
+        .await;
+        let code = string_field(&created, "code");
+
+        let ticket = body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(format!("/api/v1/shares/{code}/unlock"))
+                        .header("x-share-password", "1234"),
+                    Body::empty(),
+                )
+                .await,
+                StatusCode::OK,
+            )
+            .await,
+        )
+        .await;
+
+        Self {
+            code,
+            ticket: string_field(&ticket, "ticket"),
+        }
+    }
+
+    async fn describe(app: &TestApp, code: &str, password: Option<&str>) -> serde_json::Value {
+        let mut builder = Request::builder()
+            .method(Method::GET)
+            .uri(format!("/api/v1/shares/{code}"));
+        if let Some(password) = password {
+            builder = builder.header("x-share-password", password);
+        }
+        body_json(expect_status(app.send(builder, Body::empty()).await, StatusCode::OK).await).await
+    }
+
+    async fn download(
+        app: &TestApp,
+        code: &str,
+        ticket: &str,
+        range: Option<&str>,
+    ) -> (StatusCode, Vec<u8>) {
+        let mut builder = Request::builder()
+            .method(Method::GET)
+            .uri(format!("/s/{code}/download?t={ticket}"));
+        if let Some(range) = range {
+            builder = builder.header(header::RANGE, range);
+        }
+        let response = app.send(builder, Body::empty()).await;
+        let status = response.status();
+        let bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("body")
+            .to_bytes()
+            .to_vec();
+        (status, bytes)
+    }
+}

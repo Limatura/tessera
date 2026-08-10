@@ -457,6 +457,79 @@
       }
     },
     "/api/v1/shares/{code}": {
+      "get": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Describes a share without spending one of its retrievals.",
+        "description": "This is what the share page reads to decide what to render. It never\nconsumes, so a link preview, a prefetch or a mail-scanner following the URL\ncannot destroy a one-time share.\n\n# Errors\n\n`404` when nothing has that code, `410` when it has expired or run out,\n`401` when it is password-protected and the password given was wrong.",
+        "operationId": "describe",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The retrieval code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Share-Password",
+            "in": "header",
+            "description": "The share's password, if it has one",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What this share is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicShareResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired or exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
       "delete": {
         "tags": [
           "shares"
@@ -499,6 +572,81 @@
             "bearer": []
           }
         ]
+      }
+    },
+    "/api/v1/shares/{code}/unlock": {
+      "post": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Spends one retrieval and returns a ticket for the transfer.",
+        "description": "# Why this is a separate step\n\nOne authorisation costs one retrieval; the ticket it returns is then good for\nevery request the transfer needs — each `Range`, each resumption, each retry.\nCounting requests instead would let a resumed download spend three uses of a\nshare that allows three.\n\n# Errors\n\n`401` when the password is wrong, `404` when nothing has that code, `410`\nwhen it has expired or run out.",
+        "operationId": "unlock",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The retrieval code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Share-Password",
+            "in": "header",
+            "description": "The share's password, if it has one",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired or exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/tokens": {
@@ -892,6 +1040,7 @@
           "unauthorized",
           "forbidden",
           "password_change_required",
+          "gone",
           "conflict",
           "too_many_requests",
           "unavailable",
@@ -954,6 +1103,89 @@
             "type": "string",
             "description": "The account's password.",
             "example": "correct horse battery staple"
+          }
+        }
+      },
+      "PublicShareResponse": {
+        "type": "object",
+        "description": "A share as a public visitor sees it.\n\nEverything but `code`, `kind` and `has_password` is withheld until the share\nis unlocked. A file name and a size are a description of the content, and a\npassword-protected share should not describe itself to somebody who has not\npresented the password — the same reason its link preview must not.",
+        "required": [
+          "code",
+          "kind",
+          "has_password",
+          "unlocked"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The retrieval code.",
+            "example": "0ZPQ4M7K"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was created, RFC 3339."
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it stops being served, RFC 3339."
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Original file name."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether a password must be presented before anything else is revealed."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`text` or `file`.",
+            "example": "file"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Syntax-highlighting hint."
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Size of the content in bytes.",
+            "minimum": 0
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name."
+          },
+          "unlocked": {
+            "type": "boolean",
+            "description": "Whether the fields below are filled in."
+          },
+          "uses_remaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many retrievals remain, or `null` for unlimited.",
+            "minimum": 0
           }
         }
       },
@@ -1103,6 +1335,34 @@
             ],
             "format": "int32",
             "description": "How many retrievals remain, or `null` for unlimited.",
+            "minimum": 0
+          }
+        }
+      },
+      "TicketResponse": {
+        "type": "object",
+        "description": "What `POST /shares/{code}/unlock` hands back.",
+        "required": [
+          "ticket",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When the authorisation stops being honoured, RFC 3339."
+          },
+          "ticket": {
+            "type": "string",
+            "description": "Present it as `X-Share-Ticket`, or as `?t=` on a download link.",
+            "example": "9f2c..."
+          },
+          "uses_remaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many retrievals remain after this one.",
             "minimum": 0
           }
         }

@@ -121,6 +121,12 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one authorisation to retrieve a share.
+    ShareTicketId,
+    "share_ticket_id"
+);
+
+declare_id!(
     /// Identifies a share.
     ///
     /// Distinct from its [`RetrievalCode`](crate::RetrievalCode): this is the

@@ -33,7 +33,10 @@
 mod common;
 
 use axum::http::StatusCode;
-use common::{TestApp, account_lifecycle, body_json, expect_status, share_repository_round_trip};
+use common::{
+    TestApp, account_lifecycle, body_json, expect_status, share_repository_round_trip,
+    share_retrieval_lifecycle,
+};
 use sea_orm::{ConnectionTrait as _, Statement};
 use tessera_server::{
     config::DatabaseConfig,
@@ -163,4 +166,13 @@ async fn shares_round_trip_through_the_repository() {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
     share_repository_round_trip(&app, &format!("{suffix}")).await;
+}
+
+/// Tickets are a table with a foreign key and a timestamp, so the same
+/// dialect questions apply to them as to everything else.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn a_share_can_be_created_authorised_and_retrieved() {
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    share_retrieval_lifecycle(&app).await;
 }

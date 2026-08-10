@@ -34,7 +34,9 @@
 pub mod auth;
 pub mod capabilities;
 pub mod extract;
+pub mod gate;
 pub mod health;
+pub mod public;
 pub mod shares;
 pub mod tokens;
 
@@ -198,7 +200,8 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
         .routes(routes!(shares::list, shares::create))
-        .routes(routes!(shares::delete))
+        .routes(routes!(shares::describe, shares::delete))
+        .routes(routes!(shares::unlock))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
@@ -214,6 +217,9 @@ pub fn build(state: AppState) -> Router {
     let contract = api.clone();
     let mut app = Router::new()
         .merge(routes)
+        // Outside the contract on purpose: these are where a link points, not
+        // an API. See `public` for why that means their shape is frozen.
+        .nest(public::SHARE_PREFIX, public::routes())
         .route(
             OPENAPI_PATH,
             axum::routing::get(move || std::future::ready(Json(contract))),

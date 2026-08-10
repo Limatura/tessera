@@ -13,4 +13,5 @@ pub mod api_token;
 pub mod session;
 pub mod share;
 pub mod share_content;
+pub mod share_ticket;
 pub mod user;

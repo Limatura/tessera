@@ -545,3 +545,233 @@ async fn a_zero_use_limit_is_refused() {
         .await;
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn a_share_can_be_created_authorised_and_retrieved() {
+    common::share_retrieval_lifecycle(&TestApp::ready().await).await;
+}
+
+/// Answering "you wanted the other route" is the caller's mistake, and a mistake
+/// must not cost the share one of its retrievals.
+#[tokio::test]
+async fn asking_the_wrong_route_does_not_spend_a_retrieval() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=a.bin&max_uses=1", b"binary-ish").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let refused = app.get(&format!("/s/{code}/raw")).await;
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+
+    // Still retrievable, which it would not be if the refusal had counted.
+    let served = app.get(&format!("/s/{code}/download")).await;
+    assert_eq!(served.status(), StatusCode::OK);
+}
+
+/// A one-time share is gone after one retrieval, and says so distinctly enough
+/// that a client can tell "this expired" from "you typed the code wrong".
+#[tokio::test]
+async fn a_one_time_share_is_gone_after_its_retrieval() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?max_uses=1", b"read me once").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let first = expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+    assert_eq!(body_string(first).await, "read me once");
+
+    let second = app.get(&format!("/s/{code}/raw")).await;
+    assert_eq!(second.status(), StatusCode::GONE);
+    assert_eq!(body_json(second).await["code"], "gone");
+
+    // And a code nobody ever used is a different answer.
+    let missing = app.get("/s/ZZZZZZZZ/raw").await;
+    assert_eq!(missing.status(), StatusCode::NOT_FOUND);
+}
+
+/// A password-protected share must not describe itself to somebody who has not
+/// presented the password — the same reason its link preview must not.
+#[tokio::test]
+async fn a_locked_share_reveals_only_that_it_is_locked() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=payroll.xlsx&title=Q3")
+                .header("x-share-password", "1234"),
+            Body::from("secret"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let locked = body_json(
+        expect_status(
+            app.get(&format!("/api/v1/shares/{code}")).await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(locked["has_password"], true);
+    assert_eq!(locked["unlocked"], false);
+    for withheld in ["filename", "title", "size_bytes", "created_at"] {
+        assert!(
+            locked[withheld].is_null(),
+            "`{withheld}` describes the content and must stay hidden: {locked}"
+        );
+    }
+
+    // Retrieval without the password is refused. (`/download`, because this is a
+    // file share — `/raw` would answer "wrong route" first, which is a check
+    // that deliberately happens before the gate so a mistake costs nothing.)
+    assert_eq!(
+        app.get(&format!("/s/{code}/download")).await.status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// Serving the type the uploader claimed is how a `text/html` upload becomes
+/// stored XSS on the origin that holds everyone's session cookie.
+#[tokio::test]
+async fn retrieval_never_echoes_the_uploaders_media_type() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=trap.html")
+                .header(header::CONTENT_TYPE, "text/html"),
+            Body::from("<script>alert(1)</script>"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let response = expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+    let headers = response.headers();
+    assert_eq!(
+        headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok()),
+        Some("application/octet-stream")
+    );
+    assert_eq!(
+        headers
+            .get(header::X_CONTENT_TYPE_OPTIONS)
+            .and_then(|v| v.to_str().ok()),
+        Some("nosniff")
+    );
+    assert!(
+        headers
+            .get(header::CONTENT_DISPOSITION)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|v| v.starts_with("attachment;")),
+        "a file must never render inline"
+    );
+}
+
+/// A stale `If-Range` must produce the whole object, not a slice of a different
+/// one — otherwise a resumed download stitches two files together and nothing
+/// reports an error.
+#[tokio::test]
+async fn a_stale_if_range_gets_the_whole_object() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=big.bin", &vec![9_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let fresh = app.get(&format!("/s/{code}/download")).await;
+    let etag = fresh
+        .headers()
+        .get(header::ETAG)
+        .and_then(|v| v.to_str().ok())
+        .expect("an entity tag")
+        .to_owned();
+
+    let matched = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/download"))
+                .header(header::RANGE, "bytes=1000-")
+                .header(header::IF_RANGE, &etag),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(matched.status(), StatusCode::PARTIAL_CONTENT);
+
+    let stale = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/download"))
+                .header(header::RANGE, "bytes=1000-")
+                .header(header::IF_RANGE, "\"something-else\""),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(stale.status(), StatusCode::OK);
+    assert_eq!(body_string(stale).await.len(), 4096);
+}
+
+/// A ticket authorises one share. Presenting somebody else's is the same as
+/// presenting none — which on a password-protected share means being asked for
+/// the password.
+#[tokio::test]
+async fn a_ticket_is_bound_to_its_share() {
+    let app = TestApp::ready().await;
+
+    let locked = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares")
+                .header("x-share-password", "1234"),
+            Body::from("mine"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let mine = body_json(locked).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let theirs = upload(&app, "", b"theirs").await;
+    let theirs = theirs["code"].as_str().expect("a code").to_owned();
+    let ticket = body_json(
+        expect_status(
+            app.empty(
+                Method::POST,
+                &format!("/api/v1/shares/{theirs}/unlock"),
+                Auth::None,
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let ticket = ticket["ticket"].as_str().expect("a ticket").to_owned();
+
+    // Their ticket buys nothing here: the password is still required.
+    let refused = app.get(&format!("/s/{mine}/raw?t={ticket}")).await;
+    assert_eq!(refused.status(), StatusCode::UNAUTHORIZED);
+
+    // And it still opens the share it was issued for.
+    let served = app.get(&format!("/s/{theirs}/raw?t={ticket}")).await;
+    assert_eq!(served.status(), StatusCode::OK);
+    assert_eq!(body_string(served).await, "theirs");
+}

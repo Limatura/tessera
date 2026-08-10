@@ -113,8 +113,9 @@ async fn main() -> anyhow::Result<()> {
 
     let shutdown = CancellationToken::new();
     let signal_task = tokio::spawn(watch_for_shutdown(shutdown.clone()));
-    let sweep_task = tokio::spawn(maintenance::sweep_expired_sessions(
+    let sweep_task = tokio::spawn(maintenance::sweep_expired(
         state.sessions.clone(),
+        state.tickets.clone(),
         shutdown.clone(),
     ));
 

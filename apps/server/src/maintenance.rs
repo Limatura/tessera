@@ -11,7 +11,7 @@ use std::time::Duration;
 use time::OffsetDateTime;
 use tokio_util::sync::CancellationToken;
 
-use crate::db::repository::session::SessionRepository;
+use crate::db::repository::{session::SessionRepository, share::ShareTicketRepository};
 
 /// How often to sweep.
 ///
@@ -20,28 +20,39 @@ use crate::db::repository::session::SessionRepository;
 /// strictly needed is far smaller than the cost of a knob nobody understands.
 const INTERVAL: Duration = Duration::from_hours(1);
 
-/// Deletes expired sessions until `shutdown` is cancelled.
+/// Deletes what has run out until `shutdown` is cancelled.
 ///
 /// Runs once at start-up rather than waiting out the first interval, so a
 /// process that is restarted more often than the interval still sweeps.
-pub async fn sweep_expired_sessions(sessions: SessionRepository, shutdown: CancellationToken) {
+pub async fn sweep_expired(
+    sessions: SessionRepository,
+    tickets: ShareTicketRepository,
+    shutdown: CancellationToken,
+) {
     loop {
-        match sessions.delete_expired(OffsetDateTime::now_utc()).await {
-            // Logged only when something was actually removed. A quiet instance
-            // should not write an identical line every hour forever.
-            Ok(removed) if removed > 0 => {
-                tracing::info!(removed, "swept expired sessions");
-            }
-            Ok(_) => {}
-            // A failed sweep is not fatal: the rows are harmless, and the next
-            // pass will try again. Worth a warning because a *persistent*
-            // failure means the table is growing.
-            Err(error) => tracing::warn!(?error, "could not sweep expired sessions"),
-        }
+        let now = OffsetDateTime::now_utc();
+        report("expired sessions", sessions.delete_expired(now).await);
+        report(
+            "expired download authorisations",
+            tickets.delete_expired(now).await,
+        );
 
         tokio::select! {
             () = shutdown.cancelled() => return,
             () = tokio::time::sleep(INTERVAL) => {}
         }
+    }
+}
+
+/// Says what a pass removed, and only when it removed something.
+///
+/// A quiet instance should not write an identical line every hour forever. A
+/// failed pass is not fatal — the rows are harmless and the next one tries
+/// again — but a *persistent* failure means a table is growing, so it warns.
+fn report<E: std::fmt::Debug>(what: &str, outcome: Result<u64, E>) {
+    match outcome {
+        Ok(0) => {}
+        Ok(removed) => tracing::info!(removed, what, "swept"),
+        Err(error) => tracing::warn!(?error, what, "could not sweep"),
     }
 }
