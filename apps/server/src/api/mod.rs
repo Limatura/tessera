@@ -4,6 +4,32 @@
 //! and `openapi.json` at the repository root is a build artefact of this module
 //! (see the `tessera-openapi` binary). The frontend and the Discord bot generate
 //! their clients from that file; the server emits no TypeScript.
+//!
+//! # Why the contract is OpenAPI and not a Rust-to-TypeScript exporter
+//!
+//! Rust is already the single source of truth either way: `utoipa` derives the
+//! document from the same structs the handlers use, doc comments included. The
+//! choice is only about the intermediate artefact — `openapi.json`, or `.ts`
+//! files written straight into the frontend tree by something like `specta`.
+//!
+//! Three things settle it:
+//!
+//! - **The consumers are not all TypeScript.** A Discord bot, a CLI and ShareX read this too. One
+//!   document generates a client for any of them; a TypeScript exporter serves exactly one.
+//! - **Half the public surface is not a procedure.** `/s/{code}/raw` answers `text/plain`, and
+//!   `/s/{code}/download` answers `206 Partial Content` with `Range`, `If-Range` and
+//!   `Content-Disposition`. Those are HTTP contracts, not return types; a type exporter has nothing
+//!   to say about them, and an RPC framework cannot express them at all.
+//! - **The browsable docs need it.** Scalar renders this document, which is what makes the API
+//!   explorable by pasting values into a page.
+//!
+//! What a type exporter would buy is tighter modelling of data-carrying enums.
+//! Nothing on this API is one today — every enum here is a plain string union in
+//! the generated client, which is what a caller wants. If that changes, adding
+//! `specta` alongside is possible: both would derive from the same structs, so
+//! they cannot disagree about a type, and a CI check catches a struct that grew
+//! one derive and not the other. It is not worth the second artefact before
+//! there is a type that needs it.
 
 pub mod auth;
 pub mod capabilities;
@@ -19,7 +45,10 @@ use axum::{
 };
 use tower_http::{
     catch_panic::CatchPanicLayer,
-    compression::CompressionLayer,
+    compression::{
+        CompressionLayer,
+        predicate::{DefaultPredicate, NotForContentType, Predicate},
+    },
     cors::{AllowOrigin, CorsLayer},
     request_id::{MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer},
     timeout::TimeoutLayer,
@@ -193,7 +222,7 @@ pub fn build(state: AppState) -> Router {
         // Innermost first: `.layer` wraps, so the last call is the outermost.
         // Compression sits closest to the handler and therefore compresses the
         // final body exactly once.
-        .layer(CompressionLayer::new())
+        .layer(CompressionLayer::new().compress_when(compression_predicate()))
         .layer(DefaultBodyLimit::max(config.server.max_body_bytes))
         .layer(cors(&config))
         .layer(TimeoutLayer::with_status_code(
@@ -208,6 +237,37 @@ pub fn build(state: AppState) -> Router {
         // Outermost: stamped before anything else, so every log line and every
         // error response for this request can be correlated.
         .layer(SetRequestIdLayer::new(request_id_header, UlidRequestId))
+}
+
+/// What is worth compressing.
+///
+/// Public so the test suite can assert on it directly; the alternative is
+/// inferring the policy from response headers, which tests the plumbing rather
+/// than the decision.
+///
+/// The default already skips gRPC, images and server-sent events. Added here is
+/// everything that arrives as opaque or already-compressed bytes, which matters
+/// for one route in particular.
+///
+/// `GET /s/{code}/download` always sends `application/octet-stream` — not the
+/// media type the uploader claimed, which is never echoed. That fixed type is
+/// what makes a single exclusion cover every download, whatever was uploaded.
+///
+/// Compressing a download would be worse than pointless. A ZIP or an MP4 does
+/// not get smaller, and compressing the response drops `Content-Length` in
+/// favour of chunked encoding — so the browser loses the progress bar and the
+/// estimated time remaining on exactly the transfers where a person is watching
+/// them. Range responses are already exempt: tower-http skips anything carrying
+/// `Content-Range`, so only the first, unranged request was ever at risk.
+#[must_use]
+pub fn compression_predicate() -> impl Predicate {
+    DefaultPredicate::new()
+        .and(NotForContentType::const_new("application/octet-stream"))
+        .and(NotForContentType::const_new("application/zip"))
+        .and(NotForContentType::const_new("application/gzip"))
+        .and(NotForContentType::const_new("video/"))
+        .and(NotForContentType::const_new("audio/"))
+        .and(NotForContentType::const_new("font/"))
 }
 
 /// Correlation ids are ULIDs rather than UUIDv4: equivalent collision resistance

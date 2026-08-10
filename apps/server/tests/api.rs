@@ -279,3 +279,44 @@ async fn a_wildcard_origin_does_not_claim_to_carry_credentials() {
             .contains_key(header::ACCESS_CONTROL_ALLOW_CREDENTIALS)
     );
 }
+
+/// Compressing a download would drop `Content-Length` in favour of chunked
+/// encoding, so the browser loses the progress bar and the estimated time — on
+/// exactly the transfers where somebody is watching them. And a ZIP does not get
+/// smaller anyway.
+///
+/// Asserted on the predicate directly. The alternative is inferring the policy
+/// from response headers, which tests the plumbing rather than the decision.
+#[test]
+fn the_compression_predicate_skips_opaque_media_types() {
+    use axum::http::Response;
+    use tower_http::compression::predicate::Predicate as _;
+
+    let predicate = api::compression_predicate();
+    let judge = |content_type: &str| {
+        let response = Response::builder()
+            .header(header::CONTENT_TYPE, content_type)
+            // A real body: the size half of the default predicate reads the
+            // body's size hint, not the `Content-Length` header.
+            .body(Body::from(vec![0_u8; 100_000]))
+            .expect("response");
+        predicate.should_compress(&response)
+    };
+
+    // The download route's type is fixed at `application/octet-stream` whatever
+    // was uploaded, so that one entry covers every download.
+    for opaque in [
+        "application/octet-stream",
+        "application/zip",
+        "video/mp4",
+        "audio/mpeg",
+        "font/woff2",
+    ] {
+        assert!(!judge(opaque), "{opaque} should not be compressed");
+    }
+
+    // `/s/{code}/raw` is text, and text is where compression pays.
+    for worthwhile in ["text/plain; charset=utf-8", "application/json"] {
+        assert!(judge(worthwhile), "{worthwhile} should be compressed");
+    }
+}

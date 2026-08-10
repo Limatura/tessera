@@ -23,7 +23,7 @@ use figment::{
     providers::{Env, Format, Serialized, Toml, Yaml},
 };
 use serde::{Deserialize, Serialize};
-use tessera_core::PasswordPolicy;
+use tessera_core::{PasswordPolicy, RetrievalCode};
 
 use crate::auth::cookie::SecurePolicy;
 
@@ -127,6 +127,8 @@ pub struct Config {
     pub features: FeatureConfig,
     /// Account and session settings.
     pub auth: AuthConfig,
+    /// Share creation and retrieval settings.
+    pub share: ShareConfig,
     /// Logging and tracing settings.
     pub telemetry: TelemetryConfig,
 }
@@ -232,6 +234,48 @@ pub struct AuthConfig {
     /// default *and* the safer one: a password written into a compose file or an
     /// environment variable tends to stay there, and stay unchanged.
     pub admin_password: String,
+}
+
+/// How shares are created and handed out.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ShareConfig {
+    /// Characters in a generated retrieval code.
+    ///
+    /// This is the one figure an operator has a real reason to change, because
+    /// the trade is theirs to make: a short code is quicker to read out loud, a
+    /// long one is not worth scanning for. Eight Crockford base32 characters is
+    /// about 1.1 x 10^12 combinations. Five — the figure some comparable
+    /// services use — is 33 million, which a public endpoint can be walked
+    /// through; that is how these services leak other people's uploads.
+    ///
+    /// Short codes are only defensible behind a throttle on failed lookups.
+    pub code_length: usize,
+
+    /// Content at or below this size is kept in the database rather than the
+    /// blob store.
+    ///
+    /// Most shares on a personal instance are a short note or a snippet, and for
+    /// those a round trip to object storage costs more than it saves — a backup
+    /// of the database is also a backup of the content. Above it, bytes belong
+    /// in the store, where they can be streamed rather than loaded.
+    pub inline_threshold_bytes: usize,
+
+    /// How long a download authorisation stays usable, in hours.
+    ///
+    /// One authorisation spends one of a share's permitted retrievals; the
+    /// resulting ticket may then be presented as often as the transfer needs —
+    /// for `Range` requests, for a resumed download, for a retry after the
+    /// connection dropped. Without that separation a single interrupted
+    /// download would burn a one-time share and the sender would have to upload
+    /// it again.
+    ///
+    /// Long on purpose: ten gigabytes over a slow link takes most of a day, and
+    /// whoever holds the ticket already has the right to the content.
+    pub ticket_ttl_hours: u64,
+
+    /// Longest lifetime a share may be given, in hours. `0` means no ceiling.
+    pub max_expiry_hours: u64,
 }
 
 /// HTTP listener and middleware settings.
@@ -386,6 +430,20 @@ impl Default for AuthConfig {
             admin_username: "admin".to_owned(),
             admin_email: "admin@localhost.invalid".to_owned(),
             admin_password: String::new(),
+        }
+    }
+}
+
+impl Default for ShareConfig {
+    fn default() -> Self {
+        Self {
+            code_length: 8,
+            inline_threshold_bytes: 64 * 1024,
+            ticket_ttl_hours: 24,
+            // 30 days. Not a limit anyone has asked for, but an instance that
+            // never forgets anything eventually runs out of disk, and finding
+            // that out is worse than being told at creation time.
+            max_expiry_hours: 24 * 30,
         }
     }
 }
@@ -554,9 +612,68 @@ impl Config {
         self.storage.validate()?;
         self.features.validate()?;
         self.auth.validate()?;
+        self.share.validate()?;
         self.telemetry.validate()
     }
 }
+
+impl ShareConfig {
+    /// How long a download ticket lasts.
+    #[must_use]
+    pub const fn ticket_ttl(&self) -> Duration {
+        Duration::from_secs(self.ticket_ttl_hours.saturating_mul(3600))
+    }
+
+    /// Longest lifetime a share may be given, or `None` when unbounded.
+    #[must_use]
+    pub const fn max_expiry(&self) -> Option<Duration> {
+        if self.max_expiry_hours == 0 {
+            None
+        } else {
+            Some(Duration::from_secs(
+                self.max_expiry_hours.saturating_mul(3600),
+            ))
+        }
+    }
+
+    fn validate(&self) -> Result<(), ConfigError> {
+        if !(RetrievalCode::MIN_LENGTH..=RetrievalCode::MAX_LENGTH).contains(&self.code_length) {
+            return Err(ConfigError::Invalid {
+                field: "share.code_length",
+                reason: format!(
+                    "must be between {} and {}",
+                    RetrievalCode::MIN_LENGTH,
+                    RetrievalCode::MAX_LENGTH
+                ),
+            });
+        }
+        if self.inline_threshold_bytes > INLINE_CEILING {
+            return Err(ConfigError::Invalid {
+                field: "share.inline_threshold_bytes",
+                reason: format!(
+                    "must be at most {INLINE_CEILING}; larger content belongs in the blob \
+                     store, where it can be streamed rather than held in memory"
+                ),
+            });
+        }
+        if self.ticket_ttl_hours == 0 {
+            return Err(ConfigError::Invalid {
+                field: "share.ticket_ttl_hours",
+                reason: "must be at least 1; a ticket that expires immediately makes every \
+                         download spend a retrieval"
+                    .to_owned(),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// Highest inline threshold an operator may configure.
+///
+/// Inline content is read into memory whole, so this is the largest allocation a
+/// single retrieval can be made to perform. MySQL's `MEDIUMBLOB` would hold far
+/// more; the limit here is about memory, not about the column.
+const INLINE_CEILING: usize = 1024 * 1024;
 
 impl ServerConfig {
     fn validate(&self) -> Result<(), ConfigError> {
@@ -730,6 +847,12 @@ mod tests {
     #[case::zero_pool("database.max_connections", |c: &mut Config| c.database.max_connections = 0)]
     #[case::bad_url("database.url", |c: &mut Config| c.database.url = "mongodb://x".to_owned())]
     #[case::empty_storage("storage.url", |c: &mut Config| c.storage.url = "  ".to_owned())]
+    #[case::short_code("share.code_length", |c: &mut Config| c.share.code_length = 2)]
+    #[case::long_code("share.code_length", |c: &mut Config| c.share.code_length = 64)]
+    #[case::huge_inline("share.inline_threshold_bytes", |c: &mut Config| {
+        c.share.inline_threshold_bytes = 8 * 1024 * 1024;
+    })]
+    #[case::zero_ticket("share.ticket_ttl_hours", |c: &mut Config| c.share.ticket_ttl_hours = 0)]
     #[case::bad_filter("telemetry.filter", |c: &mut Config| {
         c.telemetry.filter = "=====".to_owned();
     })]
@@ -920,6 +1043,30 @@ mod tests {
             assert!(matches!(err, ConfigError::Source(_)), "got {err}");
             Ok(())
         });
+    }
+
+    /// A code length the domain type would refuse is one every generated code
+    /// fails on — better to say so at start-up than on the first upload.
+    #[test]
+    fn the_default_code_length_is_one_the_domain_accepts() {
+        let config = ShareConfig::default();
+        let entropy = vec![0_u8; config.code_length];
+        assert!(
+            RetrievalCode::from_entropy(&entropy).is_ok(),
+            "share.code_length must be usable by RetrievalCode"
+        );
+    }
+
+    /// `0` is the documented way to say "no ceiling", so it must not be rejected
+    /// alongside the other zeroes.
+    #[test]
+    fn an_unbounded_expiry_is_allowed() {
+        let config = ShareConfig {
+            max_expiry_hours: 0,
+            ..ShareConfig::default()
+        };
+        assert!(config.validate().is_ok());
+        assert!(config.max_expiry().is_none());
     }
 
     #[rstest]
