@@ -83,28 +83,21 @@ async fn raw(
     )
     .await?;
 
-    let body = match payload {
-        Payload::Headers => Body::empty(),
-        Payload::Content => read_range(&state, &share, None).await?,
-    };
-    let mut response = (StatusCode::OK, body).into_response();
-    let out = response.headers_mut();
     // `text/plain` whatever the uploader claimed, and `nosniff` so that a
     // browser cannot decide otherwise. Without both, a `<script>` uploaded as a
     // note becomes stored XSS on the origin that holds everyone's session
     // cookie. GitHub solves this by serving raw content from another domain;
     // self-hosted software cannot ask its operators for a second one, so the
     // headers have to carry it.
-    out.insert(
-        header::CONTENT_TYPE,
+    serve(
+        &state,
+        &share,
+        &headers,
+        payload,
         HeaderValue::from_static("text/plain; charset=utf-8"),
-    );
-    out.insert(
-        header::CONTENT_DISPOSITION,
         HeaderValue::from_static("inline"),
-    );
-    harden(out);
-    Ok(response)
+    )
+    .await
 }
 
 /// Serves a share's content as a download, honouring `Range`.
@@ -126,12 +119,42 @@ async fn download(
         &source,
     )
     .await?;
-    let etag = etag_for(&share);
+    // Never the media type the uploader claimed. Serving that back is the same
+    // stored-XSS hole as `/raw`, reached from the other direction.
+    let disposition = HeaderValue::from_str(&content_disposition(&share))
+        .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
+    serve(
+        &state,
+        &share,
+        &headers,
+        payload,
+        HeaderValue::from_static("application/octet-stream"),
+        disposition,
+    )
+    .await
+}
 
-    // `If-Range` is what keeps a resumed download from stitching two different
-    // files together. A browser sends the entity tag it had; if the share is not
+/// Answers with the slice the request asked for, and the headers that say so.
+///
+/// Both routes reach this: they differ only in what they call the content, not
+/// in how a transfer works. Keeping the range handling in one place is not tidy
+/// housekeeping — `/raw` had none of it, so a client that asked for a range got
+/// the whole note with a `200`, and a downloader that had already written the
+/// first half wrote it again.
+async fn serve(
+    state: &AppState,
+    share: &Share,
+    headers: &HeaderMap,
+    payload: Payload,
+    content_type: HeaderValue,
+    disposition: HeaderValue,
+) -> Result<Response> {
+    let etag = etag_for(share);
+
+    // `If-Range` is what keeps a resumed transfer from stitching two different
+    // files together. A client sends the entity tag it had; if the share is not
     // that one any more we must ignore the `Range` and send the whole thing,
-    // because serving a slice of the new file to a client holding the head of
+    // because serving a slice of the new content to a client holding the head of
     // the old one produces a corrupt result that nothing reports as an error.
     let honour_range = headers
         .get(header::IF_RANGE)
@@ -153,17 +176,13 @@ async fn download(
     });
     let body = match payload {
         Payload::Headers => Body::empty(),
-        Payload::Content => read_range(&state, &share, range).await?,
+        Payload::Content => read_range(state, share, range).await?,
     };
     let mut response = (status, body).into_response();
     let out = response.headers_mut();
 
-    // Never the media type the uploader claimed. Serving that back is the same
-    // stored-XSS hole as `/raw`, reached from the other direction.
-    out.insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("application/octet-stream"),
-    );
+    out.insert(header::CONTENT_TYPE, content_type);
+    out.insert(header::CONTENT_DISPOSITION, disposition);
     out.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
     // Set by hand because a streamed body has no length axum can infer, and
     // without it the browser has no progress bar and no estimated time — on
@@ -173,9 +192,6 @@ async fn download(
     }
     if let Ok(value) = HeaderValue::from_str(&etag) {
         out.insert(header::ETAG, value);
-    }
-    if let Ok(value) = HeaderValue::from_str(&content_disposition(&share)) {
-        out.insert(header::CONTENT_DISPOSITION, value);
     }
     if let Some((start, end)) = range
         && let Ok(value) =

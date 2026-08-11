@@ -30,8 +30,7 @@ const DEFAULT_OUTPUT: &str = "../../openapi.json";
 fn main() -> anyhow::Result<()> {
     let target = std::env::args().nth(1);
 
-    let document = tessera_server::api::openapi()
-        .to_pretty_json()
+    let document = serde_json::to_string_pretty(&tessera_server::api::openapi_json())
         .context("could not serialise the OpenAPI document")?;
     // A trailing newline keeps the file POSIX-clean and stops editors and
     // formatters from producing a one-byte diff.

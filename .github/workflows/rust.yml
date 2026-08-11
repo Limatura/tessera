@@ -46,7 +46,7 @@ jobs:
     name: fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -61,7 +61,7 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -84,7 +84,7 @@ jobs:
     name: rustdoc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -102,7 +102,7 @@ jobs:
     name: core stays pure
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -130,7 +130,7 @@ jobs:
     name: feature matrix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -156,7 +156,7 @@ jobs:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nextest-junit
           path: target/nextest/ci/junit.xml
@@ -203,8 +203,7 @@ jobs:
         # `pg_isready` alone reports ready during initdb, before the role and
         # database exist — naming both is what makes the probe mean something.
         options: >-
-          --health-cmd "pg_isready -U tessera -d tessera_test"
-          --health-interval 5s --health-timeout 5s --health-retries 20
+          --health-cmd "pg_isready -U tessera -d tessera_test" --health-interval 5s --health-timeout 5s --health-retries 20
       mysql:
         image: mysql:9
         env:
@@ -216,10 +215,9 @@ jobs:
         # Likewise: `mysqladmin ping` answers long before the user is created,
         # so the probe runs a real query as the user the tests will use.
         options: >-
-          --health-cmd "mysql -utessera -ptessera -e 'SELECT 1' tessera_test"
-          --health-interval 5s --health-timeout 5s --health-retries 30
+          --health-cmd "mysql -utessera -ptessera -e 'SELECT 1' tessera_test" --health-interval 5s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -243,7 +241,7 @@ jobs:
     name: openapi contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
@@ -269,7 +267,7 @@ jobs:
     name: security & licences
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
@@ -284,7 +282,7 @@ jobs:
     name: workflow lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -308,13 +306,13 @@ jobs:
     name: docker image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Build image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: apps/server/Dockerfile
@@ -391,3 +389,77 @@ jobs:
           echo "::error::the container never became healthy"
           docker logs tessera-smoke
           exit 1
+
+  fuzz:
+    name: contract fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        # Only `main` writes; see the first cache step for why.
+        with:
+          key: fuzz
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v6
+
+      - run: cargo build --locked --bin tessera-server
+
+      # SQLite in a temporary directory: this instance is written to, filled with
+      # generated rubbish, and thrown away.
+      - name: Start an instance and seed it
+        id: instance
+        run: |
+          mkdir -p /tmp/fuzz
+          TESSERA_DATABASE__URL='sqlite:///tmp/fuzz/fuzz.db?mode=rwc' \
+          TESSERA_STORAGE__URL=/tmp/fuzz/blobs \
+          TESSERA_SERVER__PORT=13999 \
+            ./target/debug/tessera-server > /tmp/fuzz/server.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:13999/health > /dev/null 2>&1 && break
+            sleep 0.5
+          done
+          .github/scripts/fuzz-seed.sh http://127.0.0.1:13999 /tmp/fuzz/server.log > /tmp/fuzz/seed.env
+          # The token is a real credential for the life of this job. Masking it
+          # keeps it out of the log if a later step ever echoes its inputs.
+          echo "::add-mask::$(grep '^token=' /tmp/fuzz/seed.env | cut -d= -f2-)"
+          cat /tmp/fuzz/seed.env >> "$GITHUB_OUTPUT"
+
+      # The credentials go in the config rather than through `-H`, and the
+      # difference matters: given `-H`, Schemathesis cannot tell a header it was
+      # handed from one the API requires, so its `ignored_auth` check strips the
+      # session cookie, leaves the bearer token in place, and reports every
+      # authenticated endpoint as an authentication bypass. Naming the security
+      # scheme lets it remove the whole credential and mean what it says.
+      #
+      # The seeded share is not named here: `POST /shares` declares OpenAPI
+      # links to the three `{code}` operations, so the stateful phase chains
+      # create into describe on its own. What the seed still buys is a populated
+      # `GET /shares` — an empty list conforms to any schema, so a response with
+      # rows in it is the only one that checks anything.
+      - name: Compose the run configuration
+        # Through `env` rather than `${{ }}` inside the script: an expression is
+        # substituted before the shell sees the line, so its value becomes part
+        # of the program (zizmor `template-injection`).
+        env:
+          TOKEN: ${{ steps.instance.outputs.token }}
+        run: |
+          cp .config/schemathesis.toml /tmp/fuzz/run.toml
+          printf '\n[auth.openapi.bearer]\nbearer = "%s"\n' "$TOKEN" >> /tmp/fuzz/run.toml
+
+      - name: Schemathesis
+        run: |
+          uvx schemathesis --config-file /tmp/fuzz/run.toml \
+            run http://127.0.0.1:13999/openapi.json \
+            -w 4 --report-junit-path /tmp/fuzz/report.xml
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: schemathesis-report
+          path: |
+            /tmp/fuzz/report.xml
+            /tmp/fuzz/server.log
+          retention-days: 7

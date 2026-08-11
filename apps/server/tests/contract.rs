@@ -16,7 +16,10 @@ fn committed_contract_path() -> PathBuf {
 
 #[test]
 fn openapi_document_matches_its_snapshot() {
-    let document = tessera_server::api::openapi();
+    // `openapi_json()` rather than `openapi()`: the repaired document is the one
+    // that ships, and a snapshot of anything else would pass while the artefact
+    // changed underneath it.
+    let document = tessera_server::api::openapi_json();
     insta::assert_json_snapshot!("openapi", document);
 }
 
@@ -30,10 +33,11 @@ fn committed_openapi_json_is_up_to_date() {
         )
     });
 
+    // Exactly what `tessera-openapi` writes, so that "up to date" means the file
+    // and the binary agree rather than merely resembling each other.
     let generated = format!(
         "{}\n",
-        tessera_server::api::openapi()
-            .to_pretty_json()
+        serde_json::to_string_pretty(&tessera_server::api::openapi_json())
             .expect("serialise the contract")
     );
 

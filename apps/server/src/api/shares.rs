@@ -95,6 +95,12 @@ const MAX_LANGUAGE: usize = 64;
 /// body as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI
 /// renders as a JSON array editor and a generated client types as `number[]` —
 /// neither of which can carry a file.
+///
+/// An empty body is refused with a `400`, and that rule is *not* expressible
+/// here: `min_length` is a field-level attribute, and the field's own schema is
+/// overridden by the `value_type` above — which has to stay, or the body stops
+/// being binary. So the constraint lives in the handler and is documented as a
+/// response, and a generator reading this will believe an empty body is valid.
 #[derive(Debug, ToSchema)]
 #[schema(value_type = String, format = Binary)]
 pub struct ShareBody(
@@ -211,6 +217,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
 #[utoipa::path(
     post,
     path = "/shares",
+    operation_id = "create_share",
     tag = SHARES_TAG,
     params(CreateShareParams),
     request_body(
@@ -219,7 +226,19 @@ fn format_timestamp(value: OffsetDateTime) -> String {
         content_type = "application/octet-stream",
     ),
     responses(
-        (status = 201, description = "Created", body = ShareResponse),
+        // The code in this response is the only way to reach the three
+        // operations below — it is random by design, so nothing can derive one.
+        // Saying so here is what lets a contract-driven test chain create into
+        // describe, and what tells a generated client which field to carry.
+        (status = 201, description = "Created", body = ShareResponse,
+            links(
+                ("describe" = (operation_id = "describe_share",
+                    parameters(("code" = "$response.body#/code")))),
+                ("unlock" = (operation_id = "unlock_share",
+                    parameters(("code" = "$response.body#/code")))),
+                ("delete" = (operation_id = "delete_share",
+                    parameters(("code" = "$response.body#/code")))),
+            )),
         (status = 400, description = "A parameter is unusable", body = crate::error::ErrorBody),
         (status = 401, description = "This instance requires an account to upload", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
@@ -321,6 +340,7 @@ pub async fn create(
 #[utoipa::path(
     get,
     path = "/shares",
+    operation_id = "list_shares",
     tag = SHARES_TAG,
     responses(
         (status = 200, description = "The caller's shares", body = Vec<ShareResponse>),
@@ -354,10 +374,12 @@ pub async fn list(
 #[utoipa::path(
     delete,
     path = "/shares/{code}",
+    operation_id = "delete_share",
     tag = SHARES_TAG,
     params(("code" = String, Path, description = "The retrieval code")),
     responses(
         (status = 204, description = "Deleted"),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 404, description = "No share of yours has that code", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
@@ -785,6 +807,7 @@ pub struct TicketResponse {
 #[utoipa::path(
     get,
     path = "/shares/{code}",
+    operation_id = "describe_share",
     tag = SHARES_TAG,
     params(
         ("code" = String, Path, description = "The retrieval code"),
@@ -795,6 +818,7 @@ pub struct TicketResponse {
         (status = 401, description = "Wrong password", body = crate::error::ErrorBody),
         (status = 404, description = "No such code", body = crate::error::ErrorBody),
         (status = 410, description = "Expired or exhausted", body = crate::error::ErrorBody),
+        (status = 429, description = "Too many lookups or password attempts", body = crate::error::ErrorBody),
     ),
 )]
 pub async fn describe(
@@ -834,6 +858,7 @@ pub async fn describe(
 #[utoipa::path(
     post,
     path = "/shares/{code}/unlock",
+    operation_id = "unlock_share",
     tag = SHARES_TAG,
     params(
         ("code" = String, Path, description = "The retrieval code"),
@@ -844,6 +869,7 @@ pub async fn describe(
         (status = 401, description = "Wrong password", body = crate::error::ErrorBody),
         (status = 404, description = "No such code", body = crate::error::ErrorBody),
         (status = 410, description = "Expired or exhausted", body = crate::error::ErrorBody),
+        (status = 429, description = "Too many lookups or password attempts", body = crate::error::ErrorBody),
     ),
 )]
 pub async fn unlock(

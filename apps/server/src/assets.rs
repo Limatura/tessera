@@ -90,9 +90,29 @@ pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> R
 ///
 /// Only the bare share page: `/s/{code}/raw` and `/s/{code}/download` are real
 /// routes and never reach the fallback.
+///
+/// The frontend puts the locale in the path, so the same page is also
+/// `/en/s/{code}`. The locale list lives in `apps/web/project.inlang`, and
+/// duplicating it here would be a second copy to keep in step — so any single
+/// leading segment shaped like a language tag is skipped instead. Being loose
+/// costs nothing: a preview for `/nonsense/s/{code}` tells its reader only what
+/// `/s/{code}` would have told them anyway, and the lookup behind it is
+/// throttled the same way.
 fn share_code(path: &str) -> Option<&str> {
-    let rest = path.strip_prefix("s/")?;
+    let rest = strip_locale_prefix(path).strip_prefix("s/")?;
     (!rest.is_empty() && !rest.contains('/')).then_some(rest)
+}
+
+/// Drops a leading `{locale}/`, if the path starts with one.
+fn strip_locale_prefix(path: &str) -> &str {
+    let Some((head, tail)) = path.split_once('/') else {
+        return path;
+    };
+    let looks_like_a_locale = (2..=8).contains(&head.len())
+        && head
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+    if looks_like_a_locale { tail } else { path }
 }
 
 /// Serves the app with the share's link preview spliced into its `<head>`.
@@ -185,6 +205,7 @@ fn quoted_etag(hash: &[u8; 32]) -> String {
 #[cfg(test)]
 mod tests {
     use proptest::prelude::*;
+    use rstest::rstest;
 
     use super::*;
 
@@ -253,5 +274,37 @@ mod tests {
             Bundle::get(INDEX).is_some(),
             "build.rs must guarantee an index.html"
         );
+    }
+
+    /// A share link carries whatever locale the person who copied it was
+    /// reading in, so the preview has to survive the prefix. This failing is
+    /// invisible — the page still loads, the unfurl is just blank.
+    #[rstest]
+    #[case::unprefixed("s/ABC123", Some("ABC123"))]
+    #[case::english("en/s/ABC123", Some("ABC123"))]
+    #[case::japanese("ja/s/ABC123", Some("ABC123"))]
+    #[case::region_tagged("zh-hant/s/ABC123", Some("ABC123"))]
+    fn finds_the_share_code_whatever_the_locale(
+        #[case] path: &str,
+        #[case] expected: Option<&str>,
+    ) {
+        assert_eq!(share_code(path), expected);
+    }
+
+    #[rstest]
+    #[case::not_a_share_page("about")]
+    #[case::no_code("s/")]
+    #[case::a_real_route("s/ABC123/raw")]
+    #[case::a_real_route_localised("en/s/ABC123/raw")]
+    #[case::two_prefixes("en/ja/s/ABC123")]
+    fn is_not_a_share_page(#[case] path: &str) {
+        assert_eq!(share_code(path), None);
+    }
+
+    /// `s` is one character, so it must never be mistaken for the locale and
+    /// eaten — that would turn every share page into a plain page.
+    #[test]
+    fn the_share_segment_is_not_taken_for_a_locale() {
+        assert_eq!(strip_locale_prefix("s/ABC123"), "s/ABC123");
     }
 }

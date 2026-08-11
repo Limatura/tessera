@@ -116,6 +116,7 @@ impl From<ApiToken> for TokenResponse {
 #[utoipa::path(
     get,
     path = "/tokens",
+    operation_id = "list_tokens",
     tag = TOKENS_TAG,
     responses(
         (status = 200, description = "The caller's tokens", body = Vec<TokenResponse>),
@@ -141,6 +142,7 @@ pub async fn list(
 #[utoipa::path(
     post,
     path = "/tokens",
+    operation_id = "create_token",
     tag = TOKENS_TAG,
     request_body = CreateTokenRequest,
     responses(
