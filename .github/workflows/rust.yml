@@ -33,12 +33,22 @@ env:
   # blocked mid-experiment. This is where they become blocking.
   RUSTFLAGS: -D warnings
 
+# Read-only by default. Nothing here writes to the repository: the checks
+# report through the run's own status, and the one artefact goes to
+# `upload-artifact`, which needs no repository scope. Granting less than the
+# default means a compromised action in this graph — and there are eight
+# third-party ones — cannot push, tag, or open anything.
+permissions:
+  contents: read
+
 jobs:
   fmt:
     name: fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       # rustfmt.toml uses import grouping, which is still nightly-gated. The
       # pinned stable toolchain builds and lints; only formatting needs nightly.
@@ -51,30 +61,50 @@ jobs:
     name: clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
-        with: { key: clippy }
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        # Only `main` writes. GitHub scopes caches by ref and caps a repository
+        # at 10 GB, and a pull request already reads its base branch's entries —
+        # so saving from a branch buys nothing and costs everyone's hit rate.
+        #
+        # Measured before this line existed: 6.50 GB across 68 entries, exactly
+        # doubled — 3.25 GB on `main` and 3.25 GB on one open pull request. Two
+        # more and the cap evicts by least-recent-use, and the first thing to go
+        # is whatever is largest and least often read: the buildkit blobs the
+        # docker job depends on. That job is already the whole critical path.
+        with:
+          key: clippy
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
   docs:
     name: rustdoc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
-        with: { key: docs }
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        # Only `main` writes; see the first cache step for why.
+        with:
+          key: docs
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The module docs carry this project's architectural reasoning, so a broken
       # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
       # this is what actually runs rustdoc to find out.
-      - run: cargo doc --workspace --no-deps --all-features --document-private-items
+      - run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
 
   boundary:
     name: core stays pure
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
 
       # `tessera-core` holds the domain rules and must not learn about HTTP, SQL
       # or async IO. Its Cargo.toml already omits them, but a banned crate can
@@ -100,32 +130,42 @@ jobs:
     name: feature matrix
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
-        with: { key: features }
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        # Only `main` writes; see the first cache step for why.
+        with:
+          key: features
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-hack }
 
       # Every backend is `#[cfg]`-gated. Checking only the empty and full sets
       # leaves the middle combinations unbuilt — which is where a missing `cfg`
       # hides. `--depth 2` keeps the run bounded while still pairing backends.
-      - run: cargo hack --feature-powerset --depth 2 --no-dev-deps check -p tessera-server
+      - run: cargo hack --feature-powerset --depth 2 --no-dev-deps check --locked -p tessera-server
 
   test:
     name: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
-        with: { key: test }
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        # Only `main` writes; see the first cache step for why.
+        with:
+          key: test
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-nextest }
 
-      - run: cargo nextest run --workspace --profile ci --all-features
+      - run: cargo nextest run --locked --workspace --profile ci --all-features
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nextest-junit
           path: target/nextest/ci/junit.xml
@@ -173,10 +213,15 @@ jobs:
           --health-cmd "mysql -utessera -ptessera -e 'SELECT 1' tessera_test"
           --health-interval 5s --health-timeout 5s --health-retries 30
     steps:
-      - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
-        with: { key: backends }
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        # Only `main` writes; see the first cache step for why.
+        with:
+          key: backends
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-nextest }
 
       # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
@@ -192,9 +237,14 @@ jobs:
     name: openapi contract
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: Swatinem/rust-cache@v2
-        with: { key: contract }
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        # Only `main` writes; see the first cache step for why.
+        with:
+          key: contract
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The contract is generated, never hand-edited. Regenerating it here and
       # diffing against the committed file is what stops the frontend and the
@@ -213,8 +263,10 @@ jobs:
     name: security & licences
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: "cargo-deny,cargo-machete" }
 
       # cargo-deny covers advisories, licences, banned crates and sources.
@@ -222,15 +274,41 @@ jobs:
       - run: cargo deny check
       - run: cargo machete
 
+  workflows:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+
+      # `actionlint` reads the workflow the way the runner will: unknown keys,
+      # expressions that cannot evaluate, shell that `shellcheck` dislikes. All
+      # of it is otherwise found by pushing and watching a run go red.
+      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with: { tool: zizmor }
+
+      # `zizmor` audits the workflow as an attack surface. The finding it exists
+      # for here is the one this file had until now: every `uses:` named a tag,
+      # and a tag is a label the action's author can move. Pinning to a commit
+      # means an upstream account compromise cannot silently change what runs
+      # with this repository's token.
+      - name: zizmor
+        run: zizmor .github/workflows/
+
   docker:
     name: docker image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: apps/server/Dockerfile

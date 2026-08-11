@@ -17,7 +17,9 @@ on:
         type: string
 
 permissions:
-  issues: write
+  # 需要 write:同步時會在 issue 上留一則隱藏留言記住 Discord thread id
+  # (`gh api ... -f body=`),沒有它就無法辨識已同步過的 issue。
+  issues: write # zizmor: ignore[excessive-permissions]
   contents: read
 
 jobs:
@@ -508,6 +510,11 @@ jobs:
     steps:
       - name: Backfill Existing Issues
         shell: bash
+        # `inputs.*` 走 env 而不是直接展開進 shell:`${{ }}` 是在腳本執行「之前」
+        # 做字串替換的,所以輸入裡的引號或 `$(...)` 會變成腳本的一部分。
+        # 走 env 的話 shell 只看到一個變數的值。
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
         run: |
           set -euo pipefail
 
@@ -515,9 +522,9 @@ jobs:
           # 決定要處理哪些 Issue
           # ------------------------------------------------------
 
-          if [ -n "${{ inputs.issue_number }}" ]; then
+          if [ -n "$ISSUE_NUMBER" ]; then
 
-            ISSUES="${{ inputs.issue_number }}"
+            ISSUES="$ISSUE_NUMBER"
 
           else
 
