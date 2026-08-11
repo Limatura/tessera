@@ -19,6 +19,23 @@
 # ⚠ `--config-file` is a *top-level* option and goes before `run`. It does not
 # appear in `schemathesis run --help`.
 
+# Retry a request whose connection died before a response arrived.
+#
+# Not papering over a crash — a crashed server fails every retry too, and the
+# run still goes red. What this absorbs is the ordinary end of a *reused*
+# connection. Most of what the coverage phase sends is refused by an extractor
+# before the handler ever reads the body, which leaves an unread body on the
+# socket; hyper is then entitled to close rather than drain it, and a client
+# with a connection pool discovers that only when it sends the next request on
+# the same socket. Python reports it as "Remote end closed connection without
+# response", attributed to whichever request drew the short straw — which is why
+# the one it names looks innocent.
+#
+# Seen once on `main` (run 31457000302) after the identical commit passed on its
+# pull request. Reproducing it needs the pool, not the request: 300 concurrent
+# copies of the named request return 400 every time, with nothing in the log.
+request-retries = 2
+
 [generation]
 # Enough to reach the interesting shapes without turning a 2-minute job into a
 # 20-minute one. Raise it when chasing something specific.
