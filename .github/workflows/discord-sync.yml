@@ -856,11 +856,6 @@ jobs:
                 base64 --decode
               )
 
-              COMMENT_ID=$(
-                echo "$DECODED" |
-                jq -r '.[0]'
-              )
-
               AUTHOR=$(
                 echo "$DECODED" |
                 jq -r '.[1]'
