@@ -7,11 +7,10 @@ import {
 } from "@/paraglide/runtime.js";
 import type { Locale } from "@/paraglide/runtime.js";
 
-// 文件名用 tw，但 HTML lang 属性需要标准语言标签
 const HTML_LANG: Record<Locale, string> = {
   en: "en",
   ja: "ja",
-  tw: "zh-Hant",
+  "zh-TW": "zh-TW",
 };
 
 export const { applyDocumentLocale, getLocale, setLocale, subscribeToLocale } =

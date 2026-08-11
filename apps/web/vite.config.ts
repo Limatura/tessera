@@ -24,7 +24,8 @@ export default defineConfig({
       // parser on the Rust side.
       //
       // `cookie` remembers a returning visitor's choice; `preferredLanguage`
-      // (Accept-Language) picks a sensible default on the first visit.
+      // (Accept-Language / navigator.languages) picks a sensible default on
+      // the first visit.
       strategy: ["cookie", "preferredLanguage", "baseLocale"],
     }),
   ],

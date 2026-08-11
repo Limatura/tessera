@@ -11,7 +11,7 @@ import type { Locale } from "@/paraglide/runtime.js";
 const HTML_LANG: Record<Locale, string> = {
   en: "en",
   ja: "ja",
-  tw: "zh-Hant",
+  "zh-TW": "zh-TW",
 };
 
 export const { applyDocumentLocale, getLocale, setLocale, subscribeToLocale } =
