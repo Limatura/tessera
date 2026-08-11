@@ -25,6 +25,7 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   server: {
+    allowedHosts: [".coder.sao-x.com"],
     port: 3001,
   },
 });
