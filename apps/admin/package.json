@@ -16,6 +16,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
     "@tessera/env": "workspace:*",
+    "@tessera/i18n": "workspace:*",
     "@tessera/ui": "workspace:*",
     "dotenv": "catalog:",
     "lucide-react": "catalog:",

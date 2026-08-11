@@ -11,17 +11,21 @@
     "check-types": "vite build && tsc --noEmit"
   },
   "dependencies": {
+    "@base-ui/react": "^1.7.0",
     "@hookform/resolvers": "^5.5.7",
     "@inlang/paraglide-js": "^2.23.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
     "@tessera/env": "workspace:*",
+    "@tessera/i18n": "workspace:*",
     "@tessera/ui": "workspace:*",
     "dotenv": "catalog:",
+    "input-otp": "^1.4.2",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "recharts": "3.8.0",
     "sonner": "catalog:",
     "zod": "catalog:"
   },

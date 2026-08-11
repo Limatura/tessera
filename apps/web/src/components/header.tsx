@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 
+import { getLocale, setLocale } from "@/lib/locale";
 import { m } from "@/paraglide/messages.js";
-import { getLocale, locales, setLocale } from "@/paraglide/runtime.js";
+import { locales } from "@/paraglide/runtime.js";
 
 import { ModeToggle } from "./mode-toggle";
 

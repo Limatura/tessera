@@ -16,7 +16,9 @@ export default defineConfig({
       emitTsDeclarations: true,
       outdir: "./src/paraglide",
       project: "./project.inlang",
-      strategy: ["localStorage", "baseLocale"],
+      // 跟 apps/web 保持一致：cookie 记住选择，preferredLanguage 读
+      // Accept-Language 做首次访问的默认值。
+      strategy: ["cookie", "preferredLanguage", "baseLocale"],
     }),
   ],
   resolve: {

@@ -16,15 +16,16 @@ export default defineConfig({
       emitTsDeclarations: true,
       outdir: "./src/paraglide",
       project: "./project.inlang",
-      // The locale is the URL. `localStorage` used to be first here, which put
-      // it somewhere the server cannot read — and the server is what injects a
-      // share's link preview, so an unfurled link had no way to know which
-      // language to render.
+      // This app has no SEO surface — every route is either the app shell or a
+      // share link, and a share link's whole point is staying the same string
+      // regardless of who opens it. Putting the locale in the path would mean
+      // `/s/ABC` and `/en/s/ABC` are "the same" share wearing two different
+      // URLs, which buys nothing here and costs a rewrite layer plus a second
+      // parser on the Rust side.
       //
-      // Nothing follows `url` except the fallback: the default URL pattern maps
-      // the base locale to the unprefixed path, so `url` matches every address
-      // and anything after it would be unreachable.
-      strategy: ["url", "baseLocale"],
+      // `cookie` remembers a returning visitor's choice; `preferredLanguage`
+      // (Accept-Language) picks a sensible default on the first visit.
+      strategy: ["cookie", "preferredLanguage", "baseLocale"],
     }),
   ],
   resolve: {

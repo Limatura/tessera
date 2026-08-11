@@ -45,6 +45,7 @@
     "@tessera/config": "workspace:*",
     "@types/node": "catalog:",
     "husky": "latest",
+    "lint-staged": "^17.3.0",
     "oxfmt": "latest",
     "oxlint": "latest",
     "turbo": "^2.10.7",
