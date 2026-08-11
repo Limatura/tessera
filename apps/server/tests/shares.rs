@@ -1030,3 +1030,159 @@ async fn returning_to_a_dead_link_is_not_guessing() {
         StatusCode::NOT_FOUND
     );
 }
+
+/// `/raw` used to ignore `Range` entirely: it answered `200` with the whole
+/// note however little was asked for, and advertised nothing to say so. A
+/// downloader that had written the first half wrote it again, and believed it
+/// had resumed. `/download` had honoured ranges since it existed, which is what
+/// made the gap easy to miss — the two routes disagreed about how a transfer
+/// works, and only one of them was tested.
+#[tokio::test]
+async fn raw_honours_a_range_the_way_download_does() {
+    let app = TestApp::ready().await;
+    let note = "0123456789".repeat(64);
+    let share = upload(&app, "", note.as_bytes()).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let whole = expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+    assert_eq!(
+        whole
+            .headers()
+            .get(header::ACCEPT_RANGES)
+            .and_then(|v| v.to_str().ok()),
+        Some("bytes"),
+        "a route that honours ranges has to say so, or nobody asks"
+    );
+    assert_eq!(
+        whole
+            .headers()
+            .get(header::CONTENT_LENGTH)
+            .and_then(|v| v.to_str().ok()),
+        Some("640")
+    );
+    assert!(whole.headers().contains_key(header::ETAG));
+
+    let part = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/raw"))
+                .header(header::RANGE, "bytes=10-19"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(part.status(), StatusCode::PARTIAL_CONTENT);
+    assert_eq!(
+        part.headers()
+            .get(header::CONTENT_RANGE)
+            .and_then(|v| v.to_str().ok()),
+        Some("bytes 10-19/640")
+    );
+    assert_eq!(body_string(part).await, "0123456789");
+}
+
+/// The same refusal `/download` gives. A `416` without `Content-Range` leaves
+/// the client with no way to work out what it should have asked for.
+#[tokio::test]
+async fn raw_refuses_a_range_past_the_end() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"short note").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let response = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/raw"))
+                .header(header::RANGE, "bytes=9999-"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+    assert_eq!(
+        response
+            .headers()
+            .get(header::CONTENT_RANGE)
+            .and_then(|v| v.to_str().ok()),
+        Some("bytes */10")
+    );
+}
+
+/// Resuming against content that has been replaced would splice two different
+/// notes together, and nothing downstream would report it as an error.
+#[tokio::test]
+async fn raw_ignores_a_range_whose_if_range_is_stale() {
+    let app = TestApp::ready().await;
+    let note = "abcdefghij".repeat(10);
+    let share = upload(&app, "", note.as_bytes()).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let etag = expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK)
+        .await
+        .headers()
+        .get(header::ETAG)
+        .and_then(|v| v.to_str().ok())
+        .expect("an entity tag")
+        .to_owned();
+
+    let matching = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/raw"))
+                .header(header::RANGE, "bytes=50-")
+                .header(header::IF_RANGE, &etag),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(matching.status(), StatusCode::PARTIAL_CONTENT);
+
+    let stale = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/raw"))
+                .header(header::RANGE, "bytes=50-")
+                .header(header::IF_RANGE, "\"something-else\""),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(stale.status(), StatusCode::OK);
+    assert_eq!(body_string(stale).await.len(), 100);
+}
+
+/// The hardening `/raw` exists for must survive the refactor that gave it
+/// ranges: a note is `text/plain` whatever was uploaded, and cannot be sniffed
+/// into something executable on the origin holding everyone's session cookie.
+#[tokio::test]
+async fn a_ranged_raw_response_is_still_hardened() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"<script>alert(1)</script> padding padding").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let part = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/raw"))
+                .header(header::RANGE, "bytes=0-9"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(part.status(), StatusCode::PARTIAL_CONTENT);
+    let headers = part.headers();
+    assert_eq!(
+        headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok()),
+        Some("text/plain; charset=utf-8")
+    );
+    assert_eq!(
+        headers
+            .get(header::X_CONTENT_TYPE_OPTIONS)
+            .and_then(|v| v.to_str().ok()),
+        Some("nosniff")
+    );
+    assert!(headers.contains_key(header::CONTENT_SECURITY_POLICY));
+    assert_eq!(
+        headers
+            .get(header::CONTENT_DISPOSITION)
+            .and_then(|v| v.to_str().ok()),
+        Some("inline")
+    );
+}
