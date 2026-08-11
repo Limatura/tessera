@@ -1,0 +1,1457 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Tessera API",
+    "description": "Anonymous file courier. Upload a file or a note, hand out a retrieval code, and the payload destroys itself once it expires or runs out of retrievals.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Signs in.",
+        "description": "# Errors\n\n`401` when the credentials do not match, `429` when too many attempts have\nfailed, `404` when the instance has no accounts.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed attempts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Ends the current session.",
+        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "operationId": "logout",
+        "responses": {
+          "204": {
+            "description": "Signed out"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/password": {
+      "patch": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Changes the caller's password.",
+        "description": "Every other session is ended, and a fresh one is issued so the caller stays\nsigned in where they are. Whoever knew the old password may be holding a\nsession, and changing a password is how a person says they want that to stop.\n\n# Errors\n\n`401` when the current password is wrong, `403` when authenticated with an\nAPI token, `400` when the new password fails the policy.",
+        "operationId": "change_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Changed; other sessions ended",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The new password fails the policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The current password is wrong",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not permitted with an API token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Creates an account and signs it in.",
+        "description": "# Errors\n\n`404` when the instance has no accounts, `403` when registration is closed,\n`409` when the name or address is taken, `400` when a value fails its rule.",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Account created and signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A value failed its rule",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Registration is closed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Name or address is taken",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/session": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Reports who the caller is.",
+        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "operationId": "session",
+        "responses": {
+          "200": {
+            "description": "The signed-in account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/capabilities": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Reports which optional parts of the service this instance exposes.",
+        "description": "# Errors\n\nInfallible in practice; the signature matches the rest of the API so that a\nfuture version can start failing without changing every caller.",
+        "operationId": "capabilities",
+        "responses": {
+          "200": {
+            "description": "What this instance exposes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shares": {
+      "get": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Lists the caller's shares, newest first.",
+        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "The caller's shares",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShareResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Creates a share from the request body.",
+        "description": "# Errors\n\n`401` when the instance requires an account to upload, `400` when a parameter\nis unusable, `413` when the body exceeds the configured limit, `409` when no\nunused code could be found.",
+        "operationId": "create",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "description": "Original file name. Its presence is what makes this a file share rather\nthan a note.",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "project.zip"
+          },
+          {
+            "name": "title",
+            "in": "path",
+            "description": "Display name, shown on the share page and in the link preview.",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "Q3 report"
+          },
+          {
+            "name": "language",
+            "in": "path",
+            "description": "Syntax-highlighting hint for a text share.",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "typescript"
+          },
+          {
+            "name": "expires_in_hours",
+            "in": "path",
+            "description": "How long the share should last. Omit to use the instance's default.",
+            "required": true,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64",
+              "minimum": 0
+            },
+            "example": 24
+          },
+          {
+            "name": "max_uses",
+            "in": "path",
+            "description": "How many times it may be retrieved. Omit for unlimited; `1` is\nburn-after-reading.",
+            "required": true,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            },
+            "example": 3
+          }
+        ],
+        "requestBody": {
+          "description": "The content itself. Send the file as the raw body — no wrapper, no encoding.",
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A parameter is unusable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "This instance requires an account to upload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Body exceeds the configured limit",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/shares/{code}": {
+      "get": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Describes a share without spending one of its retrievals.",
+        "description": "This is what the share page reads to decide what to render. It never\nconsumes, so a link preview, a prefetch or a mail-scanner following the URL\ncannot destroy a one-time share.\n\n# Errors\n\n`404` when nothing has that code, `410` when it has expired or run out,\n`401` when it is password-protected and the password given was wrong.",
+        "operationId": "describe",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The retrieval code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Share-Password",
+            "in": "header",
+            "description": "The share's password, if it has one",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What this share is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicShareResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired or exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Deletes a share, and whatever it put in the blob store.",
+        "description": "Accepts either the owning account or, for an anonymous share, the management\ntoken from creation — sent as `X-Share-Management-Token`.\n\n# Errors\n\n`404` when no share of the caller's has that code. Deliberately the same\nanswer as \"somebody else's\": distinguishing them would confirm which codes\nexist.",
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The retrieval code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "404": {
+            "description": "No share of yours has that code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/shares/{code}/unlock": {
+      "post": {
+        "tags": [
+          "shares"
+        ],
+        "summary": "Spends one retrieval and returns a ticket for the transfer.",
+        "description": "# Why this is a separate step\n\nOne authorisation costs one retrieval; the ticket it returns is then good for\nevery request the transfer needs — each `Range`, each resumption, each retry.\nCounting requests instead would let a resumed download spend three uses of a\nshare that allows three.\n\n# Errors\n\n`401` when the password is wrong, `404` when nothing has that code, `410`\nwhen it has expired or run out.",
+        "operationId": "unlock",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "description": "The retrieval code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Share-Password",
+            "in": "header",
+            "description": "The share's password, if it has one",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorised",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Expired or exhausted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tokens": {
+      "get": {
+        "tags": [
+          "tokens"
+        ],
+        "summary": "Lists the caller's tokens, newest first.",
+        "description": "# Errors\n\n`401` when nothing was signed in — which is also what an instance with\naccounts turned off answers, since there is nobody to be. `403` when the\naccount still owes a password change.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "The caller's tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TokenResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "A password change is due",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "tokens"
+        ],
+        "summary": "Issues a token and returns its secret, once.",
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with a token\nrather than a session, `400` when the name or lifetime is unusable.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Issued; the secret is shown only here",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedTokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The name or lifetime is unusable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated with an API token, or a password change is due",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/v1/tokens/{id}": {
+      "delete": {
+        "tags": [
+          "tokens"
+        ],
+        "summary": "Revokes one of the caller's tokens.",
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with a token,\n`404` when no live token of the caller's has that id.",
+        "operationId": "revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The token's identifier",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Revoked"
+          },
+          "401": {
+            "description": "Not signed in",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated with an API token, or a password change is due",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No live token of yours has that id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Reports whether the service is ready to take traffic.",
+        "description": "Deliberately both a liveness and a readiness probe: the process only reaches\n[`ServiceStatus::Ready`] once migrations have run, and it flips to\n[`ServiceStatus::Draining`] the moment a shutdown signal arrives, so an\norchestrator can stop routing before the listener actually closes.\n\n# Errors\n\nReturns [`Error::Unavailable`] (503) while starting up or draining, and when\nthe database round-trip fails.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "The service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Starting up, draining, or a dependency is unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccountResponse": {
+        "type": "object",
+        "description": "An account, as the API describes it. Never carries a hash.",
+        "required": [
+          "id",
+          "username",
+          "email",
+          "is_admin",
+          "must_change_password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Normalised address.",
+            "example": "alice@example.com"
+          },
+          "id": {
+            "type": "string",
+            "description": "Stable identifier.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S"
+          },
+          "is_admin": {
+            "type": "boolean",
+            "description": "Whether the account may reach the administrative endpoints."
+          },
+          "must_change_password": {
+            "type": "boolean",
+            "description": "Whether the account must set a new password before doing anything else.\n\nSet on the administrator generated at first run. A client seeing this\nshould send the user to a change-password screen and nowhere else."
+          },
+          "username": {
+            "type": "string",
+            "description": "Normalised account name.",
+            "example": "alice"
+          }
+        }
+      },
+      "Capabilities": {
+        "type": "object",
+        "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact: it describes every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade. A single-page app generated from the contract therefore cannot know\nwhether to render a login button — the contract says login exists, and on\nthis deployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is deliberately unauthenticated: a client needs the answer before\nit can know whether logging in is even possible.",
+        "required": [
+          "accounts",
+          "admin",
+          "anonymous_upload",
+          "registration",
+          "password_min_length",
+          "max_upload_bytes",
+          "version"
+        ],
+        "properties": {
+          "accounts": {
+            "type": "boolean",
+            "description": "Whether accounts exist at all on this instance.\n\n`false` means there is no registration, no login and no session — the\nshape for a personal instance behind a VPN."
+          },
+          "admin": {
+            "type": "boolean",
+            "description": "Whether the administrative endpoints are mounted.\n\nThe administration front-end is a separate deployment, so this says only\nthat the API half is present."
+          },
+          "anonymous_upload": {
+            "type": "boolean",
+            "description": "Whether a caller without a session may upload.\n\nIndependent of [`accounts`](Self::accounts): an instance can have\naccounts *and* accept anonymous uploads, which is the default."
+          },
+          "max_upload_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Longest accepted request body, in bytes.",
+            "example": 104857600,
+            "minimum": 0
+          },
+          "password_min_length": {
+            "type": "integer",
+            "description": "Shortest password this instance accepts, so a client can say so before\nthe round trip rather than after it.",
+            "example": 12,
+            "minimum": 0
+          },
+          "registration": {
+            "$ref": "#/components/schemas/RegistrationPolicy",
+            "description": "Who may create an account. Meaningless when\n[`accounts`](Self::accounts) is `false`."
+          },
+          "version": {
+            "type": "string",
+            "description": "Version of the running server, for a client that wants to warn about a\nmismatch with the contract it was generated from.",
+            "example": "0.1.0"
+          }
+        }
+      },
+      "ChangePasswordRequest": {
+        "type": "object",
+        "description": "Body of `PATCH /auth/password`.",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "description": "The password in force now. Required even though the caller is signed in:\nit is what stops a borrowed, unlocked browser from taking the account."
+          },
+          "new_password": {
+            "type": "string",
+            "description": "The replacement."
+          }
+        }
+      },
+      "CreateTokenRequest": {
+        "type": "object",
+        "description": "Body of `POST /tokens`.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "expires_in_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How long the token should last, in days. Omit for a token that lives\nuntil it is revoked.",
+            "example": 90,
+            "minimum": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "A label for the token, so its owner can recognise it later.",
+            "example": "backup script"
+          }
+        }
+      },
+      "CreatedTokenResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TokenResponse",
+            "description": "The token's metadata, identical to what a listing returns."
+          },
+          {
+            "type": "object",
+            "required": [
+              "secret"
+            ],
+            "properties": {
+              "secret": {
+                "type": "string",
+                "description": "The secret, in full.\n\n**Shown once.** Only its SHA-256 digest is stored, so this value cannot be\nrecovered — a client that does not keep it has to issue another token.",
+                "example": "tsk_a1b2c3d4e5f6..."
+              }
+            }
+          }
+        ],
+        "description": "A newly issued token. The only response that ever carries the secret."
+      },
+      "ErrorBody": {
+        "type": "object",
+        "description": "The JSON body returned for every non-2xx response.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "Stable identifier the client can branch on."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable explanation. Never contains internal details."
+          }
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "description": "Stable, machine-readable identifier for an [`Error`].\n\nClients branch on this; the human-readable `message` is free to change.",
+        "enum": [
+          "not_found",
+          "bad_request",
+          "payload_too_large",
+          "unauthorized",
+          "forbidden",
+          "password_change_required",
+          "gone",
+          "range_not_satisfiable",
+          "conflict",
+          "too_many_requests",
+          "unavailable",
+          "internal"
+        ]
+      },
+      "HealthResponse": {
+        "type": "object",
+        "description": "Body of a successful `GET /health`.",
+        "required": [
+          "status",
+          "version",
+          "build_rev",
+          "uptime_seconds",
+          "database"
+        ],
+        "properties": {
+          "build_rev": {
+            "type": "string",
+            "description": "Commit the running binary was built from, or `unknown` outside a git\ncheckout. Between releases this is what identifies a build.",
+            "example": "v0.1.0-3-gab12cd34ef56"
+          },
+          "database": {
+            "type": "string",
+            "description": "Relational backend currently in use.",
+            "example": "sqlite"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ServiceStatus",
+            "description": "Where the process is in its lifecycle."
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Whole seconds since the process started.",
+            "example": 3600,
+            "minimum": 0
+          },
+          "version": {
+            "type": "string",
+            "description": "Version of the running binary.",
+            "example": "0.1.0"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "description": "Body of `POST /auth/login`.",
+        "required": [
+          "identifier",
+          "password"
+        ],
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Username or email address; either is accepted.",
+            "example": "alice"
+          },
+          "password": {
+            "type": "string",
+            "description": "The account's password.",
+            "example": "correct horse battery staple"
+          }
+        }
+      },
+      "PublicShareResponse": {
+        "type": "object",
+        "description": "A share as a public visitor sees it.\n\nEverything but `code`, `kind` and `has_password` is withheld until the share\nis unlocked. A file name and a size are a description of the content, and a\npassword-protected share should not describe itself to somebody who has not\npresented the password — the same reason its link preview must not.",
+        "required": [
+          "code",
+          "kind",
+          "has_password",
+          "unlocked"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The retrieval code.",
+            "example": "0ZPQ4M7K"
+          },
+          "created_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was created, RFC 3339."
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it stops being served, RFC 3339."
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Original file name."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether a password must be presented before anything else is revealed."
+          },
+          "kind": {
+            "type": "string",
+            "description": "`text` or `file`.",
+            "example": "file"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Syntax-highlighting hint."
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Size of the content in bytes.",
+            "minimum": 0
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name."
+          },
+          "unlocked": {
+            "type": "boolean",
+            "description": "Whether the fields below are filled in."
+          },
+          "uses_remaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many retrievals remain, or `null` for unlimited.",
+            "minimum": 0
+          }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "description": "Body of `POST /auth/register`.",
+        "required": [
+          "username",
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "Address to reach the account at.",
+            "example": "alice@example.com"
+          },
+          "password": {
+            "type": "string",
+            "description": "At least `password_min_length` characters — see `/capabilities`.",
+            "example": "correct horse battery staple"
+          },
+          "username": {
+            "type": "string",
+            "description": "3–32 characters: letters, digits, `_` and `-`, starting with a letter or\ndigit. Stored lowercased.",
+            "example": "alice"
+          }
+        }
+      },
+      "RegistrationPolicy": {
+        "type": "string",
+        "description": "Who may create an account.",
+        "enum": [
+          "open",
+          "invite",
+          "closed"
+        ]
+      },
+      "ServiceStatus": {
+        "type": "string",
+        "description": "Where the process is in its lifecycle.\n\nLoad balancers and `docker healthcheck` need to distinguish \"still migrating\"\nfrom \"draining\" from \"healthy\"; a bare 200/500 cannot express that.",
+        "enum": [
+          "starting",
+          "ready",
+          "draining"
+        ]
+      },
+      "ShareBody": {
+        "type": "string",
+        "format": "binary",
+        "description": "The request body of `POST /shares`: the content itself, as bytes.\n\nA named type only so the contract can say `format: binary`. Declaring the\nbody as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI\nrenders as a JSON array editor and a generated client types as `number[]` —\nneither of which can carry a file."
+      },
+      "ShareResponse": {
+        "type": "object",
+        "description": "A share as the API describes it. Never carries the content.",
+        "required": [
+          "id",
+          "code",
+          "path",
+          "kind",
+          "size_bytes",
+          "has_password",
+          "use_count",
+          "created_at"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The retrieval code, as a person reads it.",
+            "example": "0ZPQ4M7K"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "When it was created, RFC 3339."
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it stops being served, RFC 3339, or `null` to live until deleted."
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Original file name."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether a password must be presented to retrieve it."
+          },
+          "id": {
+            "type": "string",
+            "description": "Stable identifier.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S"
+          },
+          "kind": {
+            "type": "string",
+            "description": "`text` or `file`.",
+            "example": "file"
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Syntax-highlighting hint."
+          },
+          "management_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Token that lets an anonymous uploader delete this share.\n\n**Shown once, at creation, and only when nobody was signed in.** Only its\ndigest is stored. Without it a mistaken anonymous upload could never be\ntaken back."
+          },
+          "path": {
+            "type": "string",
+            "description": "Where the share lives, relative to this instance's origin.\n\nRelative on purpose: the server does not know what host it is reached\nthrough, and guessing wrong behind a reverse proxy produces links that\ndo not work. Whoever calls this already knows the origin they called.",
+            "example": "/s/0ZPQ4M7K"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Size of the content in bytes.",
+            "example": 1048576,
+            "minimum": 0
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Display name."
+          },
+          "use_count": {
+            "type": "integer",
+            "format": "int32",
+            "description": "How many times it has been retrieved.",
+            "minimum": 0
+          },
+          "uses_remaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many retrievals remain, or `null` for unlimited.",
+            "minimum": 0
+          }
+        }
+      },
+      "TicketResponse": {
+        "type": "object",
+        "description": "What `POST /shares/{code}/unlock` hands back.",
+        "required": [
+          "ticket",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "description": "When the authorisation stops being honoured, RFC 3339."
+          },
+          "ticket": {
+            "type": "string",
+            "description": "Present it as `X-Share-Ticket`, or as `?t=` on a download link.",
+            "example": "9f2c..."
+          },
+          "uses_remaining": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "How many retrievals remain after this one.",
+            "minimum": 0
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "description": "An issued token, as a listing describes it. Never carries the secret.",
+        "required": [
+          "id",
+          "name",
+          "display_prefix",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "description": "When it was issued, RFC 3339."
+          },
+          "display_prefix": {
+            "type": "string",
+            "description": "Leading characters of the secret, so a person can tell two tokens apart\nwithout the service having to store either of them.",
+            "example": "tsk_a1b2"
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it stops being accepted, or `null` to live until revoked."
+          },
+          "id": {
+            "type": "string",
+            "description": "Stable identifier; what `DELETE /tokens/{id}` takes.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S"
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was last accepted, if ever."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the owner called it.",
+            "example": "backup script"
+          },
+          "revoked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "When it was revoked, if it was."
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "tsk_*",
+        "description": "An API token from `POST /api/v1/tokens`, sent as `Authorization: Bearer tsk_…`. Shown once at creation."
+      },
+      "session": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "tessera_session",
+        "description": "Set by `POST /auth/login`. A browser sends it automatically; it is `HttpOnly`, so page scripts cannot read or set it."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "system",
+      "description": "Health and service metadata"
+    },
+    {
+      "name": "auth",
+      "description": "Registration, sign-in and passwords"
+    },
+    {
+      "name": "tokens",
+      "description": "API tokens for non-browser callers"
+    },
+    {
+      "name": "shares",
+      "description": "Creating and managing shares"
+    }
+  ]
+}

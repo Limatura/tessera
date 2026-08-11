@@ -1,0 +1,204 @@
+[package]
+name = "tessera-server"
+description = "Tessera — anonymous file courier backend (single-binary Rust monolith)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "tessera-server"
+path = "src/main.rs"
+
+# Emits the OpenAPI contract. Kept as a separate binary so the contract can be
+# regenerated in CI without booting a database or a storage backend.
+[[bin]]
+name = "tessera-openapi"
+path = "src/bin/openapi.rs"
+
+[[bench]]
+name = "api"
+harness = false
+
+[lints]
+workspace = true
+
+[features]
+# Everything on by default: the product promise is that `docker pull` gives you
+# every backend, and nobody should have to rebuild to point at S3. The flags stay
+# so that someone building from source for a constrained box can strip back down
+# — `--no-default-features --features sqlite,storage-fs` is a much smaller binary.
+default = ["sqlite", "postgres", "mysql", "storage-fs", "storage-s3", "storage-gcs", "storage-azure", "storage-http"]
+
+# --- data ---
+# Each backend pulls in our direct sqlx dependency, which is what pins the TLS
+# provider to aws-lc-rs. Routing TLS through sea-orm's `runtime-tokio-rustls`
+# instead would select ring — and since cargo features are additive and
+# object_store's cloud backends require aws-lc-rs, the binary ended up carrying
+# *both* crypto implementations. Only `sqlite` needs sqlx's own driver; the other
+# two reach sqlx through sea-orm.
+sqlite = ["dep:sqlx", "sqlx/sqlite", "sea-orm/sqlx-sqlite"]
+postgres = ["dep:sqlx", "sea-orm/sqlx-postgres"]
+mysql = ["dep:sqlx", "sea-orm/sqlx-mysql"]
+
+# --- storage ---
+storage-fs = []                            # always available; a flag for symmetry
+storage-s3 = ["object_store/aws"]
+storage-gcs = ["object_store/gcp"]
+storage-azure = ["object_store/azure"]
+storage-http = ["object_store/http"]       # WebDAV and plain HTTP stores
+
+[dependencies]
+tessera-core = { workspace = true }
+
+# --- web ---
+axum = { version = "0.8.9", features = ["macros", "http2"] }
+tokio = { version = "1.53", features = [
+  "rt-multi-thread",
+  "macros",
+  "signal",
+  "net",
+  "fs",
+  "time",
+] }
+tokio-util = { version = "0.7", features = ["rt"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.7", features = [
+  "trace",
+  "cors",
+  "compression-gzip",
+  "compression-br",
+  "request-id",
+  "timeout",
+  "catch-panic",
+] }
+
+# --- data ---
+# `runtime-tokio`, not `runtime-tokio-rustls`: the latter forwards to
+# `sqlx/tls-rustls`, which selects ring. TLS is configured on the sqlx dependency
+# below instead, so the whole binary agrees on one crypto provider.
+sea-orm = { version = "2.0", default-features = false, features = [
+  "macros",
+  "runtime-tokio",
+  "with-time",
+] }
+sea-orm-migration = { version = "2.0", default-features = false, features = [
+  "runtime-tokio",
+] }
+
+# sea-orm normally owns sqlx completely, and for Postgres and MySQL it does.
+# SQLite is the exception: `ConnectOptions` exposes pool settings but no way to
+# reach `SqliteConnectOptions`, and sqlx's URL parser *rejects* unknown query
+# parameters — so `?journal_mode=WAL` is a hard error, not a workaround. Setting
+# the pragmas after connecting does not work either: `journal_mode` is persistent
+# but `foreign_keys`, `busy_timeout` and `synchronous` are per-connection, and
+# pool connections are opened lazily.
+#
+# So for SQLite we build the sqlx pool ourselves and hand it to sea-orm via
+# `SqlxSqliteConnector::from_sqlx_sqlite_pool`. Same sqlx version sea-orm already
+# depends on, so cargo unifies it — this adds no second driver stack. Do not
+# "clean up" this dependency; see db::connect_sqlite.
+# It also owns the TLS choice for the whole binary: `tls-rustls-aws-lc-rs` rather
+# than the default ring, so that Postgres/MySQL connections and object_store's
+# cloud backends share one crypto implementation instead of linking two.
+# `sqlite` is added by the `sqlite` feature, not here.
+sqlx = { version = "0.9", default-features = false, features = [
+  "runtime-tokio",
+  "tls-rustls-aws-lc-rs",
+], optional = true }
+
+# --- storage ---
+object_store = { version = "0.14", features = ["fs"] }
+# `object_store::parse_url_opts` takes a `Url`; this is the same crate it already
+# depends on, so naming it here costs nothing beyond the import.
+url = "2"
+
+# --- contract ---
+utoipa = { workspace = true }
+utoipa-axum = "0.2"
+# Scalar rather than Swagger UI. Measured: swagger-ui embeds 16.7 MB of
+# unpacked assets — over half of them source maps and `.jsx` sources that serve
+# no runtime purpose — which was 11.3 MB of a 23.8 MB binary. utoipa-scalar is
+# 11 KB and loads its assets from a CDN.
+#
+# That trade only works because the docs UI is a development convenience,
+# disabled by default (`features.docs`), and a machine doing development has
+# outbound network. Vendoring the CDN bundle to make it work offline was
+# considered and rejected: it would put a 3.7 MB minified blob in the repository
+# that cargo-deny cannot audit and that we would own updating.
+utoipa-scalar = { version = "0.3", features = ["axum"] }
+
+# --- serialization ---
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# --- errors ---
+thiserror = { workspace = true }
+anyhow = "1"
+
+# --- observability ---
+tracing = { workspace = true }
+tracing-subscriber = { version = "0.3", features = [
+  "env-filter",
+  "fmt",
+  "json",
+  "registry",
+] }
+
+# --- configuration ---
+# YAML support pulls `serde_yaml 0.9.34+deprecated`, which its author has
+# archived. Taken knowingly: the config file is a local, operator-owned file
+# rather than attacker-controlled input, YAML itself does not change, and every
+# serde-YAML crate in the ecosystem is comparably stale. cargo-deny reports no
+# advisory against it today; if one appears, swap to a maintained fork behind a
+# small figment Provider rather than dropping YAML — homelab operators live in
+# docker-compose and expect it.
+figment = { version = "0.10", features = ["toml", "yaml", "env"] }
+# Same crate figment already resolves, named directly so the first-run config
+# template can be generated from `Config::default()` instead of hand-written.
+# A hand-written template drifts from the struct; a generated one cannot.
+serde_yaml = "0.9"
+
+# --- authentication ---
+# Argon2id is OWASP's current recommendation for password storage. The `std`
+# feature brings the PHC string format, so a stored hash carries its own
+# parameters and a future change to them does not invalidate existing passwords.
+argon2 = { version = "0.5", features = ["std"] }
+# Session and API tokens are high-entropy random values, so they are stored under
+# a fast hash rather than Argon2: there is nothing to brute-force, and paying
+# ~50 ms of key derivation on every authenticated request would be absurd.
+sha2 = "0.10"
+# Constant-time comparison, for the one place a secret is compared in process.
+subtle = "2"
+# Cookie jar extractor. `cookie-private`/`cookie-signed` are deliberately not
+# enabled: the session cookie carries an opaque random token that means nothing
+# without the database row, so signing it would protect nothing.
+axum-extra = { version = "0.12", features = ["cookie"] }
+
+# --- misc ---
+parking_lot = "0.12"
+rust-embed = "8.12"
+mime_guess = "2"
+bytes = "1"
+# `BodyExt::frame` is how the upload path reads a request body one chunk at a
+# time. The alternative is `futures-util` for `StreamExt::next`, which is a much
+# larger crate for one method — this one is a thin layer over the `http-body`
+# traits axum already uses.
+http-body-util = "0.1"
+ulid = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["async_tokio"] }
+# `Jail` lets the environment-override tests set variables in a scoped, restored
+# way instead of calling `std::env::set_var`, which is unsound under a threaded
+# test runner (and banned in clippy.toml).
+figment = { version = "0.10", features = ["test"] }
+# Only the tests need to drain a stream — `object_store::list` returns one. The
+# server itself deliberately avoids this crate; see the `http-body-util` note.
+futures-util = "0.3"
+http-body-util = "0.1"
+insta = { version = "1.48", features = ["json", "redactions"] }
+proptest = "1.11"
+rstest = "0.26"
+tempfile = "3"

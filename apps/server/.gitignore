@@ -1,0 +1,11 @@
+/target
+/data
+*.db
+*.db-shm
+*.db-wal
+
+# rust-embed source directory: populated by the web build, never committed.
+/assets/dist
+
+# insta leaves these behind when a snapshot changes; review then `cargo insta accept`.
+*.snap.new

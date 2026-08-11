@@ -2,6 +2,10 @@
 .git
 
 **/dist
+# ...except the SPA bundle: apps/server compiles it into the binary with
+# rust-embed, so it has to reach the build context. Absent, the server embeds a
+# placeholder page instead.
+!apps/web/dist
 **/build
 **/.next
 **/.nuxt
@@ -10,6 +14,10 @@
 **/.astro
 **/.turbo
 .turbo
+
+# Rust build output — several GB, and never useful inside an image layer.
+**/target
+apps/server/assets/dist
 
 **/.wrangler
 **/.alchemy

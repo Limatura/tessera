@@ -1,0 +1,32 @@
+[package]
+name = "tessera-core"
+description = "Tessera domain rules — pure, no IO, no framework"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# This dependency list is the architecture.
+#
+# There is no axum here, no sea-orm, no object_store, no tokio. That is not an
+# oversight — it is the boundary, enforced by cargo rather than by review. A rule
+# that says "keep business logic out of handlers" is only as good as the last
+# person who remembered it; a dependency list that lacks `axum` cannot be
+# forgotten. CI walks the resolved tree as well, which catches a banned crate
+# arriving transitively.
+#
+# Before adding one, ask: can this crate still be tested without starting a
+# runtime, a database or a server?
+[dependencies]
+serde = { workspace = true }
+thiserror = { workspace = true }
+# ULIDs are the identifier type — time-ordered so indexes stay append-mostly,
+# unguessable so account counts do not leak. Pure computation, no IO.
+ulid = { workspace = true }
+
+[dev-dependencies]
+proptest = "1.11"
+rstest = "0.26"
+
+[lints]
+workspace = true

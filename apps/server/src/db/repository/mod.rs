@@ -1,0 +1,12 @@
+//! Queries, and the translation between stored rows and domain types.
+//!
+//! Every module here owns one table: it knows the columns, it knows how to turn
+//! them into the types `tessera-core` defines, and it is the only place that
+//! does. Code above this layer never sees a `Model`, never sees a `String` that
+//! should have been a [`Username`](tessera_core::Username), and never has to
+//! wonder whether a value has been validated.
+
+pub mod api_token;
+pub mod session;
+pub mod share;
+pub mod user;

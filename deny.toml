@@ -1,0 +1,79 @@
+[graph]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "x86_64-unknown-linux-musl",
+  "aarch64-unknown-linux-musl",
+]
+all-features = true
+
+# cargo-deny is the *only* vulnerability check in this project. cargo-audit used
+# to run alongside it and was removed, for a concrete reason: cargo-audit scans
+# `Cargo.lock`, which lists every crate the resolver considered, while cargo-deny
+# resolves the actual graph with features applied.
+#
+# The difference is not academic. `rkyv` 0.7 sits in our lockfile as an optional
+# dependency of sea-orm that nothing turns on; cargo-audit reported
+# RUSTSEC-2026-0235 against it and cargo-deny correctly did not, because the crate
+# is never compiled. Keeping both tools would have meant a second ignore list,
+# maintained in parallel, whose entries suppress findings that were never real —
+# and an ignore list nobody trusts is how a genuine advisory gets waved through.
+#
+# Both read the same RustSec database, so this is a gain in precision, not a
+# reduction in coverage.
+[advisories]
+version = 2
+yanked = "deny"
+ignore = [
+  # `paste` is archived upstream with no security impact — it is a compile-time
+  # macro helper with no runtime surface. It reaches us only through
+  # utoipa-axum, so the fix is upstream migrating to `pastey`, not a change here.
+  # Revisit whenever utoipa-axum is bumped.
+  { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro helper pulled in by utoipa-axum; no runtime exposure, no upgrade path on our side" },
+]
+
+[licenses]
+version = 2
+# Permissive licences only. Anything copyleft would contaminate a distributed
+# single binary, so it has to be an explicit, reviewed exception.
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "Apache-2.0 WITH LLVM-exception",
+  "BSD-2-Clause",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+  "CC0-1.0",
+  # webpki-roots (via sqlx's TLS stack) ships Mozilla's CA bundle under the
+  # Community Data License Agreement. It is a permissive *data* licence with no
+  # obligations attached to distributing a compiled binary.
+  "CDLA-Permissive-2.0",
+]
+confidence-threshold = 0.9
+# The allow-list is a policy statement, not an inventory. Entries that no current
+# dependency happens to use are how the policy stays stable across dependency
+# churn, so an unused entry is not a finding.
+unused-allowed-license = "allow"
+# tessera-server itself is `publish = false` and carries no licence field.
+private = { ignore = true }
+
+[bans]
+# Duplicate versions are a size and audit-surface problem, not a correctness one,
+# and the current duplicates come from transitive dependencies we do not control
+# (reqwest pulls an older tower-http through object_store). Warn, and revisit if
+# the binary size regresses.
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+# Guard rails against dependencies we deliberately kept out of the tree.
+deny = [
+  { name = "openssl-sys", reason = "link no system OpenSSL — use rustls" },
+  { name = "openssl", reason = "link no system OpenSSL — use rustls" },
+]
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
