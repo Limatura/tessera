@@ -64,13 +64,30 @@ impl From<&User> for AccountResponse {
 pub struct RegisterRequest {
     /// 3–32 characters: letters, digits, `_` and `-`, starting with a letter or
     /// digit. Stored lowercased.
-    #[schema(example = "alice")]
+    // The bounds and the pattern are `Username`'s own, so a generated client
+    // rejects what the server would have rejected — and a fuzzer driven by this
+    // document stops spending its budget on inputs that cannot be usernames.
+    #[schema(
+        example = "alice",
+        min_length = 3,
+        max_length = 32,
+        pattern = "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+    )]
     pub username: String,
     /// Address to reach the account at.
-    #[schema(example = "alice@example.com")]
+    #[schema(example = "alice@example.com", format = Email)]
     pub email: String,
     /// At least `password_min_length` characters — see `/capabilities`.
-    #[schema(example = "correct horse battery staple")]
+    // 8 and 1024 are `PasswordPolicy`'s floor and ceiling: no instance can be
+    // configured to accept anything outside them, so they are true of every
+    // deployment. The *configured* minimum is usually higher and is not
+    // knowable here — the document is generated at build time — which is why
+    // `/capabilities` exists and why 400 is a documented response.
+    #[schema(
+        example = "correct horse battery staple",
+        min_length = 8,
+        max_length = 1024
+    )]
     pub password: String,
 }
 
@@ -81,7 +98,15 @@ pub struct LoginRequest {
     #[schema(example = "alice")]
     pub identifier: String,
     /// The account's password.
-    #[schema(example = "correct horse battery staple")]
+    ///
+    /// Bounded by what any instance could ever have accepted rather than by the
+    /// policy in force, so that raising the minimum cannot lock out an account
+    /// whose password was valid when it was chosen.
+    #[schema(
+        example = "correct horse battery staple",
+        min_length = 8,
+        max_length = 1024
+    )]
     pub password: String,
 }
 
@@ -90,8 +115,10 @@ pub struct LoginRequest {
 pub struct ChangePasswordRequest {
     /// The password in force now. Required even though the caller is signed in:
     /// it is what stops a borrowed, unlocked browser from taking the account.
+    #[schema(min_length = 8, max_length = 1024)]
     pub current_password: String,
     /// The replacement.
+    #[schema(min_length = 8, max_length = 1024)]
     pub new_password: String,
 }
 
@@ -213,6 +240,7 @@ pub async fn register(
     request_body = LoginRequest,
     responses(
         (status = 200, description = "Signed in", body = AccountResponse),
+        (status = 400, description = "The body is not the shape this expects", body = crate::error::ErrorBody),
         (status = 401, description = "Wrong credentials", body = crate::error::ErrorBody),
         (status = 429, description = "Too many failed attempts", body = crate::error::ErrorBody),
     ),
@@ -283,7 +311,10 @@ pub async fn login(
     post,
     path = "/auth/logout",
     tag = AUTH_TAG,
-    responses((status = 204, description = "Signed out")),
+    responses(
+        (status = 204, description = "Signed out"),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+    ),
     security(("session" = []), ("bearer" = [])),
 )]
 pub async fn logout(

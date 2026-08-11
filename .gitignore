@@ -58,3 +58,10 @@ coverage
 .cache
 tmp
 temp
+
+# Written by running the server from the repository root: the default database,
+# blob directory and the reference configuration it writes out on first start.
+/data/
+/tessera.yaml
+# Schemathesis's own cache.
+/.schemathesis/

@@ -177,6 +177,60 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
     api
 }
 
+/// The contract as JSON, with utoipa's link keys spelt the way the
+/// specification spells them.
+///
+/// utoipa's `Link` derives `Serialize` with no rename, so it emits
+/// `operation_id`, `operation_ref` and `request_body`, while OpenAPI names those
+/// `operationId`, `operationRef` and `requestBody`. Anything reading the
+/// document to the specification therefore sees a link with no target and skips
+/// it — which costs the one statement in here about how these operations
+/// connect: that the code `POST /shares` returns is what the three `{code}`
+/// operations take.
+///
+/// Repairing the keys is the narrow fix. The alternative, dropping links
+/// altogether, would keep the document valid by making it say less.
+///
+/// This is what both the served document and the file on disk go through, so
+/// that "the contract" means one thing.
+#[must_use]
+pub fn openapi_json() -> serde_json::Value {
+    /// `(what utoipa writes, what the specification calls it)`.
+    const RENAMES: [(&str, &str); 3] = [
+        ("operation_id", "operationId"),
+        ("operation_ref", "operationRef"),
+        ("request_body", "requestBody"),
+    ];
+
+    let mut document = serde_json::to_value(openapi())
+        .unwrap_or_else(|_| serde_json::Value::Object(serde_json::Map::new()));
+
+    let links = document
+        .get_mut("paths")
+        .and_then(serde_json::Value::as_object_mut)
+        .into_iter()
+        .flat_map(|paths| paths.values_mut())
+        .filter_map(serde_json::Value::as_object_mut)
+        .flat_map(|operations| operations.values_mut())
+        .filter_map(|operation| operation.get_mut("responses"))
+        .filter_map(serde_json::Value::as_object_mut)
+        .flat_map(|responses| responses.values_mut())
+        .filter_map(|response| response.get_mut("links"))
+        .filter_map(serde_json::Value::as_object_mut)
+        .flat_map(|links| links.values_mut())
+        .filter_map(serde_json::Value::as_object_mut);
+
+    for link in links {
+        for (written, specified) in RENAMES {
+            if let Some(value) = link.remove(written) {
+                link.insert(specified.to_owned(), value);
+            }
+        }
+    }
+
+    document
+}
+
 /// The routed part of the service: everything that appears in the contract.
 fn api_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::with_openapi(ApiDoc::openapi())
@@ -215,7 +269,7 @@ pub fn build(state: AppState) -> Router {
     // about not shipping a UI, not about hiding the API — client generators and
     // the CI drift check both read this, and the spec is in the repository
     // anyway.
-    let contract = api.clone();
+    let contract = openapi_json();
     let mut app = Router::new()
         .merge(routes)
         // Outside the contract on purpose: these are where a link points, not

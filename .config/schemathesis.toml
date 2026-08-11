@@ -1,0 +1,65 @@
+# Schemathesis reads `openapi.json` and generates its own requests from it.
+#
+# What this buys that the hand-written tests do not: the inputs are generated
+# rather than imagined. Every test in `apps/server/tests` asserts something
+# somebody thought to check; this asserts that the contract is not lying,
+# whatever arrives. The checks that matter here are
+#
+#   not_a_server_error          nothing a client can send should 500
+#   response_schema_conformance a response must match the schema it claims
+#   status_code_conformance     a status the document never mentions is a lie
+#   ignored_auth                an endpoint that answers without credentials
+#
+# The first run found four real ones: `/shares/{code}` returned an undocumented
+# 429 from the lookup throttle, `/auth/login` an undocumented 400 from a body it
+# could not deserialise, `/auth/logout` an undocumented 401, and the password
+# fields had no length in the schema at all. All four were fixed in the
+# contract rather than muted here.
+#
+# ⚠ `--config-file` is a *top-level* option and goes before `run`. It does not
+# appear in `schemathesis run --help`.
+
+[generation]
+# Enough to reach the interesting shapes without turning a 2-minute job into a
+# 20-minute one. Raise it when chasing something specific.
+max-examples = 30
+# Keep hypothesis's example database out of the working tree, so a CI run cannot
+# depend on what a previous one happened to find.
+database = ":memory:"
+
+[checks]
+# `negative_data_rejection` asks that malformed input be refused, but "refused"
+# has more than one legitimate spelling here. A code that is not a code is a
+# 404, not a 400 — a share either exists or it does not, and answering "your
+# code is malformed" would tell a guesser which of their guesses were even the
+# right shape.
+negative_data_rejection.expected-statuses = [
+  400,
+  401,
+  403,
+  404,
+  405,
+  410,
+  415,
+  422,
+  429,
+]
+
+# `positive_data_acceptance` asserts that anything matching the schema is
+# accepted. Two places where that premise is false for this API, both of them
+# properties of the API rather than oversights:
+#
+#   · Password length is per-instance configuration. The schema carries
+#     `PasswordPolicy`'s floor and ceiling (8 and 1024) because those are true
+#     of every deployment, but an instance configured to require 12 will refuse
+#     a schema-valid password of 8 with a documented 400. A build-time document
+#     cannot know the runtime policy; that is what `/capabilities` is for.
+#
+#   · `POST /shares` refuses an empty body. The body is `format: binary` via
+#     `value_type = String`, and that override is exactly what makes
+#     `min_length` unexpressible on it — see `ShareBody` in `shares.rs`.
+#
+# Turning this off loses very little: `status_code_conformance` still catches a
+# refusal the document does not mention, which is the part that would break a
+# client.
+positive_data_acceptance.enabled = false
