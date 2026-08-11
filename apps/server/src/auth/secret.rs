@@ -147,7 +147,29 @@ fn hex(bytes: &[u8]) -> String {
 mod tests {
     use std::collections::BTreeSet;
 
+    use rstest::rstest;
+
     use super::*;
+
+    /// The digest is what is *stored*, so its output is a storage format, not an
+    /// implementation detail: change it and every session and API token ever
+    /// issued stops matching its row, with no error anywhere — people are just
+    /// signed out and their tokens stop working.
+    ///
+    /// The expected values are lower-case hex SHA-256, computed outside this
+    /// crate (`printf ... | sha256sum`). Deriving them from our own code would
+    /// make the test agree with whatever we do rather than with SHA-256, which
+    /// is the one thing it exists to check. Nothing asserted this until a
+    /// dependency bump (sha2 0.10 to 0.11) made it worth asking.
+    #[rstest]
+    #[case::empty("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")]
+    #[case::token(
+        "tsk_0123456789abcdef",
+        "d4663b9d680ee0d8a5ad1ee03a8c19adaa514e19cf00a3e05916f57b2fb7bda8"
+    )]
+    fn the_stored_digest_is_lowercase_hex_sha256(#[case] raw: &str, #[case] expected: &str) {
+        assert_eq!(Secret::from_client(raw).digest(), expected);
+    }
 
     #[test]
     fn session_secrets_are_unique() {
