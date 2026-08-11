@@ -11,6 +11,7 @@
     "build": "turbo run build",
     "check-types": "turbo run check-types",
     "dev:web": "turbo run dev -F web",
+    "dev:admin": "turbo run dev -F admin",
     "dev:tui": "turbo run dev -F tui",
     "db:push": "turbo run db:push -F @tessera/db",
     "db:studio": "turbo run db:studio -F @tessera/db",
