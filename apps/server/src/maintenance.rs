@@ -45,28 +45,44 @@ const SHARES_PER_PASS: u64 = 500;
 /// process that is restarted more often than the interval still sweeps.
 pub async fn sweep_expired(state: AppState, shutdown: CancellationToken) {
     loop {
-        let now = OffsetDateTime::now_utc();
-        report("expired sessions", state.sessions.delete_expired(now).await);
-        report(
-            "expired download authorisations",
-            state.tickets.delete_expired(now).await,
-        );
-        report(
-            "shares past their retention",
-            sweep_dead_shares(
-                &state.shares,
-                &state.storage,
-                now,
-                state.config.share.retention(),
-            )
-            .await,
-        );
+        sweep_once(&state, OffsetDateTime::now_utc()).await;
 
         tokio::select! {
             () = shutdown.cancelled() => return,
             () = tokio::time::sleep(INTERVAL) => {}
         }
     }
+}
+
+/// One pass of everything the sweep does, at a time the caller chooses.
+///
+/// Separate from the loop so a test can run a pass without waiting an hour or
+/// standing up a background task, and so `now` can be a time other than the
+/// present — which is the only way to assert what happens to something that
+/// expired last week.
+pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
+    report("expired sessions", state.sessions.delete_expired(now).await);
+    report(
+        "expired download authorisations",
+        state.tickets.delete_expired(now).await,
+    );
+    // Content first, rows second, and not only for tidiness: the row is what
+    // records which object to delete, so releasing the bytes has to happen while
+    // there is still something pointing at them.
+    report(
+        "dead shares' content",
+        reap_dead_content(&state.shares, &state.storage, now).await,
+    );
+    report(
+        "shares past their retention",
+        sweep_dead_shares(
+            &state.shares,
+            &state.storage,
+            now,
+            state.config.share.retention(),
+        )
+        .await,
+    );
 }
 
 /// Removes the objects of shares that are finished with, then their rows.
@@ -77,6 +93,43 @@ pub async fn sweep_expired(state: AppState, shutdown: CancellationToken) {
 /// deliver. An object without its row is an orphan — invisible, but findable by
 /// listing the store, and harmless until then. If only one of the two can
 /// happen, that is the one to choose.
+/// Removes the content of shares that have died, leaving their rows.
+///
+/// The two halves of a dead share have different reasons to exist. The row is
+/// what lets a link say "this expired" rather than "no such code", which is
+/// worth a week. The content is worth nothing the moment the share dies —
+/// [`crate::api::gate::open`] refuses a dead share before anything reads it, so
+/// from that instant the object is unreachable — and it is the half that costs
+/// money.
+///
+/// Doing this separately is what stops a burn-after-reading share from
+/// occupying its full size for a week after the one person who was meant to
+/// have it already did.
+async fn reap_dead_content(
+    shares: &ShareRepository,
+    storage: &Arc<dyn ObjectStore>,
+    now: OffsetDateTime,
+) -> Result<u64, ShareRepositoryError> {
+    let mut reaped: u64 = 0;
+    for share in shares.find_reapable(now, SHARES_PER_PASS).await? {
+        if let Some(key) = share.storage.object_key()
+            && let Err(error) = storage.delete(&ObjectPath::from(key)).await
+        {
+            // Leave the row saying `object`: it is the only record of what to
+            // delete, and the next pass will find it again. Marking it `gone`
+            // here would strand those bytes for good.
+            tracing::warn!(?error, key, "could not remove a dead share's object");
+            continue;
+        }
+        // Inline content lives in a child row that goes with the share, so
+        // there is nothing to delete for it here — but marking it still takes
+        // it out of the quota, which is the point.
+        shares.mark_content_removed(share.id).await?;
+        reaped = reaped.saturating_add(1);
+    }
+    Ok(reaped)
+}
+
 async fn sweep_dead_shares(
     shares: &ShareRepository,
     storage: &Arc<dyn ObjectStore>,

@@ -31,6 +31,15 @@ pub enum Error {
     #[error("payload too large")]
     PayloadTooLarge,
 
+    /// Accepting this would take the instance past `storage.max_total_bytes`.
+    ///
+    /// Distinct from [`PayloadTooLarge`](Self::PayloadTooLarge) because the two
+    /// call for different actions: that one says the file is too big and always
+    /// will be, this one says the *instance* is full and a smaller file, or the
+    /// same file later, may well fit.
+    #[error("insufficient storage")]
+    InsufficientStorage,
+
     /// The caller did not prove who they are, or the proof is no longer good.
     #[error("unauthorized")]
     Unauthorized,
@@ -135,6 +144,8 @@ pub enum ErrorCode {
     Conflict,
     /// See [`Error::TooManyRequests`].
     TooManyRequests,
+    /// See [`Error::InsufficientStorage`].
+    InsufficientStorage,
     /// See [`Error::Unavailable`].
     Unavailable,
     /// Any failure whose cause is deliberately not exposed to the caller.
@@ -164,6 +175,7 @@ impl ErrorCode {
             Self::Conflict => StatusCode::CONFLICT,
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
+            Self::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
             Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -183,6 +195,7 @@ impl ErrorCode {
             Self::Conflict => "that already exists",
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
+            Self::InsufficientStorage => "this instance has no room for more content",
             Self::Unavailable => "the service is not accepting requests right now",
             Self::Internal => "an internal error occurred",
         }
@@ -213,6 +226,7 @@ impl Error {
             Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
+            Self::InsufficientStorage => ErrorCode::InsufficientStorage,
             Self::Unavailable => ErrorCode::Unavailable,
             Self::Database(_)
             | Self::Storage(_)

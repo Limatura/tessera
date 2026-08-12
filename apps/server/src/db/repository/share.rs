@@ -71,28 +71,50 @@ pub enum StorageLocation {
         /// can change later without moving existing objects.
         key: String,
     },
+    /// The content has been removed; only the row survives.
+    ///
+    /// A share that has expired or been used up is kept for a while so that
+    /// following its link says "this expired" rather than "no such code". The
+    /// *content* is not needed for that — [`crate::api::gate::open`] refuses a
+    /// dead share before anything reads it — so the bytes go at death and the
+    /// row goes later, which is the difference between holding a week of dead
+    /// payloads and holding none.
+    Gone,
 }
 
 impl StorageLocation {
+    const GONE: &'static str = "gone";
     const INLINE: &'static str = "inline";
     const OBJECT: &'static str = "object";
 
     /// The blob-store key, when there is one.
     ///
     /// Saves every caller a `match` whose only other arm is "no key", and keeps
-    /// the two-variant shape from leaking into code that just wants the key.
+    /// the variant shape from leaking into code that just wants the key.
+    ///
+    /// `Gone` answers `None` like `Inline` does. That is deliberate: the two
+    /// mean different things to a sweep, which asks
+    /// [`is_reapable`](Self::is_reapable) instead, and the same thing to
+    /// everybody else — there is no object to fetch.
     #[must_use]
     pub fn object_key(&self) -> Option<&str> {
         match self {
-            Self::Inline => None,
+            Self::Gone | Self::Inline => None,
             Self::Object { key } => Some(key),
         }
+    }
+
+    /// Whether content still exists that a sweep would need to remove.
+    #[must_use]
+    pub const fn is_reapable(&self) -> bool {
+        !matches!(*self, Self::Gone)
     }
 
     /// The value stored in the `storage` column.
     #[must_use]
     pub const fn as_str(&self) -> &'static str {
         match *self {
+            Self::Gone => Self::GONE,
             Self::Inline => Self::INLINE,
             Self::Object { .. } => Self::OBJECT,
         }
@@ -100,6 +122,10 @@ impl StorageLocation {
 
     fn parse(storage: &str, object_key: Option<String>) -> Result<Self, DomainError> {
         match (storage, object_key) {
+            // `object_key` is kept rather than cleared, so a row still records
+            // which object was removed — the one thing worth having if a
+            // deletion ever turns out to have been wrong.
+            (Self::GONE, _) => Ok(Self::Gone),
             (Self::INLINE, _) => Ok(Self::Inline),
             (Self::OBJECT, Some(key)) => Ok(Self::Object { key }),
             (Self::OBJECT, None) => Err(DomainError::Malformed {
@@ -108,7 +134,7 @@ impl StorageLocation {
             }),
             _ => Err(DomainError::Malformed {
                 field: "storage",
-                reason: "must be `inline` or `object`",
+                reason: "must be `inline`, `object` or `gone`",
             }),
         }
     }
@@ -250,8 +276,12 @@ impl Share {
     }
 
     fn to_active_model(&self) -> share::ActiveModel {
+        // `Gone` clears the key along with the bytes. The key is only ever used
+        // to fetch or delete an object, and the row is marked `gone` solely
+        // after a delete has succeeded — so there is nothing left for it to
+        // point at.
         let object_key = match &self.storage {
-            StorageLocation::Inline => None,
+            StorageLocation::Gone | StorageLocation::Inline => None,
             StorageLocation::Object { key } => Some(key.clone()),
         };
 
@@ -515,6 +545,110 @@ impl ShareRepository {
     /// `cutoff` is the retention boundary rather than "now": a dead share is
     /// kept for a while so its link can still explain itself, and only then
     /// removed.
+    ///
+    /// Returned rather than deleted here because the payload lives in the blob
+    /// store, which no database action reaches. The caller removes the object
+    /// first and the row second.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
+    /// usable.
+    /// Shares whose content can go now, because nothing can reach it any more.
+    ///
+    /// Dead *at* `now`, not before some cutoff: the row is what has to linger so
+    /// a visitor is told "this expired" instead of "no such code", and the bytes
+    /// are not needed for that. [`crate::api::gate::open`] refuses a dead share
+    /// before anything reads its content, so from the moment it dies the object
+    /// is unreachable — keeping it is pure cost.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or a row is corrupt.
+    pub async fn find_reapable(
+        &self,
+        now: OffsetDateTime,
+        limit: u64,
+    ) -> Result<Vec<Share>, ShareRepositoryError> {
+        let expired = share::Column::ExpiresAt
+            .is_not_null()
+            .and(share::Column::ExpiresAt.lt(now));
+        let exhausted = share::Column::UseLimit
+            .is_not_null()
+            .and(Expr::col(share::Column::UseCount).gte(Expr::col(share::Column::UseLimit)));
+        let disabled = share::Column::DisabledAt.is_not_null();
+
+        let models = ShareEntity::find()
+            .filter(expired.or(exhausted).or(disabled))
+            .filter(share::Column::Storage.ne(StorageLocation::GONE))
+            .order_by_asc(share::Column::Id)
+            .limit(limit)
+            .all(&self.connection)
+            .await?;
+        models
+            .into_iter()
+            .map(|model| Share::from_model(model).map_err(Into::into))
+            .collect()
+    }
+
+    /// Records that a share's content has been removed.
+    ///
+    /// Called only after the object store has confirmed the delete, so the row
+    /// never claims the bytes are gone while they are still being billed for.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn mark_content_removed(&self, id: ShareId) -> Result<(), ShareRepositoryError> {
+        ShareEntity::update_many()
+            .col_expr(
+                share::Column::Storage,
+                Expr::value(StorageLocation::GONE.to_owned()),
+            )
+            .col_expr(
+                share::Column::ObjectKey,
+                Expr::value(Option::<String>::None),
+            )
+            .filter(share::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Bytes this instance is currently holding.
+    ///
+    /// Counts only shares whose content still exists — a row kept around to
+    /// answer "this expired" costs a few hundred bytes of database and no
+    /// storage, and charging a quota for it would make the number a lie.
+    ///
+    /// Summed rather than tracked in a counter: a counter has to be kept in step
+    /// with every insert, delete and failed upload, and the first time it drifts
+    /// an instance either refuses uploads it has room for or accepts ones it
+    /// does not.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn total_stored_bytes(&self) -> Result<u64, ShareRepositoryError> {
+        let total: Option<i64> = ShareEntity::find()
+            .filter(share::Column::Storage.ne(StorageLocation::GONE))
+            .select_only()
+            .column_as(share::Column::SizeBytes.sum(), "total")
+            .into_tuple()
+            .one(&self.connection)
+            .await?
+            .flatten();
+        Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
+    }
+
+    /// Shares whose rows can go, because they have been dead long enough that
+    /// nobody is still following the link that made them.
+    ///
+    /// `cutoff` is the retention boundary rather than "now": a dead share is
+    /// kept for a while so its link can still explain itself, and only then
+    /// removed. Its *content* is not kept that long — see
+    /// [`find_reapable`](Self::find_reapable), which runs first and takes the
+    /// bytes at death.
     ///
     /// Returned rather than deleted here because the payload lives in the blob
     /// store, which no database action reaches. The caller removes the object

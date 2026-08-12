@@ -350,6 +350,25 @@ pub struct DatabaseConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StorageConfig {
+    /// Most bytes of live share content this instance will hold. `0` is no
+    /// limit.
+    ///
+    /// Without this, an instance with `anonymous_upload` on — which is the
+    /// default — is an unlimited anonymous drive for anyone who can reach it,
+    /// and the first sign of trouble is writes failing because the disk is
+    /// full. That is the worst place to find out: the shares already on it are
+    /// fine, and the ones being refused get no explanation.
+    ///
+    /// Counts content that still exists. A share kept past its death so its
+    /// link can say "this expired" has already had its bytes removed and does
+    /// not count against this.
+    ///
+    /// `share.default_expiry_hours` is the other half of the same question, and
+    /// usually the more effective one: what is held is roughly the upload rate
+    /// times how long things are kept, so shortening the default lowers the
+    /// steady state without ever refusing anybody.
+    pub max_total_bytes: u64,
+
     /// Where blobs live.
     ///
     /// A bare path is a local directory, created if missing — the homelab
@@ -424,6 +443,13 @@ impl Default for StorageConfig {
         Self {
             url: "data/blobs".to_owned(),
             options: BTreeMap::new(),
+            // No limit. The common deployment is one person on hardware they
+            // own, where a ceiling they did not ask for is an obstacle and the
+            // disk is something they can already see. The deployment that needs
+            // one is an instance strangers upload to, and that is not a default
+            // anybody falls into by accident — but `Config::load` warns when it
+            // sees the combination, so it is not a silent trap either.
+            max_total_bytes: 0,
         }
     }
 }

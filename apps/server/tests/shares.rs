@@ -1252,3 +1252,115 @@ async fn the_ceiling_still_governs_what_may_be_asked_for() {
         .await;
     assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
 }
+
+/// A share's row and its content have different reasons to survive. The row is
+/// what lets a link say "this expired" instead of "no such code", which is worth
+/// keeping for a while. The content is worth nothing the moment the share dies —
+/// the gate refuses a dead share before anything reads it — and it is the half
+/// that costs money.
+///
+/// They used to go together, so a burn-after-reading share occupied its full
+/// size for a week after the one person who was meant to have it already did.
+#[tokio::test]
+async fn a_dead_share_loses_its_content_but_keeps_its_row() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.share.retain_after_death_hours = 24 * 7;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=once.bin&max_uses=1", &vec![7_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    // Spend the single retrieval it was allowed.
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let stored_before = app
+        .state
+        .shares
+        .total_stored_bytes()
+        .await
+        .expect("a total");
+    assert_eq!(
+        stored_before, 4096,
+        "the content is still held before a sweep"
+    );
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    // The row survives, so the link still explains itself.
+    let response = app.get(&format!("/api/v1/shares/{code}")).await;
+    assert_eq!(
+        response.status(),
+        StatusCode::GONE,
+        "the row has to outlive the content, or the link says `no such code`"
+    );
+
+    // The bytes do not.
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        0,
+        "a dead share's content must not sit in storage until the row expires"
+    );
+}
+
+/// Without a ceiling, an instance with anonymous upload on is an unlimited drive
+/// for anyone who can reach it, and the first sign of trouble is writes failing
+/// because the disk is full.
+#[tokio::test]
+async fn uploads_stop_when_the_instance_is_out_of_room() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 8192;
+    })
+    .await;
+
+    upload(&app, "?filename=first.bin", &vec![1_u8; 6000]).await;
+
+    // 6000 held, 8192 allowed: this one does not fit, and the refusal has to
+    // name the instance rather than the file.
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=too-much.bin"),
+            Body::from(vec![2_u8; 4000]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+
+    // Something that does fit is still accepted, so the limit is a limit rather
+    // than a switch.
+    upload(&app, "?filename=small.bin", &vec![3_u8; 1000]).await;
+}
+
+/// A quota that counted rows kept only to say "this expired" would refuse
+/// uploads to make room for content that is not there.
+#[tokio::test]
+async fn reaped_shares_free_their_quota() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 8192;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=big.bin&max_uses=1", &vec![9_u8; 6000]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    // The row is still there answering 410, but its 6000 bytes are not.
+    upload(&app, "?filename=now-it-fits.bin", &vec![4_u8; 6000]).await;
+}

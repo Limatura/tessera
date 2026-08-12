@@ -185,6 +185,7 @@
           "range_not_satisfiable",
           "conflict",
           "too_many_requests",
+          "insufficient_storage",
           "unavailable",
           "internal"
         ],
@@ -1066,6 +1067,16 @@
               }
             },
             "description": "Body exceeds the configured limit"
+          },
+          "507": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance is out of room"
           }
         },
         "security": [

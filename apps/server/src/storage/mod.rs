@@ -248,6 +248,7 @@ mod tests {
             options: [("AWS_REGION".to_owned(), "from-config".to_owned())]
                 .into_iter()
                 .collect(),
+            ..StorageConfig::default()
         };
         let options = backend_options(&config);
         assert_eq!(
