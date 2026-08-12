@@ -10,8 +10,38 @@ use axum::{
     body::Body,
     http::{Method, Request, StatusCode, header},
 };
-use common::{TestApp, body_json, body_string, expect_status};
+use common::{Auth, TestApp, body_json, body_string, expect_status, session_cookie};
 use tessera_server::{api, state::ServiceStatus};
+
+/// The bootstrap administrator's password, for the tests that need to be one.
+const ADMIN_PASSWORD: &str = "correct horse battery staple";
+
+/// Bootstraps the administrator and signs in as them, returning the session
+/// cookie ready to send back.
+///
+/// See `common/mod.rs`: the test-code exemption only reaches code inside a
+/// `#[test]` body, so a helper has to restate it.
+#[expect(
+    clippy::expect_used,
+    reason = "test helper; a fixture that cannot build has nothing to report but a failure"
+)]
+async fn admin_session(app: &TestApp) -> String {
+    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
+        .await
+        .expect("bootstrap");
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "admin", "password": ADMIN_PASSWORD }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    session_cookie(&response)
+}
 
 #[tokio::test]
 async fn health_reports_ready() {
@@ -76,8 +106,77 @@ async fn capabilities_report_what_this_instance_exposes() {
     assert_eq!(body["anonymous_upload"], true);
     assert_eq!(body["registration"], "open");
     assert_eq!(body["version"], tessera_server::VERSION);
-    assert!(body["password_min_length"].is_u64());
+    assert!(body["account_password_min_length"].is_u64());
     assert!(body["max_upload_bytes"].is_u64());
+
+    // Everything the upload form needs to draw itself without guessing.
+    assert!(
+        body["share_password_min_length"].as_u64() < body["account_password_min_length"].as_u64(),
+        "a share password is deliberately allowed to be shorter than an account's"
+    );
+    assert!(body["default_expiry_hours"].is_u64());
+    assert!(body["max_expiry_hours"].is_u64());
+
+    // The one field that is not everybody's business.
+    assert!(
+        body["storage_remaining_bytes"].is_null(),
+        "an anonymous caller must not learn how full the disk is"
+    );
+}
+
+/// How much room is left is the operator's capacity planning, not the visitor's
+/// business — telling every anonymous uploader how close the disk is to full
+/// invites somebody to close the gap.
+#[tokio::test]
+async fn only_an_administrator_is_told_how_much_room_is_left() {
+    let quota = 50 * 1024 * 1024;
+    let app = TestApp::with_config(move |config| {
+        config.storage.max_total_bytes = quota;
+        config.auth.admin_password = ADMIN_PASSWORD.to_owned();
+    })
+    .await;
+
+    let anonymous =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert!(anonymous["storage_remaining_bytes"].is_null());
+
+    let cookie = admin_session(&app).await;
+    let admin = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/capabilities", Auth::Cookie(&cookie))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        admin["storage_remaining_bytes"].as_u64(),
+        Some(quota),
+        "nothing stored yet, so the whole quota is free"
+    );
+}
+
+/// An instance with no quota has no number to report, and saying `0` would read
+/// as "full" to a client that cannot tell the two apart.
+#[tokio::test]
+async fn an_instance_without_a_quota_reports_no_remaining_room() {
+    let app = TestApp::with_config(|config| {
+        config.auth.admin_password = ADMIN_PASSWORD.to_owned();
+    })
+    .await;
+    let cookie = admin_session(&app).await;
+
+    let body = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/capabilities", Auth::Cookie(&cookie))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert!(body["storage_remaining_bytes"].is_null());
 }
 
 /// The endpoint has to be reachable before a client knows whether logging in is
