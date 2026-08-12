@@ -1254,6 +1254,374 @@ async fn the_ceiling_still_governs_what_may_be_asked_for() {
     assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
 }
 
+/// A share's row and its content have different reasons to survive. The row is
+/// what lets a link say "this expired" instead of "no such code", which is worth
+/// keeping for a while. The content is worth nothing the moment the share dies —
+/// the gate refuses a dead share before anything reads it — and it is the half
+/// that costs money.
+///
+/// They used to go together, so a burn-after-reading share occupied its full
+/// size for a week after the one person who was meant to have it already did.
+#[tokio::test]
+async fn a_dead_share_loses_its_content_but_keeps_its_row() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.share.retain_after_death_hours = 24 * 7;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=once.bin&max_uses=1", &vec![7_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    // Spend the single retrieval it was allowed.
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let stored_before = app
+        .state
+        .shares
+        .total_stored_bytes()
+        .await
+        .expect("a total");
+    assert_eq!(
+        stored_before, 4096,
+        "the content is still held before a sweep"
+    );
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    // The row survives, so the link still explains itself.
+    let response = app.get(&format!("/api/v1/shares/{code}")).await;
+    assert_eq!(
+        response.status(),
+        StatusCode::GONE,
+        "the row has to outlive the content, or the link says `no such code`"
+    );
+
+    // The bytes do not.
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        0,
+        "a dead share's content must not sit in storage until the row expires"
+    );
+}
+
+/// Without a ceiling, an instance with anonymous upload on is an unlimited drive
+/// for anyone who can reach it, and the first sign of trouble is writes failing
+/// because the disk is full.
+#[tokio::test]
+async fn uploads_stop_when_the_instance_is_out_of_room() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 8192;
+    })
+    .await;
+
+    upload(&app, "?filename=first.bin", &vec![1_u8; 6000]).await;
+
+    // 6000 held, 8192 allowed: this one does not fit, and the refusal has to
+    // name the instance rather than the file.
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=too-much.bin"),
+            Body::from(vec![2_u8; 4000]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+
+    // Something that does fit is still accepted, so the limit is a limit rather
+    // than a switch.
+    upload(&app, "?filename=small.bin", &vec![3_u8; 1000]).await;
+}
+
+/// A quota that counted rows kept only to say "this expired" would refuse
+/// uploads to make room for content that is not there.
+#[tokio::test]
+async fn reaped_shares_free_their_quota() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 8192;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=big.bin&max_uses=1", &vec![9_u8; 6000]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    // The row is still there answering 410, but its 6000 bytes are not.
+    upload(&app, "?filename=now-it-fits.bin", &vec![4_u8; 6000]).await;
+}
+
+/// Small content lives in the database rather than the blob store, and marking
+/// a share `gone` takes it out of the quota either way. For an inline share
+/// that used to be a lie in the dangerous direction: the bytes stayed in
+/// `share_contents` until the row itself went a week later, so the instance
+/// believed it had room it did not have, and the drift accumulated for as long
+/// as the retention window.
+#[tokio::test]
+async fn reaping_an_inline_share_actually_frees_the_database() {
+    let app = TestApp::with_config(|config| {
+        // Comfortably above the payload, so it stays in the database.
+        config.share.inline_threshold_bytes = 64 * 1024;
+    })
+    .await;
+
+    let share = upload(&app, "?max_uses=1", &vec![5_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id: tessera_core::ShareId = share["id"]
+        .as_str()
+        .expect("an id")
+        .parse()
+        .expect("a share id");
+
+    expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    // The quota already says these bytes are free…
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        0
+    );
+    // …so they had better actually be.
+    assert_eq!(
+        app.state.shares.inline_content(id).await.expect("a lookup"),
+        None,
+        "the quota released this content, so the database must have too"
+    );
+}
+
+/// Expiry and exhaustion are one-way: no amount of waiting brings a share back,
+/// so destroying its content the moment it dies costs nothing. Disabling is not
+/// like that — an operator did it and may undo it — so a disabled share keeps
+/// its content until its row goes for good.
+///
+/// Nothing writes `disabled_at` yet (the admin endpoints are #7), which is
+/// exactly why this is worth pinning: the reaper would happily have taken those
+/// bytes, and the bug would only have surfaced the first time somebody
+/// re-enabled something and got a live link to nothing.
+#[tokio::test]
+async fn a_disabled_share_keeps_its_content() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=paused.bin", &vec![2_u8; 4096]).await;
+    let id: tessera_core::ShareId = share["id"]
+        .as_str()
+        .expect("an id")
+        .parse()
+        .expect("a share id");
+
+    // No endpoint writes `disabled_at` yet, so the test does it the only way
+    // there is. That is the point: the reaper must already be right about a
+    // state the API cannot reach, because #7 will make it reachable.
+    app.state
+        .db
+        .execute_unprepared(&format!(
+            "UPDATE shares SET disabled_at = '{}' WHERE id = '{id}'",
+            OffsetDateTime::now_utc()
+                .format(&time::format_description::well_known::Rfc3339)
+                .expect("RFC 3339")
+        ))
+        .await
+        .expect("could not disable the share");
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        4096,
+        "a disabled share is paused, not dead — re-enabling it must give back \
+         something that works"
+    );
+}
+#[tokio::test]
+async fn lowering_the_quota_below_current_usage_refuses_rather_than_panics() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 10_000;
+    })
+    .await;
+    upload(&app, "?filename=a.bin", &vec![1_u8; 8000]).await;
+
+    // The operator lowers it below what is already held. saturating_sub keeps
+    // this at "no room" rather than wrapping to "almost unlimited".
+    let tight = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1;
+    })
+    .await;
+    let refused = tight
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=b.bin"),
+            Body::from(vec![2_u8; 100]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+}
+
+/// The limit is a limit, not a fence one byte inside it. An upload that lands
+/// exactly on the figure has to be accepted, or every operator's quota is
+/// quietly one byte smaller than they wrote.
+#[tokio::test]
+async fn an_upload_that_exactly_fills_the_quota_is_accepted() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 4096;
+    })
+    .await;
+
+    upload(&app, "?filename=exact.bin", &vec![8_u8; 4096]).await;
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        4096
+    );
+
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=one-more.bin"),
+            Body::from(vec![9_u8; 1]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+}
+
+/// The sweep treats a failed object delete as "try again next hour", which is
+/// right for a store that is down and wrong for an object that is simply not
+/// there. Somebody who tidies their bucket by hand would otherwise leave rows
+/// the reaper can never mark — retried every hour forever, and counted against
+/// the quota for bytes that do not exist.
+#[tokio::test]
+async fn a_share_whose_object_already_vanished_is_still_reaped() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+    })
+    .await;
+
+    let share = upload(
+        &app,
+        "?filename=vanishing.bin&max_uses=1",
+        &vec![3_u8; 4096],
+    )
+    .await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // Somebody cleaned the bucket out from under us.
+    let id: tessera_core::ShareId = share["id"].as_str().expect("an id").parse().expect("an id");
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("a lookup")
+        .expect("the share");
+    let key = stored
+        .storage
+        .object_key()
+        .expect("an object key")
+        .to_owned();
+    app.state
+        .storage
+        .delete(&object_store::path::Path::from(key))
+        .await
+        .expect("could not remove the object by hand");
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        0,
+        "a row pointing at an object that is gone must still be reaped, or it \
+         is retried forever and holds quota for bytes nobody has"
+    );
+}
+
+/// A ticket authorises one share. Presenting it against another must not work,
+/// or one paid retrieval would open everything the holder can name.
+#[tokio::test]
+async fn a_ticket_does_not_travel_between_shares() {
+    let app = TestApp::ready().await;
+    let mine = upload(&app, "", b"mine").await;
+    let theirs = upload(&app, "?max_uses=1", b"theirs").await;
+    let my_code = mine["code"].as_str().expect("a code").to_owned();
+    let their_code = theirs["code"].as_str().expect("a code").to_owned();
+
+    let unlocked = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/shares/{my_code}/unlock")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let ticket = body_json(unlocked).await["ticket"]
+        .as_str()
+        .expect("a ticket")
+        .to_owned();
+
+    // Presenting it elsewhere must not be free: it falls through to a normal
+    // retrieval, which spends the other share's single use.
+    let response = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{their_code}/raw"))
+                .header("x-share-ticket", &ticket),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let after = app.get(&format!("/s/{their_code}/raw")).await;
+    assert_eq!(
+        after.status(),
+        StatusCode::GONE,
+        "the other share's one use was spent, so a foreign ticket bought nothing"
+    );
+}
+
 /// Unlocks a share and returns the ticket that authorises the transfer.
 ///
 /// See `common/mod.rs`: the test-code exemption in `clippy.toml` only reaches
