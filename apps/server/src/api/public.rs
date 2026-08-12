@@ -63,7 +63,10 @@ async fn raw(
     ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
-    let share = gate::open(&state, &code, &source).await?;
+    // `find` and not `open`: whether this share may be handed out depends on
+    // whether the caller holds a ticket for it, and `permit` is where that is
+    // known. See `gate`'s module docs.
+    let share = gate::find(&state, &code, &source).await?;
     // Before authorising, not after: answering "you wanted the other route" is
     // the caller's mistake, and a mistake must not cost the share one of its
     // retrievals. Anything that can be refused without looking at the content
@@ -109,7 +112,9 @@ async fn download(
     ClientAddress(source): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
-    let share = gate::open(&state, &code, &source).await?;
+    // See `raw`: the admission decision needs the ticket, so it happens in
+    // `permit` rather than here.
+    let share = gate::find(&state, &code, &source).await?;
     let payload = permit(
         &state,
         &share,
@@ -231,20 +236,29 @@ async fn permit(
     method: &Method,
     source: &str,
 ) -> Result<Payload> {
+    // First, because the answer decides whether an exhausted share is still
+    // collectable — the caller who emptied it is the one now coming for the
+    // bytes. `admit` is what turns anyone else away.
+    let held = gate::holds_ticket(state, share, headers, ticket).await?;
+    gate::admit(share, held)?;
+
     // `HEAD` asks what a `GET` would answer, and answering that is not a
     // retrieval. axum routes `HEAD` to the same handler as `GET`, so without
     // this a link checker, a prefetch or a chat client probing the URL spends
     // somebody's one-time share — the exact failure the ticket model exists to
     // prevent, reached by a route nobody thinks about.
     //
-    // The password is still required: `HEAD` reveals the size, and a locked
-    // share should not describe itself.
+    // Without a ticket the password is still required: `HEAD` reveals the size,
+    // and a locked share should not describe itself. With one it is not, for
+    // the same reason a `GET` skips it — the ticket is the proof.
     if method == Method::HEAD {
-        gate::unlock(state, share, headers, source).await?;
+        if held == gate::Ticket::Absent {
+            gate::unlock(state, share, headers, source).await?;
+        }
         return Ok(Payload::Headers);
     }
 
-    if gate::holds_ticket(state, share, headers, ticket).await? {
+    if held == gate::Ticket::Held {
         return Ok(Payload::Content);
     }
     gate::unlock(state, share, headers, source).await?;
