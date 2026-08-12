@@ -28,7 +28,8 @@
     "react": "catalog:",
     "react-dom": "catalog:",
     "recharts": "3.8.0",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@inlang/plugin-message-format": "^4.4.1",
