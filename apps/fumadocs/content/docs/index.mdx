@@ -1,13 +1,20 @@
 ---
-title: Hello World
-description: Your first document
+title: tessera
+description: 匿名檔案信差 —— 上傳、給一組取件碼,到期或取完就自我銷毀
 ---
 
-Welcome to the docs! You can start writing documents in `/content/docs`.
+自架的檔案信差。上傳一個檔案或一段文字,拿到一組取件碼,交給對方。過期或取完次數之後,內容就被刪掉。
 
-## What is Next?
+單一執行檔,前端嵌在裡面,前面不用擺東西、旁邊不用跑東西。
 
-<Cards>
-  <Card title="Learn more about Next.js" href="https://nextjs.org/docs" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
-</Cards>
+## 開始
+
+```bash
+docker run -p 8787:8787 -v ./data:/data ghcr.io/limatura/tessera
+```
+
+第一次啟動會建立管理員,並且把密碼印在 log 裡 —— 只印那一次。
+
+## 文件還沒寫
+
+這個站現在是空的。要寫的東西大概是:安裝、設定、儲存後端、API, 以及怎麼接自己的客戶端。API 的部分可以直接指向 `openapi.json`。

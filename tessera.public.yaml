@@ -1,0 +1,74 @@
+# tessera — 開放給不特定人使用的範例設定
+#
+# 情境:架在公網上,任何人都能上傳。你不認識使用者,也不會想認識。
+# 每一項都比個人用的緊,因為這台的每一個資源都是陌生人在花。
+#
+# 用法:複製成 tessera.yaml 放在執行檔旁邊,或用 TESSERA_CONFIG_FILE 指過來。
+#
+# ⚠ 上線前先讀最下面「還沒有的東西」那段。有兩件事現在沒辦法用設定解決,
+#    在它們做出來之前,這台需要外部的防護。
+
+server:
+  host: 0.0.0.0
+  # 25 MiB。陌生人上傳的東西沒有理由給到預設的 100 MiB。
+  max_body_bytes: 26214400
+  # 前面有 nginx / Caddy / Cloudflare 的話打開,節流才看得到真實來源 IP。
+  # ⚠ 沒有反向代理就千萬不要開 —— 那等於讓任何人自己宣稱自己的 IP,
+  #    節流就完全失效了。
+  trusted_proxy: true
+  # 前端跟後端同源的話留空。分開部署才需要列出來。
+  cors_allowed_origins: []
+
+features:
+  # 這台存在的意義就是讓人不用註冊就能傳東西。
+  anonymous_upload: true
+  # 關掉管理端點,除非你真的要從瀏覽器管這台。
+  admin: false
+  # 對外的機器不需要把 API 參考頁掛出來。openapi.json 照樣提供。
+  docs: false
+
+auth:
+  # 不開放註冊。要開放的話註冊政策要跟配額一起想(見下)。
+  # 註:invite 目前的行為等同 closed,邀請碼還沒做(#4)。
+  registration: closed
+  session_ttl_hours: 168
+  password:
+    min_length: 12
+
+share:
+  # 10 碼而不是 8。這台的取件碼端點暴露在公網上,可以被枚舉,
+  # 雖然有節流,但碼長一點的成本是零。
+  code_length: 10
+  # 7 天。短期儲存不會累積 —— 你手上握著的量等於「每天上傳量 × 保存天數」,
+  # 所以這一個數字對磁碟用量的影響比任何東西都大。
+  max_expiry_hours: 168
+  # 過期或取完就快點清掉,別替陌生人保管。
+  retain_after_death_hours: 24
+  # 解鎖之後那張 ticket 能用多久。對外的機器縮短一點,
+  # 因為 ticket 可以被轉給別人(見 #45)。
+  ticket_ttl_hours: 6
+
+telemetry:
+  # 對外的機器通常會把 log 收進 Loki / ELK。
+  format: json
+  ansi: false
+  filter: info
+
+storage:
+  url: data/blobs
+
+database:
+  # 單機 SQLite 就夠。要跑多個實例才需要 Postgres。
+  url: sqlite://data/tessera.db
+
+# ── 還沒有的東西 ────────────────────────────────────────────────────────
+#
+# 這兩件事目前沒有任何設定可以打開,在做出來之前,對外的機器要靠外部手段補:
+#
+#   儲存配額(#35)—— 現在沒有總量上限。磁碟滿了會是寫入失敗,不是拒收。
+#                     暫時的做法:把 data/ 放在一個有大小上限的檔案系統
+#                     或 volume 上,並且自己監控。
+#
+#   惡意軟體掃描(#39)—— 現在完全不掃。匿名 + 免註冊 + 不掃描,
+#                        對營運者是真實的法律與濫用風險。
+#                        暫時的做法:前面擋一層,或接受這個風險並準備好處理檢舉。

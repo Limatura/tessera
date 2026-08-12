@@ -1,29 +1,29 @@
 name: tessera
 
+# One service, because that is the whole point — the frontend is embedded in the
+# binary. Build it with `pnpm docker:build`, which runs the SPA build first; the
+# Dockerfile embeds `apps/web/dist` only when it is present in the context.
 services:
-  web:
+  tessera:
     build:
       context: .
-      dockerfile: apps/web/Dockerfile
+      dockerfile: apps/server/Dockerfile
+      args:
+        # Without this `/health` reports `unknown` — `.git` is not in the build
+        # context, so the commit has to be handed in.
+        TESSERA_BUILD_REV: ${TESSERA_BUILD_REV:-unknown}
     init: true
     ports:
-      - "3001:3001"
-    env_file:
-      - path: apps/web/.env
-        required: false
+      - "8787:8787"
+    volumes:
+      - ./data:/data
     environment:
-      BETTER_AUTH_URL: http://localhost:3001
-      CORS_ORIGIN: http://localhost:3001
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "node",
-          "-e",
-          "fetch('http://localhost:3001/').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      # Inside a container the loopback address would only be reachable from
+      # inside the container.
+      TESSERA_SERVER__HOST: 0.0.0.0
+      TESSERA_DATABASE__URL: sqlite:///data/tessera.db?mode=rwc
+      TESSERA_STORAGE__URL: /data/blobs
+    # No `healthcheck:` here — the image declares its own, which re-executes the
+    # binary with `--health-check` so the probe reads the same configuration and
+    # therefore always targets the port the server actually listens on.
     restart: unless-stopped
