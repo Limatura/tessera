@@ -9,6 +9,7 @@ use axum::{
 use common::{Auth, TestApp, body_json, body_string, expect_status, share_repository_round_trip};
 use futures_util::TryStreamExt as _;
 use object_store::{ObjectStore as _, ObjectStoreExt as _};
+use sea_orm::ConnectionTrait as _;
 use time::OffsetDateTime;
 use tower::ServiceExt as _;
 
@@ -1363,4 +1364,97 @@ async fn reaped_shares_free_their_quota() {
 
     // The row is still there answering 410, but its 6000 bytes are not.
     upload(&app, "?filename=now-it-fits.bin", &vec![4_u8; 6000]).await;
+}
+
+/// Small content lives in the database rather than the blob store, and marking
+/// a share `gone` takes it out of the quota either way. For an inline share
+/// that used to be a lie in the dangerous direction: the bytes stayed in
+/// `share_contents` until the row itself went a week later, so the instance
+/// believed it had room it did not have, and the drift accumulated for as long
+/// as the retention window.
+#[tokio::test]
+async fn reaping_an_inline_share_actually_frees_the_database() {
+    let app = TestApp::with_config(|config| {
+        // Comfortably above the payload, so it stays in the database.
+        config.share.inline_threshold_bytes = 64 * 1024;
+    })
+    .await;
+
+    let share = upload(&app, "?max_uses=1", &vec![5_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id: tessera_core::ShareId = share["id"]
+        .as_str()
+        .expect("an id")
+        .parse()
+        .expect("a share id");
+
+    expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    // The quota already says these bytes are free…
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        0
+    );
+    // …so they had better actually be.
+    assert_eq!(
+        app.state.shares.inline_content(id).await.expect("a lookup"),
+        None,
+        "the quota released this content, so the database must have too"
+    );
+}
+
+/// Expiry and exhaustion are one-way: no amount of waiting brings a share back,
+/// so destroying its content the moment it dies costs nothing. Disabling is not
+/// like that — an operator did it and may undo it — so a disabled share keeps
+/// its content until its row goes for good.
+///
+/// Nothing writes `disabled_at` yet (the admin endpoints are #7), which is
+/// exactly why this is worth pinning: the reaper would happily have taken those
+/// bytes, and the bug would only have surfaced the first time somebody
+/// re-enabled something and got a live link to nothing.
+#[tokio::test]
+async fn a_disabled_share_keeps_its_content() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=paused.bin", &vec![2_u8; 4096]).await;
+    let id: tessera_core::ShareId = share["id"]
+        .as_str()
+        .expect("an id")
+        .parse()
+        .expect("a share id");
+
+    // No endpoint writes `disabled_at` yet, so the test does it the only way
+    // there is. That is the point: the reaper must already be right about a
+    // state the API cannot reach, because #7 will make it reachable.
+    app.state
+        .db
+        .execute_unprepared(&format!(
+            "UPDATE shares SET disabled_at = '{}' WHERE id = '{id}'",
+            OffsetDateTime::now_utc()
+                .format(&time::format_description::well_known::Rfc3339)
+                .expect("RFC 3339")
+        ))
+        .await
+        .expect("could not disable the share");
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        4096,
+        "a disabled share is paused, not dead — re-enabling it must give back \
+         something that works"
+    );
 }

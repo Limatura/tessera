@@ -576,10 +576,14 @@ impl ShareRepository {
         let exhausted = share::Column::UseLimit
             .is_not_null()
             .and(Expr::col(share::Column::UseCount).gte(Expr::col(share::Column::UseLimit)));
-        let disabled = share::Column::DisabledAt.is_not_null();
 
+        // Disabled shares are deliberately not here. Expiry and exhaustion are
+        // one-way — no amount of waiting brings them back — but disabling is
+        // something an operator did and may undo, and re-enabling a share whose
+        // content has been destroyed would give them a live link to nothing.
+        // The row's own retention still removes it eventually, content and all.
         let models = ShareEntity::find()
-            .filter(expired.or(exhausted).or(disabled))
+            .filter(expired.or(exhausted))
             .filter(share::Column::Storage.ne(StorageLocation::GONE))
             .order_by_asc(share::Column::Id)
             .limit(limit)
@@ -591,15 +595,28 @@ impl ShareRepository {
             .collect()
     }
 
-    /// Records that a share's content has been removed.
+    /// Removes a share's content and records that it is gone.
     ///
-    /// Called only after the object store has confirmed the delete, so the row
-    /// never claims the bytes are gone while they are still being billed for.
+    /// Both halves, because "content" means two different places. Content above
+    /// `inline_threshold_bytes` is an object, which the caller has already
+    /// deleted by the time it gets here; below it, the bytes are a row in
+    /// `share_contents`, and that row is this function's to remove.
+    ///
+    /// Marking without deleting the inline row would be the dangerous half of a
+    /// lie: the quota would report the space as free while the database still
+    /// held it, and the gap would widen for as long as the retention window.
     ///
     /// # Errors
     ///
-    /// Returns [`ShareRepositoryError`] if the update fails.
+    /// Returns [`ShareRepositoryError`] if either statement fails.
     pub async fn mark_content_removed(&self, id: ShareId) -> Result<(), ShareRepositoryError> {
+        // Deleted before the row is marked, so a failure here leaves a share
+        // still claiming to hold its content — which is the direction that
+        // makes the next pass try again rather than forget.
+        ShareContentEntity::delete_by_id(id.to_string())
+            .exec(&self.connection)
+            .await?;
+
         ShareEntity::update_many()
             .col_expr(
                 share::Column::Storage,
