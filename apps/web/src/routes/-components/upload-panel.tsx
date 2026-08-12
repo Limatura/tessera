@@ -14,6 +14,8 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 
+import { GlassBackground } from "@/components/glass-background";
+
 import { BlobBackground } from "./blob-background";
 import { CodeUploadForm } from "./code-upload-form";
 import { LinkUploadForm } from "./link-upload-form";
@@ -32,9 +34,8 @@ export function UploadPanel() {
   };
 
   return (
-    <div className="relative flex min-h-svh w-full items-center justify-center bg-background p-6">
-      <BlobBackground />
-
+    <div className="relative flex min-h-svh w-full items-center justify-center p-6">
+      <GlassBackground />
       <div className="w-full max-w-sm">
         <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
           <CardHeader>

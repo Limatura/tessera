@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { GlassBackground } from "./-components/glass-background";
+import { GlassBackground } from "../../components/glass-background";
 import { LoginForm } from "./-components/login-form";
 
 export const Route = createFileRoute("/login/")({
