@@ -9,6 +9,7 @@ use axum::{
 use common::{Auth, TestApp, body_json, body_string, expect_status, share_repository_round_trip};
 use futures_util::TryStreamExt as _;
 use object_store::{ObjectStore as _, ObjectStoreExt as _};
+use time::OffsetDateTime;
 use tower::ServiceExt as _;
 
 #[tokio::test]
@@ -1185,4 +1186,69 @@ async fn a_ranged_raw_response_is_still_hardened() {
             .and_then(|v| v.to_str().ok()),
         Some("inline")
     );
+}
+
+/// The lifetime a share gets when nobody asks for one used to be the ceiling
+/// itself — so the longest life anyone was *allowed* to request was also what
+/// everyone got by default. On the shipped settings that meant holding thirty
+/// days of uploads to serve links that are almost all collected within hours.
+///
+/// Ephemeral storage does not accumulate: what is on disk is roughly the upload
+/// rate times how long things are kept, which makes this one number a bigger
+/// lever on disk usage than any quota.
+#[tokio::test]
+async fn an_unspecified_lifetime_uses_the_default_not_the_ceiling() {
+    let app = TestApp::with_config(|config| {
+        config.share.default_expiry_hours = 24;
+        config.share.max_expiry_hours = 24 * 30;
+    })
+    .await;
+
+    let created = OffsetDateTime::now_utc();
+    let share = upload(&app, "", b"no lifetime requested").await;
+    let expires = OffsetDateTime::parse(
+        share["expires_at"].as_str().expect("an expiry"),
+        &time::format_description::well_known::Rfc3339,
+    )
+    .expect("RFC 3339");
+
+    let lifetime = expires - created;
+    assert!(
+        lifetime < time::Duration::hours(25) && lifetime > time::Duration::hours(23),
+        "expected about a day, got {lifetime:?} — the ceiling is thirty"
+    );
+}
+
+/// Asking for more than the ceiling is still refused, and asking for something
+/// between the default and the ceiling is still granted. Shortening the default
+/// must not quietly become a shorter limit.
+#[tokio::test]
+async fn the_ceiling_still_governs_what_may_be_asked_for() {
+    let app = TestApp::with_config(|config| {
+        config.share.default_expiry_hours = 24;
+        config.share.max_expiry_hours = 24 * 30;
+    })
+    .await;
+
+    let created = OffsetDateTime::now_utc();
+    let share = upload(&app, "?expires_in_hours=200", b"longer than the default").await;
+    let expires = OffsetDateTime::parse(
+        share["expires_at"].as_str().expect("an expiry"),
+        &time::format_description::well_known::Rfc3339,
+    )
+    .expect("RFC 3339");
+    assert!(
+        expires - created > time::Duration::hours(199),
+        "a request between the default and the ceiling must be honoured"
+    );
+
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?expires_in_hours=99999"),
+            Body::from("past the ceiling"),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
 }
