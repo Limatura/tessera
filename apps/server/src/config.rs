@@ -359,9 +359,16 @@ pub struct StorageConfig {
     /// full. That is the worst place to find out: the shares already on it are
     /// fine, and the ones being refused get no explanation.
     ///
-    /// Counts content that still exists. A share kept past its death so its
-    /// link can say "this expired" has already had its bytes removed and does
-    /// not count against this.
+    /// Counts content that still exists, wherever it lives — content under
+    /// `share.inline_threshold_bytes` sits in the database rather than the blob
+    /// store, and it is still disk. A share kept past its death so its link can
+    /// say "this expired" has already had its bytes removed, in both places,
+    /// and does not count against this.
+    ///
+    /// Approximate under concurrency: uploads in flight together can land past
+    /// the line by up to their own number times `server.max_body_bytes`, and the
+    /// next one is refused. It is a guard against unbounded growth, not an
+    /// accounting system — leave the same slack you would leave on a disk.
     ///
     /// `share.default_expiry_hours` is the other half of the same question, and
     /// usually the more effective one: what is held is roughly the upload rate

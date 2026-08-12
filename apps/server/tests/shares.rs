@@ -1458,3 +1458,120 @@ async fn a_disabled_share_keeps_its_content() {
          something that works"
     );
 }
+#[tokio::test]
+async fn lowering_the_quota_below_current_usage_refuses_rather_than_panics() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 10_000;
+    })
+    .await;
+    upload(&app, "?filename=a.bin", &vec![1_u8; 8000]).await;
+
+    // The operator lowers it below what is already held. saturating_sub keeps
+    // this at "no room" rather than wrapping to "almost unlimited".
+    let tight = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1;
+    })
+    .await;
+    let refused = tight
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=b.bin"),
+            Body::from(vec![2_u8; 100]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+}
+
+/// The limit is a limit, not a fence one byte inside it. An upload that lands
+/// exactly on the figure has to be accepted, or every operator's quota is
+/// quietly one byte smaller than they wrote.
+#[tokio::test]
+async fn an_upload_that_exactly_fills_the_quota_is_accepted() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 4096;
+    })
+    .await;
+
+    upload(&app, "?filename=exact.bin", &vec![8_u8; 4096]).await;
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        4096
+    );
+
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=one-more.bin"),
+            Body::from(vec![9_u8; 1]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+}
+
+/// The sweep treats a failed object delete as "try again next hour", which is
+/// right for a store that is down and wrong for an object that is simply not
+/// there. Somebody who tidies their bucket by hand would otherwise leave rows
+/// the reaper can never mark — retried every hour forever, and counted against
+/// the quota for bytes that do not exist.
+#[tokio::test]
+async fn a_share_whose_object_already_vanished_is_still_reaped() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+    })
+    .await;
+
+    let share = upload(
+        &app,
+        "?filename=vanishing.bin&max_uses=1",
+        &vec![3_u8; 4096],
+    )
+    .await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // Somebody cleaned the bucket out from under us.
+    let id: tessera_core::ShareId = share["id"].as_str().expect("an id").parse().expect("an id");
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("a lookup")
+        .expect("the share");
+    let key = stored
+        .storage
+        .object_key()
+        .expect("an object key")
+        .to_owned();
+    app.state
+        .storage
+        .delete(&object_store::path::Path::from(key))
+        .await
+        .expect("could not remove the object by hand");
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    assert_eq!(
+        app.state
+            .shares
+            .total_stored_bytes()
+            .await
+            .expect("a total"),
+        0,
+        "a row pointing at an object that is gone must still be reaped, or it \
+         is retried forever and holds quota for bytes nobody has"
+    );
+}

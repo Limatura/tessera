@@ -113,12 +113,11 @@ async fn reap_dead_content(
     let mut reaped: u64 = 0;
     for share in shares.find_reapable(now, SHARES_PER_PASS).await? {
         if let Some(key) = share.storage.object_key()
-            && let Err(error) = storage.delete(&ObjectPath::from(key)).await
+            && !remove_object(storage, key).await
         {
             // Leave the row saying `object`: it is the only record of what to
             // delete, and the next pass will find it again. Marking it `gone`
             // here would strand those bytes for good.
-            tracing::warn!(?error, key, "could not remove a dead share's object");
             continue;
         }
         // Inline content lives in a child row that goes with the share, so
@@ -128,6 +127,27 @@ async fn reap_dead_content(
         reaped = reaped.saturating_add(1);
     }
     Ok(reaped)
+}
+
+/// Deletes an object, treating "it was not there" as success.
+///
+/// The distinction matters because the caller retries on failure. A store that
+/// is down should be retried — it will come back. An object that is simply
+/// absent will not become present, so retrying it means the row is reprocessed
+/// every hour forever and, worse, keeps counting against the quota for bytes
+/// nobody has. Somebody tidying a bucket by hand is enough to cause it.
+async fn remove_object(storage: &Arc<dyn ObjectStore>, key: &str) -> bool {
+    match storage.delete(&ObjectPath::from(key)).await {
+        Ok(()) => true,
+        Err(object_store::Error::NotFound { .. }) => {
+            tracing::debug!(key, "the object was already gone");
+            true
+        }
+        Err(error) => {
+            tracing::warn!(?error, key, "could not remove a dead share's object");
+            false
+        }
+    }
 }
 
 async fn sweep_dead_shares(
@@ -142,13 +162,15 @@ async fn sweep_dead_shares(
 
     let mut removed: u64 = 0;
     for share in shares.find_dead(cutoff, SHARES_PER_PASS).await? {
+        // Usually already `gone` by now — `reap_dead_content` runs first — but a
+        // disabled share reaches retention with its object intact, and so does
+        // anything the reaper could not delete earlier.
         if let Some(key) = share.storage.object_key()
-            && let Err(error) = storage.delete(&ObjectPath::from(key)).await
+            && !remove_object(storage, key).await
         {
             // The row stays. It is the only record of which object to remove, so
             // dropping it now would strand those bytes for good; the next pass
             // tries again.
-            tracing::warn!(?error, key, "could not remove a dead share's object");
             continue;
         }
         shares.delete(share.id).await?;

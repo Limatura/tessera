@@ -455,6 +455,20 @@ struct Ingested {
 /// and every sweep — the first time it drifted, the instance would either
 /// refuse uploads it had room for or accept ones it did not, and nothing would
 /// say which.
+///
+/// # This is a guard, not an accountant
+///
+/// Uploads in flight at the same time each read this before any of them has a
+/// row to be counted, so together they can land past the line. The overshoot is
+/// bounded by the number of concurrent uploads times `server.max_body_bytes`,
+/// and the next upload after them is refused.
+///
+/// Closing that window would mean reserving space up front and releasing it on
+/// every failure path, or completing the upload and then deleting the object
+/// when the total turns out to be over. Both add a way to lose bytes that
+/// should have been kept, to make a limit whose entire job is to stop unbounded
+/// growth slightly more exact. Set the figure with the same slack you would
+/// give a disk.
 async fn remaining_quota(state: &AppState) -> Result<u64> {
     let quota = state.config.storage.max_total_bytes;
     if quota == 0 {
