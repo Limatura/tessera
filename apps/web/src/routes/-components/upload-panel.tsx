@@ -17,7 +17,6 @@ import { useRef } from "react";
 import { BlobBackground } from "./blob-background";
 import { CodeUploadForm } from "./code-upload-form";
 import { LinkUploadForm } from "./link-upload-form";
-import { TextUploadForm } from "./text-upload-form";
 import { UploadButton } from "./upload-button";
 import { UploadResult } from "./upload-result";
 import { useSubmitTransition } from "./use-submit-transition";
@@ -43,7 +42,7 @@ export function UploadPanel() {
               Share something
             </CardTitle>
             <CardDescription>
-              Upload a file, paste text or code, or shorten a link.
+              Upload a file, paste code, or shorten a link.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -51,9 +50,6 @@ export function UploadPanel() {
               <TabsList className="w-full">
                 <TabsTrigger className="flex-1" value="file">
                   File
-                </TabsTrigger>
-                <TabsTrigger className="flex-1" value="text">
-                  Text
                 </TabsTrigger>
                 <TabsTrigger className="flex-1" value="code">
                   Code
@@ -72,13 +68,6 @@ export function UploadPanel() {
                     status={status}
                   />
                 </div>
-              </TabsContent>
-              <TabsContent className="py-2" value="text">
-                <TextUploadForm
-                  onSubmit={start}
-                  progress={progress}
-                  status={status}
-                />
               </TabsContent>
               <TabsContent className="py-2" value="code">
                 <CodeUploadForm
