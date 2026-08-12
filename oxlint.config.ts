@@ -14,7 +14,7 @@ export default defineConfig({
   ],
   overrides: [
     {
-      files: ["packages/ui/src/components/**"],
+      files: ["packages/ui/src/components/**", "packages/ui/src/hooks/**"],
       rules: {
         "eslint/complexity": "off",
         "eslint/no-param-reassign": "off",
