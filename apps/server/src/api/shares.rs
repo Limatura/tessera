@@ -108,7 +108,13 @@ pub struct ShareBody(
 );
 
 /// Metadata for `POST /shares`, supplied as query parameters.
+// `parameter_in = Query` is not a detail: without it `IntoParams` defaults to
+// `Path`, and the document then tells every generated client that these belong
+// in a path that has no placeholders for them — and that all five are required,
+// when the handler treats every one as optional. A client built from that
+// cannot construct a valid request at all.
 #[derive(Debug, Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct CreateShareParams {
     /// Original file name. Its presence is what makes this a file share rather
