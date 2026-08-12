@@ -14,13 +14,13 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 
-import { useSubmitTransition } from "../../hooks/use-submit-transition";
 import { BlobBackground } from "./blob-background";
 import { CodeUploadForm } from "./code-upload-form";
 import { LinkUploadForm } from "./link-upload-form";
 import { TextUploadForm } from "./text-upload-form";
 import { UploadButton } from "./upload-button";
 import { UploadResult } from "./upload-result";
+import { useSubmitTransition } from "./use-submit-transition";
 
 export function UploadPanel() {
   const { status, progress, origin, expanded, start, reset } =

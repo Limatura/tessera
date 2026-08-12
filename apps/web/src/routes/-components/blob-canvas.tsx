@@ -23,6 +23,7 @@ interface RuntimeBlob extends BlobSpec {
   }[];
 }
 
+/** 在靜態設定的基礎上,為每個頂點加上隨機的抖動時間參數 */
 function createRuntimeBlobs(specs: BlobSpec[]): RuntimeBlob[] {
   return specs.map((spec) => ({
     ...spec,
@@ -49,6 +50,7 @@ function resolveColorValue(raw: string, style: CSSStyleDeclaration): string {
   });
 }
 
+/** 兩點的中點,用來作為 blob 頂點間圓滑貝茲曲線的錨點 */
 function mid(a: { x: number; y: number }, b: { x: number; y: number }) {
   return {
     x: (a.x + b.x) / 2,
@@ -56,6 +58,7 @@ function mid(a: { x: number; y: number }, b: { x: number; y: number }) {
   };
 }
 
+/** 計算單個 blob 這一幀的頂點位置(包含抖動),然後在 canvas 上填色 */
 function drawBlob(
   ctx: CanvasRenderingContext2D,
   blob: RuntimeBlob,
@@ -103,6 +106,11 @@ interface BlobCanvasProps {
   toColor?: string;
 }
 
+/**
+ * 在 <canvas> 上畫一堆柔軟蠕動的 blob 形狀,靠 requestAnimationFrame 跑動畫
+ * `progress` (0~100) 會把每個 blob 的顏色漸變向 `toColor`,用來表現上傳進度
+ * (是個會「融化」的色彩特效,而不是進度條)
+ */
 export function BlobCanvas({
   specs,
   className,
@@ -110,12 +118,15 @@ export function BlobCanvas({
   toColor: toColorProp,
 }: BlobCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // 用 ref 存 progress 讓動畫迴圈直接讀值,不用觸發下面的 setup effect
   const progressRef = useRef(progress ?? 0);
 
   useEffect(() => {
     progressRef.current = progress ?? 0;
   }, [progress]);
 
+  // 每當 specs/toColor 改變時跑一次:初始化 blobs、設定 canvas 大小、
+  // 監聽佈景主題顏色變化、啟動動畫迴圈,卸載時清理所有 observers 和 timer
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) {
@@ -134,6 +145,7 @@ export function BlobCanvas({
     let width = 0;
     let height = 0;
 
+    // 同步 canvas 內部解析度跟螢幕實際大小和裝置像素比
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -149,6 +161,8 @@ export function BlobCanvas({
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(canvas);
 
+    // 每當佈景主題切換(html class 變化)時重新讀取每個 blob 的 CSS 顏色變數
+    // 這樣不用重新掛載元件,顏色就會正確跟著主題改變
     let fromColors = new Map<string, string>();
     let toColor = "";
     const resolveColors = () => {
@@ -165,6 +179,8 @@ export function BlobCanvas({
       attributeFilter: ["class"],
     });
 
+    // 決定目前這一幀 blob 的填充顏色:progress 0% 時用 blob 自己的顏色,
+    // progress 上升時漸變向 toColor,100% 時完全變成 toColor
     const fillStyleFor = (blob: RuntimeBlob) => {
       const from = fromColors.get(blob.colorVar) ?? "";
       if (!toColor) {
@@ -183,6 +199,8 @@ export function BlobCanvas({
     let frame = 0;
     const start = performance.now();
 
+    // 單一動畫幀:清空 canvas,用 "multiply" 混合模式重畫所有 blob
+    // 每個 blob 都在目前抖動/漂移位置上,產生柔和的視覺效果
     const render = (now: number) => {
       const time = (now - start) / 1000;
       ctx.clearRect(0, 0, width, height);

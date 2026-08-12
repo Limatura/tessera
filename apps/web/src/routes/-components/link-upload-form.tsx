@@ -1,8 +1,8 @@
 import { Input } from "@tessera/ui/components/input";
 import { useRef } from "react";
 
-import type { SubmitStatus } from "../../hooks/use-submit-transition";
 import { QuickSubmitButton } from "./quick-submit-button";
+import type { SubmitStatus } from "./use-submit-transition";
 
 interface LinkUploadFormProps {
   status: SubmitStatus;
