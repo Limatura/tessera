@@ -13,5 +13,7 @@ export default defineConfig({
     ".agents/**",
     ".claude/**",
     ".codex/**",
+    ".roo/**",
+    "**/*.toml",
   ],
 });
