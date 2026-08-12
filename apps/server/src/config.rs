@@ -274,6 +274,23 @@ pub struct ShareConfig {
     /// whoever holds the ticket already has the right to the content.
     pub ticket_ttl_hours: u64,
 
+    /// Lifetime a share gets when the request does not ask for one, in hours.
+    ///
+    /// This is the figure that decides how much disk an instance holds, and it
+    /// decides it more than any quota does. Ephemeral storage does not
+    /// accumulate: what is on disk at any moment is roughly the upload rate
+    /// multiplied by how long things are kept, so an instance keeping shares for
+    /// a week holds a week of uploads however long it runs.
+    ///
+    /// A week rather than a day because the common case is handing a link to
+    /// somebody who is asleep, or in another timezone, or who will not read
+    /// their messages until Monday. Rather than a month because a default is
+    /// what most shares get, and most shares are collected within hours.
+    ///
+    /// `0` means "use [`max_expiry_hours`](Self::max_expiry_hours)", which is
+    /// what this used to do unconditionally.
+    pub default_expiry_hours: u64,
+
     /// Longest lifetime a share may be given, in hours. `0` means no ceiling.
     pub max_expiry_hours: u64,
 
@@ -451,9 +468,17 @@ impl Default for ShareConfig {
             code_length: 8,
             inline_threshold_bytes: 64 * 1024,
             ticket_ttl_hours: 24,
+            // A week. This is what almost every share gets, because almost no
+            // caller asks for a lifetime — so it, and not the ceiling below,
+            // is what decides how much disk an instance holds.
+            default_expiry_hours: 24 * 7,
             // 30 days. Not a limit anyone has asked for, but an instance that
             // never forgets anything eventually runs out of disk, and finding
             // that out is worse than being told at creation time.
+            //
+            // Deliberately far above the default: this is the longest a person
+            // may *ask* for, which is a different question from what they get
+            // when they do not ask.
             max_expiry_hours: 24 * 30,
             // A week. Long enough that somebody coming back to a link they were
             // sent gets told what happened, short enough that dead payloads do
@@ -645,6 +670,23 @@ impl ShareConfig {
         Duration::from_secs(self.retain_after_death_hours.saturating_mul(3600))
     }
 
+    /// Lifetime an unspecified share gets, or `None` when even that is
+    /// unbounded.
+    ///
+    /// Falls back to the ceiling, which is what this did before the default was
+    /// separable — and is still the only sensible reading of "no default" on an
+    /// instance that has a ceiling.
+    #[must_use]
+    pub const fn default_expiry(&self) -> Option<Duration> {
+        if self.default_expiry_hours == 0 {
+            self.max_expiry()
+        } else {
+            Some(Duration::from_secs(
+                self.default_expiry_hours.saturating_mul(3600),
+            ))
+        }
+    }
+
     /// Longest lifetime a share may be given, or `None` when unbounded.
     #[must_use]
     pub const fn max_expiry(&self) -> Option<Duration> {
@@ -674,6 +716,21 @@ impl ShareConfig {
                 reason: format!(
                     "must be at most {INLINE_CEILING}; larger content belongs in the blob \
                      store, where it can be streamed rather than held in memory"
+                ),
+            });
+        }
+        // A default above the ceiling would make every unspecified share fail
+        // the very check the ceiling exists for, and the caller could not tell
+        // why: they did not ask for a lifetime at all.
+        if self.max_expiry_hours != 0
+            && self.default_expiry_hours != 0
+            && self.default_expiry_hours > self.max_expiry_hours
+        {
+            return Err(ConfigError::Invalid {
+                field: "share.default_expiry_hours",
+                reason: format!(
+                    "must not exceed share.max_expiry_hours ({})",
+                    self.max_expiry_hours
                 ),
             });
         }
@@ -835,6 +892,63 @@ mod tests {
     use rstest::rstest;
 
     use super::*;
+
+    /// The default is what almost every share gets, because almost no caller
+    /// asks for a lifetime. It used to *be* the ceiling, which meant the longest
+    /// life anyone was allowed to request was also what everyone got without
+    /// asking — thirty days of uploads held to serve links that are mostly
+    /// collected within hours.
+    #[test]
+    fn the_default_lifetime_is_shorter_than_the_longest_allowed() {
+        let share = ShareConfig::default();
+        assert!(
+            share.default_expiry() < share.max_expiry(),
+            "default {:?} should be well under the ceiling {:?}",
+            share.default_expiry(),
+            share.max_expiry()
+        );
+        assert_eq!(share.default_expiry_hours, 24 * 7, "a week");
+    }
+
+    /// `0` is how an operator says "I have no opinion", and the only sensible
+    /// reading of that on an instance with a ceiling is the ceiling — which is
+    /// also what this did before the two were separable.
+    #[test]
+    fn a_zero_default_falls_back_to_the_ceiling() {
+        let share = ShareConfig {
+            default_expiry_hours: 0,
+            ..ShareConfig::default()
+        };
+        assert_eq!(share.default_expiry(), share.max_expiry());
+
+        let unbounded = ShareConfig {
+            default_expiry_hours: 0,
+            max_expiry_hours: 0,
+            ..ShareConfig::default()
+        };
+        assert_eq!(unbounded.default_expiry(), None);
+    }
+
+    /// A default above the ceiling would make every share that asks for nothing
+    /// fail the check the ceiling exists for, and the caller could not act on
+    /// the error — they did not request a lifetime at all.
+    #[test]
+    fn a_default_above_the_ceiling_is_refused() {
+        let share = ShareConfig {
+            default_expiry_hours: 24 * 60,
+            max_expiry_hours: 24 * 30,
+            ..ShareConfig::default()
+        };
+        assert!(share.validate().is_err());
+
+        // No ceiling means nothing to exceed.
+        let unbounded = ShareConfig {
+            default_expiry_hours: 24 * 60,
+            max_expiry_hours: 0,
+            ..ShareConfig::default()
+        };
+        assert!(unbounded.validate().is_ok());
+    }
 
     #[test]
     fn defaults_are_valid() {

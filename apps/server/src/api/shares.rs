@@ -665,9 +665,16 @@ fn resolve_expiry(
 ) -> Result<Option<OffsetDateTime>> {
     let ceiling = state.config.share.max_expiry();
     let Some(hours) = requested_hours else {
-        // No request: the ceiling doubles as the default, so an instance that
-        // sets one never accumulates shares that outlive it.
-        return Ok(ceiling.map(|limit| now.saturating_add(duration_of(limit))));
+        // Most shares arrive without a lifetime, so this is the figure that
+        // decides how much an instance holds. It used to be the ceiling itself,
+        // which meant the *longest* life anyone was allowed was also what
+        // everyone got by default — thirty days of uploads held to serve links
+        // that are almost all collected within hours.
+        return Ok(state
+            .config
+            .share
+            .default_expiry()
+            .map(|limit| now.saturating_add(duration_of(limit))));
     };
 
     if hours == 0 {
