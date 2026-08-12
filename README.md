@@ -1,127 +1,75 @@
 # tessera
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Self, ORPC, and more.
+Anonymous file courier. Upload a file or a note, hand out a retrieval code, and the payload destroys itself once it expires or runs out of retrievals.
 
-## Features
+Self-hosted, one binary. The frontend is embedded in it, so there is nothing to put in front of it and nothing to run beside it.
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Drizzle** - TypeScript-first ORM
-- **SQLite/Turso** - Database engine
-- **Authentication** - Better-Auth
-- **Turborepo** - Optimized monorepo build system
-- **Oxlint** - Oxlint + Oxfmt (linting & formatting)
-- **Husky** - Git hooks for code quality
+## Running it
 
-## Getting Started
+```bash
+docker run -p 8787:8787 -v ./data:/data ghcr.io/limatura/tessera
+```
 
-First, install the dependencies:
+Or from source:
 
 ```bash
 pnpm install
+pnpm --filter web build      # the SPA is embedded from apps/web/dist
+pnpm server:dev              # http://127.0.0.1:8787
 ```
 
-## Database Setup
+The first run creates an administrator and prints its password once, to the log.
 
-This project uses SQLite with Drizzle ORM.
+## What is in here
 
-1. Start the local SQLite database (optional):
+```
+apps/server      the whole backend, Rust — API, storage, auth, the embedded SPA
+apps/web         the app people use, React + TanStack Router
+apps/admin       the operator's console
+apps/tui         a terminal client
+apps/extension   a browser extension
+apps/fumadocs    the documentation site
+packages/ui      shadcn/ui primitives shared by web and admin
+packages/i18n    locale plumbing shared by web and admin
+packages/config  the shared tsconfig base
+```
+
+The backend holds all of the business logic. The frontend talks to it over the API and nothing else, so a bot, a CLI or ShareX can do exactly what the browser can.
+
+## The contract
+
+`openapi.json` at the repository root is generated from the handlers by `utoipa` — it is a build artefact, not something anybody edits. CI regenerates it and fails on any difference, so a handler change that is not reflected in the contract cannot merge. Clients are generated from that file; the server emits no TypeScript.
 
 ```bash
-pnpm run db:local
+pnpm server:openapi                                     # regenerate it
+TESSERA_FEATURES__DOCS=true pnpm server:dev             # browsable at /docs
 ```
 
-2. Update your `.env` file in the `apps/web` directory with the appropriate connection details if needed.
+The docs UI is off by default because it pulls its renderer from a CDN, which keeps about 11 MB of bundled UI out of the binary. `openapi.json` is served either way.
 
-3. Apply the schema to your database:
+## Configuration
+
+Defaults, then `tessera.yaml`, then the environment. Environment variables are prefixed `TESSERA_`, with `__` separating nesting levels:
 
 ```bash
-pnpm run db:push
+TESSERA_SERVER__PORT=9000
+TESSERA_DATABASE__URL=sqlite://data/tessera.db      # or postgres:// / mysql://
+TESSERA_STORAGE__URL=data/blobs                     # or s3:// / gs:// / az:// / https://
 ```
 
-Then, run the development server:
+Every backend is compiled in by default, so pointing at S3 or Postgres needs no rebuild.
+
+On first run the server writes a `tessera.yaml` next to itself with every setting commented out, showing the values it is actually using. Two worked examples sit in the repository root — `tessera.personal.yaml` for an instance only you can reach, and `tessera.public.yaml` for one strangers upload to. They disagree on almost every line, because those two deployments want opposite things.
+
+`apps/server/README.md` documents the rest, including how to strip the build down for a constrained box.
+
+## Working on it
 
 ```bash
-pnpm run dev
+pnpm dev              # every frontend, in parallel
+pnpm server:dev       # the backend
+pnpm server:check     # lint, test, docs, audit — what CI runs
+pnpm check            # lint and format the TypeScript side
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
-
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@tessera/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Deployment
-
-### Docker Compose
-
-- Target: web + server
-- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
-- Build images: pnpm run docker:build
-- Start: pnpm run docker:up
-- Logs: pnpm run docker:logs
-- Stop: pnpm run docker:down
-
-Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
-
-For more details, see the guide on [Deploying with Docker Compose](https://www.better-t-stack.dev/docs/guides/docker).
-
-## Git Hooks and Formatting
-
-- Initialize hooks: `pnpm run prepare`
-- Run checks: `pnpm run check`
-
-## Project Structure
-
-```
-tessera/
-├── apps/
-│   └── web/         # Fullstack application (React + TanStack Start)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
-
-## Available Scripts
-
-- `pnpm run dev`: Start all applications in development mode
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run db:push`: Push schema changes to database
-- `pnpm run db:generate`: Generate database client/types
-- `pnpm run db:migrate`: Run database migrations
-- `pnpm run db:studio`: Open database studio UI
-- `pnpm run db:local`: Start the local SQLite database
-- `pnpm run check`: Run Oxlint and Oxfmt
-- `pnpm run docker:build`: Build the Docker Compose images
-- `pnpm run docker:up`: Build and start the Docker Compose stack
-- `pnpm run docker:logs`: Tail logs from the Docker Compose stack
-- `pnpm run docker:down`: Stop the Docker Compose stack
+Rust is a plain cargo workspace and is deliberately not part of the Turborepo pipeline.
