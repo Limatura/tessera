@@ -14,6 +14,24 @@ import {
 } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
 import { cn } from "@tessera/ui/lib/utils";
+import { motion } from "motion/react";
+import type { Variants } from "motion/react";
+
+const containerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: { delayChildren: 0.1, staggerChildren: 0.06 },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+    y: 0,
+  },
+};
 
 export function LoginForm({
   className,
@@ -21,62 +39,92 @@ export function LoginForm({
 }: React.ComponentProps<"div">) {
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Login to your account</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form>
-            <FieldGroup>
-              <Field>
-                <FieldLabel htmlFor="email">Email</FieldLabel>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="m@example.com"
-                  required
-                />
-              </Field>
-              <Field>
-                <div className="flex items-center">
-                  <FieldLabel htmlFor="password">Password</FieldLabel>
-                  {/*
-                    暫時是 button 而不是 a:重設密碼的路由還不存在(#2 要先決定
-                    SMTP),而 href="#" 是一個假裝自己是連結的按鈕。等路由做出來
-                    之後換成 <Link to="/forgot-password">。
-                  */}
-                  <button
-                    type="button"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot your password?
-                  </button>
-                </div>
-                <Input id="password" type="password" required />
-              </Field>
-              <Field>
-                <Button type="submit">Login</Button>
-                <Button variant="outline" type="button">
-                  Login with Google
-                </Button>
-                <FieldDescription className="text-center">
-                  Don&apos;t have an account?{" "}
-                  {/* 註冊的路由還沒做,後端的 POST /auth/register 已經有了 */}
-                  <button
-                    className="underline underline-offset-4"
-                    type="button"
-                  >
-                    Sign up
-                  </button>
-                </FieldDescription>
-              </Field>
-            </FieldGroup>
-          </form>
-        </CardContent>
-      </Card>
+      <motion.div
+        animate="visible"
+        initial="hidden"
+        variants={containerVariants}
+      >
+        <motion.div variants={itemVariants}>
+          <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
+            <CardHeader>
+              <motion.div
+                className="mb-2 flex items-center gap-2"
+                variants={itemVariants}
+              >
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  Receiving space is open
+                </span>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <CardTitle className="font-medium text-xl tracking-tight">
+                  Welcome back
+                </CardTitle>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <CardDescription>
+                  Sign in to send and receive files, snippets, and links.
+                </CardDescription>
+              </motion.div>
+            </CardHeader>
+            <CardContent>
+              <form>
+                <FieldGroup>
+                  <motion.div variants={itemVariants}>
+                    <Field>
+                      <FieldLabel htmlFor="email">Email</FieldLabel>
+                      <Input
+                        id="email"
+                        placeholder="m@example.com"
+                        required
+                        type="email"
+                      />
+                    </Field>
+                  </motion.div>
+                  <motion.div variants={itemVariants}>
+                    <Field>
+                      <div className="flex items-center">
+                        <FieldLabel htmlFor="password">Password</FieldLabel>
+                        <a
+                          className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                          href="#"
+                        >
+                          Forgot your password?
+                        </a>
+                      </div>
+                      <Input id="password" required type="password" />
+                    </Field>
+                  </motion.div>
+                  <motion.div variants={itemVariants}>
+                    <Field>
+                      <motion.div whileTap={{ scale: 0.98 }}>
+                        <Button className="w-full" type="submit">
+                          Sign in
+                        </Button>
+                      </motion.div>
+                      <motion.div whileTap={{ scale: 0.98 }}>
+                        <Button
+                          className="w-full"
+                          type="button"
+                          variant="outline"
+                        >
+                          Login with Google
+                        </Button>
+                      </motion.div>
+                      <FieldDescription className="text-center">
+                        Don&apos;t have an account? <a href="#">Sign up</a>
+                      </FieldDescription>
+                    </Field>
+                  </motion.div>
+                </FieldGroup>
+              </form>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
     </div>
   );
 }

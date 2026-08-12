@@ -24,6 +24,7 @@
     "lucide-react": "catalog:",
     "motion": "^13.1.0",
     "next-themes": "catalog:",
+    "qrcode.react": "^4.2.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "recharts": "3.8.0",
