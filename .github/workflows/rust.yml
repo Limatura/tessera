@@ -343,8 +343,17 @@ jobs:
       # the daemon uses the classic or the containerd image store.
       - name: Enforce the footprint budget
         run: |
-          BINARY_BUDGET_MB=28
-          ROOTFS_BUDGET_MB=34
+          # Measured 2026-08-12 with the SPA embedded: binary 14 MB, rootfs
+          # 17 MB. The previous 28/34 predated the image carrying a frontend at
+          # all and left more than 100% headroom, which is not a budget — it is
+          # a number that would have let the binary double before saying
+          # anything. These leave about a quarter, which is room for ordinary
+          # growth and not for a new backend nobody weighed.
+          #
+          # The frontend costs 1 MB of that: 13 MB with build.rs's placeholder,
+          # 14 MB with the real bundle.
+          BINARY_BUDGET_MB=18
+          ROOTFS_BUDGET_MB=21
 
           cid=$(docker create tessera-server:ci)
           docker cp "$cid:/usr/local/bin/tessera-server" /tmp/tessera-server

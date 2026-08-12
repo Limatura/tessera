@@ -1,11 +1,10 @@
 **/node_modules
 .git
 
+# Including apps/web/dist: the image builds the SPA in its own stage now, so a
+# copy from the host would only be a chance to ship whatever happened to be
+# lying around.
 **/dist
-# ...except the SPA bundle: apps/server compiles it into the binary with
-# rust-embed, so it has to reach the build context. Absent, the server embeds a
-# placeholder page instead.
-!apps/web/dist
 **/build
 **/.next
 **/.nuxt

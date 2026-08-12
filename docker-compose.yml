@@ -1,8 +1,8 @@
 name: tessera
 
 # One service, because that is the whole point — the frontend is embedded in the
-# binary. Build it with `pnpm docker:build`, which runs the SPA build first; the
-# Dockerfile embeds `apps/web/dist` only when it is present in the context.
+# binary. The Dockerfile builds the SPA in its own stage, so `docker compose
+# build` is enough; nothing has to be built on the host first.
 services:
   tessera:
     build:
