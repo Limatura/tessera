@@ -9,8 +9,8 @@ import {
 import { Textarea } from "@tessera/ui/components/textarea";
 import { useRef } from "react";
 
+import type { SubmitStatus } from "../../hooks/use-submit-transition";
 import { QuickSubmitButton } from "./quick-submit-button";
-import type { SubmitStatus } from "./use-submit-transition";
 
 const LANGUAGES = [
   { label: "Plain text", value: "plaintext" },

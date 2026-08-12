@@ -14,18 +14,23 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 
+import { useSubmitTransition } from "../../hooks/use-submit-transition";
 import { BlobBackground } from "./blob-background";
 import { CodeUploadForm } from "./code-upload-form";
 import { LinkUploadForm } from "./link-upload-form";
 import { TextUploadForm } from "./text-upload-form";
 import { UploadButton } from "./upload-button";
 import { UploadResult } from "./upload-result";
-import { useSubmitTransition } from "./use-submit-transition";
 
 export function UploadPanel() {
   const { status, progress, origin, expanded, start, reset } =
     useSubmitTransition();
   const fileButtonRef = useRef<HTMLButtonElement>(null);
+
+  const handleSelectFile = (_file: File) => {
+    // Wire this to upload({ type: "file", file }, { onProgress }) once the API is ready.
+    start(fileButtonRef.current);
+  };
 
   return (
     <div className="relative flex min-h-svh w-full items-center justify-center bg-background p-6">
@@ -61,7 +66,7 @@ export function UploadPanel() {
               <TabsContent value="file">
                 <div className="flex justify-center py-4">
                   <UploadButton
-                    onClick={() => start(fileButtonRef.current)}
+                    onSelectFile={handleSelectFile}
                     progress={progress}
                     ref={fileButtonRef}
                     status={status}
