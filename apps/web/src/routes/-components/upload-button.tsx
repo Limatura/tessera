@@ -1,66 +1,93 @@
 import { cn } from "@tessera/ui/lib/utils";
 import { Check, Upload } from "lucide-react";
 import { motion } from "motion/react";
-import { forwardRef } from "react";
+import { forwardRef, useRef, useState } from "react";
 
-const RADIUS = 54;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+import { BlobCanvas } from "./blob-canvas";
+import { PRIMARY_CLUSTER_SPECS, PRIMARY_MELT_COLOR } from "./blob-specs";
 
 interface UploadButtonProps {
   status: "idle" | "uploading" | "done";
   progress: number;
-  onClick: () => void;
+  onSelectFile: (file: File) => void;
 }
 
 export const UploadButton = forwardRef<HTMLButtonElement, UploadButtonProps>(
-  ({ status, progress, onClick }, ref) => {
-    const dashOffset = CIRCUMFERENCE * (1 - progress / 100);
+  ({ status, progress, onSelectFile }, ref) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleClick = () => {
+      if (status !== "idle") {
+        return;
+      }
+      inputRef.current?.click();
+    };
+
+    const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      event.target.value = "";
+      if (file) {
+        onSelectFile(file);
+      }
+    };
+
+    const handleDragOver = (event: React.DragEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      if (status === "idle") {
+        setIsDragging(true);
+      }
+    };
+
+    const handleDragLeave = () => {
+      setIsDragging(false);
+    };
+
+    const handleDrop = (event: React.DragEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      setIsDragging(false);
+      if (status !== "idle") {
+        return;
+      }
+      const file = event.dataTransfer.files?.[0];
+      if (file) {
+        onSelectFile(file);
+      }
+    };
 
     return (
       <button
         className={cn(
-          "relative flex h-36 w-36 items-center justify-center rounded-full border border-primary/40 bg-primary text-primary-foreground shadow-primary/30 shadow-[0_0_40px_-8px] transition-all",
-          status === "idle" && "hover:scale-[1.02] hover:shadow-primary/40"
+          "relative flex h-56 w-56 items-center justify-center text-primary-foreground transition-transform",
+          status === "idle" && "hover:scale-[1.03]",
+          isDragging && "scale-[1.05]"
         )}
         disabled={status !== "idle"}
-        onClick={onClick}
+        onClick={handleClick}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         ref={ref}
         type="button"
       >
-        <svg
-          className="-rotate-90 absolute inset-0 h-full w-full"
-          viewBox="0 0 120 120"
-        >
-          <title>upload progress</title>
-          <circle
-            className="text-primary-foreground/25"
-            cx="60"
-            cy="60"
-            fill="none"
-            r={RADIUS}
-            stroke="currentColor"
-            strokeWidth="2"
-          />
-          {status === "uploading" && (
-            <motion.circle
-              animate={{ strokeDashoffset: dashOffset }}
-              className="text-primary-foreground"
-              cx="60"
-              cy="60"
-              fill="none"
-              r={RADIUS}
-              stroke="currentColor"
-              strokeDasharray={CIRCUMFERENCE}
-              strokeLinecap="round"
-              strokeWidth="2"
-              transition={{ duration: 0.2, ease: "linear" }}
-            />
-          )}
-        </svg>
+        <input
+          accept="*/*"
+          className="hidden"
+          onChange={handleInputChange}
+          ref={inputRef}
+          type="file"
+        />
+
+        <BlobCanvas
+          className="absolute inset-0 h-full w-full"
+          progress={status === "idle" ? 0 : progress}
+          specs={PRIMARY_CLUSTER_SPECS}
+          toColor={PRIMARY_MELT_COLOR}
+        />
 
         <motion.div
           animate={{ scale: 1 }}
-          className="flex flex-col items-center gap-1.5"
+          className="relative flex flex-col items-center gap-1.5"
           initial={false}
           key={status}
         >
