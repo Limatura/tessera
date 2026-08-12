@@ -929,70 +929,55 @@
           {
             "description": "Original file name. Its presence is what makes this a file share rather\nthan a note.",
             "example": "project.zip",
-            "in": "path",
+            "in": "query",
             "name": "filename",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           },
           {
             "description": "Display name, shown on the share page and in the link preview.",
             "example": "Q3 report",
-            "in": "path",
+            "in": "query",
             "name": "title",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           },
           {
             "description": "Syntax-highlighting hint for a text share.",
             "example": "typescript",
-            "in": "path",
+            "in": "query",
             "name": "language",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           },
           {
             "description": "How long the share should last. Omit to use the instance's default.",
             "example": 24,
-            "in": "path",
+            "in": "query",
             "name": "expires_in_hours",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             }
           },
           {
             "description": "How many times it may be retrieved. Omit for unlimited; `1` is\nburn-after-reading.",
             "example": 3,
-            "in": "path",
+            "in": "query",
             "name": "max_uses",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int32",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             }
           }
         ],
