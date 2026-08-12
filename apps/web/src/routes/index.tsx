@@ -1,6 +1,6 @@
 import { createRoute } from "@tanstack/react-router";
 
-import { UploadFlow } from "./-components/upload-flow";
+import { UploadPanel } from "./-components/upload-panel";
 import { Route as rootRoute } from "./__root";
 
 export const Route = createRoute({
@@ -10,5 +10,5 @@ export const Route = createRoute({
 });
 
 function HomeComponent() {
-  return <UploadFlow />;
+  return <UploadPanel />;
 }
