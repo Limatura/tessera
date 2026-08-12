@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+
 import { LoginForm } from "./-components/loign-form";
 
 export const Route = createFileRoute("/login/")({
@@ -12,5 +13,5 @@ function RouteComponent() {
         <LoginForm />
       </div>
     </div>
-  )
+  );
 }

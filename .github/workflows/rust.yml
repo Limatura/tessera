@@ -18,7 +18,10 @@ on:
       - ".cargo/**"
       - ".config/**"
       - "openapi.json"
-      - ".github/workflows/rust.yml"
+      # Every workflow, not just this one: the `workflows` job below lints all
+      # of them with actionlint and zizmor, and it is the only place that does.
+      # Without this a change to `web.yml` would ship unchecked.
+      - ".github/workflows/**"
   pull_request:
     paths: *rust-paths
   workflow_dispatch:

@@ -1,5 +1,3 @@
-"use client";
-
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { IconLayoutSidebar } from "@tabler/icons-react";
@@ -19,12 +17,11 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@tessera/ui/components/tooltip";
+import { useIsMobile } from "@tessera/ui/hooks/use-mobile";
 import { cn } from "@tessera/ui/lib/utils";
 import { cva } from "class-variance-authority";
 import type { VariantProps } from "class-variance-authority";
 import * as React from "react";
-
-import { useIsMobile } from "@/hooks/use-mobile";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;

@@ -11,10 +11,12 @@ export default defineConfig({
     ".agents/**",
     ".claude/**",
     ".codex/**",
+    ".roo/**",
+    "**/*.toml",
   ],
   overrides: [
     {
-      files: ["packages/ui/src/components/**"],
+      files: ["packages/ui/src/components/**", "packages/ui/src/hooks/**"],
       rules: {
         "eslint/complexity": "off",
         "eslint/no-param-reassign": "off",
