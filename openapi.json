@@ -40,6 +40,12 @@
       "Capabilities": {
         "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact: it describes every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade. A single-page app generated from the contract therefore cannot know\nwhether to render a login button — the contract says login exists, and on\nthis deployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is deliberately unauthenticated: a client needs the answer before\nit can know whether logging in is even possible.",
         "properties": {
+          "account_password_min_length": {
+            "description": "Shortest *account* password this instance accepts, so a client can say so\nbefore the round trip rather than after it.\n\nNamed for what it governs because there are two minimums and they are\ndeliberately different — see\n[`share_password_min_length`](Self::share_password_min_length).",
+            "example": 12,
+            "minimum": 0,
+            "type": "integer"
+          },
           "accounts": {
             "description": "Whether accounts exist at all on this instance.\n\n`false` means there is no registration, no login and no session — the\nshape for a personal instance behind a VPN.",
             "type": "boolean"
@@ -52,6 +58,26 @@
             "description": "Whether a caller without a session may upload.\n\nIndependent of [`accounts`](Self::accounts): an instance can have\naccounts *and* accept anonymous uploads, which is the default.",
             "type": "boolean"
           },
+          "default_expiry_hours": {
+            "description": "How long a share lasts when the uploader does not choose, in hours.\n\nThe upload form needs this to say what \"leave it alone\" means. `null`\nwhen this instance lets shares live forever by default.",
+            "example": 168,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_expiry_hours": {
+            "description": "The longest lifetime an uploader may ask for, in hours.\n\n`null` when there is no ceiling. A form that knows this can bound its own\ncontrol instead of letting somebody pick a date the server will refuse.",
+            "example": 8760,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "max_upload_bytes": {
             "description": "Longest accepted request body, in bytes.",
             "example": 104857600,
@@ -59,15 +85,25 @@
             "minimum": 0,
             "type": "integer"
           },
-          "password_min_length": {
-            "description": "Shortest password this instance accepts, so a client can say so before\nthe round trip rather than after it.",
-            "example": 12,
-            "minimum": 0,
-            "type": "integer"
-          },
           "registration": {
             "$ref": "#/components/schemas/RegistrationPolicy",
             "description": "Who may create an account. Meaningless when\n[`accounts`](Self::accounts) is `false`."
+          },
+          "share_password_min_length": {
+            "description": "Shortest password an uploader may put on a share.\n\nLower than the account minimum on purpose: a share password is a second\nfactor on a link that is already unguessable, and it gets read out over\nthe phone. A form that validated share passwords against the account\nrule would refuse the four-digit code the server would have accepted.",
+            "example": 4,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "storage_remaining_bytes": {
+            "description": "How much of the instance's storage quota is left, in bytes.\n\n`null` for everyone but an administrator, and also for an administrator\nwhen the instance has no quota set.\n\nOnly an administrator, because on a public instance this is the\noperator's capacity planning and not the visitor's business: telling\nevery anonymous uploader how close the disk is to full invites somebody\nto close the gap. An uploader who exceeds it gets a `507` naming the\nlimit, which is the moment they actually need to know.",
+            "example": 53687091200,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "version": {
             "description": "Version of the running server, for a client that wants to warn about a\nmismatch with the contract it was generated from.",
@@ -80,7 +116,8 @@
           "admin",
           "anonymous_upload",
           "registration",
-          "password_min_length",
+          "account_password_min_length",
+          "share_password_min_length",
           "max_upload_bytes",
           "version"
         ],
@@ -860,7 +897,7 @@
     },
     "/api/v1/capabilities": {
       "get": {
-        "description": "# Errors\n\nInfallible in practice; the signature matches the rest of the API so that a\nfuture version can start failing without changing every caller.",
+        "description": "Answers to everyone, signed in or not — a client needs this before it can\nknow whether logging in is even possible. An administrator gets one extra\nfield; see [`Capabilities::storage_remaining_bytes`].\n\n# Errors\n\nOnly when the storage total cannot be read, which is an administrator's\nrequest against a database that is not answering.",
         "operationId": "capabilities",
         "responses": {
           "200": {
@@ -874,6 +911,15 @@
             "description": "What this instance exposes"
           }
         },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          },
+          {}
+        ],
         "summary": "Reports which optional parts of the service this instance exposes.",
         "tags": [
           "system"
