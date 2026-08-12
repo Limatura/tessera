@@ -54,13 +54,12 @@ token_body=$(curl -s -b "$JAR" -X POST "$API/tokens" \
   -H 'content-type: application/json' -d '{"name":"schemathesis"}')
 TOKEN=$(printf '%s' "$token_body" | python3 -c 'import json,sys; print(json.load(sys.stdin)["secret"])')
 
-# One share of each kind, so `/shares/{code}` and `/unlock` have something real
-# to answer with. Text rather than a file because the content is irrelevant here
-# and a note needs no multipart.
+# One share, so `/shares/{code}` and `/unlock` have something real to answer
+# with. No `filename` query parameter, which is what makes it a note rather than
+# a file — the kind is derived from that, not declared.
 share=$(curl -s -X POST "$API/shares" \
   -H "authorization: Bearer $TOKEN" \
   -H 'content-type: application/octet-stream' \
-  -H 'x-share-kind: text' \
   --data-binary 'schemathesis seed content')
 CODE=$(printf '%s' "$share" | python3 -c 'import json,sys; print(json.load(sys.stdin)["code"])')
 

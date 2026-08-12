@@ -108,7 +108,13 @@ pub struct ShareBody(
 );
 
 /// Metadata for `POST /shares`, supplied as query parameters.
+// `parameter_in = Query` is not a detail: without it `IntoParams` defaults to
+// `Path`, and the document then tells every generated client that these belong
+// in a path that has no placeholders for them — and that all five are required,
+// when the handler treats every one as optional. A client built from that
+// cannot construct a valid request at all.
 #[derive(Debug, Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct CreateShareParams {
     /// Original file name. Its presence is what makes this a file share rather
@@ -242,6 +248,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
         (status = 400, description = "A parameter is unusable", body = crate::error::ErrorBody),
         (status = 401, description = "This instance requires an account to upload", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
+        (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -446,6 +453,37 @@ struct Ingested {
 /// handler that takes the `Body` and reads frames itself does not. Reading the
 /// body by hand means owning the limit by hand; without this check the layer in
 /// `api::build` silently does nothing for this route.
+/// How many more bytes this instance will accept, or [`u64::MAX`] when it has
+/// no limit.
+///
+/// Read once per upload rather than held in a counter. An upload is not a hot
+/// path, and a counter would have to survive every failed ingest, every delete
+/// and every sweep — the first time it drifted, the instance would either
+/// refuse uploads it had room for or accept ones it did not, and nothing would
+/// say which.
+///
+/// # This is a guard, not an accountant
+///
+/// Uploads in flight at the same time each read this before any of them has a
+/// row to be counted, so together they can land past the line. The overshoot is
+/// bounded by the number of concurrent uploads times `server.max_body_bytes`,
+/// and the next upload after them is refused.
+///
+/// Closing that window would mean reserving space up front and releasing it on
+/// every failure path, or completing the upload and then deleting the object
+/// when the total turns out to be over. Both add a way to lose bytes that
+/// should have been kept, to make a limit whose entire job is to stop unbounded
+/// growth slightly more exact. Set the figure with the same slack you would
+/// give a disk.
+async fn remaining_quota(state: &AppState) -> Result<u64> {
+    let quota = state.config.storage.max_total_bytes;
+    if quota == 0 {
+        return Ok(u64::MAX);
+    }
+    let used = state.shares.total_stored_bytes().await?;
+    Ok(quota.saturating_sub(used))
+}
+
 async fn ingest(
     state: &AppState,
     id: ShareId,
@@ -476,6 +514,11 @@ async fn ingest_into(
 ) -> Result<Ingested> {
     let threshold = state.config.share.inline_threshold_bytes;
     let limit = u64::try_from(state.config.server.max_body_bytes).unwrap_or(u64::MAX);
+    // What is left of the instance's allowance, checked as the body arrives
+    // rather than only up front: the caller need not send a `Content-Length`,
+    // and a chunked upload that would take us past the line should stop at the
+    // line instead of after it.
+    let budget = remaining_quota(state).await?;
     let mut body = body;
     let mut buffered: Vec<u8> = Vec::new();
     let mut size_bytes: u64 = 0;
@@ -491,6 +534,9 @@ async fn ingest_into(
         size_bytes = size_bytes.saturating_add(u64::try_from(chunk.len()).unwrap_or(u64::MAX));
         if size_bytes > limit {
             return Err(Error::PayloadTooLarge);
+        }
+        if size_bytes > budget {
+            return Err(Error::InsufficientStorage);
         }
         buffered.extend_from_slice(&chunk);
 

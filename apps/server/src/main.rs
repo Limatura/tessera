@@ -70,6 +70,18 @@ async fn main() -> anyhow::Result<()> {
         "starting tessera"
     );
 
+    // The combination that turns an instance into free storage for anyone who
+    // can reach it. Neither half is wrong on its own — anonymous upload is the
+    // point of the product, and no quota is right when the operator is the only
+    // user — so this warns rather than refuses. `tessera.public.yaml` sets both.
+    if config.features.anonymous_upload && config.storage.max_total_bytes == 0 {
+        tracing::warn!(
+            "anonymous uploads are enabled and `storage.max_total_bytes` is unset: anyone who \
+             can reach this instance can fill its disk. Set a limit, or turn off \
+             `features.anonymous_upload`, if this is reachable by people you do not know."
+        );
+    }
+
     // 4. Dependencies.
     let db = db::connect(&config.database)
         .await
