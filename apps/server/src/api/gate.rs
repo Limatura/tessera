@@ -17,6 +17,21 @@
 //! would mean a resumed download burning three uses of a share that allows
 //! three, and an interrupted one destroying a burn-after-reading share before
 //! its reader ever saw it.
+//!
+//! # A ticket outlives the count, and only the count
+//!
+//! Spending the last retrieval leaves the share [`Availability::Exhausted`]
+//! *before* the bytes have moved. Refusing on that would make a one-use share
+//! impossible to collect at all — the download that paid for it would be turned
+//! away by the payment. So [`admit`] lets a held ticket through that one state,
+//! which is the same rule that lets a resumed transfer continue.
+//!
+//! It does not extend to [`Availability::Expired`] or
+//! [`Availability::Disabled`], and the difference is who decided. Exhaustion is
+//! this reader's own retrieval coming back around; an expiry is the uploader
+//! having said "not after this", and a disable is an operator having said "not
+//! any more". A ticket must not outrank either of them, so a transfer still
+//! running when the share expires stops there.
 
 use axum::http::HeaderMap;
 use tessera_core::{Password, PasswordPolicy, RetrievalCode};
@@ -65,6 +80,19 @@ const PRESENTING: PasswordPolicy = PasswordPolicy {
     max_length: PasswordPolicy::CEILING,
 };
 
+/// Whether the request arrived holding a live authorisation for this share.
+///
+/// A named pair rather than a `bool`, because the call it feeds reads
+/// `admit(&share, Ticket::Held)` at every site, and `admit(&share, true)` would
+/// not say what the `true` was about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Ticket {
+    /// A ticket for this share, issued by [`spend`] and not yet past its TTL.
+    Held,
+    /// No ticket, one belonging to a different share, or one that has expired.
+    Absent,
+}
+
 /// Finds a live share, or says why it is not one.
 ///
 /// Does **not** check the password — that costs an Argon2 verification, and
@@ -75,6 +103,22 @@ const PRESENTING: PasswordPolicy = PasswordPolicy {
 /// `404` when nothing has that code, `410` when it existed and is finished with,
 /// `429` when this source has tried too many codes that do not exist.
 pub async fn open(state: &AppState, code: &str, source: &str) -> Result<Share> {
+    let share = find(state, code, source).await?;
+    admit(&share, Ticket::Absent)?;
+    Ok(share)
+}
+
+/// Finds a share by code without judging whether it may be handed out.
+///
+/// Split from [`open`] for the routes that transfer content: they have to know
+/// whether the caller holds a ticket before the judgement can be made, and
+/// looking the ticket up needs the share. Everything else wants [`open`].
+///
+/// # Errors
+///
+/// `404` when nothing has that code, `429` when this source has tried too many
+/// codes that do not exist.
+pub async fn find(state: &AppState, code: &str, source: &str) -> Result<Share> {
     // Checked before the lookup, so a refused source costs a comparison rather
     // than a query.
     let throttles = &state.throttles;
@@ -102,14 +146,28 @@ pub async fn open(state: &AppState, code: &str, source: &str) -> Result<Share> {
         throttles.lookup.record_failure(source);
         return Err(Error::NotFound);
     };
+    Ok(share)
+}
 
+/// Decides whether this caller may have this share, now.
+///
+/// See the module docs for why a ticket clears exhaustion and nothing else.
+///
+/// # Errors
+///
+/// `404` when it is disabled, `410` when it is expired, or exhausted and the
+/// caller holds no ticket for it.
+pub fn admit(share: &Share, ticket: Ticket) -> Result<()> {
     match share.availability_at(OffsetDateTime::now_utc()) {
-        Availability::Available => Ok(share),
+        Availability::Available => Ok(()),
         // Disabled reads as "never existed": an operator switching a share off
         // has decided it should stop being a thing, and confirming it was real
         // serves nobody.
         Availability::Disabled => Err(Error::NotFound),
         Availability::Expired => Err(Error::Gone("this share has expired".to_owned())),
+        // The retrieval this ticket paid for is the one that emptied the share,
+        // so this is that reader collecting what they already bought.
+        Availability::Exhausted if ticket == Ticket::Held => Ok(()),
         Availability::Exhausted => Err(Error::Gone(
             "this share has been retrieved as many times as it was allowed to be".to_owned(),
         )),
@@ -207,14 +265,18 @@ pub async fn holds_ticket(
     share: &Share,
     headers: &HeaderMap,
     from_query: Option<&str>,
-) -> Result<bool> {
+) -> Result<Ticket> {
     let Some(secret) = ticket_secret(headers, from_query) else {
-        return Ok(false);
+        return Ok(Ticket::Absent);
     };
     let Some(ticket) = state.tickets.find_by_secret(&secret).await? else {
-        return Ok(false);
+        return Ok(Ticket::Absent);
     };
-    Ok(ticket.share_id == share.id && ticket.is_valid_at(OffsetDateTime::now_utc()))
+    if ticket.share_id == share.id && ticket.is_valid_at(OffsetDateTime::now_utc()) {
+        Ok(Ticket::Held)
+    } else {
+        Ok(Ticket::Absent)
+    }
 }
 
 /// Reads a ticket from the header or, failing that, the `t` query parameter.

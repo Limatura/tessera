@@ -1621,3 +1621,184 @@ async fn a_ticket_does_not_travel_between_shares() {
         "the other share's one use was spent, so a foreign ticket bought nothing"
     );
 }
+
+/// Unlocks a share and returns the ticket that authorises the transfer.
+///
+/// See `common/mod.rs`: the test-code exemption in `clippy.toml` only reaches
+/// code inside a `#[test]` body, so a helper has to restate it.
+#[expect(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "test helper; a fixture that cannot build has nothing to report but a failure"
+)]
+async fn unlock(app: &TestApp, code: &str) -> String {
+    let response = expect_status(
+        app.empty(
+            Method::POST,
+            &format!("/api/v1/shares/{code}/unlock"),
+            Auth::None,
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    body_json(response).await["ticket"]
+        .as_str()
+        .expect("a ticket")
+        .to_owned()
+}
+
+/// How many retrievals a share has been charged for.
+#[expect(clippy::expect_used, reason = "test helper; see `unlock`")]
+async fn uses_spent(app: &TestApp, id: &str) -> u32 {
+    let id = tessera_core::ShareId::parse(id).expect("a share id");
+    app.state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share")
+        .use_count
+}
+
+/// The bug this pins: unlocking a one-time share is what empties it, so the
+/// share is already exhausted by the time the download that paid for it
+/// arrives. Judging availability before looking at the ticket refused every
+/// single-use share at the last step — the feature was unusable through its own
+/// front door, and only the unticketed path (`curl` straight at `/raw`) worked.
+#[tokio::test]
+async fn a_one_time_share_survives_the_unlock_that_emptied_it() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?max_uses=1", b"read me once").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let ticket = unlock(&app, &code).await;
+    assert_eq!(
+        uses_spent(&app, share["id"].as_str().expect("an id")).await,
+        1
+    );
+
+    let served = expect_status(
+        app.get(&format!("/s/{code}/raw?t={ticket}")).await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(body_string(served).await, "read me once");
+
+    // And it bought nothing for anyone else: the share really is spent.
+    let refused = app.get(&format!("/s/{code}/raw")).await;
+    assert_eq!(refused.status(), StatusCode::GONE);
+}
+
+/// The reason a ticket exists at all. A transfer is many requests — `Range`,
+/// a dropped connection, a `HEAD` before resuming — and none of them may cost
+/// a second retrieval.
+#[tokio::test]
+async fn a_resumed_transfer_is_charged_once() {
+    let app = TestApp::ready().await;
+    // Two halves of forty bytes, named rather than sliced out again later — so
+    // the assertion below cannot agree with a mistake in the arithmetic.
+    let head = "0123456789".repeat(4);
+    let tail = "abcdefghij".repeat(4);
+    let note = format!("{head}{tail}");
+    let share = upload(&app, "?max_uses=1", note.as_bytes()).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    let ticket = unlock(&app, &code).await;
+
+    // What a resuming client actually does: ask what is there, then take the
+    // rest in pieces.
+    let probe = app
+        .send(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(format!("/s/{code}/raw?t={ticket}")),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(probe.status(), StatusCode::OK);
+
+    for (range, expected) in [("bytes=0-39", &head), ("bytes=40-79", &tail)] {
+        let part = app
+            .send(
+                Request::builder()
+                    .uri(format!("/s/{code}/raw?t={ticket}"))
+                    .header(header::RANGE, range),
+                Body::empty(),
+            )
+            .await;
+        assert_eq!(part.status(), StatusCode::PARTIAL_CONTENT, "for {range}");
+        assert_eq!(body_string(part).await, *expected, "for {range}");
+    }
+
+    assert_eq!(
+        uses_spent(&app, &id).await,
+        1,
+        "four requests, one retrieval"
+    );
+}
+
+/// A ticket clears exhaustion because that is this reader's own retrieval
+/// coming back around. An expiry is the uploader having said "not after this",
+/// and no ticket outranks that — a transfer still running when the share
+/// expires stops there.
+#[tokio::test]
+async fn a_ticket_does_not_outlive_the_expiry() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"time-limited").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    let ticket = unlock(&app, &code).await;
+    // It works right up until it does not.
+    expect_status(
+        app.get(&format!("/s/{code}/raw?t={ticket}")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    backdate(&app, &id, "expires_at", OffsetDateTime::now_utc()).await;
+
+    let refused = app.get(&format!("/s/{code}/raw?t={ticket}")).await;
+    assert_eq!(refused.status(), StatusCode::GONE);
+    assert_eq!(body_json(refused).await["code"], "gone");
+}
+
+/// Nor does it outrank an operator. A disabled share reads as "never existed"
+/// to everyone, ticket or not.
+#[tokio::test]
+async fn a_ticket_does_not_survive_a_disable() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"switched off").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    let ticket = unlock(&app, &code).await;
+    backdate(&app, &id, "disabled_at", OffsetDateTime::now_utc()).await;
+
+    let refused = app.get(&format!("/s/{code}/raw?t={ticket}")).await;
+    assert_eq!(refused.status(), StatusCode::NOT_FOUND);
+}
+
+/// Writes a timestamp column directly.
+///
+/// No endpoint sets `disabled_at` yet (#7) and `expires_at` is only settable in
+/// whole hours at creation, so a test cannot reach either state through the API.
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test helper; see `unlock`"
+)]
+async fn backdate(app: &TestApp, id: &str, column: &str, at: OffsetDateTime) {
+    let at = at
+        .format(&time::format_description::well_known::Rfc3339)
+        .expect("RFC 3339");
+    app.state
+        .db
+        .execute_unprepared(&format!(
+            "UPDATE shares SET {column} = '{at}' WHERE id = '{id}'"
+        ))
+        .await
+        .unwrap_or_else(|error| panic!("could not set {column}: {error}"));
+}
