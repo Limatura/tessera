@@ -7,14 +7,48 @@
 # no shell, no package manager. That is the "single binary" promise made concrete:
 # the image is the binary plus a certificate bundle.
 #
-# `apps/web/dist` is embedded as the SPA when it is present in the context (the
-# root .dockerignore un-ignores it for exactly this reason); otherwise build.rs
-# embeds its placeholder page. For a complete image, build the frontend first:
-#   pnpm --filter web build
-#   pnpm server:docker
+# The SPA is built here too, in its own stage, so that `docker build` alone
+# produces a complete image. It used to depend on `apps/web/dist` already being
+# in the context, which meant the image was only as good as whatever the caller
+# happened to have built last — and CI, which never built it, was validating an
+# image that carried build.rs's placeholder page.
 
 # ---------------------------------------------------------------------------
-# Stage 1 — compile
+# Stage 1 — the SPA
+# ---------------------------------------------------------------------------
+# Node only exists in this stage. Nothing it installs reaches the runtime image;
+# what crosses the boundary is `dist`, which is HTML, CSS and JavaScript.
+FROM node:24-alpine AS web
+
+RUN corepack enable
+
+WORKDIR /build
+
+# Manifests first, so the install layer survives a source-only change. Every
+# workspace package `web` depends on has to be here, or pnpm refuses to resolve
+# `workspace:*`.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/web/package.json apps/web/
+COPY packages/ui/package.json packages/ui/
+COPY packages/i18n/package.json packages/i18n/
+COPY packages/env/package.json packages/env/
+COPY packages/config/package.json packages/config/
+
+# `--filter web...` pulls in web and everything it depends on, and nothing else
+# — no admin, no fumadocs, no extension. `--frozen-lockfile` makes an undeclared
+# dependency fail the build instead of quietly resolving.
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile --filter web...
+
+COPY packages packages
+COPY apps/web apps/web
+
+# Vite plugins generate paraglide's runtime and TanStack's route tree during
+# this, which is why there is no separate codegen step.
+RUN pnpm --filter web build
+
+# ---------------------------------------------------------------------------
+# Stage 2 — compile
 # ---------------------------------------------------------------------------
 FROM rust:1.97-alpine AS builder
 
@@ -43,11 +77,13 @@ RUN mkdir -p crates/tessera-core/src apps/server/src/bin apps/server/benches \
   && cargo build --release --locked --bins \
   && rm -rf crates/tessera-core/src apps/server/src apps/server/build.rs
 
-# Real sources. `apps/web` always exists; whether it contains a `dist/` is what
-# decides between the real bundle and the placeholder.
+# Real sources. `apps/web` is copied for its `index.html`, which build.rs reads;
+# the bundle itself arrives from the stage above rather than from the context,
+# so a stale local `dist` cannot end up in the image.
 COPY crates crates
 COPY apps/server apps/server
 COPY apps/web apps/web
+COPY --from=web /build/apps/web/dist apps/web/dist
 
 # `.git` is excluded from the build context, so build.rs cannot resolve the
 # commit on its own. Pass it in to keep `/health` honest:
@@ -69,7 +105,7 @@ RUN rm -rf target/release/.fingerprint/tessera-* \
   && cp target/release/tessera-server /tessera-server
 
 # ---------------------------------------------------------------------------
-# Stage 2 — runtime
+# Stage 3 — runtime
 # ---------------------------------------------------------------------------
 # `static` rather than `cc`: a musl binary needs no dynamic loader. The base is
 # ~2 MB and ships no shell, so a compromised process has nothing to exec.
