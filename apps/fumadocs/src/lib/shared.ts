@@ -17,7 +17,10 @@ export function encodeMarkdownUrl(slugs: string[], locale?: string) {
     segments[segments.length - 1] += ".md";
   }
 
-  return "/" + [locale, ...docsRoute.split("/"), ...segments].filter(Boolean).join("/");
+  return (
+    "/" +
+    [locale, ...docsRoute.split("/"), ...segments].filter(Boolean).join("/")
+  );
 }
 
 /** @returns page slugs */
