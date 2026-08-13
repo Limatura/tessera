@@ -206,11 +206,12 @@ impl UserRepository {
         &self,
         id: UserId,
         password_hash: String,
+        must_change: bool,
         now: OffsetDateTime,
     ) -> Result<(), UserRepositoryError> {
         UserEntity::update_many()
             .col_expr(user::Column::PasswordHash, password_hash.into())
-            .col_expr(user::Column::MustChangePassword, false.into())
+            .col_expr(user::Column::MustChangePassword, must_change.into())
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
             .exec(&self.connection)
