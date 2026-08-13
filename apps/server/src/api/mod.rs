@@ -248,6 +248,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(capabilities::capabilities))
         .routes(routes!(auth::register))
+        .routes(routes!(auth::confirm_registration))
         .routes(routes!(auth::login))
         .routes(routes!(auth::logout))
         .routes(routes!(auth::session))

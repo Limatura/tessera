@@ -259,6 +259,16 @@ pub struct MailConfig {
     /// [`MAX_RESET_TTL_MINUTES`] because past that it stops being a reset and
     /// becomes a spare key living in a mailbox.
     pub reset_ttl_minutes: u64,
+
+    /// How long a registration confirmation link works for, in hours.
+    ///
+    /// Much longer than a reset link, because the two are asked for under
+    /// different circumstances. A reset is somebody standing at a locked door;
+    /// a registration confirmation often sits in an inbox until the evening.
+    /// The link is also worth less: following it creates an account with a
+    /// password whoever asked already chose, so a stolen one gains an account
+    /// its thief cannot sign into.
+    pub registration_ttl_hours: u64,
 }
 
 /// The longest a reset link may be configured to last, in minutes.
@@ -267,6 +277,13 @@ pub struct MailConfig {
 /// stopped being a way back in and become a second credential, sitting
 /// somewhere far less protected than a password.
 pub const MAX_RESET_TTL_MINUTES: u64 = 24 * 60;
+
+/// The longest a registration link may be configured to last, in hours.
+///
+/// A week. The row behind it holds a password hash for an account that does not
+/// exist, and keeping one of those indefinitely is a liability with no
+/// corresponding use — nobody confirms a registration a fortnight later.
+pub const MAX_REGISTRATION_TTL_HOURS: u64 = 7 * 24;
 
 impl Default for MailConfig {
     fn default() -> Self {
@@ -278,6 +295,7 @@ impl Default for MailConfig {
             from: String::new(),
             public_url: String::new(),
             reset_ttl_minutes: 30,
+            registration_ttl_hours: 24,
         }
     }
 }
@@ -287,6 +305,14 @@ impl MailConfig {
     #[must_use]
     pub const fn is_configured(&self) -> bool {
         !self.host.is_empty() && !self.from.is_empty() && !self.public_url.is_empty()
+    }
+
+    /// How long a registration confirmation link is good for.
+    ///
+    /// Saturating for the same reason as [`MailConfig::reset_ttl`].
+    #[must_use]
+    pub const fn registration_ttl(&self) -> Duration {
+        Duration::from_secs(self.registration_ttl_hours.saturating_mul(60 * 60))
     }
 
     /// How long a reset link is good for.
@@ -837,6 +863,18 @@ impl MailConfig {
                 field: "mail.reset_ttl_minutes",
                 reason: format!(
                     "must be between 1 and {MAX_RESET_TTL_MINUTES}; a link that has already                      expired helps nobody, and one that lasts longer than a day is a spare key                      sitting in a mailbox"
+                ),
+            });
+        }
+        if self.registration_ttl_hours == 0
+            || self.registration_ttl_hours > MAX_REGISTRATION_TTL_HOURS
+        {
+            return Err(ConfigError::Invalid {
+                field: "mail.registration_ttl_hours",
+                reason: format!(
+                    "must be between 1 and {MAX_REGISTRATION_TTL_HOURS}; an unconfirmed \
+                     registration holds a password hash for an account that does not exist, and \
+                     keeping one for longer than a week serves nobody"
                 ),
             });
         }

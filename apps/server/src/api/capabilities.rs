@@ -89,6 +89,16 @@ pub struct Capabilities {
     #[schema(example = 8760_u64)]
     pub max_expiry_hours: Option<u64>,
 
+    /// Whether registering sends a confirmation link rather than creating the
+    /// account outright.
+    ///
+    /// `true` means `POST /auth/register` answers `202` and nothing exists
+    /// until the address is confirmed — so a client must show "check your
+    /// inbox" rather than treating the response as a sign-in. `false` means it
+    /// answers `201` with a session, which is what an instance that sends no
+    /// mail does.
+    pub registration_requires_confirmation: bool,
+
     /// Whether this instance can send a password reset link.
     ///
     /// `false` when no relay is configured, which is the default. A client that
@@ -154,6 +164,7 @@ impl Capabilities {
             share_password_min_length: gate::CHOOSING.min_length,
             default_expiry_hours: hours(config.share.default_expiry()),
             max_expiry_hours: hours(config.share.max_expiry()),
+            registration_requires_confirmation: config.mail.is_configured(),
             password_reset: config.mail.is_configured(),
             // `usize` is the type axum's body limit wants; `u64` is the type a
             // file size is. The conversion cannot fail on any target this runs

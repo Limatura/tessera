@@ -121,6 +121,12 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one registration waiting on its address to be confirmed.
+    PendingRegistrationId,
+    "pending_registration_id"
+);
+
+declare_id!(
     /// Identifies one password reset link.
     PasswordResetTokenId,
     "password_reset_token_id"
