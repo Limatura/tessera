@@ -15,6 +15,7 @@ function RouteComponent() {
         <p className="text-lg text-muted-foreground">
           You have accessed a secret route with a code parameter.
         </p>
+        <p className="text-sm text-muted-foreground">The code is: $code</p>
       </div>
     </>
   );

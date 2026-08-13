@@ -55,7 +55,7 @@ function RootComponent() {
         attribute="class"
         defaultTheme="dark"
         disableTransitionOnChange
-        storageKey="vite-ui-theme"
+        storageKey="theme"
       >
         {/*
           消息函数是在被调用当下读取 locale 的，locale 变了它们不会自己重渲染。
