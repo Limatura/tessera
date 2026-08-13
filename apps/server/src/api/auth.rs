@@ -415,7 +415,12 @@ pub async fn change_password(
     let hash = password::hash(replacement).await?;
 
     let now = OffsetDateTime::now_utc();
-    state.users.set_password(current.user.id, hash, now).await?;
+    // `false`: this password was chosen by the person who owns the account,
+    // so there is nothing left to force a change of.
+    state
+        .users
+        .set_password(current.user.id, hash, false, now)
+        .await?;
     state.sessions.delete_for_user(current.user.id).await?;
 
     let cookie = start_session(&state, &current.user, &headers, now).await?;
