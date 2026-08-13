@@ -823,9 +823,35 @@ async fn an_instance_with_mail_says_so() {
     assert_eq!(body["password_reset"], true);
 }
 
-/// Keyed on the address, so one inbox cannot be buried — and counted only when
-/// a message would actually be sent, so an address with no account cannot be
-/// used to burn somebody else's budget.
+/// The regression this pins was live and CI was green for it: the throttle used
+/// to count only when a message was actually sent, so the fourth request
+/// answered `429` for a member and `202` for a stranger — four calls to `curl`
+/// and you knew who had an account here. Exactly the question the `202` exists
+/// to refuse.
+#[tokio::test]
+async fn being_throttled_says_nothing_about_membership() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+
+    // Past the limit on both, one of which has no account behind it.
+    for _ in 0..4 {
+        ask_for_reset(&app, "member@example.com").await;
+        ask_for_reset(&app, "ghost@example.com").await;
+    }
+
+    assert_eq!(
+        ask_for_reset(&app, "member@example.com").await,
+        ask_for_reset(&app, "ghost@example.com").await,
+        "a refusal must look the same whether or not the address is known"
+    );
+    assert_eq!(
+        ask_for_reset(&app, "member@example.com").await,
+        StatusCode::TOO_MANY_REQUESTS,
+        "and both must actually be refused, or the limit does nothing"
+    );
+}
+
+/// Keyed on the address, so one inbox cannot be buried.
 #[tokio::test]
 async fn reset_requests_are_limited_per_address() {
     let app = app_with_mail().await;
@@ -851,21 +877,23 @@ async fn reset_requests_are_limited_per_address() {
     );
 }
 
-/// An address nobody owns must not consume the real owner's budget.
+/// One address being at its limit must not affect another, which is what
+/// keying on the address means.
 #[tokio::test]
-async fn requests_for_unknown_addresses_cost_nothing() {
+async fn one_address_at_its_limit_does_not_refuse_another() {
     let app = app_with_mail().await;
     register(&app, "member").await;
+    register(&app, "other").await;
 
-    for _ in 0..10 {
-        assert_eq!(
-            ask_for_reset(&app, "ghost@example.com").await,
-            StatusCode::ACCEPTED
-        );
+    for _ in 0..4 {
+        ask_for_reset(&app, "member@example.com").await;
     }
-    // The real address still has its full allowance.
     assert_eq!(
         ask_for_reset(&app, "member@example.com").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(
+        ask_for_reset(&app, "other@example.com").await,
         StatusCode::ACCEPTED
     );
 }

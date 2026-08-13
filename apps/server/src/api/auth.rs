@@ -572,40 +572,68 @@ pub async fn request_password_reset(
             retry_after_secs: retry_after.as_secs(),
         });
     }
+    // Counted before the account is looked up, so that being refused says
+    // nothing about whether the address is known.
+    //
+    // Counting only when a message was actually sent looks more careful — it
+    // keeps a stranger's address from spending somebody else's budget — and it
+    // is exactly the mistake this endpoint exists to avoid: four requests would
+    // then answer `429` for a member and `202` for everyone else, which is the
+    // membership oracle the `202` was supposed to close. Measured, not
+    // reasoned: it took one loop of `curl` to read the difference.
+    //
+    // The cost of counting always is that somebody who knows an address can
+    // stop it being reset for an hour. That is a nuisance with a way out (the
+    // `reset-password` subcommand, which needs no mail at all), whereas the
+    // oracle would be a property of the service nobody could work around.
+    throttles.reset.record_failure(email.as_str());
 
-    if let Some(user) = state.users.find_by_email(&email).await? {
+    // Everything that depends on the account happening to exist runs detached,
+    // and the response goes out before any of it.
+    //
+    // Not tidiness — the same defence again. Handing a message to a relay takes
+    // an SMTP handshake, so doing it inline makes a request for a real address
+    // measurably slower than one for a stranger's: a clean read of who has an
+    // account here, from the outside, with a stopwatch. Even against a relay
+    // that fails instantly the difference was consistently double.
+    let detached = state.clone();
+    tokio::spawn(async move {
+        let Ok(Some(user)) = detached.users.find_by_email(&email).await else {
+            return;
+        };
+
         let now = OffsetDateTime::now_utc();
-        let ttl = time::Duration::try_from(state.config.mail.reset_ttl())
+        let ttl = time::Duration::try_from(detached.config.mail.reset_ttl())
             .unwrap_or_else(|_| time::Duration::minutes(30));
-        let secret = state
+        let secret = match detached
             .resets
             .issue(user.id, now, now.saturating_add(ttl))
-            .await?;
+            .await
+        {
+            Ok(secret) => secret,
+            Err(error) => {
+                tracing::error!(?error, "could not record a password reset link");
+                return;
+            }
+        };
 
         let link = format!(
             "{}/reset-password?token={}",
-            state.config.mail.public_url.trim_end_matches('/'),
+            detached.config.mail.public_url.trim_end_matches('/'),
             secret.expose()
         );
         let letter = password_reset_letter(
             user.email.as_str(),
             &link,
-            state.config.mail.reset_ttl_minutes,
+            detached.config.mail.reset_ttl_minutes,
         );
 
-        // Counted here rather than at the top, so that addresses with no
-        // account cannot be used to burn somebody else's budget — the limit
-        // exists to protect an inbox, and nothing is going to that inbox unless
-        // this branch runs.
-        throttles.reset.record_failure(email.as_str());
-
         if let Err(error) = mailer.send(letter).await {
-            // Logged, not returned. The relay being down is the operator's
-            // problem to see in the logs; telling the caller would say that the
-            // address exists.
+            // Logged, not returned — the caller is already gone, and the relay
+            // being down is the operator's problem to find in the logs.
             tracing::error!(?error, "could not send a password reset link");
         }
-    }
+    });
 
     Ok((StatusCode::ACCEPTED, ()).into_response())
 }
