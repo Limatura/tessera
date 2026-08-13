@@ -15,7 +15,7 @@ use std::{
 
 use anyhow::{Context as _, bail};
 use tessera_server::{
-    api, auth,
+    api, auth, cli,
     config::Config,
     db,
     db::repository::user::UserRepository,
@@ -26,23 +26,46 @@ use tessera_server::{
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
 use tokio_util::sync::CancellationToken;
 
-/// Argument that turns the binary into its own health probe.
-const HEALTH_CHECK_FLAG: &str = "--health-check";
-
 /// How much of a health-probe response to read before giving up on finding a
 /// status line. A well-formed one is about 15 bytes.
 const STATUS_LINE_CAP: usize = 256;
 
+// Usage and argument errors go to the terminal, not to the log: at the point
+// they happen there is no telemetry subscriber installed, and an operator who
+// mistyped a flag is reading the terminal anyway.
+#[expect(
+    clippy::print_stdout,
+    clippy::print_stderr,
+    reason = "the command line answers on the command line"
+)]
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // 1. Configuration. Nothing is opened before this succeeds.
     let config = Config::load().context("configuration is not usable")?;
 
-    // The distroless runtime image has no shell and no curl, so `HEALTHCHECK`
-    // re-executes this binary instead. It shares the configuration, which means
-    // the probe always targets the port the server actually listens on.
-    if std::env::args().skip(1).any(|arg| arg == HEALTH_CHECK_FLAG) {
-        return probe_health(&config).await;
+    // Read after the configuration, because every subcommand needs it and a bad
+    // config should say so once rather than per command.
+    let command = match cli::parse(std::env::args().skip(1)) {
+        Ok(command) => command,
+        Err(message) => {
+            eprintln!("{message}");
+            std::process::exit(2);
+        }
+    };
+
+    match command {
+        cli::Command::Help => {
+            print!("{}", cli::USAGE);
+            return Ok(());
+        }
+        // The distroless runtime image has no shell and no curl, so `HEALTHCHECK`
+        // re-executes this binary instead. It shares the configuration, which
+        // means the probe always targets the port the server actually listens on.
+        cli::Command::HealthCheck => return probe_health(&config).await,
+        cli::Command::ResetPassword { username, password } => {
+            return cli::reset_password(&config, &username, password).await;
+        }
+        cli::Command::Serve => {}
     }
 
     // 2. Logging, so every step below is observable.

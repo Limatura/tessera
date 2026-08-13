@@ -26,6 +26,13 @@ use crate::{
 /// force. It is deliberately unauthenticated: a client needs the answer before
 /// it can know whether logging in is even possible.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+// Each of these is an independent yes/no about the instance, and that is what
+// the endpoint is for. Grouping them into an enum or a bitfield to satisfy the
+// count would make the JSON worse for the clients that read it.
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "a capability report is a list of independent switches"
+)]
 pub struct Capabilities {
     /// Whether accounts exist at all on this instance.
     ///
@@ -81,6 +88,24 @@ pub struct Capabilities {
     /// control instead of letting somebody pick a date the server will refuse.
     #[schema(example = 8760_u64)]
     pub max_expiry_hours: Option<u64>,
+
+    /// Whether registering sends a confirmation link rather than creating the
+    /// account outright.
+    ///
+    /// `true` means `POST /auth/register` answers `202` and nothing exists
+    /// until the address is confirmed — so a client must show "check your
+    /// inbox" rather than treating the response as a sign-in. `false` means it
+    /// answers `201` with a session, which is what an instance that sends no
+    /// mail does.
+    pub registration_requires_confirmation: bool,
+
+    /// Whether this instance can send a password reset link.
+    ///
+    /// `false` when no relay is configured, which is the default. A client that
+    /// draws the "forgot password" link regardless would send people to an
+    /// endpoint that answers 404 — so this is the difference between a missing
+    /// feature and a broken one.
+    pub password_reset: bool,
 
     /// Longest accepted request body, in bytes.
     #[schema(example = 104_857_600_u64)]
@@ -139,6 +164,8 @@ impl Capabilities {
             share_password_min_length: gate::CHOOSING.min_length,
             default_expiry_hours: hours(config.share.default_expiry()),
             max_expiry_hours: hours(config.share.max_expiry()),
+            registration_requires_confirmation: config.mail.is_configured(),
+            password_reset: config.mail.is_configured(),
             // `usize` is the type axum's body limit wants; `u64` is the type a
             // file size is. The conversion cannot fail on any target this runs
             // on, but saturating is still better than a cast that would wrap.

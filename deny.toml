@@ -45,6 +45,10 @@ allow = [
   "Unicode-3.0",
   "Zlib",
   "CC0-1.0",
+  # quoted_printable, which lettre uses to encode message bodies. 0BSD is the
+  # BSD licence with the attribution clause removed — strictly more permissive
+  # than MIT, and OSI and FSF approved.
+  "0BSD",
   # webpki-roots (via sqlx's TLS stack) ships Mozilla's CA bundle under the
   # Community Data License Agreement. It is a permissive *data* licence with no
   # obligations attached to distributing a compiled binary.

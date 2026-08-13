@@ -7,6 +7,8 @@
 //! wonder whether a value has been validated.
 
 pub mod api_token;
+pub mod password_reset;
+pub mod pending_registration;
 pub mod session;
 pub mod share;
 pub mod user;

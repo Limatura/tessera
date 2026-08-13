@@ -131,6 +131,8 @@ pub struct Config {
     pub share: ShareConfig,
     /// Logging and tracing settings.
     pub telemetry: TelemetryConfig,
+    /// Outgoing mail. Empty `host` means this instance sends nothing.
+    pub mail: MailConfig,
 }
 
 /// Which parts of the service this instance exposes.
@@ -203,6 +205,126 @@ pub enum RegistrationPolicy {
     Invite,
     /// Nobody; accounts are created by an administrator.
     Closed,
+}
+
+/// Where outgoing mail goes, when there is any.
+///
+/// # Empty means off, not broken
+///
+/// An empty `host` is the default and the common case: the instance this was
+/// built for has one user, and the way back into a forgotten account is
+/// `reset-password` on the box itself. Nothing is mounted, nothing is
+/// advertised, and start-up says nothing — an instance that does not send mail
+/// is not missing a setting.
+///
+/// # Why not a mail server
+///
+/// Nobody should run one for this. Home connections cannot deliver mail:
+/// port 25 is blocked by most providers and receiving servers reject
+/// residential addresses regardless of SPF and DKIM. What this expects is a
+/// relay — Resend, Brevo, SES, Fastmail, or a company's own — which is four
+/// values pasted into a file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MailConfig {
+    /// SMTP host. Empty turns off everything that sends mail.
+    pub host: String,
+
+    /// SMTP port. 587 is submission with STARTTLS, which is what relays want;
+    /// 465 is implicit TLS and also common.
+    pub port: u16,
+
+    /// SMTP username. Resend wants the literal `resend` here.
+    pub username: String,
+
+    /// SMTP password. For most relays this is an API key.
+    pub password: String,
+
+    /// The `From:` address. Must be one the relay will accept — a domain you
+    /// have verified with them, not an arbitrary address.
+    pub from: String,
+
+    /// Where this instance is reachable, used to build the links in mail.
+    ///
+    /// Configured rather than taken from the request's `Host` header, and that
+    /// is a security property rather than a convenience: a reset link built
+    /// from a header an attacker controls would point at *their* server, and
+    /// the person clicking it would hand over their token.
+    pub public_url: String,
+
+    /// How long a password reset link works for, in minutes.
+    ///
+    /// Short because the link *is* the credential. Long enough to survive a
+    /// mail queue and somebody reading their inbox after lunch, and capped at
+    /// [`MAX_RESET_TTL_MINUTES`] because past that it stops being a reset and
+    /// becomes a spare key living in a mailbox.
+    pub reset_ttl_minutes: u64,
+
+    /// How long a registration confirmation link works for, in hours.
+    ///
+    /// Much longer than a reset link, because the two are asked for under
+    /// different circumstances. A reset is somebody standing at a locked door;
+    /// a registration confirmation often sits in an inbox until the evening.
+    /// The link is also worth less: following it creates an account with a
+    /// password whoever asked already chose, so a stolen one gains an account
+    /// its thief cannot sign into.
+    pub registration_ttl_hours: u64,
+}
+
+/// The longest a reset link may be configured to last, in minutes.
+///
+/// A day. Long enough for any mail delay worth surviving; past it the link has
+/// stopped being a way back in and become a second credential, sitting
+/// somewhere far less protected than a password.
+pub const MAX_RESET_TTL_MINUTES: u64 = 24 * 60;
+
+/// The longest a registration link may be configured to last, in hours.
+///
+/// A week. The row behind it holds a password hash for an account that does not
+/// exist, and keeping one of those indefinitely is a liability with no
+/// corresponding use — nobody confirms a registration a fortnight later.
+pub const MAX_REGISTRATION_TTL_HOURS: u64 = 7 * 24;
+
+impl Default for MailConfig {
+    fn default() -> Self {
+        Self {
+            host: String::new(),
+            port: 587,
+            username: String::new(),
+            password: String::new(),
+            from: String::new(),
+            public_url: String::new(),
+            reset_ttl_minutes: 30,
+            registration_ttl_hours: 24,
+        }
+    }
+}
+
+impl MailConfig {
+    /// Whether this instance can send mail at all.
+    #[must_use]
+    pub const fn is_configured(&self) -> bool {
+        !self.host.is_empty() && !self.from.is_empty() && !self.public_url.is_empty()
+    }
+
+    /// How long a registration confirmation link is good for.
+    ///
+    /// Saturating for the same reason as [`MailConfig::reset_ttl`].
+    #[must_use]
+    pub const fn registration_ttl(&self) -> Duration {
+        Duration::from_secs(self.registration_ttl_hours.saturating_mul(60 * 60))
+    }
+
+    /// How long a reset link is good for.
+    ///
+    /// Saturating rather than plain multiplication: validation caps the value,
+    /// but this is `pub` and a caller that built a `MailConfig` by hand should
+    /// get a long duration rather than a panic in debug and a wrapped one in
+    /// release.
+    #[must_use]
+    pub const fn reset_ttl(&self) -> Duration {
+        Duration::from_secs(self.reset_ttl_minutes.saturating_mul(60))
+    }
 }
 
 /// Account and session settings.
@@ -686,7 +808,77 @@ impl Config {
         self.features.validate()?;
         self.auth.validate()?;
         self.share.validate()?;
-        self.telemetry.validate()
+        self.telemetry.validate()?;
+        self.mail.validate()
+    }
+}
+
+impl MailConfig {
+    /// Refuses a half-filled mail block.
+    ///
+    /// Being half-configured is worse than being empty: empty means the feature
+    /// does not exist and every path around it is quiet, whereas a host with no
+    /// `from` means the endpoints get mounted, the frontend draws the link, and
+    /// the failure only shows up when somebody is already locked out.
+    fn validate(&self) -> Result<(), ConfigError> {
+        let given: Vec<&str> = [
+            (!self.host.is_empty()).then_some("mail.host"),
+            (!self.from.is_empty()).then_some("mail.from"),
+            (!self.public_url.is_empty()).then_some("mail.public_url"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        if given.is_empty() || given.len() == 3 {
+            // All or nothing, which is what `is_configured` also asks.
+        } else {
+            return Err(ConfigError::Invalid {
+                field: "mail",
+                reason: format!(
+                    "set all of mail.host, mail.from and mail.public_url, or none of them                      (only {} given)",
+                    given.join(", ")
+                ),
+            });
+        }
+
+        if !self.is_configured() {
+            return Ok(());
+        }
+        if self.port == 0 {
+            return Err(ConfigError::Invalid {
+                field: "mail.port",
+                reason: "must not be 0".to_owned(),
+            });
+        }
+        if !self.public_url.starts_with("http://") && !self.public_url.starts_with("https://") {
+            return Err(ConfigError::Invalid {
+                field: "mail.public_url",
+                reason: "must start with http:// or https:// — it is the base of a link somebody                          will click"
+                    .to_owned(),
+            });
+        }
+        if self.reset_ttl_minutes == 0 || self.reset_ttl_minutes > MAX_RESET_TTL_MINUTES {
+            return Err(ConfigError::Invalid {
+                field: "mail.reset_ttl_minutes",
+                reason: format!(
+                    "must be between 1 and {MAX_RESET_TTL_MINUTES}; a link that has already                      expired helps nobody, and one that lasts longer than a day is a spare key                      sitting in a mailbox"
+                ),
+            });
+        }
+        if self.registration_ttl_hours == 0
+            || self.registration_ttl_hours > MAX_REGISTRATION_TTL_HOURS
+        {
+            return Err(ConfigError::Invalid {
+                field: "mail.registration_ttl_hours",
+                reason: format!(
+                    "must be between 1 and {MAX_REGISTRATION_TTL_HOURS}; an unconfirmed \
+                     registration holds a password hash for an account that does not exist, and \
+                     keeping one for longer than a week serves nobody"
+                ),
+            });
+        }
+        Ok(())
     }
 }
 
@@ -922,6 +1114,14 @@ impl TelemetryConfig {
 
 #[cfg(test)]
 mod tests {
+    /// The smallest mail block that passes the all-or-nothing rule, for cases
+    /// that are about one of the *other* fields.
+    fn configured_mail(config: &mut Config) {
+        config.mail.host = "smtp.example.com".to_owned();
+        config.mail.from = "tessera@example.com".to_owned();
+        config.mail.public_url = "https://tessera.example.com".to_owned();
+    }
+
     use rstest::rstest;
 
     use super::*;
@@ -1023,6 +1223,37 @@ mod tests {
     #[case::zero_ticket("share.ticket_ttl_hours", |c: &mut Config| c.share.ticket_ttl_hours = 0)]
     #[case::bad_filter("telemetry.filter", |c: &mut Config| {
         c.telemetry.filter = "=====".to_owned();
+    })]
+    // Half a mail block is worse than none: empty means the feature does not
+    // exist and every path around it is quiet, whereas a host with no `from`
+    // mounts the endpoints and draws the link, and only fails once somebody is
+    // already locked out.
+    #[case::half_configured_mail("mail", |c: &mut Config| {
+        c.mail.host = "smtp.example.com".to_owned();
+    })]
+    #[case::mail_without_public_url("mail", |c: &mut Config| {
+        c.mail.host = "smtp.example.com".to_owned();
+        c.mail.from = "t@example.com".to_owned();
+    })]
+    #[case::mail_public_url_without_scheme("mail.public_url", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.public_url = "tessera.example.com".to_owned();
+    })]
+    #[case::zero_reset_ttl("mail.reset_ttl_minutes", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.reset_ttl_minutes = 0;
+    })]
+    // A link that outlives the day has stopped being a way back in and become a
+    // second credential, kept somewhere far less protected than a password.
+    #[case::endless_reset_ttl("mail.reset_ttl_minutes", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.reset_ttl_minutes = MAX_RESET_TTL_MINUTES + 1;
+    })]
+    // The multiplication behind this used to be plain, so a value near the
+    // ceiling of the type panicked in debug and wrapped in release.
+    #[case::absurd_reset_ttl("mail.reset_ttl_minutes", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.reset_ttl_minutes = u64::MAX;
     })]
     fn rejects_bad_values(#[case] field: &str, #[case] mutate: fn(&mut Config)) {
         let mut config = Config::default();
@@ -1172,6 +1403,22 @@ mod tests {
             assert_eq!(from_toml.server.port, 9102);
             Ok(())
         });
+    }
+
+    /// A fully configured mail block is accepted, and so is an empty one — the
+    /// two ends of the all-or-nothing rule.
+    #[test]
+    fn mail_is_accepted_when_whole_and_when_absent() {
+        let mut config = Config::default();
+        assert!(
+            config.validate().is_ok(),
+            "the default sends no mail at all"
+        );
+        assert!(!config.mail.is_configured());
+
+        configured_mail(&mut config);
+        assert!(config.validate().is_ok());
+        assert!(config.mail.is_configured());
     }
 
     /// An instance that accepts neither anonymous uploads nor accounts can

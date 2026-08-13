@@ -28,6 +28,8 @@ mod m20260809_000002_sessions;
 mod m20260809_000003_api_tokens;
 mod m20260810_000001_shares;
 mod m20260810_000002_share_tickets;
+mod m20260813_000001_password_reset_tokens;
+mod m20260813_000002_pending_registrations;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -45,6 +47,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260809_000003_api_tokens::Migration),
             Box::new(m20260810_000001_shares::Migration),
             Box::new(m20260810_000002_share_tickets::Migration),
+            Box::new(m20260813_000001_password_reset_tokens::Migration),
+            Box::new(m20260813_000002_pending_registrations::Migration),
         ]
     }
 }

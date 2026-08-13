@@ -14,10 +14,13 @@ use crate::{
     config::Config,
     db::repository::{
         api_token::ApiTokenRepository,
+        password_reset::PasswordResetRepository,
+        pending_registration::PendingRegistrationRepository,
         session::SessionRepository,
         share::{ShareRepository, ShareTicketRepository},
         user::UserRepository,
     },
+    mail::Mailer,
 };
 
 /// Where the process is in its lifecycle.
@@ -54,6 +57,15 @@ pub struct AppState {
     pub shares: ShareRepository,
     /// Download authorisations.
     pub tickets: ShareTicketRepository,
+    /// Outstanding password reset links.
+    pub resets: PasswordResetRepository,
+    /// Registrations waiting on their address to be confirmed.
+    pub pending: PendingRegistrationRepository,
+    /// The relay, when this instance has one.
+    ///
+    /// `None` is the ordinary case and not a fault: an instance with no `mail`
+    /// block does not mount the endpoints that would use it.
+    pub mailer: Option<Mailer>,
     /// Failed-attempt counters.
     ///
     /// Shared rather than per-request: the whole point is that attempts
@@ -77,8 +89,23 @@ impl AppState {
     /// not yet serving traffic.
     #[must_use]
     pub fn new(config: Arc<Config>, db: DatabaseConnection, storage: Arc<dyn ObjectStore>) -> Self {
+        // A relay that will not build is reported and then treated as absent.
+        // Refusing to start would take the whole service down over the one
+        // feature that exists to be used when something else has already gone
+        // wrong — and the endpoints check for `Some` anyway.
+        let mailer = match Mailer::from_config(&config.mail) {
+            Ok(mailer) => mailer,
+            Err(error) => {
+                tracing::error!(?error, "mail is configured but unusable; sending is off");
+                None
+            }
+        };
+
         Self {
             users: UserRepository::new(db.clone()),
+            resets: PasswordResetRepository::new(db.clone()),
+            pending: PendingRegistrationRepository::new(db.clone()),
+            mailer,
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),

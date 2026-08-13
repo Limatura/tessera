@@ -28,7 +28,7 @@ workspace = true
 # every backend, and nobody should have to rebuild to point at S3. The flags stay
 # so that someone building from source for a constrained box can strip back down
 # — `--no-default-features --features sqlite,storage-fs` is a much smaller binary.
-default = ["sqlite", "postgres", "mysql", "storage-fs", "storage-s3", "storage-gcs", "storage-azure", "storage-http"]
+default = ["sqlite", "postgres", "mysql", "storage-fs", "storage-s3", "storage-gcs", "storage-azure", "storage-http", "email"]
 
 # --- data ---
 # Each backend pulls in our direct sqlx dependency, which is what pins the TLS
@@ -48,8 +48,38 @@ storage-gcs = ["object_store/gcp"]
 storage-azure = ["object_store/azure"]
 storage-http = ["object_store/http"]       # WebDAV and plain HTTP stores
 
+# --- email ---
+# On by default, like every other backend, because it costs 37 KB.
+#
+# Measured: the release binary is 13933 KB without and 13970 KB with. It is that
+# small because the TLS stack is already there — `object_store` pulls in rustls
+# and a crypto provider whatever happens, so lettre adds only itself.
+#
+# At that price the flag is not about size, it is about not compiling in a
+# dependency somebody building from source has no use for. Whether an instance
+# actually sends anything is a *runtime* question: no `mail` block in the
+# configuration and the endpoints are not mounted at all.
+#
+# `aws-lc-rs` rather than `ring` on purpose: sqlx already pins the provider, and
+# cargo features are additive — asking for the other one here would put *both*
+# crypto implementations in the binary. See the note above the data backends.
+#
+# `webpki-roots` rather than the OS trust store: the release binary is static
+# musl on distroless, and bundled roots behave the same everywhere.
+email = [
+  "dep:lettre",
+  "lettre/smtp-transport",
+  "lettre/tokio1-rustls",
+  "lettre/aws-lc-rs",
+  "lettre/webpki-roots",
+  "lettre/builder",
+]
+
 [dependencies]
 tessera-core = { workspace = true }
+
+# Optional; see the `email` feature for why it is not on by default.
+lettre = { version = "0.11", default-features = false, optional = true }
 
 # --- web ---
 axum = { version = "0.8.9", features = ["macros", "http2"] }

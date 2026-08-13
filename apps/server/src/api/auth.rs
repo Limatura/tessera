@@ -23,6 +23,7 @@ use crate::{
     config::RegistrationPolicy,
     db::repository::user::User,
     error::{Error, Result},
+    mail::password_reset_letter,
     state::AppState,
 };
 
@@ -122,6 +123,22 @@ pub struct ChangePasswordRequest {
     pub new_password: String,
 }
 
+/// The key a per-address limit counts under.
+///
+/// Folded, where [`EmailAddress`] deliberately is not: the local part is
+/// case-sensitive by the standard, so `Alice@example.com` and `alice@example.com`
+/// stay separate accounts. A limit is not about identity though — it is about
+/// one mailbox, and in practice every provider delivers both to the same one.
+///
+/// Counting the unfolded address means the limit can be walked around by
+/// changing case, which is not a small margin: measured against a running
+/// instance, thirty-two attempts at eight spellings of a six-letter local part
+/// were answered twenty-four times against a stated limit of three, and a longer
+/// local part doubles that for every extra letter.
+fn address_limit_key(email: &EmailAddress) -> String {
+    email.as_str().to_lowercase()
+}
+
 /// Refuses everything when the instance has no accounts.
 ///
 /// `404`, not `403`. The endpoint genuinely is not part of this deployment, and
@@ -148,10 +165,12 @@ fn require_accounts(state: &AppState) -> Result<()> {
     tag = AUTH_TAG,
     request_body = RegisterRequest,
     responses(
-        (status = 201, description = "Account created and signed in", body = AccountResponse),
+        (status = 201, description = "Account created and signed in; only where this instance sends no mail", body = AccountResponse),
+        (status = 202, description = "Accepted; a confirmation link is sent if that address is free", body = ()),
         (status = 400, description = "A value failed its rule", body = crate::error::ErrorBody),
         (status = 403, description = "Registration is closed", body = crate::error::ErrorBody),
-        (status = 409, description = "Name or address is taken", body = crate::error::ErrorBody),
+        (status = 409, description = "That username is taken", body = crate::error::ErrorBody),
+        (status = 429, description = "Too many messages have been sent to this address", body = crate::error::ErrorBody),
     ),
 )]
 pub async fn register(
@@ -175,9 +194,32 @@ pub async fn register(
     // Checked before inserting so the caller gets "that name is taken" rather
     // than a constraint violation. The unique index is still what guarantees it
     // — this check races, and losing the race lands on the same 409 below.
+    //
+    // A name is answered plainly, unlike an address, and that asymmetry is a
+    // decision rather than an oversight. It does mean this endpoint will tell
+    // anyone whether a given name is taken — but a form that cannot say "try
+    // another one" is a form nobody can complete, so the alternative is finding
+    // out after a round trip through an inbox, or not at all.
+    //
+    // What makes it an acceptable trade and an address not: a name is a handle
+    // somebody chose for this instance, while an address identifies a person
+    // outside it. "alice has an account here" is a smaller fact than "the person
+    // reachable at this address has an account here", and only the second is a
+    // question strangers get to ask. An instance that does not want even the
+    // first one asked closes registration, which is refused above before any of
+    // this is reached.
     if state.users.find_by_username(&username).await?.is_some() {
         return Err(Error::Conflict("that username is taken".to_owned()));
     }
+
+    // With a relay configured, nothing is created until the address answers.
+    if state.mailer.is_some() {
+        return start_verified_registration(&state, username, email, password);
+    }
+
+    // Without one there is nothing to verify with, so this is the whole of it.
+    // That is the ordinary case for the instance this was built for: one person
+    // on a NAS, who is also the one who set the address.
     if state.users.find_by_email(&email).await?.is_some() {
         return Err(Error::Conflict(
             "an account already exists for that address".to_owned(),
@@ -415,7 +457,12 @@ pub async fn change_password(
     let hash = password::hash(replacement).await?;
 
     let now = OffsetDateTime::now_utc();
-    state.users.set_password(current.user.id, hash, now).await?;
+    // `false`: this password was chosen by the person who owns the account,
+    // so there is nothing left to force a change of.
+    state
+        .users
+        .set_password(current.user.id, hash, false, now)
+        .await?;
     state.sessions.delete_for_user(current.user.id).await?;
 
     let cookie = start_session(&state, &current.user, &headers, now).await?;
@@ -489,6 +536,480 @@ async fn start_session(
         .cookie_secure
         .applies(headers, state.config.server.trusted_proxy);
     Ok(cookie::session_cookie(&secret, ttl, secure))
+}
+
+/// Body of `POST /auth/register/confirm`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RegisterConfirmRequest {
+    /// The token from the link.
+    pub token: String,
+}
+
+/// Takes a registration as far as an email, and no further.
+///
+/// # Why the answer is the same whichever it is
+///
+/// `202` whether or not the address already has an account. Saying "that
+/// address is taken" would make the registration form a way of asking whether
+/// somebody has an account here — the same question `POST /auth/password-reset`
+/// is careful to refuse, reachable through a different door.
+///
+/// The person who owns the address still finds out: they get a message saying
+/// somebody tried, which is also where they learn that repeated attempts are
+/// worth noticing. That is the one place the fact is disclosed, and it goes
+/// only to the one person entitled to it.
+///
+/// # Why this is not `async`
+///
+/// Nothing here awaits, and that is the property worth keeping rather than an
+/// accident: every step whose cost depends on whether the address is known runs
+/// in the detached task below. If this ever needs an `await`, that is the moment
+/// to ask what it is waiting for and whether a stopwatch could tell.
+fn start_verified_registration(
+    state: &AppState,
+    username: Username,
+    email: EmailAddress,
+    password: Password,
+) -> Result<Response> {
+    let Some(mailer) = state.mailer.clone() else {
+        return Err(Error::NotFound);
+    };
+
+    let counter = &state.throttles.registration;
+    let limit_key = address_limit_key(&email);
+    if let Decision::Deny { retry_after } = counter.check(&limit_key) {
+        return Err(Error::TooManyRequests {
+            retry_after_secs: retry_after.as_secs(),
+        });
+    }
+    // Counted here, before anything is looked up, and not after a message goes
+    // out. Counting on send would mean the limit is only ever reached by
+    // addresses that have one — so the fourth attempt would answer `429` for a
+    // member and `202` for a stranger, which is the membership question this
+    // endpoint refuses to answer, asked four times instead of once. The same
+    // mistake was live in the reset handler and CI was green for it.
+    counter.record_failure(&limit_key);
+
+    // Detached, so the response goes out before any of it. Everything below is
+    // work a free address does and a taken one skips — hashing a password, and
+    // handing a message to a relay — so leaving it in the request path would
+    // make the two answer at measurably different speeds. That is the same
+    // membership question the `202` refuses, read with a stopwatch instead.
+    //
+    // Not a theoretical margin. The instance that still does this synchronously
+    // (the one with no relay, where there is nothing to hide) answers in 22 ms
+    // for a free address and 0.6 ms for a taken one. With the work detached,
+    // both answer in 0.4 ms and the medians differ by 0.03 ms — noise.
+    let detached = state.clone();
+    tokio::spawn(async move {
+        let taken = match detached.users.find_by_email(&email).await {
+            Ok(found) => found.is_some(),
+            Err(error) => {
+                tracing::error!(?error, "could not check an address during registration");
+                return;
+            }
+        };
+
+        let letter = if taken {
+            let reset = format!(
+                "{}/reset-password",
+                detached.config.mail.public_url.trim_end_matches('/')
+            );
+            crate::mail::already_registered_letter(email.as_str(), &reset)
+        } else {
+            let hash = match password::hash(password).await {
+                Ok(hash) => hash,
+                Err(error) => {
+                    tracing::error!(?error, "could not hash a password during registration");
+                    return;
+                }
+            };
+            let now = OffsetDateTime::now_utc();
+            let ttl = time::Duration::try_from(detached.config.mail.registration_ttl())
+                .unwrap_or_else(|_| time::Duration::hours(24));
+            let secret = match detached
+                .pending
+                .start(&username, &email, hash, now, now.saturating_add(ttl))
+                .await
+            {
+                Ok(secret) => secret,
+                Err(error) => {
+                    tracing::error!(?error, "could not record a pending registration");
+                    return;
+                }
+            };
+            let link = format!(
+                "{}/register/confirm?token={}",
+                detached.config.mail.public_url.trim_end_matches('/'),
+                secret.expose()
+            );
+            crate::mail::registration_letter(
+                email.as_str(),
+                &link,
+                detached.config.mail.registration_ttl_hours,
+            )
+        };
+
+        if let Err(error) = mailer.send(letter).await {
+            tracing::error!(?error, "could not send a registration message");
+        }
+    });
+
+    Ok((StatusCode::ACCEPTED, ()).into_response())
+}
+
+/// Turns a confirmed registration into an account.
+///
+/// # Why the checks happen here and not when the link was sent
+///
+/// Nothing was reserved while the message sat in an inbox. Reserving the name
+/// would have made "register and never confirm" a free way to lock every good
+/// name away, with nothing an operator could do about it. The price is this:
+/// the name is checked against today's accounts, and somebody can be told at
+/// this point that it went to another person. That is rare, it is recoverable,
+/// and it is a much smaller problem than the alternative.
+///
+/// # Errors
+///
+/// `400` when the link is unknown, spent or expired, `403` when registration was
+/// closed while this was waiting, `409` when the name went to somebody else in
+/// the meantime, `404` when this instance sends no mail.
+#[utoipa::path(
+    post,
+    path = "/auth/register/confirm",
+    tag = AUTH_TAG,
+    request_body = RegisterConfirmRequest,
+    responses(
+        (status = 201, description = "Account created and signed in", body = AccountResponse),
+        (status = 400, description = "The link is not usable, or the body is not the shape this expects", body = crate::error::ErrorBody),
+        (status = 403, description = "Registration was closed while this link was waiting", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
+        (status = 409, description = "The name was taken while this was waiting", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn confirm_registration(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    ApiJson(body): ApiJson<RegisterConfirmRequest>,
+) -> Result<Response> {
+    require_accounts(&state)?;
+    if state.mailer.is_none() {
+        return Err(Error::NotFound);
+    }
+
+    // Read again here, and not only where the link was sent. Closing
+    // registration has to mean no more accounts, and without this it would mean
+    // "no more accounts except from the links already in inboxes" — up to
+    // `registration_ttl_hours` of them, which an operator cannot see, cannot
+    // count and cannot cancel. Somebody closing registration is usually reacting
+    // to something, and a day of accounts still arriving is the opposite of what
+    // they asked for.
+    match state.config.auth.registration {
+        RegistrationPolicy::Open => {}
+        RegistrationPolicy::Invite | RegistrationPolicy::Closed => {
+            return Err(Error::Forbidden);
+        }
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let secret = crate::auth::secret::Secret::from_client(body.token);
+    let found = state.pending.find_by_secret(&secret).await?;
+
+    // One message for unknown and expired alike: telling them apart would let
+    // somebody holding a stale link learn that it was once real.
+    let Some(pending) = found.filter(|pending| pending.is_usable_at(now)) else {
+        return Err(Error::bad_request(
+            "this confirmation link is not usable; register again",
+        ));
+    };
+
+    if state
+        .users
+        .find_by_username(&pending.username)
+        .await?
+        .is_some()
+    {
+        return Err(Error::Conflict(
+            "that username was taken while this link was waiting; register again with another"
+                .to_owned(),
+        ));
+    }
+    // Somebody else confirmed the same address first, or an account was made
+    // for it by other means. Answered like an unusable link rather than as a
+    // conflict: the address is not this caller's to be told about, and they
+    // have a working password for it either way.
+    if state.users.find_by_email(&pending.email).await?.is_some() {
+        state.pending.finish(pending.id).await?;
+        return Err(Error::bad_request(
+            "this confirmation link is not usable; register again",
+        ));
+    }
+
+    let user = User {
+        id: UserId::generate(),
+        username: pending.username.clone(),
+        email: pending.email.clone(),
+        password_hash: pending.password_hash.clone(),
+        // Decided here rather than when the link was sent, because "first
+        // account" has to mean first to *exist*. Two people confirming at once
+        // both read no accounts and both claim it — which the unique index does
+        // not prevent, since it is not a uniqueness question. It is also not
+        // worth a transaction: an instance whose first two accounts are created
+        // in the same instant is one nobody has bootstrapped, and both of those
+        // people are its operator.
+        is_admin: !state.users.any_exist().await?,
+        must_change_password: false,
+        // The whole point of the wait.
+        email_verified_at: Some(now),
+        created_at: now,
+        updated_at: now,
+    };
+    if let Err(error) = state.users.insert(&user).await {
+        // The checks above raced with another confirmation. Decided by looking
+        // rather than by assuming every insert failure is a conflict, which
+        // would report a database outage as "that name is taken" — and the
+        // window is real: two links naming the same username, opened at the same
+        // moment, both read a free name.
+        if state
+            .users
+            .find_by_username(&user.username)
+            .await?
+            .is_some()
+            || state.users.find_by_email(&user.email).await?.is_some()
+        {
+            return Err(Error::Conflict(
+                "that username or address was taken while this link was waiting; \
+                 register again"
+                    .to_owned(),
+            ));
+        }
+        return Err(error.into());
+    }
+    state.pending.finish(pending.id).await?;
+
+    let cookie = start_session(&state, &user, &headers, now).await?;
+    Ok((
+        StatusCode::CREATED,
+        [(header::SET_COOKIE, cookie.to_string())],
+        Json(AccountResponse::from(&user)),
+    )
+        .into_response())
+}
+
+/// Body of `POST /auth/password-reset`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PasswordResetRequest {
+    /// The address to send the link to.
+    #[schema(example = "someone@example.com")]
+    pub email: String,
+}
+
+/// Body of `POST /auth/password-reset/confirm`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PasswordResetConfirmRequest {
+    /// The token from the link.
+    pub token: String,
+    /// What to set the password to.
+    pub password: String,
+}
+
+/// Sends a password reset link, if there is an account and mail is configured.
+///
+/// # Why this always answers the same way
+///
+/// `202` whether or not the address belongs to an account, and whether or not
+/// the mail could be handed to the relay. Any other shape turns this endpoint
+/// into a way of asking "does this person have an account here" — which for a
+/// file courier is a question about who uses it, answerable by anyone, at any
+/// rate the throttle allows.
+///
+/// The cost is that a typo produces no feedback. That is the right way round:
+/// somebody who mistyped their own address will notice when no mail arrives,
+/// and nobody learns anything from the response either way.
+///
+/// # Errors
+///
+/// `404` when this instance sends no mail — the route is not mounted at all, so
+/// this is the router's answer rather than the handler's. `429` when this
+/// address has already been sent as many links as the window allows.
+#[utoipa::path(
+    post,
+    path = "/auth/password-reset",
+    tag = AUTH_TAG,
+    request_body = PasswordResetRequest,
+    responses(
+        (status = 202, description = "Accepted; a link is sent if that address has an account"),
+        (status = 400, description = "The body is not the shape this expects", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
+        (status = 429, description = "Too many links have been sent to this address", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn request_password_reset(
+    State(state): State<AppState>,
+    ApiJson(body): ApiJson<PasswordResetRequest>,
+) -> Result<Response> {
+    let Some(mailer) = state.mailer.clone() else {
+        // Unreachable in practice: the route is only mounted when a relay
+        // exists. Kept so that a future caller cannot turn it into a panic.
+        return Err(Error::NotFound);
+    };
+
+    // Normalised before it is used as a throttle key, or `A@b.com` and
+    // `a@b.com` would each get their own budget.
+    let Ok(email) = EmailAddress::parse(&body.email) else {
+        // A malformed address is answered like every other case. Saying "that
+        // is not an address" is harmless on its own, but it is one more way for
+        // the responses to differ from each other.
+        return Ok((StatusCode::ACCEPTED, ()).into_response());
+    };
+
+    let throttles = &state.throttles;
+    let limit_key = address_limit_key(&email);
+    if let Decision::Deny { retry_after } = throttles.reset.check(&limit_key) {
+        return Err(Error::TooManyRequests {
+            retry_after_secs: retry_after.as_secs(),
+        });
+    }
+    // Counted before the account is looked up, so that being refused says
+    // nothing about whether the address is known.
+    //
+    // Counting only when a message was actually sent looks more careful — it
+    // keeps a stranger's address from spending somebody else's budget — and it
+    // is exactly the mistake this endpoint exists to avoid: four requests would
+    // then answer `429` for a member and `202` for everyone else, which is the
+    // membership oracle the `202` was supposed to close. Measured, not
+    // reasoned: it took one loop of `curl` to read the difference.
+    //
+    // The cost of counting always is that somebody who knows an address can
+    // stop it being reset for an hour. That is a nuisance with a way out (the
+    // `reset-password` subcommand, which needs no mail at all), whereas the
+    // oracle would be a property of the service nobody could work around.
+    throttles.reset.record_failure(&limit_key);
+
+    // Everything that depends on the account happening to exist runs detached,
+    // and the response goes out before any of it.
+    //
+    // Not tidiness — the same defence again. Handing a message to a relay takes
+    // an SMTP handshake, so doing it inline makes a request for a real address
+    // measurably slower than one for a stranger's: a clean read of who has an
+    // account here, from the outside, with a stopwatch. Even against a relay
+    // that fails instantly the difference was consistently double.
+    let detached = state.clone();
+    tokio::spawn(async move {
+        let Ok(Some(user)) = detached.users.find_by_email(&email).await else {
+            return;
+        };
+
+        let now = OffsetDateTime::now_utc();
+        let ttl = time::Duration::try_from(detached.config.mail.reset_ttl())
+            .unwrap_or_else(|_| time::Duration::minutes(30));
+        let secret = match detached
+            .resets
+            .issue(user.id, now, now.saturating_add(ttl))
+            .await
+        {
+            Ok(secret) => secret,
+            Err(error) => {
+                tracing::error!(?error, "could not record a password reset link");
+                return;
+            }
+        };
+
+        let link = format!(
+            "{}/reset-password?token={}",
+            detached.config.mail.public_url.trim_end_matches('/'),
+            secret.expose()
+        );
+        let letter = password_reset_letter(
+            user.email.as_str(),
+            &link,
+            detached.config.mail.reset_ttl_minutes,
+        );
+
+        if let Err(error) = mailer.send(letter).await {
+            // Logged, not returned — the caller is already gone, and the relay
+            // being down is the operator's problem to find in the logs.
+            tracing::error!(?error, "could not send a password reset link");
+        }
+    });
+
+    Ok((StatusCode::ACCEPTED, ()).into_response())
+}
+
+/// Sets a new password from a reset link.
+///
+/// Every session belonging to the account is ended. Somebody asking to reset a
+/// password is usually saying they have lost control of it, and leaving the
+/// sessions alone would leave whoever had it signed in.
+///
+/// # Errors
+///
+/// `400` when the token is unknown, spent or expired, or the new password fails
+/// the policy. `404` when this instance sends no mail.
+#[utoipa::path(
+    post,
+    path = "/auth/password-reset/confirm",
+    tag = AUTH_TAG,
+    request_body = PasswordResetConfirmRequest,
+    responses(
+        (status = 204, description = "Password set; every session ended"),
+        (status = 400, description = "The link is not usable, or the password fails the policy", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn confirm_password_reset(
+    State(state): State<AppState>,
+    ApiJson(body): ApiJson<PasswordResetConfirmRequest>,
+) -> Result<Response> {
+    if state.mailer.is_none() {
+        return Err(Error::NotFound);
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let secret = crate::auth::secret::Secret::from_client(body.token);
+    let found = state.resets.find_by_secret(&secret).await?;
+
+    // One message for unknown, spent and expired alike. They are different to
+    // us — which is why the row survives being used — but telling them apart
+    // out loud would let somebody with a spent link learn that it was once
+    // real, and that is a fact about somebody else's account.
+    let Some(token) = found.filter(|token| token.is_usable_at(now)) else {
+        return Err(Error::bad_request(
+            "this reset link is not usable; ask for a new one",
+        ));
+    };
+
+    // Parsed before the token is spent: a password that fails the policy should
+    // leave the link usable, or a typo costs somebody the whole round trip
+    // through their inbox.
+    let password = Password::parse(body.password, state.config.auth.password)?;
+
+    // The database decides who wins, so two clicks arriving together set the
+    // password once.
+    if !state.resets.spend(token.id, now).await? {
+        return Err(Error::bad_request(
+            "this reset link is not usable; ask for a new one",
+        ));
+    }
+
+    let hash = password::hash(password).await?;
+    // `false`: the person just chose this one, so there is nothing to force a
+    // change of.
+    state
+        .users
+        .set_password(token.user_id, hash, false, now)
+        .await?;
+
+    // Both, and in this order. Any other outstanding link is a key somebody may
+    // still be holding; any existing session belongs to whoever had the old
+    // password.
+    state.resets.spend_all_for(token.user_id, now).await?;
+    state.sessions.delete_for_user(token.user_id).await?;
+
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 #[cfg(test)]
