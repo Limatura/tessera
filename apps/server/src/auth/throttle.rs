@@ -331,6 +331,19 @@ pub struct Throttles {
     /// mistyped codes eat into the budget that protects the hasher would mean a
     /// visitor guessing at links could stop somebody else signing in.
     pub lookup: Throttle,
+    /// Password reset requests, keyed on the address asked about.
+    ///
+    /// Keyed on the address rather than the source, because the thing being
+    /// protected is somebody's inbox: without this, one request per second at
+    /// the same address is a mail flood that the account holder experiences and
+    /// cannot stop. Keying on the source instead would let an attacker rotate
+    /// addresses and still bury one victim.
+    ///
+    /// Counted on *success*, not failure — see the handler. Every request looks
+    /// successful from outside by design, so there is no failure to count, and
+    /// what needs limiting is how often a message is actually sent.
+    pub reset: Throttle,
+
     /// Failed share-password attempts, keyed on the code and the source.
     ///
     /// A share password may be as short as four characters, which is the right
@@ -345,6 +358,7 @@ impl Default for Throttles {
             login: Throttle::default(),
             source: Throttle::new(SOURCE_MAX_ATTEMPTS, SOURCE_WINDOW),
             lookup: Throttle::new(LOOKUP_MAX_ATTEMPTS, SOURCE_WINDOW),
+            reset: Throttle::new(RESET_MAX_REQUESTS, RESET_WINDOW),
             share: Throttle::default(),
         }
     }
@@ -366,6 +380,16 @@ const SOURCE_MAX_ATTEMPTS: u32 = 120;
 /// How long a source is refused for. Deliberately much shorter than
 /// [`WINDOW`] — see [`SOURCE_MAX_ATTEMPTS`].
 const SOURCE_WINDOW: Duration = Duration::from_mins(1);
+
+/// Reset mails to one address before further requests are refused.
+///
+/// Three is enough for somebody who did not receive the first one and tried
+/// again, and few enough that the inbox is not a place to hide an attack.
+const RESET_MAX_REQUESTS: u32 = 3;
+
+/// How long that limit lasts. Longer than the link itself, so asking again
+/// after being refused means the earlier link has expired anyway.
+const RESET_WINDOW: Duration = Duration::from_hours(1);
 
 /// Codes tried and not found, from one source, before it is refused.
 ///

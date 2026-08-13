@@ -23,6 +23,7 @@ use crate::{
     config::RegistrationPolicy,
     db::repository::user::User,
     error::{Error, Result},
+    mail::password_reset_letter,
     state::AppState,
 };
 
@@ -494,6 +495,220 @@ async fn start_session(
         .cookie_secure
         .applies(headers, state.config.server.trusted_proxy);
     Ok(cookie::session_cookie(&secret, ttl, secure))
+}
+
+/// Body of `POST /auth/password-reset`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PasswordResetRequest {
+    /// The address to send the link to.
+    #[schema(example = "someone@example.com")]
+    pub email: String,
+}
+
+/// Body of `POST /auth/password-reset/confirm`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PasswordResetConfirmRequest {
+    /// The token from the link.
+    pub token: String,
+    /// What to set the password to.
+    pub password: String,
+}
+
+/// Sends a password reset link, if there is an account and mail is configured.
+///
+/// # Why this always answers the same way
+///
+/// `202` whether or not the address belongs to an account, and whether or not
+/// the mail could be handed to the relay. Any other shape turns this endpoint
+/// into a way of asking "does this person have an account here" — which for a
+/// file courier is a question about who uses it, answerable by anyone, at any
+/// rate the throttle allows.
+///
+/// The cost is that a typo produces no feedback. That is the right way round:
+/// somebody who mistyped their own address will notice when no mail arrives,
+/// and nobody learns anything from the response either way.
+///
+/// # Errors
+///
+/// `404` when this instance sends no mail — the route is not mounted at all, so
+/// this is the router's answer rather than the handler's. `429` when this
+/// address has already been sent as many links as the window allows.
+#[utoipa::path(
+    post,
+    path = "/auth/password-reset",
+    tag = AUTH_TAG,
+    request_body = PasswordResetRequest,
+    responses(
+        (status = 202, description = "Accepted; a link is sent if that address has an account"),
+        (status = 400, description = "The body is not the shape this expects", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
+        (status = 429, description = "Too many links have been sent to this address", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn request_password_reset(
+    State(state): State<AppState>,
+    ApiJson(body): ApiJson<PasswordResetRequest>,
+) -> Result<Response> {
+    let Some(mailer) = state.mailer.clone() else {
+        // Unreachable in practice: the route is only mounted when a relay
+        // exists. Kept so that a future caller cannot turn it into a panic.
+        return Err(Error::NotFound);
+    };
+
+    // Normalised before it is used as a throttle key, or `A@b.com` and
+    // `a@b.com` would each get their own budget.
+    let Ok(email) = EmailAddress::parse(&body.email) else {
+        // A malformed address is answered like every other case. Saying "that
+        // is not an address" is harmless on its own, but it is one more way for
+        // the responses to differ from each other.
+        return Ok((StatusCode::ACCEPTED, ()).into_response());
+    };
+
+    let throttles = &state.throttles;
+    if let Decision::Deny { retry_after } = throttles.reset.check(email.as_str()) {
+        return Err(Error::TooManyRequests {
+            retry_after_secs: retry_after.as_secs(),
+        });
+    }
+    // Counted before the account is looked up, so that being refused says
+    // nothing about whether the address is known.
+    //
+    // Counting only when a message was actually sent looks more careful — it
+    // keeps a stranger's address from spending somebody else's budget — and it
+    // is exactly the mistake this endpoint exists to avoid: four requests would
+    // then answer `429` for a member and `202` for everyone else, which is the
+    // membership oracle the `202` was supposed to close. Measured, not
+    // reasoned: it took one loop of `curl` to read the difference.
+    //
+    // The cost of counting always is that somebody who knows an address can
+    // stop it being reset for an hour. That is a nuisance with a way out (the
+    // `reset-password` subcommand, which needs no mail at all), whereas the
+    // oracle would be a property of the service nobody could work around.
+    throttles.reset.record_failure(email.as_str());
+
+    // Everything that depends on the account happening to exist runs detached,
+    // and the response goes out before any of it.
+    //
+    // Not tidiness — the same defence again. Handing a message to a relay takes
+    // an SMTP handshake, so doing it inline makes a request for a real address
+    // measurably slower than one for a stranger's: a clean read of who has an
+    // account here, from the outside, with a stopwatch. Even against a relay
+    // that fails instantly the difference was consistently double.
+    let detached = state.clone();
+    tokio::spawn(async move {
+        let Ok(Some(user)) = detached.users.find_by_email(&email).await else {
+            return;
+        };
+
+        let now = OffsetDateTime::now_utc();
+        let ttl = time::Duration::try_from(detached.config.mail.reset_ttl())
+            .unwrap_or_else(|_| time::Duration::minutes(30));
+        let secret = match detached
+            .resets
+            .issue(user.id, now, now.saturating_add(ttl))
+            .await
+        {
+            Ok(secret) => secret,
+            Err(error) => {
+                tracing::error!(?error, "could not record a password reset link");
+                return;
+            }
+        };
+
+        let link = format!(
+            "{}/reset-password?token={}",
+            detached.config.mail.public_url.trim_end_matches('/'),
+            secret.expose()
+        );
+        let letter = password_reset_letter(
+            user.email.as_str(),
+            &link,
+            detached.config.mail.reset_ttl_minutes,
+        );
+
+        if let Err(error) = mailer.send(letter).await {
+            // Logged, not returned — the caller is already gone, and the relay
+            // being down is the operator's problem to find in the logs.
+            tracing::error!(?error, "could not send a password reset link");
+        }
+    });
+
+    Ok((StatusCode::ACCEPTED, ()).into_response())
+}
+
+/// Sets a new password from a reset link.
+///
+/// Every session belonging to the account is ended. Somebody asking to reset a
+/// password is usually saying they have lost control of it, and leaving the
+/// sessions alone would leave whoever had it signed in.
+///
+/// # Errors
+///
+/// `400` when the token is unknown, spent or expired, or the new password fails
+/// the policy. `404` when this instance sends no mail.
+#[utoipa::path(
+    post,
+    path = "/auth/password-reset/confirm",
+    tag = AUTH_TAG,
+    request_body = PasswordResetConfirmRequest,
+    responses(
+        (status = 204, description = "Password set; every session ended"),
+        (status = 400, description = "The link is not usable, or the password fails the policy", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn confirm_password_reset(
+    State(state): State<AppState>,
+    ApiJson(body): ApiJson<PasswordResetConfirmRequest>,
+) -> Result<Response> {
+    if state.mailer.is_none() {
+        return Err(Error::NotFound);
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let secret = crate::auth::secret::Secret::from_client(body.token);
+    let found = state.resets.find_by_secret(&secret).await?;
+
+    // One message for unknown, spent and expired alike. They are different to
+    // us — which is why the row survives being used — but telling them apart
+    // out loud would let somebody with a spent link learn that it was once
+    // real, and that is a fact about somebody else's account.
+    let Some(token) = found.filter(|token| token.is_usable_at(now)) else {
+        return Err(Error::bad_request(
+            "this reset link is not usable; ask for a new one",
+        ));
+    };
+
+    // Parsed before the token is spent: a password that fails the policy should
+    // leave the link usable, or a typo costs somebody the whole round trip
+    // through their inbox.
+    let password = Password::parse(body.password, state.config.auth.password)?;
+
+    // The database decides who wins, so two clicks arriving together set the
+    // password once.
+    if !state.resets.spend(token.id, now).await? {
+        return Err(Error::bad_request(
+            "this reset link is not usable; ask for a new one",
+        ));
+    }
+
+    let hash = password::hash(password).await?;
+    // `false`: the person just chose this one, so there is nothing to force a
+    // change of.
+    state
+        .users
+        .set_password(token.user_id, hash, false, now)
+        .await?;
+
+    // Both, and in this order. Any other outstanding link is a key somebody may
+    // still be holding; any existing session belongs to whoever had the old
+    // password.
+    state.resets.spend_all_for(token.user_id, now).await?;
+    state.sessions.delete_for_user(token.user_id).await?;
+
+    Ok(StatusCode::NO_CONTENT.into_response())
 }
 
 #[cfg(test)]

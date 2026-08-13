@@ -89,6 +89,10 @@ expression: document
             "minimum": 0,
             "type": "integer"
           },
+          "password_reset": {
+            "description": "Whether this instance can send a password reset link.\n\n`false` when no relay is configured, which is the default. A client that\ndraws the \"forgot password\" link regardless would send people to an\nendpoint that answers 404 — so this is the difference between a missing\nfeature and a broken one.",
+            "type": "boolean"
+          },
           "registration": {
             "$ref": "#/components/schemas/RegistrationPolicy",
             "description": "Who may create an account. Meaningless when\n[`accounts`](Self::accounts) is `false`."
@@ -122,6 +126,7 @@ expression: document
           "registration",
           "account_password_min_length",
           "share_password_min_length",
+          "password_reset",
           "max_upload_bytes",
           "version"
         ],
@@ -290,6 +295,40 @@ expression: document
         "required": [
           "identifier",
           "password"
+        ],
+        "type": "object"
+      },
+      "PasswordResetConfirmRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /auth/password-reset/confirm`.",
+        "properties": {
+          "password": {
+            "description": "What to set the password to.",
+            "type": "string"
+          },
+          "token": {
+            "description": "The token from the link.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "password"
+        ],
+        "type": "object"
+      },
+      "PasswordResetRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /auth/password-reset`.",
+        "properties": {
+          "email": {
+            "description": "The address to send the link to.",
+            "example": "someone@example.com",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
         ],
         "type": "object"
       },
@@ -792,6 +831,106 @@ expression: document
           }
         ],
         "summary": "Changes the caller's password.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/password-reset": {
+      "post": {
+        "description": "# Why this always answers the same way\n\n`202` whether or not the address belongs to an account, and whether or not\nthe mail could be handed to the relay. Any other shape turns this endpoint\ninto a way of asking \"does this person have an account here\" — which for a\nfile courier is a question about who uses it, answerable by anyone, at any\nrate the throttle allows.\n\nThe cost is that a typo produces no feedback. That is the right way round:\nsomebody who mistyped their own address will notice when no mail arrives,\nand nobody learns anything from the response either way.\n\n# Errors\n\n`404` when this instance sends no mail — the route is not mounted at all, so\nthis is the router's answer rather than the handler's. `429` when this\naddress has already been sent as many links as the window allows.",
+        "operationId": "request_password_reset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted; a link is sent if that address has an account"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The body is not the shape this expects"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance sends no mail"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many links have been sent to this address"
+          }
+        },
+        "summary": "Sends a password reset link, if there is an account and mail is configured.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/password-reset/confirm": {
+      "post": {
+        "description": "Every session belonging to the account is ended. Somebody asking to reset a\npassword is usually saying they have lost control of it, and leaving the\nsessions alone would leave whoever had it signed in.\n\n# Errors\n\n`400` when the token is unknown, spent or expired, or the new password fails\nthe policy. `404` when this instance sends no mail.",
+        "operationId": "confirm_password_reset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Password set; every session ended"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The link is not usable, or the password fails the policy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance sends no mail"
+          }
+        },
+        "summary": "Sets a new password from a reset link.",
         "tags": [
           "auth"
         ]

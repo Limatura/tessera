@@ -25,6 +25,7 @@ pub mod cli;
 pub mod config;
 pub mod db;
 pub mod error;
+pub mod mail;
 pub mod maintenance;
 pub mod state;
 pub mod storage;
