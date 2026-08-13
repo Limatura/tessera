@@ -254,10 +254,19 @@ pub struct MailConfig {
 
     /// How long a password reset link works for, in minutes.
     ///
-    /// Short because the link is the credential. Long enough to survive a mail
-    /// queue and somebody reading their inbox after lunch.
+    /// Short because the link *is* the credential. Long enough to survive a
+    /// mail queue and somebody reading their inbox after lunch, and capped at
+    /// [`MAX_RESET_TTL_MINUTES`] because past that it stops being a reset and
+    /// becomes a spare key living in a mailbox.
     pub reset_ttl_minutes: u64,
 }
+
+/// The longest a reset link may be configured to last, in minutes.
+///
+/// A day. Long enough for any mail delay worth surviving; past it the link has
+/// stopped being a way back in and become a second credential, sitting
+/// somewhere far less protected than a password.
+pub const MAX_RESET_TTL_MINUTES: u64 = 24 * 60;
 
 impl Default for MailConfig {
     fn default() -> Self {
@@ -281,9 +290,14 @@ impl MailConfig {
     }
 
     /// How long a reset link is good for.
+    ///
+    /// Saturating rather than plain multiplication: validation caps the value,
+    /// but this is `pub` and a caller that built a `MailConfig` by hand should
+    /// get a long duration rather than a panic in debug and a wrapped one in
+    /// release.
     #[must_use]
     pub const fn reset_ttl(&self) -> Duration {
-        Duration::from_secs(self.reset_ttl_minutes * 60)
+        Duration::from_secs(self.reset_ttl_minutes.saturating_mul(60))
     }
 }
 
@@ -818,10 +832,12 @@ impl MailConfig {
                     .to_owned(),
             });
         }
-        if self.reset_ttl_minutes == 0 {
+        if self.reset_ttl_minutes == 0 || self.reset_ttl_minutes > MAX_RESET_TTL_MINUTES {
             return Err(ConfigError::Invalid {
                 field: "mail.reset_ttl_minutes",
-                reason: "must not be 0; a link that has already expired helps nobody".to_owned(),
+                reason: format!(
+                    "must be between 1 and {MAX_RESET_TTL_MINUTES}; a link that has already                      expired helps nobody, and one that lasts longer than a day is a spare key                      sitting in a mailbox"
+                ),
             });
         }
         Ok(())
@@ -1060,6 +1076,14 @@ impl TelemetryConfig {
 
 #[cfg(test)]
 mod tests {
+    /// The smallest mail block that passes the all-or-nothing rule, for cases
+    /// that are about one of the *other* fields.
+    fn configured_mail(config: &mut Config) {
+        config.mail.host = "smtp.example.com".to_owned();
+        config.mail.from = "tessera@example.com".to_owned();
+        config.mail.public_url = "https://tessera.example.com".to_owned();
+    }
+
     use rstest::rstest;
 
     use super::*;
@@ -1161,6 +1185,37 @@ mod tests {
     #[case::zero_ticket("share.ticket_ttl_hours", |c: &mut Config| c.share.ticket_ttl_hours = 0)]
     #[case::bad_filter("telemetry.filter", |c: &mut Config| {
         c.telemetry.filter = "=====".to_owned();
+    })]
+    // Half a mail block is worse than none: empty means the feature does not
+    // exist and every path around it is quiet, whereas a host with no `from`
+    // mounts the endpoints and draws the link, and only fails once somebody is
+    // already locked out.
+    #[case::half_configured_mail("mail", |c: &mut Config| {
+        c.mail.host = "smtp.example.com".to_owned();
+    })]
+    #[case::mail_without_public_url("mail", |c: &mut Config| {
+        c.mail.host = "smtp.example.com".to_owned();
+        c.mail.from = "t@example.com".to_owned();
+    })]
+    #[case::mail_public_url_without_scheme("mail.public_url", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.public_url = "tessera.example.com".to_owned();
+    })]
+    #[case::zero_reset_ttl("mail.reset_ttl_minutes", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.reset_ttl_minutes = 0;
+    })]
+    // A link that outlives the day has stopped being a way back in and become a
+    // second credential, kept somewhere far less protected than a password.
+    #[case::endless_reset_ttl("mail.reset_ttl_minutes", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.reset_ttl_minutes = MAX_RESET_TTL_MINUTES + 1;
+    })]
+    // The multiplication behind this used to be plain, so a value near the
+    // ceiling of the type panicked in debug and wrapped in release.
+    #[case::absurd_reset_ttl("mail.reset_ttl_minutes", |c: &mut Config| {
+        configured_mail(c);
+        c.mail.reset_ttl_minutes = u64::MAX;
     })]
     fn rejects_bad_values(#[case] field: &str, #[case] mutate: fn(&mut Config)) {
         let mut config = Config::default();
@@ -1310,6 +1365,22 @@ mod tests {
             assert_eq!(from_toml.server.port, 9102);
             Ok(())
         });
+    }
+
+    /// A fully configured mail block is accepted, and so is an empty one — the
+    /// two ends of the all-or-nothing rule.
+    #[test]
+    fn mail_is_accepted_when_whole_and_when_absent() {
+        let mut config = Config::default();
+        assert!(
+            config.validate().is_ok(),
+            "the default sends no mail at all"
+        );
+        assert!(!config.mail.is_configured());
+
+        configured_mail(&mut config);
+        assert!(config.validate().is_ok());
+        assert!(config.mail.is_configured());
     }
 
     /// An instance that accepts neither anonymous uploads nor accounts can
