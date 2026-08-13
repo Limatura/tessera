@@ -10,5 +10,9 @@ export const Route = createRoute({
 });
 
 function HomeComponent() {
-  return <UploadPanel />;
+  return (
+    <div className="relative flex min-h-svh w-full items-center justify-center p-6 relative z-0">
+      <UploadPanel />
+    </div>
+  );
 }

@@ -34,7 +34,7 @@ export function UploadPanel() {
   };
 
   return (
-    <div className="relative flex min-h-svh w-full items-center justify-center p-6">
+    <>
       <GlassBackground />
       <div className="w-full max-w-sm">
         <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
@@ -114,6 +114,6 @@ export function UploadPanel() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   );
 }
