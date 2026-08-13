@@ -189,6 +189,61 @@ pub fn password_reset_letter(to: &str, link: &str, minutes: u64) -> Letter {
     }
 }
 
+/// Composes the message that confirms a new registration.
+///
+/// The account does not exist until this link is followed, and the wording says
+/// so: somebody who did not ask for this needs to know that ignoring it is
+/// enough, or they will go looking for an account to delete.
+#[must_use]
+pub fn registration_letter(to: &str, link: &str, hours: u64) -> Letter {
+    Letter {
+        to: to.to_owned(),
+        subject: "Confirm your tessera account".to_owned(),
+        body: format!(
+            "Somebody asked to create a tessera account with this address.\n\n\
+             Open this link to finish:\n\n{link}\n\n\
+             It works once and stops working in {hours} hours.\n\n\
+             If this was not you, ignore this — no account exists yet, and none \
+             will be created unless the link is opened.\n"
+        ),
+    }
+}
+
+/// Composes the message sent when the address already has an account.
+///
+/// # Why this is sent at all
+///
+/// So that registration can answer the same way whichever it is. Telling the
+/// caller "that address is taken" turns the form into a way of asking whether
+/// somebody has an account here, which is a question about who uses this
+/// instance, answerable by anyone.
+///
+/// # Why it says somebody may be probing
+///
+/// A single one of these is noise: a person mistyping, or forgetting they had
+/// signed up. Several is a signal, and the account holder is the only one in a
+/// position to notice the difference. Saying nothing would mean the one person
+/// who could tell never finds out.
+#[must_use]
+pub fn already_registered_letter(to: &str, reset_path: &str) -> Letter {
+    Letter {
+        to: to.to_owned(),
+        subject: "Someone tried to register with your address".to_owned(),
+        body: format!(
+            "Somebody tried to create a tessera account with this address, but it \
+             already has one.\n\n\
+             Nothing has changed. No account was created, none was modified, and \
+             nobody was told whether this address is registered — this message is \
+             the only place that is said, and it goes only to you.\n\n\
+             If it was you and you have forgotten the password, you can set a new \
+             one here:\n\n{reset_path}\n\n\
+             If it was not you, somebody is checking whether this address has an \
+             account here. One message is probably a mistake. Several is somebody \
+             trying repeatedly, and worth knowing about.\n"
+        ),
+    }
+}
+
 /// Whether this build can send at all.
 ///
 /// Used at start-up to say something when the configuration asks for mail that

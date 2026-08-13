@@ -343,6 +343,15 @@ pub struct Throttles {
     /// successful from outside by design, so there is no failure to count, and
     /// what needs limiting is how often a message is actually sent.
     pub reset: Throttle,
+    /// Registration attempts, keyed on the address asked about.
+    ///
+    /// Its own counter rather than sharing [`Throttles::reset`], and that is the
+    /// whole reason it exists. Sharing would mean anyone could spend somebody
+    /// else's reset budget just by typing their address into the registration
+    /// form — three attempts and the account holder can no longer ask for a
+    /// password reset. Losing access to a recovery route is a worse outcome than
+    /// the six messages an hour that two counters allow instead of three.
+    pub registration: Throttle,
 
     /// Failed share-password attempts, keyed on the code and the source.
     ///
@@ -359,6 +368,7 @@ impl Default for Throttles {
             source: Throttle::new(SOURCE_MAX_ATTEMPTS, SOURCE_WINDOW),
             lookup: Throttle::new(LOOKUP_MAX_ATTEMPTS, SOURCE_WINDOW),
             reset: Throttle::new(RESET_MAX_REQUESTS, RESET_WINDOW),
+            registration: Throttle::new(RESET_MAX_REQUESTS, RESET_WINDOW),
             share: Throttle::default(),
         }
     }
@@ -381,7 +391,8 @@ const SOURCE_MAX_ATTEMPTS: u32 = 120;
 /// [`WINDOW`] — see [`SOURCE_MAX_ATTEMPTS`].
 const SOURCE_WINDOW: Duration = Duration::from_mins(1);
 
-/// Reset mails to one address before further requests are refused.
+/// Mails to one address before further requests are refused, counted separately
+/// for resets and registrations.
 ///
 /// Three is enough for somebody who did not receive the first one and tried
 /// again, and few enough that the inbox is not a place to hide an attack.

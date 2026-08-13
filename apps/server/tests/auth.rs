@@ -770,7 +770,7 @@ async fn ask_for_reset(app: &TestApp, email: &str) -> StatusCode {
 #[tokio::test]
 async fn a_reset_request_answers_the_same_for_strangers_and_members() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
+    register_verified(&app, "member").await;
 
     assert_eq!(
         ask_for_reset(&app, "member@example.com").await,
@@ -793,7 +793,7 @@ async fn a_reset_request_answers_the_same_for_strangers_and_members() {
 #[tokio::test]
 async fn a_failed_send_is_still_accepted() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
+    register_verified(&app, "member").await;
     assert_eq!(
         ask_for_reset(&app, "member@example.com").await,
         StatusCode::ACCEPTED
@@ -831,7 +831,7 @@ async fn an_instance_with_mail_says_so() {
 #[tokio::test]
 async fn being_throttled_says_nothing_about_membership() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
+    register_verified(&app, "member").await;
 
     // Past the limit on both, one of which has no account behind it.
     for _ in 0..4 {
@@ -855,7 +855,7 @@ async fn being_throttled_says_nothing_about_membership() {
 #[tokio::test]
 async fn reset_requests_are_limited_per_address() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
+    register_verified(&app, "member").await;
 
     for _ in 0..3 {
         assert_eq!(
@@ -870,7 +870,7 @@ async fn reset_requests_are_limited_per_address() {
 
     // A different address is unaffected, which is what keying on the address
     // means.
-    register(&app, "other").await;
+    register_verified(&app, "other").await;
     assert_eq!(
         ask_for_reset(&app, "other@example.com").await,
         StatusCode::ACCEPTED
@@ -882,8 +882,8 @@ async fn reset_requests_are_limited_per_address() {
 #[tokio::test]
 async fn one_address_at_its_limit_does_not_refuse_another() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
-    register(&app, "other").await;
+    register_verified(&app, "member").await;
+    register_verified(&app, "other").await;
 
     for _ in 0..4 {
         ask_for_reset(&app, "member@example.com").await;
@@ -927,7 +927,7 @@ async fn an_unusable_link_says_only_that() {
 #[tokio::test]
 async fn a_link_sets_the_password_once_and_ends_every_session() {
     let app = app_with_mail().await;
-    let cookie = register(&app, "member").await;
+    let cookie = register_verified(&app, "member").await;
 
     let user = app
         .state
@@ -990,7 +990,7 @@ async fn a_link_sets_the_password_once_and_ends_every_session() {
 #[tokio::test]
 async fn a_rejected_password_does_not_burn_the_link() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
+    register_verified(&app, "member").await;
 
     let user = app
         .state
@@ -1025,7 +1025,7 @@ async fn a_rejected_password_does_not_burn_the_link() {
 #[tokio::test]
 async fn using_one_link_invalidates_the_others() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
+    register_verified(&app, "member").await;
 
     let user = app
         .state
@@ -1065,7 +1065,7 @@ async fn using_one_link_invalidates_the_others() {
 #[tokio::test]
 async fn an_expired_link_is_refused() {
     let app = app_with_mail().await;
-    register(&app, "member").await;
+    register_verified(&app, "member").await;
 
     let user = app
         .state
@@ -1089,5 +1089,510 @@ async fn an_expired_link_is_refused() {
     assert_eq!(
         confirm(&app, secret.expose(), "a perfectly fine replacement").await,
         StatusCode::BAD_REQUEST
+    );
+}
+
+// ── registration that waits on the address ──────────────────────────
+
+/// Asks for an account and gets no further than the `202`.
+async fn ask_to_register(app: &TestApp, username: &str, email: &str) -> StatusCode {
+    app.json(
+        Method::POST,
+        "/api/v1/auth/register",
+        Auth::None,
+        &serde_json::json!({
+            "username": username,
+            "email": email,
+            "password": PASSWORD,
+        }),
+    )
+    .await
+    .status()
+}
+
+async fn confirm_registration(app: &TestApp, token: &str) -> axum::response::Response {
+    app.json(
+        Method::POST,
+        "/api/v1/auth/register/confirm",
+        Auth::None,
+        &serde_json::json!({ "token": token }),
+    )
+    .await
+}
+
+/// Waits for the row the handler writes after it has answered.
+///
+/// Everything that depends on whether the address is known happens off the
+/// request path on purpose — hashing a password takes about a tenth of a second
+/// and a taken address skips it, which is a membership oracle anyone can read
+/// with a stopwatch. The cost of that decision is paid here: a test cannot look
+/// straight after the response and expect the row to be there.
+// `clippy.toml`'s test exemptions only reach code inside a `#[test]` body, and
+// this is a helper. Failing is the only thing a fixture that cannot find what it
+// is waiting for has to report.
+#[expect(
+    clippy::expect_used,
+    clippy::panic,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn wait_for_pending(
+    app: &TestApp,
+    email: &str,
+) -> tessera_server::db::repository::pending_registration::PendingRegistration {
+    let address = tessera_core::EmailAddress::parse(email).expect("an address");
+    for _ in 0..600 {
+        if let Some(pending) = app
+            .state
+            .pending
+            .find_by_email(&address)
+            .await
+            .expect("query")
+        {
+            return pending;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    panic!("no registration was recorded for {email} within six seconds");
+}
+
+/// Registers and follows the link, for tests that need an account to exist on an
+/// instance that sends mail.
+///
+/// The link is re-minted from the recorded row rather than read out of the
+/// message, because the token exists nowhere else — that is what storing only a
+/// digest buys. What is asserted along the way is that the handler recorded the
+/// registration it was asked for, so the only part not covered here is the two
+/// lines that put the secret into the letter.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn register_verified(app: &TestApp, username: &str) -> String {
+    let email = format!("{username}@example.com");
+    assert_eq!(
+        ask_to_register(app, username, &email).await,
+        StatusCode::ACCEPTED
+    );
+
+    let pending = wait_for_pending(app, &email).await;
+    assert_eq!(pending.username.as_str(), username);
+
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            &pending.username,
+            &pending.email,
+            pending.password_hash.clone(),
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue");
+
+    let response = expect_status(
+        confirm_registration(app, secret.expose()).await,
+        StatusCode::CREATED,
+    )
+    .await;
+    session_cookie(&response)
+}
+
+/// The property the `202` exists to have. A registration form that says "that
+/// address is taken" is the same membership question `POST /auth/password-reset`
+/// refuses to answer, reachable through a different door — and this one needs no
+/// account and no code, just the form every visitor can see.
+#[tokio::test]
+async fn registering_answers_the_same_for_a_free_and_a_taken_address() {
+    let app = app_with_mail().await;
+    register_verified(&app, "member").await;
+
+    assert_eq!(
+        ask_to_register(&app, "someone", "member@example.com").await,
+        StatusCode::ACCEPTED
+    );
+    assert_eq!(
+        ask_to_register(&app, "someone", "nobody@example.com").await,
+        StatusCode::ACCEPTED,
+        "an address with no account must be indistinguishable from one with"
+    );
+}
+
+/// Being refused must not answer it either — the same hole that was live in the
+/// reset handler, where the limit was only ever reached by addresses that had an
+/// account behind them.
+#[tokio::test]
+async fn being_throttled_says_nothing_about_membership_either() {
+    let app = app_with_mail().await;
+    register_verified(&app, "member").await;
+
+    for attempt in 0..4 {
+        ask_to_register(&app, &format!("probe-a{attempt}"), "member@example.com").await;
+        ask_to_register(&app, &format!("probe-b{attempt}"), "ghost@example.com").await;
+    }
+
+    assert_eq!(
+        ask_to_register(&app, "probe-x", "member@example.com").await,
+        ask_to_register(&app, "probe-y", "ghost@example.com").await
+    );
+    assert_eq!(
+        ask_to_register(&app, "probe-x", "member@example.com").await,
+        StatusCode::TOO_MANY_REQUESTS,
+        "and both must actually be refused, or the limit does nothing"
+    );
+}
+
+/// Registration must not spend the reset budget. If it did, typing somebody's
+/// address into the registration form three times would take away their way back
+/// into the account — a worse outcome than the six messages an hour that two
+/// counters allow.
+#[tokio::test]
+async fn registering_at_an_address_does_not_use_up_its_resets() {
+    let app = app_with_mail().await;
+    register_verified(&app, "member").await;
+
+    for attempt in 0..5 {
+        ask_to_register(&app, &format!("probe-a{attempt}"), "member@example.com").await;
+    }
+    assert_eq!(
+        ask_to_register(&app, "probe-z", "member@example.com").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+
+    assert_eq!(
+        ask_for_reset(&app, "member@example.com").await,
+        StatusCode::ACCEPTED,
+        "the account holder must still be able to ask for a reset"
+    );
+}
+
+/// A name is answered plainly where an address is not, and the asymmetry is
+/// deliberate: a name is already half public — a share page names whoever
+/// uploaded it — and a form that cannot say "try another one" is a form nobody
+/// can complete.
+#[tokio::test]
+async fn a_taken_name_is_refused_outright() {
+    let app = app_with_mail().await;
+    register_verified(&app, "member").await;
+
+    assert_eq!(
+        ask_to_register(&app, "member", "somebody-else@example.com").await,
+        StatusCode::CONFLICT
+    );
+}
+
+/// The point of the whole change: until the link is followed there is nothing to
+/// sign in to, so an address somebody does not control never becomes an account.
+#[tokio::test]
+async fn nothing_exists_until_the_link_is_followed() {
+    let app = app_with_mail().await;
+    assert_eq!(
+        ask_to_register(&app, "member", "member@example.com").await,
+        StatusCode::ACCEPTED
+    );
+    wait_for_pending(&app, "member@example.com").await;
+
+    assert!(
+        app.state
+            .users
+            .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+            .await
+            .expect("query")
+            .is_none(),
+        "the account must not exist yet"
+    );
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "member", "password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED,
+        "and the password chosen for it must not work"
+    );
+
+    // And the name is still free, because nothing was reserved: reserving it
+    // would make "register and never confirm" a way to lock every good name
+    // away, with nothing an operator could do about it.
+    assert_eq!(
+        ask_to_register(&app, "member", "another@example.com").await,
+        StatusCode::ACCEPTED
+    );
+}
+
+/// Following the link is what creates the account, and it arrives verified —
+/// that is the whole of what was waited for.
+#[tokio::test]
+async fn the_link_creates_a_verified_account_and_signs_it_in() {
+    let app = app_with_mail().await;
+    let cookie = register_verified(&app, "member").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    assert!(user.email_verified_at.is_some(), "it was just confirmed");
+    assert!(user.is_admin, "the first account to exist administers it");
+
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// Unknown, spent and expired all answer the same way, for the same reason the
+/// reset links do: saying which would tell somebody holding a stale link that it
+/// was once real.
+#[tokio::test]
+async fn an_unusable_registration_link_says_only_that() {
+    let app = app_with_mail().await;
+    assert_eq!(
+        confirm_registration(&app, "not a real token")
+            .await
+            .status(),
+        StatusCode::BAD_REQUEST
+    );
+
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            &tessera_core::Username::parse("member").expect("a name"),
+            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
+            "not a real hash".to_owned(),
+            now - time::Duration::hours(48),
+            now - time::Duration::hours(24),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::BAD_REQUEST,
+        "an expired link must say the same as an unknown one"
+    );
+}
+
+/// The row is deleted when it becomes an account, so the link cannot be replayed
+/// into a second one.
+#[tokio::test]
+async fn a_registration_link_works_once() {
+    let app = app_with_mail().await;
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            &tessera_core::Username::parse("member").expect("a name"),
+            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
+            tessera_server::auth::password::hash(
+                tessera_core::Password::parse(
+                    PASSWORD.to_owned(),
+                    tessera_core::PasswordPolicy::default(),
+                )
+                .expect("a password"),
+            )
+            .await
+            .expect("hash"),
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::CREATED
+    );
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+/// Asking again replaces the link rather than adding one. Two live links in one
+/// mailbox means the older keeps working after the newer has been used, and
+/// there is no reason for that to be possible.
+#[tokio::test]
+async fn asking_again_replaces_the_earlier_link() {
+    let app = app_with_mail().await;
+    let now = time::OffsetDateTime::now_utc();
+    let address = tessera_core::EmailAddress::parse("member@example.com").expect("an address");
+    let name = tessera_core::Username::parse("member").expect("a name");
+    let expires = now.saturating_add(time::Duration::hours(24));
+
+    let first = app
+        .state
+        .pending
+        .start(&name, &address, "first".to_owned(), now, expires)
+        .await
+        .expect("issue");
+    let second = app
+        .state
+        .pending
+        .start(&name, &address, "second".to_owned(), now, expires)
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm_registration(&app, first.expose()).await.status(),
+        StatusCode::BAD_REQUEST,
+        "the earlier link must have stopped working"
+    );
+    assert_eq!(
+        confirm_registration(&app, second.expose()).await.status(),
+        StatusCode::CREATED
+    );
+}
+
+/// Nothing was reserved while the message sat in an inbox, so the name is
+/// checked against today's accounts. Somebody can be told at this point that it
+/// went to another person — rare, recoverable, and a much smaller problem than
+/// a registration form that hands out permanent holds on names.
+#[tokio::test]
+async fn a_name_taken_while_waiting_is_refused_at_confirmation() {
+    let app = app_with_mail().await;
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            &tessera_core::Username::parse("member").expect("a name"),
+            &tessera_core::EmailAddress::parse("first@example.com").expect("an address"),
+            "a hash".to_owned(),
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue");
+
+    register_verified(&app, "member").await;
+
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// An address that gained an account while the link was waiting is answered like
+/// an unusable link rather than as a conflict. The address is not this caller's
+/// to be told about — and whoever they are, they have a working password for it
+/// either way.
+#[tokio::test]
+async fn an_address_that_gained_an_account_while_waiting_is_refused() {
+    let app = app_with_mail().await;
+    // The account first: the pending row is keyed on the address, so seeding it
+    // before the registration that uses the same one would just be overwritten.
+    register_verified(&app, "member").await;
+
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            &tessera_core::Username::parse("second").expect("a name"),
+            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
+            "a hash".to_owned(),
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+/// Without a relay there is nothing to verify with, so registration is what it
+/// always was. This is the ordinary case for the instance this was built for:
+/// one person on a NAS, who is also the one who set the address.
+#[tokio::test]
+async fn an_instance_without_mail_creates_the_account_outright() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+
+    assert_eq!(
+        ask_to_register(&app, "second", "member@example.com").await,
+        StatusCode::CONFLICT,
+        "with nothing to verify against, a taken address is said plainly"
+    );
+    assert_eq!(
+        confirm_registration(&app, "any token at all")
+            .await
+            .status(),
+        StatusCode::NOT_FOUND,
+        "and there is no link to confirm"
+    );
+}
+
+/// Which of the two an instance does is not something a client can guess from a
+/// `201`, so it is declared. A client that reads this wrong shows "welcome" to
+/// somebody who has to go and read their mail first.
+#[tokio::test]
+async fn capabilities_says_whether_registration_waits_on_the_address() {
+    let plain = TestApp::ready().await;
+    let body =
+        body_json(expect_status(plain.get("/api/v1/capabilities").await, StatusCode::OK).await)
+            .await;
+    assert_eq!(body["registration_requires_confirmation"], false);
+
+    let with_mail = app_with_mail().await;
+    let body =
+        body_json(expect_status(with_mail.get("/api/v1/capabilities").await, StatusCode::OK).await)
+            .await;
+    assert_eq!(body["registration_requires_confirmation"], true);
+}
+
+/// Closed registration is refused before any of this, so a closed instance is
+/// not a way to make it send mail.
+#[tokio::test]
+async fn closed_registration_sends_nothing() {
+    let app = TestApp::with_config(|config| {
+        "smtp.invalid".clone_into(&mut config.mail.host);
+        "tessera@example.com".clone_into(&mut config.mail.from);
+        "https://tessera.example.com".clone_into(&mut config.mail.public_url);
+        config.auth.registration = RegistrationPolicy::Closed;
+    })
+    .await;
+
+    assert_eq!(
+        ask_to_register(&app, "member", "member@example.com").await,
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// A registration nobody confirmed is swept, so an abandoned attempt does not
+/// hold an address against a later one for ever.
+#[tokio::test]
+async fn abandoned_registrations_are_swept() {
+    let app = app_with_mail().await;
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .pending
+        .start(
+            &tessera_core::Username::parse("member").expect("a name"),
+            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
+            "a hash".to_owned(),
+            now - time::Duration::hours(48),
+            now - time::Duration::hours(24),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        app.state.pending.delete_expired(now).await.expect("sweep"),
+        1
     );
 }

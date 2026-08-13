@@ -11,6 +11,7 @@
 
 pub mod api_token;
 pub mod password_reset_token;
+pub mod pending_registration;
 pub mod session;
 pub mod share;
 pub mod share_content;

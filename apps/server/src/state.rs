@@ -15,6 +15,7 @@ use crate::{
     db::repository::{
         api_token::ApiTokenRepository,
         password_reset::PasswordResetRepository,
+        pending_registration::PendingRegistrationRepository,
         session::SessionRepository,
         share::{ShareRepository, ShareTicketRepository},
         user::UserRepository,
@@ -58,6 +59,8 @@ pub struct AppState {
     pub tickets: ShareTicketRepository,
     /// Outstanding password reset links.
     pub resets: PasswordResetRepository,
+    /// Registrations waiting on their address to be confirmed.
+    pub pending: PendingRegistrationRepository,
     /// The relay, when this instance has one.
     ///
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
@@ -101,6 +104,7 @@ impl AppState {
         Self {
             users: UserRepository::new(db.clone()),
             resets: PasswordResetRepository::new(db.clone()),
+            pending: PendingRegistrationRepository::new(db.clone()),
             mailer,
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),
