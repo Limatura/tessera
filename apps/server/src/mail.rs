@@ -1,0 +1,199 @@
+//! Sending mail, when the instance is set up to.
+//!
+//! # The whole module is optional twice over
+//!
+//! Once at compile time (the `email` cargo feature, on by default because it
+//! costs 37 KB) and once at run time (an empty `mail.host`, which is the
+//! default). Neither is the usual case for the audience this is built for: one
+//! person on a NAS gets back into a forgotten account with `reset-password` on
+//! the box, and never configures a relay at all.
+//!
+//! What follows from that is the shape of [`Mailer::from_config`] — it returns
+//! `None` rather than failing, and every caller treats `None` as "this instance
+//! does not do that" rather than as an error to report.
+
+/// Anything that stopped a message being handed to the relay.
+#[derive(Debug, thiserror::Error)]
+pub enum MailError {
+    /// The address, subject or body was not something a message can be built
+    /// from.
+    #[error("could not build the message: {0}")]
+    Build(String),
+
+    /// The relay refused it, or could not be reached.
+    #[error("could not send the message: {0}")]
+    Send(String),
+}
+
+/// One outgoing message.
+#[derive(Debug, Clone)]
+pub struct Letter {
+    /// Who it goes to.
+    pub to: String,
+    /// Subject line.
+    pub subject: String,
+    /// Plain text body.
+    ///
+    /// Text only, and that is a decision rather than a shortcut: a password
+    /// reset is one sentence and a link, HTML would add a way for it to render
+    /// as a blank page in somebody's client, and a mail with a *hidden* link is
+    /// exactly the shape people are told to distrust.
+    pub body: String,
+}
+
+#[cfg(feature = "email")]
+mod smtp {
+    use lettre::{
+        AsyncSmtpTransport, AsyncTransport as _, Message, Tokio1Executor,
+        message::header::ContentType, transport::smtp::authentication::Credentials,
+    };
+
+    use super::{Letter, MailError};
+    use crate::config::MailConfig;
+
+    /// A configured relay.
+    #[derive(Clone)]
+    pub struct Mailer {
+        transport: AsyncSmtpTransport<Tokio1Executor>,
+        from: String,
+    }
+
+    impl std::fmt::Debug for Mailer {
+        fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            // The transport holds the credentials, so it does not get printed.
+            formatter
+                .debug_struct("Mailer")
+                .field("from", &self.from)
+                .finish_non_exhaustive()
+        }
+    }
+
+    impl Mailer {
+        /// Builds a relay from configuration, or `None` when there is none.
+        ///
+        /// # Errors
+        ///
+        /// When the host is set but unusable as a relay address.
+        pub fn from_config(config: &MailConfig) -> Result<Option<Self>, MailError> {
+            if !config.is_configured() {
+                return Ok(None);
+            }
+
+            // `starttls_relay` for 587 and `relay` for everything else, because
+            // that is what the ports mean: 587 is submission, which opens in
+            // clear and upgrades, and 465 is implicit TLS from the first byte.
+            // Getting this the wrong way round produces a handshake error that
+            // reads as a certificate problem.
+            let builder = if config.port == 587 {
+                AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.host)
+            } else {
+                AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host)
+            }
+            .map_err(|error| MailError::Build(error.to_string()))?;
+
+            let mut builder = builder.port(config.port);
+            if !config.username.is_empty() {
+                builder = builder.credentials(Credentials::new(
+                    config.username.clone(),
+                    config.password.clone(),
+                ));
+            }
+
+            Ok(Some(Self {
+                transport: builder.build(),
+                from: config.from.clone(),
+            }))
+        }
+
+        /// Hands a message to the relay.
+        ///
+        /// # Errors
+        ///
+        /// [`MailError`] when the message cannot be built or the relay refuses.
+        pub async fn send(&self, letter: Letter) -> Result<(), MailError> {
+            let message =
+                Message::builder()
+                    .from(self.from.parse().map_err(|_| {
+                        MailError::Build(format!("bad from address `{}`", self.from))
+                    })?)
+                    .to(letter
+                        .to
+                        .parse()
+                        .map_err(|_| MailError::Build(format!("bad recipient `{}`", letter.to)))?)
+                    .subject(letter.subject)
+                    .header(ContentType::TEXT_PLAIN)
+                    .body(letter.body)
+                    .map_err(|error| MailError::Build(error.to_string()))?;
+
+            self.transport
+                .send(message)
+                .await
+                .map(|_| ())
+                .map_err(|error| MailError::Send(error.to_string()))
+        }
+    }
+}
+
+#[cfg(not(feature = "email"))]
+mod smtp {
+    use super::{Letter, MailError};
+    use crate::config::MailConfig;
+
+    /// A relay, on a build with the `email` feature off.
+    ///
+    /// Constructing one is impossible, so every path that would send is dead
+    /// code the optimiser removes. The type exists so the rest of the server
+    /// compiles either way rather than being littered with `cfg`.
+    #[derive(Debug, Clone)]
+    pub struct Mailer(std::convert::Infallible);
+
+    impl Mailer {
+        /// Always `None`: this build cannot send mail.
+        ///
+        /// # Errors
+        ///
+        /// Never.
+        pub const fn from_config(_config: &MailConfig) -> Result<Option<Self>, MailError> {
+            Ok(None)
+        }
+
+        /// Unreachable — there is no way to hold one of these.
+        ///
+        /// # Errors
+        ///
+        /// Never.
+        pub async fn send(&self, _letter: Letter) -> Result<(), MailError> {
+            match self.0 {}
+        }
+    }
+}
+
+pub use smtp::Mailer;
+
+/// Composes the message a password reset sends.
+///
+/// Kept here rather than in the handler so the wording is in one place and can
+/// be read without the routing around it.
+#[must_use]
+pub fn password_reset_letter(to: &str, link: &str, minutes: u64) -> Letter {
+    Letter {
+        to: to.to_owned(),
+        subject: "Reset your tessera password".to_owned(),
+        body: format!(
+            "Somebody asked to reset the password for this address.\n\n\
+             Open this link to choose a new one:\n\n{link}\n\n\
+             It works once and stops working in {minutes} minutes.\n\n\
+             If this was not you, nothing has happened yet and you can ignore this — \
+             the link cannot be used without opening it.\n"
+        ),
+    }
+}
+
+/// Whether this build can send at all.
+///
+/// Used at start-up to say something when the configuration asks for mail that
+/// the binary cannot deliver — a combination that is otherwise silent.
+#[must_use]
+pub const fn compiled_in() -> bool {
+    cfg!(feature = "email")
+}

@@ -121,6 +121,12 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one password reset link.
+    PasswordResetTokenId,
+    "password_reset_token_id"
+);
+
+declare_id!(
     /// Identifies one authorisation to retrieve a share.
     ShareTicketId,
     "share_ticket_id"

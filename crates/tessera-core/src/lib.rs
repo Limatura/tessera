@@ -45,7 +45,7 @@ pub use crate::{
     code::RetrievalCode,
     email::EmailAddress,
     error::DomainError,
-    id::{ApiTokenId, SessionId, ShareId, ShareTicketId, UserId},
+    id::{ApiTokenId, PasswordResetTokenId, SessionId, ShareId, ShareTicketId, UserId},
     password::{Password, PasswordPolicy},
     username::Username,
 };

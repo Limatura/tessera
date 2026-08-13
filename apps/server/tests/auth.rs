@@ -733,3 +733,333 @@ async fn the_sweep_removes_sessions_nobody_returns_for() {
         .expect("sweep");
     assert_eq!(removed, 0);
 }
+
+// ── password reset ──────────────────────────────────────────────────
+
+/// An instance with a relay configured.
+///
+/// The host points nowhere on purpose: every test here asserts on what the
+/// *API* does, and sending must not be what decides that. A relay that cannot
+/// be reached is also the honest case to pin — the response has to be identical
+/// whether the mail went out or not.
+async fn app_with_mail() -> TestApp {
+    TestApp::with_config(|config| {
+        "smtp.invalid".clone_into(&mut config.mail.host);
+        "tessera@example.com".clone_into(&mut config.mail.from);
+        "https://tessera.example.com".clone_into(&mut config.mail.public_url);
+    })
+    .await
+}
+
+async fn ask_for_reset(app: &TestApp, email: &str) -> StatusCode {
+    app.json(
+        Method::POST,
+        "/api/v1/auth/password-reset",
+        Auth::None,
+        &serde_json::json!({ "email": email }),
+    )
+    .await
+    .status()
+}
+
+/// The property the whole endpoint exists to have: the response says nothing
+/// about whether the address belongs to anybody.
+///
+/// Anything else turns this into "does this person have an account here",
+/// answerable by anyone at the rate the throttle allows.
+#[tokio::test]
+async fn a_reset_request_answers_the_same_for_strangers_and_members() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+
+    assert_eq!(
+        ask_for_reset(&app, "member@example.com").await,
+        StatusCode::ACCEPTED
+    );
+    assert_eq!(
+        ask_for_reset(&app, "nobody@example.com").await,
+        StatusCode::ACCEPTED,
+        "an address with no account must be indistinguishable from one with"
+    );
+    assert_eq!(
+        ask_for_reset(&app, "not an address at all").await,
+        StatusCode::ACCEPTED,
+        "even a malformed address, or that is one more way the answers differ"
+    );
+}
+
+/// The relay here is unreachable, so this also pins that a send failure does not
+/// change the answer — otherwise a broken relay would leak membership.
+#[tokio::test]
+async fn a_failed_send_is_still_accepted() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+    assert_eq!(
+        ask_for_reset(&app, "member@example.com").await,
+        StatusCode::ACCEPTED
+    );
+}
+
+/// Without a relay the endpoint is mounted but answers 404, the same as every
+/// other switched-off feature. `/capabilities` is what a client reads.
+#[tokio::test]
+async fn an_instance_without_mail_offers_no_reset() {
+    let app = TestApp::ready().await;
+    assert_eq!(
+        ask_for_reset(&app, "someone@example.com").await,
+        StatusCode::NOT_FOUND
+    );
+
+    let body =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert_eq!(body["password_reset"], false);
+}
+
+#[tokio::test]
+async fn an_instance_with_mail_says_so() {
+    let app = app_with_mail().await;
+    let body =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert_eq!(body["password_reset"], true);
+}
+
+/// Keyed on the address, so one inbox cannot be buried — and counted only when
+/// a message would actually be sent, so an address with no account cannot be
+/// used to burn somebody else's budget.
+#[tokio::test]
+async fn reset_requests_are_limited_per_address() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+
+    for _ in 0..3 {
+        assert_eq!(
+            ask_for_reset(&app, "member@example.com").await,
+            StatusCode::ACCEPTED
+        );
+    }
+    assert_eq!(
+        ask_for_reset(&app, "member@example.com").await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+
+    // A different address is unaffected, which is what keying on the address
+    // means.
+    register(&app, "other").await;
+    assert_eq!(
+        ask_for_reset(&app, "other@example.com").await,
+        StatusCode::ACCEPTED
+    );
+}
+
+/// An address nobody owns must not consume the real owner's budget.
+#[tokio::test]
+async fn requests_for_unknown_addresses_cost_nothing() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+
+    for _ in 0..10 {
+        assert_eq!(
+            ask_for_reset(&app, "ghost@example.com").await,
+            StatusCode::ACCEPTED
+        );
+    }
+    // The real address still has its full allowance.
+    assert_eq!(
+        ask_for_reset(&app, "member@example.com").await,
+        StatusCode::ACCEPTED
+    );
+}
+
+async fn confirm(app: &TestApp, token: &str, password: &str) -> StatusCode {
+    app.json(
+        Method::POST,
+        "/api/v1/auth/password-reset/confirm",
+        Auth::None,
+        &serde_json::json!({ "token": token, "password": password }),
+    )
+    .await
+    .status()
+}
+
+/// Unknown, spent and expired all answer the same way. They differ to us — which
+/// is why the row survives being used — but saying which would tell somebody
+/// holding a spent link that it was once real, and that is a fact about
+/// another person's account.
+#[tokio::test]
+async fn an_unusable_link_says_only_that() {
+    let app = app_with_mail().await;
+    assert_eq!(
+        confirm(&app, "not a real token", PASSWORD).await,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+/// The end-to-end path, driven through the repository because the token only
+/// ever exists in the email otherwise — which is the point of storing a digest.
+#[tokio::test]
+async fn a_link_sets_the_password_once_and_ends_every_session() {
+    let app = app_with_mail().await;
+    let cookie = register(&app, "member").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .resets
+        .issue(
+            user.id,
+            now,
+            now.saturating_add(time::Duration::minutes(30)),
+        )
+        .await
+        .expect("issue");
+    let token = secret.expose();
+
+    let new_password = "an entirely different passphrase";
+    assert_eq!(
+        confirm(&app, token, new_password).await,
+        StatusCode::NO_CONTENT
+    );
+
+    // The session that existed before is gone: asking for a reset is usually
+    // somebody saying they have lost control of the account.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+
+    // The link is spent.
+    assert_eq!(
+        confirm(&app, token, "yet another passphrase").await,
+        StatusCode::BAD_REQUEST
+    );
+
+    // And the new password is the one that works.
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "member", "password": new_password }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// A password that fails the policy must leave the link usable — otherwise a
+/// typo costs somebody the whole round trip through their inbox.
+#[tokio::test]
+async fn a_rejected_password_does_not_burn_the_link() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .resets
+        .issue(
+            user.id,
+            now,
+            now.saturating_add(time::Duration::minutes(30)),
+        )
+        .await
+        .expect("issue");
+    let token = secret.expose();
+
+    assert_eq!(confirm(&app, token, "short").await, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        confirm(&app, token, "a perfectly fine replacement").await,
+        StatusCode::NO_CONTENT,
+        "the link must survive a password the policy refused"
+    );
+}
+
+/// A second outstanding link is a key somebody may still be holding, and the
+/// usual reason there are two is that the first mail went astray.
+#[tokio::test]
+async fn using_one_link_invalidates_the_others() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    let expires = now.saturating_add(time::Duration::minutes(30));
+
+    let first = app
+        .state
+        .resets
+        .issue(user.id, now, expires)
+        .await
+        .expect("issue");
+    let second = app
+        .state
+        .resets
+        .issue(user.id, now, expires)
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm(&app, second.expose(), "a perfectly fine replacement").await,
+        StatusCode::NO_CONTENT
+    );
+    assert_eq!(
+        confirm(&app, first.expose(), "something else entirely here").await,
+        StatusCode::BAD_REQUEST,
+        "the older link must stop working too"
+    );
+}
+
+/// An expired link is refused, and says the same thing as an unknown one.
+#[tokio::test]
+async fn an_expired_link_is_refused() {
+    let app = app_with_mail().await;
+    register(&app, "member").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .resets
+        .issue(
+            user.id,
+            now - time::Duration::hours(2),
+            now - time::Duration::hours(1),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm(&app, secret.expose(), "a perfectly fine replacement").await,
+        StatusCode::BAD_REQUEST
+    );
+}

@@ -131,6 +131,8 @@ pub struct Config {
     pub share: ShareConfig,
     /// Logging and tracing settings.
     pub telemetry: TelemetryConfig,
+    /// Outgoing mail. Empty `host` means this instance sends nothing.
+    pub mail: MailConfig,
 }
 
 /// Which parts of the service this instance exposes.
@@ -203,6 +205,86 @@ pub enum RegistrationPolicy {
     Invite,
     /// Nobody; accounts are created by an administrator.
     Closed,
+}
+
+/// Where outgoing mail goes, when there is any.
+///
+/// # Empty means off, not broken
+///
+/// An empty `host` is the default and the common case: the instance this was
+/// built for has one user, and the way back into a forgotten account is
+/// `reset-password` on the box itself. Nothing is mounted, nothing is
+/// advertised, and start-up says nothing — an instance that does not send mail
+/// is not missing a setting.
+///
+/// # Why not a mail server
+///
+/// Nobody should run one for this. Home connections cannot deliver mail:
+/// port 25 is blocked by most providers and receiving servers reject
+/// residential addresses regardless of SPF and DKIM. What this expects is a
+/// relay — Resend, Brevo, SES, Fastmail, or a company's own — which is four
+/// values pasted into a file.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MailConfig {
+    /// SMTP host. Empty turns off everything that sends mail.
+    pub host: String,
+
+    /// SMTP port. 587 is submission with STARTTLS, which is what relays want;
+    /// 465 is implicit TLS and also common.
+    pub port: u16,
+
+    /// SMTP username. Resend wants the literal `resend` here.
+    pub username: String,
+
+    /// SMTP password. For most relays this is an API key.
+    pub password: String,
+
+    /// The `From:` address. Must be one the relay will accept — a domain you
+    /// have verified with them, not an arbitrary address.
+    pub from: String,
+
+    /// Where this instance is reachable, used to build the links in mail.
+    ///
+    /// Configured rather than taken from the request's `Host` header, and that
+    /// is a security property rather than a convenience: a reset link built
+    /// from a header an attacker controls would point at *their* server, and
+    /// the person clicking it would hand over their token.
+    pub public_url: String,
+
+    /// How long a password reset link works for, in minutes.
+    ///
+    /// Short because the link is the credential. Long enough to survive a mail
+    /// queue and somebody reading their inbox after lunch.
+    pub reset_ttl_minutes: u64,
+}
+
+impl Default for MailConfig {
+    fn default() -> Self {
+        Self {
+            host: String::new(),
+            port: 587,
+            username: String::new(),
+            password: String::new(),
+            from: String::new(),
+            public_url: String::new(),
+            reset_ttl_minutes: 30,
+        }
+    }
+}
+
+impl MailConfig {
+    /// Whether this instance can send mail at all.
+    #[must_use]
+    pub const fn is_configured(&self) -> bool {
+        !self.host.is_empty() && !self.from.is_empty() && !self.public_url.is_empty()
+    }
+
+    /// How long a reset link is good for.
+    #[must_use]
+    pub const fn reset_ttl(&self) -> Duration {
+        Duration::from_secs(self.reset_ttl_minutes * 60)
+    }
 }
 
 /// Account and session settings.
@@ -686,7 +768,63 @@ impl Config {
         self.features.validate()?;
         self.auth.validate()?;
         self.share.validate()?;
-        self.telemetry.validate()
+        self.telemetry.validate()?;
+        self.mail.validate()
+    }
+}
+
+impl MailConfig {
+    /// Refuses a half-filled mail block.
+    ///
+    /// Being half-configured is worse than being empty: empty means the feature
+    /// does not exist and every path around it is quiet, whereas a host with no
+    /// `from` means the endpoints get mounted, the frontend draws the link, and
+    /// the failure only shows up when somebody is already locked out.
+    fn validate(&self) -> Result<(), ConfigError> {
+        let given: Vec<&str> = [
+            (!self.host.is_empty()).then_some("mail.host"),
+            (!self.from.is_empty()).then_some("mail.from"),
+            (!self.public_url.is_empty()).then_some("mail.public_url"),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+
+        if given.is_empty() || given.len() == 3 {
+            // All or nothing, which is what `is_configured` also asks.
+        } else {
+            return Err(ConfigError::Invalid {
+                field: "mail",
+                reason: format!(
+                    "set all of mail.host, mail.from and mail.public_url, or none of them                      (only {} given)",
+                    given.join(", ")
+                ),
+            });
+        }
+
+        if !self.is_configured() {
+            return Ok(());
+        }
+        if self.port == 0 {
+            return Err(ConfigError::Invalid {
+                field: "mail.port",
+                reason: "must not be 0".to_owned(),
+            });
+        }
+        if !self.public_url.starts_with("http://") && !self.public_url.starts_with("https://") {
+            return Err(ConfigError::Invalid {
+                field: "mail.public_url",
+                reason: "must start with http:// or https:// — it is the base of a link somebody                          will click"
+                    .to_owned(),
+            });
+        }
+        if self.reset_ttl_minutes == 0 {
+            return Err(ConfigError::Invalid {
+                field: "mail.reset_ttl_minutes",
+                reason: "must not be 0; a link that has already expired helps nobody".to_owned(),
+            });
+        }
+        Ok(())
     }
 }
 

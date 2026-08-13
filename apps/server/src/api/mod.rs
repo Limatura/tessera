@@ -252,6 +252,12 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::logout))
         .routes(routes!(auth::session))
         .routes(routes!(auth::change_password))
+        // Mounted even where no relay is configured, like every other switched
+        // off feature: the handler answers 404 and the document stays the same
+        // on every instance. `/capabilities` is what tells a client whether to
+        // draw the link.
+        .routes(routes!(auth::request_password_reset))
+        .routes(routes!(auth::confirm_password_reset))
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
         .routes(routes!(shares::list, shares::create))
