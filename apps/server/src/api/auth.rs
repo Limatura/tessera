@@ -542,6 +542,8 @@ pub struct PasswordResetConfirmRequest {
     request_body = PasswordResetRequest,
     responses(
         (status = 202, description = "Accepted; a link is sent if that address has an account"),
+        (status = 400, description = "The body is not the shape this expects", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
         (status = 429, description = "Too many links have been sent to this address", body = crate::error::ErrorBody),
     ),
 )]
@@ -626,6 +628,7 @@ pub async fn request_password_reset(
     responses(
         (status = 204, description = "Password set; every session ended"),
         (status = 400, description = "The link is not usable, or the password fails the policy", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
     ),
 )]
 pub async fn confirm_password_reset(

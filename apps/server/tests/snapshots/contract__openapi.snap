@@ -854,6 +854,26 @@ expression: document
           "202": {
             "description": "Accepted; a link is sent if that address has an account"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The body is not the shape this expects"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance sends no mail"
+          },
           "429": {
             "content": {
               "application/json": {
@@ -898,6 +918,16 @@ expression: document
               }
             },
             "description": "The link is not usable, or the password fails the policy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance sends no mail"
           }
         },
         "summary": "Sets a new password from a reset link.",
