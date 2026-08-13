@@ -1596,3 +1596,145 @@ async fn abandoned_registrations_are_swept() {
         1
     );
 }
+
+/// The limit protects a mailbox, not an identity. `Alice@` and `alice@` stay
+/// separate accounts on purpose — the local part is case-sensitive by the
+/// standard — but every mail provider delivers both to the same inbox, so
+/// counting them apart made the limit walkable by changing case.
+///
+/// Measured against a running instance before this was fixed: thirty-two
+/// attempts at eight spellings of a six-letter local part were answered
+/// twenty-four times, against a stated limit of three. Every extra letter in the
+/// local part doubles that.
+#[tokio::test]
+async fn spelling_an_address_differently_does_not_buy_more_messages() {
+    let app = app_with_mail().await;
+
+    let spellings = ["victim", "Victim", "vIctim", "VICTIM"];
+    let mut accepted = 0;
+    let mut attempt = 0;
+    for spelling in spellings {
+        for _ in 0..3 {
+            attempt += 1;
+            if ask_to_register(
+                &app,
+                &format!("probe{attempt:03}"),
+                &format!("{spelling}@example.com"),
+            )
+            .await
+                == StatusCode::ACCEPTED
+            {
+                accepted += 1;
+            }
+        }
+    }
+
+    assert_eq!(
+        accepted, 3,
+        "twelve attempts at four spellings of one mailbox must send three messages, not twelve"
+    );
+}
+
+/// The same hole on the reset endpoint, which had it first.
+#[tokio::test]
+async fn spelling_an_address_differently_does_not_buy_more_reset_messages() {
+    let app = app_with_mail().await;
+
+    let mut accepted = 0;
+    for spelling in ["victim", "Victim", "vIctim", "VICTIM"] {
+        for _ in 0..3 {
+            if ask_for_reset(&app, &format!("{spelling}@example.com")).await == StatusCode::ACCEPTED
+            {
+                accepted += 1;
+            }
+        }
+    }
+
+    assert_eq!(accepted, 3);
+}
+
+/// Closing registration has to mean no more accounts. Without this check it
+/// would mean "no more accounts except from the links already sent" — a day of
+/// them by default, which an operator cannot see, count or cancel. Somebody
+/// closing registration is usually reacting to something.
+#[tokio::test]
+async fn closing_registration_stops_links_that_were_already_sent() {
+    let app = TestApp::with_config(|config| {
+        "smtp.invalid".clone_into(&mut config.mail.host);
+        "tessera@example.com".clone_into(&mut config.mail.from);
+        "https://tessera.example.com".clone_into(&mut config.mail.public_url);
+        // The link went out while registration was open; this is the instance
+        // as it stands when somebody opens it.
+        config.auth.registration = RegistrationPolicy::Closed;
+    })
+    .await;
+
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            &tessera_core::Username::parse("member").expect("a name"),
+            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
+            "a hash".to_owned(),
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::FORBIDDEN
+    );
+    assert!(
+        app.state
+            .users
+            .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+            .await
+            .expect("query")
+            .is_none(),
+        "and no account came of it"
+    );
+}
+
+/// Two links asking for the same name, opened at the same moment, both read a
+/// free name before either writes. The unique index is what actually decides it,
+/// and the loser must be told that rather than shown a server error.
+#[tokio::test]
+async fn two_links_racing_for_one_name_do_not_produce_a_server_error() {
+    let app = app_with_mail().await;
+    let now = time::OffsetDateTime::now_utc();
+    let name = tessera_core::Username::parse("contested").expect("a name");
+    let expires = now.saturating_add(time::Duration::hours(24));
+
+    let mut tokens = Vec::new();
+    for address in ["first@example.com", "second@example.com"] {
+        let secret = app
+            .state
+            .pending
+            .start(
+                &name,
+                &tessera_core::EmailAddress::parse(address).expect("an address"),
+                "a hash".to_owned(),
+                now,
+                expires,
+            )
+            .await
+            .expect("issue");
+        tokens.push(secret.expose().to_owned());
+    }
+
+    let (first, second) = tokio::join!(
+        confirm_registration(&app, &tokens[0]),
+        confirm_registration(&app, &tokens[1])
+    );
+    let mut statuses = [first.status(), second.status()];
+    statuses.sort_unstable();
+
+    assert_eq!(
+        statuses,
+        [StatusCode::CREATED, StatusCode::CONFLICT],
+        "one wins the name and the other is told so; neither may be a 5xx"
+    );
+}

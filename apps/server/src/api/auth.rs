@@ -123,6 +123,22 @@ pub struct ChangePasswordRequest {
     pub new_password: String,
 }
 
+/// The key a per-address limit counts under.
+///
+/// Folded, where [`EmailAddress`] deliberately is not: the local part is
+/// case-sensitive by the standard, so `Alice@example.com` and `alice@example.com`
+/// stay separate accounts. A limit is not about identity though — it is about
+/// one mailbox, and in practice every provider delivers both to the same one.
+///
+/// Counting the unfolded address means the limit can be walked around by
+/// changing case, which is not a small margin: measured against a running
+/// instance, thirty-two attempts at eight spellings of a six-letter local part
+/// were answered twenty-four times against a stated limit of three, and a longer
+/// local part doubles that for every extra letter.
+fn address_limit_key(email: &EmailAddress) -> String {
+    email.as_str().to_lowercase()
+}
+
 /// Refuses everything when the instance has no accounts.
 ///
 /// `404`, not `403`. The endpoint genuinely is not part of this deployment, and
@@ -561,7 +577,8 @@ fn start_verified_registration(
     };
 
     let counter = &state.throttles.registration;
-    if let Decision::Deny { retry_after } = counter.check(email.as_str()) {
+    let limit_key = address_limit_key(&email);
+    if let Decision::Deny { retry_after } = counter.check(&limit_key) {
         return Err(Error::TooManyRequests {
             retry_after_secs: retry_after.as_secs(),
         });
@@ -572,7 +589,7 @@ fn start_verified_registration(
     // member and `202` for a stranger, which is the membership question this
     // endpoint refuses to answer, asked four times instead of once. The same
     // mistake was live in the reset handler and CI was green for it.
-    counter.record_failure(email.as_str());
+    counter.record_failure(&limit_key);
 
     // Detached, so the response goes out before any of it. Everything below is
     // work a free address does and a taken one skips — hashing a password, and
@@ -655,8 +672,9 @@ fn start_verified_registration(
 ///
 /// # Errors
 ///
-/// `400` when the link is unknown, spent or expired, `409` when the name went
-/// to somebody else in the meantime, `404` when this instance sends no mail.
+/// `400` when the link is unknown, spent or expired, `403` when registration was
+/// closed while this was waiting, `409` when the name went to somebody else in
+/// the meantime, `404` when this instance sends no mail.
 #[utoipa::path(
     post,
     path = "/auth/register/confirm",
@@ -665,6 +683,7 @@ fn start_verified_registration(
     responses(
         (status = 201, description = "Account created and signed in", body = AccountResponse),
         (status = 400, description = "The link is not usable, or the body is not the shape this expects", body = crate::error::ErrorBody),
+        (status = 403, description = "Registration was closed while this link was waiting", body = crate::error::ErrorBody),
         (status = 404, description = "This instance sends no mail", body = crate::error::ErrorBody),
         (status = 409, description = "The name was taken while this was waiting", body = crate::error::ErrorBody),
     ),
@@ -677,6 +696,20 @@ pub async fn confirm_registration(
     require_accounts(&state)?;
     if state.mailer.is_none() {
         return Err(Error::NotFound);
+    }
+
+    // Read again here, and not only where the link was sent. Closing
+    // registration has to mean no more accounts, and without this it would mean
+    // "no more accounts except from the links already in inboxes" — up to
+    // `registration_ttl_hours` of them, which an operator cannot see, cannot
+    // count and cannot cancel. Somebody closing registration is usually reacting
+    // to something, and a day of accounts still arriving is the opposite of what
+    // they asked for.
+    match state.config.auth.registration {
+        RegistrationPolicy::Open => {}
+        RegistrationPolicy::Invite | RegistrationPolicy::Closed => {
+            return Err(Error::Forbidden);
+        }
     }
 
     let now = OffsetDateTime::now_utc();
@@ -732,7 +765,27 @@ pub async fn confirm_registration(
         created_at: now,
         updated_at: now,
     };
-    state.users.insert(&user).await?;
+    if let Err(error) = state.users.insert(&user).await {
+        // The checks above raced with another confirmation. Decided by looking
+        // rather than by assuming every insert failure is a conflict, which
+        // would report a database outage as "that name is taken" — and the
+        // window is real: two links naming the same username, opened at the same
+        // moment, both read a free name.
+        if state
+            .users
+            .find_by_username(&user.username)
+            .await?
+            .is_some()
+            || state.users.find_by_email(&user.email).await?.is_some()
+        {
+            return Err(Error::Conflict(
+                "that username or address was taken while this link was waiting; \
+                 register again"
+                    .to_owned(),
+            ));
+        }
+        return Err(error.into());
+    }
     state.pending.finish(pending.id).await?;
 
     let cookie = start_session(&state, &user, &headers, now).await?;
@@ -814,7 +867,8 @@ pub async fn request_password_reset(
     };
 
     let throttles = &state.throttles;
-    if let Decision::Deny { retry_after } = throttles.reset.check(email.as_str()) {
+    let limit_key = address_limit_key(&email);
+    if let Decision::Deny { retry_after } = throttles.reset.check(&limit_key) {
         return Err(Error::TooManyRequests {
             retry_after_secs: retry_after.as_secs(),
         });
@@ -833,7 +887,7 @@ pub async fn request_password_reset(
     // stop it being reset for an hour. That is a nuisance with a way out (the
     // `reset-password` subcommand, which needs no mail at all), whereas the
     // oracle would be a property of the service nobody could work around.
-    throttles.reset.record_failure(email.as_str());
+    throttles.reset.record_failure(&limit_key);
 
     // Everything that depends on the account happening to exist runs detached,
     // and the response goes out before any of it.

@@ -1035,7 +1035,7 @@
     },
     "/api/v1/auth/register/confirm": {
       "post": {
-        "description": "# Why the checks happen here and not when the link was sent\n\nNothing was reserved while the message sat in an inbox. Reserving the name\nwould have made \"register and never confirm\" a free way to lock every good\nname away, with nothing an operator could do about it. The price is this:\nthe name is checked against today's accounts, and somebody can be told at\nthis point that it went to another person. That is rare, it is recoverable,\nand it is a much smaller problem than the alternative.\n\n# Errors\n\n`400` when the link is unknown, spent or expired, `409` when the name went\nto somebody else in the meantime, `404` when this instance sends no mail.",
+        "description": "# Why the checks happen here and not when the link was sent\n\nNothing was reserved while the message sat in an inbox. Reserving the name\nwould have made \"register and never confirm\" a free way to lock every good\nname away, with nothing an operator could do about it. The price is this:\nthe name is checked against today's accounts, and somebody can be told at\nthis point that it went to another person. That is rare, it is recoverable,\nand it is a much smaller problem than the alternative.\n\n# Errors\n\n`400` when the link is unknown, spent or expired, `403` when registration was\nclosed while this was waiting, `409` when the name went to somebody else in\nthe meantime, `404` when this instance sends no mail.",
         "operationId": "confirm_registration",
         "requestBody": {
           "content": {
@@ -1067,6 +1067,16 @@
               }
             },
             "description": "The link is not usable, or the body is not the shape this expects"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Registration was closed while this link was waiting"
           },
           "404": {
             "content": {
