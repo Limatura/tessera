@@ -1,0 +1,94 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_extension_tsconfig_json",
+      "label": "tsconfig.json",
+      "file_type": "code",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_tsconfig_extends",
+      "label": "extends",
+      "file_type": "code",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "ref_wxt_tsconfig_json",
+      "label": "./.wxt/tsconfig.json",
+      "file_type": "concept",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "file_type": "code",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_tsconfig_compileroptions_allowimportingtsextensions",
+      "label": "allowImportingTsExtensions",
+      "file_type": "code",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_tsconfig_compileroptions_jsx",
+      "label": "jsx",
+      "file_type": "code",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L5"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_extension_tsconfig_json",
+      "target": "$graphify-root$_apps_extension_tsconfig_extends",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_tsconfig_json",
+      "target": "ref_wxt_tsconfig_json",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L2",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_tsconfig_json",
+      "target": "$graphify-root$_apps_extension_tsconfig_compileroptions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_extension_tsconfig_compileroptions_allowimportingtsextensions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_extension_tsconfig_compileroptions_jsx",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/tsconfig.json",
+      "source_location": "L5",
+      "weight": 1.0
+    }
+  ]
+}

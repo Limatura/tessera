@@ -1,0 +1,859 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "label": "password.rs",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "label": "PasswordPolicy",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_widest",
+      "label": ".widest()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L55"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L68"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "domainerror",
+      "label": "DomainError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "default",
+      "label": "Default",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L92"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_password",
+      "label": "Password",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L120"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "label": ".parse()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133"
+    },
+    {
+      "id": "into",
+      "label": "Into",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_password_expose",
+      "label": ".expose()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L159"
+    },
+    {
+      "id": "debug",
+      "label": "Debug",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_password_fmt",
+      "label": ".fmt()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L167"
+    },
+    {
+      "id": "formatter",
+      "label": "Formatter",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "partialeq",
+      "label": "PartialEq",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_password_eq",
+      "label": ".eq()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L177"
+    },
+    {
+      "id": "eq",
+      "label": "Eq",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "tryfrom",
+      "label": "TryFrom",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "label": ".try_from()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L197"
+    },
+    {
+      "id": "error",
+      "label": "Error",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/password.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_the_widest_policy_admits_every_valid_policy",
+      "label": "the_widest_policy_admits_every_valid_policy()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L212"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_accepts_a_passphrase",
+      "label": "accepts_a_passphrase()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L241"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_rejects_passwords_below_the_policy",
+      "label": "rejects_passwords_below_the_policy()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L250"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_rejects_passwords_above_the_policy",
+      "label": "rejects_passwords_above_the_policy()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L255"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_preserves_surrounding_whitespace",
+      "label": "preserves_surrounding_whitespace()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L265"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_loginrequest",
+      "label": "LoginRequest",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L273"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_debug_output_never_contains_the_password",
+      "label": "debug_output_never_contains_the_password()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L280"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_rejects_unusable_policies",
+      "label": "rejects_unusable_policies()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L293"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_password_the_default_policy_is_usable",
+      "label": "the_default_policy_is_usable()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L298"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "fmt",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "deserialize",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "domainerror",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_widest",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L55",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_widest",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L68",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_validate",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L91",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L92",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L120",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "target": "into",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L133",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_expose",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L159",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "debug",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L166",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_fmt",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L167",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_fmt",
+      "target": "formatter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L167",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_fmt",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L167",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "partialeq",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L176",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_eq",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L177",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_eq",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L177",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "eq",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L189",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "tryfrom",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L191",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L191",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L197",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L197",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L197",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L197",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L197",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "prelude",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L204",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L207",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_the_widest_policy_admits_every_valid_policy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L212",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_accepts_a_passphrase",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L241",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_rejects_passwords_below_the_policy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L250",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_rejects_passwords_above_the_policy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L255",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_preserves_surrounding_whitespace",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L265",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_loginrequest",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L273",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_loginrequest",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L275",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_debug_output_never_contains_the_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L280",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_rejects_unusable_policies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L293",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rejects_unusable_policies",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L293",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_password_the_default_policy_is_usable",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L298",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "target": "self",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L150",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L198",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_password_try_from",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L198",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_the_widest_policy_admits_every_valid_policy",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_widest",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L213",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_accepts_a_passphrase",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L242",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_debug_output_never_contains_the_password",
+      "target": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L281",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_the_default_policy_is_usable",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L299",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_password_the_default_policy_is_usable",
+      "target": "$graphify-root$_crates_tessera_core_src_password_passwordpolicy_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L299",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "callee": "count",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L140"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_password_password_parse",
+      "callee": "chars",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L140"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_password_password_fmt",
+      "callee": "write_str",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L168"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_password_password_eq",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L178"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_password_password_eq",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L178"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_password_password_eq",
+      "callee": "fold",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L182"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_password_rejects_passwords_above_the_policy",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/password.rs",
+      "source_location": "L256"
+    }
+  ]
+}

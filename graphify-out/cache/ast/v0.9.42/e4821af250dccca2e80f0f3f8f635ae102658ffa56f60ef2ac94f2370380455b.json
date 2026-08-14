@@ -1,0 +1,1524 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "label": "user.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "label": "User",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L29"
+    },
+    {
+      "id": "userid",
+      "label": "UserId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "username",
+      "label": "Username",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "emailaddress",
+      "label": "EmailAddress",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_corruptrow",
+      "label": "CorruptRow",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L53"
+    },
+    {
+      "id": "domainerror",
+      "label": "DomainError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "label": ".from_model()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L67"
+    },
+    {
+      "id": "model",
+      "label": "Model",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_user_to_active_model",
+      "label": ".to_active_model()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L91"
+    },
+    {
+      "id": "activemodel",
+      "label": "ActiveModel",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "label": "UserRepository",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L112"
+    },
+    {
+      "id": "databaseconnection",
+      "label": "DatabaseConnection",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "label": "UserRepositoryError",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L118"
+    },
+    {
+      "id": "dberr",
+      "label": "DbErr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/user.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository_new",
+      "label": ".new()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L131"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "label": ".insert()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L141"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "label": ".find_by_id()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L154"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "label": ".find_by_username()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L171"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "label": ".find_by_email()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L188"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "label": ".set_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L205"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_userrepository_any_exist",
+      "label": ".any_exist()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L231"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "label": "convert()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "label": "sample()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L249"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "label": "repository()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L265"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "label": "an_account_round_trips_through_the_database()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L279"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_missing_accounts_are_none_rather_than_an_error",
+      "label": "missing_accounts_are_none_rather_than_an_error()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L305"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_lookup_is_insensitive_to_how_the_name_was_typed",
+      "label": "lookup_is_insensitive_to_how_the_name_was_typed()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L326"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_username",
+      "label": "the_unique_index_rejects_a_duplicate_username()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L339"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_email",
+      "label": "the_unique_index_rejects_a_duplicate_email()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L351"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_any_exist_answers_before_and_after_the_first_account",
+      "label": "any_exist_answers_before_and_after_the_first_account()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L363"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_a_row_that_violates_todays_rules_is_reported_not_panicked",
+      "label": "a_row_that_violates_todays_rules_is_reported_not_panicked()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L377"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_user_the_stored_account_has_nowhere_to_put_a_plaintext_password",
+      "label": "the_stored_account_has_nowhere_to_put_a_plaintext_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L400"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "sea_orm",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L23",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "user",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "username",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L33",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L35",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L37",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L45",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_corruptrow",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L53",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_corruptrow",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_corruptrow",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L67",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "target": "model",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L67",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L67",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L67",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_corruptrow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L67",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user_to_active_model",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L91",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_user_to_active_model",
+      "target": "activemodel",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L91",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L112",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L113",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L118",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_corruptrow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L125",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_new",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L131",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_new",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_new",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L141",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L141",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L141",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L141",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L154",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L154",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L154",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L154",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L154",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L154",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L171",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "target": "username",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L188",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "target": "emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L205",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_any_exist",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L231",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_any_exist",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_any_exist",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "target": "model",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L244",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L246",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "databaseconfig",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L247",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L249",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L249",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L265",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L265",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L279",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_missing_accounts_are_none_rather_than_an_error",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L305",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_lookup_is_insensitive_to_how_the_name_was_typed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L326",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_username",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L339",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_email",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L351",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_any_exist_answers_before_and_after_the_first_account",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L363",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_a_row_that_violates_todays_rules_is_reported_not_panicked",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L377",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_the_stored_account_has_nowhere_to_put_a_plaintext_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L400",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user_to_active_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L142",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L155",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L175",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_new",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L275",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L280",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L281",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L283",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L287",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L288",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_an_account_round_trips_through_the_database",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L293",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_missing_accounts_are_none_rather_than_an_error",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L306",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_lookup_is_insensitive_to_how_the_name_was_typed",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L327",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_lookup_is_insensitive_to_how_the_name_was_typed",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L328",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_lookup_is_insensitive_to_how_the_name_was_typed",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L329",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_username",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L340",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_username",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L341",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_username",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L342",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_email",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L352",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_email",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L353",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_the_unique_index_rejects_a_duplicate_email",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L354",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_any_exist_answers_before_and_after_the_first_account",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_repository",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L364",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_any_exist_answers_before_and_after_the_first_account",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L366",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_any_exist_answers_before_and_after_the_first_account",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_sample",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L367",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_a_row_that_violates_todays_rules_is_reported_not_panicked",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_userrepository_new",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L383",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_user_a_row_that_violates_todays_rules_is_reported_not_panicked",
+      "target": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L391",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L74"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_user_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L80"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_user_to_active_model",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L94"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_user_to_active_model",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L95"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_insert",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L142"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_id",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L176"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L177"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_username",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L177"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L193"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L194"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_find_by_email",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L194"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L212"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L212"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L212"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L212"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_set_password",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L216"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_any_exist",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L232"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_userrepository_any_exist",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L232"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L239"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_convert",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L239"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_user_a_row_that_violates_todays_rules_is_reported_not_panicked",
+      "callee": "unwrap_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/user.rs",
+      "source_location": "L391"
+    }
+  ]
+}

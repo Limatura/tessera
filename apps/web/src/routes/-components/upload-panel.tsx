@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 
 import { GlassBackground } from "@/components/glass-background";
+import * as m from "@/paraglide/messages";
 
 import { BlobBackground } from "./blob-background";
 import { CodeUploadForm } from "./code-upload-form";
@@ -40,23 +41,21 @@ export function UploadPanel() {
         <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
           <CardHeader>
             <CardTitle className="font-medium text-xl tracking-tight">
-              Share something
+              {m.upload_share_something()}
             </CardTitle>
-            <CardDescription>
-              Upload a file, paste code, or shorten a link.
-            </CardDescription>
+            <CardDescription>{m.upload_share_description()}</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="file">
               <TabsList className="w-full">
                 <TabsTrigger className="flex-1" value="file">
-                  File
+                  {m.upload_tab_file()}
                 </TabsTrigger>
                 <TabsTrigger className="flex-1" value="code">
-                  Code
+                  {m.upload_tab_code()}
                 </TabsTrigger>
                 <TabsTrigger className="flex-1" value="link">
-                  Link
+                  {m.upload_tab_link()}
                 </TabsTrigger>
               </TabsList>
 

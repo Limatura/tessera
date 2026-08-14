@@ -1,0 +1,215 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_telemetry_rs",
+      "label": "telemetry.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_telemetry_telemetryerror",
+      "label": "TelemetryError",
+      "file_type": "code",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L9"
+    },
+    {
+      "id": "tryiniterror",
+      "label": "TryInitError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/telemetry.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_telemetry_init",
+      "label": "init()",
+      "file_type": "code",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L25"
+    },
+    {
+      "id": "telemetryconfig",
+      "label": "TelemetryConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/telemetry.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/telemetry.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_rs",
+      "target": "tracing_subscriber",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_rs",
+      "target": "config",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_rs",
+      "target": "$graphify-root$_apps_server_src_telemetry_telemetryerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_telemetryerror",
+      "target": "tryiniterror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L12",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_rs",
+      "target": "$graphify-root$_apps_server_src_telemetry_init",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_init",
+      "target": "telemetryconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_init",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_telemetry_init",
+      "target": "$graphify-root$_apps_server_src_telemetry_telemetryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "generic_arg"
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L26"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L27"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "try_init",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L30"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L30"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "with_span_list",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L32"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "with_current_span",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L32"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "flatten_event",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L32"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L32"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "try_init",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L40"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L40"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "with_target",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L41"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_telemetry_init",
+      "callee": "with_ansi",
+      "is_member_call": true,
+      "source_file": "apps/server/src/telemetry.rs",
+      "source_location": "L41"
+    }
+  ]
+}

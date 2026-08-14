@@ -1,0 +1,661 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "label": "mod.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_migrator",
+      "label": "Migrator",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L38"
+    },
+    {
+      "id": "migratortrait",
+      "label": "MigratorTrait",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_migrator_migrations",
+      "label": ".migrations()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L42"
+    },
+    {
+      "id": "vec",
+      "label": "Vec",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "box",
+      "label": "Box",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "migrationtrait",
+      "label": "MigrationTrait",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_execute_for_backend",
+      "label": "execute_for_backend()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L61"
+    },
+    {
+      "id": "schemamanager",
+      "label": "SchemaManager",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "dberr",
+      "label": "DbErr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_execute_portable",
+      "label": "execute_portable()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L88"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "label": "execute_all()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L92"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "label": "statements()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L118"
+    },
+    {
+      "id": "iterator",
+      "label": "Iterator",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "item",
+      "label": "Item",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_splits_on_statement_boundaries_whatever_the_line_endings",
+      "label": "splits_on_statement_boundaries_whatever_the_line_endings()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L146"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_drops_comment_only_and_empty_fragments",
+      "label": "drops_comment_only_and_empty_fragments()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L155"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_keeps_comments_that_precede_a_statement",
+      "label": "keeps_comments_that_precede_a_statement()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L163"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_a_trailing_statement_without_a_newline_still_counts",
+      "label": "a_trailing_statement_without_a_newline_still_counts()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L173"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_has_the_same_statement_count",
+      "label": "every_dialect_file_has_the_same_statement_count()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L224"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_touches_the_same_tables",
+      "label": "every_dialect_file_touches_the_same_tables()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L243"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "sea_orm_migration",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L34",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_migrator",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_migrator",
+      "target": "migratortrait",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L41",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_migrator",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_migrator_migrations",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_migrator_migrations",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L42",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_migrator_migrations",
+      "target": "box",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L42",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_migrator_migrations",
+      "target": "migrationtrait",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L42",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_execute_for_backend",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_for_backend",
+      "target": "schemamanager",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L61",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_for_backend",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L61",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_for_backend",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L61",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_execute_portable",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L88",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_portable",
+      "target": "schemamanager",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L88",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_portable",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L88",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_portable",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L88",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L92",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "target": "schemamanager",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "target": "iterator",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "target": "item",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L137",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L139",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_splits_on_statement_boundaries_whatever_the_line_endings",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L146",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_drops_comment_only_and_empty_fragments",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L155",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_keeps_comments_that_precede_a_statement",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L163",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_a_trailing_statement_without_a_newline_still_counts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L173",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_has_the_same_statement_count",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L224",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_touches_the_same_tables",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L243",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_for_backend",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L80",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_portable",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L94",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_splits_on_statement_boundaries_whatever_the_line_endings",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L147",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_drops_comment_only_and_empty_fragments",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L157",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_keeps_comments_that_precede_a_statement",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L167",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_a_trailing_statement_without_a_newline_still_counts",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L174",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_has_the_same_statement_count",
+      "target": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L226",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_execute_for_backend",
+      "callee": "get_database_backend",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L67"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "callee": "get_connection",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L93"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_execute_all",
+      "callee": "execute_unprepared",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L95"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L119"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "split",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L119"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "replace",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L119"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L121"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "trim_end_matches",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L121"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L121"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "lines",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L128"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L129"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_statements",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_has_the_same_statement_count",
+      "callee": "count",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L226"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_has_the_same_statement_count",
+      "callee": "count",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L230"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_migration_mod_every_dialect_file_touches_the_same_tables",
+      "callee": "tables",
+      "is_member_call": false,
+      "source_file": "apps/server/src/db/migration/mod.rs",
+      "source_location": "L259"
+    }
+  ]
+}

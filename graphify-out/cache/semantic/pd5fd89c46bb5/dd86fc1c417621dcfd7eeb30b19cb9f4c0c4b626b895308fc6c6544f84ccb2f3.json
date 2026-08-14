@@ -1,0 +1,69 @@
+{
+  "nodes": [
+    {
+      "id": "apps_fumadocs_content_docs_index",
+      "label": "Fumadocs Docs Index Page",
+      "file_type": "document",
+      "source_file": "apps/fumadocs/content/docs/index.mdx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "tessera_docker_build_docs_note",
+      "label": "Tessera Docker Build (from fumadocs index page)",
+      "file_type": "document",
+      "source_file": "apps/fumadocs/content/docs/index.mdx",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "fumadocs_framework",
+      "target": "tanstack_start",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/fumadocs/content/docs/index.mdx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_fumadocs_content_docs_index",
+      "target": "tessera_docker_build_docs_note",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/fumadocs/content/docs/index.mdx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_docker_build_docs_note",
+      "target": "tessera_server_crate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/fumadocs/content/docs/index.mdx",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_docker_build_docs_note",
+      "target": "tessera_embedded_spa_rationale",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/fumadocs/content/docs/index.mdx",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": []
+}

@@ -1,0 +1,835 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_rs",
+      "label": "pending_registration.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "label": "PendingRegistration",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L20"
+    },
+    {
+      "id": "pendingregistrationid",
+      "label": "PendingRegistrationId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "username",
+      "label": "Username",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "emailaddress",
+      "label": "EmailAddress",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_is_usable_at",
+      "label": ".is_usable_at()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L36"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "label": ".from_model()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L40"
+    },
+    {
+      "id": "model",
+      "label": "Model",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "userrepositoryerror",
+      "label": "UserRepositoryError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "label": "PendingRegistrationRepository",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L61"
+    },
+    {
+      "id": "databaseconnection",
+      "label": "DatabaseConnection",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_new",
+      "label": ".new()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L68"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "label": ".start()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82"
+    },
+    {
+      "id": "secret",
+      "label": "Secret",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "label": ".find_by_secret()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L127"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/pending_registration.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "label": ".find_by_email()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L155"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_finish",
+      "label": ".finish()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L174"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_delete_expired",
+      "label": ".delete_expired()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L186"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_rs",
+      "target": "sea_orm",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L8",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "target": "pendingregistrationid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "target": "username",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "target": "emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L30",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_is_usable_at",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L36",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_is_usable_at",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L40",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "target": "model",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L40",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L40",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L40",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "target": "userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L40",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L62",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_new",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L68",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_new",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_new",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "username",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "target": "userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L127",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "target": "userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L155",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "target": "emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L155",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L155",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L155",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L155",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "target": "userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L155",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_finish",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L174",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_finish",
+      "target": "pendingregistrationid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L174",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_finish",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L174",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_finish",
+      "target": "userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L174",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_delete_expired",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L186",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_delete_expired",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L186",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_delete_expired",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L186",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_delete_expired",
+      "target": "userrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L186",
+      "weight": 1.0,
+      "context": "generic_arg"
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L46"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistration_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L52"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L93"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L94"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "callee": "digest",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L96"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L101"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "callee": "on_conflict",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L101"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_start",
+      "callee": "update_columns",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L107"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L131"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L132"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "callee": "digest",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L132"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_secret",
+      "callee": "as_ref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L159"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L160"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L160"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L163"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_find_by_email",
+      "callee": "as_ref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L163"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_finish",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L175"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_delete_expired",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L187"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_pending_registration_pendingregistrationrepository_delete_expired",
+      "callee": "lt",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/pending_registration.rs",
+      "source_location": "L188"
+    }
+  ]
+}

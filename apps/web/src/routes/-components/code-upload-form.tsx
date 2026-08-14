@@ -31,7 +31,7 @@ const LANGUAGES = [
   { label: "JavaScript", value: "javascript" },
   { label: "TypeScript", value: "typescript" },
   { label: "Python", value: "python" },
-  { label: "html", value: "html" },
+  { label: "HTML", value: "html" },
   { label: "CSS", value: "css" },
   { label: "JSON", value: "json" },
   { label: "Markdown", value: "markdown" },
@@ -42,7 +42,6 @@ const LANGUAGES = [
   { label: "Go", value: "go" },
 ] as const;
 
-// plaintext 沒有對應 extension,不放進 map
 const LANGUAGE_EXTENSIONS: Record<string, Extension> = {
   cpp: cpp(),
   css: css(),

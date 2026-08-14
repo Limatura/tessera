@@ -1,0 +1,385 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_api_capabilities_rs",
+      "label": "capabilities.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "label": "Capabilities",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L36"
+    },
+    {
+      "id": "registrationpolicy",
+      "label": "RegistrationPolicy",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "label": ".from_state()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L142"
+    },
+    {
+      "id": "appstate",
+      "label": "AppState",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "state",
+      "label": "State",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "maybeuser",
+      "label": "MaybeUser",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    },
+    {
+      "id": "json",
+      "label": "Json",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/capabilities.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_rs",
+      "target": "axum",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L4",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_rs",
+      "target": "toschema",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_rs",
+      "target": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L36",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "registrationpolicy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L83",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L90",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L125",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L130",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L142",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L142",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L142",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_rs",
+      "target": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L198",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L198",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L198",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "maybeuser",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L198",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L198",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "json",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L198",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L202",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "target": "json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L210",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "as_secs",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L155"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "hours",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "default_expiry",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "hours",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L166"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "max_expiry",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L166"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "is_configured",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L167"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "is_configured",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L168"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities_from_state",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L172"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "callee": "is_some_and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L205"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "callee": "total_stored_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L206"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_capabilities_capabilities",
+      "callee": "saturating_sub",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/capabilities.rs",
+      "source_location": "L207"
+    }
+  ]
+}

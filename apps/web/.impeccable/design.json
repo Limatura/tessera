@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-14T00:00:00Z",
+  "title": "Design System: Tessera",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Primary Accent",
+        "canonical": "hsl(var(--primary))",
+        "tonalRamp": [
+          "hsl(var(--primary) / 0.15)",
+          "hsl(var(--primary) / 0.25)",
+          "hsl(var(--primary) / 0.35)",
+          "hsl(var(--primary) / 0.5)",
+          "hsl(var(--primary) / 0.65)",
+          "hsl(var(--primary) / 0.8)",
+          "hsl(var(--primary) / 0.9)",
+          "hsl(var(--primary))"
+        ]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Secondary Accent",
+        "canonical": "hsl(var(--secondary))",
+        "tonalRamp": [
+          "hsl(var(--secondary) / 0.15)",
+          "hsl(var(--secondary) / 0.25)",
+          "hsl(var(--secondary) / 0.35)",
+          "hsl(var(--secondary) / 0.5)",
+          "hsl(var(--secondary) / 0.65)",
+          "hsl(var(--secondary) / 0.8)",
+          "hsl(var(--secondary) / 0.9)",
+          "hsl(var(--secondary))"
+        ]
+      },
+      "destructive": {
+        "role": "semantic",
+        "displayName": "Destructive / Error",
+        "canonical": "hsl(var(--destructive))",
+        "tonalRamp": [
+          "hsl(var(--destructive) / 0.1)",
+          "hsl(var(--destructive) / 0.2)",
+          "hsl(var(--destructive) / 0.3)",
+          "hsl(var(--destructive) / 0.4)",
+          "hsl(var(--destructive) / 0.6)",
+          "hsl(var(--destructive) / 0.8)",
+          "hsl(var(--destructive) / 0.9)",
+          "hsl(var(--destructive))"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Card Background",
+        "canonical": "hsl(var(--card))",
+        "tonalRamp": []
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Surface",
+        "canonical": "hsl(var(--muted))",
+        "tonalRamp": []
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Hero titles and primary page headlines."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Section headers and modal titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, form labels, and subsection headers."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Primary content and descriptions."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "UI labels, badges, and small text."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "transition-all",
+        "value": "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for state transitions (hover, focus, active)."
+      },
+      {
+        "name": "glass-blur",
+        "value": "backdrop-blur-[110px]",
+        "purpose": "Background blur for glass morphism accent gradients."
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call-to-action button. Used for primary actions like upload, save, or submit.",
+      "html": "<button class=\"ds-btn-primary\">Upload File</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 28px; padding: 0 8px; border: none; border-radius: 8px; background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: hsl(var(--primary) / 0.8); } .ds-btn-primary:focus-visible { outline: none; border: 2px solid hsl(var(--ring)); box-shadow: 0 0 0 2px hsl(var(--ring) / 0.3); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary button variant. Transparent background with muted hover. Used for secondary actions and less prominent CTAs.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 28px; padding: 0 8px; border: none; border-radius: 8px; background: transparent; color: hsl(var(--foreground)); font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-ghost:hover { background: hsl(var(--muted)); color: hsl(var(--foreground)); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Content container with subtle elevation. Used for grouping related content and providing visual separation.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><h3 class=\"ds-card-title\">Share Code</h3></div><div class=\"ds-card-content\">Paste code and share via retrieval code.</div></div>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 16px; border-radius: 8px; background: hsl(var(--card)); color: hsl(var(--card-foreground)); padding: 16px; border: 1px solid hsl(var(--foreground) / 0.1); overflow: hidden; } .ds-card-header { display: grid; grid-auto-rows: min-content; gap: 4px; align-items: start; border-radius: 8px 8px 0 0; } .ds-card-title { font-family: Inter Variable, Inter, sans-serif; font-size: 1rem; font-weight: 500; margin: 0; } .ds-card-content { font-size: 0.875rem; line-height: 1.5; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Standard text input field for user data entry. Supports focus ring and error states.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Enter share code...\" />",
+      "css": ".ds-input { display: block; width: 100%; min-width: 0; height: 28px; padding: 6px 8px; border: 1px solid hsl(var(--input)); border-radius: 8px; background: hsl(var(--input) / 0.2); color: hsl(var(--foreground)); font-size: 0.875rem; transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-input::placeholder { color: hsl(var(--muted-foreground)); } .ds-input:focus-visible { outline: none; border-color: hsl(var(--ring)); box-shadow: 0 0 0 2px hsl(var(--ring) / 0.3); background: hsl(var(--input) / 0.3); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Fast & Frictionless",
+    "overview": "Tessera's interface prioritizes speed and ease above all else. Every interaction removes friction: uploads take seconds, no account required, sharing is instant. The visual system reflects this velocity—clean, minimal, and purposeful. Motion and selective color accents create moments of delight without cluttering the core flow. Typography and spacing follow a tight rhythm that guides the eye without decoration. The overall aesthetic is modern and minimal, with professional polish and careful attention to responsive behavior across all devices.",
+    "keyCharacteristics": [
+      "Minimal baseline with selective delight in key moments (animations, color accents)",
+      "Fast-loading, responsive-first design",
+      "Light and dark theme support with theme-aware colors",
+      "Smooth transitions and purposeful animations",
+      "High contrast and clear hierarchy for readability",
+      "Touch-friendly on mobile, optimized for keyboard navigation"
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "The primary accent is used sparingly (≤10% of screen). Every instance of primary color is a visual call-to-action.",
+        "section": "colors"
+      },
+      {
+        "name": "The Clarity Rule",
+        "body": "Font size and weight are chosen for scanning and readability, not decoration. Every size step serves a functional purpose in the hierarchy.",
+        "section": "typography"
+      }
+    ],
+    "dos": [
+      "Do use primary accent sparingly (≤10% of screen). Every instance of primary color is a visual call-to-action.",
+      "Do apply smooth transitions on state changes (hover, focus, active). Keeps the interface feeling responsive.",
+      "Do ensure focus rings are visible on all interactive elements for keyboard navigation.",
+      "Do use the card component for content grouping; it provides visual separation without visual noise.",
+      "Do test on mobile and tablet to verify touch targets are ≥ 24px and spacing is comfortable.",
+      "Do prefer ghost and outline button variants for secondary actions; primary should be rare.",
+      "Do use the 8px baseline radius consistently; don't mix sharp corners with fully rounded elements."
+    ],
+    "donts": [
+      "Don't add drop shadows to create depth; use tonal differences and borders instead.",
+      "Don't use more than one or two accent colors on a single screen.",
+      "Don't add decorative elements that don't serve a functional purpose.",
+      "Don't forget keyboard navigation; every interactive element must have a clear focus state.",
+      "Don't set text sizes in fixed pixels; use rem or clamp() for responsive scaling.",
+      "Don't ignore dark mode; test both themes to ensure colors have sufficient contrast.",
+      "Don't overcrowd spacing; let content breathe with consistent margins and padding."
+    ]
+  }
+}

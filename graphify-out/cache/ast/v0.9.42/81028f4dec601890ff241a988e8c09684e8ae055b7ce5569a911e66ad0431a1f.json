@@ -1,0 +1,664 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "label": "code.rs",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "label": "RetrievalCode",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L27"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "label": ".from_entropy()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L68"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "domainerror",
+      "label": "DomainError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "label": ".parse()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L97"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_as_str",
+      "label": ".as_str()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L136"
+    },
+    {
+      "id": "display",
+      "label": "Display",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_fmt",
+      "label": ".fmt()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L142"
+    },
+    {
+      "id": "formatter",
+      "label": "Formatter",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "tryfrom",
+      "label": "TryFrom",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "label": ".try_from()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L150"
+    },
+    {
+      "id": "error",
+      "label": "Error",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L155"
+    },
+    {
+      "id": "from",
+      "label": "From",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/code.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_string_from",
+      "label": ".from()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L156"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_every_byte_maps_into_the_alphabet",
+      "label": "every_byte_maps_into_the_alphabet()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L169"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_the_mapping_is_unbiased",
+      "label": "the_mapping_is_unbiased()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L183"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_the_mapping_is_deterministic",
+      "label": "the_mapping_is_deterministic()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L196"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_normalises_what_people_actually_type",
+      "label": "normalises_what_people_actually_type()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L213"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_rejects_what_cannot_be_a_code",
+      "label": "rejects_what_cannot_be_a_code()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L224"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_code_rejects_entropy_outside_the_length_bounds",
+      "label": "rejects_entropy_outside_the_length_bounds()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L232"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "fmt",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "domainerror",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L68",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L97",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L97",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L97",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L97",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_as_str",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L136",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "display",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L141",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_fmt",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L142",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_fmt",
+      "target": "formatter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L142",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_fmt",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L142",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "tryfrom",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L147",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L147",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L150",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L150",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L150",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L150",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L150",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_string",
+      "target": "from",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L155",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_string",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L155",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_string",
+      "target": "$graphify-root$_crates_tessera_core_src_code_string_from",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L156",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_string_from",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_string_from",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "prelude",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L163",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L164",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_code_every_byte_maps_into_the_alphabet",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L169",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_code_the_mapping_is_unbiased",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L183",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_code_the_mapping_is_deterministic",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L196",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_code_normalises_what_people_actually_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L213",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_code_rejects_what_cannot_be_a_code",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L224",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_code_rejects_entropy_outside_the_length_bounds",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L232",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "target": "$graphify-root$_crates_tessera_core_src_code_string_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L80",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "target": "self",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L82",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L108",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "target": "self",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L131",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_try_from",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L151",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_every_byte_maps_into_the_alphabet",
+      "target": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_from_entropy",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L172",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_code_the_mapping_is_unbiased",
+      "target": "$graphify-root$_crates_tessera_core_src_code_string_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L186",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "callee": "chars",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L99"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "callee": "to_ascii_uppercase",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L100"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_parse",
+      "callee": "is_ok_and",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L108"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_code_retrievalcode_fmt",
+      "callee": "write_str",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L143"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_code_every_byte_maps_into_the_alphabet",
+      "callee": "chunks",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/code.rs",
+      "source_location": "L171"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_error_rs",
+      "label": "error.rs",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/error.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_error_domainerror",
+      "label": "DomainError",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/error.rs",
+      "source_location": "L14"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/error.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_error_domainerror_field",
+      "label": ".field()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/error.rs",
+      "source_location": "L55"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_error_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_error_domainerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/error.rs",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_error_domainerror",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/error.rs",
+      "source_location": "L48",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_error_domainerror",
+      "target": "$graphify-root$_crates_tessera_core_src_error_domainerror_field",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/error.rs",
+      "source_location": "L55",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": []
+}

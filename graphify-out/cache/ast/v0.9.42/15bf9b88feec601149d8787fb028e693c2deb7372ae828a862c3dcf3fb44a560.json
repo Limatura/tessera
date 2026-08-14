@@ -1,0 +1,533 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_extension_package_json",
+      "label": "package.json",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_name",
+      "label": "name",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_version",
+      "label": "version",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_private",
+      "label": "private",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_description",
+      "label": "description",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_type",
+      "label": "type",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts",
+      "label": "scripts",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_dev",
+      "label": "dev",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_dev_firefox",
+      "label": "dev:firefox",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_build",
+      "label": "build",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_build_firefox",
+      "label": "build:firefox",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_zip",
+      "label": "zip",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_zip_firefox",
+      "label": "zip:firefox",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_compile",
+      "label": "compile",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_scripts_postinstall",
+      "label": "postinstall",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_dependencies",
+      "label": "dependencies",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_dependencies_react",
+      "label": "react",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "react",
+      "label": "react",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_dependencies_react_dom",
+      "label": "react-dom",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "react_dom",
+      "label": "react-dom",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_devdependencies",
+      "label": "devDependencies",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_devdependencies_types_react",
+      "label": "@types/react",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "types_react",
+      "label": "@types/react",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_devdependencies_types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_devdependencies_wxt_dev_module_react",
+      "label": "@wxt-dev/module-react",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "wxt_dev_module_react",
+      "label": "@wxt-dev/module-react",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_devdependencies_typescript",
+      "label": "typescript",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L25"
+    },
+    {
+      "id": "typescript",
+      "label": "typescript",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L25"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_devdependencies_web_ext",
+      "label": "web-ext",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "web_ext",
+      "label": "web-ext",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "$graphify-root$_apps_extension_package_devdependencies_wxt",
+      "label": "wxt",
+      "file_type": "code",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L27"
+    },
+    {
+      "id": "wxt",
+      "label": "wxt",
+      "file_type": "concept",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L27"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_private",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_description",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_dev",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_dev_firefox",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_build",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_build_firefox",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_zip",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_zip_firefox",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_compile",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_scripts",
+      "target": "$graphify-root$_apps_extension_package_scripts_postinstall",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_dependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_dependencies",
+      "target": "$graphify-root$_apps_extension_package_dependencies_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_dependencies_react",
+      "target": "react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_dependencies",
+      "target": "$graphify-root$_apps_extension_package_dependencies_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_dependencies_react_dom",
+      "target": "react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_json",
+      "target": "$graphify-root$_apps_extension_package_devdependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies",
+      "target": "$graphify-root$_apps_extension_package_devdependencies_types_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies_types_react",
+      "target": "types_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies",
+      "target": "$graphify-root$_apps_extension_package_devdependencies_types_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies_types_react_dom",
+      "target": "types_react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L23",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies",
+      "target": "$graphify-root$_apps_extension_package_devdependencies_wxt_dev_module_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L24",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies_wxt_dev_module_react",
+      "target": "wxt_dev_module_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies",
+      "target": "$graphify-root$_apps_extension_package_devdependencies_typescript",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies_typescript",
+      "target": "typescript",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies",
+      "target": "$graphify-root$_apps_extension_package_devdependencies_web_ext",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies_web_ext",
+      "target": "web_ext",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies",
+      "target": "$graphify-root$_apps_extension_package_devdependencies_wxt",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_extension_package_devdependencies_wxt",
+      "target": "wxt",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/extension/package.json",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

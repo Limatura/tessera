@@ -1,0 +1,2311 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_rs",
+      "label": "auth.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "label": "AccountResponse",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L32"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "from",
+      "label": "From",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "user",
+      "label": "User",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "label": ".from()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L52"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_registerrequest",
+      "label": "RegisterRequest",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L65"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_loginrequest",
+      "label": "LoginRequest",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L97"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_changepasswordrequest",
+      "label": "ChangePasswordRequest",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L116"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "label": "address_limit_key()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L138"
+    },
+    {
+      "id": "emailaddress",
+      "label": "EmailAddress",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_require_accounts",
+      "label": "require_accounts()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L148"
+    },
+    {
+      "id": "appstate",
+      "label": "AppState",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_register",
+      "label": "register()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176"
+    },
+    {
+      "id": "state",
+      "label": "State",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "headermap",
+      "label": "HeaderMap",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "apijson",
+      "label": "ApiJson",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "response",
+      "label": "Response",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_login",
+      "label": "login()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290"
+    },
+    {
+      "id": "clientaddress",
+      "label": "ClientAddress",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_logout",
+      "label": "logout()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362"
+    },
+    {
+      "id": "selfserviceuser",
+      "label": "SelfServiceUser",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_session",
+      "label": "session()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L407"
+    },
+    {
+      "id": "json",
+      "label": "Json",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "label": "change_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_verify_against_nothing",
+      "label": "verify_against_nothing()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L485"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "label": "find_by_identifier()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L496"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "label": "start_session()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "cookie",
+      "label": "Cookie",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_registerconfirmrequest",
+      "label": "RegisterConfirmRequest",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L544"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "label": "start_verified_registration()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569"
+    },
+    {
+      "id": "username",
+      "label": "Username",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "password",
+      "label": "Password",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "label": "confirm_registration()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_passwordresetrequest",
+      "label": "PasswordResetRequest",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L803"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_passwordresetconfirmrequest",
+      "label": "PasswordResetConfirmRequest",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L812"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "label": "request_password_reset()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "label": "confirm_password_reset()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_auth_the_dummy_hash_is_a_parsable_phc_string",
+      "label": "the_dummy_hash_is_a_parsable_phc_string()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1020"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "axum",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "cookie",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L9",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L11",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L12",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "toschema",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L15",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L32",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L35",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L38",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L41",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "target": "from",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L51",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "target": "user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L51",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L52",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "target": "user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L52",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L52",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_registerrequest",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L65",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_registerrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_registerrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L80",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_registerrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_loginrequest",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L97",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_loginrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L100",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_loginrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L111",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_changepasswordrequest",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L116",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_changepasswordrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_changepasswordrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L138",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "target": "emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L138",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L138",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_require_accounts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L148",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_require_accounts",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_require_accounts",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_register",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "apijson",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "$graphify-root$_apps_server_src_api_auth_registerrequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_login",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "clientaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "apijson",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "$graphify-root$_apps_server_src_api_auth_loginrequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L290",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_logout",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_logout",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_logout",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_logout",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_logout",
+      "target": "selfserviceuser",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_logout",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_logout",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L362",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_session",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L407",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_session",
+      "target": "selfserviceuser",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L407",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_session",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L407",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_session",
+      "target": "json",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L407",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_session",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L407",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "selfserviceuser",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "apijson",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "$graphify-root$_apps_server_src_api_auth_changepasswordrequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L434",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_verify_against_nothing",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L485",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_verify_against_nothing",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L485",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L496",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L496",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L496",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L496",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "target": "user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L496",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "target": "user",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "target": "cookie",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_registerconfirmrequest",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L544",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_registerconfirmrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L546",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "target": "username",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "target": "emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "target": "password",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L569",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "apijson",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "$graphify-root$_apps_server_src_api_auth_registerconfirmrequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L691",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_passwordresetrequest",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L803",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_passwordresetrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L806",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_passwordresetconfirmrequest",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L812",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_passwordresetconfirmrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L814",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_passwordresetconfirmrequest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L816",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "target": "apijson",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "target": "$graphify-root$_apps_server_src_api_auth_passwordresetrequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L850",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "target": "apijson",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "target": "$graphify-root$_apps_server_src_api_auth_passwordresetconfirmrequest",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L963",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1017",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_rs",
+      "target": "$graphify-root$_apps_server_src_api_auth_the_dummy_hash_is_a_parsable_phc_string",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1020",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "$graphify-root$_apps_server_src_api_auth_require_accounts",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L181",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L217",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L263",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L267",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_register",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L267",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "$graphify-root$_apps_server_src_api_auth_require_accounts",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L296",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L316",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "$graphify-root$_apps_server_src_api_auth_verify_against_nothing",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L327",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L338",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L342",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_login",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L342",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_session",
+      "target": "json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L408",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_session",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L408",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L468",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L469",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "target": "json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L472",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "target": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L580",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "$graphify-root$_apps_server_src_api_auth_require_accounts",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L696",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L791",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L795",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "target": "$graphify-root$_apps_server_src_api_auth_accountresponse_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L795",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "target": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L870",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "callee": "to_lowercase",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L139"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_address_limit_key",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L139"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L211"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L211"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L216"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L223"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L223"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "any_exist",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L237"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L249"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L249"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L254"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L254"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_register",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L264"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_login",
+      "callee": "check",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L305"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_login",
+      "callee": "as_secs",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L307"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_login",
+      "callee": "as_ref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L318"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_login",
+      "callee": "record_failure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L332"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_login",
+      "callee": "reset",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L336"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_login",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L340"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_logout",
+      "callee": "find_by_secret",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L372"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_logout",
+      "callee": "delete",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L374"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_logout",
+      "callee": "applies",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L377"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_logout",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L382"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L450"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "callee": "set_password",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L462"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "callee": "delete_for_user",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L466"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_change_password",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L472"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_verify_against_nothing",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L486"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L501"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_find_by_identifier",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L508"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L523"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "callee": "session_ttl",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L523"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "callee": "create",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L526"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L528"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_session",
+      "callee": "applies",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L533"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "check",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L581"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "as_secs",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L583"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "record_failure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L592"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L606"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L607"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L619"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L629"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "registration_ttl",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L629"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L633"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L648"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_start_verified_registration",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L659"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "is_none",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L697"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "find_by_secret",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L717"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "is_usable_at",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L721"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L727"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L727"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L742"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L742"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "finish",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L743"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "any_exist",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L761"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L774"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L774"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L779"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L779"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "finish",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L789"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_registration",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L792"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L866"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "check",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L871"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "as_secs",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L873"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "record_failure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L890"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L902"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L907"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "reset_ttl",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L907"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "issue",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L909"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L911"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "password_reset_letter",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L926"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L927"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_request_password_reset",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L939"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "is_none",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L967"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "find_by_secret",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L973"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "is_usable_at",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L979"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "spend",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L992"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "set_password",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1001"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "spend_all_for",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1009"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "delete_for_user",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1010"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_auth_confirm_password_reset",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/auth.rs",
+      "source_location": "L1012"
+    }
+  ]
+}

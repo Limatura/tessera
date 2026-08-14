@@ -1,0 +1,216 @@
+{
+  "nodes": [
+    {
+      "id": "apps_server_readme",
+      "label": "tessera-server README",
+      "file_type": "document",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "tessera_server_crate",
+      "label": "tessera-server (Rust Backend Crate)",
+      "file_type": "concept",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "tessera_core_crate",
+      "label": "tessera-core (Domain Rules Crate)",
+      "file_type": "concept",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "tessera_two_crate_split_rationale",
+      "label": "Two-Crate Split (Compile-Time Layering Enforcement)",
+      "file_type": "rationale",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "tessera-core deliberately has no dependency on axum, sea-orm, object_store or tokio, so business logic reaching for framework/IO code fails to compile rather than relying on review discipline; CI also checks the resolved dependency tree to catch transitive violations."
+    },
+    {
+      "id": "tessera_openapi_contract",
+      "label": "OpenAPI Contract (openapi.json)",
+      "file_type": "concept",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "tessera_seaorm_migration_rationale",
+      "label": "Hand-written SQL Migrations Per Dialect",
+      "file_type": "rationale",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "SeaORM's schema builder would collapse per-dialect migrations into one definition, but hand-written CREATE TABLE SQL is easier for a reviewer or operator to read than a chain of ColumnDef calls; the risk of dialects drifting apart is mitigated by a unit test comparing statement counts plus CI applying all three dialects for real."
+    },
+    {
+      "id": "tessera_footprint_budget_rationale",
+      "label": "Binary/Image Footprint Budget",
+      "file_type": "rationale",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "\"Functional, but not bloated\" is treated as a product decision enforced by a CI-gated numeric budget (binary size, docker export rootfs size, startup RSS) rather than left as a per-PR argument."
+    },
+    {
+      "id": "tessera_lint_policy_rationale",
+      "label": "Two-Tier Clippy Lint Policy",
+      "file_type": "rationale",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "deny-level lints block cargo run for concurrency/safety mistakes that are wrong at any moment; warn-level lints (including all of pedantic) don't block local iteration but are enforced with -D warnings in CI, letting a contributor keep working while still catching issues at PR time."
+    },
+    {
+      "id": "tessera_embedded_spa_rationale",
+      "label": "Embedded SPA in Rust Binary",
+      "file_type": "rationale",
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "The web build output is compiled into the Rust binary via rust-embed so a release is a single executable serving API, static assets, and Swagger UI with no nginx or Node runtime in front of it."
+    }
+  ],
+  "edges": [
+    {
+      "source": "tessera_server_crate",
+      "target": "apps_web_app",
+      "relation": "shares_data_with",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_server_crate",
+      "target": "tessera_embedded_spa_rationale",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_server_crate",
+      "target": "tessera_core_crate",
+      "relation": "conceptually_related_to",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_core_crate",
+      "target": "tessera_two_crate_split_rationale",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_server_crate",
+      "target": "tessera_two_crate_split_rationale",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_server_crate",
+      "target": "tessera_openapi_contract",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_server_crate",
+      "target": "tessera_seaorm_migration_rationale",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_server_crate",
+      "target": "tessera_footprint_budget_rationale",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "tessera_server_crate",
+      "target": "tessera_lint_policy_rationale",
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/server/README.md",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "tessera_monorepo_embedded_spa_pattern",
+      "label": "Rust Backend Embeds Frontend SPA Build (Tessera Deployment Pattern)",
+      "nodes": [
+        "tessera_server_crate",
+        "apps_web_app",
+        "tessera_embedded_spa_rationale",
+        "tessera_openapi_contract"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "apps/server/README.md"
+    }
+  ]
+}

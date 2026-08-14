@@ -1,0 +1,157 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_json",
+      "label": "ja.json",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_schema",
+      "label": "$schema",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_common_language",
+      "label": "common_language",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_common_switch_language",
+      "label": "common_switch_language",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_header_home",
+      "label": "header_home",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_header_users",
+      "label": "header_users",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_home_api_status",
+      "label": "home_api_status",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_home_description",
+      "label": "home_description",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_home_subtitle",
+      "label": "home_subtitle",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_messages_ja_home_title",
+      "label": "home_title",
+      "file_type": "code",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L10"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_schema",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_common_language",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_common_switch_language",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_header_home",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_header_users",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_home_api_status",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_home_description",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_home_subtitle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_messages_ja_json",
+      "target": "$graphify-root$_apps_admin_messages_ja_home_title",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/messages/ja.json",
+      "source_location": "L10",
+      "weight": 1.0
+    }
+  ]
+}

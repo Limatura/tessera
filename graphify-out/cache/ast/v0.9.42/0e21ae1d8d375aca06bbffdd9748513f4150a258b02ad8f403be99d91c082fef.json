@@ -1,0 +1,915 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "label": "secret.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "label": "Secret",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L44"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_generate_session",
+      "label": ".generate_session()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L49"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "label": ".generate_api_token()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L55"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "label": ".from_client()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L65"
+    },
+    {
+      "id": "into",
+      "label": "Into",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "label": ".digest()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L71"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_display_prefix",
+      "label": ".display_prefix()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L82"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_expose",
+      "label": ".expose()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L91"
+    },
+    {
+      "id": "debug",
+      "label": "Debug",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_fmt",
+      "label": ".fmt()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L99"
+    },
+    {
+      "id": "formatter",
+      "label": "Formatter",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "partialeq",
+      "label": "PartialEq",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secret_eq",
+      "label": ".eq()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L109"
+    },
+    {
+      "id": "eq",
+      "label": "Eq",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/secret.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_fill_random",
+      "label": "fill_random()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L121"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_random_hex",
+      "label": "random_hex()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L125"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_hex",
+      "label": "hex()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L134"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_the_stored_digest_is_lowercase_hex_sha256",
+      "label": "the_stored_digest_is_lowercase_hex_sha256()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L170"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_session_secrets_are_unique",
+      "label": "session_secrets_are_unique()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L175"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_secrets_carry_the_expected_entropy",
+      "label": "secrets_carry_the_expected_entropy()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L183"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_api_tokens_are_recognisable",
+      "label": "api_tokens_are_recognisable()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L190"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_the_digest_is_stable_and_not_the_secret",
+      "label": "the_digest_is_stable_and_not_the_secret()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L198"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_different_secrets_digest_differently",
+      "label": "different_secrets_digest_differently()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L207"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_a_secret_read_back_from_a_client_matches_the_issued_one",
+      "label": "a_secret_read_back_from_a_client_matches_the_issued_one()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L217"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_session",
+      "label": "Session",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L227"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_debug_output_never_contains_the_secret",
+      "label": "debug_output_never_contains_the_secret()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L233"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_secret_client_supplied_garbage_digests_without_complaint",
+      "label": "client_supplied_garbage_digests_without_complaint()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L246"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "fmt",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "rand_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "sha2",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "constanttimeeq_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L44",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L44",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_generate_session",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L49",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_generate_session",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L49",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L55",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L65",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "target": "into",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L65",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L65",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L65",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L71",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L71",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_display_prefix",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L82",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_display_prefix",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_expose",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L91",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "debug",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L98",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_fmt",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L99",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_fmt",
+      "target": "formatter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L99",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_fmt",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L99",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "partialeq",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L108",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_eq",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L109",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_eq",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L109",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "target": "eq",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L114",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_fill_random",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L121",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_random_hex",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L125",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_random_hex",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L125",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_hex",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L134",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_hex",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L134",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "btreeset",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L150",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L152",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_the_stored_digest_is_lowercase_hex_sha256",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L170",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_session_secrets_are_unique",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L175",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secrets_carry_the_expected_entropy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L183",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_api_tokens_are_recognisable",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L190",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_the_digest_is_stable_and_not_the_secret",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L198",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_different_secrets_digest_differently",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L207",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_a_secret_read_back_from_a_client_matches_the_issued_one",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L217",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_session",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L227",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_session",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L229",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_debug_output_never_contains_the_secret",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L233",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_rs",
+      "target": "$graphify-root$_apps_server_src_auth_secret_client_supplied_garbage_digests_without_complaint",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L246",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_generate_session",
+      "target": "self",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L50",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_generate_session",
+      "target": "$graphify-root$_apps_server_src_auth_secret_random_hex",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L50",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "target": "self",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L56",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "target": "self",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L66",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "target": "$graphify-root$_apps_server_src_auth_secret_hex",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L74",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_random_hex",
+      "target": "$graphify-root$_apps_server_src_auth_secret_hex",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L131",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_session_secrets_are_unique",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_expose",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L177",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_session_secrets_are_unique",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_generate_session",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L177",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_api_tokens_are_recognisable",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L191",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_the_digest_is_stable_and_not_the_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L199",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_a_secret_read_back_from_a_client_matches_the_issued_one",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L218",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_a_secret_read_back_from_a_client_matches_the_issued_one",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L219",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_a_secret_read_back_from_a_client_matches_the_issued_one",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_expose",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L219",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_debug_output_never_contains_the_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_generate_api_token",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L234",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_debug_output_never_contains_the_secret",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_expose",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L238",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_client_supplied_garbage_digests_without_complaint",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L248",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_secret_client_supplied_garbage_digests_without_complaint",
+      "target": "$graphify-root$_apps_server_src_auth_secret_secret_from_client",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L248",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "callee": "update",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L73"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L73"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_digest",
+      "callee": "finalize",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L74"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_display_prefix",
+      "callee": "take",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L83"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_display_prefix",
+      "callee": "chars",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L83"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_fmt",
+      "callee": "write_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L100"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_eq",
+      "callee": "ct_eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_eq",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_secret_eq",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_fill_random",
+      "callee": "fill_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L122"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_secret_random_hex",
+      "callee": "fill_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/secret.rs",
+      "source_location": "L130"
+    }
+  ]
+}

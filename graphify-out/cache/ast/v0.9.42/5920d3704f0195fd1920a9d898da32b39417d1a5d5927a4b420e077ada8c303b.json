@@ -1,0 +1,175 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_benches_api_rs",
+      "label": "api.rs",
+      "file_type": "code",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_benches_api_openapi_generation",
+      "label": "openapi_generation()",
+      "file_type": "code",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L31"
+    },
+    {
+      "id": "criterion",
+      "label": "Criterion",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/benches/api.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "label": "router_assembly()",
+      "file_type": "code",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L38"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_benches_api_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_benches_api_rs",
+      "target": "criterion",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_benches_api_rs",
+      "target": "tessera_server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_benches_api_rs",
+      "target": "$graphify-root$_apps_server_benches_api_openapi_generation",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_benches_api_openapi_generation",
+      "target": "criterion",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_benches_api_rs",
+      "target": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "target": "criterion",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L38",
+      "weight": 1.0,
+      "context": "parameter_type"
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_openapi_generation",
+      "callee": "bench_function",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L32"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_openapi_generation",
+      "callee": "black_box",
+      "is_member_call": false,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L33"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "enable_all",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L39"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "display",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "block_on",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L57"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "set_status",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L62"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "bench_function",
+      "is_member_call": true,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_benches_api_router_assembly",
+      "callee": "black_box",
+      "is_member_call": false,
+      "source_file": "apps/server/benches/api.rs",
+      "source_location": "L65"
+    }
+  ]
+}

@@ -1,0 +1,604 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_rs",
+      "label": "password.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_passworderror",
+      "label": "PasswordError",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_peak_memory_bytes",
+      "label": "peak_memory_bytes()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L67"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_hasher",
+      "label": "hasher()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L72"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/password.rs"
+    },
+    {
+      "id": "argon2",
+      "label": "Argon2",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/password.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_hash",
+      "label": "hash()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L87"
+    },
+    {
+      "id": "password",
+      "label": "Password",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/password.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/password.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_verify",
+      "label": "verify()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L117"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_password",
+      "label": "password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L143"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_the_hasher_reserves_a_bounded_amount_of_memory",
+      "label": "the_hasher_reserves_a_bounded_amount_of_memory()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L151"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_a_password_verifies_against_its_own_hash",
+      "label": "a_password_verifies_against_its_own_hash()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L166"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_a_different_password_does_not_verify",
+      "label": "a_different_password_does_not_verify()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L178"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_the_same_password_hashes_differently_each_time",
+      "label": "the_same_password_hashes_differently_each_time()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L192"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_the_stored_hash_is_a_phc_string_naming_its_parameters",
+      "label": "the_stored_hash_is_a_phc_string_naming_its_parameters()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L213"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_the_plaintext_never_appears_in_the_hash",
+      "label": "the_plaintext_never_appears_in_the_hash()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L227"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_password_a_malformed_stored_hash_is_a_mismatch_not_an_error",
+      "label": "a_malformed_stored_hash_is_a_mismatch_not_an_error()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L235"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "lazylock",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "argon2",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "password",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L11",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_passworderror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_peak_memory_bytes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L67",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_hasher",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L72",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hasher",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L72",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hasher",
+      "target": "argon2",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L72",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hasher",
+      "target": "$graphify-root$_apps_server_src_auth_password_passworderror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L72",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_hash",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L87",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hash",
+      "target": "password",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L87",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hash",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L87",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hash",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L87",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hash",
+      "target": "$graphify-root$_apps_server_src_auth_password_passworderror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L87",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_verify",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L117",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_verify",
+      "target": "password",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L117",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_verify",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L117",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_verify",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L117",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_verify",
+      "target": "$graphify-root$_apps_server_src_auth_password_passworderror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L117",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "passwordpolicy",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L139",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L141",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L143",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_the_hasher_reserves_a_bounded_amount_of_memory",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L151",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_a_password_verifies_against_its_own_hash",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L166",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_a_different_password_does_not_verify",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L178",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_the_same_password_hashes_differently_each_time",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_the_stored_hash_is_a_phc_string_naming_its_parameters",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L213",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_the_plaintext_never_appears_in_the_hash",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L227",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_rs",
+      "target": "$graphify-root$_apps_server_src_auth_password_a_malformed_stored_hash_is_a_mismatch_not_an_error",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L235",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_hash",
+      "target": "$graphify-root$_apps_server_src_auth_password_hasher",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L99",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_the_hasher_reserves_a_bounded_amount_of_memory",
+      "target": "$graphify-root$_apps_server_src_auth_password_peak_memory_bytes",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L152",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_a_password_verifies_against_its_own_hash",
+      "target": "$graphify-root$_apps_server_src_auth_password_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L167",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_a_different_password_does_not_verify",
+      "target": "$graphify-root$_apps_server_src_auth_password_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L179",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_the_same_password_hashes_differently_each_time",
+      "target": "$graphify-root$_apps_server_src_auth_password_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L193",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_the_stored_hash_is_a_phc_string_naming_its_parameters",
+      "target": "$graphify-root$_apps_server_src_auth_password_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L214",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_password_the_plaintext_never_appears_in_the_hash",
+      "target": "$graphify-root$_apps_server_src_auth_password_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L228",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_peak_memory_bytes",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L68"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_peak_memory_bytes",
+      "callee": "available_permits",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L68"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hasher",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L74"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hash",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L88"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hash",
+      "callee": "acquire",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L88"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hash",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hash",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L99"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hash",
+      "callee": "hash_password",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L99"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hash",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L100"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_hash",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L100"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_verify",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L120"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_verify",
+      "callee": "acquire",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L120"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_verify",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L124"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_verify",
+      "callee": "is_ok",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L129"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_verify",
+      "callee": "verify_password",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L129"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_verify",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_password_verify",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/password.rs",
+      "source_location": "L130"
+    }
+  ]
+}

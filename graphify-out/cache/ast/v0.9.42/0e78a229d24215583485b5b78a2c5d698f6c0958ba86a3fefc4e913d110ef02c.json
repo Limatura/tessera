@@ -1,0 +1,338 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_tui_package_json",
+      "label": "package.json",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_name",
+      "label": "name",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_private",
+      "label": "private",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_type",
+      "label": "type",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_module",
+      "label": "module",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_scripts",
+      "label": "scripts",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_scripts_dev",
+      "label": "dev",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_scripts_check_types",
+      "label": "check-types",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_dependencies",
+      "label": "dependencies",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_dependencies_opentui_core",
+      "label": "@opentui/core",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "opentui_core",
+      "label": "@opentui/core",
+      "file_type": "concept",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_dependencies_opentui_react",
+      "label": "@opentui/react",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "opentui_react",
+      "label": "@opentui/react",
+      "file_type": "concept",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_dependencies_react",
+      "label": "react",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "react",
+      "label": "react",
+      "file_type": "concept",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_devdependencies",
+      "label": "devDependencies",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_devdependencies_types_bun",
+      "label": "@types/bun",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "types_bun",
+      "label": "@types/bun",
+      "file_type": "concept",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_peerdependencies",
+      "label": "peerDependencies",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_package_peerdependencies_typescript",
+      "label": "typescript",
+      "file_type": "code",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "typescript",
+      "label": "typescript",
+      "file_type": "concept",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L19"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_private",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_module",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_scripts",
+      "target": "$graphify-root$_apps_tui_package_scripts_dev",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_scripts",
+      "target": "$graphify-root$_apps_tui_package_scripts_check_types",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_dependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_dependencies",
+      "target": "$graphify-root$_apps_tui_package_dependencies_opentui_core",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_dependencies_opentui_core",
+      "target": "opentui_core",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L11",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_dependencies",
+      "target": "$graphify-root$_apps_tui_package_dependencies_opentui_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_dependencies_opentui_react",
+      "target": "opentui_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L12",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_dependencies",
+      "target": "$graphify-root$_apps_tui_package_dependencies_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_dependencies_react",
+      "target": "react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_devdependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_devdependencies",
+      "target": "$graphify-root$_apps_tui_package_devdependencies_types_bun",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_devdependencies_types_bun",
+      "target": "types_bun",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_json",
+      "target": "$graphify-root$_apps_tui_package_peerdependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_peerdependencies",
+      "target": "$graphify-root$_apps_tui_package_peerdependencies_typescript",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_package_peerdependencies_typescript",
+      "target": "typescript",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/package.json",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

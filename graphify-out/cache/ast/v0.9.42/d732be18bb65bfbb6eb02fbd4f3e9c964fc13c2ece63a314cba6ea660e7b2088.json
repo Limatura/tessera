@@ -1,0 +1,666 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "label": "cookie.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_securepolicy",
+      "label": "SecurePolicy",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L20"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "label": ".applies()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L52"
+    },
+    {
+      "id": "headermap",
+      "label": "HeaderMap",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/cookie.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "label": "session_cookie()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L78"
+    },
+    {
+      "id": "secret",
+      "label": "Secret",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/cookie.rs"
+    },
+    {
+      "id": "duration",
+      "label": "Duration",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/cookie.rs"
+    },
+    {
+      "id": "cookie",
+      "label": "Cookie",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/cookie.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "label": "clearing_cookie()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L96"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "label": "session_secret()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L108"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/cookie.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_headers",
+      "label": "headers()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L126"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_decides_when_to_mark_secure",
+      "label": "decides_when_to_mark_secure()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L145"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_an_untrusted_forwarded_proto_is_ignored",
+      "label": "an_untrusted_forwarded_proto_is_ignored()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L157"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_the_session_cookie_is_not_reachable_from_javascript",
+      "label": "the_session_cookie_is_not_reachable_from_javascript()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L162"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_the_clearing_cookie_matches_the_one_it_replaces",
+      "label": "the_clearing_cookie_matches_the_one_it_replaces()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L176"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_reads_the_session_secret_from_a_cookie_header",
+      "label": "reads_the_session_secret_from_a_cookie_header()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L189"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_cookie_reports_no_secret_when_the_cookie_is_absent",
+      "label": "reports_no_secret_when_the_cookie_is_absent()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L204"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "http",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "cookie",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L4",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "duration",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L6",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "secret",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L8",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_securepolicy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_securepolicy",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L52",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L52",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L78",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L78",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L78",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "target": "cookie",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L78",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L96",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "target": "cookie",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L96",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L108",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L108",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L108",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L108",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "headervalue",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L122",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L124",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_headers",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L126",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_headers",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L126",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_headers",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L126",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_decides_when_to_mark_secure",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L145",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_decides_when_to_mark_secure",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_securepolicy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L145",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_decides_when_to_mark_secure",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L145",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_an_untrusted_forwarded_proto_is_ignored",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L157",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_the_session_cookie_is_not_reachable_from_javascript",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L162",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_the_clearing_cookie_matches_the_one_it_replaces",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L176",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_reads_the_session_secret_from_a_cookie_header",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L189",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_rs",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_reports_no_secret_when_the_cookie_is_absent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L204",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_the_session_cookie_is_not_reachable_from_javascript",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L164",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_the_clearing_cookie_matches_the_one_it_replaces",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L177",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_cookie_the_clearing_cookie_matches_the_one_it_replaces",
+      "target": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L178",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "callee": "is_some_and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L58"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L58"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L58"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L60"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "callee": "split",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L63"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "callee": "eq_ignore_ascii_case",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_securepolicy_applies",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "callee": "max_age",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "callee": "secure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "callee": "same_site",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "callee": "http_only",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_cookie",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "callee": "max_age",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "callee": "secure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "callee": "same_site",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_clearing_cookie",
+      "callee": "http_only",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "find",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "filter_map",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "flat_map",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "filter_map",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "get_all",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L112"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "name",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L115"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_session_secret",
+      "callee": "value",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L116"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_cookie_reports_no_secret_when_the_cookie_is_absent",
+      "callee": "append",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/cookie.rs",
+      "source_location": "L207"
+    }
+  ]
+}

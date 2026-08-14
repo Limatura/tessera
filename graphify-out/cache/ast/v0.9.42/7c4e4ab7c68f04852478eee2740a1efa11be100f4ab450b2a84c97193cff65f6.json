@@ -1,0 +1,657 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_error_rs",
+      "label": "error.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_error",
+      "label": "Error",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L21"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "domainerror",
+      "label": "DomainError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "dberr",
+      "label": "DbErr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "passworderror",
+      "label": "PasswordError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "configerror",
+      "label": "ConfigError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_errorcode",
+      "label": "ErrorCode",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L126"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_errorbody",
+      "label": "ErrorBody",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L157"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_errorcode_status",
+      "label": ".status()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L167"
+    },
+    {
+      "id": "statuscode",
+      "label": "StatusCode",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_errorcode_message",
+      "label": ".message()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L186"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_error_bad_request",
+      "label": ".bad_request()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L207"
+    },
+    {
+      "id": "into",
+      "label": "Into",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_error_code",
+      "label": ".code()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L217"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_error_status",
+      "label": ".status()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L241"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_error_public_message",
+      "label": ".public_message()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L253"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_error_body",
+      "label": ".body()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L267"
+    },
+    {
+      "id": "intoresponse",
+      "label": "IntoResponse",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_error_into_response",
+      "label": ".into_response()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L276"
+    },
+    {
+      "id": "response",
+      "label": "Response",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/error.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_internal_errors_never_leak_their_cause",
+      "label": "internal_errors_never_leak_their_cause()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L341"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_error_client_errors_keep_their_message",
+      "label": "client_errors_keep_their_message()",
+      "file_type": "code",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L349"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "axum",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L8",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "toschema",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L14",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "$graphify-root$_apps_server_src_error_error",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L66",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L81",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L101",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "passworderror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L110",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "$graphify-root$_apps_server_src_error_errorcode",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L126",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "$graphify-root$_apps_server_src_error_errorbody",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L157",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_errorbody",
+      "target": "$graphify-root$_apps_server_src_error_errorcode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L159",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_errorbody",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_errorcode",
+      "target": "$graphify-root$_apps_server_src_error_errorcode_status",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L167",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_errorcode_status",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L167",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_errorcode",
+      "target": "$graphify-root$_apps_server_src_error_errorcode_message",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L186",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "$graphify-root$_apps_server_src_error_error_bad_request",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L207",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_bad_request",
+      "target": "into",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L207",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_bad_request",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L207",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_bad_request",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L207",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "$graphify-root$_apps_server_src_error_error_code",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L217",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_code",
+      "target": "$graphify-root$_apps_server_src_error_errorcode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L217",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "$graphify-root$_apps_server_src_error_error_status",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L241",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_status",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L241",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "$graphify-root$_apps_server_src_error_error_public_message",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L253",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_public_message",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L253",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "$graphify-root$_apps_server_src_error_error_body",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L267",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_body",
+      "target": "$graphify-root$_apps_server_src_error_errorbody",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L267",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "intoresponse",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L275",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error",
+      "target": "$graphify-root$_apps_server_src_error_error_into_response",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L276",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_into_response",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L276",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L338",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "$graphify-root$_apps_server_src_error_internal_errors_never_leak_their_cause",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L341",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_rs",
+      "target": "$graphify-root$_apps_server_src_error_client_errors_keep_their_message",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L349",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_status",
+      "target": "$graphify-root$_apps_server_src_error_error_code",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L242",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_public_message",
+      "target": "$graphify-root$_apps_server_src_error_errorcode_message",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L261",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_public_message",
+      "target": "$graphify-root$_apps_server_src_error_error_code",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L261",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_body",
+      "target": "$graphify-root$_apps_server_src_error_error_code",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L269",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_body",
+      "target": "$graphify-root$_apps_server_src_error_error_public_message",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L270",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_into_response",
+      "target": "$graphify-root$_apps_server_src_error_error_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L279",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_error_into_response",
+      "target": "$graphify-root$_apps_server_src_error_error_body",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L301",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_internal_errors_never_leak_their_cause",
+      "target": "$graphify-root$_apps_server_src_error_error_body",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L343",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_error_client_errors_keep_their_message",
+      "target": "$graphify-root$_apps_server_src_error_error_bad_request",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L350",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_error_error_status",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L242"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_error_error_into_response",
+      "callee": "is_server_error",
+      "is_member_call": true,
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L279"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_error_error_into_response",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L301"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_error_error_into_response",
+      "callee": "Json",
+      "is_member_call": false,
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L301"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_error_error_into_response",
+      "callee": "headers_mut",
+      "is_member_call": true,
+      "source_file": "apps/server/src/error.rs",
+      "source_location": "L303"
+    }
+  ]
+}

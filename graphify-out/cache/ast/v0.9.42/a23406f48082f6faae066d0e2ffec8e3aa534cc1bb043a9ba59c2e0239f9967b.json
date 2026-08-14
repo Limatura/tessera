@@ -1,0 +1,116 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_share_content_rs",
+      "label": "share_content.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_share_content_model",
+      "label": "Model",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L13"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/entity/share_content.rs"
+    },
+    {
+      "id": "vec",
+      "label": "Vec",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/entity/share_content.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_share_content_relation",
+      "label": "Relation",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L25"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_share_content_activemodel",
+      "label": "ActiveModel",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L27"
+    },
+    {
+      "id": "activemodelbehavior",
+      "label": "ActiveModelBehavior",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/entity/share_content.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_share_content_rs",
+      "target": "prelude",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L8",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_share_content_rs",
+      "target": "$graphify-root$_apps_server_src_db_entity_share_content_model",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_share_content_model",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_share_content_model",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_share_content_rs",
+      "target": "$graphify-root$_apps_server_src_db_entity_share_content_relation",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_share_content_activemodel",
+      "target": "activemodelbehavior",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/share_content.rs",
+      "source_location": "L27",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": []
+}

@@ -1,0 +1,3361 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "label": "mod.rs",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "label": "TestApp",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L42"
+    },
+    {
+      "id": "router",
+      "label": "Router",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "appstate",
+      "label": "AppState",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "tempdir",
+      "label": "TempDir",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_ready",
+      "label": ".ready()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L55"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_build",
+      "label": ".build()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L60"
+    },
+    {
+      "id": "servicestatus",
+      "label": "ServiceStatus",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_with_config",
+      "label": ".with_config()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L67"
+    },
+    {
+      "id": "fnonce",
+      "label": "FnOnce",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "config",
+      "label": "Config",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_with_database",
+      "label": ".with_database()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L73"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "label": ".build_with()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L77"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "label": ".get()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L112"
+    },
+    {
+      "id": "response",
+      "label": "Response",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "body",
+      "label": "Body",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "label": ".send()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L118"
+    },
+    {
+      "id": "builder",
+      "label": "Builder",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "label": ".json()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L127"
+    },
+    {
+      "id": "method",
+      "label": "Method",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "auth",
+      "label": "Auth",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "value",
+      "label": "Value",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "label": ".empty()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L144"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_auth",
+      "label": "Auth",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L152"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "label": ".apply()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L162"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "label": "session_cookie()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L173"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "label": "body_string()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L188"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "label": "body_json()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L199"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "label": "expect_status()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L205"
+    },
+    {
+      "id": "statuscode",
+      "label": "StatusCode",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "label": "account_lifecycle()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L227"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "label": "Scenario",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L236"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "label": "Scenario<'a>",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L245"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "label": ".register()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L249"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "label": ".session_as()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L293"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "label": ".login()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L306"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_rejects_a_duplicate_registration",
+      "label": ".rejects_a_duplicate_registration()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L326"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_sign_in_again_by_email",
+      "label": ".sign_in_again_by_email()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L346"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "label": ".exercises_an_api_token()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L357"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "label": ".assert_listing_hides_secrets()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L413"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_revoke",
+      "label": ".revoke()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L439"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_scenario_a_changes_its_password",
+      "label": ".changes_its_password()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L455"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_field",
+      "label": "field()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L509"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "label": "string_field()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L513"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_json_string",
+      "label": "json_string()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L521"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_force_password_change",
+      "label": "force_password_change()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L527"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "label": "share_repository_round_trip()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L547"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares",
+      "label": "Shares",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L565"
+    },
+    {
+      "id": "sharerepository",
+      "label": "ShareRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "label": "Shares<'a>",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L571"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "label": ".new()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L572"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_code",
+      "label": ".code()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L587"
+    },
+    {
+      "id": "retrievalcode",
+      "label": "RetrievalCode",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "label": ".blank()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L595"
+    },
+    {
+      "id": "share",
+      "label": "Share",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_stored",
+      "label": ".stored()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L621"
+    },
+    {
+      "id": "shareid",
+      "label": "ShareId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_populated_text",
+      "label": ".populated_text()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L631"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_inline_text_survives_the_round_trip",
+      "label": ".inline_text_survives_the_round_trip()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L646"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_an_object_backed_share_has_no_inline_row",
+      "label": ".an_object_backed_share_has_no_inline_row()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L671"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_gate_reads_the_columns_it_should",
+      "label": ".the_gate_reads_the_columns_it_should()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L695"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_use_count_is_spent_in_the_database",
+      "label": ".the_use_count_is_spent_in_the_database()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L737"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_a_view_is_not_a_retrieval",
+      "label": ".a_view_is_not_a_retrieval()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L768"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_deleting_takes_the_content_with_it",
+      "label": ".deleting_takes_the_content_with_it()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L791"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_shares_a_dead_shares_are_listed_for_cleanup",
+      "label": ".dead_shares_are_listed_for_cleanup()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L822"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "label": "truncate_to_microseconds()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L874"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_share_retrieval_lifecycle",
+      "label": "share_retrieval_lifecycle()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L885"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_retrieval",
+      "label": "Retrieval",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L920"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "label": ".create()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L926"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "label": ".describe()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L969"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "label": ".download()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L979"
+    },
+    {
+      "id": "vec",
+      "label": "Vec",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/common/mod.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "arc",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "axum",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "bodyext_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "tempdir",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "tessera_server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "serviceext_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L35",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "router",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L44",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "tempdir",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L45",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_ready",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L55",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_ready",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_build",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L60",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build",
+      "target": "servicestatus",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L60",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L60",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_with_config",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L67",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_with_config",
+      "target": "fnonce",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L67",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_with_config",
+      "target": "config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L67",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_with_config",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L67",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_with_database",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L73",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_with_database",
+      "target": "servicestatus",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L73",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_with_database",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L73",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L77",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "target": "servicestatus",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "target": "fnonce",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "target": "config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L112",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L112",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L112",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "target": "builder",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L118",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L127",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "target": "method",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "target": "auth",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L144",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "target": "method",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "target": "auth",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_auth",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L152",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_auth",
+      "target": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L162",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "target": "builder",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L162",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "target": "builder",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L162",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L173",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L173",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L173",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L173",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L188",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L199",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L199",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L199",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L199",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L205",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L205",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L227",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L227",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L236",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L237",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L239",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L240",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L241",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L242",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L249",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L249",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L249",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L293",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "target": "$graphify-root$_apps_server_tests_common_mod_auth",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L293",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L293",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L306",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L306",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L306",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_rejects_a_duplicate_registration",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L326",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_sign_in_again_by_email",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L346",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_sign_in_again_by_email",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L346",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L357",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L413",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_revoke",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L439",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_revoke",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L439",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_changes_its_password",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L455",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_field",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L509",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_field",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L509",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_field",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L509",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L513",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L513",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_json_string",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L521",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_json_string",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L521",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_force_password_change",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L527",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_force_password_change",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L527",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L547",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L547",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L558",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "share",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L559",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "time",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L562",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L565",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares",
+      "target": "sharerepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L566",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L567",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L568",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L572",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L572",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L572",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_code",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L587",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_code",
+      "target": "retrievalcode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L587",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L595",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L595",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_stored",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L621",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_stored",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L621",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_stored",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L621",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_populated_text",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L631",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_populated_text",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L631",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_inline_text_survives_the_round_trip",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L646",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_an_object_backed_share_has_no_inline_row",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L671",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_gate_reads_the_columns_it_should",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L695",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_use_count_is_spent_in_the_database",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L737",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_a_view_is_not_a_retrieval",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L768",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_deleting_takes_the_content_with_it",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L791",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_dead_shares_are_listed_for_cleanup",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L822",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L874",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L874",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L874",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_share_retrieval_lifecycle",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L885",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_retrieval_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L885",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_rs",
+      "target": "$graphify-root$_apps_server_tests_common_mod_retrieval",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L920",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L921",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L922",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval",
+      "target": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L926",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L926",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L926",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval",
+      "target": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L969",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L969",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L969",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L969",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval",
+      "target": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L979",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L979",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L979",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L979",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L979",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_ready",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_build",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L56",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_with_database",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_with_config",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L68",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_with_database",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L74",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_build",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L99",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L101",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L113",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L113",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "target": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L134",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L140",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "target": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L145",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L146",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L174",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L200",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L213",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L228",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_rejects_a_duplicate_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L229",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_sign_in_again_by_email",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L230",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L231",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_account_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_changes_its_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L232",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L253",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L254",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L268",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L269",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "$graphify-root$_apps_server_tests_common_mod_field",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L283",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_register",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L287",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L294",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L295",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_session_as",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L296",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L307",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L308",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "target": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L320",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L322",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_rejects_a_duplicate_registration",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L327",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_rejects_a_duplicate_registration",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L328",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_sign_in_again_by_email",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L347",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L358",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L359",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L360",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "target": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L374",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L384",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_revoke",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L402",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_exercises_an_api_token",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L404",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L414",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L415",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L416",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L429",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "target": "$graphify-root$_apps_server_tests_common_mod_json_string",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L429",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_revoke",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L440",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_revoke",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L441",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_changes_its_password",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L456",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_changes_its_password",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L457",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_changes_its_password",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L473",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_scenario_a_changes_its_password",
+      "target": "$graphify-root$_apps_server_tests_common_mod_scenario_a_login",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L484",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_field",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L510",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L514",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L548",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_inline_text_survives_the_round_trip",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L549",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_an_object_backed_share_has_no_inline_row",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L550",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_gate_reads_the_columns_it_should",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L551",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_use_count_is_spent_in_the_database",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L552",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_a_view_is_not_a_retrieval",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L553",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_deleting_takes_the_content_with_it",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L554",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_repository_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_dead_shares_are_listed_for_cleanup",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L555",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_new",
+      "target": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L581",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_code",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L598",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_populated_text",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L642",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_inline_text_survives_the_round_trip",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_populated_text",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L648",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_an_object_backed_share_has_no_inline_row",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L680",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_gate_reads_the_columns_it_should",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L698",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_use_count_is_spent_in_the_database",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L740",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_the_use_count_is_spent_in_the_database",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_stored",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L762",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_a_view_is_not_a_retrieval",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L769",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_a_view_is_not_a_retrieval",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_stored",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L786",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_deleting_takes_the_content_with_it",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L792",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_shares_a_dead_shares_are_listed_for_cleanup",
+      "target": "$graphify-root$_apps_server_tests_common_mod_shares_a_blank",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L825",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_retrieval_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L886",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_retrieval_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_field",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L891",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_retrieval_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L892",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_share_retrieval_lifecycle",
+      "target": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L898",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L930",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L931",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L932",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "target": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L945",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L954",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "target": "$graphify-root$_apps_server_tests_common_mod_body_json",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L976",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "target": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L976",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L976",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L976",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L991",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "target": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L991",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "callee": "display",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L90"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L90"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L90"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "callee": "adjust",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L95"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_build_with",
+      "callee": "set_status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L102"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_get",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L113"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "callee": "oneshot",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L119"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_send",
+      "callee": "body",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L121"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_json",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L145"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_testapp_empty",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L145"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_auth_apply",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L166"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L174"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "callee": "headers",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L174"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L180"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_session_cookie",
+      "callee": "split",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L180"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "callee": "to_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L189"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "callee": "into_body",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L189"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_body_string",
+      "callee": "into_owned",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L195"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_expect_status",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L209"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "callee": "find",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L425"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_scenario_a_assert_listing_hides_secrets",
+      "callee": "as_array",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L425"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_field",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L510"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_field",
+      "callee": "cloned",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L510"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L514"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_string_field",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L514"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_code",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L589"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_stored",
+      "callee": "find_by_id",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L622"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_populated_text",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L640"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_inline_text_survives_the_round_trip",
+      "callee": "into_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L647"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_inline_text_survives_the_round_trip",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L647"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_inline_text_survives_the_round_trip",
+      "callee": "find_by_code",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L654"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_a_view_is_not_a_retrieval",
+      "callee": "record_view",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L781"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_deleting_takes_the_content_with_it",
+      "callee": "to_vec",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L794"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_deleting_takes_the_content_with_it",
+      "callee": "delete",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L798"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_dead_shares_are_listed_for_cleanup",
+      "callee": "find_dead",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L844"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_shares_a_dead_shares_are_listed_for_cleanup",
+      "callee": "find_dead",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L861"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "callee": "nanosecond",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L875"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L876"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_truncate_to_microseconds",
+      "callee": "replace_nanosecond",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L876"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L928"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L933"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L933"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L933"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L950"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L950"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_create",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L950"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L970"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L970"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_describe",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L974"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L985"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L985"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L989"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L992"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "callee": "to_vec",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L993"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "callee": "to_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L993"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_common_mod_retrieval_download",
+      "callee": "into_body",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/common/mod.rs",
+      "source_location": "L993"
+    }
+  ]
+}

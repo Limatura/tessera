@@ -1,0 +1,74 @@
+{
+  "nodes": [
+    {
+      "id": "apps_extension_public_icon_128",
+      "label": "Extension Icon 128px (Puzzle Piece)",
+      "file_type": "image",
+      "source_file": "apps/extension/public/icon/128.png",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    }
+  ],
+  "edges": [
+    {
+      "source": "apps_extension_public_icon_128",
+      "target": "apps_extension_public_icon_16",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "apps/extension/public/icon/128.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_extension_public_icon_128",
+      "target": "apps_extension_public_icon_32",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "apps/extension/public/icon/128.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_extension_public_icon_128",
+      "target": "apps_extension_public_icon_48",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "apps/extension/public/icon/128.png",
+      "source_location": null,
+      "weight": 1.0
+    },
+    {
+      "source": "apps_extension_public_icon_128",
+      "target": "apps_extension_public_icon_96",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "apps/extension/public/icon/128.png",
+      "source_location": null,
+      "weight": 1.0
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "extension_icon_asset_set",
+      "label": "WXT Extension Icon Size Set",
+      "nodes": [
+        "apps_extension_public_icon_16",
+        "apps_extension_public_icon_32",
+        "apps_extension_public_icon_48",
+        "apps_extension_public_icon_96",
+        "apps_extension_public_icon_128"
+      ],
+      "relation": "form",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "apps/extension/public/icon/128.png"
+    }
+  ]
+}

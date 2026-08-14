@@ -1,6 +1,8 @@
 import { Input } from "@tessera/ui/components/input";
 import { useRef } from "react";
 
+import * as m from "@/paraglide/messages";
+
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
 
@@ -19,9 +21,9 @@ export function LinkUploadForm({
 
   return (
     <div className="flex items-center gap-3">
-      <Input placeholder="https://example.com/very/long/url" type="url" />
+      <Input placeholder={m.upload_link_placeholder()} type="url" />
       <QuickSubmitButton
-        label="Shorten link"
+        label={m.upload_shorten_link()}
         onClick={() => onSubmit(buttonRef.current)}
         progress={progress}
         ref={buttonRef}

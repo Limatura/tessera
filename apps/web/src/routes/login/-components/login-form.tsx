@@ -1,4 +1,6 @@
-import { Link } from "@tanstack/react-router";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useNavigate } from "@tanstack/react-router";
+import type { components } from "@tessera/api/schema";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -10,6 +12,7 @@ import {
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@tessera/ui/components/field";
@@ -17,6 +20,12 @@ import { Input } from "@tessera/ui/components/input";
 import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import type { Variants } from "motion/react";
+import { Controller, useForm } from "react-hook-form";
+
+import { useLogin } from "@/hooks/use-auth";
+import { loginSchema } from "@/lib/api/auth-schema";
+import type { LoginFormValues } from "@/lib/api/auth-schema";
+import * as m from "@/paraglide/messages";
 
 const containerVariants: Variants = {
   hidden: {},
@@ -38,6 +47,23 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
+  const navigate = useNavigate();
+  const login = useLogin();
+  const { control, handleSubmit } = useForm<LoginFormValues>({
+    defaultValues: { identifier: "", password: "" },
+    resolver: zodResolver(loginSchema),
+  });
+
+  const onSubmit = handleSubmit((values) => {
+    login.mutate(values, {
+      onSuccess: () => {
+        navigate({ to: "/" });
+      },
+    });
+  });
+
+  const formError = login.error as components["schemas"]["ErrorBody"] | null;
+
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
       <motion.div
@@ -57,53 +83,89 @@ export function LoginForm({
                   <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
                 </span>
                 <span className="text-muted-foreground text-xs">
-                  Receiving space is open
+                  {m.status_receiving_open()}
                 </span>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <CardTitle className="font-medium text-xl tracking-tight">
-                  Welcome back
+                  {m.auth_welcome_back()}
                 </CardTitle>
               </motion.div>
               <motion.div variants={itemVariants}>
                 <CardDescription>
-                  Sign in to send and receive files, snippets, and links.
+                  {m.auth_sign_in_description()}
                 </CardDescription>
               </motion.div>
             </CardHeader>
             <CardContent>
-              <form>
+              <form onSubmit={onSubmit}>
                 <FieldGroup>
                   <motion.div variants={itemVariants}>
-                    <Field>
-                      <FieldLabel htmlFor="email">Email</FieldLabel>
-                      <Input
-                        id="email"
-                        placeholder="m@example.com"
-                        required
-                        type="email"
-                      />
-                    </Field>
+                    <Controller
+                      control={control}
+                      name="identifier"
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor="identifier">
+                            {m.auth_username_or_email()}
+                          </FieldLabel>
+                          <Input
+                            {...field}
+                            aria-invalid={fieldState.invalid}
+                            id="identifier"
+                            placeholder="m@example.com"
+                          />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
+                  </motion.div>
+                  <motion.div variants={itemVariants}>
+                    <Controller
+                      control={control}
+                      name="password"
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <div className="flex items-center">
+                            <FieldLabel htmlFor="password">
+                              {m.auth_password()}
+                            </FieldLabel>
+                            <Link
+                              className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                              to="/"
+                            >
+                              {m.auth_forgot_password()}
+                            </Link>
+                          </div>
+                          <Input
+                            {...field}
+                            aria-invalid={fieldState.invalid}
+                            id="password"
+                            type="password"
+                          />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
                   </motion.div>
                   <motion.div variants={itemVariants}>
                     <Field>
-                      <div className="flex items-center">
-                        <FieldLabel htmlFor="password">Password</FieldLabel>
-                        <Link
-                          className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                          to="/"
-                        >
-                          Forgot your password?
-                        </Link>
-                      </div>
-                      <Input id="password" required type="password" />
-                    </Field>
-                  </motion.div>
-                  <motion.div variants={itemVariants}>
-                    <Field>
+                      {formError && (
+                        <FieldError>{formError.message}</FieldError>
+                      )}
                       <motion.div whileTap={{ scale: 0.98 }}>
-                        <Button className="w-full" type="submit">
-                          Sign in
+                        <Button
+                          className="w-full"
+                          disabled={login.isPending}
+                          type="submit"
+                        >
+                          {login.isPending
+                            ? m.auth_signing_in()
+                            : m.auth_sign_in()}
                         </Button>
                       </motion.div>
                       <motion.div whileTap={{ scale: 0.98 }}>
@@ -112,16 +174,16 @@ export function LoginForm({
                           type="button"
                           variant="outline"
                         >
-                          Login with Google
+                          {m.auth_login_with_google()}
                         </Button>
                       </motion.div>
                       <FieldDescription className="text-center">
-                        Don&apos;t have an account?{" "}
+                        {m.auth_no_account()}{" "}
                         <Link
                           className="underline-offset-4 hover:underline"
-                          to="/"
+                          to="/register"
                         >
-                          Sign up
+                          {m.auth_sign_up_link()}
                         </Link>
                       </FieldDescription>
                     </Field>

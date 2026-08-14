@@ -1,0 +1,145 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_tests_contract_rs",
+      "label": "contract.rs",
+      "file_type": "code",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_contract_committed_contract_path",
+      "label": "committed_contract_path()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L13"
+    },
+    {
+      "id": "pathbuf",
+      "label": "PathBuf",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/contract.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_contract_openapi_document_matches_its_snapshot",
+      "label": "openapi_document_matches_its_snapshot()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_contract_committed_openapi_json_is_up_to_date",
+      "label": "committed_openapi_json_is_up_to_date()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L27"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_contract_health_is_described_with_both_outcomes",
+      "label": "health_is_described_with_both_outcomes()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L53"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_tests_contract_rs",
+      "target": "pathbuf",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_contract_rs",
+      "target": "$graphify-root$_apps_server_tests_contract_committed_contract_path",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_contract_committed_contract_path",
+      "target": "pathbuf",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_contract_rs",
+      "target": "$graphify-root$_apps_server_tests_contract_openapi_document_matches_its_snapshot",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_contract_rs",
+      "target": "$graphify-root$_apps_server_tests_contract_committed_openapi_json_is_up_to_date",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_contract_rs",
+      "target": "$graphify-root$_apps_server_tests_contract_health_is_described_with_both_outcomes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L53",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_contract_committed_openapi_json_is_up_to_date",
+      "target": "$graphify-root$_apps_server_tests_contract_committed_contract_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L28",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_contract_committed_contract_path",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L14"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_contract_committed_openapi_json_is_up_to_date",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L29"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_contract_health_is_described_with_both_outcomes",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L55"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_contract_health_is_described_with_both_outcomes",
+      "callee": "as_ref",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/contract.rs",
+      "source_location": "L59"
+    }
+  ]
+}

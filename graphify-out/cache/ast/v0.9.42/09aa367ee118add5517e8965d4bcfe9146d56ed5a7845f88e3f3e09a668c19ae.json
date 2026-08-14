@@ -1,0 +1,3034 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_rs",
+      "label": "shares.rs",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_shares_round_trip_through_the_repository",
+      "label": "shares_round_trip_through_the_repository()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_upload",
+      "label": "upload()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L22"
+    },
+    {
+      "id": "testapp",
+      "label": "TestApp",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/shares.rs"
+    },
+    {
+      "id": "value",
+      "label": "Value",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/shares.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_small_share_is_kept_in_the_database",
+      "label": "a_small_share_is_kept_in_the_database()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L38"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "label": "a_large_share_is_streamed_to_the_blob_store()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L73"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "label": "an_anonymous_upload_can_be_taken_back_with_its_token()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L125"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "label": "deleting_a_share_removes_its_object_too()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L175"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_an_instance_that_refuses_anonymous_uploads_says_so",
+      "label": "an_instance_that_refuses_anonymous_uploads_says_so()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L225"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_lifetime_beyond_the_ceiling_is_refused",
+      "label": "a_lifetime_beyond_the_ceiling_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L242"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_the_ceiling_doubles_as_the_default",
+      "label": "the_ceiling_doubles_as_the_default()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L262"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_password_is_recorded_but_never_returned",
+      "label": "a_password_is_recorded_but_never_returned()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L275"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "label": "a_listing_shows_only_the_callers_own_shares()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L300"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_body_past_the_limit_is_refused",
+      "label": "a_body_past_the_limit_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L363"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_every_rejection_keeps_the_error_envelope",
+      "label": "every_rejection_keeps_the_error_envelope()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L401"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_oversized_labels_are_refused_rather_than_left_to_the_database",
+      "label": "oversized_labels_are_refused_rather_than_left_to_the_database()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L469"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_filename_that_could_forge_a_header_is_refused",
+      "label": "a_filename_that_could_forge_a_header_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L493"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_urlencoding_of",
+      "label": "urlencoding_of()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L507"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/shares.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_share_of_nothing_is_refused",
+      "label": "a_share_of_nothing_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L521"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_zero_use_limit_is_refused",
+      "label": "a_zero_use_limit_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L538"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_share_can_be_created_authorised_and_retrieved",
+      "label": "a_share_can_be_created_authorised_and_retrieved()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L552"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_asking_the_wrong_route_does_not_spend_a_retrieval",
+      "label": "asking_the_wrong_route_does_not_spend_a_retrieval()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L559"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_one_time_share_is_gone_after_its_retrieval",
+      "label": "a_one_time_share_is_gone_after_its_retrieval()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L575"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "label": "a_locked_share_reveals_only_that_it_is_locked()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L595"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "label": "retrieval_never_echoes_the_uploaders_media_type()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L643"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "label": "a_stale_if_range_gets_the_whole_object()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L693"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "label": "a_ticket_is_bound_to_its_share()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L734"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "label": "a_head_request_describes_without_spending()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L786"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_an_impossible_range_says_how_big_the_object_is",
+      "label": "an_impossible_range_says_how_big_the_object_is()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L838"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_download_always_states_its_length",
+      "label": "a_download_always_states_its_length()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L865"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "label": "guessing_a_share_password_is_throttled()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L912"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_trying_codes_that_do_not_exist_is_throttled",
+      "label": "trying_codes_that_do_not_exist_is_throttled()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L975"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_returning_to_a_dead_link_is_not_guessing",
+      "label": "returning_to_a_dead_link_is_not_guessing()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1014"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "label": "raw_honours_a_range_the_way_download_does()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1043"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_raw_refuses_a_range_past_the_end",
+      "label": "raw_refuses_a_range_past_the_end()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1088"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "label": "raw_ignores_a_range_whose_if_range_is_stale()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1114"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_ranged_raw_response_is_still_hardened",
+      "label": "a_ranged_raw_response_is_still_hardened()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1156"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_an_unspecified_lifetime_uses_the_default_not_the_ceiling",
+      "label": "an_unspecified_lifetime_uses_the_default_not_the_ceiling()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1201"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_the_ceiling_still_governs_what_may_be_asked_for",
+      "label": "the_ceiling_still_governs_what_may_be_asked_for()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1227"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_dead_share_loses_its_content_but_keeps_its_row",
+      "label": "a_dead_share_loses_its_content_but_keeps_its_row()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1266"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_uploads_stop_when_the_instance_is_out_of_room",
+      "label": "uploads_stop_when_the_instance_is_out_of_room()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1320"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_reaped_shares_free_their_quota",
+      "label": "reaped_shares_free_their_quota()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1349"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_reaping_an_inline_share_actually_frees_the_database",
+      "label": "reaping_an_inline_share_actually_frees_the_database()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1376"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_disabled_share_keeps_its_content",
+      "label": "a_disabled_share_keeps_its_content()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1421"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_lowering_the_quota_below_current_usage_refuses_rather_than_panics",
+      "label": "lowering_the_quota_below_current_usage_refuses_rather_than_panics()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1462"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_an_upload_that_exactly_fills_the_quota_is_accepted",
+      "label": "an_upload_that_exactly_fills_the_quota_is_accepted()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1492"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "label": "a_share_whose_object_already_vanished_is_still_reaped()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1526"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "label": "a_ticket_does_not_travel_between_shares()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1582"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_unlock",
+      "label": "unlock()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1634"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_uses_spent",
+      "label": "uses_spent()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1653"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_one_time_share_survives_the_unlock_that_emptied_it",
+      "label": "a_one_time_share_survives_the_unlock_that_emptied_it()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1670"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "label": "a_resumed_transfer_is_charged_once()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1697"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "label": "a_ticket_does_not_outlive_the_expiry()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1747"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_survive_a_disable",
+      "label": "a_ticket_does_not_survive_a_disable()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1771"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_shares_backdate",
+      "label": "backdate()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1793"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/shares.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "axum",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "common",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L9",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "trystreamext_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "object_store",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L11",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "connectiontrait_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L12",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "serviceext_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L14",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_shares_round_trip_through_the_repository",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_upload",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_upload",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_small_share_is_kept_in_the_database",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L73",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L125",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L175",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_an_instance_that_refuses_anonymous_uploads_says_so",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L225",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_lifetime_beyond_the_ceiling_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L242",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_the_ceiling_doubles_as_the_default",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L262",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_password_is_recorded_but_never_returned",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L275",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L300",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_body_past_the_limit_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L363",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_every_rejection_keeps_the_error_envelope",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L401",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_oversized_labels_are_refused_rather_than_left_to_the_database",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L469",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_filename_that_could_forge_a_header_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L493",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_urlencoding_of",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L507",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_urlencoding_of",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L507",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_share_of_nothing_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L521",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_zero_use_limit_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L538",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_share_can_be_created_authorised_and_retrieved",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L552",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_asking_the_wrong_route_does_not_spend_a_retrieval",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L559",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_one_time_share_is_gone_after_its_retrieval",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L575",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L595",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L643",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L693",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L734",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L786",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_an_impossible_range_says_how_big_the_object_is",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L838",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_download_always_states_its_length",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L865",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L912",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_trying_codes_that_do_not_exist_is_throttled",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L975",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_returning_to_a_dead_link_is_not_guessing",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1014",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1043",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_raw_refuses_a_range_past_the_end",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1088",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1114",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_ranged_raw_response_is_still_hardened",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1156",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_an_unspecified_lifetime_uses_the_default_not_the_ceiling",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1201",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_the_ceiling_still_governs_what_may_be_asked_for",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1227",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_dead_share_loses_its_content_but_keeps_its_row",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1266",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_uploads_stop_when_the_instance_is_out_of_room",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1320",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_reaped_shares_free_their_quota",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1349",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_reaping_an_inline_share_actually_frees_the_database",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1376",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_disabled_share_keeps_its_content",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1421",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_lowering_the_quota_below_current_usage_refuses_rather_than_panics",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1462",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_an_upload_that_exactly_fills_the_quota_is_accepted",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1492",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1526",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1582",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_unlock",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1634",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_unlock",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1634",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_unlock",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1634",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_uses_spent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1653",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_uses_spent",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1653",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_one_time_share_survives_the_unlock_that_emptied_it",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1670",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1697",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1747",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_survive_a_disable",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1771",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_rs",
+      "target": "$graphify-root$_apps_server_tests_shares_backdate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1793",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_backdate",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1793",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_backdate",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1793",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_small_share_is_kept_in_the_database",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L80",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L127",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L180",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_the_ceiling_doubles_as_the_default",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L267",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L304",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_asking_the_wrong_route_does_not_spend_a_retrieval",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L561",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_one_time_share_is_gone_after_its_retrieval",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L577",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L695",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L754",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L788",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_an_impossible_range_says_how_big_the_object_is",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L840",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_download_always_states_its_length",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L872",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_trying_codes_that_do_not_exist_is_throttled",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L977",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_returning_to_a_dead_link_is_not_guessing",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1016",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1046",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_raw_refuses_a_range_past_the_end",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1090",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1117",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ranged_raw_response_is_still_hardened",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1158",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_an_unspecified_lifetime_uses_the_default_not_the_ceiling",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1209",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_the_ceiling_still_governs_what_may_be_asked_for",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1235",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_dead_share_loses_its_content_but_keeps_its_row",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1273",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_uploads_stop_when_the_instance_is_out_of_room",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1327",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_reaped_shares_free_their_quota",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1356",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_reaping_an_inline_share_actually_frees_the_database",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1383",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_disabled_share_keeps_its_content",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1427",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_lowering_the_quota_below_current_usage_refuses_rather_than_panics",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1468",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_an_upload_that_exactly_fills_the_quota_is_accepted",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1499",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1532",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1584",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_one_time_share_survives_the_unlock_that_emptied_it",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1672",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_one_time_share_survives_the_unlock_that_emptied_it",
+      "target": "$graphify-root$_apps_server_tests_shares_unlock",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1675",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1704",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "target": "$graphify-root$_apps_server_tests_shares_unlock",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1708",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1749",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "target": "$graphify-root$_apps_server_tests_shares_unlock",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1753",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "target": "$graphify-root$_apps_server_tests_shares_backdate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1761",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_survive_a_disable",
+      "target": "$graphify-root$_apps_server_tests_shares_upload",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1773",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_survive_a_disable",
+      "target": "$graphify-root$_apps_server_tests_shares_unlock",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1777",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_survive_a_disable",
+      "target": "$graphify-root$_apps_server_tests_shares_backdate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1778",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_shares_round_trip_through_the_repository",
+      "callee": "share_repository_round_trip",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L18"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_upload",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L23"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_upload",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L25"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_upload",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L25"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_upload",
+      "callee": "to_vec",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L28"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_upload",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L34"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_small_share_is_kept_in_the_database",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_small_share_is_kept_in_the_database",
+      "callee": "find_by_id",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L52"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L84"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "callee": "find_by_id",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L85"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L92"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "callee": "object_key",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L92"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_large_share_is_streamed_to_the_blob_store",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L114"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L128"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L132"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L136"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L146"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L148"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L148"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L148"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L160"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L162"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L162"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_anonymous_upload_can_be_taken_back_with_its_token",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L162"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L181"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L185"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L187"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "find_by_id",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L188"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L195"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "object_key",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L195"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L201"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L203"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L203"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_deleting_a_share_removes_its_object_too",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L203"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_instance_that_refuses_anonymous_uploads_says_so",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L232"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_instance_that_refuses_anonymous_uploads_says_so",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L232"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_lifetime_beyond_the_ceiling_is_refused",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L249"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_lifetime_beyond_the_ceiling_is_refused",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L249"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_password_is_recorded_but_never_returned",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L277"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_password_is_recorded_but_never_returned",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L279"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_password_is_recorded_but_never_returned",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L279"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_password_is_recorded_but_never_returned",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L279"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_password_is_recorded_but_never_returned",
+      "callee": "body_string",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L289"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L306"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L307"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L323"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L325"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L325"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L325"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L335"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L341"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L342"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L343"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "as_array",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L350"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "unwrap_or_default",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L354"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_listing_shows_only_the_callers_own_shares",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L354"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_body_past_the_limit_is_refused",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L372"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_body_past_the_limit_is_refused",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L372"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_every_rejection_keeps_the_error_envelope",
+      "callee": "oneshot",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L450"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_every_rejection_keeps_the_error_envelope",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L451"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_every_rejection_keeps_the_error_envelope",
+      "callee": "body_string",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L452"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_every_rejection_keeps_the_error_envelope",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L453"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_oversized_labels_are_refused_rather_than_left_to_the_database",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L479"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_oversized_labels_are_refused_rather_than_left_to_the_database",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L479"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_filename_that_could_forge_a_header_is_refused",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L497"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_filename_that_could_forge_a_header_is_refused",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L497"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_urlencoding_of",
+      "callee": "is_ascii_alphanumeric",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L511"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_of_nothing_is_refused",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L525"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_of_nothing_is_refused",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L525"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_zero_use_limit_is_refused",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L542"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_zero_use_limit_is_refused",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L542"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_asking_the_wrong_route_does_not_spend_a_retrieval",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L562"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_one_time_share_is_gone_after_its_retrieval",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L578"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_one_time_share_is_gone_after_its_retrieval",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L580"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L597"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L599"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L599"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L599"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L609"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L609"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L614"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_locked_share_reveals_only_that_it_is_locked",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L615"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L645"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L647"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L647"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L647"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L657"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L657"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L662"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_retrieval_never_echoes_the_uploaders_media_type",
+      "callee": "headers",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L667"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L696"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L699"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "headers",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L699"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L702"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L708"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L708"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L708"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L719"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L719"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_stale_if_range_gets_the_whole_object",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L719"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L737"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L739"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L739"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L739"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L749"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L749"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L755"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L756"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L757"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L758"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_is_bound_to_its_share",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L769"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L789"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L793"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L793"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L809"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L810"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L819"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L824"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_head_request_describes_without_spending",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L825"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_impossible_range_says_how_big_the_object_is",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L841"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_impossible_range_says_how_big_the_object_is",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L845"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_impossible_range_says_how_big_the_object_is",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L845"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_download_always_states_its_length",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L873"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_download_always_states_its_length",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L875"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_download_always_states_its_length",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L891"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_download_always_states_its_length",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L891"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L914"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L916"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L916"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L916"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L926"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L926"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L933"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L933"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L933"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "guess",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L944"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_guessing_a_share_password_is_throttled",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L945"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_trying_codes_that_do_not_exist_is_throttled",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L978"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_trying_codes_that_do_not_exist_is_throttled",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L986"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_returning_to_a_dead_link_is_not_guessing",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1017"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_returning_to_a_dead_link_is_not_guessing",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1018"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1045"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1046"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1047"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1049"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1069"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_honours_a_range_the_way_download_does",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1069"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_refuses_a_range_past_the_end",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1091"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_refuses_a_range_past_the_end",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1095"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_refuses_a_range_past_the_end",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1095"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1116"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1117"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1118"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1120"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "headers",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1120"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1120"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1124"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1141"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1141"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_raw_ignores_a_range_whose_if_range_is_stale",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1141"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ranged_raw_response_is_still_hardened",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1159"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ranged_raw_response_is_still_hardened",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1163"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ranged_raw_response_is_still_hardened",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1163"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ranged_raw_response_is_still_hardened",
+      "callee": "headers",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1170"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_unspecified_lifetime_uses_the_default_not_the_ceiling",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1211"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_the_ceiling_still_governs_what_may_be_asked_for",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1237"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_the_ceiling_still_governs_what_may_be_asked_for",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1248"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_the_ceiling_still_governs_what_may_be_asked_for",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1248"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_dead_share_loses_its_content_but_keeps_its_row",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1274"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_dead_share_loses_its_content_but_keeps_its_row",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1277"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_dead_share_loses_its_content_but_keeps_its_row",
+      "callee": "total_stored_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1283"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_uploads_stop_when_the_instance_is_out_of_room",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1333"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_uploads_stop_when_the_instance_is_out_of_room",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1333"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_reaped_shares_free_their_quota",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1357"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_reaped_shares_free_their_quota",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1358"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_reaping_an_inline_share_actually_frees_the_database",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1384"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_reaping_an_inline_share_actually_frees_the_database",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1385"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_reaping_an_inline_share_actually_frees_the_database",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1391"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_disabled_share_keeps_its_content",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1428"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_disabled_share_keeps_its_content",
+      "callee": "execute_unprepared",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1437"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_lowering_the_quota_below_current_usage_refuses_rather_than_panics",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1479"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_lowering_the_quota_below_current_usage_refuses_rather_than_panics",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1479"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_upload_that_exactly_fills_the_quota_is_accepted",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1511"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_an_upload_that_exactly_fills_the_quota_is_accepted",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1511"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1538"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1539"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1546"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "callee": "find_by_id",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1547"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "callee": "object_key",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1554"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_share_whose_object_already_vanished_is_still_reaped",
+      "callee": "delete",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1559"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1586"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1587"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1589"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1591"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1591"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1600"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1600"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1609"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_travel_between_shares",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1609"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_unlock",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1635"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_unlock",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1636"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_unlock",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1645"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_unlock",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1645"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_uses_spent",
+      "callee": "find_by_id",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1655"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_one_time_share_survives_the_unlock_that_emptied_it",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1673"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_one_time_share_survives_the_unlock_that_emptied_it",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1681"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1701"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1702"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1704"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1705"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1706"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1714"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "method",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1714"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1725"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_resumed_transfer_is_charged_once",
+      "callee": "uri",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1725"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1750"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1751"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_outlive_the_expiry",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1755"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_survive_a_disable",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1774"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_a_ticket_does_not_survive_a_disable",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1775"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_backdate",
+      "callee": "format",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1794"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_backdate",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1797"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_shares_backdate",
+      "callee": "execute_unprepared",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/shares.rs",
+      "source_location": "L1797"
+    }
+  ]
+}

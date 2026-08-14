@@ -1,0 +1,1204 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_rs",
+      "label": "mod.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend",
+      "label": "Backend",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L26"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend_from_url",
+      "label": ".from_url()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L41"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/mod.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend_required_feature",
+      "label": ".required_feature()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L52"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend_is_compiled_in",
+      "label": ".is_compiled_in()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L62"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend_as_str",
+      "label": ".as_str()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L72"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend_from_sea_orm",
+      "label": ".from_sea_orm()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L89"
+    },
+    {
+      "id": "dbbackend",
+      "label": "DbBackend",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_connect",
+      "label": "connect()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L105"
+    },
+    {
+      "id": "databaseconfig",
+      "label": "DatabaseConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/mod.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/mod.rs"
+    },
+    {
+      "id": "databaseconnection",
+      "label": "DatabaseConnection",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/mod.rs"
+    },
+    {
+      "id": "dberr",
+      "label": "DbErr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "label": "connect_networked()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L128"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "label": "connect_sqlite()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L148"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "label": "migrate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L208"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_ping",
+      "label": "ping()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L217"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "label": "backend_of()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L224"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_backend_name",
+      "label": "backend_name()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L230"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_close",
+      "label": "close()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L236"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_classifies_urls",
+      "label": "classifies_urls()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L258"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_feature_name_matches_backend_name",
+      "label": "feature_name_matches_backend_name()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L266"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_sqlite_connects_migrates_and_pings",
+      "label": "sqlite_connects_migrates_and_pings()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L275"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_sqlite_migrations_are_idempotent",
+      "label": "sqlite_migrations_are_idempotent()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L289"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_sqlite_creates_missing_parent_directories",
+      "label": "sqlite_creates_missing_parent_directories()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L302"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_mod_an_unsupported_scheme_is_reported_not_panicked",
+      "label": "an_unsupported_scheme_is_reported_not_panicked()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L322"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "sea_orm",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "migratortrait_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "databaseconfig",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_from_url",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L41",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_from_url",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L41",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_from_url",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L41",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_required_feature",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L52",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_is_compiled_in",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L62",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_as_str",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L72",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_from_sea_orm",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_from_sea_orm",
+      "target": "dbbackend",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_from_sea_orm",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_from_sea_orm",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L105",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "databaseconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L128",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "target": "databaseconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L128",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L128",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L128",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L128",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L148",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "databaseconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L196",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "databaseconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L196",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L196",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L196",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L196",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L208",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L208",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L208",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L208",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_ping",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L217",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_ping",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L217",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_ping",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L217",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_ping",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L217",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L224",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L224",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L224",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L224",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L230",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_name",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L230",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_close",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L236",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_close",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L236",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L244",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L246",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_classifies_urls",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L258",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_classifies_urls",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L258",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_classifies_urls",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L258",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_feature_name_matches_backend_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L266",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_feature_name_matches_backend_name",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L266",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_sqlite_connects_migrates_and_pings",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L275",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_sqlite_migrations_are_idempotent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L289",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_sqlite_creates_missing_parent_directories",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L302",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_rs",
+      "target": "$graphify-root$_apps_server_src_db_mod_an_unsupported_scheme_is_reported_not_panicked",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L322",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_from_url",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L106",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_is_compiled_in",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L113",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L121",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L122",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L137",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_from_sea_orm",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L225",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_backend_name",
+      "target": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L231",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_connects_migrates_and_pings",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L280",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_connects_migrates_and_pings",
+      "target": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L282",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_connects_migrates_and_pings",
+      "target": "$graphify-root$_apps_server_src_db_mod_ping",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L283",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_connects_migrates_and_pings",
+      "target": "$graphify-root$_apps_server_src_db_mod_close",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L284",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_migrations_are_idempotent",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L294",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_migrations_are_idempotent",
+      "target": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L295",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_migrations_are_idempotent",
+      "target": "$graphify-root$_apps_server_src_db_mod_close",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L297",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_creates_missing_parent_directories",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L310",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_creates_missing_parent_directories",
+      "target": "$graphify-root$_apps_server_src_db_mod_migrate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L311",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_sqlite_creates_missing_parent_directories",
+      "target": "$graphify-root$_apps_server_src_db_mod_close",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L312",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_mod_an_unsupported_scheme_is_reported_not_panicked",
+      "target": "$graphify-root$_apps_server_src_db_mod_connect",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L327",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_backend_from_url",
+      "callee": "split_once",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L42"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect",
+      "callee": "ok_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L106"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "callee": "sqlx_logging",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "callee": "connect_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "callee": "acquire_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "callee": "max_connections",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L130"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "callee": "acquire_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L132"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_networked",
+      "callee": "acquire_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L133"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "busy_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "auto_vacuum",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "foreign_keys",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "synchronous",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "journal_mode",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "create_if_missing",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "acquire_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L168"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "get_filename",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L173"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "parent",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L174"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "as_os_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L175"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L177"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L181"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "connect_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L181"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "acquire_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L181"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "max_connections",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L181"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_connect_sqlite",
+      "callee": "acquire_timeout",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L183"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_ping",
+      "callee": "ping",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L218"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_backend_of",
+      "callee": "get_database_backend",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L225"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_backend_name",
+      "callee": "map_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L231"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_close",
+      "callee": "close",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L237"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_sqlite_creates_missing_parent_directories",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L304"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_sqlite_creates_missing_parent_directories",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L304"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_mod_an_unsupported_scheme_is_reported_not_panicked",
+      "callee": "unwrap_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/mod.rs",
+      "source_location": "L327"
+    }
+  ]
+}

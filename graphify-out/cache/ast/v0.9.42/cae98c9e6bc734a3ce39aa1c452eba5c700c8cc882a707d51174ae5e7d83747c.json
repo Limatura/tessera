@@ -1,0 +1,1003 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "label": "api_token.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "label": "ApiToken",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L20"
+    },
+    {
+      "id": "apitokenid",
+      "label": "ApiTokenId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "userid",
+      "label": "UserId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_is_usable_at",
+      "label": ".is_usable_at()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L46"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "label": ".from_model()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L50"
+    },
+    {
+      "id": "model",
+      "label": "Model",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "corruptrow",
+      "label": "CorruptRow",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "label": "ApiTokenRepositoryError",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L70"
+    },
+    {
+      "id": "dberr",
+      "label": "DbErr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "label": "ApiTokenRepository",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L82"
+    },
+    {
+      "id": "databaseconnection",
+      "label": "DatabaseConnection",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_new",
+      "label": ".new()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L89"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "label": ".create()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98"
+    },
+    {
+      "id": "secret",
+      "label": "Secret",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "label": ".find_by_secret()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L144"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "label": ".list_for_user()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L161"
+    },
+    {
+      "id": "vec",
+      "label": "Vec",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/api_token.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "label": ".touch()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L185"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "label": ".revoke()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L210"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "target": "sea_orm",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L8",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "apitokenid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L30",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L32",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L32",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L34",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L34",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_is_usable_at",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L46",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_is_usable_at",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L46",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L50",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "target": "model",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L50",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L50",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L50",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "target": "corruptrow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L50",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L70",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L73",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "target": "corruptrow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L82",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L83",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_new",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L89",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_new",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L89",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_new",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L89",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L98",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L144",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L144",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L161",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L185",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "target": "apitokenid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L185",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L185",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L185",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L185",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L210",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "target": "apitokenid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L210",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L210",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L210",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L210",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L210",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L176",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_is_usable_at",
+      "callee": "is_none",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L47"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_is_usable_at",
+      "callee": "is_none_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L47"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L56"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitoken_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L57"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "callee": "display_prefix",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L117"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_create",
+      "callee": "digest",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L121"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L148"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L149"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "callee": "digest",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L149"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_find_by_secret",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L152"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "callee": "order_by_desc",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "callee": "order_by_desc",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L166"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L174"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_list_for_user",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L176"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L190"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L190"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_touch",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L192"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L216"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L216"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L218"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L219"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_api_token_apitokenrepository_revoke",
+      "callee": "is_null",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/api_token.rs",
+      "source_location": "L220"
+    }
+  ]
+}
