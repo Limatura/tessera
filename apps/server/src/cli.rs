@@ -55,6 +55,21 @@ pub enum Command {
     Help,
 }
 
+/// What the command ended up setting, for the closing message.
+#[derive(Debug)]
+enum Chosen {
+    /// The operator supplied it, one way or another.
+    Supplied,
+    /// We picked one. It is printed, and the account is asked to change it.
+    Generated {
+        /// The copy to show, since nobody else has seen it.
+        printed: String,
+        /// Whether this happened because there was no terminal to ask at,
+        /// rather than because `--generate` asked for it.
+        for_want_of_a_terminal: bool,
+    },
+}
+
 /// Where `reset-password` gets the new password.
 ///
 /// # Why the command line is not the default
@@ -169,8 +184,10 @@ RESET-PASSWORD:
                              prefer --password-stdin.
 
     With none of those: asks for it at the terminal, twice, without echoing. If
-    there is no terminal — a script, a cron job — one is generated and printed,
-    which is what this did before these flags existed.
+    standard input is not a terminal — a script, a cron job, a pipe — one is
+    generated and printed instead, which is what this did before these flags
+    existed. Piping a password in without --password-stdin therefore sets a
+    generated one; the output says so.
 
     Reads the same configuration as the server and writes straight to the
     database, so it works with the service stopped. It does not need the network.
@@ -217,25 +234,21 @@ pub async fn reset_password(
         bail!("no account called `{username}`");
     };
 
-    let (password, generated) = choose_password(source, config)?;
+    let (password, chosen) = choose_password(source, config)?;
 
     let hash = password::hash(password).await.context("could not hash")?;
     let username = username.as_str();
-    // `must_change` only when we chose it. One the operator typed is one they
+    // `must_change` only when we chose it. One the operator supplied is one they
     // already know; one printed here has been through a terminal and a scroll
     // buffer, and should not stay in force.
+    let generated = matches!(chosen, Chosen::Generated { .. });
     users
-        .set_password(
-            user.id,
-            hash,
-            generated.is_some(),
-            OffsetDateTime::now_utc(),
-        )
+        .set_password(user.id, hash, generated, OffsetDateTime::now_utc())
         .await
         .context("could not store the new password")?;
     db::close(db).await;
 
-    report(username, generated.as_deref());
+    report(username, &chosen);
     Ok(())
 }
 
@@ -248,18 +261,24 @@ pub async fn reset_password(
 ///
 /// When the terminal cannot be read, the two attempts do not match, or the
 /// password fails the instance's policy.
-fn choose_password(
-    source: PasswordSource,
-    config: &Config,
-) -> anyhow::Result<(Password, Option<String>)> {
+fn choose_password(source: PasswordSource, config: &Config) -> anyhow::Result<(Password, Chosen)> {
     let typed = match source {
-        PasswordSource::Generate => return generated_password(),
+        PasswordSource::Generate => return generated_password(false),
         PasswordSource::Argument(value) => value,
         PasswordSource::Stdin => read_from_stdin()?,
-        // Nowhere to ask means nobody to ask, so this is a script or a cron job
-        // — and generating is what this command did there before the flags
-        // existed, so nothing that works today stops working.
-        PasswordSource::Ask if !std::io::stdin().is_terminal() => return generated_password(),
+        // The test is on *stdin*, while the prompt below reads from the terminal
+        // device directly — they are not the same question, and the stricter one
+        // is deliberate. Asking whether a terminal exists would make
+        // `echo secret | tessera-server reset-password -u admin` stop at a prompt,
+        // and a script run from a terminal would hang there with nobody watching.
+        // A password printed to a log is a visible mistake; a job that never
+        // returns is not.
+        //
+        // The cost is that the same forgotten `--password-stdin` sets a password
+        // nobody asked for. `report` says so, and says which flag was missing.
+        PasswordSource::Ask if !std::io::stdin().is_terminal() => {
+            return generated_password(true);
+        }
         PasswordSource::Ask => read_from_terminal()?,
     };
 
@@ -267,18 +286,24 @@ fn choose_password(
     // login form would then refuse to accept.
     let password = Password::parse(typed, config.auth.password)
         .map_err(|error| anyhow::anyhow!("that password is not acceptable: {error}"))?;
-    Ok((password, None))
+    Ok((password, Chosen::Supplied))
 }
 
 /// One we chose, returned alongside a copy to print.
-fn generated_password() -> anyhow::Result<(Password, Option<String>)> {
+fn generated_password(for_want_of_a_terminal: bool) -> anyhow::Result<(Password, Chosen)> {
     let generated = Secret::generate_session().expose().to_owned();
     // Parsed against the default policy rather than the configured one: an
     // operator who set `min_length` to 64 should not make the rescue path fail
     // on a password nobody has to type twice.
     let password = Password::parse(generated.clone(), PasswordPolicy::default())
         .map_err(|_| anyhow::anyhow!("could not generate a password"))?;
-    Ok((password, Some(generated)))
+    Ok((
+        password,
+        Chosen::Generated {
+            printed: generated,
+            for_want_of_a_terminal,
+        },
+    ))
 }
 
 /// Asks twice, without echoing, and insists the two agree.
@@ -342,13 +367,29 @@ fn first_line(raw: &str) -> anyhow::Result<&str> {
     clippy::print_stdout,
     reason = "a command-line tool's result belongs on stdout, not in the log"
 )]
-fn report(username: &str, generated: Option<&str>) {
-    match generated {
-        Some(printed) => println!(
-            "Password for `{username}` set to:\n\n    {printed}\n\n\
-             Sign in with it and choose a new one — this account is now marked as owing a change."
-        ),
-        None => println!("Password for `{username}` set."),
+fn report(username: &str, chosen: &Chosen) {
+    match chosen {
+        Chosen::Supplied => println!("Password for `{username}` set."),
+        Chosen::Generated {
+            printed,
+            for_want_of_a_terminal,
+        } => {
+            println!(
+                "Password for `{username}` set to:\n\n    {printed}\n\n\
+                 Sign in with it and choose a new one — this account is now marked as \
+                 owing a change."
+            );
+            // The case this exists for: somebody piped a password in and forgot
+            // the flag that reads it. Without this line the command looks like
+            // it worked, and the password they meant to set is gone with no
+            // indication that it was ever seen.
+            if *for_want_of_a_terminal {
+                println!(
+                    "\nThere was no terminal to ask at, so this one was chosen here. \
+                     If you meant to supply one, pass it with --password-stdin."
+                );
+            }
+        }
     }
 }
 
