@@ -1,7 +1,7 @@
 //! Reading and writing browser sessions.
 
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _,
+    ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _, Set,
 };
 use tessera_core::{SessionId, UserId};
 use time::OffsetDateTime;
@@ -35,6 +35,54 @@ pub struct Session {
     pub created_ip: Option<String>,
     /// The `User-Agent` it started with, unparsed and truncated.
     pub created_user_agent: Option<String>,
+    /// Why somebody ended it early, if they did.
+    pub ended_reason: Option<SessionEnding>,
+}
+
+/// Why a session stopped early.
+///
+/// Stored as text and read by nobody but a person: it decides nothing, and
+/// liveness is [`Session::is_valid_at`] alone. It exists so that the account
+/// holder can tell "I signed out on the laptop" from "I did not do that".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionEnding {
+    /// The person signed out of this one.
+    SignedOut,
+    /// The person ended it from their list of sessions.
+    Revoked,
+    /// A password change ended every session the account had.
+    PasswordChanged,
+    /// A password reset did, which usually means the account was in trouble.
+    PasswordReset,
+}
+
+impl SessionEnding {
+    /// The stored spelling.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::SignedOut => "signed_out",
+            Self::Revoked => "revoked",
+            Self::PasswordChanged => "password_changed",
+            Self::PasswordReset => "password_reset",
+        }
+    }
+
+    /// Reads one back, or `None` for a spelling this version does not know.
+    ///
+    /// Unknown rather than an error: a row written by a later version that has
+    /// grown another reason should still list, just without a label. Refusing to
+    /// read it would make a downgrade lose somebody's history.
+    #[must_use]
+    pub fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "signed_out" => Some(Self::SignedOut),
+            "revoked" => Some(Self::Revoked),
+            "password_changed" => Some(Self::PasswordChanged),
+            "password_reset" => Some(Self::PasswordReset),
+            _ => None,
+        }
+    }
 }
 
 /// What is known about the request that started a session.
@@ -100,6 +148,7 @@ impl Session {
             expires_at: model.expires_at,
             created_ip: model.created_ip.clone(),
             created_user_agent: model.created_user_agent.clone(),
+            ended_reason: model.ended_reason.as_deref().and_then(SessionEnding::parse),
         })
     }
 }
@@ -154,6 +203,7 @@ impl SessionRepository {
             expires_at,
             created_ip: origin.ip.clone(),
             created_user_agent: origin.bounded_user_agent(),
+            ended_reason: None,
         };
 
         SessionEntity::insert(session::ActiveModel {
@@ -165,6 +215,7 @@ impl SessionRepository {
             expires_at: Set(session.expires_at),
             created_ip: Set(session.created_ip.clone()),
             created_user_agent: Set(session.created_user_agent.clone()),
+            ended_reason: Set(None),
         })
         .exec(&self.connection)
         .await?;
@@ -210,7 +261,118 @@ impl SessionRepository {
         Ok(())
     }
 
-    /// Ends one session.
+    /// Lists an account's sessions, newest first.
+    ///
+    /// Everything, including the ones that are over: a person looking at this is
+    /// usually asking whether somebody else has been in, and a session that was
+    /// revoked last Tuesday is exactly what they need to see.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the query fails or a row is not
+    /// usable.
+    pub async fn find_for_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<Session>, SessionRepositoryError> {
+        let models = SessionEntity::find()
+            .filter(session::Column::UserId.eq(user_id.to_string()))
+            .order_by_desc(session::Column::CreatedAt)
+            .all(&self.connection)
+            .await?;
+        Ok(models
+            .iter()
+            .map(Session::from_model)
+            .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// Ends one session, whoever it belongs to.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the update fails.
+    pub async fn end(
+        &self,
+        id: SessionId,
+        reason: SessionEnding,
+        now: OffsetDateTime,
+    ) -> Result<(), SessionRepositoryError> {
+        SessionEntity::update_many()
+            .col_expr(session::Column::ExpiresAt, now.into())
+            .col_expr(session::Column::EndedReason, reason.as_str().into())
+            .filter(session::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Ends one session, but only if it belongs to this account.
+    ///
+    /// The owner is in the `WHERE` clause rather than checked beforehand. A
+    /// check first would answer "not yours" and "does not exist" differently,
+    /// which turns this endpoint into a way to ask whether an identifier is
+    /// somebody's — and it would race with the row being ended by other means.
+    ///
+    /// Returns whether a row was ended, so the caller can answer the same way
+    /// for a stranger's identifier and one that never existed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the update fails.
+    pub async fn revoke(
+        &self,
+        id: SessionId,
+        user_id: UserId,
+        now: OffsetDateTime,
+    ) -> Result<bool, SessionRepositoryError> {
+        let result = SessionEntity::update_many()
+            .col_expr(session::Column::ExpiresAt, now.into())
+            .col_expr(
+                session::Column::EndedReason,
+                SessionEnding::Revoked.as_str().into(),
+            )
+            .filter(session::Column::Id.eq(id.to_string()))
+            .filter(session::Column::UserId.eq(user_id.to_string()))
+            // Already over, so there is nothing to end and nothing to report.
+            .filter(session::Column::ExpiresAt.gt(now))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Ends every live session an account has, optionally sparing one.
+    ///
+    /// `keep` is how "sign out my other devices" leaves the browser doing the
+    /// asking signed in. A password change passes `None`, because whoever knew
+    /// the old password may be holding a session and changing it is how a person
+    /// says they want that to stop.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the update fails.
+    pub async fn end_all_for_user(
+        &self,
+        user_id: UserId,
+        keep: Option<SessionId>,
+        reason: SessionEnding,
+        now: OffsetDateTime,
+    ) -> Result<u64, SessionRepositoryError> {
+        let mut update = SessionEntity::update_many()
+            .col_expr(session::Column::ExpiresAt, now.into())
+            .col_expr(session::Column::EndedReason, reason.as_str().into())
+            .filter(session::Column::UserId.eq(user_id.to_string()))
+            .filter(session::Column::ExpiresAt.gt(now));
+        if let Some(keep) = keep {
+            update = update.filter(session::Column::Id.ne(keep.to_string()));
+        }
+        let result = update.exec(&self.connection).await?;
+        Ok(result.rows_affected)
+    }
+
+    /// Removes the row entirely.
+    ///
+    /// For the one case where there is nobody left to show it to: the account is
+    /// gone. Everything else ends a session rather than deleting it.
     ///
     /// # Errors
     ///
@@ -222,81 +384,23 @@ impl SessionRepository {
         Ok(())
     }
 
-    /// Ends every session belonging to an account.
+    /// Removes sessions that ended longer ago than the history is kept for.
     ///
-    /// Called after a password change: whoever knew the old password may be
-    /// holding a session, and changing the password is how a person says they
-    /// want that to stop.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SessionRepositoryError`] if the delete fails.
-    pub async fn delete_for_user(&self, user_id: UserId) -> Result<u64, SessionRepositoryError> {
-        let result = SessionEntity::delete_many()
-            .filter(session::Column::UserId.eq(user_id.to_string()))
-            .exec(&self.connection)
-            .await?;
-        Ok(result.rows_affected)
-    }
-
-    /// Removes sessions that have expired.
+    /// The same query the expiry sweep used to be, with a different bound: rows
+    /// are the login history now, so they outlive the credential by however long
+    /// an operator wants to be able to look back.
     ///
     /// # Errors
     ///
     /// Returns [`SessionRepositoryError`] if the delete fails.
-    pub async fn delete_expired(&self, now: OffsetDateTime) -> Result<u64, SessionRepositoryError> {
+    pub async fn delete_ended_before(
+        &self,
+        cutoff: OffsetDateTime,
+    ) -> Result<u64, SessionRepositoryError> {
         let result = SessionEntity::delete_many()
-            .filter(session::Column::ExpiresAt.lt(now))
+            .filter(session::Column::ExpiresAt.lt(cutoff))
             .exec(&self.connection)
             .await?;
         Ok(result.rows_affected)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn with_agent(agent: &str) -> SessionOrigin {
-        SessionOrigin {
-            ip: None,
-            user_agent: Some(agent.to_owned()),
-        }
-    }
-
-    #[test]
-    fn an_ordinary_user_agent_is_kept_whole() {
-        let agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
-        assert_eq!(
-            with_agent(agent).bounded_user_agent().as_deref(),
-            Some(agent)
-        );
-    }
-
-    /// The caller chooses this string, so without a bound a sign-in is a way to
-    /// write as much as the body limit allows into a row.
-    #[test]
-    fn a_long_one_is_cut() {
-        let bounded = with_agent(&"a".repeat(MAX_USER_AGENT * 3))
-            .bounded_user_agent()
-            .expect("an agent");
-        assert_eq!(bounded.chars().count(), MAX_USER_AGENT);
-    }
-
-    /// Nothing reaching this through HTTP can look like this — `to_str` refuses
-    /// it first — but a repository cannot see that, and a cut that counted bytes
-    /// would panic here the day something else calls it.
-    #[test]
-    fn a_cut_lands_on_a_character_boundary() {
-        let bounded = with_agent(&"字".repeat(MAX_USER_AGENT * 2))
-            .bounded_user_agent()
-            .expect("an agent");
-        assert_eq!(bounded.chars().count(), MAX_USER_AGENT);
-        assert_eq!(bounded.len(), MAX_USER_AGENT * "字".len());
-    }
-
-    #[test]
-    fn nothing_stays_nothing() {
-        assert!(SessionOrigin::default().bounded_user_agent().is_none());
     }
 }

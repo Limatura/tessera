@@ -695,43 +695,45 @@ async fn an_account_owing_a_password_change_can_only_fix_itself() {
     .await;
 }
 
-/// Sessions nobody comes back for are only removed by the sweep — without it the
-/// table grows for as long as the instance lives.
+/// The row goes only once it is older than the history is kept for. That is the
+/// same query the expiry sweep used to be, with a different bound.
 #[tokio::test]
-async fn the_sweep_removes_sessions_nobody_returns_for() {
+async fn the_sweep_removes_sessions_older_than_the_history_window() {
     let app = TestApp::ready().await;
     register(&app, "abandoner").await;
 
-    let past = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+    let now = time::OffsetDateTime::now_utc();
+    assert_eq!(
+        app.state
+            .sessions
+            .delete_ended_before(now - time::Duration::days(90))
+            .await
+            .expect("sweep"),
+        0,
+        "a session that is still live must survive the retention sweep"
+    );
+
     let statement = sea_orm::Statement::from_string(
         sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
         format!(
             "UPDATE sessions SET expires_at = '{}'",
-            past.format(&time::format_description::well_known::Rfc3339)
+            (now - time::Duration::days(200))
+                .format(&time::format_description::well_known::Rfc3339)
                 .expect("formattable")
         ),
     );
     sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
         .await
-        .expect("expire the session");
+        .expect("age the session");
 
-    let removed = app
-        .state
-        .sessions
-        .delete_expired(time::OffsetDateTime::now_utc())
-        .await
-        .expect("sweep");
-    assert_eq!(removed, 1);
-
-    // And a live one is left alone.
-    register(&app, "stillhere").await;
-    let removed = app
-        .state
-        .sessions
-        .delete_expired(time::OffsetDateTime::now_utc())
-        .await
-        .expect("sweep");
-    assert_eq!(removed, 0);
+    assert_eq!(
+        app.state
+            .sessions
+            .delete_ended_before(now - time::Duration::days(90))
+            .await
+            .expect("sweep"),
+        1
+    );
 }
 
 // ── password reset ──────────────────────────────────────────────────

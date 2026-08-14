@@ -22,7 +22,10 @@ use crate::{
         throttle::Decision,
     },
     config::RegistrationPolicy,
-    db::repository::{session::SessionOrigin, user::User},
+    db::repository::{
+        session::{SessionEnding, SessionOrigin},
+        user::User,
+    },
     error::{Error, Result},
     mail::password_reset_letter,
     state::AppState,
@@ -372,7 +375,10 @@ pub async fn logout(
     // signed out — treating logout as revocation would let a stolen token
     // destroy the owner's automation by calling this.
     if let Some(id) = current.credential.session_id() {
-        state.sessions.delete(id).await?;
+        state
+            .sessions
+            .end(id, SessionEnding::SignedOut, OffsetDateTime::now_utc())
+            .await?;
     }
 
     let secure = state
@@ -465,7 +471,13 @@ pub async fn change_password(
         .users
         .set_password(current.user.id, hash, false, now)
         .await?;
-    state.sessions.delete_for_user(current.user.id).await?;
+    // Every one of them, this one included: the browser gets a fresh session
+    // below, and "I changed my password" should not leave the old credential
+    // working anywhere, including here.
+    state
+        .sessions
+        .end_all_for_user(current.user.id, None, SessionEnding::PasswordChanged, now)
+        .await?;
 
     let cookie = start_session(&state, &current.user, &headers, &origin, now).await?;
     let mut account = AccountResponse::from(&current.user);
@@ -1044,7 +1056,10 @@ pub async fn confirm_password_reset(
     // still be holding; any existing session belongs to whoever had the old
     // password.
     state.resets.spend_all_for(token.user_id, now).await?;
-    state.sessions.delete_for_user(token.user_id).await?;
+    state
+        .sessions
+        .end_all_for_user(token.user_id, None, SessionEnding::PasswordReset, now)
+        .await?;
 
     Ok(StatusCode::NO_CONTENT.into_response())
 }
