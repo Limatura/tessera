@@ -233,10 +233,12 @@ async fn authenticate_session(
 
     let now = OffsetDateTime::now_utc();
     if !session.is_valid_at(now) {
-        // Expired sessions are removed on sight rather than left for the sweep:
-        // the row is already in hand, and a presented-but-dead session is the
-        // cheapest possible moment to clean one up.
-        state.sessions.delete(session.id).await?;
+        // Refused, and the row is left alone. It used to be deleted here, on the
+        // grounds that a presented-but-dead session was the cheapest moment to
+        // clean one up — but the row is the record of that login now, and this
+        // is the moment it matters most: somebody presenting a session that was
+        // revoked is somebody still holding a credential the owner took away.
+        // Deleting it would erase exactly the entry they need to see.
         return Ok(None);
     }
 

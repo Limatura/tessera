@@ -1763,6 +1763,23 @@ async fn session_behind(
         .expect("the session")
 }
 
+/// The account behind a name.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn account_named(
+    app: &TestApp,
+    username: &str,
+) -> tessera_server::db::repository::user::User {
+    app.state
+        .users
+        .find_by_username(&tessera_core::Username::parse(username).expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account")
+}
+
 /// Signs in with a chosen `User-Agent`, the way a particular browser would.
 async fn sign_in_as(app: &TestApp, username: &str, agent: &str) -> String {
     let response = expect_status(
@@ -1903,4 +1920,186 @@ async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
 
     let cookie = session_cookie(&response);
     assert_eq!(session_behind(&app, &cookie).await.created_user_agent, None);
+}
+
+/// The row is the record of a login, so presenting a session that is over must
+/// not remove it. This is the moment it matters most: somebody using a cookie
+/// the owner revoked is the thing the list exists to show.
+#[tokio::test]
+async fn presenting_a_session_that_is_over_does_not_erase_it() {
+    let app = TestApp::ready().await;
+    let cookie = register(&app, "member").await;
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+
+    let now = time::OffsetDateTime::now_utc();
+    let ended = app
+        .state
+        .sessions
+        .end_all_for_user(
+            user.id,
+            None,
+            tessera_server::db::repository::session::SessionEnding::Revoked,
+            now,
+        )
+        .await
+        .expect("end");
+    assert_eq!(ended, 1);
+
+    // The browser still has the cookie and tries it.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+
+    let rows = app
+        .state
+        .sessions
+        .find_for_user(user.id)
+        .await
+        .expect("query");
+    assert_eq!(rows.len(), 1, "the login must still be on the list");
+    assert_eq!(
+        rows[0].ended_reason,
+        Some(tessera_server::db::repository::session::SessionEnding::Revoked)
+    );
+}
+
+/// The owner is in the `WHERE` clause, not in a check beforehand. Somebody
+/// else's identifier must do nothing at all — not fail differently, not fail
+/// later, nothing.
+#[tokio::test]
+async fn revoking_reaches_only_your_own_sessions() {
+    let app = TestApp::ready().await;
+    register(&app, "owner").await;
+    register(&app, "stranger").await;
+
+    let owner = account_named(&app, "owner").await;
+    let stranger = account_named(&app, "stranger").await;
+    let theirs = app
+        .state
+        .sessions
+        .find_for_user(stranger.id)
+        .await
+        .expect("query");
+    assert_eq!(theirs.len(), 1);
+
+    let now = time::OffsetDateTime::now_utc();
+    assert!(
+        !app.state
+            .sessions
+            .revoke(theirs[0].id, owner.id, now)
+            .await
+            .expect("revoke"),
+        "the owner must not be able to end a stranger's session"
+    );
+
+    let still = app
+        .state
+        .sessions
+        .find_for_user(stranger.id)
+        .await
+        .expect("query");
+    assert!(
+        still[0].is_valid_at(now),
+        "and the stranger's session must still work"
+    );
+    assert_eq!(still[0].ended_reason, None);
+}
+
+/// Ending one that is already over changes nothing, so a second attempt cannot
+/// rewrite when it ended or why.
+#[tokio::test]
+async fn revoking_something_already_over_does_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+    let member = account_named(&app, "member").await;
+
+    let now = time::OffsetDateTime::now_utc();
+    let mine = app
+        .state
+        .sessions
+        .find_for_user(member.id)
+        .await
+        .expect("query");
+
+    assert!(
+        app.state
+            .sessions
+            .revoke(mine[0].id, member.id, now)
+            .await
+            .expect("revoke")
+    );
+    assert!(
+        !app.state
+            .sessions
+            .revoke(mine[0].id, member.id, now + time::Duration::minutes(5))
+            .await
+            .expect("revoke"),
+        "a second attempt must not touch the row again"
+    );
+
+    let after = app
+        .state
+        .sessions
+        .find_for_user(member.id)
+        .await
+        .expect("query");
+    assert_eq!(
+        after[0].expires_at, now,
+        "the ending time must not have moved"
+    );
+}
+
+/// What "sign out my other devices" is made of: the browser doing the asking
+/// keeps working, everything else stops.
+#[tokio::test]
+async fn ending_the_others_spares_the_one_you_name() {
+    let app = TestApp::ready().await;
+    let kept = register(&app, "member").await;
+    let member = account_named(&app, "member").await;
+    sign_in_as(&app, "member", "another browser").await;
+    sign_in_as(&app, "member", "a third browser").await;
+
+    let kept_id = session_behind(&app, &kept).await.id;
+    let now = time::OffsetDateTime::now_utc();
+    let ended = app
+        .state
+        .sessions
+        .end_all_for_user(
+            member.id,
+            Some(kept_id),
+            tessera_server::db::repository::session::SessionEnding::Revoked,
+            now,
+        )
+        .await
+        .expect("end");
+    assert_eq!(ended, 2);
+
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&kept))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let rows = app
+        .state
+        .sessions
+        .find_for_user(member.id)
+        .await
+        .expect("query");
+    assert_eq!(rows.len(), 3, "all three are still on the list");
+    assert_eq!(
+        rows.iter().filter(|row| row.is_valid_at(now)).count(),
+        1,
+        "and exactly one of them still works"
+    );
 }
