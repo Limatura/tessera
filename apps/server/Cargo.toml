@@ -222,6 +222,11 @@ bytes = "1"
 http-body-util = "0.1"
 ulid = { workspace = true }
 time = { workspace = true }
+# Reading a password without echoing it. The alternative is `tcsetattr` through
+# `libc`, which `unsafe_code = "forbid"` rules out, and `stty -echo`, which the
+# distroless runtime image has no shell to run. Small enough not to contradict
+# what the CLI module says about dependencies: this is two files, not `clap`.
+rpassword = "7.5.4"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["async_tokio"] }
