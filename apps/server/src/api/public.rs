@@ -26,7 +26,7 @@ use crate::{
         extract::{ApiPath, ApiQuery},
         gate,
     },
-    auth::extract::ClientAddress,
+    auth::{extract::ClientAddress, proxy::Origin},
     db::repository::share::{Share, ShareKind},
     error::{Error, Result},
     state::AppState,
@@ -60,7 +60,7 @@ async fn raw(
     method: Method,
     ApiPath(code): ApiPath<String>,
     ApiQuery(query): ApiQuery<RetrievalQuery>,
-    ClientAddress(source): ClientAddress,
+    ClientAddress(Origin { source, .. }): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
     // `find` and not `open`: whether this share may be handed out depends on
@@ -109,7 +109,7 @@ async fn download(
     method: Method,
     ApiPath(code): ApiPath<String>,
     ApiQuery(query): ApiQuery<RetrievalQuery>,
-    ClientAddress(source): ClientAddress,
+    ClientAddress(Origin { source, .. }): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
     // See `raw`: the admission decision needs the ticket, so it happens in

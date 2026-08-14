@@ -428,6 +428,8 @@ pub struct ShareConfig {
     pub retain_after_death_hours: u64,
 }
 
+use crate::auth::proxy::TrustedProxies;
+
 /// HTTP listener and middleware settings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -444,12 +446,28 @@ pub struct ServerConfig {
     /// only, which is the correct default for the single-binary deployment.
     pub cors_allowed_origins: Vec<String>,
 
-    /// Whether a reverse proxy in front of this service may be believed.
+    /// Which proxies in front of this service may be believed, as CIDR blocks
+    /// or bare addresses.
     ///
-    /// Turns on trust in `X-Forwarded-Proto`, which decides whether the session
-    /// cookie is marked `Secure`. Off by default: the header is set by whoever
-    /// spoke to us last, so on a direct connection that is the client, and
-    /// believing it would let anyone claim HTTPS.
+    /// Empty by default, which means nothing is believed: `X-Forwarded-For` and
+    /// `X-Forwarded-Proto` are set by whoever spoke to us last, so on a direct
+    /// connection that is the caller. Believing them from anyone would let a
+    /// caller pick their own source address — and every throttle in this service
+    /// counts against that address — as well as claim HTTPS on a plain
+    /// connection.
+    ///
+    /// `["127.0.0.1", "::1"]` covers a proxy on the same host;
+    /// `["10.0.0.0/8"]` a container network.
+    #[serde(default)]
+    pub trusted_proxies: Vec<String>,
+
+    /// Deprecated: use [`ServerConfig::trusted_proxies`].
+    ///
+    /// `true` means "whatever connects to us is a proxy", which is the setting
+    /// that makes the headers forgeable by anyone who can reach the port
+    /// directly. Kept working so an upgrade does not lock an operator out of
+    /// their own instance, and warned about at start-up.
+    #[serde(default)]
     pub trusted_proxy: bool,
 }
 
@@ -551,6 +569,7 @@ impl Default for ServerConfig {
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
             cors_allowed_origins: Vec::new(),
+            trusted_proxies: Vec::new(),
             trusted_proxy: false,
         }
     }
@@ -658,6 +677,27 @@ impl ServerConfig {
     #[must_use]
     pub const fn request_timeout(&self) -> Duration {
         Duration::from_secs(self.request_timeout_secs)
+    }
+
+    /// The proxies this instance will be spoken for by.
+    ///
+    /// A non-empty list wins over the deprecated boolean, so an operator part
+    /// way through migrating gets the setting that says something specific
+    /// rather than the one that says "anyone".
+    ///
+    /// The list is validated in [`ServerConfig::validate`], so by the time this
+    /// is called it cannot fail — an unusable entry has already stopped
+    /// start-up. Falling back to trusting nothing is the safe reading of a state
+    /// that should not be reachable.
+    #[must_use]
+    pub fn proxy_trust(&self) -> TrustedProxies {
+        if !self.trusted_proxies.is_empty() {
+            return TrustedProxies::parse(&self.trusted_proxies).unwrap_or_default();
+        }
+        if self.trusted_proxy {
+            return TrustedProxies::any_peer();
+        }
+        TrustedProxies::default()
     }
 }
 
@@ -1000,6 +1040,15 @@ impl ServerConfig {
                 reason: "must be at least 1 byte".to_owned(),
             });
         }
+        if let Err(entry) = TrustedProxies::parse(&self.trusted_proxies) {
+            return Err(ConfigError::Invalid {
+                field: "server.trusted_proxies",
+                reason: format!(
+                    "`{entry}` is not an address or a CIDR block; expected something like \
+                     `127.0.0.1` or `10.0.0.0/8`"
+                ),
+            });
+        }
         for origin in &self.cors_allowed_origins {
             if origin != "*" && !origin.starts_with("http://") && !origin.starts_with("https://") {
                 return Err(ConfigError::Invalid {
@@ -1114,6 +1163,8 @@ impl TelemetryConfig {
 
 #[cfg(test)]
 mod tests {
+    use axum::http::HeaderMap;
+
     /// The smallest mail block that passes the all-or-nothing rule, for cases
     /// that are about one of the *other* fields.
     fn configured_mail(config: &mut Config) {
@@ -1447,6 +1498,63 @@ mod tests {
         config.auth.password.min_length = 4;
         let err = config.validate().unwrap_err();
         assert!(err.to_string().contains("auth.password"), "got: {err}");
+    }
+
+    #[test]
+    fn something_that_is_not_an_address_stops_start_up() {
+        let mut config = Config::default();
+        config.server.trusted_proxies = vec!["10.0.0.0/8".to_owned(), "the proxy".to_owned()];
+        let err = config.validate().unwrap_err();
+        assert!(err.to_string().contains("trusted_proxies"), "got: {err}");
+    }
+
+    #[test]
+    fn a_bare_address_and_a_block_are_both_accepted() {
+        let mut config = Config::default();
+        config.server.trusted_proxies = vec![
+            "127.0.0.1".to_owned(),
+            "::1".to_owned(),
+            "10.0.0.0/8".to_owned(),
+        ];
+        config.validate().unwrap();
+    }
+
+    /// Nothing is believed unless an operator said what to believe.
+    #[test]
+    fn the_default_trusts_no_proxy() {
+        assert!(Config::default().server.proxy_trust().is_empty());
+    }
+
+    /// An operator part way through migrating gets the setting that names
+    /// something over the one that says "anyone".
+    #[test]
+    fn a_list_wins_over_the_deprecated_boolean() {
+        let mut config = Config::default();
+        config.server.trusted_proxies = vec!["10.0.0.0/8".to_owned()];
+        config.server.trusted_proxy = true;
+
+        let trust = config.server.proxy_trust();
+        let chain = HeaderMap::new();
+        // 127.0.0.1 is outside the list, so it is not a proxy and gets no say —
+        // which the boolean on its own would have granted it.
+        assert!(
+            !trust
+                .resolve(Some("127.0.0.1".parse().unwrap()), &chain)
+                .via_trusted_proxy
+        );
+    }
+
+    #[test]
+    fn the_deprecated_boolean_still_works_on_its_own() {
+        let mut config = Config::default();
+        config.server.trusted_proxy = true;
+        let trust = config.server.proxy_trust();
+        assert!(!trust.is_empty());
+        assert!(
+            trust
+                .resolve(Some("127.0.0.1".parse().unwrap()), &HeaderMap::new())
+                .via_trusted_proxy
+        );
     }
 
     #[test]

@@ -15,12 +15,12 @@ use std::{convert::Infallible, net::SocketAddr};
 
 use axum::{
     extract::{ConnectInfo, FromRequestParts},
-    http::{HeaderMap, header, request::Parts},
+    http::{header, request::Parts},
 };
 use time::OffsetDateTime;
 
 use crate::{
-    auth::{cookie, secret::Secret},
+    auth::{cookie, proxy::Origin, secret::Secret},
     db::repository::user::User,
     error::Error,
     state::AppState,
@@ -135,8 +135,13 @@ impl FromRequestParts<AppState> for AdminUser {
 ///
 /// Used for throttle keys, never for authorisation: it is a hint, and a shared
 /// NAT or a VPN makes many people look like one address.
+///
+/// Carries whether it came through a proxy this instance trusts, because the
+/// same fact decides two things — which address to count against, and whether
+/// `X-Forwarded-Proto` is worth reading — and working it out twice is how the
+/// two answers drift apart.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ClientAddress(pub String);
+pub struct ClientAddress(pub Origin);
 
 impl FromRequestParts<AppState> for ClientAddress {
     type Rejection = Infallible;
@@ -151,34 +156,9 @@ impl FromRequestParts<AppState> for ClientAddress {
         let peer = parts
             .extensions
             .get::<ConnectInfo<SocketAddr>>()
-            .map(|ConnectInfo(address)| address.ip().to_string());
-        Ok(Self(resolve_client_address(
-            peer,
-            &parts.headers,
-            state.config.server.trusted_proxy,
-        )))
+            .map(|ConnectInfo(address)| address.ip());
+        Ok(Self(state.proxies.resolve(peer, &parts.headers)))
     }
-}
-
-/// `X-Forwarded-For` is believed only behind a trusted proxy, for the same reason
-/// as `X-Forwarded-Proto`: otherwise a caller sets it themselves and every guess
-/// looks like it came from somewhere new, which is exactly the throttle's
-/// failure mode.
-fn resolve_client_address(
-    peer: Option<String>,
-    headers: &HeaderMap,
-    trusted_proxy: bool,
-) -> String {
-    if trusted_proxy
-        && let Some(forwarded) = headers
-            .get("x-forwarded-for")
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.split(',').next())
-        && !forwarded.trim().is_empty()
-    {
-        return forwarded.trim().to_owned();
-    }
-    peer.unwrap_or_else(|| "unknown".to_owned())
 }
 
 /// Resolves whichever credential the request carried.
@@ -318,43 +298,5 @@ mod tests {
     fn no_authorization_header_means_no_token() {
         let parts = Request::new(()).into_parts().0;
         assert!(bearer_token(&parts).is_none());
-    }
-
-    #[test]
-    fn an_untrusted_forwarded_for_is_ignored() {
-        let parts = parts_with("x-forwarded-for", "203.0.113.9");
-        assert_eq!(
-            resolve_client_address(Some("10.0.0.5".to_owned()), &parts.headers, false),
-            "10.0.0.5"
-        );
-    }
-
-    #[test]
-    fn a_trusted_forwarded_for_names_the_original_client() {
-        let parts = parts_with("x-forwarded-for", "203.0.113.9, 10.0.0.1");
-        assert_eq!(
-            resolve_client_address(Some("10.0.0.5".to_owned()), &parts.headers, true),
-            "203.0.113.9"
-        );
-    }
-
-    /// A proxy that sets the header but leaves it empty must not collapse every
-    /// caller onto one throttle key.
-    #[test]
-    fn an_empty_forwarded_for_falls_back_to_the_peer() {
-        let parts = parts_with("x-forwarded-for", "");
-        assert_eq!(
-            resolve_client_address(Some("10.0.0.5".to_owned()), &parts.headers, true),
-            "10.0.0.5"
-        );
-    }
-
-    #[test]
-    fn a_missing_peer_address_is_named_rather_than_dropped() {
-        let parts = Request::new(()).into_parts().0;
-        assert_eq!(
-            resolve_client_address(None, &parts.headers, false),
-            "unknown"
-        );
     }
 }

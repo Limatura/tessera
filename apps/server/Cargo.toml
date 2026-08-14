@@ -206,6 +206,11 @@ subtle = "2"
 axum-extra = { version = "0.12", features = ["cookie"] }
 
 # --- misc ---
+# CIDR matching, for deciding whether the thing that connected is a proxy we
+# said we trust. Already in the tree through reqwest, so it costs nothing new,
+# and hand-rolling prefix comparison across v4 and v6 is exactly the kind of
+# thing that looks right and is not.
+ipnet = "2"
 parking_lot = "0.12"
 rust-embed = "8.12"
 mime_guess = "2"
