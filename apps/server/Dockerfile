@@ -35,7 +35,7 @@ COPY packages/env/package.json packages/env/
 COPY packages/config/package.json packages/config/
 
 # `--filter web...` pulls in web and everything it depends on, and nothing else
-# — no admin, no fumadocs, no extension. `--frozen-lockfile` makes an undeclared
+# — no admin, no docs site, no extension. `--frozen-lockfile` makes an undeclared
 # dependency fail the build instead of quietly resolving.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
   pnpm install --frozen-lockfile --filter web...
