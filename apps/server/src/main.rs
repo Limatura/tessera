@@ -65,6 +65,11 @@ async fn main() -> anyhow::Result<()> {
         cli::Command::ResetPassword { username, source } => {
             return cli::reset_password(&config, &username, source).await;
         }
+        cli::Command::Invite {
+            uses,
+            expires_in_days,
+            note,
+        } => return cli::mint_invite(&config, uses, expires_in_days, note).await,
         cli::Command::Serve => {}
     }
 

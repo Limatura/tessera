@@ -14,6 +14,7 @@ use crate::{
     config::Config,
     db::repository::{
         api_token::ApiTokenRepository,
+        invite::InviteRepository,
         password_reset::PasswordResetRepository,
         pending_registration::PendingRegistrationRepository,
         session::SessionRepository,
@@ -59,6 +60,8 @@ pub struct AppState {
     pub tickets: ShareTicketRepository,
     /// Outstanding password reset links.
     pub resets: PasswordResetRepository,
+    /// Invite codes, for an instance that is neither open nor closed.
+    pub invites: InviteRepository,
     /// Registrations waiting on their address to be confirmed.
     pub pending: PendingRegistrationRepository,
     /// The relay, when this instance has one.
@@ -110,6 +113,7 @@ impl AppState {
         Self {
             users: UserRepository::new(db.clone()),
             resets: PasswordResetRepository::new(db.clone()),
+            invites: InviteRepository::new(db.clone()),
             pending: PendingRegistrationRepository::new(db.clone()),
             mailer,
             sessions: SessionRepository::new(db.clone()),

@@ -127,6 +127,12 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one invite code.
+    InviteId,
+    "invite_id"
+);
+
+declare_id!(
     /// Identifies one password reset link.
     PasswordResetTokenId,
     "password_reset_token_id"

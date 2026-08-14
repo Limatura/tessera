@@ -1184,9 +1184,12 @@ async fn register_verified(app: &TestApp, username: &str) -> String {
         .state
         .pending
         .start(
-            &pending.username,
-            &pending.email,
-            pending.password_hash.clone(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &pending.username,
+                email: &pending.email,
+                password_hash: pending.password_hash.clone(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1369,9 +1372,13 @@ async fn an_unusable_registration_link_says_only_that() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "not a real hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "not a real hash".to_owned(),
+                invite_id: None,
+            },
             now - time::Duration::hours(48),
             now - time::Duration::hours(24),
         )
@@ -1395,17 +1402,21 @@ async fn a_registration_link_works_once() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            tessera_server::auth::password::hash(
-                tessera_core::Password::parse(
-                    PASSWORD.to_owned(),
-                    tessera_core::PasswordPolicy::default(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: tessera_server::auth::password::hash(
+                    tessera_core::Password::parse(
+                        PASSWORD.to_owned(),
+                        tessera_core::PasswordPolicy::default(),
+                    )
+                    .expect("a password"),
                 )
-                .expect("a password"),
-            )
-            .await
-            .expect("hash"),
+                .await
+                .expect("hash"),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1436,13 +1447,31 @@ async fn asking_again_replaces_the_earlier_link() {
     let first = app
         .state
         .pending
-        .start(&name, &address, "first".to_owned(), now, expires)
+        .start(
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &name,
+                email: &address,
+                password_hash: "first".to_owned(),
+                invite_id: None,
+            },
+            now,
+            expires,
+        )
         .await
         .expect("issue");
     let second = app
         .state
         .pending
-        .start(&name, &address, "second".to_owned(), now, expires)
+        .start(
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &name,
+                email: &address,
+                password_hash: "second".to_owned(),
+                invite_id: None,
+            },
+            now,
+            expires,
+        )
         .await
         .expect("issue");
 
@@ -1469,9 +1498,12 @@ async fn a_name_taken_while_waiting_is_refused_at_confirmation() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("first@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("first@example.com").expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1502,9 +1534,13 @@ async fn an_address_that_gained_an_account_while_waiting_is_refused() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("second").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("second").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1584,9 +1620,13 @@ async fn abandoned_registrations_are_swept() {
     app.state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now - time::Duration::hours(48),
             now - time::Duration::hours(24),
         )
@@ -1676,9 +1716,13 @@ async fn closing_registration_stops_links_that_were_already_sent() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1716,9 +1760,12 @@ async fn two_links_racing_for_one_name_do_not_produce_a_server_error() {
             .state
             .pending
             .start(
-                &name,
-                &tessera_core::EmailAddress::parse(address).expect("an address"),
-                "a hash".to_owned(),
+                tessera_server::db::repository::pending_registration::Waiting {
+                    username: &name,
+                    email: &tessera_core::EmailAddress::parse(address).expect("an address"),
+                    password_hash: "a hash".to_owned(),
+                    invite_id: None,
+                },
                 now,
                 expires,
             )
@@ -2344,4 +2391,236 @@ async fn signing_out_shows_up_as_a_reason() {
         .filter(|row| row["ended_reason"] == "signed_out")
         .collect();
     assert_eq!(ended.len(), 1);
+}
+
+// ── invite codes ────────────────────────────────────────────────────
+
+/// An instance that asks for a code, with no relay so registration finishes in
+/// one step.
+async fn app_with_invites() -> TestApp {
+    TestApp::with_config(|config| {
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn mint(app: &TestApp, uses: i64) -> String {
+    let now = time::OffsetDateTime::now_utc();
+    let (_, code) = app
+        .state
+        .invites
+        .issue(None, uses, now, None)
+        .await
+        .expect("issue");
+    code.expose().to_owned()
+}
+
+async fn register_with(app: &TestApp, username: &str, code: Option<&str>) -> StatusCode {
+    let body = serde_json::json!({
+        "username": username,
+        "email": format!("{username}@example.com"),
+        "password": PASSWORD,
+        "invite_code": code,
+    });
+    app.json(Method::POST, "/api/v1/auth/register", Auth::None, &body)
+        .await
+        .status()
+}
+
+/// The hole this closes: `invite` was a documented setting that behaved exactly
+/// like `closed`, so a client drawing its form from `/capabilities` produced one
+/// that could never succeed.
+#[tokio::test]
+async fn an_invite_only_instance_accepts_a_code() {
+    let app = app_with_invites().await;
+    let code = mint(&app, 1).await;
+
+    assert_eq!(
+        register_with(&app, "invited", Some(&code)).await,
+        StatusCode::CREATED
+    );
+}
+
+/// Unknown, spent, expired and absent are one message. Anything else turns the
+/// registration form into a way of testing codes.
+#[tokio::test]
+async fn every_unusable_code_says_the_same_thing() {
+    let app = app_with_invites().await;
+    let spent = mint(&app, 1).await;
+    assert_eq!(
+        register_with(&app, "first", Some(&spent)).await,
+        StatusCode::CREATED
+    );
+
+    let now = time::OffsetDateTime::now_utc();
+    let (_, expired) = app
+        .state
+        .invites
+        .issue(
+            None,
+            5,
+            now - time::Duration::days(2),
+            Some(now - time::Duration::days(1)),
+        )
+        .await
+        .expect("issue");
+
+    for (label, code) in [
+        ("spent", Some(spent.as_str())),
+        ("expired", Some(expired.expose())),
+        ("never existed", Some("0123456789abcdef")),
+        ("absent", None),
+        ("empty", Some("")),
+    ] {
+        assert_eq!(
+            register_with(&app, &format!("who-{}", label.replace(' ', "-")), code).await,
+            StatusCode::BAD_REQUEST,
+            "{label}"
+        );
+    }
+}
+
+/// One code with several places is the case this exists for: something to send
+/// to a group chat rather than a code per person.
+#[tokio::test]
+async fn a_code_admits_as_many_as_it_says_and_no_more() {
+    let app = app_with_invites().await;
+    let code = mint(&app, 3).await;
+
+    for n in 0..3 {
+        assert_eq!(
+            register_with(&app, &format!("member{n}"), Some(&code)).await,
+            StatusCode::CREATED,
+            "{n}"
+        );
+    }
+    assert_eq!(
+        register_with(&app, "one-too-many", Some(&code)).await,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+/// The condition lives in the `UPDATE`, so two people reaching for the last
+/// place do not both get it.
+#[tokio::test]
+async fn two_people_cannot_take_the_same_last_place() {
+    let app = app_with_invites().await;
+    let code = mint(&app, 1).await;
+
+    let (first, second) = tokio::join!(
+        register_with(&app, "racer-one", Some(&code)),
+        register_with(&app, "racer-two", Some(&code))
+    );
+    let mut statuses = [first, second];
+    statuses.sort_unstable();
+    assert_eq!(statuses, [StatusCode::CREATED, StatusCode::BAD_REQUEST]);
+
+    let invite = app.state.invites.list().await.expect("query");
+    assert_eq!(invite[0].used, 1, "the code must not have been overdrawn");
+}
+
+/// An open instance ignores a code rather than refusing it, so a client can send
+/// the same body whichever kind of instance it is talking to.
+#[tokio::test]
+async fn an_open_instance_ignores_a_code() {
+    let app = TestApp::ready().await;
+    assert_eq!(
+        register_with(&app, "member", Some("nonsense")).await,
+        StatusCode::CREATED
+    );
+}
+
+/// Closed still means closed, and says so before reading anything.
+#[tokio::test]
+async fn a_closed_instance_refuses_even_a_real_code() {
+    let app = TestApp::with_config(|config| {
+        config.auth.registration = RegistrationPolicy::Closed;
+    })
+    .await;
+    let code = mint(&app, 1).await;
+    assert_eq!(
+        register_with(&app, "member", Some(&code)).await,
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// The decision this feature turns on when mail is configured: a place is not
+/// taken until an account exists. Charging at submission would let somebody burn
+/// every place on a code by filling the form in five times and never opening
+/// their inbox — and there would be nothing to show for it.
+#[tokio::test]
+async fn filling_in_the_form_does_not_spend_a_place() {
+    let app = TestApp::with_config(|config| {
+        "smtp.invalid".clone_into(&mut config.mail.host);
+        "tessera@example.com".clone_into(&mut config.mail.from);
+        "https://tessera.example.com".clone_into(&mut config.mail.public_url);
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await;
+    let code = mint(&app, 2).await;
+
+    for n in 0..5 {
+        assert_eq!(
+            register_with(&app, &format!("waiting{n}"), Some(&code)).await,
+            StatusCode::ACCEPTED,
+            "{n}"
+        );
+    }
+    wait_for_pending(&app, "waiting4@example.com").await;
+
+    assert_eq!(
+        app.state.invites.list().await.expect("query")[0].used,
+        0,
+        "five submissions and nobody has confirmed, so nothing is spent"
+    );
+}
+
+/// And following the link is what charges it.
+#[tokio::test]
+async fn following_the_link_spends_the_place() {
+    let app = TestApp::with_config(|config| {
+        "smtp.invalid".clone_into(&mut config.mail.host);
+        "tessera@example.com".clone_into(&mut config.mail.from);
+        "https://tessera.example.com".clone_into(&mut config.mail.public_url);
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await;
+    let code = mint(&app, 1).await;
+
+    assert_eq!(
+        register_with(&app, "invited", Some(&code)).await,
+        StatusCode::ACCEPTED
+    );
+    let pending = wait_for_pending(&app, "invited@example.com").await;
+    assert!(
+        pending.invite_id.is_some(),
+        "the waiting row must remember which code it came in on"
+    );
+
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &pending.username,
+                email: &pending.email,
+                password_hash: pending.password_hash.clone(),
+                invite_id: pending.invite_id,
+            },
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::CREATED
+    );
+    assert_eq!(app.state.invites.list().await.expect("query")[0].used, 1);
 }

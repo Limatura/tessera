@@ -23,6 +23,8 @@ use crate::{
     },
     config::RegistrationPolicy,
     db::repository::{
+        invite::Invite,
+        pending_registration::Waiting,
         session::{SessionEnding, SessionOrigin},
         user::User,
     },
@@ -94,6 +96,14 @@ pub struct RegisterRequest {
         max_length = 1024
     )]
     pub password: String,
+    /// An invite code, on an instance that asks for one.
+    ///
+    /// Ignored where registration is open, so a client does not have to know
+    /// which kind of instance it is talking to before filling in the form.
+    /// `/capabilities` says which it is.
+    #[schema(example = "3f9a1c…")]
+    #[serde(default)]
+    pub invite_code: Option<String>,
 }
 
 /// Body of `POST /auth/login`.
@@ -143,6 +153,57 @@ fn address_limit_key(email: &EmailAddress) -> String {
     email.as_str().to_lowercase()
 }
 
+/// The one answer an invite ever gets wrong.
+///
+/// Unknown, spent and expired are one message. Telling them apart would let
+/// somebody holding a code they were never given learn that it was real once,
+/// and would turn a registration form into a way to test codes for validity
+/// rather than to use one.
+fn invite_refused() -> Error {
+    Error::bad_request("that invite code is not usable")
+}
+
+/// Reads the invite a registration came in on, when this instance asks for one.
+///
+/// # Why the place is not taken here
+///
+/// The invite is only looked at. Charging a place at this point would mean
+/// somebody can spend every place on a code by submitting the form five times
+/// and never confirming an address — and on an instance that sends mail, no
+/// account would exist to show for it. So the code is checked now, remembered
+/// on the pending row, and charged when there is an account.
+///
+/// The check still has to happen here: telling somebody their invite was no good
+/// after they have chosen a password and gone to their inbox is a worse way to
+/// find out.
+///
+/// # Errors
+///
+/// `400` when the instance asks for a code and the one given is unknown, spent,
+/// expired or absent.
+async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Invite>> {
+    if state.config.auth.registration != RegistrationPolicy::Invite {
+        // An open instance ignores one rather than refusing it, so a client can
+        // send the same body to either kind.
+        return Ok(None);
+    }
+
+    let code = code.map(str::trim).filter(|code| !code.is_empty());
+    let Some(code) = code else {
+        return Err(invite_refused());
+    };
+
+    let found = state
+        .invites
+        .find_by_code(&crate::auth::secret::Secret::from_client(code.to_owned()))
+        .await?;
+    let now = OffsetDateTime::now_utc();
+    found
+        .filter(|invite| invite.is_usable_at(now))
+        .map(Some)
+        .ok_or_else(invite_refused)
+}
+
 /// Refuses everything when the instance has no accounts.
 ///
 /// `404`, not `403`. The endpoint genuinely is not part of this deployment, and
@@ -185,11 +246,10 @@ pub async fn register(
 ) -> Result<Response> {
     require_accounts(&state)?;
 
-    match state.config.auth.registration {
-        RegistrationPolicy::Open => {}
-        RegistrationPolicy::Invite | RegistrationPolicy::Closed => {
-            return Err(Error::Forbidden);
-        }
+    // Checked before anything is parsed, so a closed instance says so without
+    // reading what was sent.
+    if state.config.auth.registration == RegistrationPolicy::Closed {
+        return Err(Error::Forbidden);
     }
 
     let username = Username::parse(&body.username)?;
@@ -217,9 +277,11 @@ pub async fn register(
         return Err(Error::Conflict("that username is taken".to_owned()));
     }
 
+    let invite = check_invite(&state, body.invite_code.as_deref()).await?;
+
     // With a relay configured, nothing is created until the address answers.
     if state.mailer.is_some() {
-        return start_verified_registration(&state, username, email, password);
+        return start_verified_registration(&state, username, email, password, invite);
     }
 
     // Without one there is nothing to verify with, so this is the whole of it.
@@ -232,6 +294,17 @@ pub async fn register(
     }
 
     let now = OffsetDateTime::now_utc();
+    // Taken before the account is written rather than after: a place that is
+    // charged only once everything else succeeded is a place two people can be
+    // holding at the same moment. If the insert then fails the place is gone,
+    // which costs the operator one slot on a code they can reissue — the other
+    // way round costs them a code that admits more people than it says.
+    if let Some(invite) = invite
+        && !state.invites.spend(invite.id, now).await?
+    {
+        return Err(invite_refused());
+    }
+
     let user = User {
         id: UserId::generate(),
         username,
@@ -619,6 +692,7 @@ fn start_verified_registration(
     username: Username,
     email: EmailAddress,
     password: Password,
+    invite: Option<Invite>,
 ) -> Result<Response> {
     let Some(mailer) = state.mailer.clone() else {
         return Err(Error::NotFound);
@@ -678,7 +752,16 @@ fn start_verified_registration(
                 .unwrap_or_else(|_| time::Duration::hours(24));
             let secret = match detached
                 .pending
-                .start(&username, &email, hash, now, now.saturating_add(ttl))
+                .start(
+                    Waiting {
+                        username: &username,
+                        email: &email,
+                        password_hash: hash,
+                        invite_id: invite.map(|invite| invite.id),
+                    },
+                    now,
+                    now.saturating_add(ttl),
+                )
                 .await
             {
                 Ok(secret) => secret,
@@ -754,11 +837,16 @@ pub async fn confirm_registration(
     // count and cannot cancel. Somebody closing registration is usually reacting
     // to something, and a day of accounts still arriving is the opposite of what
     // they asked for.
-    match state.config.auth.registration {
-        RegistrationPolicy::Open => {}
-        RegistrationPolicy::Invite | RegistrationPolicy::Closed => {
-            return Err(Error::Forbidden);
-        }
+    // Read again here, and not only where the link was sent. Closing
+    // registration has to mean no more accounts, and without this it would mean
+    // "no more accounts except from the links already in inboxes" — up to
+    // `registration_ttl_hours` of them, which an operator cannot see, count or
+    // cancel. Somebody closing registration is usually reacting to something.
+    //
+    // `Invite` still passes: the code was checked when the link was sent and is
+    // charged below, so this link is one somebody was actually given.
+    if state.config.auth.registration == RegistrationPolicy::Closed {
+        return Err(Error::Forbidden);
     }
 
     let now = OffsetDateTime::now_utc();
@@ -793,6 +881,16 @@ pub async fn confirm_registration(
         return Err(Error::bad_request(
             "this confirmation link is not usable; register again",
         ));
+    }
+
+    // The place is charged here, where an account is about to exist. Two links
+    // for the last place on a code both reach this point; the condition lives in
+    // the `UPDATE`, so exactly one of them gets it.
+    if let Some(invite) = pending.invite_id
+        && !state.invites.spend(invite, now).await?
+    {
+        state.pending.finish(pending.id).await?;
+        return Err(invite_refused());
     }
 
     let user = User {
