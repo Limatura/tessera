@@ -230,6 +230,7 @@ pub(crate) async fn account_lifecycle(app: &TestApp, suffix: &str) {
     let second = account.sign_in_again_by_email().await;
     account.exercises_an_api_token().await;
     account.changes_its_password(&second).await;
+    account.records_a_long_user_agent().await;
 }
 
 /// One account, plus the session it registered with.
@@ -343,6 +344,55 @@ impl<'a> Scenario<'a> {
     }
 
     /// Signing in by address rather than name, and getting a session of its own.
+    /// Signs in with a `User-Agent` far longer than the column allows.
+    ///
+    /// Here rather than in the SQLite-only suite because SQLite has no column
+    /// width to exceed. MySQL does — `VARCHAR(512)` — so a bound that drifted
+    /// from it would fail there and nowhere else, on a header any caller sets.
+    ///
+    /// Deliberately ASCII: a header value that is not visible ASCII never
+    /// reaches the column at all (see `session_origin`), so a multi-byte one
+    /// would store `NULL` and quietly prove nothing.
+    async fn records_a_long_user_agent(&self) {
+        let response = self
+            .app
+            .send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/auth/login")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header(header::USER_AGENT, "u".repeat(2000)),
+                Body::from(
+                    serde_json::json!({
+                        "identifier": self.username,
+                        "password": Self::REPLACEMENT,
+                    })
+                    .to_string(),
+                ),
+            )
+            .await;
+        let cookie = session_cookie(&expect_status(response, StatusCode::OK).await);
+
+        let value = cookie.split_once('=').expect("a name=value pair").1;
+        let session = self
+            .app
+            .state
+            .sessions
+            .find_by_secret(&tessera_server::auth::secret::Secret::from_client(
+                value.to_owned(),
+            ))
+            .await
+            .expect("query")
+            .expect("the session");
+        assert_eq!(
+            session
+                .created_user_agent
+                .map(|agent| agent.chars().count()),
+            Some(512),
+            "the stored agent must be cut to what the narrowest column holds"
+        );
+    }
+
     async fn sign_in_again_by_email(&self) -> String {
         let second = self
             .login(&self.email.clone(), &self.password, StatusCode::OK)
