@@ -38,6 +38,7 @@ pub mod gate;
 pub mod health;
 pub mod preview;
 pub mod public;
+pub mod sessions;
 pub mod shares;
 pub mod tokens;
 
@@ -74,6 +75,9 @@ pub const AUTH_TAG: &str = "auth";
 
 /// Tag grouping API-token management.
 pub const TOKENS_TAG: &str = "tokens";
+
+/// Tag for the endpoints that show and end a person's own sign-ins.
+pub const SESSIONS_TAG: &str = "sessions";
 
 /// Tag grouping share creation and management.
 pub const SHARES_TAG: &str = "shares";
@@ -115,6 +119,7 @@ pub const API_PREFIX: &str = "/api/v1";
         (name = SYSTEM_TAG, description = "Health and service metadata"),
         (name = AUTH_TAG, description = "Registration, sign-in and passwords"),
         (name = TOKENS_TAG, description = "API tokens for non-browser callers"),
+        (name = SESSIONS_TAG, description = "Seeing and ending your own sign-ins"),
         (name = SHARES_TAG, description = "Creating and managing shares"),
     ),
     modifiers(&SecurityAddon),
@@ -261,6 +266,8 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::confirm_password_reset))
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
+        .routes(routes!(sessions::list, sessions::revoke_others))
+        .routes(routes!(sessions::revoke))
         .routes(routes!(shares::list, shares::create))
         .routes(routes!(shares::describe, shares::delete))
         .routes(routes!(shares::unlock))

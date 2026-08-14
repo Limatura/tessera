@@ -17,7 +17,7 @@ use crate::{
         TOKENS_TAG,
         extract::{ApiJson, ApiPath},
     },
-    auth::extract::{Credential, CurrentUser},
+    auth::extract::CurrentUser,
     db::repository::api_token::ApiToken,
     error::{Error, Result},
     state::AppState,
@@ -86,7 +86,7 @@ pub struct CreateTokenRequest {
 
 /// RFC 3339 is what every client's date parser accepts without being told a
 /// format, which matters more here than the two bytes a Unix timestamp saves.
-fn format_timestamp(value: OffsetDateTime) -> String {
+pub(crate) fn format_timestamp(value: OffsetDateTime) -> String {
     value
         .format(&time::format_description::well_known::Rfc3339)
         .unwrap_or_else(|_| value.unix_timestamp().to_string())
@@ -161,7 +161,7 @@ pub async fn create(
     // A token may not mint another. Otherwise one leaked token is permanent
     // access: revoking it does nothing, because whoever took it has already
     // issued three more under names that look like yours.
-    if current.credential != Credential::Session {
+    if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
 
@@ -232,7 +232,7 @@ pub async fn revoke(
 ) -> Result<StatusCode> {
     // Same reasoning as creation: a leaked token must not be able to revoke the
     // owner's other credentials.
-    if current.credential != Credential::Session {
+    if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
 

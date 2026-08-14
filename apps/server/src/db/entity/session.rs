@@ -12,6 +12,9 @@ pub struct Model {
     /// Owning account.
     pub user_id: String,
     /// SHA-256 of the session secret. Never the secret itself.
+    ///
+    /// Kept even after the session ends. It is not a credential — nothing can be
+    /// derived from it — and `expires_at` is what refuses the session.
     #[sea_orm(unique)]
     pub secret_hash: String,
     /// When the session began.
@@ -25,6 +28,11 @@ pub struct Model {
     pub created_ip: Option<String>,
     /// The `User-Agent` the session was started with, as it arrived.
     pub created_user_agent: Option<String>,
+    /// Why somebody ended this session early, if they did.
+    ///
+    /// `None` means it simply ran out. See the migration for why this decides
+    /// nothing — liveness is `expires_at` alone.
+    pub ended_reason: Option<String>,
 }
 
 /// No relations declared: the foreign key is enforced by the database, and
