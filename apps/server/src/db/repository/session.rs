@@ -305,7 +305,25 @@ impl SessionRepository {
             .await?;
         Ok(())
     }
+}
 
+/// What ending one session turned out to mean.
+///
+/// Three outcomes and only two answers, on purpose: a caller who names somebody
+/// else's session and a caller who names one that is already over both asked for
+/// something that is now true, and neither is entitled to know which of the two
+/// they did.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Revocation {
+    /// It was live, and now it is not.
+    Ended,
+    /// It was already over. Nothing was written.
+    AlreadyOver,
+    /// No session of this account's has that identifier.
+    NotYours,
+}
+
+impl SessionRepository {
     /// Ends one session, but only if it belongs to this account.
     ///
     /// The owner is in the `WHERE` clause rather than checked beforehand. A
@@ -324,7 +342,7 @@ impl SessionRepository {
         id: SessionId,
         user_id: UserId,
         now: OffsetDateTime,
-    ) -> Result<bool, SessionRepositoryError> {
+    ) -> Result<Revocation, SessionRepositoryError> {
         let result = SessionEntity::update_many()
             .col_expr(session::Column::ExpiresAt, now.into())
             .col_expr(
@@ -333,11 +351,30 @@ impl SessionRepository {
             )
             .filter(session::Column::Id.eq(id.to_string()))
             .filter(session::Column::UserId.eq(user_id.to_string()))
-            // Already over, so there is nothing to end and nothing to report.
+            // Already over, so there is nothing to end and its ending time must
+            // not be moved to now — that timestamp is what the list shows.
             .filter(session::Column::ExpiresAt.gt(now))
             .exec(&self.connection)
             .await?;
-        Ok(result.rows_affected == 1)
+        if result.rows_affected == 1 {
+            return Ok(Revocation::Ended);
+        }
+
+        // Nothing was written, and the two reasons for that deserve different
+        // answers to the caller even though neither is told which: one is a row
+        // of theirs that had already finished, the other is not their row at
+        // all. Asking a second time is safe — losing the race means the row is
+        // now over, which is the answer either way.
+        let theirs = SessionEntity::find()
+            .filter(session::Column::Id.eq(id.to_string()))
+            .filter(session::Column::UserId.eq(user_id.to_string()))
+            .one(&self.connection)
+            .await?;
+        Ok(if theirs.is_some() {
+            Revocation::AlreadyOver
+        } else {
+            Revocation::NotYours
+        })
     }
 
     /// Ends every live session an account has, optionally sparing one.

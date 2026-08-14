@@ -1992,12 +1992,13 @@ async fn revoking_reaches_only_your_own_sessions() {
     assert_eq!(theirs.len(), 1);
 
     let now = time::OffsetDateTime::now_utc();
-    assert!(
-        !app.state
+    assert_eq!(
+        app.state
             .sessions
             .revoke(theirs[0].id, owner.id, now)
             .await
             .expect("revoke"),
+        tessera_server::db::repository::session::Revocation::NotYours,
         "the owner must not be able to end a stranger's session"
     );
 
@@ -2030,20 +2031,22 @@ async fn revoking_something_already_over_does_nothing() {
         .await
         .expect("query");
 
-    assert!(
+    assert_eq!(
         app.state
             .sessions
             .revoke(mine[0].id, member.id, now)
             .await
-            .expect("revoke")
+            .expect("revoke"),
+        tessera_server::db::repository::session::Revocation::Ended
     );
-    assert!(
-        !app.state
+    assert_eq!(
+        app.state
             .sessions
             .revoke(mine[0].id, member.id, now + time::Duration::minutes(5))
             .await
             .expect("revoke"),
-        "a second attempt must not touch the row again"
+        tessera_server::db::repository::session::Revocation::AlreadyOver,
+        "a second attempt must be told it is already over, and must not write"
     );
 
     let after = app
@@ -2102,4 +2105,243 @@ async fn ending_the_others_spares_the_one_you_name() {
         1,
         "and exactly one of them still works"
     );
+}
+
+// ── seeing and ending your own sessions ─────────────────────────────
+
+async fn list_sessions(app: &TestApp, auth: Auth<'_>) -> Vec<serde_json::Value> {
+    let response = expect_status(
+        app.empty(Method::GET, "/api/v1/sessions", auth).await,
+        StatusCode::OK,
+    )
+    .await;
+    body_json(response)
+        .await
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// The one thing a person cannot work out for themselves before deciding what
+/// to end.
+#[tokio::test]
+async fn the_list_says_which_one_you_are_reading_it_from() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    sign_in_as(&app, "member", "another browser").await;
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    assert_eq!(rows.len(), 2);
+
+    let current: Vec<_> = rows.iter().filter(|row| row["current"] == true).collect();
+    assert_eq!(current.len(), 1, "exactly one row is the one asking");
+    assert_eq!(
+        current[0]["id"],
+        session_behind(&app, &here).await.id.to_string()
+    );
+    assert_eq!(current[0]["active"], true);
+}
+
+/// The sessions that are over stay on the list. Somebody reading it is asking
+/// whether anybody else has been in, and one that was revoked last week is the
+/// answer they came for.
+#[tokio::test]
+async fn the_list_keeps_the_ones_that_are_over() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let other = sign_in_as(&app, "member", "another browser").await;
+    let other_id = session_behind(&app, &other).await.id;
+
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/sessions/{other_id}"),
+            Auth::Cookie(&here),
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    assert_eq!(rows.len(), 2, "the revoked one is still listed");
+    let ended: Vec<_> = rows.iter().filter(|row| row["active"] == false).collect();
+    assert_eq!(ended.len(), 1);
+    assert_eq!(ended[0]["ended_reason"], "revoked");
+
+    // And the cookie behind it stops working.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&other))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// Ending the others leaves the browser doing the asking signed in. Being
+/// logged out by your own attempt to log everybody else out is a poor way to
+/// find out it worked.
+#[tokio::test]
+async fn ending_the_others_leaves_you_signed_in() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let second = sign_in_as(&app, "member", "another browser").await;
+    let third = sign_in_as(&app, "member", "a third browser").await;
+
+    assert_eq!(
+        app.empty(Method::DELETE, "/api/v1/sessions", Auth::Cookie(&here))
+            .await
+            .status(),
+        StatusCode::NO_CONTENT
+    );
+
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&here))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    for gone in [&second, &third] {
+        assert_eq!(
+            app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(gone))
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    assert_eq!(rows.len(), 3, "all three are still on the list");
+    assert_eq!(rows.iter().filter(|row| row["active"] == true).count(), 1);
+}
+
+/// Somebody else's identifier answers the same as one that never existed and
+/// one that is not an identifier at all. Anything else makes this a way to ask
+/// which sessions exist and whose they are.
+#[tokio::test]
+async fn ending_a_session_that_is_not_yours_says_only_that() {
+    let app = TestApp::ready().await;
+    let mine = register(&app, "owner").await;
+    let theirs = register(&app, "stranger").await;
+    let theirs_id = session_behind(&app, &theirs).await.id;
+
+    for target in [
+        theirs_id.to_string(),
+        tessera_core::SessionId::generate().to_string(),
+        "not-an-identifier".to_owned(),
+    ] {
+        assert_eq!(
+            app.empty(
+                Method::DELETE,
+                &format!("/api/v1/sessions/{target}"),
+                Auth::Cookie(&mine),
+            )
+            .await
+            .status(),
+            StatusCode::NOT_FOUND,
+            "{target}"
+        );
+    }
+
+    // And the stranger is still signed in.
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&theirs))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// A list that went stale between loading and clicking must not report a
+/// problem where there is none.
+#[tokio::test]
+async fn ending_one_twice_is_not_an_error() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let other = sign_in_as(&app, "member", "another browser").await;
+    let other_id = session_behind(&app, &other).await.id;
+
+    for _ in 0..2 {
+        assert_eq!(
+            app.empty(
+                Method::DELETE,
+                &format!("/api/v1/sessions/{other_id}"),
+                Auth::Cookie(&here),
+            )
+            .await
+            .status(),
+            StatusCode::NO_CONTENT
+        );
+    }
+}
+
+/// Stricter than the token endpoints next door, and for two reasons. Ending
+/// sessions with a token would let a leaked one throw the owner off every device
+/// they have. Listing them would hand it the addresses and browsers the owner
+/// signs in from.
+#[tokio::test]
+async fn a_bearer_token_can_neither_see_nor_end_sessions() {
+    let app = TestApp::ready().await;
+    let cookie = register(&app, "member").await;
+
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/tokens",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "name": "a script" }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let secret = body_json(response).await["secret"]
+        .as_str()
+        .expect("a secret")
+        .to_owned();
+
+    let id = session_behind(&app, &cookie).await.id;
+    for (method, uri) in [
+        (Method::GET, "/api/v1/sessions".to_owned()),
+        (Method::DELETE, "/api/v1/sessions".to_owned()),
+        (Method::DELETE, format!("/api/v1/sessions/{id}")),
+    ] {
+        assert_eq!(
+            app.empty(method.clone(), &uri, Auth::Bearer(&secret))
+                .await
+                .status(),
+            StatusCode::FORBIDDEN,
+            "{method} {uri}"
+        );
+    }
+
+    // And the session it tried to end still works.
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// Signing out is an ending like any other, and says so on the list.
+#[tokio::test]
+async fn signing_out_shows_up_as_a_reason() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let other = sign_in_as(&app, "member", "another browser").await;
+
+    expect_status(
+        app.empty(Method::POST, "/api/v1/auth/logout", Auth::Cookie(&other))
+            .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    let ended: Vec<_> = rows
+        .iter()
+        .filter(|row| row["ended_reason"] == "signed_out")
+        .collect();
+    assert_eq!(ended.len(), 1);
 }

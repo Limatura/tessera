@@ -480,6 +480,69 @@
         ],
         "type": "string"
       },
+      "SessionResponse": {
+        "description": "One sign-in, as the API describes it.\n\nCovers sessions that are over as well as the ones that work. Somebody reading\nthis list is usually asking whether anybody else has been in, and a session\nthat was revoked last Tuesday is exactly what they need to see.",
+        "properties": {
+          "active": {
+            "description": "Whether it still works.\n\nSent rather than left to the client to derive from `expires_at`: a\nbrowser's clock can be wrong by more than a session's remaining life, and\nbeing told \"this is still live\" by a machine with a fast clock is how\nsomebody decides not to revoke something they should have.",
+            "type": "boolean"
+          },
+          "created_at": {
+            "description": "When the sign-in happened.",
+            "type": "string"
+          },
+          "created_ip": {
+            "description": "Where the sign-in came from, when there was an answer worth recording.\n\n`null` on an instance that sits behind an undeclared proxy, and on\nsessions that predate this being recorded.",
+            "example": "203.0.113.9",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_user_agent": {
+            "description": "The `User-Agent` the sign-in arrived with, exactly as it was sent.\n\nNot parsed into \"Chrome on macOS\": doing that reliably is famously hard,\nand getting it wrong tells somebody a session is theirs when it is not.",
+            "example": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current": {
+            "description": "Whether this is the session reading the list.\n\nThe one thing a person cannot work out for themselves, and the one they\nneed before ending anything.",
+            "type": "boolean"
+          },
+          "ended_reason": {
+            "description": "Why it ended early, if somebody ended it.\n\n`null` means it simply ran out. The values are `signed_out`, `revoked`,\n`password_changed` and `password_reset`.",
+            "example": "revoked",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expires_at": {
+            "description": "When it stops, or stopped, working.",
+            "type": "string"
+          },
+          "id": {
+            "description": "Stable identifier, for [`revoke`].",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
+            "type": "string"
+          },
+          "last_seen_at": {
+            "description": "When this session was last used.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "current",
+          "active",
+          "created_at",
+          "last_seen_at",
+          "expires_at"
+        ],
+        "type": "object"
+      },
       "ShareBody": {
         "description": "The request body of `POST /shares`: the content itself, as bytes.\n\nA named type only so the contract can say `format: binary`. Declaring the\nbody as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI\nrenders as a JSON array editor and a generated client types as `number[]` —\nneither of which can carry a file.\n\nAn empty body is refused with a `400`, and that rule is *not* expressible\nhere: `min_length` is a field-level attribute, and the field's own schema is\noverridden by the `value_type` above — which has to stay, or the body stops\nbeing binary. So the constraint lives in the handler and is documented as a\nresponse, and a generator reading this will believe an empty body is valid.",
         "format": "binary",
@@ -1176,6 +1239,155 @@
         ]
       }
     },
+    "/api/v1/sessions": {
+      "delete": {
+        "description": "The button somebody presses when they think another person is signed in as\nthem. It spares the browser doing the asking, because being logged out by\nyour own attempt to log everybody else out is a poor way to find out it\nworked.\n\n# Errors\n\n`401` when nothing was signed in, `403` when a bearer token was used.",
+        "operationId": "revoke_other_sessions",
+        "responses": {
+          "204": {
+            "description": "Every other session is over"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token, or a password change is due"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ends every session except the one asking.",
+        "tags": [
+          "sessions"
+        ]
+      },
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when a bearer token was used or the\naccount still owes a password change.",
+        "operationId": "list_sessions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SessionResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "The caller's sign-ins"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token, or a password change is due"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists the caller's sign-ins, newest first.",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
+    "/api/v1/sessions/{id}": {
+      "delete": {
+        "description": "# Why an identifier that is not yours is a `404`\n\nThe same answer as one that never existed, and as one that is not an\nidentifier at all. Telling them apart would make this endpoint a way to ask\nwhich identifiers exist and who they belong to.\n\n# Why a session that had already finished is a `204`\n\nThe caller asked for it to stop working, and it does not work. Answering\n`404` for a row they can see in their own list would be a puzzle, and would\nmean a list that went stale between loading and clicking reports a problem\nwhere there is none. Nothing is written, so the time it ended does not move.\n\n# Errors\n\n`401` when nothing was signed in, `403` when a bearer token was used, `404`\nwhen no session of the caller's has that identifier.",
+        "operationId": "revoke_session",
+        "parameters": [
+          {
+            "description": "Which session to end",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It no longer works"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token, or a password change is due"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No session of yours has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ends one of the caller's sessions.",
+        "tags": [
+          "sessions"
+        ]
+      }
+    },
     "/api/v1/shares": {
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in.",
@@ -1822,6 +2034,10 @@
     {
       "description": "API tokens for non-browser callers",
       "name": "tokens"
+    },
+    {
+      "description": "Seeing and ending your own sign-ins",
+      "name": "sessions"
     },
     {
       "description": "Creating and managing shares",
