@@ -17,6 +17,7 @@ use axum::{
     extract::{ConnectInfo, FromRequestParts},
     http::{header, request::Parts},
 };
+use tessera_core::SessionId;
 use time::OffsetDateTime;
 
 use crate::{
@@ -30,9 +31,41 @@ use crate::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Credential {
     /// A browser session cookie.
-    Session,
+    Session {
+        /// Which session it was.
+        ///
+        /// Carried rather than looked up again, because two things need it and
+        /// both would otherwise have to find the row a second time: ending every
+        /// session *except this one*, and marking the current entry in a list of
+        /// them. A handler that has to re-find its own session by secret is one
+        /// that can get the answer wrong.
+        id: SessionId,
+    },
     /// A bearer token, from a script, the CLI or a bot.
     ApiToken,
+}
+
+impl Credential {
+    /// Whether a browser session proved this request.
+    ///
+    /// Four handlers ask this, and they all ask it for the same reason: a leaked
+    /// API token must not be able to mint another token, revoke one, change the
+    /// password, or sign the account out. Keeping it a question rather than an
+    /// equality check means adding a field to [`Credential::Session`] does not
+    /// touch any of them.
+    #[must_use]
+    pub const fn is_session(self) -> bool {
+        matches!(self, Self::Session { .. })
+    }
+
+    /// The session this request came from, if it came from one.
+    #[must_use]
+    pub const fn session_id(self) -> Option<SessionId> {
+        match self {
+            Self::Session { id } => Some(id),
+            Self::ApiToken => None,
+        }
+    }
 }
 
 /// An authenticated account that is free to act.
@@ -217,7 +250,7 @@ async fn authenticate_session(
     state.sessions.touch(session.id, now).await?;
     Ok(Some(CurrentUser {
         user,
-        credential: Credential::Session,
+        credential: Credential::Session { id: session.id },
     }))
 }
 

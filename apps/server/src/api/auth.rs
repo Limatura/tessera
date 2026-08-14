@@ -16,7 +16,7 @@ use crate::{
     api::{AUTH_TAG, extract::ApiJson},
     auth::{
         cookie,
-        extract::{ClientAddress, Credential, SelfServiceUser},
+        extract::{ClientAddress, SelfServiceUser},
         password,
         proxy::{Origin, UNPLACEABLE},
         throttle::Decision,
@@ -371,11 +371,8 @@ pub async fn logout(
     // Only a session can be logged out of. A bearer token is revoked, not
     // signed out — treating logout as revocation would let a stolen token
     // destroy the owner's automation by calling this.
-    if current.credential == Credential::Session
-        && let Some(secret) = cookie::session_secret(&headers)
-        && let Some(session) = state.sessions.find_by_secret(&secret).await?
-    {
-        state.sessions.delete(session.id).await?;
+    if let Some(id) = current.credential.session_id() {
+        state.sessions.delete(id).await?;
     }
 
     let secure = state
@@ -445,7 +442,7 @@ pub async fn change_password(
     // A leaked API token must not be able to take the account. Requiring the
     // browser credential keeps the blast radius of a leaked token to what the
     // token can do, rather than everything.
-    if current.credential != Credential::Session {
+    if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
 
