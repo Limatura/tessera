@@ -726,7 +726,7 @@ impl ServerConfig {
     /// way through migrating gets the setting that says something specific
     /// rather than the one that says "anyone".
     ///
-    /// The list is validated in [`ServerConfig::validate`], so by the time this
+    /// The list is validated during [`Config::validate`], so by the time this
     /// is called it cannot fail — an unusable entry has already stopped
     /// start-up. Falling back to trusting nothing is the safe reading of a state
     /// that should not be reachable.
