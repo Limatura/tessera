@@ -1,0 +1,642 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_build_rs",
+      "label": "build.rs",
+      "file_type": "code",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_build_main",
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L43"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/build.rs"
+    },
+    {
+      "id": "box",
+      "label": "Box",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/build.rs"
+    },
+    {
+      "id": "error",
+      "label": "Error",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/build.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_build_emit_build_revision",
+      "label": "emit_build_revision()",
+      "file_type": "code",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L82"
+    },
+    {
+      "id": "path",
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/build.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_build_git_revision",
+      "label": "git_revision()",
+      "file_type": "code",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L94"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/build.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/build.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_build_is_empty",
+      "label": "is_empty()",
+      "file_type": "code",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L115"
+    },
+    {
+      "id": "$graphify-root$_apps_server_build_clear_dir",
+      "label": "clear_dir()",
+      "file_type": "code",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L119"
+    },
+    {
+      "id": "$graphify-root$_apps_server_build_copy_dir",
+      "label": "copy_dir()",
+      "file_type": "code",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L131"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_build_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_rs",
+      "target": "$graphify-root$_apps_server_build_main",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L43",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_main",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_main",
+      "target": "box",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_main",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L43",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_rs",
+      "target": "$graphify-root$_apps_server_build_emit_build_revision",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L82",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_emit_build_revision",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_rs",
+      "target": "$graphify-root$_apps_server_build_git_revision",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L94",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_git_revision",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L94",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_git_revision",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L94",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_git_revision",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L94",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_rs",
+      "target": "$graphify-root$_apps_server_build_is_empty",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L115",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_is_empty",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L115",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_is_empty",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L115",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_is_empty",
+      "target": "box",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L115",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_is_empty",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L115",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_rs",
+      "target": "$graphify-root$_apps_server_build_clear_dir",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L119",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_clear_dir",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L119",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_clear_dir",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L119",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_clear_dir",
+      "target": "box",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L119",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_clear_dir",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L119",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_rs",
+      "target": "$graphify-root$_apps_server_build_copy_dir",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L131",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_copy_dir",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_copy_dir",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_copy_dir",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_copy_dir",
+      "target": "box",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_copy_dir",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_main",
+      "target": "$graphify-root$_apps_server_build_clear_dir",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L60",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_main",
+      "target": "$graphify-root$_apps_server_build_copy_dir",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_main",
+      "target": "$graphify-root$_apps_server_build_is_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L64",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_main",
+      "target": "$graphify-root$_apps_server_build_emit_build_revision",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L68",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_emit_build_revision",
+      "target": "$graphify-root$_apps_server_build_is_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L87",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_emit_build_revision",
+      "target": "$graphify-root$_apps_server_build_git_revision",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L88",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_build_git_revision",
+      "target": "$graphify-root$_apps_server_build_is_empty",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/build.rs",
+      "source_location": "L112",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L45"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L45"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "map_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L50"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L51"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "is_dir",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L59"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L65"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_main",
+      "callee": "as_path",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L68"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_emit_build_revision",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L85"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_emit_build_revision",
+      "callee": "or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L85"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_emit_build_revision",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L87"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "is_file",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L98"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "output",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L102"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "args",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L102"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "args",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L102"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "display",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L103"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "success",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L107"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L111"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_git_revision",
+      "callee": "then_some",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L112"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_is_empty",
+      "callee": "is_none",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L116"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_clear_dir",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L121"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_clear_dir",
+      "callee": "is_dir",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L122"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_copy_dir",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L134"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_copy_dir",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_copy_dir",
+      "callee": "file_name",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_copy_dir",
+      "callee": "is_dir",
+      "is_member_call": true,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L136"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_build_copy_dir",
+      "callee": "copy_dir",
+      "is_member_call": false,
+      "source_file": "apps/server/build.rs",
+      "source_location": "L138"
+    }
+  ]
+}

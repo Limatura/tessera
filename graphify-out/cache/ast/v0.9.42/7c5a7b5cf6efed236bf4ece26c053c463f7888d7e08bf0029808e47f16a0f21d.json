@@ -1,0 +1,647 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_state_rs",
+      "label": "state.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_state_servicestatus",
+      "label": "ServiceStatus",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L32"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_state_appstate",
+      "label": "AppState",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L45"
+    },
+    {
+      "id": "arc",
+      "label": "Arc",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "config",
+      "label": "Config",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "databaseconnection",
+      "label": "DatabaseConnection",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "userrepository",
+      "label": "UserRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "sessionrepository",
+      "label": "SessionRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "apitokenrepository",
+      "label": "ApiTokenRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "sharerepository",
+      "label": "ShareRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "shareticketrepository",
+      "label": "ShareTicketRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "passwordresetrepository",
+      "label": "PasswordResetRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "pendingregistrationrepository",
+      "label": "PendingRegistrationRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "mailer",
+      "label": "Mailer",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "throttles",
+      "label": "Throttles",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "objectstore",
+      "label": "ObjectStore",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "rwlock",
+      "label": "RwLock",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_state_appstate_new",
+      "label": ".new()",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/state.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_state_appstate_status",
+      "label": ".status()",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L124"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_state_appstate_set_status",
+      "label": ".set_status()",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L129"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_state_appstate_started_at",
+      "label": ".started_at()",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L135"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_state_appstate_uptime_seconds",
+      "label": ".uptime_seconds()",
+      "file_type": "code",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L142"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "arc",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "objectstore",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "rwlock",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L6",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "databaseconnection",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L8",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L9",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "toschema",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L12",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "$graphify-root$_apps_server_src_state_servicestatus",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L32",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_rs",
+      "target": "$graphify-root$_apps_server_src_state_appstate",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L45",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L49",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "userrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L51",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "sessionrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L53",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "apitokenrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "sharerepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L57",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "shareticketrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L59",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "passwordresetrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L61",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "pendingregistrationrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "mailer",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L68",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L75",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "throttles",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L75",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "objectstore",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "rwlock",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "$graphify-root$_apps_server_src_state_servicestatus",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L82",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L84",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "$graphify-root$_apps_server_src_state_appstate_new",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_new",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_new",
+      "target": "config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_new",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_new",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_new",
+      "target": "objectstore",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_new",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L91",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "$graphify-root$_apps_server_src_state_appstate_status",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L124",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_status",
+      "target": "$graphify-root$_apps_server_src_state_servicestatus",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L124",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "$graphify-root$_apps_server_src_state_appstate_set_status",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L129",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_set_status",
+      "target": "$graphify-root$_apps_server_src_state_servicestatus",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L129",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "$graphify-root$_apps_server_src_state_appstate_started_at",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L135",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate_started_at",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L135",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_state_appstate",
+      "target": "$graphify-root$_apps_server_src_state_appstate_uptime_seconds",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L142",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_state_appstate_uptime_seconds",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L144"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_state_appstate_uptime_seconds",
+      "callee": "whole_seconds",
+      "is_member_call": true,
+      "source_file": "apps/server/src/state.rs",
+      "source_location": "L144"
+    }
+  ]
+}

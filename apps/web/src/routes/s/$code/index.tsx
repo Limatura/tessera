@@ -10,6 +10,7 @@ function RouteComponent() {
   return (
     <>
       <GlassBackground />
+
       <div className="flex min-h-screen flex-col items-center justify-center gap-4">
         <h1 className="text-4xl font-bold">This is a secret page</h1>
         <p className="text-lg text-muted-foreground">

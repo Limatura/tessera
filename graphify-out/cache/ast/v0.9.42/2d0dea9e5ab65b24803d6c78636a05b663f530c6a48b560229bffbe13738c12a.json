@@ -1,0 +1,166 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_pending_registration_rs",
+      "label": "pending_registration.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "label": "Model",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L8"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/entity/pending_registration.rs"
+    },
+    {
+      "id": "timedatetimewithtimezone",
+      "label": "TimeDateTimeWithTimeZone",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/entity/pending_registration.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_pending_registration_relation",
+      "label": "Relation",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L34"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_entity_pending_registration_activemodel",
+      "label": "ActiveModel",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L36"
+    },
+    {
+      "id": "activemodelbehavior",
+      "label": "ActiveModelBehavior",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/entity/pending_registration.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_rs",
+      "target": "prelude",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_rs",
+      "target": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L11",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "target": "timedatetimewithtimezone",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_model",
+      "target": "timedatetimewithtimezone",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_rs",
+      "target": "$graphify-root$_apps_server_src_db_entity_pending_registration_relation",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L34",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_entity_pending_registration_activemodel",
+      "target": "activemodelbehavior",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/entity/pending_registration.rs",
+      "source_location": "L36",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": []
+}

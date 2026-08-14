@@ -1,0 +1,755 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "label": "mod.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "label": "StorageError",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L33"
+    },
+    {
+      "id": "error",
+      "label": "Error",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_build",
+      "label": "build()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L63"
+    },
+    {
+      "id": "storageconfig",
+      "label": "StorageConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "arc",
+      "label": "Arc",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "objectstore",
+      "label": "ObjectStore",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "label": "local_path()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L89"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "label": "build_local()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L101"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "label": "backend_options()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L120"
+    },
+    {
+      "id": "btreemap",
+      "label": "BTreeMap",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/storage/mod.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "label": "is_backend_option()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L144"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_distinguishes_local_paths_from_remote_urls",
+      "label": "distinguishes_local_paths_from_remote_urls()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L192"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_a_bare_path_creates_its_root_and_round_trips",
+      "label": "a_bare_path_creates_its_root_and_round_trips()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L200"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_a_prefixed_url_still_round_trips",
+      "label": "a_prefixed_url_still_round_trips()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L229"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_configured_options_beat_the_ambient_environment",
+      "label": "configured_options_beat_the_ambient_environment()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L245"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_only_forwards_keys_object_store_understands",
+      "label": "only_forwards_keys_object_store_understands()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L271"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_storage_mod_a_scheme_this_build_lacks_is_an_error_not_a_panic",
+      "label": "a_scheme_this_build_lacks_is_an_error_not_a_panic()",
+      "file_type": "code",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L276"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "object_store",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "storageconfig",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L23",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L40",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L46",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L48",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_build",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L63",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "storageconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "objectstore",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L89",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L101",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L101",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L101",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "target": "objectstore",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L101",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "target": "$graphify-root$_apps_server_src_storage_mod_storageerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L101",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L120",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "target": "storageconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "target": "btreemap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L120",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L144",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "object_store",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L175",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L176",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L178",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_distinguishes_local_paths_from_remote_urls",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_distinguishes_local_paths_from_remote_urls",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L192",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_a_bare_path_creates_its_root_and_round_trips",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L200",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_a_prefixed_url_still_round_trips",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L229",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_configured_options_beat_the_ambient_environment",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L245",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_only_forwards_keys_object_store_understands",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L271",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_rs",
+      "target": "$graphify-root$_apps_server_src_storage_mod_a_scheme_this_build_lacks_is_an_error_not_a_panic",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L276",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L64",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L65",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_build",
+      "target": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L70",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "target": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L123",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_a_bare_path_creates_its_root_and_round_trips",
+      "target": "$graphify-root$_apps_server_src_storage_mod_build",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L208",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_a_prefixed_url_still_round_trips",
+      "target": "$graphify-root$_apps_server_src_storage_mod_build",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L234",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_storage_mod_configured_options_beat_the_ambient_environment",
+      "target": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L253",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_build",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L68"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_build",
+      "callee": "as_ref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L76"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "callee": "strip_prefix",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L90"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "callee": "then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L91"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_local_path",
+      "callee": "strip_prefix",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L96"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L103"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "callee": "display",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L104"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_build_local",
+      "callee": "display",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "callee": "to_lowercase",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L122"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_backend_options",
+      "callee": "to_lowercase",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L126"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L150"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "callee": "to_ascii_lowercase",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L150"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "callee": "is_ok",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L156"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "callee": "is_ok",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L161"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_is_backend_option",
+      "callee": "is_ok",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_a_bare_path_creates_its_root_and_round_trips",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L202"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_a_bare_path_creates_its_root_and_round_trips",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L202"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_a_bare_path_creates_its_root_and_round_trips",
+      "callee": "display",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L204"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_a_bare_path_creates_its_root_and_round_trips",
+      "callee": "put",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L212"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_a_prefixed_url_still_round_trips",
+      "callee": "put",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L237"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_storage_mod_configured_options_beat_the_ambient_environment",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/storage/mod.rs",
+      "source_location": "L248"
+    }
+  ]
+}

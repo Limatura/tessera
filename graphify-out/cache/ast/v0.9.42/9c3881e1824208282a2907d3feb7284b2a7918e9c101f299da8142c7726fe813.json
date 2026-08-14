@@ -1,0 +1,1030 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_admin_package_json",
+      "label": "package.json",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_name",
+      "label": "name",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_version",
+      "label": "version",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_private",
+      "label": "private",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_type",
+      "label": "type",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_scripts",
+      "label": "scripts",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_scripts_dev",
+      "label": "dev",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_scripts_build",
+      "label": "build",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_scripts_serve",
+      "label": "serve",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_scripts_start",
+      "label": "start",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_scripts_check_types",
+      "label": "check-types",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies",
+      "label": "dependencies",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_hookform_resolvers",
+      "label": "@hookform/resolvers",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "hookform_resolvers",
+      "label": "@hookform/resolvers",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_inlang_paraglide_js",
+      "label": "@inlang/paraglide-js",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "inlang_paraglide_js",
+      "label": "@inlang/paraglide-js",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_tailwindcss_vite",
+      "label": "@tailwindcss/vite",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "tailwindcss_vite",
+      "label": "@tailwindcss/vite",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_tanstack_react_router",
+      "label": "@tanstack/react-router",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "tanstack_react_router",
+      "label": "@tanstack/react-router",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_tessera_env",
+      "label": "@tessera/env",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "tessera_env",
+      "label": "@tessera/env",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_tessera_i18n",
+      "label": "@tessera/i18n",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "tessera_i18n",
+      "label": "@tessera/i18n",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_tessera_ui",
+      "label": "@tessera/ui",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "tessera_ui",
+      "label": "@tessera/ui",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_dotenv",
+      "label": "dotenv",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "dotenv",
+      "label": "dotenv",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_lucide_react",
+      "label": "lucide-react",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "lucide_react",
+      "label": "lucide-react",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_next_themes",
+      "label": "next-themes",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "next_themes",
+      "label": "next-themes",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_react",
+      "label": "react",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "react",
+      "label": "react",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_react_dom",
+      "label": "react-dom",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L25"
+    },
+    {
+      "id": "react_dom",
+      "label": "react-dom",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L25"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_dependencies_zod",
+      "label": "zod",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "zod",
+      "label": "zod",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies",
+      "label": "devDependencies",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L28"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_inlang_plugin_message_format",
+      "label": "@inlang/plugin-message-format",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L29"
+    },
+    {
+      "id": "inlang_plugin_message_format",
+      "label": "@inlang/plugin-message-format",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L29"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_tanstack_react_router_devtools",
+      "label": "@tanstack/react-router-devtools",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L30"
+    },
+    {
+      "id": "tanstack_react_router_devtools",
+      "label": "@tanstack/react-router-devtools",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L30"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_tanstack_router_plugin",
+      "label": "@tanstack/router-plugin",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L31"
+    },
+    {
+      "id": "tanstack_router_plugin",
+      "label": "@tanstack/router-plugin",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L31"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_tessera_config",
+      "label": "@tessera/config",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L32"
+    },
+    {
+      "id": "tessera_config",
+      "label": "@tessera/config",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L32"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_types_node",
+      "label": "@types/node",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L33"
+    },
+    {
+      "id": "types_node",
+      "label": "@types/node",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L33"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_types_react",
+      "label": "@types/react",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L34"
+    },
+    {
+      "id": "types_react",
+      "label": "@types/react",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L34"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L35"
+    },
+    {
+      "id": "types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L35"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_vitejs_plugin_react",
+      "label": "@vitejs/plugin-react",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L36"
+    },
+    {
+      "id": "vitejs_plugin_react",
+      "label": "@vitejs/plugin-react",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L36"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_postcss",
+      "label": "postcss",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L37"
+    },
+    {
+      "id": "postcss",
+      "label": "postcss",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L37"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_tailwindcss",
+      "label": "tailwindcss",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L38"
+    },
+    {
+      "id": "tailwindcss",
+      "label": "tailwindcss",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L38"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_typescript",
+      "label": "typescript",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L39"
+    },
+    {
+      "id": "typescript",
+      "label": "typescript",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L39"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_package_devdependencies_vite",
+      "label": "vite",
+      "file_type": "code",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L40"
+    },
+    {
+      "id": "vite",
+      "label": "vite",
+      "file_type": "concept",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L40"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_admin_package_json",
+      "target": "$graphify-root$_apps_admin_package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_json",
+      "target": "$graphify-root$_apps_admin_package_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_json",
+      "target": "$graphify-root$_apps_admin_package_private",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_json",
+      "target": "$graphify-root$_apps_admin_package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_json",
+      "target": "$graphify-root$_apps_admin_package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_scripts",
+      "target": "$graphify-root$_apps_admin_package_scripts_dev",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_scripts",
+      "target": "$graphify-root$_apps_admin_package_scripts_build",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_scripts",
+      "target": "$graphify-root$_apps_admin_package_scripts_serve",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_scripts",
+      "target": "$graphify-root$_apps_admin_package_scripts_start",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_scripts",
+      "target": "$graphify-root$_apps_admin_package_scripts_check_types",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_json",
+      "target": "$graphify-root$_apps_admin_package_dependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_hookform_resolvers",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_hookform_resolvers",
+      "target": "hookform_resolvers",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L14",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_inlang_paraglide_js",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_inlang_paraglide_js",
+      "target": "inlang_paraglide_js",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L15",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_tailwindcss_vite",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_tailwindcss_vite",
+      "target": "tailwindcss_vite",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_tanstack_react_router",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_tanstack_react_router",
+      "target": "tanstack_react_router",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_tessera_env",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_tessera_env",
+      "target": "tessera_env",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_tessera_i18n",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_tessera_i18n",
+      "target": "tessera_i18n",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_tessera_ui",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_tessera_ui",
+      "target": "tessera_ui",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_dotenv",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_dotenv",
+      "target": "dotenv",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_lucide_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_lucide_react",
+      "target": "lucide_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_next_themes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_next_themes",
+      "target": "next_themes",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L23",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L24",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_react",
+      "target": "react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_react_dom",
+      "target": "react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies",
+      "target": "$graphify-root$_apps_admin_package_dependencies_zod",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_dependencies_zod",
+      "target": "zod",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_json",
+      "target": "$graphify-root$_apps_admin_package_devdependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_inlang_plugin_message_format",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_inlang_plugin_message_format",
+      "target": "inlang_plugin_message_format",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L29",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_tanstack_react_router_devtools",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_tanstack_react_router_devtools",
+      "target": "tanstack_react_router_devtools",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L30",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_tanstack_router_plugin",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_tanstack_router_plugin",
+      "target": "tanstack_router_plugin",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_tessera_config",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L32",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_tessera_config",
+      "target": "tessera_config",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L32",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_types_node",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_types_node",
+      "target": "types_node",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L33",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_types_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L34",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_types_react",
+      "target": "types_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L34",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_types_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L35",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_types_react_dom",
+      "target": "types_react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L35",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_vitejs_plugin_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L36",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_vitejs_plugin_react",
+      "target": "vitejs_plugin_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_postcss",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_postcss",
+      "target": "postcss",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L37",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_tailwindcss",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_tailwindcss",
+      "target": "tailwindcss",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L38",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_typescript",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L39",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_typescript",
+      "target": "typescript",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L39",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies",
+      "target": "$graphify-root$_apps_admin_package_devdependencies_vite",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L40",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_package_devdependencies_vite",
+      "target": "vite",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/package.json",
+      "source_location": "L40",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

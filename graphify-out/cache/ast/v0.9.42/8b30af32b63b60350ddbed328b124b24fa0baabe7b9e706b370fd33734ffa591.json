@@ -1,0 +1,146 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_bin_openapi_rs",
+      "label": "openapi.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L30"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/bin/openapi.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_bin_openapi_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L23",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_bin_openapi_rs",
+      "target": "context_as",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_bin_openapi_rs",
+      "target": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L30",
+      "weight": 1.0,
+      "context": "return_type"
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "nth",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L31"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L33"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "as_deref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L39"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L42"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "write_all",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L42"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L43"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L45"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "flush",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L45"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "map_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L48"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L49"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_bin_openapi_main",
+      "callee": "with_context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/bin/openapi.rs",
+      "source_location": "L52"
+    }
+  ]
+}

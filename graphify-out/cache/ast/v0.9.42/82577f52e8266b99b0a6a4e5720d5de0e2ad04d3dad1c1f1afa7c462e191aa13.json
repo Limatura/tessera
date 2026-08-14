@@ -1,0 +1,3089 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_config_rs",
+      "label": "config.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_configerror",
+      "label": "ConfigError",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L85"
+    },
+    {
+      "id": "box",
+      "label": "Box",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "error",
+      "label": "Error",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_config",
+      "label": "Config",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L119"
+    },
+    {
+      "id": "serverconfig",
+      "label": "ServerConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "databaseconfig",
+      "label": "DatabaseConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "storageconfig",
+      "label": "StorageConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "featureconfig",
+      "label": "FeatureConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "authconfig",
+      "label": "AuthConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "shareconfig",
+      "label": "ShareConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "telemetryconfig",
+      "label": "TelemetryConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "mailconfig",
+      "label": "MailConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_featureconfig",
+      "label": "FeatureConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L160"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_registrationpolicy",
+      "label": "RegistrationPolicy",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L201"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_mailconfig",
+      "label": "MailConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L229"
+    },
+    {
+      "id": "default",
+      "label": "Default",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_mailconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L289"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_mailconfig_is_configured",
+      "label": ".is_configured()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L306"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_mailconfig_registration_ttl",
+      "label": ".registration_ttl()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L314"
+    },
+    {
+      "id": "duration",
+      "label": "Duration",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_mailconfig_reset_ttl",
+      "label": ".reset_ttl()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L325"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_authconfig",
+      "label": "AuthConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L333"
+    },
+    {
+      "id": "passwordpolicy",
+      "label": "PasswordPolicy",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "securepolicy",
+      "label": "SecurePolicy",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_shareconfig",
+      "label": "ShareConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L364"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_serverconfig",
+      "label": "ServerConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L434"
+    },
+    {
+      "id": "ipaddr",
+      "label": "IpAddr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "vec",
+      "label": "Vec",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_databaseconfig",
+      "label": "DatabaseConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L459"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_storageconfig",
+      "label": "StorageConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L474"
+    },
+    {
+      "id": "btreemap",
+      "label": "BTreeMap",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_logformat",
+      "label": "LogFormat",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L526"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_telemetryconfig",
+      "label": "TelemetryConfig",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L536"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_serverconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L546"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_databaseconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L560"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_storageconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L571"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_featureconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L587"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_authconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L601"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_shareconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L621"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "label": ".default()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L647"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_serverconfig_request_timeout",
+      "label": ".request_timeout()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L659"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_authconfig_session_ttl",
+      "label": ".session_ttl()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L667"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_databaseconfig_acquire_timeout",
+      "label": ".acquire_timeout()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L675"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_config_load",
+      "label": ".load()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L689"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_config_discover_file",
+      "label": ".discover_file()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L704"
+    },
+    {
+      "id": "pathbuf",
+      "label": "PathBuf",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_config_load_from",
+      "label": ".load_from()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L720"
+    },
+    {
+      "id": "path",
+      "label": "Path",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "label": ".write_template_if_absent()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L772"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/config.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_config_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L804"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L823"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_shareconfig_ticket_ttl",
+      "label": ".ticket_ttl()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L888"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_shareconfig_retention",
+      "label": ".retention()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L894"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_shareconfig_default_expiry",
+      "label": ".default_expiry()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L905"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_shareconfig_max_expiry",
+      "label": ".max_expiry()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L917"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_shareconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L927"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_serverconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L982"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_databaseconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1019"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_storageconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1050"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_featureconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1067"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_authconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1084"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "label": ".validate()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1103"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_configured_mail",
+      "label": "configured_mail()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1119"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_the_default_lifetime_is_shorter_than_the_longest_allowed",
+      "label": "the_default_lifetime_is_shorter_than_the_longest_allowed()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1135"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_a_zero_default_falls_back_to_the_ceiling",
+      "label": "a_zero_default_falls_back_to_the_ceiling()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1150"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_a_default_above_the_ceiling_is_refused",
+      "label": "a_default_above_the_ceiling_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1169"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_defaults_are_valid",
+      "label": "defaults_are_valid()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1187"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_missing_config_file_is_not_an_error",
+      "label": "missing_config_file_is_not_an_error()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1197"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_rejects_bad_values",
+      "label": "rejects_bad_values()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1258"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_environment_variables_override_defaults_and_files",
+      "label": "environment_variables_override_defaults_and_files()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1269"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_an_invalid_environment_override_fails_at_load_time",
+      "label": "an_invalid_environment_override_fails_at_load_time()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1300"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_namespace_neighbours_are_not_mistaken_for_settings",
+      "label": "namespace_neighbours_are_not_mistaken_for_settings()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1324"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_the_generated_template_is_entirely_commented_out",
+      "label": "the_generated_template_is_entirely_commented_out()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1338"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_the_generated_template_parses_and_changes_nothing",
+      "label": "the_generated_template_parses_and_changes_nothing()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1364"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_an_existing_config_file_is_never_overwritten",
+      "label": "an_existing_config_file_is_never_overwritten()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1375"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_failing_to_write_the_template_is_not_an_error",
+      "label": "failing_to_write_the_template_is_not_an_error()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1389"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_yaml_and_toml_are_both_understood",
+      "label": "yaml_and_toml_are_both_understood()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1395"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_mail_is_accepted_when_whole_and_when_absent",
+      "label": "mail_is_accepted_when_whole_and_when_absent()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1411"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_rejects_an_instance_that_could_never_receive_anything",
+      "label": "rejects_an_instance_that_could_never_receive_anything()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1427"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_accounts_off_with_anonymous_upload_on_is_a_valid_instance",
+      "label": "accounts_off_with_anonymous_upload_on_is_a_valid_instance()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1437"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_rejects_a_password_policy_the_domain_would_not_accept",
+      "label": "rejects_a_password_policy_the_domain_would_not_accept()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1445"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_unknown_keys_are_rejected_rather_than_ignored",
+      "label": "unknown_keys_are_rejected_rather_than_ignored()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1453"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_the_default_code_length_is_one_the_domain_accepts",
+      "label": "the_default_code_length_is_one_the_domain_accepts()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1466"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_an_unbounded_expiry_is_allowed",
+      "label": "an_unbounded_expiry_is_allowed()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1478"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_config_a_backend_this_build_lacks_names_the_missing_feature",
+      "label": "a_backend_this_build_lacks_names_the_missing_feature()",
+      "file_type": "code",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1491"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L14",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "figment",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "securepolicy",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L85",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_configerror",
+      "target": "box",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_configerror",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L92",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_configerror",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L100",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_configerror",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L112",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_config",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L119",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "serverconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "databaseconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "storageconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L125",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "featureconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L127",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "authconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L129",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "shareconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L131",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "telemetryconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L133",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "mailconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L135",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_featureconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L160",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_registrationpolicy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L201",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_mailconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L229",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L241",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L245",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L253",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L288",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "$graphify-root$_apps_server_src_config_mailconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L289",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L289",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "$graphify-root$_apps_server_src_config_mailconfig_is_configured",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L306",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "$graphify-root$_apps_server_src_config_mailconfig_registration_ttl",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L314",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig_registration_ttl",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L314",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "$graphify-root$_apps_server_src_config_mailconfig_reset_ttl",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L325",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig_reset_ttl",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L325",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_authconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "$graphify-root$_apps_server_src_config_registrationpolicy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L335",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "passwordpolicy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L342",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "securepolicy",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L345",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L348",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L351",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L358",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L364",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_serverconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L434",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig",
+      "target": "ipaddr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L436",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L445",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L445",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_databaseconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L459",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L462",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_storageconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L474",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L507",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig",
+      "target": "btreemap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L520",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L520",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L520",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_logformat",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L526",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L536",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig",
+      "target": "$graphify-root$_apps_server_src_config_logformat",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L538",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L540",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L545",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig",
+      "target": "$graphify-root$_apps_server_src_config_serverconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L546",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L546",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L559",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig",
+      "target": "$graphify-root$_apps_server_src_config_databaseconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L560",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L560",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L570",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig",
+      "target": "$graphify-root$_apps_server_src_config_storageconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L571",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L571",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_featureconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L586",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_featureconfig",
+      "target": "$graphify-root$_apps_server_src_config_featureconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L587",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_featureconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L587",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L600",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "$graphify-root$_apps_server_src_config_authconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L601",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L601",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L620",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L621",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L621",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig",
+      "target": "default",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L646",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L647",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L647",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig",
+      "target": "$graphify-root$_apps_server_src_config_serverconfig_request_timeout",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L659",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig_request_timeout",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L659",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "$graphify-root$_apps_server_src_config_authconfig_session_ttl",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L667",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig_session_ttl",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L667",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig",
+      "target": "$graphify-root$_apps_server_src_config_databaseconfig_acquire_timeout",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L675",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig_acquire_timeout",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L675",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "$graphify-root$_apps_server_src_config_config_load",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L689",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L689",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L689",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L689",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "$graphify-root$_apps_server_src_config_config_discover_file",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L704",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_discover_file",
+      "target": "pathbuf",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L704",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L720",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load_from",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L720",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load_from",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L720",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load_from",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L720",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load_from",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L720",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L772",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "target": "path",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L772",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L772",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L772",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "target": "pathbuf",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L772",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L772",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config",
+      "target": "$graphify-root$_apps_server_src_config_config_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L804",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L804",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L804",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig",
+      "target": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L823",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L823",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L823",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig_ticket_ttl",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L888",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_ticket_ttl",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L888",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig_retention",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L894",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_retention",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L894",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig_default_expiry",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L905",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_default_expiry",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L905",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_default_expiry",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L905",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig_max_expiry",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L917",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_max_expiry",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L917",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_max_expiry",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L917",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L927",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L927",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L927",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig",
+      "target": "$graphify-root$_apps_server_src_config_serverconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L982",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L982",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_serverconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L982",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig",
+      "target": "$graphify-root$_apps_server_src_config_databaseconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1019",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1019",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_databaseconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1019",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig",
+      "target": "$graphify-root$_apps_server_src_config_storageconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1050",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1050",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_storageconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1050",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_featureconfig",
+      "target": "$graphify-root$_apps_server_src_config_featureconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1067",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_featureconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1067",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_featureconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1067",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig",
+      "target": "$graphify-root$_apps_server_src_config_authconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1084",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1084",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1084",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1103",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1103",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_configerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1103",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_configured_mail",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1119",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_configured_mail",
+      "target": "$graphify-root$_apps_server_src_config_config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1119",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1125",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1127",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_the_default_lifetime_is_shorter_than_the_longest_allowed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1135",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_a_zero_default_falls_back_to_the_ceiling",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1150",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_a_default_above_the_ceiling_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1169",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_defaults_are_valid",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1187",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_missing_config_file_is_not_an_error",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1197",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_rejects_bad_values",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1258",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rejects_bad_values",
+      "target": "$graphify-root$_apps_server_src_config_config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1258",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_environment_variables_override_defaults_and_files",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1269",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_an_invalid_environment_override_fails_at_load_time",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1300",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_namespace_neighbours_are_not_mistaken_for_settings",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1324",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_the_generated_template_is_entirely_commented_out",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1338",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_the_generated_template_parses_and_changes_nothing",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1364",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_an_existing_config_file_is_never_overwritten",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1375",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_failing_to_write_the_template_is_not_an_error",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1389",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_yaml_and_toml_are_both_understood",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1395",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_mail_is_accepted_when_whole_and_when_absent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1411",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_rejects_an_instance_that_could_never_receive_anything",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1427",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_accounts_off_with_anonymous_upload_on_is_a_valid_instance",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1437",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_rejects_a_password_policy_the_domain_would_not_accept",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1445",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_unknown_keys_are_rejected_rather_than_ignored",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1453",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_the_default_code_length_is_one_the_domain_accepts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1466",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_an_unbounded_expiry_is_allowed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1478",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rs",
+      "target": "$graphify-root$_apps_server_src_config_a_backend_this_build_lacks_names_the_missing_feature",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1491",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig_default",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L611",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L694",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load",
+      "target": "$graphify-root$_apps_server_src_config_config_discover_file",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L695",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load_from",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L721",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_load_from",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L743",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L778",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_config_validate",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L805",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_mailconfig_is_configured",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L845",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_shareconfig_default_expiry",
+      "target": "$graphify-root$_apps_server_src_config_shareconfig_max_expiry",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L907",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_authconfig_validate",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1093",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_the_default_lifetime_is_shorter_than_the_longest_allowed",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1136",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_a_zero_default_falls_back_to_the_ceiling",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1153",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_a_default_above_the_ceiling_is_refused",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1173",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_defaults_are_valid",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1188",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_defaults_are_valid",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1188",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_missing_config_file_is_not_an_error",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1199",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rejects_bad_values",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1259",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rejects_bad_values",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1261",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_environment_variables_override_defaults_and_files",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1285",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_an_invalid_environment_override_fails_at_load_time",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1305",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_namespace_neighbours_are_not_mistaken_for_settings",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1327",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_the_generated_template_is_entirely_commented_out",
+      "target": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1342",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_the_generated_template_parses_and_changes_nothing",
+      "target": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1367",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_the_generated_template_parses_and_changes_nothing",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1368",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_yaml_and_toml_are_both_understood",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1398",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mail_is_accepted_when_whole_and_when_absent",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1412",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_mail_is_accepted_when_whole_and_when_absent",
+      "target": "$graphify-root$_apps_server_src_config_configured_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1419",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rejects_an_instance_that_could_never_receive_anything",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1428",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rejects_an_instance_that_could_never_receive_anything",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1432",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_accounts_off_with_anonymous_upload_on_is_a_valid_instance",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1438",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_accounts_off_with_anonymous_upload_on_is_a_valid_instance",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1441",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rejects_a_password_policy_the_domain_would_not_accept",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1446",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_rejects_a_password_policy_the_domain_would_not_accept",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1448",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_unknown_keys_are_rejected_rather_than_ignored",
+      "target": "$graphify-root$_apps_server_src_config_config_load_from",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1457",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_the_default_code_length_is_one_the_domain_accepts",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1467",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_an_unbounded_expiry_is_allowed",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1481",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_a_backend_this_build_lacks_names_the_missing_feature",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_default",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1495",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_config_a_backend_this_build_lacks_names_the_missing_feature",
+      "target": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1500",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_registration_ttl",
+      "callee": "saturating_mul",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L315"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_reset_ttl",
+      "callee": "saturating_mul",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L326"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_authconfig_session_ttl",
+      "callee": "saturating_mul",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L668"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_discover_file",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L705"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_discover_file",
+      "callee": "find",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L705"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_discover_file",
+      "callee": "is_file",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L708"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "is_some_and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L726"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "extension",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L726"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "eq_ignore_ascii_case",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L728"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "merge",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L730"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "merge",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L732"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L735"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "extract",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L735"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "merge",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L735"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "ignore",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L737"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_load_from",
+      "callee": "split",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L737"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "exists",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L773"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L778"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "push_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L784"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "lines",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L785"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L786"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "push_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L789"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "push_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L790"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_config_write_template_if_absent",
+      "callee": "to_path_buf",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L795"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "callee": "flatten",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L824"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L824"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "callee": "then_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L825"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "callee": "then_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L826"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "callee": "then_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L827"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L854"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_mailconfig_validate",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L854"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_shareconfig_ticket_ttl",
+      "callee": "saturating_mul",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L889"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_shareconfig_retention",
+      "callee": "saturating_mul",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L895"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_shareconfig_default_expiry",
+      "callee": "saturating_mul",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L910"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_shareconfig_max_expiry",
+      "callee": "saturating_mul",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L922"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_serverconfig_validate",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1004"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_serverconfig_validate",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1004"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_databaseconfig_validate",
+      "callee": "is_compiled_in",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1038"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_databaseconfig_validate",
+      "callee": "required_feature",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1042"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_storageconfig_validate",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1056"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_authconfig_validate",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1093"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_telemetryconfig_validate",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1107"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_rejects_bad_values",
+      "callee": "mutate",
+      "is_member_call": false,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1260"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_rejects_bad_values",
+      "callee": "unwrap_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1261"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_environment_variables_override_defaults_and_files",
+      "callee": "create_file",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1271"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_environment_variables_override_defaults_and_files",
+      "callee": "set_env",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1281"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_environment_variables_override_defaults_and_files",
+      "callee": "set_env",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1282"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_environment_variables_override_defaults_and_files",
+      "callee": "set_env",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1283"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_an_invalid_environment_override_fails_at_load_time",
+      "callee": "set_env",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1304"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_an_invalid_environment_override_fails_at_load_time",
+      "callee": "expect_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1305"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_namespace_neighbours_are_not_mistaken_for_settings",
+      "callee": "set_env",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1326"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_namespace_neighbours_are_not_mistaken_for_settings",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1327"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_the_generated_template_is_entirely_commented_out",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1340"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_the_generated_template_is_entirely_commented_out",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1340"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_the_generated_template_is_entirely_commented_out",
+      "callee": "lines",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1346"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_the_generated_template_parses_and_changes_nothing",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1366"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_the_generated_template_parses_and_changes_nothing",
+      "callee": "directory",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1366"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_an_existing_config_file_is_never_overwritten",
+      "callee": "join",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1377"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_an_existing_config_file_is_never_overwritten",
+      "callee": "path",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1377"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_yaml_and_toml_are_both_understood",
+      "callee": "create_file",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1397"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_yaml_and_toml_are_both_understood",
+      "callee": "create_file",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1401"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_rejects_an_instance_that_could_never_receive_anything",
+      "callee": "unwrap_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1432"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_rejects_a_password_policy_the_domain_would_not_accept",
+      "callee": "unwrap_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1448"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_unknown_keys_are_rejected_rather_than_ignored",
+      "callee": "create_file",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1456"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_unknown_keys_are_rejected_rather_than_ignored",
+      "callee": "expect_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1457"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_config_a_backend_this_build_lacks_names_the_missing_feature",
+      "callee": "is_some_and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/config.rs",
+      "source_location": "L1498"
+    }
+  ]
+}

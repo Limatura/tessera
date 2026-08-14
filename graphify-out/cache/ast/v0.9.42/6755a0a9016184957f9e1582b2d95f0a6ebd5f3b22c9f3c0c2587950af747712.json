@@ -1,0 +1,173 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_rs",
+      "label": "m20260810_000002_share_tickets.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration",
+      "label": "Migration",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L16"
+    },
+    {
+      "id": "migrationtrait",
+      "label": "MigrationTrait",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/m20260810_000002_share_tickets.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_up",
+      "label": ".up()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L27"
+    },
+    {
+      "id": "schemamanager",
+      "label": "SchemaManager",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/m20260810_000002_share_tickets.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/m20260810_000002_share_tickets.rs"
+    },
+    {
+      "id": "dberr",
+      "label": "DbErr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/migration/m20260810_000002_share_tickets.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_down",
+      "label": ".down()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L31"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_rs",
+      "target": "prelude",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_rs",
+      "target": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration",
+      "target": "migrationtrait",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration",
+      "target": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_up",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_up",
+      "target": "schemamanager",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_up",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_up",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration",
+      "target": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_down",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_down",
+      "target": "schemamanager",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_down",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_migration_m20260810_000002_share_tickets_migration_down",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/migration/m20260810_000002_share_tickets.rs",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "generic_arg"
+    }
+  ],
+  "raw_calls": []
+}

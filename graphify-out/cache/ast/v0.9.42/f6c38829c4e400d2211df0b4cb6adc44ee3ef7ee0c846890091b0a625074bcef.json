@@ -1,0 +1,816 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_cli_rs",
+      "label": "cli.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_command",
+      "label": "Command",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L40"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/cli.rs"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/cli.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_parse",
+      "label": "parse()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L63"
+    },
+    {
+      "id": "i",
+      "label": "I",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/cli.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/cli.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "label": "parse_reset_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L79"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_value",
+      "label": "value()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L97"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_reset_password",
+      "label": "reset_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L134"
+    },
+    {
+      "id": "config",
+      "label": "Config",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/cli.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_choose_password",
+      "label": "choose_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188"
+    },
+    {
+      "id": "password",
+      "label": "Password",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/cli.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_report",
+      "label": "report()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L218"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_parsed",
+      "label": "parsed()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L232"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_no_arguments_runs_the_server",
+      "label": "no_arguments_runs_the_server()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L237"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_the_health_probe_is_still_reachable",
+      "label": "the_health_probe_is_still_reachable()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L242"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_a_username_is_required",
+      "label": "a_username_is_required()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L247"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_a_password_may_be_given_or_left_to_us",
+      "label": "a_password_may_be_given_or_left_to_us()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L252"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_a_flag_without_a_value_is_refused",
+      "label": "a_flag_without_a_value_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L272"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_cli_unknown_arguments_are_refused",
+      "label": "unknown_arguments_are_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L279"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "anyhow",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L29",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_command",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L40",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_command",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L48",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_command",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L50",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_command",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L50",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_parse",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L63",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse",
+      "target": "i",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse",
+      "target": "$graphify-root$_apps_server_src_cli_command",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L79",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "target": "i",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L79",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L79",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "target": "$graphify-root$_apps_server_src_cli_command",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L79",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L79",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_value",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L97",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_value",
+      "target": "i",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L97",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_value",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L97",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_value",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L97",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_value",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L97",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_reset_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L134",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_reset_password",
+      "target": "config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L134",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_reset_password",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L134",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_reset_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L134",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_reset_password",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L134",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_choose_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "password",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L188",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_report",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L218",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_report",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L218",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L230",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_parsed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L232",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parsed",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L232",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parsed",
+      "target": "$graphify-root$_apps_server_src_cli_command",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L232",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parsed",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L232",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_no_arguments_runs_the_server",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L237",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_the_health_probe_is_still_reachable",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L242",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_a_username_is_required",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L247",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_a_password_may_be_given_or_left_to_us",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L252",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_a_flag_without_a_value_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L272",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_rs",
+      "target": "$graphify-root$_apps_server_src_cli_unknown_arguments_are_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L279",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse",
+      "target": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L72",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "target": "$graphify-root$_apps_server_src_cli_value",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L85",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_reset_password",
+      "target": "$graphify-root$_apps_server_src_cli_choose_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L162",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_reset_password",
+      "target": "$graphify-root$_apps_server_src_cli_report",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L180",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_choose_password",
+      "target": "$graphify-root$_apps_server_src_cli_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L197",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_cli_parsed",
+      "target": "$graphify-root$_apps_server_src_cli_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L233",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_parse",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_parse",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L69"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_parse_reset_password",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L84"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_value",
+      "callee": "ok_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L98"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L142"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "with_context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L145"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L153"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L153"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L164"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L169"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "set_password",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L169"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L173"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_reset_password",
+      "callee": "as_deref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L180"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_choose_password",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L193"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_choose_password",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L197"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_cli_choose_password",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/cli.rs",
+      "source_location": "L204"
+    }
+  ]
+}

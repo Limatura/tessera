@@ -1,0 +1,914 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_json",
+      "label": "package.json",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_name",
+      "label": "name",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_private",
+      "label": "private",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_type",
+      "label": "type",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_sideeffects",
+      "label": "sideEffects",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_scripts",
+      "label": "scripts",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_scripts_dev",
+      "label": "dev",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_scripts_build",
+      "label": "build",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_scripts_start",
+      "label": "start",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_scripts_preview",
+      "label": "preview",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_scripts_types_check",
+      "label": "types:check",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_scripts_lint",
+      "label": "lint",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "label": "dependencies",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_router",
+      "label": "@tanstack/react-router",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "tanstack_react_router",
+      "label": "@tanstack/react-router",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_router_devtools",
+      "label": "@tanstack/react-router-devtools",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "tanstack_react_router_devtools",
+      "label": "@tanstack/react-router-devtools",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_start",
+      "label": "@tanstack/react-start",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "tanstack_react_start",
+      "label": "@tanstack/react-start",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_cnfast",
+      "label": "cnfast",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "cnfast",
+      "label": "cnfast",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_core",
+      "label": "fumadocs-core",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "fumadocs_core",
+      "label": "fumadocs-core",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_mdx",
+      "label": "fumadocs-mdx",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "fumadocs_mdx",
+      "label": "fumadocs-mdx",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_ui",
+      "label": "fumadocs-ui",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "fumadocs_ui",
+      "label": "fumadocs-ui",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_lucide_react",
+      "label": "lucide-react",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "lucide_react",
+      "label": "lucide-react",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_react",
+      "label": "react",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "react",
+      "label": "react",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_dependencies_react_dom",
+      "label": "react-dom",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "react_dom",
+      "label": "react-dom",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "label": "devDependencies",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_tailwindcss_vite",
+      "label": "@tailwindcss/vite",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L27"
+    },
+    {
+      "id": "tailwindcss_vite",
+      "label": "@tailwindcss/vite",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L27"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_types_mdx",
+      "label": "@types/mdx",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L28"
+    },
+    {
+      "id": "types_mdx",
+      "label": "@types/mdx",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L28"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_types_node",
+      "label": "@types/node",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L29"
+    },
+    {
+      "id": "types_node",
+      "label": "@types/node",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L29"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_types_react",
+      "label": "@types/react",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L30"
+    },
+    {
+      "id": "types_react",
+      "label": "@types/react",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L30"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L31"
+    },
+    {
+      "id": "types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L31"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_vitejs_plugin_react",
+      "label": "@vitejs/plugin-react",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L32"
+    },
+    {
+      "id": "vitejs_plugin_react",
+      "label": "@vitejs/plugin-react",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L32"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_nitro",
+      "label": "nitro",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L33"
+    },
+    {
+      "id": "nitro",
+      "label": "nitro",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L33"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_oxlint",
+      "label": "oxlint",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L34"
+    },
+    {
+      "id": "oxlint",
+      "label": "oxlint",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L34"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_tailwindcss",
+      "label": "tailwindcss",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L35"
+    },
+    {
+      "id": "tailwindcss",
+      "label": "tailwindcss",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L35"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_typescript",
+      "label": "typescript",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L36"
+    },
+    {
+      "id": "typescript",
+      "label": "typescript",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L36"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_package_devdependencies_vite",
+      "label": "vite",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L37"
+    },
+    {
+      "id": "vite",
+      "label": "vite",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L37"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_json",
+      "target": "$graphify-root$_apps_fumadocs_package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_json",
+      "target": "$graphify-root$_apps_fumadocs_package_private",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_json",
+      "target": "$graphify-root$_apps_fumadocs_package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_json",
+      "target": "$graphify-root$_apps_fumadocs_package_sideeffects",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_json",
+      "target": "$graphify-root$_apps_fumadocs_package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_scripts",
+      "target": "$graphify-root$_apps_fumadocs_package_scripts_dev",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_scripts",
+      "target": "$graphify-root$_apps_fumadocs_package_scripts_build",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_scripts",
+      "target": "$graphify-root$_apps_fumadocs_package_scripts_start",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_scripts",
+      "target": "$graphify-root$_apps_fumadocs_package_scripts_preview",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_scripts",
+      "target": "$graphify-root$_apps_fumadocs_package_scripts_types_check",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_scripts",
+      "target": "$graphify-root$_apps_fumadocs_package_scripts_lint",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_json",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_router",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_router",
+      "target": "tanstack_react_router",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L15",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_router_devtools",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_router_devtools",
+      "target": "tanstack_react_router_devtools",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_start",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_tanstack_react_start",
+      "target": "tanstack_react_start",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_cnfast",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_cnfast",
+      "target": "cnfast",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_core",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_core",
+      "target": "fumadocs_core",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_mdx",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_mdx",
+      "target": "fumadocs_mdx",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_ui",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_fumadocs_ui",
+      "target": "fumadocs_ui",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_lucide_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_lucide_react",
+      "target": "lucide_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_react",
+      "target": "react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L23",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_dependencies_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L24",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_dependencies_react_dom",
+      "target": "react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_json",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_tailwindcss_vite",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_tailwindcss_vite",
+      "target": "tailwindcss_vite",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_types_mdx",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_types_mdx",
+      "target": "types_mdx",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_types_node",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_types_node",
+      "target": "types_node",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L29",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_types_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_types_react",
+      "target": "types_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L30",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_types_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_types_react_dom",
+      "target": "types_react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_vitejs_plugin_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L32",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_vitejs_plugin_react",
+      "target": "vitejs_plugin_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L32",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_nitro",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_nitro",
+      "target": "nitro",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L33",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_oxlint",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L34",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_oxlint",
+      "target": "oxlint",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L34",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_tailwindcss",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L35",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_tailwindcss",
+      "target": "tailwindcss",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L35",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_typescript",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L36",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_typescript",
+      "target": "typescript",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies",
+      "target": "$graphify-root$_apps_fumadocs_package_devdependencies_vite",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_package_devdependencies_vite",
+      "target": "vite",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/package.json",
+      "source_location": "L37",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

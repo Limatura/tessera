@@ -1,0 +1,13 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_mod_rs",
+      "label": "mod.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/mod.rs",
+      "source_location": "L1"
+    }
+  ],
+  "edges": [],
+  "raw_calls": []
+}

@@ -1,0 +1,2974 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_rs",
+      "label": "auth.rs",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_registration",
+      "label": "registration()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L21"
+    },
+    {
+      "id": "value",
+      "label": "Value",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_register",
+      "label": "register()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L29"
+    },
+    {
+      "id": "testapp",
+      "label": "TestApp",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/auth.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_account_can_be_registered_used_and_closed_out",
+      "label": "an_account_can_be_registered_used_and_closed_out()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L45"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_anonymous_caller_has_no_session",
+      "label": "an_anonymous_caller_has_no_session()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L50"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_the_session_cookie_is_http_only_and_same_site_lax",
+      "label": "the_session_cookie_is_http_only_and_same_site_lax()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L63"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "label": "the_first_account_to_register_administers_the_instance()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L92"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_closed_instance_refuses_registration",
+      "label": "a_closed_instance_refuses_registration()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L121"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "label": "an_instance_without_accounts_reports_the_endpoints_as_absent()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L142"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_wrong_password_and_an_unknown_account_answer_identically",
+      "label": "a_wrong_password_and_an_unknown_account_answer_identically()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L179"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_password_below_the_policy_is_refused_at_registration",
+      "label": "a_password_below_the_policy_is_refused_at_registration()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L210"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_usernames_are_matched_case_insensitively",
+      "label": "usernames_are_matched_case_insensitively()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L232"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "label": "an_api_token_cannot_change_the_password()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L267"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_the_wrong_current_password_does_not_change_anything",
+      "label": "the_wrong_current_password_does_not_change_anything()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L304"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "label": "a_token_cannot_be_revoked_by_someone_else()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L340"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "label": "a_token_listing_shows_only_the_callers_own()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L384"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_nonsense_token_id_is_not_found_rather_than_a_bad_request",
+      "label": "a_nonsense_token_id_is_not_found_rather_than_a_bad_request()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L422"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_repeated_failures_are_throttled_with_a_retry_after",
+      "label": "repeated_failures_are_throttled_with_a_retry_after()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L442"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_expired_session_is_refused",
+      "label": "an_expired_session_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L477"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "label": "the_bootstrapped_administrator_can_sign_in()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L517"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_generated_administrator_password_must_be_changed",
+      "label": "a_generated_administrator_password_must_be_changed()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L564"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "label": "an_account_owing_a_password_change_can_only_fix_itself()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L594"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_the_sweep_removes_sessions_nobody_returns_for",
+      "label": "the_sweep_removes_sessions_nobody_returns_for()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L701"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "label": "app_with_mail()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L745"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "label": "ask_for_reset()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L754"
+    },
+    {
+      "id": "statuscode",
+      "label": "StatusCode",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_reset_request_answers_the_same_for_strangers_and_members",
+      "label": "a_reset_request_answers_the_same_for_strangers_and_members()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L771"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_failed_send_is_still_accepted",
+      "label": "a_failed_send_is_still_accepted()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L794"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_instance_without_mail_offers_no_reset",
+      "label": "an_instance_without_mail_offers_no_reset()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L806"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_instance_with_mail_says_so",
+      "label": "an_instance_with_mail_says_so()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L819"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership",
+      "label": "being_throttled_says_nothing_about_membership()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L832"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_reset_requests_are_limited_per_address",
+      "label": "reset_requests_are_limited_per_address()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L856"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_one_address_at_its_limit_does_not_refuse_another",
+      "label": "one_address_at_its_limit_does_not_refuse_another()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L883"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_confirm",
+      "label": "confirm()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L901"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_unusable_link_says_only_that",
+      "label": "an_unusable_link_says_only_that()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L917"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "label": "a_link_sets_the_password_once_and_ends_every_session()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L928"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "label": "a_rejected_password_does_not_burn_the_link()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L991"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "label": "using_one_link_invalidates_the_others()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1026"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_expired_link_is_refused",
+      "label": "an_expired_link_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1066"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "label": "ask_to_register()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1098"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_confirm_registration",
+      "label": "confirm_registration()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1113"
+    },
+    {
+      "id": "response",
+      "label": "Response",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_wait_for_pending",
+      "label": "wait_for_pending()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1138"
+    },
+    {
+      "id": "pendingregistration",
+      "label": "PendingRegistration",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/tests/auth.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "label": "register_verified()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1170"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_registering_answers_the_same_for_a_free_and_a_taken_address",
+      "label": "registering_answers_the_same_for_a_free_and_a_taken_address()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1207"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership_either",
+      "label": "being_throttled_says_nothing_about_membership_either()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1226"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_registering_at_an_address_does_not_use_up_its_resets",
+      "label": "registering_at_an_address_does_not_use_up_its_resets()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1251"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_taken_name_is_refused_outright",
+      "label": "a_taken_name_is_refused_outright()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1275"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_nothing_exists_until_the_link_is_followed",
+      "label": "nothing_exists_until_the_link_is_followed()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1288"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_the_link_creates_a_verified_account_and_signs_it_in",
+      "label": "the_link_creates_a_verified_account_and_signs_it_in()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1330"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_unusable_registration_link_says_only_that",
+      "label": "an_unusable_registration_link_says_only_that()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1356"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_registration_link_works_once",
+      "label": "a_registration_link_works_once()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1389"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_asking_again_replaces_the_earlier_link",
+      "label": "asking_again_replaces_the_earlier_link()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1427"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_a_name_taken_while_waiting_is_refused_at_confirmation",
+      "label": "a_name_taken_while_waiting_is_refused_at_confirmation()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1463"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_address_that_gained_an_account_while_waiting_is_refused",
+      "label": "an_address_that_gained_an_account_while_waiting_is_refused()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1492"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_an_instance_without_mail_creates_the_account_outright",
+      "label": "an_instance_without_mail_creates_the_account_outright()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1522"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_capabilities_says_whether_registration_waits_on_the_address",
+      "label": "capabilities_says_whether_registration_waits_on_the_address()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1544"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_closed_registration_sends_nothing",
+      "label": "closed_registration_sends_nothing()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1561"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_abandoned_registrations_are_swept",
+      "label": "abandoned_registrations_are_swept()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1579"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_messages",
+      "label": "spelling_an_address_differently_does_not_buy_more_messages()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1610"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_reset_messages",
+      "label": "spelling_an_address_differently_does_not_buy_more_reset_messages()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1640"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_closing_registration_stops_links_that_were_already_sent",
+      "label": "closing_registration_stops_links_that_were_already_sent()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1661"
+    },
+    {
+      "id": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "label": "two_links_racing_for_one_name_do_not_produce_a_server_error()",
+      "file_type": "code",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1705"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "http",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L11",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "common",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L12",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "registrationpolicy",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_registration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_registration",
+      "target": "value",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_register",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L29",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_register",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L29",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_account_can_be_registered_used_and_closed_out",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L45",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_anonymous_caller_has_no_session",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L50",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_the_session_cookie_is_http_only_and_same_site_lax",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L63",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L92",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_closed_instance_refuses_registration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L121",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L142",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_wrong_password_and_an_unknown_account_answer_identically",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L179",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_password_below_the_policy_is_refused_at_registration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L210",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_usernames_are_matched_case_insensitively",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L232",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L267",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_the_wrong_current_password_does_not_change_anything",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L304",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L340",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L384",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_nonsense_token_id_is_not_found_rather_than_a_bad_request",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L422",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_repeated_failures_are_throttled_with_a_retry_after",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L442",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_expired_session_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L477",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L517",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_generated_administrator_password_must_be_changed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L564",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L594",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_the_sweep_removes_sessions_nobody_returns_for",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L701",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L745",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L745",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L754",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L754",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L754",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_reset_request_answers_the_same_for_strangers_and_members",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L771",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_failed_send_is_still_accepted",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L794",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_instance_without_mail_offers_no_reset",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L806",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_instance_with_mail_says_so",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L819",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L832",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_reset_requests_are_limited_per_address",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L856",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_one_address_at_its_limit_does_not_refuse_another",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L883",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_confirm",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L901",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_confirm",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L901",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_confirm",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L901",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_unusable_link_says_only_that",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L917",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L928",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L991",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1026",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_expired_link_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1066",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1098",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1098",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "target": "statuscode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1098",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_confirm_registration",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1113",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_confirm_registration",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1113",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_confirm_registration",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1113",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_wait_for_pending",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1138",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_wait_for_pending",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1138",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_wait_for_pending",
+      "target": "pendingregistration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1138",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1170",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "target": "testapp",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1170",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1170",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_registering_answers_the_same_for_a_free_and_a_taken_address",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1207",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership_either",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1226",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_registering_at_an_address_does_not_use_up_its_resets",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1251",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_taken_name_is_refused_outright",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1275",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_nothing_exists_until_the_link_is_followed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1288",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_the_link_creates_a_verified_account_and_signs_it_in",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1330",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_unusable_registration_link_says_only_that",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1356",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_registration_link_works_once",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1389",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_asking_again_replaces_the_earlier_link",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1427",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_a_name_taken_while_waiting_is_refused_at_confirmation",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1463",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_address_that_gained_an_account_while_waiting_is_refused",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1492",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_an_instance_without_mail_creates_the_account_outright",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1522",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_capabilities_says_whether_registration_waits_on_the_address",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1544",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_closed_registration_sends_nothing",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1561",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_abandoned_registrations_are_swept",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1579",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_messages",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1610",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_reset_messages",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1640",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_closing_registration_stops_links_that_were_already_sent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1661",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_rs",
+      "target": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1705",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_register",
+      "target": "$graphify-root$_apps_server_tests_auth_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L35",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_the_session_cookie_is_http_only_and_same_site_lax",
+      "target": "$graphify-root$_apps_server_tests_auth_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L70",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L94",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_closed_instance_refuses_registration",
+      "target": "$graphify-root$_apps_server_tests_auth_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L131",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "target": "$graphify-root$_apps_server_tests_auth_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L153",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_wrong_password_and_an_unknown_account_answer_identically",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L181",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_usernames_are_matched_case_insensitively",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L234",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L269",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_the_wrong_current_password_does_not_change_anything",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L306",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L342",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L386",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_nonsense_token_id_is_not_found_rather_than_a_bad_request",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L424",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_repeated_failures_are_throttled_with_a_retry_after",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L444",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_expired_session_is_refused",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L484",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "target": "$graphify-root$_apps_server_tests_auth_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L553",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_the_sweep_removes_sessions_nobody_returns_for",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L703",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_reset_request_answers_the_same_for_strangers_and_members",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L772",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_reset_request_answers_the_same_for_strangers_and_members",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L773",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_failed_send_is_still_accepted",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L795",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_failed_send_is_still_accepted",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L796",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_instance_with_mail_says_so",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L820",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L833",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L834",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L838",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_reset_requests_are_limited_per_address",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L857",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_reset_requests_are_limited_per_address",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L858",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_one_address_at_its_limit_does_not_refuse_another",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L884",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_one_address_at_its_limit_does_not_refuse_another",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L885",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_one_address_at_its_limit_does_not_refuse_another",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L889",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_unusable_link_says_only_that",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L918",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L929",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L930",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L992",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L993",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1027",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1028",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_expired_link_is_refused",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1067",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_expired_link_is_refused",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1068",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "target": "$graphify-root$_apps_server_tests_auth_wait_for_pending",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1177",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "target": "$graphify-root$_apps_server_tests_auth_confirm_registration",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1195",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_registering_answers_the_same_for_a_free_and_a_taken_address",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1208",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_registering_answers_the_same_for_a_free_and_a_taken_address",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1209",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership_either",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1227",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership_either",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1228",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_being_throttled_says_nothing_about_membership_either",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1231",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_registering_at_an_address_does_not_use_up_its_resets",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1252",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_registering_at_an_address_does_not_use_up_its_resets",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1253",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_registering_at_an_address_does_not_use_up_its_resets",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1256",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_taken_name_is_refused_outright",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1276",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_taken_name_is_refused_outright",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1277",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_nothing_exists_until_the_link_is_followed",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1289",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_nothing_exists_until_the_link_is_followed",
+      "target": "$graphify-root$_apps_server_tests_auth_wait_for_pending",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1294",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_the_link_creates_a_verified_account_and_signs_it_in",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1331",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_the_link_creates_a_verified_account_and_signs_it_in",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1332",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_unusable_registration_link_says_only_that",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1357",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_registration_link_works_once",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1390",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_asking_again_replaces_the_earlier_link",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1428",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_name_taken_while_waiting_is_refused_at_confirmation",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1464",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_a_name_taken_while_waiting_is_refused_at_confirmation",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1479",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_address_that_gained_an_account_while_waiting_is_refused",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1493",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_address_that_gained_an_account_while_waiting_is_refused",
+      "target": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1496",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_an_instance_without_mail_creates_the_account_outright",
+      "target": "$graphify-root$_apps_server_tests_auth_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1524",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_capabilities_says_whether_registration_waits_on_the_address",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1551",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_abandoned_registrations_are_swept",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1580",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_messages",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1611",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_messages",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1619",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_reset_messages",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1641",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_spelling_an_address_differently_does_not_buy_more_reset_messages",
+      "target": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1646",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "target": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1706",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_register",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L30"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_register",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L31"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_register",
+      "callee": "session_cookie",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L41"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_can_be_registered_used_and_closed_out",
+      "callee": "account_lifecycle",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L46"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_anonymous_caller_has_no_session",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L52"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_anonymous_caller_has_no_session",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L53"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_session_cookie_is_http_only_and_same_site_lax",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L65"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_session_cookie_is_http_only_and_same_site_lax",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L66"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_session_cookie_is_http_only_and_same_site_lax",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L77"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_session_cookie_is_http_only_and_same_site_lax",
+      "callee": "headers",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L77"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L95"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L96"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L97"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L108"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_first_account_to_register_administers_the_instance",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_closed_instance_refuses_registration",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L126"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_closed_instance_refuses_registration",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L127"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L148"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L149"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L159"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L160"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L172"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_accounts_reports_the_endpoints_as_absent",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L172"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_wrong_password_and_an_unknown_account_answer_identically",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L183"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_wrong_password_and_an_unknown_account_answer_identically",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L184"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_wrong_password_and_an_unknown_account_answer_identically",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L194"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_wrong_password_and_an_unknown_account_answer_identically",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L195"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_password_below_the_policy_is_refused_at_registration",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L212"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_password_below_the_policy_is_refused_at_registration",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L213"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_usernames_are_matched_case_insensitively",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L236"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_usernames_are_matched_case_insensitively",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L237"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_usernames_are_matched_case_insensitively",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L252"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_usernames_are_matched_case_insensitively",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L253"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L271"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L272"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L273"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L285"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L287"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_api_token_cannot_change_the_password",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L288"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_wrong_current_password_does_not_change_anything",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L308"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_wrong_current_password_does_not_change_anything",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L309"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_wrong_current_password_does_not_change_anything",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L324"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_wrong_current_password_does_not_change_anything",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L325"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L345"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L346"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L347"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L359"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L361"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L362"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L373"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L374"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_cannot_be_revoked_by_someone_else",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L375"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L390"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L391"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L403"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L404"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L405"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "as_array",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L412"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "unwrap_or_default",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L416"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_token_listing_shows_only_the_callers_own",
+      "callee": "as_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L416"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_nonsense_token_id_is_not_found_rather_than_a_bad_request",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L428"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_nonsense_token_id_is_not_found_rather_than_a_bad_request",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L429"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_repeated_failures_are_throttled_with_a_retry_after",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L448"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_repeated_failures_are_throttled_with_a_retry_after",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L456"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_repeated_failures_are_throttled_with_a_retry_after",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L463"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_repeated_failures_are_throttled_with_a_retry_after",
+      "callee": "headers",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L463"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_expired_session_is_refused",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L502"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_expired_session_is_refused",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L503"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L527"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L528"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L529"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L548"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_bootstrapped_administrator_can_sign_in",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L549"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_generated_administrator_password_must_be_changed",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L576"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "force_password_change",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L605"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L607"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L608"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "session_cookie",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L618"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L622"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L623"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L624"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L634"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L635"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L646"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L647"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L654"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L655"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L670"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L671"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "session_cookie",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L684"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L685"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_account_owing_a_password_change_can_only_fix_itself",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L686"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_sweep_removes_sessions_nobody_returns_for",
+      "callee": "delete_expired",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L718"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_sweep_removes_sessions_nobody_returns_for",
+      "callee": "delete_expired",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L728"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L747"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L748"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_app_with_mail",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L749"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L755"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_ask_for_reset",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L755"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_mail_offers_no_reset",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L814"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_without_mail_offers_no_reset",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L814"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_with_mail_says_so",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L822"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_instance_with_mail_says_so",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L822"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_confirm",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L902"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_confirm",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L902"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L932"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "callee": "issue",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L941"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L947"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L951"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L975"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_link_sets_the_password_once_and_ends_every_session",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L976"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L995"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "callee": "issue",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1003"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1009"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_rejected_password_does_not_burn_the_link",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1013"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1030"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1038"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "callee": "issue",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1040"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_using_one_link_invalidates_the_others",
+      "callee": "issue",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1046"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_expired_link_is_refused",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1070"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_expired_link_is_refused",
+      "callee": "issue",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1078"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1099"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_ask_to_register",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1099"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_confirm_registration",
+      "callee": "json",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1114"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_wait_for_pending",
+      "callee": "find_by_email",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1144"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1189"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1194"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1195"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_register_verified",
+      "callee": "session_cookie",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1199"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_link_creates_a_verified_account_and_signs_it_in",
+      "callee": "find_by_username",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1334"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_link_creates_a_verified_account_and_signs_it_in",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1344"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_the_link_creates_a_verified_account_and_signs_it_in",
+      "callee": "empty",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1345"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_registration_link_works_once",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1408"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_asking_again_replaces_the_earlier_link",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1432"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_a_name_taken_while_waiting_is_refused_at_confirmation",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1474"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_an_address_that_gained_an_account_while_waiting_is_refused",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1507"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_capabilities_says_whether_registration_waits_on_the_address",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1547"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_capabilities_says_whether_registration_waits_on_the_address",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1547"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_capabilities_says_whether_registration_waits_on_the_address",
+      "callee": "body_json",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1553"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_capabilities_says_whether_registration_waits_on_the_address",
+      "callee": "expect_status",
+      "is_member_call": false,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1553"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_closed_registration_sends_nothing",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1563"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_closed_registration_sends_nothing",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1564"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_closed_registration_sends_nothing",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1565"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_closing_registration_stops_links_that_were_already_sent",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1663"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_closing_registration_stops_links_that_were_already_sent",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1664"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_closing_registration_stops_links_that_were_already_sent",
+      "callee": "clone_into",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1665"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_closing_registration_stops_links_that_were_already_sent",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1681"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1709"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1725"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1732"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "callee": "status",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1732"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_tests_auth_two_links_racing_for_one_name_do_not_produce_a_server_error",
+      "callee": "sort_unstable",
+      "is_member_call": true,
+      "source_file": "apps/server/tests/auth.rs",
+      "source_location": "L1733"
+    }
+  ]
+}

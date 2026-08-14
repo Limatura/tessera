@@ -1,0 +1,756 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_mail_rs",
+      "label": "mail.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_mailerror",
+      "label": "MailError",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L17"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_letter",
+      "label": "Letter",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L30"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_mailer",
+      "label": "Mailer",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L56"
+    },
+    {
+      "id": "asyncsmtptransport",
+      "label": "AsyncSmtpTransport",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "tokio1executor",
+      "label": "Tokio1Executor",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "debug",
+      "label": "Debug",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_mailer_fmt",
+      "label": ".fmt()",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L62"
+    },
+    {
+      "id": "formatter",
+      "label": "Formatter",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "label": ".from_config()",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L77"
+    },
+    {
+      "id": "mailconfig",
+      "label": "MailConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "label": ".send()",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L113"
+    },
+    {
+      "id": "infallible",
+      "label": "Infallible",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/mail.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_password_reset_letter",
+      "label": "password_reset_letter()",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L178"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_registration_letter",
+      "label": "registration_letter()",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L198"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_already_registered_letter",
+      "label": "already_registered_letter()",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L228"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_mail_compiled_in",
+      "label": "compiled_in()",
+      "file_type": "code",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L252"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_mailerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailerror",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailerror",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_letter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_letter",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L32",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_letter",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L34",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_letter",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L41",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "lettre",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L46",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L51",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "mailconfig",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L52",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_mailer",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L56",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "asyncsmtptransport",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L57",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "tokio1executor",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L57",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "debug",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L61",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "$graphify-root$_apps_server_src_mail_mailer_fmt",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L62",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_fmt",
+      "target": "formatter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L62",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_fmt",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L62",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L77",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "mailconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "$graphify-root$_apps_server_src_mail_mailerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L77",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L113",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "target": "$graphify-root$_apps_server_src_mail_letter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L113",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L113",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "target": "$graphify-root$_apps_server_src_mail_mailerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L113",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L139",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "mailconfig",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L140",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_mailer",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L148",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "infallible",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L148",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L156",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "mailconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "target": "$graphify-root$_apps_server_src_mail_mailerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer",
+      "target": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L165",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "target": "$graphify-root$_apps_server_src_mail_letter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L165",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L165",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "target": "$graphify-root$_apps_server_src_mail_mailerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L165",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "mailer",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_password_reset_letter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L178",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_password_reset_letter",
+      "target": "$graphify-root$_apps_server_src_mail_letter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L178",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_registration_letter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L198",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_registration_letter",
+      "target": "$graphify-root$_apps_server_src_mail_letter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L198",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_already_registered_letter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L228",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_already_registered_letter",
+      "target": "$graphify-root$_apps_server_src_mail_letter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L228",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_mail_rs",
+      "target": "$graphify-root$_apps_server_src_mail_compiled_in",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L252",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_fmt",
+      "callee": "finish_non_exhaustive",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_fmt",
+      "callee": "field",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_fmt",
+      "callee": "debug_struct",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "callee": "is_configured",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L78"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L87"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "callee": "port",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L94"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_from_config",
+      "callee": "credentials",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L96"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L115"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "body",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L115"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "header",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L115"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "subject",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L115"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "to",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L115"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L116"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L119"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_mail_mailer_send",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/mail.rs",
+      "source_location": "L128"
+    }
+  ]
+}

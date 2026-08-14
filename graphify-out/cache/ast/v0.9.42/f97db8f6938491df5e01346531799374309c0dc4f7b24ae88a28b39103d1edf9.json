@@ -1,0 +1,930 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_ui_package_json",
+      "label": "package.json",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_name",
+      "label": "name",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_version",
+      "label": "version",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_private",
+      "label": "private",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_type",
+      "label": "type",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_exports",
+      "label": "exports",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_exports_globals_css",
+      "label": "./globals.css",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_exports_lib",
+      "label": "./lib/*",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_exports_components",
+      "label": "./components/*",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_exports_hooks",
+      "label": "./hooks/*",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_exports_postcss_config",
+      "label": "./postcss.config",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_scripts",
+      "label": "scripts",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_scripts_check_types",
+      "label": "check-types",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies",
+      "label": "dependencies",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_base_ui_react",
+      "label": "@base-ui/react",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "base_ui_react",
+      "label": "@base-ui/react",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_fontsource_variable_inter",
+      "label": "@fontsource-variable/inter",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "fontsource_variable_inter",
+      "label": "@fontsource-variable/inter",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_shadcn_react",
+      "label": "@shadcn/react",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "shadcn_react",
+      "label": "@shadcn/react",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_tabler_icons_react",
+      "label": "@tabler/icons-react",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "tabler_icons_react",
+      "label": "@tabler/icons-react",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_class_variance_authority",
+      "label": "class-variance-authority",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "class_variance_authority",
+      "label": "class-variance-authority",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_clsx",
+      "label": "clsx",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "clsx",
+      "label": "clsx",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_input_otp",
+      "label": "input-otp",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "input_otp",
+      "label": "input-otp",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_lucide_react",
+      "label": "lucide-react",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "lucide_react",
+      "label": "lucide-react",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L24"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_next_themes",
+      "label": "next-themes",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L25"
+    },
+    {
+      "id": "next_themes",
+      "label": "next-themes",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L25"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_react",
+      "label": "react",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "react",
+      "label": "react",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_react_dom",
+      "label": "react-dom",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L27"
+    },
+    {
+      "id": "react_dom",
+      "label": "react-dom",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L27"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_recharts",
+      "label": "recharts",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L28"
+    },
+    {
+      "id": "recharts",
+      "label": "recharts",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L28"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_shadcn",
+      "label": "shadcn",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L29"
+    },
+    {
+      "id": "shadcn",
+      "label": "shadcn",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L29"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_tailwind_merge",
+      "label": "tailwind-merge",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L30"
+    },
+    {
+      "id": "tailwind_merge",
+      "label": "tailwind-merge",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L30"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_dependencies_tw_animate_css",
+      "label": "tw-animate-css",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L31"
+    },
+    {
+      "id": "tw_animate_css",
+      "label": "tw-animate-css",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L31"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_devdependencies",
+      "label": "devDependencies",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L33"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_devdependencies_tailwindcss_postcss",
+      "label": "@tailwindcss/postcss",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L34"
+    },
+    {
+      "id": "tailwindcss_postcss",
+      "label": "@tailwindcss/postcss",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L34"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_devdependencies_tessera_config",
+      "label": "@tessera/config",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L35"
+    },
+    {
+      "id": "tessera_config",
+      "label": "@tessera/config",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L35"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_devdependencies_types_react",
+      "label": "@types/react",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L36"
+    },
+    {
+      "id": "types_react",
+      "label": "@types/react",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L36"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_devdependencies_types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L37"
+    },
+    {
+      "id": "types_react_dom",
+      "label": "@types/react-dom",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L37"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_devdependencies_tailwindcss",
+      "label": "tailwindcss",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L38"
+    },
+    {
+      "id": "tailwindcss",
+      "label": "tailwindcss",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L38"
+    },
+    {
+      "id": "$graphify-root$_packages_ui_package_devdependencies_typescript",
+      "label": "typescript",
+      "file_type": "code",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L39"
+    },
+    {
+      "id": "typescript",
+      "label": "typescript",
+      "file_type": "concept",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L39"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_name",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_private",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_type",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_exports",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_exports",
+      "target": "$graphify-root$_packages_ui_package_exports_globals_css",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_exports",
+      "target": "$graphify-root$_packages_ui_package_exports_lib",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_exports",
+      "target": "$graphify-root$_packages_ui_package_exports_components",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_exports",
+      "target": "$graphify-root$_packages_ui_package_exports_hooks",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_exports",
+      "target": "$graphify-root$_packages_ui_package_exports_postcss_config",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_scripts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_scripts",
+      "target": "$graphify-root$_packages_ui_package_scripts_check_types",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_dependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_base_ui_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_base_ui_react",
+      "target": "base_ui_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_fontsource_variable_inter",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_fontsource_variable_inter",
+      "target": "fontsource_variable_inter",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_shadcn_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_shadcn_react",
+      "target": "shadcn_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_tabler_icons_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_tabler_icons_react",
+      "target": "tabler_icons_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_class_variance_authority",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_class_variance_authority",
+      "target": "class_variance_authority",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_clsx",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_clsx",
+      "target": "clsx",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_input_otp",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_input_otp",
+      "target": "input_otp",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L23",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_lucide_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L24",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_lucide_react",
+      "target": "lucide_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_next_themes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_next_themes",
+      "target": "next_themes",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L25",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_react",
+      "target": "react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_react_dom",
+      "target": "react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_recharts",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_recharts",
+      "target": "recharts",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L28",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_shadcn",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_shadcn",
+      "target": "shadcn",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L29",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_tailwind_merge",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_tailwind_merge",
+      "target": "tailwind_merge",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L30",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies",
+      "target": "$graphify-root$_packages_ui_package_dependencies_tw_animate_css",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L31",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_dependencies_tw_animate_css",
+      "target": "tw_animate_css",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L31",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_json",
+      "target": "$graphify-root$_packages_ui_package_devdependencies",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies",
+      "target": "$graphify-root$_packages_ui_package_devdependencies_tailwindcss_postcss",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L34",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies_tailwindcss_postcss",
+      "target": "tailwindcss_postcss",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L34",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies",
+      "target": "$graphify-root$_packages_ui_package_devdependencies_tessera_config",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L35",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies_tessera_config",
+      "target": "tessera_config",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L35",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies",
+      "target": "$graphify-root$_packages_ui_package_devdependencies_types_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L36",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies_types_react",
+      "target": "types_react",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies",
+      "target": "$graphify-root$_packages_ui_package_devdependencies_types_react_dom",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L37",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies_types_react_dom",
+      "target": "types_react_dom",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L37",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies",
+      "target": "$graphify-root$_packages_ui_package_devdependencies_tailwindcss",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L38",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies_tailwindcss",
+      "target": "tailwindcss",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L38",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies",
+      "target": "$graphify-root$_packages_ui_package_devdependencies_typescript",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L39",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_ui_package_devdependencies_typescript",
+      "target": "typescript",
+      "relation": "imports",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/ui/package.json",
+      "source_location": "L39",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

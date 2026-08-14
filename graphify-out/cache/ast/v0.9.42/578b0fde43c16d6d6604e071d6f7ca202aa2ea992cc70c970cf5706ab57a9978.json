@@ -1,0 +1,350 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_json",
+      "label": "tsconfig.json",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_lib",
+      "label": "lib",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "ref_esnext",
+      "label": "ESNext",
+      "file_type": "concept",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_target",
+      "label": "target",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_module",
+      "label": "module",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_moduledetection",
+      "label": "moduleDetection",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_jsx",
+      "label": "jsx",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_jsximportsource",
+      "label": "jsxImportSource",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_allowjs",
+      "label": "allowJs",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_moduleresolution",
+      "label": "moduleResolution",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_allowimportingtsextensions",
+      "label": "allowImportingTsExtensions",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_verbatimmodulesyntax",
+      "label": "verbatimModuleSyntax",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_noemit",
+      "label": "noEmit",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_strict",
+      "label": "strict",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_skiplibcheck",
+      "label": "skipLibCheck",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_nofallthroughcasesinswitch",
+      "label": "noFallthroughCasesInSwitch",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L21"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_nouncheckedindexedaccess",
+      "label": "noUncheckedIndexedAccess",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L22"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_noimplicitoverride",
+      "label": "noImplicitOverride",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L23"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_nounusedlocals",
+      "label": "noUnusedLocals",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L26"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_nounusedparameters",
+      "label": "noUnusedParameters",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L27"
+    },
+    {
+      "id": "$graphify-root$_apps_tui_tsconfig_compileroptions_nopropertyaccessfromindexsignature",
+      "label": "noPropertyAccessFromIndexSignature",
+      "file_type": "code",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L28"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_json",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_lib",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions_lib",
+      "target": "ref_esnext",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L4",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_target",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_module",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_moduledetection",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_jsx",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_jsximportsource",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_allowjs",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_moduleresolution",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_allowimportingtsextensions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_verbatimmodulesyntax",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_noemit",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_strict",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_skiplibcheck",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_nofallthroughcasesinswitch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_nouncheckedindexedaccess",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_noimplicitoverride",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_nounusedlocals",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_nounusedparameters",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_tui_tsconfig_compileroptions",
+      "target": "$graphify-root$_apps_tui_tsconfig_compileroptions_nopropertyaccessfromindexsignature",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/tui/tsconfig.json",
+      "source_location": "L28",
+      "weight": 1.0
+    }
+  ]
+}

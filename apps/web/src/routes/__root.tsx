@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@tessera/ui/components/toast";
@@ -10,15 +11,18 @@ import {
   getLocale,
   subscribeToLocale,
 } from "@/lib/locale";
+import * as m from "@/paraglide/messages";
 
 import "../index.css";
 
 /**
- * Nothing is threaded through the router yet. Spelt this way rather than as an
- * empty interface, which the linter refuses because `{}` means "any non-null
- * value" and not "an object with no properties".
+ * Carries the QueryClient so route `beforeLoad`/`loader` hooks can read or
+ * prefetch query state — e.g. the session query from `@/hooks/use-auth`, to
+ * gate a route on `isAuthenticated` without a separate auth store.
  */
-export type RouterAppContext = Record<string, never>;
+export interface RouterAppContext {
+  queryClient: QueryClient;
+}
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
@@ -31,10 +35,10 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
     meta: [
       {
-        title: "my-better-t-app",
+        title: m.app_name(),
       },
       {
-        content: "my-better-t-app is a web application",
+        content: m.app_description(),
         name: "description",
       },
     ],

@@ -1,0 +1,177 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_admin_project_inlang_settings_json",
+      "label": "settings.json",
+      "file_type": "code",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_project_inlang_settings_schema",
+      "label": "$schema",
+      "file_type": "code",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_project_inlang_settings_baselocale",
+      "label": "baseLocale",
+      "file_type": "code",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_project_inlang_settings_locales",
+      "label": "locales",
+      "file_type": "code",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "ref_en",
+      "label": "en",
+      "file_type": "concept",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "ref_ja",
+      "label": "ja",
+      "file_type": "concept",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "ref_zh_tw",
+      "label": "zh-TW",
+      "file_type": "concept",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_project_inlang_settings_modules",
+      "label": "modules",
+      "file_type": "code",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "ref_node_modules_inlang_plugin_message_format_dist_index_js",
+      "label": "./node_modules/@inlang/plugin-message-format/dist/index.js",
+      "file_type": "concept",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_project_inlang_settings_plugin_inlang_messageformat",
+      "label": "plugin.inlang.messageFormat",
+      "file_type": "code",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_admin_project_inlang_settings_plugin_inlang_messageformat_pathpattern",
+      "label": "pathPattern",
+      "file_type": "code",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L7"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_json",
+      "target": "$graphify-root$_apps_admin_project_inlang_settings_schema",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_json",
+      "target": "$graphify-root$_apps_admin_project_inlang_settings_baselocale",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_json",
+      "target": "$graphify-root$_apps_admin_project_inlang_settings_locales",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_locales",
+      "target": "ref_en",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_locales",
+      "target": "ref_ja",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_locales",
+      "target": "ref_zh_tw",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L4",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_json",
+      "target": "$graphify-root$_apps_admin_project_inlang_settings_modules",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_modules",
+      "target": "ref_node_modules_inlang_plugin_message_format_dist_index_js",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_json",
+      "target": "$graphify-root$_apps_admin_project_inlang_settings_plugin_inlang_messageformat",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_admin_project_inlang_settings_plugin_inlang_messageformat",
+      "target": "$graphify-root$_apps_admin_project_inlang_settings_plugin_inlang_messageformat_pathpattern",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/admin/project.inlang/settings.json",
+      "source_location": "L7",
+      "weight": 1.0
+    }
+  ]
+}

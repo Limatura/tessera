@@ -1,0 +1,748 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_rs",
+      "label": "gate.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_ticket",
+      "label": "Ticket",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L89"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_open",
+      "label": "open()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L105"
+    },
+    {
+      "id": "appstate",
+      "label": "AppState",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/gate.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/gate.rs"
+    },
+    {
+      "id": "share",
+      "label": "Share",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/gate.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_find",
+      "label": "find()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L121"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_admit",
+      "label": "admit()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L160"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "label": "unlock()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L192"
+    },
+    {
+      "id": "headermap",
+      "label": "HeaderMap",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/gate.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_spend",
+      "label": "spend()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L238"
+    },
+    {
+      "id": "secret",
+      "label": "Secret",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/gate.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "label": "holds_ticket()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/gate.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "label": "ticket_secret()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L287"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_a_four_character_share_password_may_be_chosen",
+      "label": "a_four_character_share_password_may_be_chosen()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L302"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_gate_a_password_that_may_be_chosen_may_also_be_presented",
+      "label": "a_password_that_may_be_chosen_may_also_be_presented()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L311"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "headermap",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L36",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L37",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L38",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L40",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_ticket",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L89",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_open",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L105",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_open",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_open",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_open",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L105",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_find",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L121",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_find",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_find",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_find",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_admit",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L160",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_admit",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L160",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_admit",
+      "target": "$graphify-root$_apps_server_src_api_gate_ticket",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L160",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_admit",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L160",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L192",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L192",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L192",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L192",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L192",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_spend",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L238",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_spend",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_spend",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_spend",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_spend",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L238",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "target": "$graphify-root$_apps_server_src_api_gate_ticket",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L263",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L287",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L287",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L287",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L287",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L287",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L297",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_a_four_character_share_password_may_be_chosen",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L302",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_rs",
+      "target": "$graphify-root$_apps_server_src_api_gate_a_password_that_may_be_chosen_may_also_be_presented",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L311",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_open",
+      "target": "$graphify-root$_apps_server_src_api_gate_find",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L106",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_open",
+      "target": "$graphify-root$_apps_server_src_api_gate_admit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L107",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "target": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L269",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_find",
+      "callee": "check",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L125"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_find",
+      "callee": "as_secs",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L127"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_find",
+      "callee": "find_by_code",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L135"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_find",
+      "callee": "record_failure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L146"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_admit",
+      "callee": "availability_at",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L161"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "check",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L204"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "as_secs",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L206"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L210"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L210"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L212"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "record_failure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L219"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "reset",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L223"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_unlock",
+      "callee": "record_failure",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L226"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_spend",
+      "callee": "consume",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L240"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_spend",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L246"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_spend",
+      "callee": "ticket_ttl",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L246"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_spend",
+      "callee": "issue",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L248"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_spend",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L250"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "callee": "find_by_secret",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L272"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_holds_ticket",
+      "callee": "is_valid_at",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L275"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "callee": "or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L288"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L288"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_ticket_secret",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L290"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_a_password_that_may_be_chosen_may_also_be_presented",
+      "callee": "repeat",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L312"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_gate_a_password_that_may_be_chosen_may_also_be_presented",
+      "callee": "is_ok",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/gate.rs",
+      "source_location": "L313"
+    }
+  ]
+}

@@ -1,0 +1,351 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_json",
+      "label": "tsconfig.base.json",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_schema",
+      "label": "$schema",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "label": "compilerOptions",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_target",
+      "label": "target",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_module",
+      "label": "module",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_moduleresolution",
+      "label": "moduleResolution",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_lib",
+      "label": "lib",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "ref_esnext",
+      "label": "ESNext",
+      "file_type": "concept",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L7"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_verbatimmodulesyntax",
+      "label": "verbatimModuleSyntax",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_strict",
+      "label": "strict",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_skiplibcheck",
+      "label": "skipLibCheck",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_resolvejsonmodule",
+      "label": "resolveJsonModule",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L11"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_allowsyntheticdefaultimports",
+      "label": "allowSyntheticDefaultImports",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_esmoduleinterop",
+      "label": "esModuleInterop",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_forceconsistentcasinginfilenames",
+      "label": "forceConsistentCasingInFileNames",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L14"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_isolatedmodules",
+      "label": "isolatedModules",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L15"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nouncheckedindexedaccess",
+      "label": "noUncheckedIndexedAccess",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nounusedlocals",
+      "label": "noUnusedLocals",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L17"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nounusedparameters",
+      "label": "noUnusedParameters",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L18"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nofallthroughcasesinswitch",
+      "label": "noFallthroughCasesInSwitch",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L19"
+    },
+    {
+      "id": "$graphify-root$_packages_config_tsconfig_base_compileroptions_types",
+      "label": "types",
+      "file_type": "code",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L20"
+    },
+    {
+      "id": "ref_node",
+      "label": "node",
+      "file_type": "concept",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L20"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_json",
+      "target": "$graphify-root$_packages_config_tsconfig_base_schema",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_json",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_target",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_module",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_moduleresolution",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_lib",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions_lib",
+      "target": "ref_esnext",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_verbatimmodulesyntax",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_strict",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_skiplibcheck",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_resolvejsonmodule",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_allowsyntheticdefaultimports",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_esmoduleinterop",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_forceconsistentcasinginfilenames",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L14",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_isolatedmodules",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nouncheckedindexedaccess",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nounusedlocals",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nounusedparameters",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_nofallthroughcasesinswitch",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions",
+      "target": "$graphify-root$_packages_config_tsconfig_base_compileroptions_types",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_packages_config_tsconfig_base_compileroptions_types",
+      "target": "ref_node",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "packages/config/tsconfig.base.json",
+      "source_location": "L20",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

@@ -1,0 +1,398 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "label": "bootstrap.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "label": "ensure_admin()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L33"
+    },
+    {
+      "id": "userrepository",
+      "label": "UserRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/bootstrap.rs"
+    },
+    {
+      "id": "authconfig",
+      "label": "AuthConfig",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/bootstrap.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/bootstrap.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "label": "admin_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L81"
+    },
+    {
+      "id": "password",
+      "label": "Password",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/bootstrap.rs"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/bootstrap.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/auth/bootstrap.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_bootstrap_config",
+      "label": "config()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L101"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_bootstrap_an_empty_configured_password_is_generated_and_returned_for_printing",
+      "label": "an_empty_configured_password_is_generated_and_returned_for_printing()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L106"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_bootstrap_a_configured_password_is_used_and_not_printed",
+      "label": "a_configured_password_is_used_and_not_printed()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L117"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_auth_bootstrap_a_configured_password_must_satisfy_the_instance_policy",
+      "label": "a_configured_password_must_satisfy_the_instance_policy()",
+      "file_type": "code",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L132"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L12",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L15",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "target": "userrepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L33",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "target": "authconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L33",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L33",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L81",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "target": "authconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L81",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L81",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "target": "password",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L81",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L81",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L81",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L99",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_config",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L101",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_config",
+      "target": "authconfig",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L101",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_an_empty_configured_password_is_generated_and_returned_for_printing",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L106",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_a_configured_password_is_used_and_not_printed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L117",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_rs",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_a_configured_password_must_satisfy_the_instance_policy",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L132",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L45",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_an_empty_configured_password_is_generated_and_returned_for_printing",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L107",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_an_empty_configured_password_is_generated_and_returned_for_printing",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_config",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L107",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_a_configured_password_is_used_and_not_printed",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_config",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L118",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_a_configured_password_is_used_and_not_printed",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L121",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_auth_bootstrap_a_configured_password_must_satisfy_the_instance_policy",
+      "target": "$graphify-root$_apps_server_src_auth_bootstrap_config",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L133",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "callee": "any_exist",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L34"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L40"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L42"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_bootstrap_ensure_admin",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L57"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "callee": "expose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L83"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L87"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_auth_bootstrap_admin_password",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/auth/bootstrap.rs",
+      "source_location": "L92"
+    }
+  ]
+}

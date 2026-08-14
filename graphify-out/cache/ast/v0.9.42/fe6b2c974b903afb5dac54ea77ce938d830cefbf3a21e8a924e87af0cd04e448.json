@@ -1,0 +1,729 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "label": "email.rs",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "label": "EmailAddress",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L27"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "label": ".parse()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L55"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "domainerror",
+      "label": "DomainError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress_as_str",
+      "label": ".as_str()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L133"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress_local_part",
+      "label": ".local_part()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L139"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress_domain",
+      "label": ".domain()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L145"
+    },
+    {
+      "id": "display",
+      "label": "Display",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress_fmt",
+      "label": ".fmt()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L153"
+    },
+    {
+      "id": "formatter",
+      "label": "Formatter",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "fromstr",
+      "label": "FromStr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress_from_str",
+      "label": ".from_str()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L161"
+    },
+    {
+      "id": "err",
+      "label": "Err",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "tryfrom",
+      "label": "TryFrom",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_emailaddress_try_from",
+      "label": ".try_from()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L169"
+    },
+    {
+      "id": "error",
+      "label": "Error",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L174"
+    },
+    {
+      "id": "from",
+      "label": "From",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/crates/tessera-core/src/email.rs"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_string_from",
+      "label": ".from()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L175"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_accepts_addresses_that_really_exist",
+      "label": "accepts_addresses_that_really_exist()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L195"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_rejects_obvious_mistakes",
+      "label": "rejects_obvious_mistakes()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L214"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_lowercases_the_domain_but_not_the_local_part",
+      "label": "lowercases_the_domain_but_not_the_local_part()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L222"
+    },
+    {
+      "id": "$graphify-root$_crates_tessera_core_src_email_the_same_mailbox_written_two_ways_compares_equal",
+      "label": "the_same_mailbox_written_two_ways_compares_equal()",
+      "file_type": "code",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L230"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "serde",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L5",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "domainerror",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L29",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L55",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L55",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_as_str",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L133",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_local_part",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L139",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_domain",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L145",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "display",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L152",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_fmt",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L153",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_fmt",
+      "target": "formatter",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L153",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_fmt",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L153",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "fromstr",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L158",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_from_str",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L161",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_from_str",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_from_str",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_from_str",
+      "target": "err",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L161",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "tryfrom",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L166",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_try_from",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L169",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_try_from",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L169",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_try_from",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L169",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_try_from",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L169",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_try_from",
+      "target": "error",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L169",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_string",
+      "target": "from",
+      "relation": "implements",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L174",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_string",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L174",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_string",
+      "target": "$graphify-root$_crates_tessera_core_src_email_string_from",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L175",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_string_from",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L175",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_string_from",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L175",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "prelude",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L182",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "rstest",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L183",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L185",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_email_accepts_addresses_that_really_exist",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L195",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_email_rejects_obvious_mistakes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L214",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_email_lowercases_the_domain_but_not_the_local_part",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L222",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_rs",
+      "target": "$graphify-root$_crates_tessera_core_src_email_the_same_mailbox_written_two_ways_compares_equal",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L230",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "target": "err",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L59",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_from_str",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L162",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_emailaddress_try_from",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L170",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_crates_tessera_core_src_email_lowercases_the_domain_but_not_the_local_part",
+      "target": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L223",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L56"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "count",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L62"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "chars",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L62"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "chars",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L72"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "is_whitespace",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L72"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "is_control",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L72"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "split_once",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L79"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "count",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L100"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "chars",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L100"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_parse",
+      "callee": "ends_with",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L110"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_local_part",
+      "callee": "unwrap_or_default",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L140"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_domain",
+      "callee": "unwrap_or_default",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L146"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_domain",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L147"
+    },
+    {
+      "caller_nid": "$graphify-root$_crates_tessera_core_src_email_emailaddress_fmt",
+      "callee": "write_str",
+      "is_member_call": true,
+      "source_file": "crates/tessera-core/src/email.rs",
+      "source_location": "L154"
+    }
+  ]
+}

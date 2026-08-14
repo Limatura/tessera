@@ -1,0 +1,400 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_main_rs",
+      "label": "main.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_main_main",
+      "label": "main()",
+      "file_type": "code",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L42"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/main.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_main_probe_health",
+      "label": "probe_health()",
+      "file_type": "code",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L200"
+    },
+    {
+      "id": "config",
+      "label": "Config",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/main.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_main_watch_for_shutdown",
+      "label": "watch_for_shutdown()",
+      "file_type": "code",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L243"
+    },
+    {
+      "id": "cancellationtoken",
+      "label": "CancellationToken",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/main.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L10",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "anyhow",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "tessera_server",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "io",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L26",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "cancellationtoken",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L27",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "$graphify-root$_apps_server_src_main_main",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_main",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L42",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "$graphify-root$_apps_server_src_main_probe_health",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L200",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_probe_health",
+      "target": "config",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L200",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_probe_health",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L200",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_rs",
+      "target": "$graphify-root$_apps_server_src_main_watch_for_shutdown",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L243",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_watch_for_shutdown",
+      "target": "cancellationtoken",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L243",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_main",
+      "target": "$graphify-root$_apps_server_src_main_probe_health",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L64",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_main_main",
+      "target": "$graphify-root$_apps_server_src_main_watch_for_shutdown",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L153",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L44"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "skip",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L48"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L72"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "with_context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L109"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L113"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L119"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L124"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "with_context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L131"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L134"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "local_addr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L134"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "set_status",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L140"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "with_graceful_shutdown",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L165"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "cancelled",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L170"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "set_status",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L173"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_main",
+      "callee": "abort",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L179"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "is_unspecified",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L203"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "is_unspecified",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L204"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "with_context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L209"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "with_context",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L209"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "write_all",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L211"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "extend_from_slice",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L225"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "unwrap_or_default",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L225"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "into_owned",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L227"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "starts_with",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L233"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L236"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_probe_health",
+      "callee": "lines",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L236"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_watch_for_shutdown",
+      "callee": "is_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L245"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_main_watch_for_shutdown",
+      "callee": "cancel",
+      "is_member_call": true,
+      "source_file": "apps/server/src/main.rs",
+      "source_location": "L272"
+    }
+  ]
+}

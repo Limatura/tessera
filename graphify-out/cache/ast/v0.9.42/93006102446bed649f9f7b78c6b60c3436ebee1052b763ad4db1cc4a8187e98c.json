@@ -1,0 +1,325 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_json",
+      "label": ".oxlintrc.json",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_schema",
+      "label": "$schema",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L2"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_plugins",
+      "label": "plugins",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "ref_typescript",
+      "label": "typescript",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "ref_react",
+      "label": "react",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "ref_import",
+      "label": "import",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_categories",
+      "label": "categories",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L4"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_env",
+      "label": "env",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L5"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_env_builtin",
+      "label": "builtin",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L6"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_settings",
+      "label": "settings",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L8"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_settings_react",
+      "label": "react",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L9"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_react_version",
+      "label": "version",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L10"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_settings_tailwindcss",
+      "label": "tailwindcss",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L12"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_tailwindcss_callees",
+      "label": "callees",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "ref_clsx",
+      "label": "clsx",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "ref_cva",
+      "label": "cva",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "ref_cn",
+      "label": "cn",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13"
+    },
+    {
+      "id": "$graphify-root$_apps_fumadocs_oxlintrc_ignorepatterns",
+      "label": "ignorePatterns",
+      "file_type": "code",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "ref_node_modules",
+      "label": "node_modules/",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L16"
+    },
+    {
+      "id": "ref_dist",
+      "label": "dist/",
+      "file_type": "concept",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L16"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_json",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_schema",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_json",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_plugins",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_plugins",
+      "target": "ref_typescript",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_plugins",
+      "target": "ref_react",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_plugins",
+      "target": "ref_import",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L3",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_json",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_categories",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_json",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_env",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_env",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_env_builtin",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_json",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_settings",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_settings",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_settings_react",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_settings_react",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_react_version",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_settings",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_settings_tailwindcss",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_settings_tailwindcss",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_tailwindcss_callees",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_tailwindcss_callees",
+      "target": "ref_clsx",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_tailwindcss_callees",
+      "target": "ref_cva",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_tailwindcss_callees",
+      "target": "ref_cn",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_json",
+      "target": "$graphify-root$_apps_fumadocs_oxlintrc_ignorepatterns",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_ignorepatterns",
+      "target": "ref_node_modules",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_fumadocs_oxlintrc_ignorepatterns",
+      "target": "ref_dist",
+      "relation": "extends",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/fumadocs/.oxlintrc.json",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    }
+  ]
+}

@@ -1,0 +1,4871 @@
+{
+  ".agents/skills/better-auth-best-practices/SKILL.md": {
+    "size": 7723,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487641334077,
+    "word_count": 873
+  },
+  ".agents/skills/opentui/SKILL.md": {
+    "size": 10506,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487643508918,
+    "word_count": 1130
+  },
+  ".agents/skills/opentui/references/animation/REFERENCE.md": {
+    "size": 8938,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487646071107,
+    "word_count": 1099
+  },
+  ".agents/skills/opentui/references/components/REFERENCE.md": {
+    "size": 5661,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487648675416,
+    "word_count": 659
+  },
+  ".agents/skills/opentui/references/components/code-diff.md": {
+    "size": 16325,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487651227154,
+    "word_count": 1912
+  },
+  ".agents/skills/opentui/references/components/containers.md": {
+    "size": 10011,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487653887202,
+    "word_count": 1227
+  },
+  ".agents/skills/opentui/references/components/inputs.md": {
+    "size": 12418,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487656479641,
+    "word_count": 1464
+  },
+  ".agents/skills/opentui/references/components/text-display.md": {
+    "size": 8687,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487659071959,
+    "word_count": 1058
+  },
+  ".agents/skills/opentui/references/core/REFERENCE.md": {
+    "size": 5960,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487661617269,
+    "word_count": 751
+  },
+  ".agents/skills/opentui/references/core/api.md": {
+    "size": 14757,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487664196917,
+    "word_count": 1730
+  },
+  ".agents/skills/opentui/references/core/configuration.md": {
+    "size": 5259,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487666778845,
+    "word_count": 658
+  },
+  ".agents/skills/opentui/references/core/gotchas.md": {
+    "size": 8446,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487669375385,
+    "word_count": 1144
+  },
+  ".agents/skills/opentui/references/core/patterns.md": {
+    "size": 8898,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487671965613,
+    "word_count": 996
+  },
+  ".agents/skills/opentui/references/keyboard/REFERENCE.md": {
+    "size": 14241,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487674526592,
+    "word_count": 1820
+  },
+  ".agents/skills/opentui/references/keymap/REFERENCE.md": {
+    "size": 5845,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487677426369,
+    "word_count": 501
+  },
+  ".agents/skills/opentui/references/layout/REFERENCE.md": {
+    "size": 6182,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487680087457,
+    "word_count": 725
+  },
+  ".agents/skills/opentui/references/layout/patterns.md": {
+    "size": 8395,
+    "mtime_ns": 1786437133818951674,
+    "indexed_at_ns": 1786712487682617176,
+    "word_count": 896
+  },
+  ".agents/skills/opentui/references/react/REFERENCE.md": {
+    "size": 4622,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487685200085,
+    "word_count": 592
+  },
+  ".agents/skills/opentui/references/react/api.md": {
+    "size": 8537,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487687769374,
+    "word_count": 972
+  },
+  ".agents/skills/opentui/references/react/configuration.md": {
+    "size": 5976,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487690329422,
+    "word_count": 715
+  },
+  ".agents/skills/opentui/references/react/gotchas.md": {
+    "size": 8490,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487692971261,
+    "word_count": 1115
+  },
+  ".agents/skills/opentui/references/react/patterns.md": {
+    "size": 9716,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487695565020,
+    "word_count": 1142
+  },
+  ".agents/skills/opentui/references/solid/REFERENCE.md": {
+    "size": 5202,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487698099578,
+    "word_count": 660
+  },
+  ".agents/skills/opentui/references/solid/api.md": {
+    "size": 9817,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487700657287,
+    "word_count": 1099
+  },
+  ".agents/skills/opentui/references/solid/configuration.md": {
+    "size": 5847,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487703221017,
+    "word_count": 700
+  },
+  ".agents/skills/opentui/references/solid/gotchas.md": {
+    "size": 8114,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487705763745,
+    "word_count": 1095
+  },
+  ".agents/skills/opentui/references/solid/patterns.md": {
+    "size": 10959,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487708352243,
+    "word_count": 1255
+  },
+  ".agents/skills/opentui/references/testing/REFERENCE.md": {
+    "size": 16525,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487710908682,
+    "word_count": 1820
+  },
+  ".agents/skills/shadcn/SKILL.md": {
+    "size": 19526,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487713041643,
+    "word_count": 2430
+  },
+  ".agents/skills/shadcn/agents/openai.yml": {
+    "size": 238,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487715227493,
+    "word_count": 20
+  },
+  ".agents/skills/shadcn/assets/shadcn-small.png": {
+    "size": 1049,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487717407124,
+    "word_count": 44
+  },
+  ".agents/skills/shadcn/assets/shadcn.png": {
+    "size": 3852,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487719464625,
+    "word_count": 155
+  },
+  ".agents/skills/shadcn/cli.md": {
+    "size": 17416,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487721630245,
+    "word_count": 2063
+  },
+  ".agents/skills/shadcn/customization.md": {
+    "size": 6068,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487723738956,
+    "word_count": 688
+  },
+  ".agents/skills/shadcn/evals/evals.json": {
+    "size": 6330,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487725697718,
+    "word_count": 788
+  },
+  ".agents/skills/shadcn/mcp.md": {
+    "size": 3510,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487727772268,
+    "word_count": 422
+  },
+  ".agents/skills/shadcn/registry.md": {
+    "size": 8817,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487729763640,
+    "word_count": 1131
+  },
+  ".agents/skills/shadcn/rules/base-vs-radix.md": {
+    "size": 6964,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487732013550,
+    "word_count": 695
+  },
+  ".agents/skills/shadcn/rules/chat.md": {
+    "size": 6944,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487734243850,
+    "word_count": 777
+  },
+  ".agents/skills/shadcn/rules/composition.md": {
+    "size": 5731,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487736494311,
+    "word_count": 582
+  },
+  ".agents/skills/shadcn/rules/forms.md": {
+    "size": 4879,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487738715780,
+    "word_count": 483
+  },
+  ".agents/skills/shadcn/rules/icons.md": {
+    "size": 1965,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487740892651,
+    "word_count": 236
+  },
+  ".agents/skills/shadcn/rules/styling.md": {
+    "size": 4681,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487743112611,
+    "word_count": 539
+  },
+  ".agents/skills/turborepo/SKILL.md": {
+    "size": 28629,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487745107542,
+    "word_count": 3429
+  },
+  ".agents/skills/turborepo/command/turborepo.md": {
+    "size": 2785,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487747423013,
+    "word_count": 353
+  },
+  ".agents/skills/turborepo/references/best-practices/RULE.md": {
+    "size": 4907,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487750375529,
+    "word_count": 644
+  },
+  ".agents/skills/turborepo/references/best-practices/dependencies.md": {
+    "size": 4255,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487752862518,
+    "word_count": 585
+  },
+  ".agents/skills/turborepo/references/best-practices/packages.md": {
+    "size": 6289,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487755322098,
+    "word_count": 775
+  },
+  ".agents/skills/turborepo/references/best-practices/structure.md": {
+    "size": 6284,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487757788477,
+    "word_count": 738
+  },
+  ".agents/skills/turborepo/references/boundaries/RULE.md": {
+    "size": 1948,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487760172567,
+    "word_count": 243
+  },
+  ".agents/skills/turborepo/references/caching/RULE.md": {
+    "size": 4335,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487762594796,
+    "word_count": 581
+  },
+  ".agents/skills/turborepo/references/caching/gotchas.md": {
+    "size": 3942,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487765068475,
+    "word_count": 565
+  },
+  ".agents/skills/turborepo/references/caching/remote-cache.md": {
+    "size": 2672,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487767527724,
+    "word_count": 358
+  },
+  ".agents/skills/turborepo/references/ci/RULE.md": {
+    "size": 2405,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487769943093,
+    "word_count": 316
+  },
+  ".agents/skills/turborepo/references/ci/github-actions.md": {
+    "size": 4284,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487772405773,
+    "word_count": 468
+  },
+  ".agents/skills/turborepo/references/ci/patterns.md": {
+    "size": 2583,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487774798662,
+    "word_count": 352
+  },
+  ".agents/skills/turborepo/references/ci/vercel.md": {
+    "size": 2409,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487777210421,
+    "word_count": 347
+  },
+  ".agents/skills/turborepo/references/cli/RULE.md": {
+    "size": 2113,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487779574872,
+    "word_count": 326
+  },
+  ".agents/skills/turborepo/references/cli/commands.md": {
+    "size": 8799,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487782028251,
+    "word_count": 1150
+  },
+  ".agents/skills/turborepo/references/configuration/RULE.md": {
+    "size": 5139,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487784516190,
+    "word_count": 626
+  },
+  ".agents/skills/turborepo/references/configuration/global-options.md": {
+    "size": 9158,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487786973429,
+    "word_count": 1062
+  },
+  ".agents/skills/turborepo/references/configuration/gotchas.md": {
+    "size": 9318,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487789680967,
+    "word_count": 1357
+  },
+  ".agents/skills/turborepo/references/configuration/tasks.md": {
+    "size": 6913,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487792217546,
+    "word_count": 914
+  },
+  ".agents/skills/turborepo/references/environment/RULE.md": {
+    "size": 2593,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487794631945,
+    "word_count": 301
+  },
+  ".agents/skills/turborepo/references/environment/gotchas.md": {
+    "size": 4153,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487797098795,
+    "word_count": 465
+  },
+  ".agents/skills/turborepo/references/environment/modes.md": {
+    "size": 2969,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487799531264,
+    "word_count": 349
+  },
+  ".agents/skills/turborepo/references/filtering/RULE.md": {
+    "size": 4527,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487801972683,
+    "word_count": 595
+  },
+  ".agents/skills/turborepo/references/filtering/patterns.md": {
+    "size": 2546,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487804439653,
+    "word_count": 358
+  },
+  ".agents/skills/turborepo/references/watch/RULE.md": {
+    "size": 2259,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487806826162,
+    "word_count": 330
+  },
+  ".agents/skills/ultracite/SKILL.md": {
+    "size": 6108,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487808815753,
+    "word_count": 818
+  },
+  ".agents/skills/ultracite/references/code-standards.md": {
+    "size": 4398,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487811067894,
+    "word_count": 652
+  },
+  ".agents/skills/vercel-composition-patterns/AGENTS.md": {
+    "size": 22563,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487813081754,
+    "word_count": 2495
+  },
+  ".agents/skills/vercel-composition-patterns/README.md": {
+    "size": 2140,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487815101896,
+    "word_count": 268
+  },
+  ".agents/skills/vercel-composition-patterns/SKILL.md": {
+    "size": 2884,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487817090147,
+    "word_count": 383
+  },
+  ".agents/skills/vercel-composition-patterns/metadata.json": {
+    "size": 530,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487818790769,
+    "word_count": 54
+  },
+  ".agents/skills/vercel-composition-patterns/rules/_sections.md": {
+    "size": 829,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487820896040,
+    "word_count": 104
+  },
+  ".agents/skills/vercel-composition-patterns/rules/_template.md": {
+    "size": 329,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487822967801,
+    "word_count": 45
+  },
+  ".agents/skills/vercel-composition-patterns/rules/architecture-avoid-boolean-props.md": {
+    "size": 2217,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487825401420,
+    "word_count": 228
+  },
+  ".agents/skills/vercel-composition-patterns/rules/architecture-compound-components.md": {
+    "size": 2587,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487827664441,
+    "word_count": 270
+  },
+  ".agents/skills/vercel-composition-patterns/rules/patterns-children-over-render-props.md": {
+    "size": 1890,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487829827901,
+    "word_count": 222
+  },
+  ".agents/skills/vercel-composition-patterns/rules/patterns-explicit-variants.md": {
+    "size": 2388,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487832063471,
+    "word_count": 235
+  },
+  ".agents/skills/vercel-composition-patterns/rules/react19-no-forwardref.md": {
+    "size": 958,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487834195491,
+    "word_count": 134
+  },
+  ".agents/skills/vercel-composition-patterns/rules/state-context-interface.md": {
+    "size": 5000,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487836497482,
+    "word_count": 579
+  },
+  ".agents/skills/vercel-composition-patterns/rules/state-decouple-implementation.md": {
+    "size": 2652,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487838771872,
+    "word_count": 304
+  },
+  ".agents/skills/vercel-composition-patterns/rules/state-lift-state.md": {
+    "size": 3242,
+    "mtime_ns": 1786437133822951694,
+    "indexed_at_ns": 1786712487841090102,
+    "word_count": 365
+  },
+  ".agents/skills/vercel-react-best-practices/AGENTS.md": {
+    "size": 108427,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487843261922,
+    "word_count": 13099
+  },
+  ".agents/skills/vercel-react-best-practices/README.md": {
+    "size": 3369,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487845737282,
+    "word_count": 467
+  },
+  ".agents/skills/vercel-react-best-practices/SKILL.md": {
+    "size": 7443,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487847788873,
+    "word_count": 956
+  },
+  ".agents/skills/vercel-react-best-practices/metadata.json": {
+    "size": 921,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487849549715,
+    "word_count": 79
+  },
+  ".agents/skills/vercel-react-best-practices/rules/_sections.md": {
+    "size": 1554,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487851772494,
+    "word_count": 189
+  },
+  ".agents/skills/vercel-react-best-practices/rules/_template.md": {
+    "size": 633,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487853862946,
+    "word_count": 85
+  },
+  ".agents/skills/vercel-react-best-practices/rules/advanced-effect-event-deps.md": {
+    "size": 1810,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487856050236,
+    "word_count": 219
+  },
+  ".agents/skills/vercel-react-best-practices/rules/advanced-event-handler-refs.md": {
+    "size": 1498,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487858340177,
+    "word_count": 177
+  },
+  ".agents/skills/vercel-react-best-practices/rules/advanced-init-once.md": {
+    "size": 967,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487860468187,
+    "word_count": 122
+  },
+  ".agents/skills/vercel-react-best-practices/rules/advanced-use-latest.md": {
+    "size": 1081,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487862587007,
+    "word_count": 138
+  },
+  ".agents/skills/vercel-react-best-practices/rules/async-api-routes.md": {
+    "size": 1122,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487864801297,
+    "word_count": 137
+  },
+  ".agents/skills/vercel-react-best-practices/rules/async-cheap-condition-before-await.md": {
+    "size": 1222,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487866906379,
+    "word_count": 179
+  },
+  ".agents/skills/vercel-react-best-practices/rules/async-defer-await.md": {
+    "size": 2204,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487869169328,
+    "word_count": 267
+  },
+  ".agents/skills/vercel-react-best-practices/rules/async-dependencies.md": {
+    "size": 1304,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487871351159,
+    "word_count": 143
+  },
+  ".agents/skills/vercel-react-best-practices/rules/async-parallel.md": {
+    "size": 650,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487873469490,
+    "word_count": 73
+  },
+  ".agents/skills/vercel-react-best-practices/rules/async-suspense-boundaries.md": {
+    "size": 2517,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487875778649,
+    "word_count": 306
+  },
+  ".agents/skills/vercel-react-best-practices/rules/bundle-analyzable-paths.md": {
+    "size": 2389,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487877992279,
+    "word_count": 294
+  },
+  ".agents/skills/vercel-react-best-practices/rules/bundle-barrel-imports.md": {
+    "size": 2803,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487880302420,
+    "word_count": 363
+  },
+  ".agents/skills/vercel-react-best-practices/rules/bundle-conditional.md": {
+    "size": 966,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487882443840,
+    "word_count": 113
+  },
+  ".agents/skills/vercel-react-best-practices/rules/bundle-defer-third-party.md": {
+    "size": 924,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487884582831,
+    "word_count": 106
+  },
+  ".agents/skills/vercel-react-best-practices/rules/bundle-dynamic-imports.md": {
+    "size": 795,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487886693932,
+    "word_count": 104
+  },
+  ".agents/skills/vercel-react-best-practices/rules/bundle-preload.md": {
+    "size": 1126,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487888871382,
+    "word_count": 136
+  },
+  ".agents/skills/vercel-react-best-practices/rules/client-event-listeners.md": {
+    "size": 2003,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487891072113,
+    "word_count": 234
+  },
+  ".agents/skills/vercel-react-best-practices/rules/client-localstorage-schema.md": {
+    "size": 1988,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487893488392,
+    "word_count": 228
+  },
+  ".agents/skills/vercel-react-best-practices/rules/client-passive-event-listeners.md": {
+    "size": 1652,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487895673793,
+    "word_count": 172
+  },
+  ".agents/skills/vercel-react-best-practices/rules/client-swr-dedup.md": {
+    "size": 1171,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487897820043,
+    "word_count": 135
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-batch-dom-css.md": {
+    "size": 3266,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487900111383,
+    "word_count": 372
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-cache-function-results.md": {
+    "size": 1936,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487902297144,
+    "word_count": 228
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-cache-property-access.md": {
+    "size": 536,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487904413514,
+    "word_count": 77
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-cache-storage.md": {
+    "size": 1653,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487906655294,
+    "word_count": 186
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-combine-iterations.md": {
+    "size": 768,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487908829255,
+    "word_count": 95
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-early-exit.md": {
+    "size": 1139,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487910963185,
+    "word_count": 157
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-flatmap-filter.md": {
+    "size": 1418,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487913143676,
+    "word_count": 191
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-hoist-regexp.md": {
+    "size": 1029,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487915294477,
+    "word_count": 132
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-index-maps.md": {
+    "size": 850,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487917412807,
+    "word_count": 115
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-length-check-first.md": {
+    "size": 1754,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487919629017,
+    "word_count": 239
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-min-max-loop.md": {
+    "size": 2298,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487921867898,
+    "word_count": 323
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-request-idle-callback.md": {
+    "size": 2665,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487924221767,
+    "word_count": 309
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-set-map-lookups.md": {
+    "size": 532,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487926304979,
+    "word_count": 67
+  },
+  ".agents/skills/vercel-react-best-practices/rules/js-tosorted-immutable.md": {
+    "size": 1783,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487928729048,
+    "word_count": 240
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-activity.md": {
+    "size": 566,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487930808608,
+    "word_count": 71
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-animate-svg-wrapper.md": {
+    "size": 1121,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487932961208,
+    "word_count": 142
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-conditional-render.md": {
+    "size": 938,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487935096680,
+    "word_count": 132
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-content-visibility.md": {
+    "size": 818,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487937182350,
+    "word_count": 89
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-hoist-jsx.md": {
+    "size": 993,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487939305922,
+    "word_count": 120
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-hydration-no-flicker.md": {
+    "size": 2250,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487941501772,
+    "word_count": 265
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-hydration-suppress-warning.md": {
+    "size": 852,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487943661172,
+    "word_count": 102
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-resource-hints.md": {
+    "size": 2689,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487945914562,
+    "word_count": 334
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-script-defer-async.md": {
+    "size": 1872,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487948131162,
+    "word_count": 214
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-svg-precision.md": {
+    "size": 588,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487950237213,
+    "word_count": 82
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rendering-usetransition-loading.md": {
+    "size": 2090,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487952463224,
+    "word_count": 232
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-defer-reads.md": {
+    "size": 983,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487954584554,
+    "word_count": 122
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-dependencies.md": {
+    "size": 833,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487956710444,
+    "word_count": 110
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-derived-state-no-effect.md": {
+    "size": 1211,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487958846096,
+    "word_count": 157
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-derived-state.md": {
+    "size": 732,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487961225065,
+    "word_count": 94
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-functional-setstate.md": {
+    "size": 2989,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487963504875,
+    "word_count": 398
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-lazy-state-init.md": {
+    "size": 2012,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487965702746,
+    "word_count": 236
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-memo-with-default-value.md": {
+    "size": 1171,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487967869836,
+    "word_count": 177
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-memo.md": {
+    "size": 1158,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487970025467,
+    "word_count": 148
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-move-effect-to-event.md": {
+    "size": 1278,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487972188297,
+    "word_count": 148
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-no-inline-components.md": {
+    "size": 2100,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487974384627,
+    "word_count": 285
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-simple-expression-in-memo.md": {
+    "size": 1023,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487976492269,
+    "word_count": 140
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-split-combined-hooks.md": {
+    "size": 1861,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487978600529,
+    "word_count": 232
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-transitions.md": {
+    "size": 1067,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487980690979,
+    "word_count": 121
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-use-deferred-value.md": {
+    "size": 1863,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487983323219,
+    "word_count": 228
+  },
+  ".agents/skills/vercel-react-best-practices/rules/rerender-use-ref-transient-values.md": {
+    "size": 1758,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487985450139,
+    "word_count": 202
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-after-nonblocking.md": {
+    "size": 2016,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487987623809,
+    "word_count": 237
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-auth-actions.md": {
+    "size": 2659,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487989830060,
+    "word_count": 327
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-cache-lru.md": {
+    "size": 1360,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487992007780,
+    "word_count": 179
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-cache-react.md": {
+    "size": 2241,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487994181710,
+    "word_count": 301
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-dedup-props.md": {
+    "size": 2065,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712487997791145,
+    "word_count": 245
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-hoist-static-io.md": {
+    "size": 4405,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488000106344,
+    "word_count": 564
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-no-shared-module-state.md": {
+    "size": 1773,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488002312715,
+    "word_count": 254
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-parallel-fetching.md": {
+    "size": 1569,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488004506135,
+    "word_count": 190
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-parallel-nested-fetching.md": {
+    "size": 996,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488006645046,
+    "word_count": 133
+  },
+  ".agents/skills/vercel-react-best-practices/rules/server-serialization.md": {
+    "size": 1006,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488008808447,
+    "word_count": 147
+  },
+  ".agents/skills/web-design-guidelines/SKILL.md": {
+    "size": 1232,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488010724188,
+    "word_count": 176
+  },
+  ".claude/CLAUDE.md": {
+    "size": 5076,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488014989410,
+    "word_count": 754
+  },
+  ".claude/settings.json": {
+    "size": 219,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488016408013,
+    "word_count": 23
+  },
+  ".claude/settings.local.json": {
+    "size": 107,
+    "mtime_ns": 1786709041050534711,
+    "indexed_at_ns": 1786712488017719277,
+    "word_count": 9
+  },
+  ".claude/skills/better-auth-best-practices/SKILL.md": {
+    "size": 7723,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488019817169,
+    "word_count": 873
+  },
+  ".claude/skills/opentui/SKILL.md": {
+    "size": 10506,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488021923409,
+    "word_count": 1130
+  },
+  ".claude/skills/opentui/references/animation/REFERENCE.md": {
+    "size": 8938,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488024521867,
+    "word_count": 1099
+  },
+  ".claude/skills/opentui/references/components/REFERENCE.md": {
+    "size": 5661,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488027309826,
+    "word_count": 659
+  },
+  ".claude/skills/opentui/references/components/code-diff.md": {
+    "size": 16325,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488029875644,
+    "word_count": 1912
+  },
+  ".claude/skills/opentui/references/components/containers.md": {
+    "size": 10011,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488032493113,
+    "word_count": 1227
+  },
+  ".claude/skills/opentui/references/components/inputs.md": {
+    "size": 12418,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488035012502,
+    "word_count": 1464
+  },
+  ".claude/skills/opentui/references/components/text-display.md": {
+    "size": 8687,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488037507710,
+    "word_count": 1058
+  },
+  ".claude/skills/opentui/references/core/REFERENCE.md": {
+    "size": 5960,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488039985390,
+    "word_count": 751
+  },
+  ".claude/skills/opentui/references/core/api.md": {
+    "size": 14757,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488042441049,
+    "word_count": 1730
+  },
+  ".claude/skills/opentui/references/core/configuration.md": {
+    "size": 5259,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488044996228,
+    "word_count": 658
+  },
+  ".claude/skills/opentui/references/core/gotchas.md": {
+    "size": 8446,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488047495867,
+    "word_count": 1144
+  },
+  ".claude/skills/opentui/references/core/patterns.md": {
+    "size": 8898,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488049962966,
+    "word_count": 996
+  },
+  ".claude/skills/opentui/references/keyboard/REFERENCE.md": {
+    "size": 14241,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488052438725,
+    "word_count": 1820
+  },
+  ".claude/skills/opentui/references/keymap/REFERENCE.md": {
+    "size": 5845,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488054924374,
+    "word_count": 501
+  },
+  ".claude/skills/opentui/references/layout/REFERENCE.md": {
+    "size": 6182,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488057437284,
+    "word_count": 725
+  },
+  ".claude/skills/opentui/references/layout/patterns.md": {
+    "size": 8395,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488059948332,
+    "word_count": 896
+  },
+  ".claude/skills/opentui/references/react/REFERENCE.md": {
+    "size": 4622,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488062421562,
+    "word_count": 592
+  },
+  ".claude/skills/opentui/references/react/api.md": {
+    "size": 8537,
+    "mtime_ns": 1786437133826951714,
+    "indexed_at_ns": 1786712488064906811,
+    "word_count": 972
+  },
+  ".claude/skills/opentui/references/react/configuration.md": {
+    "size": 5976,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488067401289,
+    "word_count": 715
+  },
+  ".claude/skills/opentui/references/react/gotchas.md": {
+    "size": 8490,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488069943688,
+    "word_count": 1115
+  },
+  ".claude/skills/opentui/references/react/patterns.md": {
+    "size": 9716,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488072426957,
+    "word_count": 1142
+  },
+  ".claude/skills/opentui/references/solid/REFERENCE.md": {
+    "size": 5202,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488074893437,
+    "word_count": 660
+  },
+  ".claude/skills/opentui/references/solid/api.md": {
+    "size": 9817,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488077352976,
+    "word_count": 1099
+  },
+  ".claude/skills/opentui/references/solid/configuration.md": {
+    "size": 5847,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488079879925,
+    "word_count": 700
+  },
+  ".claude/skills/opentui/references/solid/gotchas.md": {
+    "size": 8114,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488082466964,
+    "word_count": 1095
+  },
+  ".claude/skills/opentui/references/solid/patterns.md": {
+    "size": 10959,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488085013742,
+    "word_count": 1255
+  },
+  ".claude/skills/opentui/references/testing/REFERENCE.md": {
+    "size": 16525,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488087531182,
+    "word_count": 1820
+  },
+  ".claude/skills/shadcn/SKILL.md": {
+    "size": 19526,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488089590802,
+    "word_count": 2430
+  },
+  ".claude/skills/shadcn/agents/openai.yml": {
+    "size": 238,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488091886052,
+    "word_count": 20
+  },
+  ".claude/skills/shadcn/assets/shadcn-small.png": {
+    "size": 1049,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488093918464,
+    "word_count": 44
+  },
+  ".claude/skills/shadcn/assets/shadcn.png": {
+    "size": 3852,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488095931205,
+    "word_count": 155
+  },
+  ".claude/skills/shadcn/cli.md": {
+    "size": 17416,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488097960565,
+    "word_count": 2063
+  },
+  ".claude/skills/shadcn/customization.md": {
+    "size": 6068,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488100030426,
+    "word_count": 688
+  },
+  ".claude/skills/shadcn/evals/evals.json": {
+    "size": 6330,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488102009798,
+    "word_count": 788
+  },
+  ".claude/skills/shadcn/mcp.md": {
+    "size": 3510,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488104051239,
+    "word_count": 422
+  },
+  ".claude/skills/shadcn/registry.md": {
+    "size": 8817,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488106028321,
+    "word_count": 1131
+  },
+  ".claude/skills/shadcn/rules/base-vs-radix.md": {
+    "size": 6964,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488108302620,
+    "word_count": 695
+  },
+  ".claude/skills/shadcn/rules/chat.md": {
+    "size": 6944,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488110519190,
+    "word_count": 777
+  },
+  ".claude/skills/shadcn/rules/composition.md": {
+    "size": 5731,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488112855550,
+    "word_count": 582
+  },
+  ".claude/skills/shadcn/rules/forms.md": {
+    "size": 4879,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488115147400,
+    "word_count": 483
+  },
+  ".claude/skills/shadcn/rules/icons.md": {
+    "size": 1965,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488117311650,
+    "word_count": 236
+  },
+  ".claude/skills/shadcn/rules/styling.md": {
+    "size": 4681,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488119527611,
+    "word_count": 539
+  },
+  ".claude/skills/turborepo/SKILL.md": {
+    "size": 28629,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488121541232,
+    "word_count": 3429
+  },
+  ".claude/skills/turborepo/command/turborepo.md": {
+    "size": 2785,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488123894772,
+    "word_count": 353
+  },
+  ".claude/skills/turborepo/references/best-practices/RULE.md": {
+    "size": 4907,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488126346621,
+    "word_count": 644
+  },
+  ".claude/skills/turborepo/references/best-practices/dependencies.md": {
+    "size": 4255,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488128822690,
+    "word_count": 585
+  },
+  ".claude/skills/turborepo/references/best-practices/packages.md": {
+    "size": 6289,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488131334460,
+    "word_count": 775
+  },
+  ".claude/skills/turborepo/references/best-practices/structure.md": {
+    "size": 6284,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488133817628,
+    "word_count": 738
+  },
+  ".claude/skills/turborepo/references/boundaries/RULE.md": {
+    "size": 1948,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488136200918,
+    "word_count": 243
+  },
+  ".claude/skills/turborepo/references/caching/RULE.md": {
+    "size": 4335,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488138614898,
+    "word_count": 581
+  },
+  ".claude/skills/turborepo/references/caching/gotchas.md": {
+    "size": 3942,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488141107926,
+    "word_count": 565
+  },
+  ".claude/skills/turborepo/references/caching/remote-cache.md": {
+    "size": 2672,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488143559486,
+    "word_count": 358
+  },
+  ".claude/skills/turborepo/references/ci/RULE.md": {
+    "size": 2405,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488145958525,
+    "word_count": 316
+  },
+  ".claude/skills/turborepo/references/ci/github-actions.md": {
+    "size": 4284,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488148435394,
+    "word_count": 468
+  },
+  ".claude/skills/turborepo/references/ci/patterns.md": {
+    "size": 2583,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488150856743,
+    "word_count": 352
+  },
+  ".claude/skills/turborepo/references/ci/vercel.md": {
+    "size": 2409,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488153262733,
+    "word_count": 347
+  },
+  ".claude/skills/turborepo/references/cli/RULE.md": {
+    "size": 2113,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488155682743,
+    "word_count": 326
+  },
+  ".claude/skills/turborepo/references/cli/commands.md": {
+    "size": 8799,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488158126672,
+    "word_count": 1150
+  },
+  ".claude/skills/turborepo/references/configuration/RULE.md": {
+    "size": 5139,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488160620321,
+    "word_count": 626
+  },
+  ".claude/skills/turborepo/references/configuration/global-options.md": {
+    "size": 9158,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488163085979,
+    "word_count": 1062
+  },
+  ".claude/skills/turborepo/references/configuration/gotchas.md": {
+    "size": 9318,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488165547259,
+    "word_count": 1357
+  },
+  ".claude/skills/turborepo/references/configuration/tasks.md": {
+    "size": 6913,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488168064908,
+    "word_count": 914
+  },
+  ".claude/skills/turborepo/references/environment/RULE.md": {
+    "size": 2593,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488170649347,
+    "word_count": 301
+  },
+  ".claude/skills/turborepo/references/environment/gotchas.md": {
+    "size": 4153,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488173173946,
+    "word_count": 465
+  },
+  ".claude/skills/turborepo/references/environment/modes.md": {
+    "size": 2969,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488175620785,
+    "word_count": 349
+  },
+  ".claude/skills/turborepo/references/filtering/RULE.md": {
+    "size": 4527,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488178077564,
+    "word_count": 595
+  },
+  ".claude/skills/turborepo/references/filtering/patterns.md": {
+    "size": 2546,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488180533993,
+    "word_count": 358
+  },
+  ".claude/skills/turborepo/references/watch/RULE.md": {
+    "size": 2259,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488183035243,
+    "word_count": 330
+  },
+  ".claude/skills/ultracite/SKILL.md": {
+    "size": 6108,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488185037004,
+    "word_count": 818
+  },
+  ".claude/skills/ultracite/references/code-standards.md": {
+    "size": 4398,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488187327544,
+    "word_count": 652
+  },
+  ".claude/skills/vercel-composition-patterns/AGENTS.md": {
+    "size": 22563,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488189330215,
+    "word_count": 2495
+  },
+  ".claude/skills/vercel-composition-patterns/README.md": {
+    "size": 2140,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488191400256,
+    "word_count": 268
+  },
+  ".claude/skills/vercel-composition-patterns/SKILL.md": {
+    "size": 2884,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488193666435,
+    "word_count": 383
+  },
+  ".claude/skills/vercel-composition-patterns/metadata.json": {
+    "size": 530,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488195443518,
+    "word_count": 54
+  },
+  ".claude/skills/vercel-composition-patterns/rules/_sections.md": {
+    "size": 829,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488197528259,
+    "word_count": 104
+  },
+  ".claude/skills/vercel-composition-patterns/rules/_template.md": {
+    "size": 329,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488199565811,
+    "word_count": 45
+  },
+  ".claude/skills/vercel-composition-patterns/rules/architecture-avoid-boolean-props.md": {
+    "size": 2217,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488201701231,
+    "word_count": 228
+  },
+  ".claude/skills/vercel-composition-patterns/rules/architecture-compound-components.md": {
+    "size": 2587,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488203910451,
+    "word_count": 270
+  },
+  ".claude/skills/vercel-composition-patterns/rules/patterns-children-over-render-props.md": {
+    "size": 1890,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488206062971,
+    "word_count": 222
+  },
+  ".claude/skills/vercel-composition-patterns/rules/patterns-explicit-variants.md": {
+    "size": 2388,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488208247972,
+    "word_count": 235
+  },
+  ".claude/skills/vercel-composition-patterns/rules/react19-no-forwardref.md": {
+    "size": 958,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488210294013,
+    "word_count": 134
+  },
+  ".claude/skills/vercel-composition-patterns/rules/state-context-interface.md": {
+    "size": 5000,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488212536624,
+    "word_count": 579
+  },
+  ".claude/skills/vercel-composition-patterns/rules/state-decouple-implementation.md": {
+    "size": 2652,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488214732884,
+    "word_count": 304
+  },
+  ".claude/skills/vercel-composition-patterns/rules/state-lift-state.md": {
+    "size": 3242,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488216982683,
+    "word_count": 365
+  },
+  ".claude/skills/vercel-react-best-practices/AGENTS.md": {
+    "size": 108427,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488218994784,
+    "word_count": 13099
+  },
+  ".claude/skills/vercel-react-best-practices/README.md": {
+    "size": 3369,
+    "mtime_ns": 1786437133830951735,
+    "indexed_at_ns": 1786712488221455114,
+    "word_count": 467
+  },
+  ".claude/skills/vercel-react-best-practices/SKILL.md": {
+    "size": 7443,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488223463605,
+    "word_count": 956
+  },
+  ".claude/skills/vercel-react-best-practices/metadata.json": {
+    "size": 921,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488225210938,
+    "word_count": 79
+  },
+  ".claude/skills/vercel-react-best-practices/rules/_sections.md": {
+    "size": 1554,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488227335488,
+    "word_count": 189
+  },
+  ".claude/skills/vercel-react-best-practices/rules/_template.md": {
+    "size": 633,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488229327859,
+    "word_count": 85
+  },
+  ".claude/skills/vercel-react-best-practices/rules/advanced-effect-event-deps.md": {
+    "size": 1810,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488231448140,
+    "word_count": 219
+  },
+  ".claude/skills/vercel-react-best-practices/rules/advanced-event-handler-refs.md": {
+    "size": 1498,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488233527631,
+    "word_count": 177
+  },
+  ".claude/skills/vercel-react-best-practices/rules/advanced-init-once.md": {
+    "size": 967,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488235610612,
+    "word_count": 122
+  },
+  ".claude/skills/vercel-react-best-practices/rules/advanced-use-latest.md": {
+    "size": 1081,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488237659593,
+    "word_count": 138
+  },
+  ".claude/skills/vercel-react-best-practices/rules/async-api-routes.md": {
+    "size": 1122,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488239732414,
+    "word_count": 137
+  },
+  ".claude/skills/vercel-react-best-practices/rules/async-cheap-condition-before-await.md": {
+    "size": 1222,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488241781225,
+    "word_count": 179
+  },
+  ".claude/skills/vercel-react-best-practices/rules/async-defer-await.md": {
+    "size": 2204,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488243929425,
+    "word_count": 267
+  },
+  ".claude/skills/vercel-react-best-practices/rules/async-dependencies.md": {
+    "size": 1304,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488246067306,
+    "word_count": 143
+  },
+  ".claude/skills/vercel-react-best-practices/rules/async-parallel.md": {
+    "size": 650,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488248177827,
+    "word_count": 73
+  },
+  ".claude/skills/vercel-react-best-practices/rules/async-suspense-boundaries.md": {
+    "size": 2517,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488250332848,
+    "word_count": 306
+  },
+  ".claude/skills/vercel-react-best-practices/rules/bundle-analyzable-paths.md": {
+    "size": 2389,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488252697397,
+    "word_count": 294
+  },
+  ".claude/skills/vercel-react-best-practices/rules/bundle-barrel-imports.md": {
+    "size": 2803,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488254884748,
+    "word_count": 363
+  },
+  ".claude/skills/vercel-react-best-practices/rules/bundle-conditional.md": {
+    "size": 966,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488256971139,
+    "word_count": 113
+  },
+  ".claude/skills/vercel-react-best-practices/rules/bundle-defer-third-party.md": {
+    "size": 924,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488259009419,
+    "word_count": 106
+  },
+  ".claude/skills/vercel-react-best-practices/rules/bundle-dynamic-imports.md": {
+    "size": 795,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488261087570,
+    "word_count": 104
+  },
+  ".claude/skills/vercel-react-best-practices/rules/bundle-preload.md": {
+    "size": 1126,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488263166681,
+    "word_count": 136
+  },
+  ".claude/skills/vercel-react-best-practices/rules/client-event-listeners.md": {
+    "size": 2003,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488265282032,
+    "word_count": 234
+  },
+  ".claude/skills/vercel-react-best-practices/rules/client-localstorage-schema.md": {
+    "size": 1988,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488267415383,
+    "word_count": 228
+  },
+  ".claude/skills/vercel-react-best-practices/rules/client-passive-event-listeners.md": {
+    "size": 1652,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488269547553,
+    "word_count": 172
+  },
+  ".claude/skills/vercel-react-best-practices/rules/client-swr-dedup.md": {
+    "size": 1171,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488271657894,
+    "word_count": 135
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-batch-dom-css.md": {
+    "size": 3266,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488273869754,
+    "word_count": 372
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-cache-function-results.md": {
+    "size": 1936,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488276018725,
+    "word_count": 228
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-cache-property-access.md": {
+    "size": 536,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488278462654,
+    "word_count": 77
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-cache-storage.md": {
+    "size": 1653,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488281596481,
+    "word_count": 186
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-combine-iterations.md": {
+    "size": 768,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488284761726,
+    "word_count": 95
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-early-exit.md": {
+    "size": 1139,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488287981153,
+    "word_count": 157
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-flatmap-filter.md": {
+    "size": 1418,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488291245598,
+    "word_count": 191
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-hoist-regexp.md": {
+    "size": 1029,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488294416564,
+    "word_count": 132
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-index-maps.md": {
+    "size": 850,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488297170202,
+    "word_count": 115
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-length-check-first.md": {
+    "size": 1754,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488299316122,
+    "word_count": 239
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-min-max-loop.md": {
+    "size": 2298,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488301474273,
+    "word_count": 323
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-request-idle-callback.md": {
+    "size": 2665,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488303686313,
+    "word_count": 309
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-set-map-lookups.md": {
+    "size": 532,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488305726425,
+    "word_count": 67
+  },
+  ".claude/skills/vercel-react-best-practices/rules/js-tosorted-immutable.md": {
+    "size": 1783,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488307882055,
+    "word_count": 240
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-activity.md": {
+    "size": 566,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488309925886,
+    "word_count": 71
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-animate-svg-wrapper.md": {
+    "size": 1121,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488312031066,
+    "word_count": 142
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-conditional-render.md": {
+    "size": 938,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488314088308,
+    "word_count": 132
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-content-visibility.md": {
+    "size": 818,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488316146649,
+    "word_count": 89
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-hoist-jsx.md": {
+    "size": 993,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488318213610,
+    "word_count": 120
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-hydration-no-flicker.md": {
+    "size": 2250,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488320378690,
+    "word_count": 265
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-hydration-suppress-warning.md": {
+    "size": 852,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488322443051,
+    "word_count": 102
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-resource-hints.md": {
+    "size": 2689,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488324680192,
+    "word_count": 334
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-script-defer-async.md": {
+    "size": 1872,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488326811722,
+    "word_count": 214
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-svg-precision.md": {
+    "size": 588,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488328889863,
+    "word_count": 82
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rendering-usetransition-loading.md": {
+    "size": 2090,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488331055674,
+    "word_count": 232
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-defer-reads.md": {
+    "size": 983,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488333117564,
+    "word_count": 122
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-dependencies.md": {
+    "size": 833,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488335178885,
+    "word_count": 110
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-derived-state-no-effect.md": {
+    "size": 1211,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488337242707,
+    "word_count": 157
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-derived-state.md": {
+    "size": 732,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488339274267,
+    "word_count": 94
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-functional-setstate.md": {
+    "size": 2989,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488341454778,
+    "word_count": 398
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-lazy-state-init.md": {
+    "size": 2012,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488343610729,
+    "word_count": 236
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-memo-with-default-value.md": {
+    "size": 1171,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488345665089,
+    "word_count": 177
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-memo.md": {
+    "size": 1158,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488347742831,
+    "word_count": 148
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-move-effect-to-event.md": {
+    "size": 1278,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488349799122,
+    "word_count": 148
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-no-inline-components.md": {
+    "size": 2100,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488351962182,
+    "word_count": 285
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-simple-expression-in-memo.md": {
+    "size": 1023,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488354086282,
+    "word_count": 140
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-split-combined-hooks.md": {
+    "size": 1861,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488356233893,
+    "word_count": 232
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-transitions.md": {
+    "size": 1067,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488358352074,
+    "word_count": 121
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-use-deferred-value.md": {
+    "size": 1863,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488360529705,
+    "word_count": 228
+  },
+  ".claude/skills/vercel-react-best-practices/rules/rerender-use-ref-transient-values.md": {
+    "size": 1758,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488362884454,
+    "word_count": 202
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-after-nonblocking.md": {
+    "size": 2016,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488365172574,
+    "word_count": 237
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-auth-actions.md": {
+    "size": 2659,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488367452383,
+    "word_count": 327
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-cache-lru.md": {
+    "size": 1360,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488370384021,
+    "word_count": 179
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-cache-react.md": {
+    "size": 2241,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488373003569,
+    "word_count": 301
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-dedup-props.md": {
+    "size": 2065,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488375262860,
+    "word_count": 245
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-hoist-static-io.md": {
+    "size": 4405,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488377552659,
+    "word_count": 564
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-no-shared-module-state.md": {
+    "size": 1773,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488379777519,
+    "word_count": 254
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-parallel-fetching.md": {
+    "size": 1569,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488381948030,
+    "word_count": 190
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-parallel-nested-fetching.md": {
+    "size": 996,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488384154850,
+    "word_count": 133
+  },
+  ".claude/skills/vercel-react-best-practices/rules/server-serialization.md": {
+    "size": 1006,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488387038038,
+    "word_count": 147
+  },
+  ".claude/skills/web-design-guidelines/SKILL.md": {
+    "size": 1232,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488389265058,
+    "word_count": 176
+  },
+  ".github/dependabot.yml": {
+    "size": 1059,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488395683580,
+    "word_count": 149
+  },
+  ".github/scripts/fuzz-seed.sh": {
+    "size": 3023,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488397207153,
+    "word_count": 416
+  },
+  ".github/workflows/rust-scheduled.yml": {
+    "size": 2667,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488399123515,
+    "word_count": 283
+  },
+  ".github/workflows/rust.yml": {
+    "size": 20655,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488401089566,
+    "word_count": 2408
+  },
+  ".github/workflows/web.yml": {
+    "size": 2413,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488402947228,
+    "word_count": 307
+  },
+  ".lintstagedrc.mjs": {
+    "size": 119,
+    "mtime_ns": 1786685212628317333,
+    "indexed_at_ns": 1786712488430791176,
+    "word_count": 12
+  },
+  ".mcp.json": {
+    "size": 433,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488431906651,
+    "word_count": 38
+  },
+  ".roo/rules/ultracite.md": {
+    "size": 5076,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488433680103,
+    "word_count": 754
+  },
+  ".roo/skills/better-auth-best-practices/SKILL.md": {
+    "size": 7723,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488435919163,
+    "word_count": 873
+  },
+  ".roo/skills/opentui/SKILL.md": {
+    "size": 10506,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488438031065,
+    "word_count": 1130
+  },
+  ".roo/skills/opentui/references/animation/REFERENCE.md": {
+    "size": 8938,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488440589083,
+    "word_count": 1099
+  },
+  ".roo/skills/opentui/references/components/REFERENCE.md": {
+    "size": 5661,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488443079913,
+    "word_count": 659
+  },
+  ".roo/skills/opentui/references/components/code-diff.md": {
+    "size": 16325,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488445526311,
+    "word_count": 1912
+  },
+  ".roo/skills/opentui/references/components/containers.md": {
+    "size": 10011,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488448103820,
+    "word_count": 1227
+  },
+  ".roo/skills/opentui/references/components/inputs.md": {
+    "size": 12418,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488450578200,
+    "word_count": 1464
+  },
+  ".roo/skills/opentui/references/components/text-display.md": {
+    "size": 8687,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488453143378,
+    "word_count": 1058
+  },
+  ".roo/skills/opentui/references/core/REFERENCE.md": {
+    "size": 5960,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488455629948,
+    "word_count": 751
+  },
+  ".roo/skills/opentui/references/core/api.md": {
+    "size": 14757,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488458107526,
+    "word_count": 1730
+  },
+  ".roo/skills/opentui/references/core/configuration.md": {
+    "size": 5259,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488460611455,
+    "word_count": 658
+  },
+  ".roo/skills/opentui/references/core/gotchas.md": {
+    "size": 8446,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488463131784,
+    "word_count": 1144
+  },
+  ".roo/skills/opentui/references/core/patterns.md": {
+    "size": 8898,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488465596933,
+    "word_count": 996
+  },
+  ".roo/skills/opentui/references/keyboard/REFERENCE.md": {
+    "size": 14241,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488468087923,
+    "word_count": 1820
+  },
+  ".roo/skills/opentui/references/keymap/REFERENCE.md": {
+    "size": 5845,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488470610471,
+    "word_count": 501
+  },
+  ".roo/skills/opentui/references/layout/REFERENCE.md": {
+    "size": 6182,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488473133670,
+    "word_count": 725
+  },
+  ".roo/skills/opentui/references/layout/patterns.md": {
+    "size": 8395,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488475623630,
+    "word_count": 896
+  },
+  ".roo/skills/opentui/references/react/REFERENCE.md": {
+    "size": 4622,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488478126208,
+    "word_count": 592
+  },
+  ".roo/skills/opentui/references/react/api.md": {
+    "size": 8537,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488480624858,
+    "word_count": 972
+  },
+  ".roo/skills/opentui/references/react/configuration.md": {
+    "size": 5976,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488483137067,
+    "word_count": 715
+  },
+  ".roo/skills/opentui/references/react/gotchas.md": {
+    "size": 8490,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488485657946,
+    "word_count": 1115
+  },
+  ".roo/skills/opentui/references/react/patterns.md": {
+    "size": 9716,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488488190555,
+    "word_count": 1142
+  },
+  ".roo/skills/opentui/references/solid/REFERENCE.md": {
+    "size": 5202,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488490675813,
+    "word_count": 660
+  },
+  ".roo/skills/opentui/references/solid/api.md": {
+    "size": 9817,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488493234613,
+    "word_count": 1099
+  },
+  ".roo/skills/opentui/references/solid/configuration.md": {
+    "size": 5847,
+    "mtime_ns": 1786437133834951755,
+    "indexed_at_ns": 1786712488495756751,
+    "word_count": 700
+  },
+  ".roo/skills/opentui/references/solid/gotchas.md": {
+    "size": 8114,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488498229021,
+    "word_count": 1095
+  },
+  ".roo/skills/opentui/references/solid/patterns.md": {
+    "size": 10959,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488500734740,
+    "word_count": 1255
+  },
+  ".roo/skills/opentui/references/testing/REFERENCE.md": {
+    "size": 16525,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488503247878,
+    "word_count": 1820
+  },
+  ".roo/skills/shadcn/SKILL.md": {
+    "size": 19526,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488505338260,
+    "word_count": 2430
+  },
+  ".roo/skills/shadcn/agents/openai.yml": {
+    "size": 238,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488507458830,
+    "word_count": 20
+  },
+  ".roo/skills/shadcn/assets/shadcn-small.png": {
+    "size": 1049,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488509423521,
+    "word_count": 44
+  },
+  ".roo/skills/shadcn/assets/shadcn.png": {
+    "size": 3852,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488511438143,
+    "word_count": 155
+  },
+  ".roo/skills/shadcn/cli.md": {
+    "size": 17416,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488513542253,
+    "word_count": 2063
+  },
+  ".roo/skills/shadcn/customization.md": {
+    "size": 6068,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488515668604,
+    "word_count": 688
+  },
+  ".roo/skills/shadcn/evals/evals.json": {
+    "size": 6330,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488517680555,
+    "word_count": 788
+  },
+  ".roo/skills/shadcn/mcp.md": {
+    "size": 3510,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488519863046,
+    "word_count": 422
+  },
+  ".roo/skills/shadcn/registry.md": {
+    "size": 8817,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488521943446,
+    "word_count": 1131
+  },
+  ".roo/skills/shadcn/rules/base-vs-radix.md": {
+    "size": 6964,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488524255477,
+    "word_count": 695
+  },
+  ".roo/skills/shadcn/rules/chat.md": {
+    "size": 6944,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488526503926,
+    "word_count": 777
+  },
+  ".roo/skills/shadcn/rules/composition.md": {
+    "size": 5731,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488528798266,
+    "word_count": 582
+  },
+  ".roo/skills/shadcn/rules/forms.md": {
+    "size": 4879,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488531071637,
+    "word_count": 483
+  },
+  ".roo/skills/shadcn/rules/icons.md": {
+    "size": 1965,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488533251337,
+    "word_count": 236
+  },
+  ".roo/skills/shadcn/rules/styling.md": {
+    "size": 4681,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488535531257,
+    "word_count": 539
+  },
+  ".roo/skills/turborepo/SKILL.md": {
+    "size": 28629,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488537615768,
+    "word_count": 3429
+  },
+  ".roo/skills/turborepo/command/turborepo.md": {
+    "size": 2785,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488539983547,
+    "word_count": 353
+  },
+  ".roo/skills/turborepo/references/best-practices/RULE.md": {
+    "size": 4907,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488542451807,
+    "word_count": 644
+  },
+  ".roo/skills/turborepo/references/best-practices/dependencies.md": {
+    "size": 4255,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488545003935,
+    "word_count": 585
+  },
+  ".roo/skills/turborepo/references/best-practices/packages.md": {
+    "size": 6289,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488547501764,
+    "word_count": 775
+  },
+  ".roo/skills/turborepo/references/best-practices/structure.md": {
+    "size": 6284,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488549989884,
+    "word_count": 738
+  },
+  ".roo/skills/turborepo/references/boundaries/RULE.md": {
+    "size": 1948,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488552411463,
+    "word_count": 243
+  },
+  ".roo/skills/turborepo/references/caching/RULE.md": {
+    "size": 4335,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488554887812,
+    "word_count": 581
+  },
+  ".roo/skills/turborepo/references/caching/gotchas.md": {
+    "size": 3942,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488557382501,
+    "word_count": 565
+  },
+  ".roo/skills/turborepo/references/caching/remote-cache.md": {
+    "size": 2672,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488559883480,
+    "word_count": 358
+  },
+  ".roo/skills/turborepo/references/ci/RULE.md": {
+    "size": 2405,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488562290380,
+    "word_count": 316
+  },
+  ".roo/skills/turborepo/references/ci/github-actions.md": {
+    "size": 4284,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488564846518,
+    "word_count": 468
+  },
+  ".roo/skills/turborepo/references/ci/patterns.md": {
+    "size": 2583,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488567409317,
+    "word_count": 352
+  },
+  ".roo/skills/turborepo/references/ci/vercel.md": {
+    "size": 2409,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488569960696,
+    "word_count": 347
+  },
+  ".roo/skills/turborepo/references/cli/RULE.md": {
+    "size": 2113,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488572504844,
+    "word_count": 326
+  },
+  ".roo/skills/turborepo/references/cli/commands.md": {
+    "size": 8799,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488575085744,
+    "word_count": 1150
+  },
+  ".roo/skills/turborepo/references/configuration/RULE.md": {
+    "size": 5139,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488577674642,
+    "word_count": 626
+  },
+  ".roo/skills/turborepo/references/configuration/global-options.md": {
+    "size": 9158,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488580278331,
+    "word_count": 1062
+  },
+  ".roo/skills/turborepo/references/configuration/gotchas.md": {
+    "size": 9318,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488582921119,
+    "word_count": 1357
+  },
+  ".roo/skills/turborepo/references/configuration/tasks.md": {
+    "size": 6913,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488585584607,
+    "word_count": 914
+  },
+  ".roo/skills/turborepo/references/environment/RULE.md": {
+    "size": 2593,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488588157116,
+    "word_count": 301
+  },
+  ".roo/skills/turborepo/references/environment/gotchas.md": {
+    "size": 4153,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488590699835,
+    "word_count": 465
+  },
+  ".roo/skills/turborepo/references/environment/modes.md": {
+    "size": 2969,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488593295584,
+    "word_count": 349
+  },
+  ".roo/skills/turborepo/references/filtering/RULE.md": {
+    "size": 4527,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488595914232,
+    "word_count": 595
+  },
+  ".roo/skills/turborepo/references/filtering/patterns.md": {
+    "size": 2546,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488598476051,
+    "word_count": 358
+  },
+  ".roo/skills/turborepo/references/watch/RULE.md": {
+    "size": 2259,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488601012130,
+    "word_count": 330
+  },
+  ".roo/skills/ultracite/SKILL.md": {
+    "size": 6108,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488603172300,
+    "word_count": 818
+  },
+  ".roo/skills/ultracite/references/code-standards.md": {
+    "size": 4398,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488605526750,
+    "word_count": 652
+  },
+  ".roo/skills/vercel-composition-patterns/AGENTS.md": {
+    "size": 22563,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488607647761,
+    "word_count": 2495
+  },
+  ".roo/skills/vercel-composition-patterns/README.md": {
+    "size": 2140,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488609758572,
+    "word_count": 268
+  },
+  ".roo/skills/vercel-composition-patterns/SKILL.md": {
+    "size": 2884,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488611774843,
+    "word_count": 383
+  },
+  ".roo/skills/vercel-composition-patterns/metadata.json": {
+    "size": 530,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488613505985,
+    "word_count": 54
+  },
+  ".roo/skills/vercel-composition-patterns/rules/_sections.md": {
+    "size": 829,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488615654775,
+    "word_count": 104
+  },
+  ".roo/skills/vercel-composition-patterns/rules/_template.md": {
+    "size": 329,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488617670837,
+    "word_count": 45
+  },
+  ".roo/skills/vercel-composition-patterns/rules/architecture-avoid-boolean-props.md": {
+    "size": 2217,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488623058053,
+    "word_count": 228
+  },
+  ".roo/skills/vercel-composition-patterns/rules/architecture-compound-components.md": {
+    "size": 2587,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488625225694,
+    "word_count": 270
+  },
+  ".roo/skills/vercel-composition-patterns/rules/patterns-children-over-render-props.md": {
+    "size": 1890,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488627381604,
+    "word_count": 222
+  },
+  ".roo/skills/vercel-composition-patterns/rules/patterns-explicit-variants.md": {
+    "size": 2388,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488629520435,
+    "word_count": 235
+  },
+  ".roo/skills/vercel-composition-patterns/rules/react19-no-forwardref.md": {
+    "size": 958,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488631625176,
+    "word_count": 134
+  },
+  ".roo/skills/vercel-composition-patterns/rules/state-context-interface.md": {
+    "size": 5000,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488633839295,
+    "word_count": 579
+  },
+  ".roo/skills/vercel-composition-patterns/rules/state-decouple-implementation.md": {
+    "size": 2652,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488636130186,
+    "word_count": 304
+  },
+  ".roo/skills/vercel-composition-patterns/rules/state-lift-state.md": {
+    "size": 3242,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488638363456,
+    "word_count": 365
+  },
+  ".roo/skills/vercel-react-best-practices/AGENTS.md": {
+    "size": 108427,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488640481216,
+    "word_count": 13099
+  },
+  ".roo/skills/vercel-react-best-practices/README.md": {
+    "size": 3369,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488642942026,
+    "word_count": 467
+  },
+  ".roo/skills/vercel-react-best-practices/SKILL.md": {
+    "size": 7443,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488644933357,
+    "word_count": 956
+  },
+  ".roo/skills/vercel-react-best-practices/metadata.json": {
+    "size": 921,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488646672950,
+    "word_count": 79
+  },
+  ".roo/skills/vercel-react-best-practices/rules/_sections.md": {
+    "size": 1554,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488648848260,
+    "word_count": 189
+  },
+  ".roo/skills/vercel-react-best-practices/rules/_template.md": {
+    "size": 633,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488650880301,
+    "word_count": 85
+  },
+  ".roo/skills/vercel-react-best-practices/rules/advanced-effect-event-deps.md": {
+    "size": 1810,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488653004721,
+    "word_count": 219
+  },
+  ".roo/skills/vercel-react-best-practices/rules/advanced-event-handler-refs.md": {
+    "size": 1498,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488655099703,
+    "word_count": 177
+  },
+  ".roo/skills/vercel-react-best-practices/rules/advanced-init-once.md": {
+    "size": 967,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488657166353,
+    "word_count": 122
+  },
+  ".roo/skills/vercel-react-best-practices/rules/advanced-use-latest.md": {
+    "size": 1081,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488659262395,
+    "word_count": 138
+  },
+  ".roo/skills/vercel-react-best-practices/rules/async-api-routes.md": {
+    "size": 1122,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488661343645,
+    "word_count": 137
+  },
+  ".roo/skills/vercel-react-best-practices/rules/async-cheap-condition-before-await.md": {
+    "size": 1222,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488663448916,
+    "word_count": 179
+  },
+  ".roo/skills/vercel-react-best-practices/rules/async-defer-await.md": {
+    "size": 2204,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488665609256,
+    "word_count": 267
+  },
+  ".roo/skills/vercel-react-best-practices/rules/async-dependencies.md": {
+    "size": 1304,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488667801487,
+    "word_count": 143
+  },
+  ".roo/skills/vercel-react-best-practices/rules/async-parallel.md": {
+    "size": 650,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488669921447,
+    "word_count": 73
+  },
+  ".roo/skills/vercel-react-best-practices/rules/async-suspense-boundaries.md": {
+    "size": 2517,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488672146348,
+    "word_count": 306
+  },
+  ".roo/skills/vercel-react-best-practices/rules/bundle-analyzable-paths.md": {
+    "size": 2389,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488674325028,
+    "word_count": 294
+  },
+  ".roo/skills/vercel-react-best-practices/rules/bundle-barrel-imports.md": {
+    "size": 2803,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488676550808,
+    "word_count": 363
+  },
+  ".roo/skills/vercel-react-best-practices/rules/bundle-conditional.md": {
+    "size": 966,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488678654400,
+    "word_count": 113
+  },
+  ".roo/skills/vercel-react-best-practices/rules/bundle-defer-third-party.md": {
+    "size": 924,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488680766890,
+    "word_count": 106
+  },
+  ".roo/skills/vercel-react-best-practices/rules/bundle-dynamic-imports.md": {
+    "size": 795,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488682820191,
+    "word_count": 104
+  },
+  ".roo/skills/vercel-react-best-practices/rules/bundle-preload.md": {
+    "size": 1126,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488685066162,
+    "word_count": 136
+  },
+  ".roo/skills/vercel-react-best-practices/rules/client-event-listeners.md": {
+    "size": 2003,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488687239092,
+    "word_count": 234
+  },
+  ".roo/skills/vercel-react-best-practices/rules/client-localstorage-schema.md": {
+    "size": 1988,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488689367242,
+    "word_count": 228
+  },
+  ".roo/skills/vercel-react-best-practices/rules/client-passive-event-listeners.md": {
+    "size": 1652,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488691574233,
+    "word_count": 172
+  },
+  ".roo/skills/vercel-react-best-practices/rules/client-swr-dedup.md": {
+    "size": 1171,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488693701323,
+    "word_count": 135
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-batch-dom-css.md": {
+    "size": 3266,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488695944483,
+    "word_count": 372
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-cache-function-results.md": {
+    "size": 1936,
+    "mtime_ns": 1786437133838951775,
+    "indexed_at_ns": 1786712488698098854,
+    "word_count": 228
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-cache-property-access.md": {
+    "size": 536,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488700170665,
+    "word_count": 77
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-cache-storage.md": {
+    "size": 1653,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488702289905,
+    "word_count": 186
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-combine-iterations.md": {
+    "size": 768,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488704385077,
+    "word_count": 95
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-early-exit.md": {
+    "size": 1139,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488706464517,
+    "word_count": 157
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-flatmap-filter.md": {
+    "size": 1418,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488708606008,
+    "word_count": 191
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-hoist-regexp.md": {
+    "size": 1029,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488710693929,
+    "word_count": 132
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-index-maps.md": {
+    "size": 850,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488712794780,
+    "word_count": 115
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-length-check-first.md": {
+    "size": 1754,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488714930401,
+    "word_count": 239
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-min-max-loop.md": {
+    "size": 2298,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488717139391,
+    "word_count": 323
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-request-idle-callback.md": {
+    "size": 2665,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488719347111,
+    "word_count": 309
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-set-map-lookups.md": {
+    "size": 532,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488721398781,
+    "word_count": 67
+  },
+  ".roo/skills/vercel-react-best-practices/rules/js-tosorted-immutable.md": {
+    "size": 1783,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488723581413,
+    "word_count": 240
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-activity.md": {
+    "size": 566,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488725644183,
+    "word_count": 71
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-animate-svg-wrapper.md": {
+    "size": 1121,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488727754575,
+    "word_count": 142
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-conditional-render.md": {
+    "size": 938,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488729822985,
+    "word_count": 132
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-content-visibility.md": {
+    "size": 818,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488732055535,
+    "word_count": 89
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-hoist-jsx.md": {
+    "size": 993,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488734135856,
+    "word_count": 120
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-hydration-no-flicker.md": {
+    "size": 2250,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488736339937,
+    "word_count": 265
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-hydration-suppress-warning.md": {
+    "size": 852,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488738406717,
+    "word_count": 102
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-resource-hints.md": {
+    "size": 2689,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488740630588,
+    "word_count": 334
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-script-defer-async.md": {
+    "size": 1872,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488742777598,
+    "word_count": 214
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-svg-precision.md": {
+    "size": 588,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488744846969,
+    "word_count": 82
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rendering-usetransition-loading.md": {
+    "size": 2090,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488746983479,
+    "word_count": 232
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-defer-reads.md": {
+    "size": 983,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488749081251,
+    "word_count": 122
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-dependencies.md": {
+    "size": 833,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488751144911,
+    "word_count": 110
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-derived-state-no-effect.md": {
+    "size": 1211,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488753242803,
+    "word_count": 157
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-derived-state.md": {
+    "size": 732,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488755386773,
+    "word_count": 94
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-functional-setstate.md": {
+    "size": 2989,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488757615233,
+    "word_count": 398
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-lazy-state-init.md": {
+    "size": 2012,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488759781184,
+    "word_count": 236
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-memo-with-default-value.md": {
+    "size": 1171,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488761860715,
+    "word_count": 177
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-memo.md": {
+    "size": 1158,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488763956995,
+    "word_count": 148
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-move-effect-to-event.md": {
+    "size": 1278,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488766049646,
+    "word_count": 148
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-no-inline-components.md": {
+    "size": 2100,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488768245726,
+    "word_count": 285
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-simple-expression-in-memo.md": {
+    "size": 1023,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488770328617,
+    "word_count": 140
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-split-combined-hooks.md": {
+    "size": 1861,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488772477908,
+    "word_count": 232
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-transitions.md": {
+    "size": 1067,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488774574369,
+    "word_count": 121
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-use-deferred-value.md": {
+    "size": 1863,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488776738849,
+    "word_count": 228
+  },
+  ".roo/skills/vercel-react-best-practices/rules/rerender-use-ref-transient-values.md": {
+    "size": 1758,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488778868470,
+    "word_count": 202
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-after-nonblocking.md": {
+    "size": 2016,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488781042660,
+    "word_count": 237
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-auth-actions.md": {
+    "size": 2659,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488783271591,
+    "word_count": 327
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-cache-lru.md": {
+    "size": 1360,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488785418171,
+    "word_count": 179
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-cache-react.md": {
+    "size": 2241,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488787640561,
+    "word_count": 301
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-dedup-props.md": {
+    "size": 2065,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488789805321,
+    "word_count": 245
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-hoist-static-io.md": {
+    "size": 4405,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488792097492,
+    "word_count": 564
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-no-shared-module-state.md": {
+    "size": 1773,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488794253362,
+    "word_count": 254
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-parallel-fetching.md": {
+    "size": 1569,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488796376984,
+    "word_count": 190
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-parallel-nested-fetching.md": {
+    "size": 996,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488798464454,
+    "word_count": 133
+  },
+  ".roo/skills/vercel-react-best-practices/rules/server-serialization.md": {
+    "size": 1006,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488800582264,
+    "word_count": 147
+  },
+  ".roo/skills/web-design-guidelines/SKILL.md": {
+    "size": 1232,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488802459396,
+    "word_count": 176
+  },
+  ".vscode/settings.json": {
+    "size": 1466,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488803954650,
+    "word_count": 100
+  },
+  ".zed/settings.json": {
+    "size": 2212,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488805232604,
+    "word_count": 174
+  },
+  "AGENTS.md": {
+    "size": 5076,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488806523568,
+    "word_count": 754
+  },
+  "Cargo.toml": {
+    "size": 5336,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488807598444,
+    "word_count": 765
+  },
+  "README.md": {
+    "size": 3433,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488808943088,
+    "word_count": 520
+  },
+  "apps/admin/components.json": {
+    "size": 543,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574040906354,
+    "word_count": 44,
+    "hashes": {
+      "apps/admin/components.json": "199214074febd43a347673ea074185a43a7db483df283a69134c4c7b09e89407"
+    }
+  },
+  "apps/admin/index.html": {
+    "size": 302,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588310786417,
+    "word_count": 23,
+    "hashes": {
+      "apps/admin/index.html": "096d4feae105cf40c019fef1f57430ddcf6b3a3029e48ce9ada2f8b6bf24061e"
+    }
+  },
+  "apps/admin/messages/en.json": {
+    "size": 420,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574041120594,
+    "word_count": 37,
+    "hashes": {
+      "apps/admin/messages/en.json": "06368cc3bb9dad1f1dbf6bafa8fffb3a1d1c557df9ed970220188c647096375d"
+    }
+  },
+  "apps/admin/messages/ja.json": {
+    "size": 516,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574041203573,
+    "word_count": 22,
+    "hashes": {
+      "apps/admin/messages/ja.json": "0e3af7a5b62d1b2f32724b71c3432cd3853ac804432ab3e9b64e842e9c713871"
+    }
+  },
+  "apps/admin/messages/zh-TW.json": {
+    "size": 402,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712574041261873,
+    "word_count": 22,
+    "hashes": {
+      "apps/admin/messages/zh-tw.json": "15beb1eb9a68b54f90c2d585821de7e114f397b5d410fa31e6c39be6520344e1"
+    }
+  },
+  "apps/admin/package.json": {
+    "size": 1165,
+    "mtime_ns": 1786503316212114116,
+    "indexed_at_ns": 1786712574041313823,
+    "word_count": 88,
+    "hashes": {
+      "apps/admin/package.json": "9c3881e1824208282a2907d3feb7284b2a7918e9c101f299da8142c7726fe813"
+    }
+  },
+  "apps/admin/project.inlang/settings.json": {
+    "size": 286,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712574041366782,
+    "word_count": 17,
+    "hashes": {
+      "apps/admin/project.inlang/settings.json": "16cc4ee071fc168835737d1138085f284b888402fc07bec0826e35a6a40a8587"
+    }
+  },
+  "apps/admin/src/components/header.tsx": {
+    "size": 1368,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712488826300482,
+    "word_count": 121
+  },
+  "apps/admin/src/components/loader.tsx": {
+    "size": 215,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488828368383,
+    "word_count": 25
+  },
+  "apps/admin/src/components/mode-toggle.tsx": {
+    "size": 1198,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488830355814,
+    "word_count": 93
+  },
+  "apps/admin/src/components/theme-provider.tsx": {
+    "size": 325,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488832382265,
+    "word_count": 33
+  },
+  "apps/admin/src/lib/locale.ts": {
+    "size": 642,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712488836084259,
+    "word_count": 63
+  },
+  "apps/admin/src/main.tsx": {
+    "size": 716,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712488837765911,
+    "word_count": 75
+  },
+  "apps/admin/src/routeTree.gen.ts": {
+    "size": 1503,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488839500514,
+    "word_count": 177
+  },
+  "apps/admin/src/routes/__root.tsx": {
+    "size": 2000,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712488841468386,
+    "word_count": 159
+  },
+  "apps/admin/src/routes/index.tsx": {
+    "size": 2568,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488843503356,
+    "word_count": 141
+  },
+  "apps/admin/tsconfig.json": {
+    "size": 364,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574041421032,
+    "word_count": 30,
+    "hashes": {
+      "apps/admin/tsconfig.json": "596ebe7df229f6f2de57152002d4f03d7b198b8ee741262cc35f5e7e0acb77bb"
+    }
+  },
+  "apps/admin/vite.config.ts": {
+    "size": 865,
+    "mtime_ns": 1786468305130364659,
+    "indexed_at_ns": 1786712488846468673,
+    "word_count": 74
+  },
+  "apps/extension/assets/react.svg": {
+    "size": 4127,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588311694443,
+    "word_count": 366,
+    "hashes": {
+      "apps/extension/assets/react.svg": "bfe62e18ae4e901757fbaf8ab7c17d28f7cc081122a84eaf8ef19776f1c178dc"
+    }
+  },
+  "apps/extension/entrypoints/background.ts": {
+    "size": 108,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488851555952,
+    "word_count": 12
+  },
+  "apps/extension/entrypoints/content.ts": {
+    "size": 127,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488853331574,
+    "word_count": 11
+  },
+  "apps/extension/entrypoints/popup/app.tsx": {
+    "size": 965,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712488857284136,
+    "word_count": 96
+  },
+  "apps/extension/entrypoints/popup/index.html": {
+    "size": 362,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588311137895,
+    "word_count": 29,
+    "hashes": {
+      "apps/extension/entrypoints/popup/index.html": "2e4b31f070160411896ea5f953427a64b0ce1b7c8f59ef44dfbfed1a46572b0e"
+    }
+  },
+  "apps/extension/entrypoints/popup/main.tsx": {
+    "size": 355,
+    "mtime_ns": 1786685454024987745,
+    "indexed_at_ns": 1786712488861362218,
+    "word_count": 35
+  },
+  "apps/extension/package.json": {
+    "size": 703,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574041471982,
+    "word_count": 68,
+    "hashes": {
+      "apps/extension/package.json": "15bf9b88feec601149d8787fb028e693c2deb7372ae828a862c3dcf3fb44a560"
+    }
+  },
+  "apps/extension/public/icon/128.png": {
+    "size": 3074,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588311756143,
+    "word_count": 127,
+    "hashes": {
+      "apps/extension/public/icon/128.png": "0faf6e469e9ee2b6c4e6c396322048aa8fc9b817addc136075987104732efe30"
+    }
+  },
+  "apps/extension/public/icon/16.png": {
+    "size": 559,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588311815302,
+    "word_count": 25,
+    "hashes": {
+      "apps/extension/public/icon/16.png": "f3b6867ba080d4a25d2e4fe96527596bb1d445f7080c746d0f1d8bfbc430cec3"
+    }
+  },
+  "apps/extension/public/icon/32.png": {
+    "size": 916,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588311925682,
+    "word_count": 52,
+    "hashes": {
+      "apps/extension/public/icon/32.png": "e0ea2a69977b341d1cec521846bd6464112cd61562fe01ffe2c856bdd350c699"
+    }
+  },
+  "apps/extension/public/icon/48.png": {
+    "size": 1334,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588312007771,
+    "word_count": 48,
+    "hashes": {
+      "apps/extension/public/icon/48.png": "e915c0680e6926039ea9d66438d0ca5a5fd3c24f03ba58f5888a4a703caa18e6"
+    }
+  },
+  "apps/extension/public/icon/96.png": {
+    "size": 2366,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588312072281,
+    "word_count": 101,
+    "hashes": {
+      "apps/extension/public/icon/96.png": "c382ba6602bdeb532f4c558e6ad990d6c1cfb3598a6b67da36797225afb2a02e"
+    }
+  },
+  "apps/extension/public/wxt.svg": {
+    "size": 1072,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588312130201,
+    "word_count": 92,
+    "hashes": {
+      "apps/extension/public/wxt.svg": "4aeae0e3f1ab18e910cf66317fc8c1c67127f2687b47bc8e7842d3f02633902a"
+    }
+  },
+  "apps/extension/tsconfig.json": {
+    "size": 131,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574041519142,
+    "word_count": 11,
+    "hashes": {
+      "apps/extension/tsconfig.json": "950de28013a7fa437c91c80541e49bd06fa867aa738f0f5c47da5c1955fe95b8"
+    }
+  },
+  "apps/extension/wxt.config.ts": {
+    "size": 148,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488881526050,
+    "word_count": 15
+  },
+  "apps/fumadocs/.oxlintrc.json": {
+    "size": 354,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712574041566741,
+    "word_count": 33,
+    "hashes": {
+      "apps/fumadocs/.oxlintrc.json": "93006102446bed649f9f7b78c6b60c3436ebee1052b763ad4db1cc4a8187e98c"
+    }
+  },
+  "apps/fumadocs/README.md": {
+    "size": 200,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712588311270355,
+    "word_count": 28,
+    "hashes": {
+      "apps/fumadocs/readme.md": "ac99c0d17f86a3c7b80bea80e223d25c23323cb8aa5155e4615cc0068b0a564c"
+    }
+  },
+  "apps/fumadocs/content/docs/index.mdx": {
+    "size": 973,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712588311373444,
+    "word_count": 97,
+    "hashes": {
+      "apps/fumadocs/content/docs/index.mdx": "dd86fc1c417621dcfd7eeb30b19cb9f4c0c4b626b895308fc6c6544f84ccb2f3"
+    }
+  },
+  "apps/fumadocs/content/docs/test.mdx": {
+    "size": 135,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712588311442044,
+    "word_count": 20,
+    "hashes": {
+      "apps/fumadocs/content/docs/test.mdx": "1fdbdd477b57962c449d60c466802ce1baa75ef055cf22414c351ea076a69ec1"
+    }
+  },
+  "apps/fumadocs/package.json": {
+    "size": 1026,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712574041613171,
+    "word_count": 79,
+    "hashes": {
+      "apps/fumadocs/package.json": "183784811ec40b848989d2a260da2bef2704e6a2321f00fdb015bf6116020f6b"
+    }
+  },
+  "apps/fumadocs/src/components/mdx.tsx": {
+    "size": 393,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488894455303,
+    "word_count": 38
+  },
+  "apps/fumadocs/src/components/not-found.tsx": {
+    "size": 305,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488896436035,
+    "word_count": 31
+  },
+  "apps/fumadocs/src/lib/cn.ts": {
+    "size": 29,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488898390136,
+    "word_count": 6
+  },
+  "apps/fumadocs/src/lib/layout.shared.tsx": {
+    "size": 319,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712488900368747,
+    "word_count": 33
+  },
+  "apps/fumadocs/src/lib/shared.ts": {
+    "size": 885,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712488902320799,
+    "word_count": 113
+  },
+  "apps/fumadocs/src/lib/source.ts": {
+    "size": 685,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488904296420,
+    "word_count": 72
+  },
+  "apps/fumadocs/src/routeTree.gen.ts": {
+    "size": 5349,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488906009542,
+    "word_count": 501
+  },
+  "apps/fumadocs/src/router.tsx": {
+    "size": 362,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488907747264,
+    "word_count": 35
+  },
+  "apps/fumadocs/src/routes/__root.tsx": {
+    "size": 902,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712488909688827,
+    "word_count": 91
+  },
+  "apps/fumadocs/src/routes/api/search.ts": {
+    "size": 448,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488912005186,
+    "word_count": 47
+  },
+  "apps/fumadocs/src/routes/docs/$.tsx": {
+    "size": 2439,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712488914216306,
+    "word_count": 231
+  },
+  "apps/fumadocs/src/routes/docs/{$}[.]md.ts": {
+    "size": 615,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488916420067,
+    "word_count": 65
+  },
+  "apps/fumadocs/src/routes/index.tsx": {
+    "size": 779,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712488918375198,
+    "word_count": 73
+  },
+  "apps/fumadocs/src/routes/llms-full[.]txt.ts": {
+    "size": 402,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488920370989,
+    "word_count": 43
+  },
+  "apps/fumadocs/src/routes/llms[.]txt.ts": {
+    "size": 314,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488922312831,
+    "word_count": 36
+  },
+  "apps/fumadocs/src/start.ts": {
+    "size": 1061,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712488924064263,
+    "word_count": 112
+  },
+  "apps/fumadocs/tsconfig.json": {
+    "size": 520,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712574041668351,
+    "word_count": 43,
+    "hashes": {
+      "apps/fumadocs/tsconfig.json": "2383b5e01f74f8004cc61082343d0b71a24903032fc214076403426976bfa802"
+    }
+  },
+  "apps/fumadocs/vite.config.ts": {
+    "size": 749,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712488929063731,
+    "word_count": 76
+  },
+  "apps/server/Cargo.toml": {
+    "size": 9557,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574041714951,
+    "word_count": 1522,
+    "hashes": {
+      "apps/server/cargo.toml": "80b1a593f2cd3ad18b5f5c2c4c8f7556ec7cd67dfff606b52fe5f02c309a17c5"
+    }
+  },
+  "apps/server/README.md": {
+    "size": 14201,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712588311499944,
+    "word_count": 1872,
+    "hashes": {
+      "apps/server/readme.md": "ffb818399b5deeb273e9008a6dad5bfa8bcdff5c8654d1d5cfe111071959c1a1"
+    }
+  },
+  "apps/server/benches/api.rs": {
+    "size": 2410,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574041766671,
+    "word_count": 247,
+    "hashes": {
+      "apps/server/benches/api.rs": "5920d3704f0195fd1920a9d898da32b39417d1a5d5927a4b420e077ada8c303b"
+    }
+  },
+  "apps/server/build.rs": {
+    "size": 4830,
+    "mtime_ns": 1786437133842951795,
+    "indexed_at_ns": 1786712574041813780,
+    "word_count": 507,
+    "hashes": {
+      "apps/server/build.rs": "dfb0ef224084ebfcc4702e276039d588d5eef4519b14e129b5f950ac87196c69"
+    }
+  },
+  "apps/server/src/api/auth.rs": {
+    "size": 41683,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574041909960,
+    "word_count": 5168,
+    "hashes": {
+      "apps/server/src/api/auth.rs": "182ea85d25092d4fba20ff7c7aa1692362261ec2ed21736f6d54a652de87142c"
+    }
+  },
+  "apps/server/src/api/capabilities.rs": {
+    "size": 8675,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574042005539,
+    "word_count": 1142,
+    "hashes": {
+      "apps/server/src/api/capabilities.rs": "2ad56476e3120afc1490cea6e896eba6bacc7f575fd7c977019b8d57b837d6ab"
+    }
+  },
+  "apps/server/src/api/extract.rs": {
+    "size": 3649,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042065399,
+    "word_count": 416,
+    "hashes": {
+      "apps/server/src/api/extract.rs": "fd4841d742236bc7a72512e91c2fcf64ecd1ad8df97540b996c8918114b4d9c4"
+    }
+  },
+  "apps/server/src/api/gate.rs": {
+    "size": 12986,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712574042118999,
+    "word_count": 1815,
+    "hashes": {
+      "apps/server/src/api/gate.rs": "530bd7894edad122245f5941f45a72ad68f4b8d9817b531eac74a2df71095e47"
+    }
+  },
+  "apps/server/src/api/health.rs": {
+    "size": 2623,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042176069,
+    "word_count": 310,
+    "hashes": {
+      "apps/server/src/api/health.rs": "78fd2deeac732523c5b9f3c4606f2f877dd4ff2f7d69b7ef6bb1df6376a3d6ab"
+    }
+  },
+  "apps/server/src/api/mod.rs": {
+    "size": 17631,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574042227258,
+    "word_count": 2034,
+    "hashes": {
+      "apps/server/src/api/mod.rs": "1f1045a4f04054b91b62827f8071bf8cc05e8e577399780c28d77a9ef3dadb0a"
+    }
+  },
+  "apps/server/src/api/preview.rs": {
+    "size": 12716,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042286098,
+    "word_count": 1392,
+    "hashes": {
+      "apps/server/src/api/preview.rs": "22108bb435904a188a8d420e7c98917010de5fd33b6ddd338e1cf3e4dcdd8e60"
+    }
+  },
+  "apps/server/src/api/public.rs": {
+    "size": 17916,
+    "mtime_ns": 1786526978585200560,
+    "indexed_at_ns": 1786712574042342388,
+    "word_count": 2095,
+    "hashes": {
+      "apps/server/src/api/public.rs": "d11f0ec50c48e75f1ab12ead647f497812de18a2756840aaabea97260f206f92"
+    }
+  },
+  "apps/server/src/api/shares.rs": {
+    "size": 36665,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712574042399588,
+    "word_count": 4437,
+    "hashes": {
+      "apps/server/src/api/shares.rs": "2d13ee5fa176fb6531ba68eb8ec133c0fd472d50a93a42adb66a8e2ad118cc80"
+    }
+  },
+  "apps/server/src/api/tokens.rs": {
+    "size": 9988,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042464177,
+    "word_count": 1140,
+    "hashes": {
+      "apps/server/src/api/tokens.rs": "059a058ac469432afb7af1c058d9c8631c55c0cf630a756b0a17071e2452f844"
+    }
+  },
+  "apps/server/src/assets.rs": {
+    "size": 10501,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042516207,
+    "word_count": 1147,
+    "hashes": {
+      "apps/server/src/assets.rs": "b42ed3e9927296a3da60b2407769088c7c087688a3349c1e77b5a2db584234c4"
+    }
+  },
+  "apps/server/src/auth/bootstrap.rs": {
+    "size": 5517,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042570507,
+    "word_count": 631,
+    "hashes": {
+      "apps/server/src/auth/bootstrap.rs": "1d789093b8a15795c7cf630ed7144e0efece83bf9d469602c883dc5a030914be"
+    }
+  },
+  "apps/server/src/auth/cookie.rs": {
+    "size": 8182,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042623897,
+    "word_count": 820,
+    "hashes": {
+      "apps/server/src/auth/cookie.rs": "d732be18bb65bfbb6eb02fbd4f3e9c964fc13c2ece63a314cba6ea660e7b2088"
+    }
+  },
+  "apps/server/src/auth/extract.rs": {
+    "size": 11810,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042676896,
+    "word_count": 1258,
+    "hashes": {
+      "apps/server/src/auth/extract.rs": "1a460922b1ff98ccff1837c2b52fe81f821f4bb64b95f7eec1a84c8922ab6f95"
+    }
+  },
+  "apps/server/src/auth/mod.rs": {
+    "size": 990,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042731466,
+    "word_count": 176,
+    "hashes": {
+      "apps/server/src/auth/mod.rs": "3bcf0a1a6ed69475b16caf742fbec1dfab51dca6abf19351835300e2c753e85e"
+    }
+  },
+  "apps/server/src/auth/password.rs": {
+    "size": 9030,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042781126,
+    "word_count": 1080,
+    "hashes": {
+      "apps/server/src/auth/password.rs": "6068846dad1b6b9fca279d6d546c582e718eb772ddca62ad0ed5c7925e2a3bb9"
+    }
+  },
+  "apps/server/src/auth/secret.rs": {
+    "size": 9073,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574042850266,
+    "word_count": 1142,
+    "hashes": {
+      "apps/server/src/auth/secret.rs": "0e21ae1d8d375aca06bbffdd9748513f4150a258b02ad8f403be99d91c082fef"
+    }
+  },
+  "apps/server/src/auth/throttle.rs": {
+    "size": 16353,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574042950485,
+    "word_count": 2033,
+    "hashes": {
+      "apps/server/src/auth/throttle.rs": "e94c3f1a6edc4ce61b151df7d332218ef16bc64e5bad813a45b019ae8c894089"
+    }
+  },
+  "apps/server/src/bin/openapi.rs": {
+    "size": 2204,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043016895,
+    "word_count": 256,
+    "hashes": {
+      "apps/server/src/bin/openapi.rs": "8b30af32b63b60350ddbed328b124b24fa0baabe7b9e706b370fd33734ffa591"
+    }
+  },
+  "apps/server/src/cli.rs": {
+    "size": 10662,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574043129404,
+    "word_count": 1342,
+    "hashes": {
+      "apps/server/src/cli.rs": "f6c38829c4e400d2211df0b4cb6adc44ee3ef7ee0c846890091b0a625074bcef"
+    }
+  },
+  "apps/server/src/config.rs": {
+    "size": 60434,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574043196514,
+    "word_count": 7119,
+    "hashes": {
+      "apps/server/src/config.rs": "82577f52e8266b99b0a6a4e5720d5de0e2ad04d3dad1c1f1afa7c462e191aa13"
+    }
+  },
+  "apps/server/src/db/entity/api_token.rs": {
+    "size": 1341,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043280934,
+    "word_count": 170,
+    "hashes": {
+      "apps/server/src/db/entity/api_token.rs": "57d01fdea2666ee17ef4ae32e2dff4892452c4c7303969a2fab8bc9ab4f1341c"
+    }
+  },
+  "apps/server/src/db/entity/mod.rs": {
+    "size": 728,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574043334953,
+    "word_count": 122,
+    "hashes": {
+      "apps/server/src/db/entity/mod.rs": "67ef79d324b059d738409cae94808d19f999d394973a43aa880150db166f4988"
+    }
+  },
+  "apps/server/src/db/entity/password_reset_token.rs": {
+    "size": 1235,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574043388363,
+    "word_count": 161,
+    "hashes": {
+      "apps/server/src/db/entity/password_reset_token.rs": "126e720805a9659a3b661db0b3f581525e03d56df5b6a4f2b5ae3ea87905c8a3"
+    }
+  },
+  "apps/server/src/db/entity/pending_registration.rs": {
+    "size": 1388,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574043440133,
+    "word_count": 190,
+    "hashes": {
+      "apps/server/src/db/entity/pending_registration.rs": "2d0dea9e5ab65b24803d6c78636a05b663f530c6a48b560229bffbe13738c12a"
+    }
+  },
+  "apps/server/src/db/entity/session.rs": {
+    "size": 1014,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043492283,
+    "word_count": 128,
+    "hashes": {
+      "apps/server/src/db/entity/session.rs": "414b89ca203f24b908b08b5f03f50232f010e7b86b5a17f323aadcda33b3189a"
+    }
+  },
+  "apps/server/src/db/entity/share.rs": {
+    "size": 2745,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043544692,
+    "word_count": 372,
+    "hashes": {
+      "apps/server/src/db/entity/share.rs": "4c8c81f06ed28d671fd9d7e654c017fa941926a104e0b2cef5ed33043a96a522"
+    }
+  },
+  "apps/server/src/db/entity/share_content.rs": {
+    "size": 1111,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043596402,
+    "word_count": 168,
+    "hashes": {
+      "apps/server/src/db/entity/share_content.rs": "a23406f48082f6faae066d0e2ffec8e3aa534cc1bb043a9ba59c2e0239f9967b"
+    }
+  },
+  "apps/server/src/db/entity/share_ticket.rs": {
+    "size": 907,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043646812,
+    "word_count": 110,
+    "hashes": {
+      "apps/server/src/db/entity/share_ticket.rs": "f9349aa5d37ee27c03e3687efb76c16966ef5e3a8553b578a0a0ee50f9d92329"
+    }
+  },
+  "apps/server/src/db/entity/user.rs": {
+    "size": 2036,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043696952,
+    "word_count": 265,
+    "hashes": {
+      "apps/server/src/db/entity/user.rs": "e8f8b45863885eaee34ec98de964615fc234741e08c92a8ec40bee4e803e26cd"
+    }
+  },
+  "apps/server/src/db/migration/m20260808_000001_initial.rs": {
+    "size": 1490,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043750372,
+    "word_count": 180,
+    "hashes": {
+      "apps/server/src/db/migration/m20260808_000001_initial.rs": "db30034be33d3912dfeac8fe554f7c9c01b911db99a20009a4648395cde95e63"
+    }
+  },
+  "apps/server/src/db/migration/m20260809_000001_users.rs": {
+    "size": 1466,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043802381,
+    "word_count": 179,
+    "hashes": {
+      "apps/server/src/db/migration/m20260809_000001_users.rs": "39968f915e1ae8904aa191365128bec3c3744dab13253d80183e195f7bd47faf"
+    }
+  },
+  "apps/server/src/db/migration/m20260809_000002_sessions.rs": {
+    "size": 1486,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043889871,
+    "word_count": 180,
+    "hashes": {
+      "apps/server/src/db/migration/m20260809_000002_sessions.rs": "a805684f36973652a421fa9f10a7fa9014e29d7c72b49924aed11ff63b8dbe7d"
+    }
+  },
+  "apps/server/src/db/migration/m20260809_000003_api_tokens.rs": {
+    "size": 1488,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574043976461,
+    "word_count": 180,
+    "hashes": {
+      "apps/server/src/db/migration/m20260809_000003_api_tokens.rs": "9882c7e6e2fa168367cbf88665cb7dc44d36cfaec7c2c44fa6ef750a37c398b9"
+    }
+  },
+  "apps/server/src/db/migration/m20260810_000001_shares.rs": {
+    "size": 1509,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044035250,
+    "word_count": 183,
+    "hashes": {
+      "apps/server/src/db/migration/m20260810_000001_shares.rs": "f8fe620d6ed32a67f09e3863102e48a004fee6ab01fd7327aab662e9b6c11187"
+    }
+  },
+  "apps/server/src/db/migration/m20260810_000002_share_tickets.rs": {
+    "size": 1398,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044090010,
+    "word_count": 159,
+    "hashes": {
+      "apps/server/src/db/migration/m20260810_000002_share_tickets.rs": "6755a0a9016184957f9e1582b2d95f0a6ebd5f3b22c9f3c0c2587950af747712"
+    }
+  },
+  "apps/server/src/db/migration/m20260813_000001_password_reset_tokens.rs": {
+    "size": 1438,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574044144510,
+    "word_count": 159,
+    "hashes": {
+      "apps/server/src/db/migration/m20260813_000001_password_reset_tokens.rs": "7dd360955575ab28dc4f54fe31242cbe1df9be741f0197106d09a960cdaa1d76"
+    }
+  },
+  "apps/server/src/db/migration/m20260813_000002_pending_registrations.rs": {
+    "size": 1438,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574044197980,
+    "word_count": 159,
+    "hashes": {
+      "apps/server/src/db/migration/m20260813_000002_pending_registrations.rs": "7e19a67e330863b19a0897704b79f2b45d11f113f1507363bfadd2d0667fd460"
+    }
+  },
+  "apps/server/src/db/migration/mod.rs": {
+    "size": 10657,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574044251069,
+    "word_count": 1122,
+    "hashes": {
+      "apps/server/src/db/migration/mod.rs": "20b22cfe42be18cacc16caa88f00ce26a5a9b7b93f5d63e23f04f94cc52d2969"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260808_000001_initial.mysql.sql": {
+    "size": 928,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044315819,
+    "word_count": 140,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260808_000001_initial.mysql.sql": "202ff427bdb0d4ec63e3bb6d374e4bf1fe0a989a3959f2741b1005f147c74aa0"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260808_000001_initial.postgres.sql": {
+    "size": 401,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044373969,
+    "word_count": 57,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260808_000001_initial.postgres.sql": "fb7cf804d16598e20fae52f0b10e6652e6d4d13e2d667f4f1477f6f4d2caaf5f"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260808_000001_initial.sqlite.sql": {
+    "size": 390,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044430268,
+    "word_count": 56,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260808_000001_initial.sqlite.sql": "c01ca79e121255f07de9f3ff02551d9bfa8e58c6f3a2eb2b87649c64842016d4"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000001_users.mysql.sql": {
+    "size": 1315,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044485018,
+    "word_count": 188,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000001_users.mysql.sql": "a8d232aace06c624922c4553c6b4242a4ccb79305b316838c01f669fa6253511"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000001_users.postgres.sql": {
+    "size": 849,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044539078,
+    "word_count": 110,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000001_users.postgres.sql": "a1bb9aa57e5f489f11c9c4ff8ed3b2116c5e5d3764346185844068dd062f2fba"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000001_users.sqlite.sql": {
+    "size": 1499,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044592528,
+    "word_count": 224,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000001_users.sqlite.sql": "ac342edb3a3c681c2d5fb986fcf06e820ad772f204bc5bbc1db15532f198b3a7"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000002_sessions.mysql.sql": {
+    "size": 826,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044646467,
+    "word_count": 111,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000002_sessions.mysql.sql": "e406317d5b5dce241bdb424d106131df04f383eee24401e141732e3c22136167"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000002_sessions.postgres.sql": {
+    "size": 540,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044700287,
+    "word_count": 64,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000002_sessions.postgres.sql": "1508ea8701ae5c1fde60bfff18727619248dd791766b8052c5938a90274c8cb0"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000002_sessions.sqlite.sql": {
+    "size": 1163,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044753427,
+    "word_count": 186,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000002_sessions.sqlite.sql": "40ee0f01704571bb46dd97b19ccaf9896baaf9fc0f719f5889ab78fba4e649b3"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000003_api_tokens.mysql.sql": {
+    "size": 731,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044805917,
+    "word_count": 79,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000003_api_tokens.mysql.sql": "a2628b5562ff83737091777ff205cff73b9ea43a2bf1bf256ac0a21c0199d98c"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000003_api_tokens.postgres.sql": {
+    "size": 578,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044894276,
+    "word_count": 61,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000003_api_tokens.postgres.sql": "7b18e4277a78aa8b243f8e6ba84a2719fe3931da1f33b1c8991948bcefba72f1"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260809_000003_api_tokens.sqlite.sql": {
+    "size": 1178,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574044981936,
+    "word_count": 182,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260809_000003_api_tokens.sqlite.sql": "72422dc9bf66c42c3a2d0e06382019cecd1b4bdfabe02532e0b8c32b69e248da"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260810_000001_shares.mysql.sql": {
+    "size": 2034,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045045076,
+    "word_count": 248,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260810_000001_shares.mysql.sql": "8582a4eb100b7b54c592df023e3517b990ca99e8c5164d841bad82b83256ce49"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260810_000001_shares.postgres.sql": {
+    "size": 1211,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045101535,
+    "word_count": 131,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260810_000001_shares.postgres.sql": "38eeb58bbe4daf48f266e00ef8eb5278ed99a7f2f0da179e6b40755dd47b4296"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260810_000001_shares.sqlite.sql": {
+    "size": 3474,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045156285,
+    "word_count": 529,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260810_000001_shares.sqlite.sql": "69f8455213ca407c7281d8e042b889763923ca55f5c5448a477041db4669e57c"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260810_000002_share_tickets.mysql.sql": {
+    "size": 614,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045212905,
+    "word_count": 66,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260810_000002_share_tickets.mysql.sql": "657a5eee8938a5742774febfae3092d96e00bdc3d42ae132c55259844bd0d80d"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260810_000002_share_tickets.postgres.sql": {
+    "size": 528,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045266625,
+    "word_count": 60,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260810_000002_share_tickets.postgres.sql": "8f9c22dfb38427043732484500f540090b10fde39e93cff3316befcac106609a"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260810_000002_share_tickets.sqlite.sql": {
+    "size": 1306,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045321034,
+    "word_count": 219,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260810_000002_share_tickets.sqlite.sql": "c4a2a4e1ae2f4b5c040037e2ff647a6b63c6f3e12ff59319df6186b55a71a005"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260813_000001_password_reset_tokens.mysql.sql": {
+    "size": 700,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045375994,
+    "word_count": 69,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260813_000001_password_reset_tokens.mysql.sql": "79ab20252c8a970ad46d4f10d551fbae311af3ee6ea4c4daa5a445533dc4d268"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260813_000001_password_reset_tokens.postgres.sql": {
+    "size": 602,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045429694,
+    "word_count": 62,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260813_000001_password_reset_tokens.postgres.sql": "a50a86dcaa3558821cc98684fa946ed83b475b702a3097d32930a99300c09cd1"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260813_000001_password_reset_tokens.sqlite.sql": {
+    "size": 1572,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045483224,
+    "word_count": 262,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260813_000001_password_reset_tokens.sqlite.sql": "ef1f2dda58d69dc2de496a55aebdcd77ad24d5936014c70d6dc38e1e59c24a7d"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260813_000002_pending_registrations.mysql.sql": {
+    "size": 1376,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045537783,
+    "word_count": 183,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260813_000002_pending_registrations.mysql.sql": "e7ede3cd23ab88cf76c3664e84d95792a014060c3e2b93d95c79447de001b946"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260813_000002_pending_registrations.postgres.sql": {
+    "size": 536,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045590793,
+    "word_count": 54,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260813_000002_pending_registrations.postgres.sql": "d050631218533542840e8a641d65980de3c70973979efca0e42184c6e4f8cd2f"
+    }
+  },
+  "apps/server/src/db/migration/sql/m20260813_000002_pending_registrations.sqlite.sql": {
+    "size": 1815,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045644543,
+    "word_count": 306,
+    "hashes": {
+      "apps/server/src/db/migration/sql/m20260813_000002_pending_registrations.sqlite.sql": "0d25680131829a6140d488792cfd9f7ecdcb2549c01c0a650be166f7621611f8"
+    }
+  },
+  "apps/server/src/db/mod.rs": {
+    "size": 12030,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045694663,
+    "word_count": 1220,
+    "hashes": {
+      "apps/server/src/db/mod.rs": "16e6b9131ddf2e29e8f00192caa56a4bd08d733f3c50f951145f2adc02cad0d4"
+    }
+  },
+  "apps/server/src/db/repository/api_token.rs": {
+    "size": 7534,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574045754252,
+    "word_count": 741,
+    "hashes": {
+      "apps/server/src/db/repository/api_token.rs": "cae98c9e6bc734a3ce39aa1c452eba5c700c8cc882a707d51174ae5e7d83747c"
+    }
+  },
+  "apps/server/src/db/repository/mod.rs": {
+    "size": 560,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045809482,
+    "word_count": 93,
+    "hashes": {
+      "apps/server/src/db/repository/mod.rs": "1894bd854c897cc9b3883276bedb106e197fcdd7982f988e9b0b73503e44b790"
+    }
+  },
+  "apps/server/src/db/repository/password_reset.rs": {
+    "size": 5811,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045898552,
+    "word_count": 616,
+    "hashes": {
+      "apps/server/src/db/repository/password_reset.rs": "48afe51f5ab651475d454760fe2bc30b9858e659dcd01aeb54a7b483fe1f345c"
+    }
+  },
+  "apps/server/src/db/repository/pending_registration.rs": {
+    "size": 6836,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574045987531,
+    "word_count": 687,
+    "hashes": {
+      "apps/server/src/db/repository/pending_registration.rs": "90fff82bf073d68376afa3b0b9db26842cc7f365e14444fdff06b2b665fa8c56"
+    }
+  },
+  "apps/server/src/db/repository/session.rs": {
+    "size": 6322,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574046050931,
+    "word_count": 650,
+    "hashes": {
+      "apps/server/src/db/repository/session.rs": "0ed09ad48942354720478dea053981da47e2b610bdf12c5e758efedec2215f6f"
+    }
+  },
+  "apps/server/src/db/repository/share.rs": {
+    "size": 29801,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712574046108421,
+    "word_count": 3302,
+    "hashes": {
+      "apps/server/src/db/repository/share.rs": "fc118ab89da6dfee1984ea1563fb95c6d69195fd98290937df6b9e1db6ec589e"
+    }
+  },
+  "apps/server/src/db/repository/user.rs": {
+    "size": 14369,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574046174941,
+    "word_count": 1377,
+    "hashes": {
+      "apps/server/src/db/repository/user.rs": "e4821af250dccca2e80f0f3f8f635ae102658ffa56f60ef2ac94f2370380455b"
+    }
+  },
+  "apps/server/src/error.rs": {
+    "size": 13500,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712574046230460,
+    "word_count": 1445,
+    "hashes": {
+      "apps/server/src/error.rs": "7c4e4ab7c68f04852478eee2740a1efa11be100f4ab450b2a84c97193cff65f6"
+    }
+  },
+  "apps/server/src/lib.rs": {
+    "size": 2207,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574046284890,
+    "word_count": 347,
+    "hashes": {
+      "apps/server/src/lib.rs": "ed020eba87b257c5f2de2e17bbd9bad0fa1719ddb7c1430d105acbbff0ec2d45"
+    }
+  },
+  "apps/server/src/mail.rs": {
+    "size": 9565,
+    "mtime_ns": 1786641812182775968,
+    "indexed_at_ns": 1786712574046332900,
+    "word_count": 1229,
+    "hashes": {
+      "apps/server/src/mail.rs": "5d42da315237194c47c53cf30f849c9cc95b4346ff7fd780a9439947fa9160d5"
+    }
+  },
+  "apps/server/src/main.rs": {
+    "size": 11353,
+    "mtime_ns": 1786641812186775964,
+    "indexed_at_ns": 1786712574046383920,
+    "word_count": 1310,
+    "hashes": {
+      "apps/server/src/main.rs": "c72d8d3aa1257596461dcb435494e63b0380dd9b0116651c50c15d9ffc9867b1"
+    }
+  },
+  "apps/server/src/maintenance.rs": {
+    "size": 8548,
+    "mtime_ns": 1786641812186775964,
+    "indexed_at_ns": 1786712574046435629,
+    "word_count": 1209,
+    "hashes": {
+      "apps/server/src/maintenance.rs": "ee11b2c036aab66e617c06c18adcdf6e7c9a4f702ccfecf7e9c3da80db1999ce"
+    }
+  },
+  "apps/server/src/state.rs": {
+    "size": 5209,
+    "mtime_ns": 1786641812186775964,
+    "indexed_at_ns": 1786712574046484889,
+    "word_count": 561,
+    "hashes": {
+      "apps/server/src/state.rs": "7c5a7b5cf6efed236bf4ece26c053c463f7888d7e08bf0029808e47f16a0f21d"
+    }
+  },
+  "apps/server/src/storage/mod.rs": {
+    "size": 11548,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712574046537369,
+    "word_count": 1257,
+    "hashes": {
+      "apps/server/src/storage/mod.rs": "2e39693beab16d97f6adcb6a243d852b6c3f81a64fe4c96d43b204ee81702ef5"
+    }
+  },
+  "apps/server/src/telemetry.rs": {
+    "size": 1604,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574046590079,
+    "word_count": 143,
+    "hashes": {
+      "apps/server/src/telemetry.rs": "c63a1f11586e1b8b0adb628d7fd9562372aec1266c2d97de1f5b33dbe62af76f"
+    }
+  },
+  "apps/server/tests/api.rs": {
+    "size": 18221,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712574046638008,
+    "word_count": 1588,
+    "hashes": {
+      "apps/server/tests/api.rs": "4eff460a05677234634e46ce3bf2fdce35bc7c32836a1093ed59ede9eeb86035"
+    }
+  },
+  "apps/server/tests/auth.rs": {
+    "size": 55533,
+    "mtime_ns": 1786641812186775964,
+    "indexed_at_ns": 1786712574046692388,
+    "word_count": 5093,
+    "hashes": {
+      "apps/server/tests/auth.rs": "926a5339f4b979335042fd182d1c3004f98ae840960dfe8462053ff3ca7923c0"
+    }
+  },
+  "apps/server/tests/backends.rs": {
+    "size": 7829,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574046765578,
+    "word_count": 939,
+    "hashes": {
+      "apps/server/tests/backends.rs": "d6baa0ebabc2ab03e27f82d6330123c230139e9d8f0aabf1f95a8cba7bf9001e"
+    }
+  },
+  "apps/server/tests/common/mod.rs": {
+    "size": 34094,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574046818708,
+    "word_count": 3018,
+    "hashes": {
+      "apps/server/tests/common/mod.rs": "59e483649d6e4620eae13790855b2e2d30d238633b1ab6b90555ed65595427e7"
+    }
+  },
+  "apps/server/tests/contract.rs": {
+    "size": 2259,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574046933267,
+    "word_count": 236,
+    "hashes": {
+      "apps/server/tests/contract.rs": "5112c42bf9cd20080b109afb8d623159104778baf11a2be4b69ff8dcbf5daec1"
+    }
+  },
+  "apps/server/tests/shares.rs": {
+    "size": 60427,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712574047000497,
+    "word_count": 5444,
+    "hashes": {
+      "apps/server/tests/shares.rs": "09aa367ee118add5517e8965d4bcfe9146d56ed5a7845f88e3f3e09a668c19ae"
+    }
+  },
+  "apps/tui/package.json": {
+    "size": 404,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574047130546,
+    "word_count": 40,
+    "hashes": {
+      "apps/tui/package.json": "0e78a229d24215583485b5b78a2c5d698f6c0958ba86a3fefc4e913d110ef02c"
+    }
+  },
+  "apps/tui/src/index.tsx": {
+    "size": 504,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712489134903119,
+    "word_count": 45
+  },
+  "apps/tui/tsconfig.json": {
+    "size": 754,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574047195976,
+    "word_count": 62,
+    "hashes": {
+      "apps/tui/tsconfig.json": "578b0fde43c16d6d6604e071d6f7ca202aa2ea992cc70c970cf5706ab57a9978"
+    }
+  },
+  "apps/web/.claude/CLAUDE.md": {
+    "size": 9028,
+    "mtime_ns": 1786710130140993054,
+    "indexed_at_ns": 1786712588311572603,
+    "word_count": 1267,
+    "hashes": {
+      "apps/web/.claude/claude.md": "67f06a6559b4bfb1c174ef494eecda907bc6ff24c07cf362caac4b8b5c241d75"
+    }
+  },
+  "apps/web/components.json": {
+    "size": 596,
+    "mtime_ns": 1786630141592253417,
+    "indexed_at_ns": 1786712574047246846,
+    "word_count": 47,
+    "hashes": {
+      "apps/web/components.json": "93b1663f013d0a86c8b669aabc7676679c8b02efc48de5c790b7b37578f70440"
+    }
+  },
+  "apps/web/index.html": {
+    "size": 307,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712588311636753,
+    "word_count": 23,
+    "hashes": {
+      "apps/web/index.html": "3cc74992716e736c00ccbb23335ff81f1178205185f451844f4f09ee070a9ded"
+    }
+  },
+  "apps/web/messages/en.json": {
+    "size": 429,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574047296445,
+    "word_count": 40,
+    "hashes": {
+      "apps/web/messages/en.json": "9bf17b7d63af06f95581bf1b8910ddc847e097011a885bea1728371d6c45e44e"
+    }
+  },
+  "apps/web/messages/ja.json": {
+    "size": 534,
+    "mtime_ns": 1786437133846951815,
+    "indexed_at_ns": 1786712574047345295,
+    "word_count": 24,
+    "hashes": {
+      "apps/web/messages/ja.json": "ec087189d275cbe701660c2f70250a90516d3d8126dbf74821c5427063e4d63f"
+    }
+  },
+  "apps/web/messages/zh-TW.json": {
+    "size": 422,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712574047394175,
+    "word_count": 27,
+    "hashes": {
+      "apps/web/messages/zh-tw.json": "1b2b5d1eeb343273287f94cdea36cda6b6ed98a042662c4bf9cbc713a9f84174"
+    }
+  },
+  "apps/web/package.json": {
+    "size": 1923,
+    "mtime_ns": 1786711589662483105,
+    "indexed_at_ns": 1786712574047440405,
+    "word_count": 131,
+    "hashes": {
+      "apps/web/package.json": "ff4af5af74b961b7684b726b9d7d8ee4fef7d78fad9182273a0576b6e90703d7"
+    }
+  },
+  "apps/web/project.inlang/settings.json": {
+    "size": 286,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712574047490865,
+    "word_count": 17,
+    "hashes": {
+      "apps/web/project.inlang/settings.json": "1adeae68f6cceb2fd76aaa81604310a754344e76b3e9dc7a8431cd19cf54ae1a"
+    }
+  },
+  "apps/web/src/components/glass-background.tsx": {
+    "size": 2295,
+    "mtime_ns": 1786556707246725131,
+    "indexed_at_ns": 1786712489161105414,
+    "word_count": 196
+  },
+  "apps/web/src/components/header.tsx": {
+    "size": 1353,
+    "mtime_ns": 1786635710441654934,
+    "indexed_at_ns": 1786712489163113545,
+    "word_count": 103
+  },
+  "apps/web/src/components/loader.tsx": {
+    "size": 215,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712489165073167,
+    "word_count": 25
+  },
+  "apps/web/src/components/mode-toggle.tsx": {
+    "size": 1198,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712489167066918,
+    "word_count": 93
+  },
+  "apps/web/src/components/theme-provider.tsx": {
+    "size": 325,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712489169063428,
+    "word_count": 33
+  },
+  "apps/web/src/lib/locale.ts": {
+    "size": 576,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712489172728973,
+    "word_count": 57
+  },
+  "apps/web/src/lib/upload.ts": {
+    "size": 1563,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712489174710364,
+    "word_count": 170
+  },
+  "apps/web/src/main.tsx": {
+    "size": 716,
+    "mtime_ns": 1786470769958639968,
+    "indexed_at_ns": 1786712489176496466,
+    "word_count": 75
+  },
+  "apps/web/src/routes/-components/blob-background.tsx": {
+    "size": 1338,
+    "mtime_ns": 1786546462262900512,
+    "indexed_at_ns": 1786712489180398669,
+    "word_count": 141
+  },
+  "apps/web/src/routes/-components/blob-canvas.tsx": {
+    "size": 7321,
+    "mtime_ns": 1786551149082524473,
+    "indexed_at_ns": 1786712489182602239,
+    "word_count": 793
+  },
+  "apps/web/src/routes/-components/blob-specs.ts": {
+    "size": 854,
+    "mtime_ns": 1786546462262900512,
+    "indexed_at_ns": 1786712489184900370,
+    "word_count": 96
+  },
+  "apps/web/src/routes/-components/code-upload-form.tsx": {
+    "size": 4295,
+    "mtime_ns": 1786636531439254443,
+    "indexed_at_ns": 1786712489187197769,
+    "word_count": 440
+  },
+  "apps/web/src/routes/-components/link-upload-form.tsx": {
+    "size": 827,
+    "mtime_ns": 1786551149086524470,
+    "indexed_at_ns": 1786712489189413079,
+    "word_count": 76
+  },
+  "apps/web/src/routes/-components/quick-submit-button.tsx": {
+    "size": 1277,
+    "mtime_ns": 1786546462262900512,
+    "indexed_at_ns": 1786712489191664000,
+    "word_count": 131
+  },
+  "apps/web/src/routes/-components/upload-button.tsx": {
+    "size": 3102,
+    "mtime_ns": 1786548456918324118,
+    "indexed_at_ns": 1786712489193900240,
+    "word_count": 277
+  },
+  "apps/web/src/routes/-components/upload-panel.tsx": {
+    "size": 3930,
+    "mtime_ns": 1786634049230439037,
+    "indexed_at_ns": 1786712489196172389,
+    "word_count": 278
+  },
+  "apps/web/src/routes/-components/upload-result.tsx": {
+    "size": 2201,
+    "mtime_ns": 1786546462262900512,
+    "indexed_at_ns": 1786712489198354760,
+    "word_count": 193
+  },
+  "apps/web/src/routes/-components/use-submit-transition.ts": {
+    "size": 2656,
+    "mtime_ns": 1786551149086524470,
+    "indexed_at_ns": 1786712489200589500,
+    "word_count": 268
+  },
+  "apps/web/src/routes/__root.tsx": {
+    "size": 2099,
+    "mtime_ns": 1786635725781656755,
+    "indexed_at_ns": 1786712489202598582,
+    "word_count": 189
+  },
+  "apps/web/src/routes/index.tsx": {
+    "size": 453,
+    "mtime_ns": 1786634049230439037,
+    "indexed_at_ns": 1786712489207665399,
+    "word_count": 54
+  },
+  "apps/web/src/routes/login/-components/login-form.tsx": {
+    "size": 4764,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489210126469,
+    "word_count": 300
+  },
+  "apps/web/src/routes/login/index.tsx": {
+    "size": 509,
+    "mtime_ns": 1786556707246725131,
+    "indexed_at_ns": 1786712489212350249,
+    "word_count": 50
+  },
+  "apps/web/src/routes/s/$code/index.tsx": {
+    "size": 675,
+    "mtime_ns": 1786635332677626829,
+    "indexed_at_ns": 1786712489214787679,
+    "word_count": 66
+  },
+  "apps/web/src/routes/s/index.tsx": {
+    "size": 319,
+    "mtime_ns": 1786711785218324344,
+    "indexed_at_ns": 1786712489217051358,
+    "word_count": 34
+  },
+  "apps/web/tsconfig.json": {
+    "size": 364,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574047552214,
+    "word_count": 30,
+    "hashes": {
+      "apps/web/tsconfig.json": "5a3a32a61457d4c7774dc257a0a47b4861489dc3f01a22517e27559c3508efdd"
+    }
+  },
+  "apps/web/vite.config.ts": {
+    "size": 1348,
+    "mtime_ns": 1786470769962639958,
+    "indexed_at_ns": 1786712489220028975,
+    "word_count": 163
+  },
+  "crates/tessera-core/Cargo.toml": {
+    "size": 1117,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574048124412,
+    "word_count": 192,
+    "hashes": {
+      "crates/tessera-core/cargo.toml": "aca2f710882c9603e2046de241fdb777d95e1a05dd7e2f4d5a200003a011bf5e"
+    }
+  },
+  "crates/tessera-core/src/code.rs": {
+    "size": 9427,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574048176251,
+    "word_count": 1072,
+    "hashes": {
+      "crates/tessera-core/src/code.rs": "81028f4dec601890ff241a988e8c09684e8ae055b7ce5569a911e66ad0431a1f"
+    }
+  },
+  "crates/tessera-core/src/email.rs": {
+    "size": 8833,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574048231951,
+    "word_count": 885,
+    "hashes": {
+      "crates/tessera-core/src/email.rs": "fe6b2c974b903afb5dac54ea77ce938d830cefbf3a21e8a924e87af0cd04e448"
+    }
+  },
+  "crates/tessera-core/src/error.rs": {
+    "size": 2164,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574048286901,
+    "word_count": 315,
+    "hashes": {
+      "crates/tessera-core/src/error.rs": "cebad92387dfc496195c8e0d499a45a73595b50c5f25db4b309292bf1b7c292a"
+    }
+  },
+  "crates/tessera-core/src/id.rs": {
+    "size": 7322,
+    "mtime_ns": 1786641812186775964,
+    "indexed_at_ns": 1786712574048337011,
+    "word_count": 793,
+    "hashes": {
+      "crates/tessera-core/src/id.rs": "2693f424cd69934d01839b3a76dac8bcb1125243651be1e510c78c5d69faba82"
+    }
+  },
+  "crates/tessera-core/src/lib.rs": {
+    "size": 2269,
+    "mtime_ns": 1786641812186775964,
+    "indexed_at_ns": 1786712574048390160,
+    "word_count": 345,
+    "hashes": {
+      "crates/tessera-core/src/lib.rs": "179d0f572bca0c8365e5582be94b7625088afd527e9bca74f1918fee6e510a94"
+    }
+  },
+  "crates/tessera-core/src/password.rs": {
+    "size": 11552,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574048440310,
+    "word_count": 1408,
+    "hashes": {
+      "crates/tessera-core/src/password.rs": "1c6c16d6d4ed5edcce6335a30337b10a698acdaeee12a84d8beaea14bef73c7e"
+    }
+  },
+  "crates/tessera-core/src/username.rs": {
+    "size": 9252,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574048495180,
+    "word_count": 959,
+    "hashes": {
+      "crates/tessera-core/src/username.rs": "462e2fc43b56f53ecdf20925123132a7f433ccea7e3b0674198a0871f44a3202"
+    }
+  },
+  "docker-compose.yml": {
+    "size": 1141,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712489238747663,
+    "word_count": 147
+  },
+  "openapi.json": {
+    "size": 61367,
+    "mtime_ns": 1786641812186775964,
+    "indexed_at_ns": 1786712489239892869,
+    "word_count": 5580
+  },
+  "oxfmt.config.ts": {
+    "size": 565,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712489241195323,
+    "word_count": 70
+  },
+  "oxlint.config.ts": {
+    "size": 1215,
+    "mtime_ns": 1786685085764546208,
+    "indexed_at_ns": 1786712489242280718,
+    "word_count": 83
+  },
+  "package.json": {
+    "size": 2019,
+    "mtime_ns": 1786621974307227106,
+    "indexed_at_ns": 1786712489243388833,
+    "word_count": 200
+  },
+  "packages/config/package.json": {
+    "size": 73,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574047601414,
+    "word_count": 8,
+    "hashes": {
+      "packages/config/package.json": "1e01126bfb845a6950dc8d4054022af7d29d6b52295a4c4a6b3fd466f3146e76"
+    }
+  },
+  "packages/config/tsconfig.base.json": {
+    "size": 608,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574047648164,
+    "word_count": 41,
+    "hashes": {
+      "packages/config/tsconfig.base.json": "13d37df80984209e26764e19547acd6894a657dacfde6415cf308638bf4c8737"
+    }
+  },
+  "packages/env/package.json": {
+    "size": 408,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574047694134,
+    "word_count": 35,
+    "hashes": {
+      "packages/env/package.json": "70788cba6ca358cc8808af2db1c71208b5a7ed9f9d9cfb9aea3407f781497da2"
+    }
+  },
+  "packages/env/src/server.ts": {
+    "size": 495,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712489250136733,
+    "word_count": 43
+  },
+  "packages/env/src/web.ts": {
+    "size": 476,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712489252241254,
+    "word_count": 39
+  },
+  "packages/env/tsconfig.json": {
+    "size": 111,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712574047741433,
+    "word_count": 9,
+    "hashes": {
+      "packages/env/tsconfig.json": "f2638f41b52503d31c46ff2738a840a8d45fcdfecaefe70b5871dd348eb7ffa4"
+    }
+  },
+  "packages/i18n/package.json": {
+    "size": 232,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712574047787883,
+    "word_count": 22,
+    "hashes": {
+      "packages/i18n/package.json": "6edb3b96b85ee9915b935aa8565e9e8d6b2c0efd4c37586240616b33f257574a"
+    }
+  },
+  "packages/i18n/src/index.ts": {
+    "size": 129,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489257223372,
+    "word_count": 14
+  },
+  "packages/i18n/src/locale-controls.ts": {
+    "size": 2391,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489259132564,
+    "word_count": 343
+  },
+  "packages/i18n/tsconfig.json": {
+    "size": 111,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712574047853853,
+    "word_count": 9,
+    "hashes": {
+      "packages/i18n/tsconfig.json": "588e41ce9a6c1d0795e95f2f2a9a1172547d8d4c10c0d2ade118b2d2206d7ea6"
+    }
+  },
+  "packages/ui/components.json": {
+    "size": 571,
+    "mtime_ns": 1786632301195359100,
+    "indexed_at_ns": 1786712574047948182,
+    "word_count": 46,
+    "hashes": {
+      "packages/ui/components.json": "21395cfb5cd0cd747f8c4d13e73b93970b3e5b98a23368b5281945b23ad18c91"
+    }
+  },
+  "packages/ui/package.json": {
+    "size": 1101,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712574048004352,
+    "word_count": 77,
+    "hashes": {
+      "packages/ui/package.json": "f97db8f6938491df5e01346531799374309c0dc4f7b24ae88a28b39103d1edf9"
+    }
+  },
+  "packages/ui/postcss.config.mjs": {
+    "size": 70,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712489265506906,
+    "word_count": 9
+  },
+  "packages/ui/src/components/alert-dialog.tsx": {
+    "size": 5260,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489267690556,
+    "word_count": 350
+  },
+  "packages/ui/src/components/animated-theme-toggler.tsx": {
+    "size": 10395,
+    "mtime_ns": 1786633849838344984,
+    "indexed_at_ns": 1786712489269756867,
+    "word_count": 1176
+  },
+  "packages/ui/src/components/avatar.tsx": {
+    "size": 3052,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489271994048,
+    "word_count": 221
+  },
+  "packages/ui/src/components/button.tsx": {
+    "size": 3181,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489274075848,
+    "word_count": 195
+  },
+  "packages/ui/src/components/card.tsx": {
+    "size": 2523,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489276255548,
+    "word_count": 197
+  },
+  "packages/ui/src/components/chart.tsx": {
+    "size": 10610,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489278563469,
+    "word_count": 914
+  },
+  "packages/ui/src/components/checkbox.tsx": {
+    "size": 1371,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489280688019,
+    "word_count": 88
+  },
+  "packages/ui/src/components/dialog.tsx": {
+    "size": 4017,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489282780261,
+    "word_count": 307
+  },
+  "packages/ui/src/components/dropdown-menu.tsx": {
+    "size": 8843,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489284872221,
+    "word_count": 572
+  },
+  "packages/ui/src/components/field.tsx": {
+    "size": 6052,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489286999341,
+    "word_count": 464
+  },
+  "packages/ui/src/components/input-otp.tsx": {
+    "size": 2576,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489289125012,
+    "word_count": 194
+  },
+  "packages/ui/src/components/input.tsx": {
+    "size": 1018,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489291251913,
+    "word_count": 77
+  },
+  "packages/ui/src/components/label.tsx": {
+    "size": 540,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489293310184,
+    "word_count": 47
+  },
+  "packages/ui/src/components/select.tsx": {
+    "size": 6689,
+    "mtime_ns": 1786465692115036858,
+    "indexed_at_ns": 1786712489295346795,
+    "word_count": 431
+  },
+  "packages/ui/src/components/separator.tsx": {
+    "size": 559,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489297374846,
+    "word_count": 48
+  },
+  "packages/ui/src/components/sheet.tsx": {
+    "size": 4471,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489299410157,
+    "word_count": 309
+  },
+  "packages/ui/src/components/sidebar.tsx": {
+    "size": 21966,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489301487548,
+    "word_count": 1661
+  },
+  "packages/ui/src/components/skeleton.tsx": {
+    "size": 288,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489303590409,
+    "word_count": 29
+  },
+  "packages/ui/src/components/tabs.tsx": {
+    "size": 3485,
+    "mtime_ns": 1786546462262900512,
+    "indexed_at_ns": 1786712489305617030,
+    "word_count": 216
+  },
+  "packages/ui/src/components/textarea.tsx": {
+    "size": 835,
+    "mtime_ns": 1786546462262900512,
+    "indexed_at_ns": 1786712489307681151,
+    "word_count": 60
+  },
+  "packages/ui/src/components/toast.tsx": {
+    "size": 7362,
+    "mtime_ns": 1786465692119036812,
+    "indexed_at_ns": 1786712489309711952,
+    "word_count": 475
+  },
+  "packages/ui/src/components/tooltip.tsx": {
+    "size": 2848,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489311800673,
+    "word_count": 174
+  },
+  "packages/ui/src/hooks/use-mobile.ts": {
+    "size": 515,
+    "mtime_ns": 1786688519434771778,
+    "indexed_at_ns": 1786712489313972133,
+    "word_count": 57
+  },
+  "packages/ui/src/lib/utils.ts": {
+    "size": 192,
+    "mtime_ns": 1786465692119036812,
+    "indexed_at_ns": 1786712489316069344,
+    "word_count": 27
+  },
+  "packages/ui/tsconfig.json": {
+    "size": 332,
+    "mtime_ns": 1786684551521617539,
+    "indexed_at_ns": 1786712574048073462,
+    "word_count": 27,
+    "hashes": {
+      "packages/ui/tsconfig.json": "7a51e6d6c84f04573d1d34c6e23775e926ff53af3d5fb49f18d9f7cb55e51e49"
+    }
+  },
+  "pnpm-workspace.yaml": {
+    "size": 502,
+    "mtime_ns": 1786503326560212439,
+    "indexed_at_ns": 1786712489320911613,
+    "word_count": 47
+  },
+  "skills-lock.json": {
+    "size": 1996,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712489324086749,
+    "word_count": 95
+  },
+  "tessera.personal.yaml": {
+    "size": 1893,
+    "mtime_ns": 1786526978589200556,
+    "indexed_at_ns": 1786712489325298853,
+    "word_count": 111
+  },
+  "tessera.public.yaml": {
+    "size": 3602,
+    "mtime_ns": 1786526978593200553,
+    "indexed_at_ns": 1786712489326543638,
+    "word_count": 191
+  },
+  "tsconfig.json": {
+    "size": 111,
+    "mtime_ns": 1786437133850951835,
+    "indexed_at_ns": 1786712489328825238,
+    "word_count": 9
+  },
+  "turbo.json": {
+    "size": 392,
+    "mtime_ns": 1786506029234316150,
+    "indexed_at_ns": 1786712489329960833,
+    "word_count": 36
+  }
+}

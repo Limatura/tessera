@@ -1,0 +1,1640 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_rs",
+      "label": "public.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_retrievalquery",
+      "label": "RetrievalQuery",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L41"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_routes",
+      "label": "routes()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L51"
+    },
+    {
+      "id": "router",
+      "label": "Router",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "appstate",
+      "label": "AppState",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_raw",
+      "label": "raw()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58"
+    },
+    {
+      "id": "state",
+      "label": "State",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "method",
+      "label": "Method",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "apipath",
+      "label": "ApiPath",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "apiquery",
+      "label": "ApiQuery",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "clientaddress",
+      "label": "ClientAddress",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "headermap",
+      "label": "HeaderMap",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "response",
+      "label": "Response",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_download",
+      "label": "download()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_serve",
+      "label": "serve()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149"
+    },
+    {
+      "id": "share",
+      "label": "Share",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "payload",
+      "label": "Payload",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "headervalue",
+      "label": "HeaderValue",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_harden",
+      "label": "harden()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L212"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_permit",
+      "label": "permit()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_payload",
+      "label": "Payload",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L271"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_etag_for",
+      "label": "etag_for()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L284"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "label": "content_disposition()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L293"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_percent_encode",
+      "label": "percent_encode()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L315"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "label": "parse_range()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L333"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_read_range",
+      "label": "read_range()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L375"
+    },
+    {
+      "id": "body",
+      "label": "Body",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_slice",
+      "label": "slice()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L399"
+    },
+    {
+      "id": "vec",
+      "label": "Vec",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/api/public.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_start_as_u64",
+      "label": "start_as_u64()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L412"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_parses_the_range_forms_a_download_manager_sends",
+      "label": "parses_the_range_forms_a_download_manager_sends()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L421"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_refuses_ranges_it_cannot_answer",
+      "label": "refuses_ranges_it_cannot_answer()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L430"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_a_non_ascii_filename_survives_content_disposition",
+      "label": "a_non_ascii_filename_survives_content_disposition()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L440"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_a_share_with_no_filename_still_downloads",
+      "label": "a_share_with_no_filename_still_downloads()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L452"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_api_public_test_share",
+      "label": "test_share()",
+      "file_type": "code",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L457"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "axum",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "object_store",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "deserialize",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L22",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L24",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_retrievalquery",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L41",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_retrievalquery",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_retrievalquery",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_routes",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L51",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_routes",
+      "target": "router",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L51",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_routes",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L51",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_raw",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "method",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "apipath",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "apiquery",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "$graphify-root$_apps_server_src_api_public_retrievalquery",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "clientaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L58",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_download",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "state",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "method",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "apipath",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "apiquery",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "$graphify-root$_apps_server_src_api_public_retrievalquery",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "clientaddress",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L107",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_serve",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "payload",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "headervalue",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "headervalue",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "response",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_harden",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L212",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_harden",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L212",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_permit",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_permit",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_permit",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_permit",
+      "target": "headermap",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_permit",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_permit",
+      "target": "method",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_permit",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_permit",
+      "target": "payload",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L231",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_payload",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L271",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_etag_for",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L284",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_etag_for",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L284",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_etag_for",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L284",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L293",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L293",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L293",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_percent_encode",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L315",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_percent_encode",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L315",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L333",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L333",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_read_range",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L375",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_read_range",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L375",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_read_range",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L375",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_read_range",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L375",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_read_range",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L375",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_read_range",
+      "target": "body",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L375",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_slice",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L399",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_slice",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L399",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_slice",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L399",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_start_as_u64",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L412",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "super",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L418",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_parses_the_range_forms_a_download_manager_sends",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L421",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_refuses_ranges_it_cannot_answer",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L430",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_a_non_ascii_filename_survives_content_disposition",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L440",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_a_share_with_no_filename_still_downloads",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L452",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_rs",
+      "target": "$graphify-root$_apps_server_src_api_public_test_share",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L457",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_test_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L457",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_test_share",
+      "target": "share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L457",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "$graphify-root$_apps_server_src_api_public_permit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L79",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_raw",
+      "target": "$graphify-root$_apps_server_src_api_public_serve",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L95",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "$graphify-root$_apps_server_src_api_public_permit",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L118",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L129",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_download",
+      "target": "$graphify-root$_apps_server_src_api_public_serve",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L131",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "$graphify-root$_apps_server_src_api_public_etag_for",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L157",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L171",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "$graphify-root$_apps_server_src_api_public_read_range",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L184",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_serve",
+      "target": "$graphify-root$_apps_server_src_api_public_harden",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L207",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_read_range",
+      "target": "$graphify-root$_apps_server_src_api_public_slice",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L382",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_slice",
+      "target": "$graphify-root$_apps_server_src_api_public_start_as_u64",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L404",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_a_non_ascii_filename_survives_content_disposition",
+      "target": "$graphify-root$_apps_server_src_api_public_test_share",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L441",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_a_non_ascii_filename_survives_content_disposition",
+      "target": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L442",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_a_share_with_no_filename_still_downloads",
+      "target": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L453",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_api_public_a_share_with_no_filename_still_downloads",
+      "target": "$graphify-root$_apps_server_src_api_public_test_share",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L453",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_routes",
+      "callee": "route",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L52"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_routes",
+      "callee": "route",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L52"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_raw",
+      "callee": "as_deref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L83"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_download",
+      "callee": "as_deref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L122"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_download",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L129"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "is_none_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L164"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L166"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "as_bytes",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L166"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L167"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "and_then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L167"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "flatten",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L167"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "then",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L167"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "to_str",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L170"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "map_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L179"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L180"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "saturating_sub",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L180"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "into_response",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L186"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_serve",
+      "callee": "headers_mut",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L187"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L294"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "callee": "as_deref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L294"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "callee": "chars",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L299"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "callee": "is_ascii",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L302"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_content_disposition",
+      "callee": "is_ascii_control",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L302"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_percent_encode",
+      "callee": "is_ascii_alphanumeric",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L319"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "ok_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L335"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "strip_prefix",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L335"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "unsatisfiable",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L337"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "ok_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L339"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "split_once",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L339"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "saturating_sub",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L340"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L342"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "trim",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L342"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L345"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "unsatisfiable",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L345"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "saturating_sub",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L346"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L348"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "unsatisfiable",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L348"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L350"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "unsatisfiable",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L350"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L351"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "unsatisfiable",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L351"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_parse_range",
+      "callee": "unsatisfiable",
+      "is_member_call": false,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L356"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_read_range",
+      "callee": "object_key",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L376"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_read_range",
+      "callee": "ok_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L377"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_read_range",
+      "callee": "inline_content",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L377"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_read_range",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L387"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_read_range",
+      "callee": "get_opts",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L390"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_read_range",
+      "callee": "into_stream",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L396"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "to_vec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L401"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L403"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L404"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L404"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "saturating_sub",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L404"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "unwrap_or_default",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L406"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "to_vec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L408"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_slice",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L408"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_api_public_start_as_u64",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/api/public.rs",
+      "source_location": "L413"
+    }
+  ]
+}

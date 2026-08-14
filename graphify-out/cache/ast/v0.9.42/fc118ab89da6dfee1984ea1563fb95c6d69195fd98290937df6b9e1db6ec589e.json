@@ -1,0 +1,2943 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "label": "share.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharekind",
+      "label": "ShareKind",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L30"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharekind_as_str",
+      "label": ".as_str()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L40"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharekind_parse",
+      "label": ".parse()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L47"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "self",
+      "label": "Self",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "domainerror",
+      "label": "DomainError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "label": "StorageLocation",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L65"
+    },
+    {
+      "id": "string",
+      "label": "String",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_object_key",
+      "label": ".object_key()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L100"
+    },
+    {
+      "id": "option",
+      "label": "Option",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_is_reapable",
+      "label": ".is_reapable()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L109"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_as_str",
+      "label": ".as_str()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L115"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "label": ".parse()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L123"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "label": "Share",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L145"
+    },
+    {
+      "id": "shareid",
+      "label": "ShareId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "retrievalcode",
+      "label": "RetrievalCode",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "userid",
+      "label": "UserId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_share_is_exhausted",
+      "label": ".is_exhausted()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L197"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_share_is_expired_at",
+      "label": ".is_expired_at()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L203"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_share_needs_password",
+      "label": ".needs_password()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L209"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_share_availability_at",
+      "label": ".availability_at()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L228"
+    },
+    {
+      "id": "availability",
+      "label": "Availability",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "label": ".from_model()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L240"
+    },
+    {
+      "id": "model",
+      "label": "Model",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "corruptrow",
+      "label": "CorruptRow",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "label": ".to_active_model()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L278"
+    },
+    {
+      "id": "activemodel",
+      "label": "ActiveModel",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_unsigned",
+      "label": "unsigned()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L322"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_signed",
+      "label": "signed()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L326"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_availability",
+      "label": "Availability",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L332"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "label": "ShareRepositoryError",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L345"
+    },
+    {
+      "id": "dberr",
+      "label": "DbErr",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "label": "ShareRepository",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L357"
+    },
+    {
+      "id": "databaseconnection",
+      "label": "DatabaseConnection",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_new",
+      "label": ".new()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L364"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "label": ".insert()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L374"
+    },
+    {
+      "id": "vec",
+      "label": "Vec",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "label": ".find_by_code()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L400"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "label": ".find_by_id()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L417"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "label": ".inline_content()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L429"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "label": ".list_for_user()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L445"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "label": ".consume()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L479"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "label": ".record_view()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L510"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_delete",
+      "label": ".delete()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L530"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "label": ".find_reapable()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L568"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "label": ".mark_content_removed()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L612"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "label": ".total_stored_bytes()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L649"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "label": ".find_dead()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L678"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "label": "ShareTicket",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L711"
+    },
+    {
+      "id": "shareticketid",
+      "label": "ShareTicketId",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticket_is_valid_at",
+      "label": ".is_valid_at()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L725"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "label": ".from_model()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L729"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository",
+      "label": "ShareTicketRepository",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L745"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_new",
+      "label": ".new()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L752"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "label": ".issue()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764"
+    },
+    {
+      "id": "secret",
+      "label": "Secret",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/db/repository/share.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "label": ".find_by_secret()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L798"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_delete_expired",
+      "label": ".delete_expired()",
+      "file_type": "code",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L814"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "sea_orm",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L7",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "tessera_core",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L13",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L14",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L16",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharekind",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharekind",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharekind_as_str",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L40",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharekind",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharekind_parse",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L47",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharekind_parse",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharekind_parse",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharekind_parse",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L47",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L65",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L72",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_object_key",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L100",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_object_key",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L100",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_is_reapable",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L109",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_as_str",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L115",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L123",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "target": "domainerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L123",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L145",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L147",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "retrievalcode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L149",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L151",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L151",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharekind",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L153",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L156",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L158",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L162",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L162",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L164",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L164",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L167",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L167",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L169",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L169",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L171",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L173",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L173",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L177",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L180",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L180",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L182",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "string",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L182",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L186",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L186",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L189",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L191",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_is_exhausted",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L197",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_is_expired_at",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L203",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_is_expired_at",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L203",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_needs_password",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L209",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_availability_at",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L228",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_availability_at",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L228",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_availability_at",
+      "target": "availability",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L228",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L240",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "target": "model",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L240",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L240",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L240",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "target": "corruptrow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L240",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L278",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "target": "activemodel",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L278",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_unsigned",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L322",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_signed",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L326",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_availability",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L332",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L345",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "target": "dberr",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L348",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "target": "corruptrow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L352",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L357",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L358",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_new",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L364",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_new",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L364",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_new",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L364",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L374",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L374",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L374",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L374",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L374",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L374",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L400",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "target": "retrievalcode",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L400",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L400",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L400",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L400",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L400",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L417",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L417",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L417",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L417",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L417",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L417",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L429",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L429",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L429",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L429",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L429",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L429",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L445",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "target": "userid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L445",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L445",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L445",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L445",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L445",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L479",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L479",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L479",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L479",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L479",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L510",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L510",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L510",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L510",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_delete",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L530",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_delete",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L530",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_delete",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L530",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_delete",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L530",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L568",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L568",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L568",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L568",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L568",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L568",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L612",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L612",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L612",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L612",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L649",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L649",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L649",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L678",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L678",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L678",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "target": "vec",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L678",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L678",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L678",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L711",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "target": "shareticketid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L713",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L715",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L717",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L719",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket_is_valid_at",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L725",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket_is_valid_at",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L725",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L729",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "target": "model",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L729",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L729",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L729",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "target": "corruptrow",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L729",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_rs",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L745",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L746",
+      "weight": 1.0,
+      "context": "field"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_new",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L752",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_new",
+      "target": "databaseconnection",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L752",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_new",
+      "target": "self",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L752",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "shareid",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L764",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L798",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "target": "secret",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L798",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L798",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "target": "option",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L798",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L798",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L798",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_delete_expired",
+      "relation": "method",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L814",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_delete_expired",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L814",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_delete_expired",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L814",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_delete_expired",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L814",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_availability_at",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_is_expired_at",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L231",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_availability_at",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_is_exhausted",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L233",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L245",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_unsigned",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L257",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_as_str",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L290",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_signed",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L296",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L379",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_as_str",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L405",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L433",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L458",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L594",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L700",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_storagelocation_parse",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L735",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "target": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L778",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_is_exhausted",
+      "callee": "is_some_and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L198"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_is_expired_at",
+      "callee": "is_some_and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L204"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_needs_password",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L210"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_availability_at",
+      "callee": "is_some",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L229"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L245"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L246"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L247"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L247"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "as_deref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L247"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L253"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L265"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "try_into",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L265"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L266"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L304"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_share_to_active_model",
+      "callee": "try_into",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L304"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_unsigned",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L323"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_signed",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L327"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L379"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_insert",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L384"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L404"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L405"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_code",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L408"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L418"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_by_id",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L421"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_inline_content",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L433"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "callee": "order_by_desc",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L446"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "callee": "order_by_desc",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L446"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L447"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L456"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_list_for_user",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L458"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L484"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L484"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L484"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L487"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L490"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L492"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "is_null",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L492"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_consume",
+      "callee": "lt",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L494"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L511"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L511"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "callee": "add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L514"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_record_view",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L516"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_delete",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L531"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L573"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "is_not_null",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L573"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "lt",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L575"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L576"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "is_not_null",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L576"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "gte",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L578"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "limit",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L585"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "order_by_asc",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L585"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L586"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "ne",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L587"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L592"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_reapable",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L594"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L616"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L620"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L620"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "callee": "col_expr",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L620"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_mark_content_removed",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L629"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "flatten",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L650"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L650"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "into_tuple",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L650"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "column_as",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L650"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "select_only",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L650"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "ne",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L651"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L658"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_total_stored_bytes",
+      "callee": "unwrap_or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L658"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L683"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "is_not_null",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L683"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "lt",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L685"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L686"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L686"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "and",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L686"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "is_not_null",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L686"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "gte",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L688"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "is_not_null",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L689"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "lt",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L690"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "limit",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L692"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "order_by_asc",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L692"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "or",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L693"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "into_iter",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L698"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_sharerepository_find_dead",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L700"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L735"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticket_from_model",
+      "callee": "map_err",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L736"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L778"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_issue",
+      "callee": "digest",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L781"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "callee": "one",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L802"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "callee": "eq",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L803"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "callee": "digest",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L803"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "callee": "transpose",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L806"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_find_by_secret",
+      "callee": "as_ref",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L806"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_delete_expired",
+      "callee": "exec",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L815"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_db_repository_share_shareticketrepository_delete_expired",
+      "callee": "lt",
+      "is_member_call": true,
+      "source_file": "apps/server/src/db/repository/share.rs",
+      "source_location": "L816"
+    }
+  ]
+}

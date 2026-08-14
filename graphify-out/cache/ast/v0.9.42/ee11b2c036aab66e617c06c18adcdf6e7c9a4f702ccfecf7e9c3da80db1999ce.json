@@ -1,0 +1,623 @@
+{
+  "nodes": [
+    {
+      "id": "$graphify-root$_apps_server_src_maintenance_rs",
+      "label": "maintenance.rs",
+      "file_type": "code",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L1"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_maintenance_sweep_expired",
+      "label": "sweep_expired()",
+      "file_type": "code",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L46"
+    },
+    {
+      "id": "appstate",
+      "label": "AppState",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "cancellationtoken",
+      "label": "CancellationToken",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "label": "sweep_once()",
+      "file_type": "code",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L63"
+    },
+    {
+      "id": "offsetdatetime",
+      "label": "OffsetDateTime",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "label": "reap_dead_content()",
+      "file_type": "code",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121"
+    },
+    {
+      "id": "sharerepository",
+      "label": "ShareRepository",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "arc",
+      "label": "Arc",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "objectstore",
+      "label": "ObjectStore",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "result",
+      "label": "Result",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "sharerepositoryerror",
+      "label": "ShareRepositoryError",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_maintenance_remove_object",
+      "label": "remove_object()",
+      "file_type": "code",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L152"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "label": "sweep_dead_shares()",
+      "file_type": "code",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166"
+    },
+    {
+      "id": "duration",
+      "label": "Duration",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    },
+    {
+      "id": "$graphify-root$_apps_server_src_maintenance_report",
+      "label": "report()",
+      "file_type": "code",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L200"
+    },
+    {
+      "id": "e",
+      "label": "E",
+      "file_type": "code",
+      "source_file": "",
+      "source_location": "",
+      "origin_file": "$graphify-root$/apps/server/src/maintenance.rs"
+    }
+  ],
+  "edges": [
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "std",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L15",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "object_store",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L17",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "offsetdatetime",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L18",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "cancellationtoken",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L19",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "crate",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L21",
+      "weight": 1.0,
+      "context": "import"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "$graphify-root$_apps_server_src_maintenance_sweep_expired",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L46",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_expired",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L46",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_expired",
+      "target": "cancellationtoken",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L46",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L63",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "target": "appstate",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L63",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "target": "sharerepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "target": "objectstore",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "target": "sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L121",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "$graphify-root$_apps_server_src_maintenance_remove_object",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L152",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_remove_object",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L152",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_remove_object",
+      "target": "objectstore",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L152",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "sharerepository",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "arc",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "objectstore",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "offsetdatetime",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "duration",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "return_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "sharerepositoryerror",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L166",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_rs",
+      "target": "$graphify-root$_apps_server_src_maintenance_report",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L200",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_report",
+      "target": "result",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L200",
+      "weight": 1.0,
+      "context": "parameter_type"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_report",
+      "target": "e",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L200",
+      "weight": 1.0,
+      "context": "generic_arg"
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_expired",
+      "target": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L48",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "target": "$graphify-root$_apps_server_src_maintenance_report",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L64",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "target": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L87",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "target": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L91",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "target": "$graphify-root$_apps_server_src_maintenance_remove_object",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L129",
+      "weight": 1.0
+    },
+    {
+      "source": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "target": "$graphify-root$_apps_server_src_maintenance_remove_object",
+      "relation": "calls",
+      "context": "call",
+      "confidence": "EXTRACTED",
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L182",
+      "weight": 1.0
+    }
+  ],
+  "raw_calls": [
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "callee": "delete_expired",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L64"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "callee": "delete_expired",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L67"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "callee": "delete_expired",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L74"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "callee": "delete_expired",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L80"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_once",
+      "callee": "retention",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L95"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "callee": "find_reapable",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L127"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "callee": "object_key",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L128"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "callee": "mark_content_removed",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L139"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_reap_dead_content",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L140"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_remove_object",
+      "callee": "delete",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L153"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "callee": "saturating_sub",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L172"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "callee": "unwrap_or_else",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L173"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "callee": "find_dead",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L177"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "callee": "object_key",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L181"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "callee": "delete",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L189"
+    },
+    {
+      "caller_nid": "$graphify-root$_apps_server_src_maintenance_sweep_dead_shares",
+      "callee": "saturating_add",
+      "is_member_call": true,
+      "source_file": "apps/server/src/maintenance.rs",
+      "source_location": "L190"
+    }
+  ]
+}
