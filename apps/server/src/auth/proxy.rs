@@ -28,6 +28,24 @@ use std::net::IpAddr;
 use axum::http::HeaderMap;
 use ipnet::IpNet;
 
+/// The one spelling an address is compared and counted under.
+///
+/// A socket bound to `::` accepts IPv4 connections and reports them mapped —
+/// `127.0.0.1` arrives as `::ffff:127.0.0.1`. Without this, `server.host: "::"`
+/// silently stops a list containing `127.0.0.1` from ever matching: the proxy
+/// is then not trusted, every caller collapses onto its address, and the tenth
+/// failed sign-in on the whole instance locks out the eleventh person. Measured,
+/// and it is the sort of failure nobody would think to look here for.
+///
+/// It also keeps one client on one throttle key: the same person reaching a
+/// dual-stack instance over v4 and over v6-mapped-v4 is one person.
+fn canonical(address: IpAddr) -> IpAddr {
+    match address {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(address, IpAddr::V4),
+        IpAddr::V4(_) => address,
+    }
+}
+
 /// Where a request came from, and whether that answer can be relied on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Origin {
@@ -109,6 +127,7 @@ impl TrustedProxies {
 
     /// Whether an address inside the chain is one of ours.
     fn is_proxy(&self, address: IpAddr) -> bool {
+        let address = canonical(address);
         self.nets.iter().any(|net| net.contains(&address))
     }
 
@@ -124,7 +143,7 @@ impl TrustedProxies {
     /// report then, and none to trust.
     #[must_use]
     pub fn resolve(&self, peer: Option<IpAddr>, headers: &HeaderMap) -> Origin {
-        let Some(peer) = peer else {
+        let Some(peer) = peer.map(canonical) else {
             return Origin {
                 source: "unknown".to_owned(),
                 via_trusted_proxy: false,
@@ -147,6 +166,7 @@ impl TrustedProxies {
                 // last address we did understand is the conservative end of it.
                 break;
             };
+            let address = canonical(address);
             client = address;
             if !self.is_proxy(address) {
                 break;
@@ -308,6 +328,36 @@ mod tests {
         let origin = trusting(&["10.0.0.0/8"]).resolve(Some(ip("10.0.0.5")), &headers(&[""]));
         assert_eq!(origin.source, "10.0.0.5");
         assert!(origin.via_trusted_proxy);
+    }
+
+    /// A socket bound to `::` reports an IPv4 caller as `::ffff:127.0.0.1`, and
+    /// an operator writing the list has no reason to expect that.
+    #[test]
+    fn a_dual_stack_peer_matches_a_v4_entry() {
+        let origin = trusting(&["127.0.0.1"])
+            .resolve(Some(ip("::ffff:127.0.0.1")), &headers(&["203.0.113.9"]));
+        assert_eq!(origin.source, "203.0.113.9");
+        assert!(origin.via_trusted_proxy, "the proxy must still be believed");
+    }
+
+    /// And one person is one throttle key however they reached us.
+    #[test]
+    fn a_mapped_address_is_counted_as_its_v4_form() {
+        let origin =
+            TrustedProxies::default().resolve(Some(ip("::ffff:203.0.113.9")), &HeaderMap::new());
+        assert_eq!(origin.source, "203.0.113.9");
+    }
+
+    #[test]
+    fn a_mapped_hop_inside_the_chain_is_recognised() {
+        let origin = trusting(&["10.0.0.0/8"]).resolve(
+            Some(ip("10.0.0.5")),
+            &headers(&["203.0.113.9, ::ffff:10.0.0.9"]),
+        );
+        assert_eq!(
+            origin.source, "203.0.113.9",
+            "the mapped hop is one of ours and must be stepped over"
+        );
     }
 
     #[test]

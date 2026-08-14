@@ -458,7 +458,7 @@ pub struct ServerConfig {
     ///
     /// `["127.0.0.1", "::1"]` covers a proxy on the same host;
     /// `["10.0.0.0/8"]` a container network.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "list_or_commas")]
     pub trusted_proxies: Vec<String>,
 
     /// Deprecated: use [`ServerConfig::trusted_proxies`].
@@ -670,6 +670,38 @@ impl Default for TelemetryConfig {
             ansi: true,
         }
     }
+}
+
+/// Reads a list written either as a list or as one comma-separated string.
+///
+/// YAML and TOML both have list syntax, so a config file has no need of this.
+/// An environment variable does: `TESSERA_SERVER__TRUSTED_PROXIES` has to carry
+/// its structure inside a string, and the JSON figment expects
+/// (`["127.0.0.1","::1"]`) is not what anybody writes first. Refusing the
+/// obvious spelling would be a small thing anywhere else — here it is the
+/// setting that decides whether the throttles work, and the way out of a
+/// setting somebody cannot get to load is the deprecated boolean that turns
+/// them off.
+fn list_or_commas<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Written {
+        List(Vec<String>),
+        Joined(String),
+    }
+
+    Ok(match Written::deserialize(deserializer)? {
+        Written::List(entries) => entries,
+        Written::Joined(line) => line
+            .split(',')
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty())
+            .map(str::to_owned)
+            .collect(),
+    })
 }
 
 impl ServerConfig {
@@ -1506,6 +1538,20 @@ mod tests {
         config.server.trusted_proxies = vec!["10.0.0.0/8".to_owned(), "the proxy".to_owned()];
         let err = config.validate().unwrap_err();
         assert!(err.to_string().contains("trusted_proxies"), "got: {err}");
+    }
+
+    /// The spelling an operator reaches for first has to work, because the way
+    /// out of a setting that will not load is the boolean that turns the
+    /// throttles off.
+    #[test]
+    fn a_comma_separated_list_is_understood() {
+        figment::Jail::expect_with(|jail| {
+            jail.set_env("TESSERA_SERVER__TRUSTED_PROXIES", "127.0.0.1, ::1");
+            jail.create_file("tessera.toml", "")?;
+            let config = Config::load_from(Path::new("tessera.toml")).expect("must load");
+            assert_eq!(config.server.trusted_proxies, ["127.0.0.1", "::1"]);
+            Ok(())
+        });
     }
 
     #[test]
