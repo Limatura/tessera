@@ -49,6 +49,7 @@ use crate::{
     auth::{
         extract::{ClientAddress, CurrentUser, MaybeUser},
         password,
+        proxy::Origin,
         secret::Secret,
     },
     db::repository::share::{Share, ShareKind, StorageLocation},
@@ -877,7 +878,7 @@ pub struct TicketResponse {
 pub async fn describe(
     State(state): State<AppState>,
     ApiPath(code): ApiPath<String>,
-    ClientAddress(source): ClientAddress,
+    ClientAddress(Origin { source, .. }): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Json<PublicShareResponse>> {
     let share = gate::open(&state, &code, &source).await?;
@@ -928,7 +929,7 @@ pub async fn describe(
 pub async fn unlock(
     State(state): State<AppState>,
     ApiPath(code): ApiPath<String>,
-    ClientAddress(source): ClientAddress,
+    ClientAddress(Origin { source, .. }): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Json<TicketResponse>> {
     let share = gate::open(&state, &code, &source).await?;

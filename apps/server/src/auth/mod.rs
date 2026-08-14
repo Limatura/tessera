@@ -20,5 +20,6 @@ pub mod bootstrap;
 pub mod cookie;
 pub mod extract;
 pub mod password;
+pub mod proxy;
 pub mod secret;
 pub mod throttle;

@@ -12,10 +12,15 @@ server:
   host: 0.0.0.0
   # 25 MiB。陌生人上傳的東西沒有理由給到預設的 100 MiB。
   max_body_bytes: 26214400
-  # 前面有 nginx / Caddy / Cloudflare 的話打開,節流才看得到真實來源 IP。
-  # ⚠ 沒有反向代理就千萬不要開 —— 那等於讓任何人自己宣稱自己的 IP,
-  #    節流就完全失效了。
-  trusted_proxy: true
+  # 前面有 nginx / Caddy / Cloudflare 的話,把它的位址列在這裡,節流才看得到
+  # 真實來源 IP。只有從這些位址進來的連線,它送的 X-Forwarded-For 才會被採信。
+  # ⚠ 要寫代理自己的位址,不是使用者的。列錯或列太寬(例如 0.0.0.0/0)等於
+  #    讓任何人自己宣稱自己的 IP,節流就完全失效。
+  #    同一台機器上的代理是 127.0.0.1;docker compose 裡的是那個網段。
+  #    用環境變數的話兩種寫法都收:TESSERA_SERVER__TRUSTED_PROXIES='127.0.0.1, ::1'
+  trusted_proxies:
+    - 127.0.0.1
+    - ::1
   # 前端跟後端同源的話留空。分開部署才需要列出來。
   cors_allowed_origins: []
 

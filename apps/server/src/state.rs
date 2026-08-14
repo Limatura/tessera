@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 use utoipa::ToSchema;
 
 use crate::{
-    auth::throttle::Throttles,
+    auth::{proxy::TrustedProxies, throttle::Throttles},
     config::Config,
     db::repository::{
         api_token::ApiTokenRepository,
@@ -66,6 +66,12 @@ pub struct AppState {
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
     /// block does not mount the endpoints that would use it.
     pub mailer: Option<Mailer>,
+    /// The proxies this instance will be spoken for by.
+    ///
+    /// Parsed once at start-up rather than per request: it is read on every
+    /// request that has a throttle behind it, and the parsing is the same answer
+    /// every time.
+    pub proxies: Arc<TrustedProxies>,
     /// Failed-attempt counters.
     ///
     /// Shared rather than per-request: the whole point is that attempts
@@ -110,6 +116,7 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
+            proxies: Arc::new(config.server.proxy_trust()),
             throttles: Arc::new(Throttles::default()),
             config,
             db,

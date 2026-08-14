@@ -175,6 +175,7 @@ fn require_accounts(state: &AppState) -> Result<()> {
 )]
 pub async fn register(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     ApiJson(body): ApiJson<RegisterRequest>,
 ) -> Result<Response> {
@@ -260,7 +261,7 @@ pub async fn register(
         return Err(error.into());
     }
 
-    let cookie = start_session(&state, &user, &headers, now).await?;
+    let cookie = start_session(&state, &user, &headers, origin.via_trusted_proxy, now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
@@ -289,7 +290,7 @@ pub async fn register(
 )]
 pub async fn login(
     State(state): State<AppState>,
-    ClientAddress(address): ClientAddress,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     ApiJson(body): ApiJson<LoginRequest>,
 ) -> Result<Response> {
@@ -300,9 +301,10 @@ pub async fn login(
     // would let a botnet spread its guesses and never trip the limit. A second
     // counter watches the address by itself, because otherwise naming a
     // different account each time produces a fresh key and no limit at all.
-    let key = format!("{}|{address}", body.identifier.to_lowercase());
+    let key = format!("{}|{}", body.identifier.to_lowercase(), origin.source);
     let throttles = &state.throttles;
-    if let Decision::Deny { retry_after } = throttles.check(&throttles.login, &key, &address) {
+    if let Decision::Deny { retry_after } = throttles.check(&throttles.login, &key, &origin.source)
+    {
         return Err(Error::TooManyRequests {
             retry_after_secs: retry_after.as_secs(),
         });
@@ -329,13 +331,13 @@ pub async fn login(
     };
 
     let Some(user) = user.filter(|_| authenticated) else {
-        throttles.record_failure(&throttles.login, &key, &address);
+        throttles.record_failure(&throttles.login, &key, &origin.source);
         return Err(Error::Unauthorized);
     };
 
     throttles.login.reset(&key);
     let now = OffsetDateTime::now_utc();
-    let cookie = start_session(&state, &user, &headers, now).await?;
+    let cookie = start_session(&state, &user, &headers, origin.via_trusted_proxy, now).await?;
 
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
@@ -361,6 +363,7 @@ pub async fn login(
 )]
 pub async fn logout(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     SelfServiceUser(current): SelfServiceUser,
 ) -> Result<Response> {
@@ -378,7 +381,7 @@ pub async fn logout(
         .config
         .auth
         .cookie_secure
-        .applies(&headers, state.config.server.trusted_proxy);
+        .applies(&headers, origin.via_trusted_proxy);
     Ok((
         StatusCode::NO_CONTENT,
         [(
@@ -433,6 +436,7 @@ pub async fn session(SelfServiceUser(current): SelfServiceUser) -> Result<Json<A
 )]
 pub async fn change_password(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     SelfServiceUser(current): SelfServiceUser,
     ApiJson(body): ApiJson<ChangePasswordRequest>,
@@ -465,7 +469,14 @@ pub async fn change_password(
         .await?;
     state.sessions.delete_for_user(current.user.id).await?;
 
-    let cookie = start_session(&state, &current.user, &headers, now).await?;
+    let cookie = start_session(
+        &state,
+        &current.user,
+        &headers,
+        origin.via_trusted_proxy,
+        now,
+    )
+    .await?;
     let mut account = AccountResponse::from(&current.user);
     account.must_change_password = false;
 
@@ -514,6 +525,7 @@ async fn start_session(
     state: &AppState,
     user: &User,
     headers: &HeaderMap,
+    via_trusted_proxy: bool,
     now: OffsetDateTime,
 ) -> Result<Cookie<'static>> {
     // `std::time::Duration` is unsigned and `time::Duration` is not, so the
@@ -534,7 +546,7 @@ async fn start_session(
         .config
         .auth
         .cookie_secure
-        .applies(headers, state.config.server.trusted_proxy);
+        .applies(headers, via_trusted_proxy);
     Ok(cookie::session_cookie(&secret, ttl, secure))
 }
 
@@ -690,6 +702,7 @@ fn start_verified_registration(
 )]
 pub async fn confirm_registration(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     ApiJson(body): ApiJson<RegisterConfirmRequest>,
 ) -> Result<Response> {
@@ -788,7 +801,7 @@ pub async fn confirm_registration(
     }
     state.pending.finish(pending.id).await?;
 
-    let cookie = start_session(&state, &user, &headers, now).await?;
+    let cookie = start_session(&state, &user, &headers, origin.via_trusted_proxy, now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
