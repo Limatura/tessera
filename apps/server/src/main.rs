@@ -62,8 +62,8 @@ async fn main() -> anyhow::Result<()> {
         // re-executes this binary instead. It shares the configuration, which
         // means the probe always targets the port the server actually listens on.
         cli::Command::HealthCheck => return probe_health(&config).await,
-        cli::Command::ResetPassword { username, password } => {
-            return cli::reset_password(&config, &username, password).await;
+        cli::Command::ResetPassword { username, source } => {
+            return cli::reset_password(&config, &username, source).await;
         }
         cli::Command::Serve => {}
     }
