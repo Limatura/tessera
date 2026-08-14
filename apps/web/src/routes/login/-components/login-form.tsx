@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -88,12 +89,12 @@ export function LoginForm({
                     <Field>
                       <div className="flex items-center">
                         <FieldLabel htmlFor="password">Password</FieldLabel>
-                        <a
+                        <Link
                           className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                          href="#"
+                          to="/"
                         >
                           Forgot your password?
-                        </a>
+                        </Link>
                       </div>
                       <Input id="password" required type="password" />
                     </Field>
@@ -115,7 +116,13 @@ export function LoginForm({
                         </Button>
                       </motion.div>
                       <FieldDescription className="text-center">
-                        Don&apos;t have an account? <a href="#">Sign up</a>
+                        Don&apos;t have an account?{" "}
+                        <Link
+                          className="underline-offset-4 hover:underline"
+                          to="/"
+                        >
+                          Sign up
+                        </Link>
                       </FieldDescription>
                     </Field>
                   </motion.div>
