@@ -12,6 +12,7 @@ export default defineConfig({
     ".claude/**",
     ".codex/**",
     ".roo/**",
+    "packages/ui/**",
     "**/*.toml",
   ],
   overrides: [
