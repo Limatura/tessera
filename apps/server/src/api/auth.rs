@@ -18,10 +18,11 @@ use crate::{
         cookie,
         extract::{ClientAddress, Credential, SelfServiceUser},
         password,
+        proxy::{Origin, UNPLACEABLE},
         throttle::Decision,
     },
     config::RegistrationPolicy,
-    db::repository::user::User,
+    db::repository::{session::SessionOrigin, user::User},
     error::{Error, Result},
     mail::password_reset_letter,
     state::AppState,
@@ -261,7 +262,7 @@ pub async fn register(
         return Err(error.into());
     }
 
-    let cookie = start_session(&state, &user, &headers, origin.via_trusted_proxy, now).await?;
+    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
@@ -337,7 +338,7 @@ pub async fn login(
 
     throttles.login.reset(&key);
     let now = OffsetDateTime::now_utc();
-    let cookie = start_session(&state, &user, &headers, origin.via_trusted_proxy, now).await?;
+    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
 
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
@@ -469,14 +470,7 @@ pub async fn change_password(
         .await?;
     state.sessions.delete_for_user(current.user.id).await?;
 
-    let cookie = start_session(
-        &state,
-        &current.user,
-        &headers,
-        origin.via_trusted_proxy,
-        now,
-    )
-    .await?;
+    let cookie = start_session(&state, &current.user, &headers, &origin, now).await?;
     let mut account = AccountResponse::from(&current.user);
     account.must_change_password = false;
 
@@ -525,7 +519,7 @@ async fn start_session(
     state: &AppState,
     user: &User,
     headers: &HeaderMap,
-    via_trusted_proxy: bool,
+    origin: &Origin,
     now: OffsetDateTime,
 ) -> Result<Cookie<'static>> {
     // `std::time::Duration` is unsigned and `time::Duration` is not, so the
@@ -537,7 +531,12 @@ async fn start_session(
 
     let (_, secret) = state
         .sessions
-        .create(user.id, now, now.saturating_add(ttl))
+        .create(
+            user.id,
+            &session_origin(headers, origin),
+            now,
+            now.saturating_add(ttl),
+        )
         .await?;
 
     // The cookie's `Max-Age` matches the row's expiry, so a browser stops
@@ -546,8 +545,36 @@ async fn start_session(
         .config
         .auth
         .cookie_secure
-        .applies(headers, via_trusted_proxy);
+        .applies(headers, origin.via_trusted_proxy);
     Ok(cookie::session_cookie(&secret, ttl, secure))
+}
+
+/// What gets recorded about the request that started a session.
+///
+/// # Why the address can be absent
+///
+/// [`Origin::source`] always has something in it, because a throttle needs a key
+/// even when there is no address to be had — it says `unknown` then. A stored
+/// value is read by a person deciding whether a session is theirs, and
+/// `unknown` written in a column reads like a place. Nothing is a better answer
+/// than a word that looks like an answer.
+///
+/// # Why a user agent can be absent too
+///
+/// `to_str` refuses a header value outside visible ASCII, and nothing is stored
+/// when it does. Every real browser sends ASCII, so what this drops is a client
+/// that went out of its way — and a session showing no browser is a truthful
+/// thing to show, where a mangled string would not be.
+fn session_origin(headers: &HeaderMap, origin: &Origin) -> SessionOrigin {
+    SessionOrigin {
+        ip: (origin.source != UNPLACEABLE).then(|| origin.source.clone()),
+        user_agent: headers
+            .get(header::USER_AGENT)
+            .and_then(|value| value.to_str().ok())
+            .map(str::trim)
+            .filter(|agent| !agent.is_empty())
+            .map(str::to_owned),
+    }
 }
 
 /// Body of `POST /auth/register/confirm`.
@@ -801,7 +828,7 @@ pub async fn confirm_registration(
     }
     state.pending.finish(pending.id).await?;
 
-    let cookie = start_session(&state, &user, &headers, origin.via_trusted_proxy, now).await?;
+    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],

@@ -27,6 +27,52 @@ pub struct Session {
     pub last_seen_at: OffsetDateTime,
     /// When it stops being accepted.
     pub expires_at: OffsetDateTime,
+    /// Where the session started, when that could be established.
+    ///
+    /// `None` covers two cases that are worth keeping apart from a fabricated
+    /// value: a session created before this was recorded at all, and one whose
+    /// address we had no honest answer for.
+    pub created_ip: Option<String>,
+    /// The `User-Agent` it started with, unparsed and truncated.
+    pub created_user_agent: Option<String>,
+}
+
+/// What is known about the request that started a session.
+///
+/// A type rather than two more arguments, because they are the same fact from
+/// two angles and are only ever passed together.
+#[derive(Debug, Clone, Default)]
+pub struct SessionOrigin {
+    /// The caller's address, as resolved through whatever proxies are trusted.
+    pub ip: Option<String>,
+    /// The `User-Agent` header, as it arrived.
+    pub user_agent: Option<String>,
+}
+
+/// How much of a `User-Agent` is kept.
+///
+/// The caller chooses this string, so something has to bound it or a sign-in is
+/// a way to write as many bytes into the database as the request body limit
+/// allows. Real ones run to about 200 characters; this is generous enough that
+/// nothing legitimate is cut and small enough that the row stays a row.
+const MAX_USER_AGENT: usize = 512;
+
+impl SessionOrigin {
+    /// Trims the user agent to something the narrowest column holds.
+    ///
+    /// Counts characters rather than bytes, and builds the result instead of
+    /// slicing. Not because a header can arrive as arbitrary UTF-8 — it cannot,
+    /// `HeaderValue::to_str` has already refused anything outside visible
+    /// ASCII, so on this path characters and bytes are the same number. It is
+    /// that a repository takes a `String` and cannot see where it came from, so
+    /// the one operation that cannot panic is the one to use. Collecting costs
+    /// an allocation the alternative — cloning the string — was going to cost
+    /// anyway.
+    fn bounded_user_agent(&self) -> Option<String> {
+        self.user_agent
+            .as_ref()
+            .map(|agent| agent.chars().take(MAX_USER_AGENT).collect())
+    }
 }
 
 impl Session {
@@ -52,6 +98,8 @@ impl Session {
             created_at: model.created_at,
             last_seen_at: model.last_seen_at,
             expires_at: model.expires_at,
+            created_ip: model.created_ip.clone(),
+            created_user_agent: model.created_user_agent.clone(),
         })
     }
 }
@@ -93,6 +141,7 @@ impl SessionRepository {
     pub async fn create(
         &self,
         user_id: UserId,
+        origin: &SessionOrigin,
         now: OffsetDateTime,
         expires_at: OffsetDateTime,
     ) -> Result<(Session, Secret), SessionRepositoryError> {
@@ -103,6 +152,8 @@ impl SessionRepository {
             created_at: now,
             last_seen_at: now,
             expires_at,
+            created_ip: origin.ip.clone(),
+            created_user_agent: origin.bounded_user_agent(),
         };
 
         SessionEntity::insert(session::ActiveModel {
@@ -112,6 +163,8 @@ impl SessionRepository {
             created_at: Set(session.created_at),
             last_seen_at: Set(session.last_seen_at),
             expires_at: Set(session.expires_at),
+            created_ip: Set(session.created_ip.clone()),
+            created_user_agent: Set(session.created_user_agent.clone()),
         })
         .exec(&self.connection)
         .await?;
@@ -197,5 +250,53 @@ impl SessionRepository {
             .exec(&self.connection)
             .await?;
         Ok(result.rows_affected)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with_agent(agent: &str) -> SessionOrigin {
+        SessionOrigin {
+            ip: None,
+            user_agent: Some(agent.to_owned()),
+        }
+    }
+
+    #[test]
+    fn an_ordinary_user_agent_is_kept_whole() {
+        let agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
+        assert_eq!(
+            with_agent(agent).bounded_user_agent().as_deref(),
+            Some(agent)
+        );
+    }
+
+    /// The caller chooses this string, so without a bound a sign-in is a way to
+    /// write as much as the body limit allows into a row.
+    #[test]
+    fn a_long_one_is_cut() {
+        let bounded = with_agent(&"a".repeat(MAX_USER_AGENT * 3))
+            .bounded_user_agent()
+            .expect("an agent");
+        assert_eq!(bounded.chars().count(), MAX_USER_AGENT);
+    }
+
+    /// Nothing reaching this through HTTP can look like this — `to_str` refuses
+    /// it first — but a repository cannot see that, and a cut that counted bytes
+    /// would panic here the day something else calls it.
+    #[test]
+    fn a_cut_lands_on_a_character_boundary() {
+        let bounded = with_agent(&"字".repeat(MAX_USER_AGENT * 2))
+            .bounded_user_agent()
+            .expect("an agent");
+        assert_eq!(bounded.chars().count(), MAX_USER_AGENT);
+        assert_eq!(bounded.len(), MAX_USER_AGENT * "字".len());
+    }
+
+    #[test]
+    fn nothing_stays_nothing() {
+        assert!(SessionOrigin::default().bounded_user_agent().is_none());
     }
 }

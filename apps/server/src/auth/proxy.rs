@@ -28,6 +28,14 @@ use std::net::IpAddr;
 use axum::http::HeaderMap;
 use ipnet::IpNet;
 
+/// What [`Origin::source`] says when there was no address to be had.
+///
+/// A throttle needs a key whatever happens, so this stands in for one. It is
+/// named rather than written twice because anything *storing* an origin has to
+/// be able to recognise it and store nothing instead — a column reading
+/// `unknown` looks to a person like somewhere a session came from.
+pub const UNPLACEABLE: &str = "unknown";
+
 /// The one spelling an address is compared and counted under.
 ///
 /// A socket bound to `::` accepts IPv4 connections and reports them mapped —
@@ -145,7 +153,7 @@ impl TrustedProxies {
     pub fn resolve(&self, peer: Option<IpAddr>, headers: &HeaderMap) -> Origin {
         let Some(peer) = peer.map(canonical) else {
             return Origin {
-                source: "unknown".to_owned(),
+                source: UNPLACEABLE.to_owned(),
                 via_trusted_proxy: false,
             };
         };
