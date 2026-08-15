@@ -1,0 +1,288 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useNavigate } from "@tanstack/react-router";
+import type { components } from "@tessera/api/schema";
+import { Button } from "@tessera/ui/components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@tessera/ui/components/card";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@tessera/ui/components/field";
+import { Input } from "@tessera/ui/components/input";
+import { toast } from "@tessera/ui/components/toast";
+import { cn } from "@tessera/ui/lib/utils";
+import { motion } from "motion/react";
+import type { Variants } from "motion/react";
+import { useMemo } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { z } from "zod";
+
+import { usePasswordReset } from "@/hooks/use-auth";
+import { useCapabilities } from "@/hooks/use-capabilities";
+import * as m from "@/paraglide/messages";
+
+const containerVariants: Variants = {
+  hidden: {},
+  visible: {
+    transition: { delayChildren: 0.1, staggerChildren: 0.06 },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+    y: 0,
+  },
+};
+
+interface ResetFormValues {
+  confirmPassword: string;
+  password: string;
+}
+
+export function PasswordResetForm({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  const navigate = useNavigate();
+  const capabilities = useCapabilities();
+  const resetMutation = usePasswordReset();
+
+  const tokenFromUrl = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+    const token = new URLSearchParams(window.location.search).get("token");
+    window.history.replaceState({}, "", "/reset-password");
+    return token;
+  }, []);
+
+  const minPasswordLength = capabilities.data?.account_password_min_length ?? 8;
+
+  const resetSchema = z.object({
+    confirmPassword: z.string(),
+    password: z
+      .string()
+      .min(minPasswordLength, {
+        message: m.auth_password_too_short({ min: minPasswordLength }),
+      })
+      .max(1024, { message: m.auth_password_too_long() }),
+  });
+
+  const refinedSchema = resetSchema.refine(
+    (data) => data.password === data.confirmPassword,
+    {
+      message: m.auth_password_mismatch?.() ?? "Passwords do not match",
+      path: ["confirmPassword"],
+    }
+  );
+
+  const { control, handleSubmit } = useForm<ResetFormValues>({
+    defaultValues: { confirmPassword: "", password: "" },
+    resolver: zodResolver(refinedSchema),
+  });
+
+  const onSubmit = handleSubmit((values) => {
+    if (!tokenFromUrl) {
+      toast.add({
+        description: "Reset link is missing",
+        title: m.auth_error(),
+        type: "error",
+      });
+      return;
+    }
+
+    resetMutation.mutate(
+      { password: values.password, token: tokenFromUrl },
+      {
+        onError: (error) => {
+          const errorBody =
+            error instanceof Error && "code" in error && "message" in error
+              ? (error as components["schemas"]["ErrorBody"])
+              : null;
+          toast.add({
+            description: errorBody?.message ?? "Failed to reset password",
+            title: m.auth_error(),
+            type: "error",
+          });
+        },
+        onSuccess: () => {
+          toast.add({
+            description:
+              m.auth_password_reset_success?.() ??
+              "Password has been reset. Please sign in with your new password.",
+            title: m.auth_success?.() ?? "Success",
+            type: "success",
+          });
+          navigate({ to: "/login" });
+        },
+      }
+    );
+  });
+
+  if (!tokenFromUrl) {
+    return (
+      <div className={cn("flex flex-col gap-6", className)} {...props}>
+        <motion.div
+          animate="visible"
+          initial="hidden"
+          variants={containerVariants}
+        >
+          <motion.div variants={itemVariants}>
+            <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
+              <CardHeader>
+                <motion.div variants={itemVariants}>
+                  <CardTitle className="font-medium text-xl tracking-tight">
+                    {m.auth_error()}
+                  </CardTitle>
+                </motion.div>
+                <motion.div variants={itemVariants}>
+                  <CardDescription>
+                    {m.auth_password_reset_invalid_link?.() ??
+                      "The password reset link is invalid or missing."}
+                  </CardDescription>
+                </motion.div>
+              </CardHeader>
+            </Card>
+          </motion.div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  const formError = resetMutation.error as
+    | components["schemas"]["ErrorBody"]
+    | null;
+
+  return (
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <motion.div
+        animate="visible"
+        initial="hidden"
+        variants={containerVariants}
+      >
+        <motion.div variants={itemVariants}>
+          <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
+            <CardHeader>
+              <motion.div
+                className="mb-2 flex items-center gap-2"
+                variants={itemVariants}
+              >
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  {m.status_receiving_open()}
+                </span>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <CardTitle className="font-medium text-xl tracking-tight">
+                  {m.auth_reset_password?.() ?? "Reset Password"}
+                </CardTitle>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <CardDescription>
+                  {m.auth_enter_new_password?.() ??
+                    "Enter your new password below."}
+                </CardDescription>
+              </motion.div>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={onSubmit}>
+                <FieldGroup>
+                  <motion.div variants={itemVariants}>
+                    <Controller
+                      control={control}
+                      name="password"
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor="password">
+                            {m.auth_password()}
+                          </FieldLabel>
+                          <Input
+                            {...field}
+                            aria-invalid={fieldState.invalid}
+                            id="password"
+                            placeholder={
+                              m.auth_enter_password?.() ?? "Enter password"
+                            }
+                            type="password"
+                          />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
+                  </motion.div>
+                  <motion.div variants={itemVariants}>
+                    <Controller
+                      control={control}
+                      name="confirmPassword"
+                      render={({ field, fieldState }) => (
+                        <Field data-invalid={fieldState.invalid}>
+                          <FieldLabel htmlFor="confirmPassword">
+                            {m.auth_confirm_password?.() ?? "Confirm Password"}
+                          </FieldLabel>
+                          <Input
+                            {...field}
+                            aria-invalid={fieldState.invalid}
+                            id="confirmPassword"
+                            placeholder={
+                              m.auth_confirm_password?.() ?? "Confirm password"
+                            }
+                            type="password"
+                          />
+                          {fieldState.invalid && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
+                        </Field>
+                      )}
+                    />
+                  </motion.div>
+                  <motion.div variants={itemVariants}>
+                    <Field>
+                      {formError && (
+                        <FieldError>{formError.message}</FieldError>
+                      )}
+                      <motion.div whileTap={{ scale: 0.98 }}>
+                        <Button
+                          className="w-full"
+                          disabled={resetMutation.isPending}
+                          type="submit"
+                        >
+                          {resetMutation.isPending
+                            ? (m.auth_resetting?.() ?? "Resetting...")
+                            : (m.auth_reset_password?.() ?? "Reset Password")}
+                        </Button>
+                      </motion.div>
+                      <FieldDescription className="text-center">
+                        <a
+                          className="underline-offset-4 hover:underline"
+                          href="/login"
+                        >
+                          {m.auth_back_to_login?.() ?? "Back to login"}
+                        </a>
+                      </FieldDescription>
+                    </Field>
+                  </motion.div>
+                </FieldGroup>
+              </form>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}
