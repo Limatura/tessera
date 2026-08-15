@@ -4,6 +4,7 @@ mod common;
 
 use axum::http::{Method, StatusCode};
 use common::{Auth, TestApp, body_json, expect_status};
+use tessera_server::config::RegistrationPolicy;
 
 const PASSWORD: &str = "a perfectly adequate passphrase";
 
@@ -321,6 +322,312 @@ async fn a_bearer_token_may_not_administer() {
             &format!("/api/v1/admin/users/{id}"),
             Auth::Bearer(&secret),
             &serde_json::json!({ "is_admin": true }),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+// ── invite codes ────────────────────────────────────────────────────
+
+async fn create_invite(
+    app: &TestApp,
+    auth: Auth<'_>,
+    body: &serde_json::Value,
+) -> axum::response::Response {
+    app.json(Method::POST, "/api/v1/admin/invites", auth, body)
+        .await
+}
+
+/// Registers on an instance that asks for a code.
+///
+/// Even the first account needs one — an operator would not hit this, because
+/// the first administrator is created at start-up rather than registered, but a
+/// test that makes accounts through the API does.
+#[expect(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn register_invited(app: &TestApp, username: &str) -> (String, String) {
+    let now = time::OffsetDateTime::now_utc();
+    let (_, code) = app
+        .state
+        .invites
+        .issue(None, 1, now, None)
+        .await
+        .expect("issue");
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": username,
+                "email": format!("{username}@example.com"),
+                "password": PASSWORD,
+                "invite_code": code.expose(),
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let cookie = common::session_cookie(&response);
+    let id = body_json(response).await["id"]
+        .as_str()
+        .expect("an id")
+        .to_owned();
+    (cookie, id)
+}
+
+async fn list_invites(app: &TestApp, auth: Auth<'_>) -> Vec<serde_json::Value> {
+    let response = expect_status(
+        app.empty(Method::GET, "/api/v1/admin/invites", auth).await,
+        StatusCode::OK,
+    )
+    .await;
+    body_json(response)
+        .await
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// The command line is the rescue path — it works with the service stopped.
+/// This is the ordinary one: letting a friend in should not need a shell on the
+/// box.
+#[tokio::test]
+async fn an_administrator_can_mint_a_code_and_use_it() {
+    let app = TestApp::with_config(|config| {
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await;
+    let (admin, _) = register_invited(&app, "first").await;
+
+    let response = expect_status(
+        create_invite(
+            &app,
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "uses": 2, "note": "family" }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let created = body_json(response).await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+    assert_eq!(created["max_uses"], 2);
+    assert_eq!(created["used"], 0);
+    assert_eq!(created["active"], true);
+    assert_eq!(created["note"], "family");
+
+    // And it actually admits somebody.
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "invited",
+                "email": "invited@example.com",
+                "password": PASSWORD,
+                "invite_code": code,
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::CREATED
+    );
+
+    // Two: the one that let the administrator in, and the one just minted.
+    let rows = list_invites(&app, Auth::Cookie(&admin)).await;
+    let family = rows
+        .iter()
+        .find(|row| row["note"] == "family")
+        .expect("the one just minted");
+    assert_eq!(family["used"], 1);
+}
+
+/// The list never carries the code. Only a digest is stored, so there is
+/// nothing to show — an administrator who lost the code issues another one.
+#[tokio::test]
+async fn the_list_never_shows_a_code() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    expect_status(
+        create_invite(
+            &app,
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "uses": 1 }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+
+    let rows = list_invites(&app, Auth::Cookie(&admin)).await;
+    assert_eq!(rows.len(), 1);
+    assert!(
+        rows[0].get("code").is_none(),
+        "a listing must not carry the code"
+    );
+}
+
+/// What somebody who posted a code in the wrong chat window wants: it stops
+/// admitting anybody, and the accounts it already let in stay.
+#[tokio::test]
+async fn revoking_a_code_stops_it_without_undoing_what_it_did() {
+    let app = TestApp::with_config(|config| {
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await;
+    let (admin, _) = register_invited(&app, "first").await;
+
+    let response = expect_status(
+        create_invite(
+            &app,
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "uses": 5 }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let created = body_json(response).await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+    let id = created["id"].as_str().expect("an id").to_owned();
+
+    let register_with = |name: &'static str, code: String| {
+        let app = &app;
+        async move {
+            app.json(
+                Method::POST,
+                "/api/v1/auth/register",
+                Auth::None,
+                &serde_json::json!({
+                    "username": name,
+                    "email": format!("{name}@example.com"),
+                    "password": PASSWORD,
+                    "invite_code": code,
+                }),
+            )
+            .await
+            .status()
+        }
+    };
+
+    assert_eq!(
+        register_with("early", code.clone()).await,
+        StatusCode::CREATED
+    );
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/invites/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert_eq!(
+        register_with("late", code).await,
+        StatusCode::BAD_REQUEST,
+        "the code must not admit anybody else"
+    );
+
+    // The account it did admit is untouched.
+    let users = list(&app, Auth::Cookie(&admin)).await;
+    assert!(users.iter().any(|user| user["username"] == "early"));
+}
+
+#[tokio::test]
+async fn an_invite_that_admits_nobody_is_refused() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    for uses in [0, -1] {
+        assert_eq!(
+            create_invite(
+                &app,
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "uses": uses })
+            )
+            .await
+            .status(),
+            StatusCode::BAD_REQUEST,
+            "{uses}"
+        );
+    }
+}
+
+/// A code past its date is listed but not active, so an administrator can see
+/// why it stopped working rather than wondering where it went.
+#[tokio::test]
+async fn an_expired_code_is_listed_as_inactive() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .invites
+        .issue(
+            Some("last week".to_owned()),
+            5,
+            now - time::Duration::days(8),
+            Some(now - time::Duration::days(1)),
+        )
+        .await
+        .expect("issue");
+
+    let rows = list_invites(&app, Auth::Cookie(&admin)).await;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["active"], false);
+    assert_eq!(rows[0]["used"], 0);
+}
+
+/// The same rules as the rest of this surface.
+#[tokio::test]
+async fn invites_need_an_administrator_with_a_cookie() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (ordinary, _) = register(&app, "second").await;
+
+    assert_eq!(
+        app.empty(
+            Method::GET,
+            "/api/v1/admin/invites",
+            Auth::Cookie(&ordinary)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/tokens",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "a script" }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let secret = body_json(response).await["secret"]
+        .as_str()
+        .expect("a secret")
+        .to_owned();
+    assert_eq!(
+        create_invite(
+            &app,
+            Auth::Bearer(&secret),
+            &serde_json::json!({ "uses": 1 })
         )
         .await
         .status(),
