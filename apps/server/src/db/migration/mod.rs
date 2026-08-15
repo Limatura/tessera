@@ -33,6 +33,7 @@ mod m20260813_000002_pending_registrations;
 mod m20260814_000001_session_metadata;
 mod m20260814_000002_session_endings;
 mod m20260815_000001_invites;
+mod m20260816_000001_file_shares;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -55,6 +56,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260814_000001_session_metadata::Migration),
             Box::new(m20260814_000002_session_endings::Migration),
             Box::new(m20260815_000001_invites::Migration),
+            Box::new(m20260816_000001_file_shares::Migration),
         ]
     }
 }
