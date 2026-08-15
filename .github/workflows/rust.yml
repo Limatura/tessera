@@ -546,8 +546,6 @@ jobs:
   housekeeping:
     name: housekeeping
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
-    timeout-minutes: 30
     # A cleanup job that hangs is worse than one that never ran: the runner has
     # one slot, so everything behind it waits, and a step blocked on a wedged
     # Docker daemon does not answer a cancel either. Ten minutes is far more than
