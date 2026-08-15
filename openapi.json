@@ -37,6 +37,10 @@
         ],
         "type": "object"
       },
+      "AdminUserResponse": {
+        "$ref": "#/components/schemas/AccountResponse",
+        "description": "One account, as an administrator sees it.\n\nThe same shape a person sees of themselves. There is nothing extra to show:\nthis service stores no profile, and the one thing an administrator can change\nis already a field."
+      },
       "Capabilities": {
         "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact: it describes every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade. A single-page app generated from the contract therefore cannot know\nwhether to render a login button — the contract says login exists, and on\nthis deployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is deliberately unauthenticated: a client needs the answer before\nit can know whether logging in is even possible.",
         "properties": {
@@ -728,6 +732,20 @@
           "created_at"
         ],
         "type": "object"
+      },
+      "UpdateUserRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PATCH /admin/users/{id}`.",
+        "properties": {
+          "is_admin": {
+            "description": "Whether this account administers the instance.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_admin"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -752,6 +770,223 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/users": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",
+        "operationId": "list_users",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AdminUserResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Every account on this instance"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists every account, newest first.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "delete": {
+        "description": "# What goes with it and what does not\n\nSessions and API tokens are deleted by the database. Shares are not: their\nowner column is `ON DELETE SET NULL`, so what somebody uploaded becomes an\nanonymous share and keeps working for whoever holds the code. Deleting an\naccount is about the account, and taking somebody's files off the internet in\nthe same motion would be a second decision made silently.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no account has that\nidentifier, `409` when this would leave the instance with no administrator.",
+        "operationId": "delete_user",
+        "parameters": [
+          {
+            "description": "Which account to remove",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Removed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No account has that id"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That would leave the instance with no administrator"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes an account.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "description": "# Why the last one cannot be removed\n\nAn instance with no administrator cannot be repaired through the API — there\nis no endpoint left that would let anybody grant the flag back. The way out\nis the command line against the database file, which an operator who locked\nthemselves out of a container may not have. So the case is refused rather\nthan allowed and regretted.\n\nRemoving your own flag while somebody else still has it is allowed: that is\na person stepping down, not an accident.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no account has that\nidentifier, `409` when this would leave the instance with none.",
+        "operationId": "update_user",
+        "parameters": [
+          {
+            "description": "Which account to change",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
+              }
+            },
+            "description": "The account as it now stands"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No account has that id"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That would leave the instance with no administrator"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Grants or removes the administrator flag.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/auth/login": {
       "post": {
         "description": "# Errors\n\n`401` when the credentials do not match, `429` when too many attempts have\nfailed, `404` when the instance has no accounts.",
@@ -2038,6 +2273,10 @@
     {
       "description": "Seeing and ending your own sign-ins",
       "name": "sessions"
+    },
+    {
+      "description": "Administering the instance",
+      "name": "admin"
     },
     {
       "description": "Creating and managing shares",

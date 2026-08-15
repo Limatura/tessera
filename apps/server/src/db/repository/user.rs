@@ -17,7 +17,8 @@
 //! down: roughly forty lines per table, most of it mechanical.
 
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _,
+    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
+    QueryFilter as _, QueryOrder as _,
 };
 use tessera_core::{DomainError, EmailAddress, UserId, Username};
 use time::OffsetDateTime;
@@ -195,6 +196,83 @@ impl UserRepository {
                 .one(&self.connection)
                 .await?,
         )
+    }
+
+    /// Every account, newest first.
+    ///
+    /// No pagination. The instance this is built for has a handful of accounts,
+    /// and a page parameter nobody needs is a page parameter that gets tested
+    /// once and then rots.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails or a row is not usable.
+    pub async fn list(&self) -> Result<Vec<User>, UserRepositoryError> {
+        let models = UserEntity::find()
+            .order_by_desc(user::Column::CreatedAt)
+            .all(&self.connection)
+            .await?;
+        models
+            .into_iter()
+            .map(|model| User::from_model(model).map_err(UserRepositoryError::from))
+            .collect()
+    }
+
+    /// How many accounts administer this instance.
+    ///
+    /// Asked before taking the flag off one, or deleting one: an instance with
+    /// no administrator cannot be fixed through the API, only with the CLI
+    /// against the database file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn count_admins(&self) -> Result<u64, UserRepositoryError> {
+        Ok(UserEntity::find()
+            .filter(user::Column::IsAdmin.eq(true))
+            .count(&self.connection)
+            .await?)
+    }
+
+    /// Grants or removes the administrator flag.
+    ///
+    /// Returns whether an account changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the update fails.
+    pub async fn set_admin(
+        &self,
+        id: UserId,
+        is_admin: bool,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::IsAdmin, is_admin.into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Removes an account.
+    ///
+    /// Sessions and API tokens go with it — the database says so. Shares do not:
+    /// their owner column is `ON DELETE SET NULL`, so what somebody uploaded
+    /// outlives their account as an anonymous share rather than vanishing along
+    /// with the bytes still on disk.
+    ///
+    /// Returns whether an account was removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the delete fails.
+    pub async fn delete(&self, id: UserId) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::delete_by_id(id.to_string())
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
     }
 
     /// Replaces an account's password hash and clears the "must change" flag.

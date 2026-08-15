@@ -31,6 +31,7 @@
 //! one derive and not the other. It is not worth the second artefact before
 //! there is a type that needs it.
 
+pub mod admin;
 pub mod auth;
 pub mod capabilities;
 pub mod extract;
@@ -79,6 +80,9 @@ pub const TOKENS_TAG: &str = "tokens";
 /// Tag for the endpoints that show and end a person's own sign-ins.
 pub const SESSIONS_TAG: &str = "sessions";
 
+/// Tag for the endpoints an administrator uses on other people's accounts.
+pub const ADMIN_TAG: &str = "admin";
+
 /// Tag grouping share creation and management.
 pub const SHARES_TAG: &str = "shares";
 
@@ -120,6 +124,7 @@ pub const API_PREFIX: &str = "/api/v1";
         (name = AUTH_TAG, description = "Registration, sign-in and passwords"),
         (name = TOKENS_TAG, description = "API tokens for non-browser callers"),
         (name = SESSIONS_TAG, description = "Seeing and ending your own sign-ins"),
+        (name = ADMIN_TAG, description = "Administering the instance"),
         (name = SHARES_TAG, description = "Creating and managing shares"),
     ),
     modifiers(&SecurityAddon),
@@ -268,6 +273,8 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(tokens::revoke))
         .routes(routes!(sessions::list, sessions::revoke_others))
         .routes(routes!(sessions::revoke))
+        .routes(routes!(admin::list_users))
+        .routes(routes!(admin::update_user, admin::delete_user))
         .routes(routes!(shares::list, shares::create))
         .routes(routes!(shares::describe, shares::delete))
         .routes(routes!(shares::unlock))
