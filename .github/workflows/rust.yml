@@ -554,7 +554,7 @@ jobs:
 
       - name: Cap the Docker build cache
         run: |
-          docker buildx prune -f --keep-storage 10GB || true
+          docker buildx prune -f --keep-storage 10GB 2>/dev/null || true
           if [ -d /tmp/tessera-buildx-cache ]; then
             USED=$(du -sg /tmp/tessera-buildx-cache | cut -f1)
             echo "buildx cache: ${USED} GB"
@@ -564,10 +564,15 @@ jobs:
 
       # The backend matrix uses service containers and the image job loads one,
       # so both leave things a hosted runner would have thrown away with itself.
+      # Tolerant of a machine where this runner cannot reach Docker at all: the
+      # point of the job is to stop the disk filling, and the Rust half above is
+      # the half that fills it. Failing here would turn "Docker is not set up
+      # yet" into "cleanup never runs".
       - name: Remove stopped containers and dangling images
         run: |
-          docker container prune -f
-          docker image prune -f
+          docker container prune -f || echo "no Docker here; nothing to prune"
+          docker image prune -f || true
+          exit 0
 
       - name: What is left
         run: df -h / | tail -1
