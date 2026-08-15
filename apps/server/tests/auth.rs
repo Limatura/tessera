@@ -695,43 +695,45 @@ async fn an_account_owing_a_password_change_can_only_fix_itself() {
     .await;
 }
 
-/// Sessions nobody comes back for are only removed by the sweep — without it the
-/// table grows for as long as the instance lives.
+/// The row goes only once it is older than the history is kept for. That is the
+/// same query the expiry sweep used to be, with a different bound.
 #[tokio::test]
-async fn the_sweep_removes_sessions_nobody_returns_for() {
+async fn the_sweep_removes_sessions_older_than_the_history_window() {
     let app = TestApp::ready().await;
     register(&app, "abandoner").await;
 
-    let past = time::OffsetDateTime::now_utc() - time::Duration::hours(1);
+    let now = time::OffsetDateTime::now_utc();
+    assert_eq!(
+        app.state
+            .sessions
+            .delete_ended_before(now - time::Duration::days(90))
+            .await
+            .expect("sweep"),
+        0,
+        "a session that is still live must survive the retention sweep"
+    );
+
     let statement = sea_orm::Statement::from_string(
         sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
         format!(
             "UPDATE sessions SET expires_at = '{}'",
-            past.format(&time::format_description::well_known::Rfc3339)
+            (now - time::Duration::days(200))
+                .format(&time::format_description::well_known::Rfc3339)
                 .expect("formattable")
         ),
     );
     sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
         .await
-        .expect("expire the session");
+        .expect("age the session");
 
-    let removed = app
-        .state
-        .sessions
-        .delete_expired(time::OffsetDateTime::now_utc())
-        .await
-        .expect("sweep");
-    assert_eq!(removed, 1);
-
-    // And a live one is left alone.
-    register(&app, "stillhere").await;
-    let removed = app
-        .state
-        .sessions
-        .delete_expired(time::OffsetDateTime::now_utc())
-        .await
-        .expect("sweep");
-    assert_eq!(removed, 0);
+    assert_eq!(
+        app.state
+            .sessions
+            .delete_ended_before(now - time::Duration::days(90))
+            .await
+            .expect("sweep"),
+        1
+    );
 }
 
 // ── password reset ──────────────────────────────────────────────────
@@ -1182,9 +1184,12 @@ async fn register_verified(app: &TestApp, username: &str) -> String {
         .state
         .pending
         .start(
-            &pending.username,
-            &pending.email,
-            pending.password_hash.clone(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &pending.username,
+                email: &pending.email,
+                password_hash: pending.password_hash.clone(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1367,9 +1372,13 @@ async fn an_unusable_registration_link_says_only_that() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "not a real hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "not a real hash".to_owned(),
+                invite_id: None,
+            },
             now - time::Duration::hours(48),
             now - time::Duration::hours(24),
         )
@@ -1393,17 +1402,21 @@ async fn a_registration_link_works_once() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            tessera_server::auth::password::hash(
-                tessera_core::Password::parse(
-                    PASSWORD.to_owned(),
-                    tessera_core::PasswordPolicy::default(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: tessera_server::auth::password::hash(
+                    tessera_core::Password::parse(
+                        PASSWORD.to_owned(),
+                        tessera_core::PasswordPolicy::default(),
+                    )
+                    .expect("a password"),
                 )
-                .expect("a password"),
-            )
-            .await
-            .expect("hash"),
+                .await
+                .expect("hash"),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1434,13 +1447,31 @@ async fn asking_again_replaces_the_earlier_link() {
     let first = app
         .state
         .pending
-        .start(&name, &address, "first".to_owned(), now, expires)
+        .start(
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &name,
+                email: &address,
+                password_hash: "first".to_owned(),
+                invite_id: None,
+            },
+            now,
+            expires,
+        )
         .await
         .expect("issue");
     let second = app
         .state
         .pending
-        .start(&name, &address, "second".to_owned(), now, expires)
+        .start(
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &name,
+                email: &address,
+                password_hash: "second".to_owned(),
+                invite_id: None,
+            },
+            now,
+            expires,
+        )
         .await
         .expect("issue");
 
@@ -1467,9 +1498,12 @@ async fn a_name_taken_while_waiting_is_refused_at_confirmation() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("first@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("first@example.com").expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1500,9 +1534,13 @@ async fn an_address_that_gained_an_account_while_waiting_is_refused() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("second").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("second").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1582,9 +1620,13 @@ async fn abandoned_registrations_are_swept() {
     app.state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now - time::Duration::hours(48),
             now - time::Duration::hours(24),
         )
@@ -1674,9 +1716,13 @@ async fn closing_registration_stops_links_that_were_already_sent() {
         .state
         .pending
         .start(
-            &tessera_core::Username::parse("member").expect("a name"),
-            &tessera_core::EmailAddress::parse("member@example.com").expect("an address"),
-            "a hash".to_owned(),
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &tessera_core::Username::parse("member").expect("a name"),
+                email: &tessera_core::EmailAddress::parse("member@example.com")
+                    .expect("an address"),
+                password_hash: "a hash".to_owned(),
+                invite_id: None,
+            },
             now,
             now.saturating_add(time::Duration::hours(24)),
         )
@@ -1714,9 +1760,12 @@ async fn two_links_racing_for_one_name_do_not_produce_a_server_error() {
             .state
             .pending
             .start(
-                &name,
-                &tessera_core::EmailAddress::parse(address).expect("an address"),
-                "a hash".to_owned(),
+                tessera_server::db::repository::pending_registration::Waiting {
+                    username: &name,
+                    email: &tessera_core::EmailAddress::parse(address).expect("an address"),
+                    password_hash: "a hash".to_owned(),
+                    invite_id: None,
+                },
                 now,
                 expires,
             )
@@ -1759,6 +1808,23 @@ async fn session_behind(
         .await
         .expect("query")
         .expect("the session")
+}
+
+/// The account behind a name.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn account_named(
+    app: &TestApp,
+    username: &str,
+) -> tessera_server::db::repository::user::User {
+    app.state
+        .users
+        .find_by_username(&tessera_core::Username::parse(username).expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account")
 }
 
 /// Signs in with a chosen `User-Agent`, the way a particular browser would.
@@ -1901,4 +1967,660 @@ async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
 
     let cookie = session_cookie(&response);
     assert_eq!(session_behind(&app, &cookie).await.created_user_agent, None);
+}
+
+/// The row is the record of a login, so presenting a session that is over must
+/// not remove it. This is the moment it matters most: somebody using a cookie
+/// the owner revoked is the thing the list exists to show.
+#[tokio::test]
+async fn presenting_a_session_that_is_over_does_not_erase_it() {
+    let app = TestApp::ready().await;
+    let cookie = register(&app, "member").await;
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("member").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+
+    let now = time::OffsetDateTime::now_utc();
+    let ended = app
+        .state
+        .sessions
+        .end_all_for_user(
+            user.id,
+            None,
+            tessera_server::db::repository::session::SessionEnding::Revoked,
+            now,
+        )
+        .await
+        .expect("end");
+    assert_eq!(ended, 1);
+
+    // The browser still has the cookie and tries it.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+
+    let rows = app
+        .state
+        .sessions
+        .find_for_user(user.id)
+        .await
+        .expect("query");
+    assert_eq!(rows.len(), 1, "the login must still be on the list");
+    assert_eq!(
+        rows[0].ended_reason,
+        Some(tessera_server::db::repository::session::SessionEnding::Revoked)
+    );
+}
+
+/// The owner is in the `WHERE` clause, not in a check beforehand. Somebody
+/// else's identifier must do nothing at all — not fail differently, not fail
+/// later, nothing.
+#[tokio::test]
+async fn revoking_reaches_only_your_own_sessions() {
+    let app = TestApp::ready().await;
+    register(&app, "owner").await;
+    register(&app, "stranger").await;
+
+    let owner = account_named(&app, "owner").await;
+    let stranger = account_named(&app, "stranger").await;
+    let theirs = app
+        .state
+        .sessions
+        .find_for_user(stranger.id)
+        .await
+        .expect("query");
+    assert_eq!(theirs.len(), 1);
+
+    let now = time::OffsetDateTime::now_utc();
+    assert_eq!(
+        app.state
+            .sessions
+            .revoke(theirs[0].id, owner.id, now)
+            .await
+            .expect("revoke"),
+        tessera_server::db::repository::session::Revocation::NotYours,
+        "the owner must not be able to end a stranger's session"
+    );
+
+    let still = app
+        .state
+        .sessions
+        .find_for_user(stranger.id)
+        .await
+        .expect("query");
+    assert!(
+        still[0].is_valid_at(now),
+        "and the stranger's session must still work"
+    );
+    assert_eq!(still[0].ended_reason, None);
+}
+
+/// Ending one that is already over changes nothing, so a second attempt cannot
+/// rewrite when it ended or why.
+#[tokio::test]
+async fn revoking_something_already_over_does_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+    let member = account_named(&app, "member").await;
+
+    let now = time::OffsetDateTime::now_utc();
+    let mine = app
+        .state
+        .sessions
+        .find_for_user(member.id)
+        .await
+        .expect("query");
+
+    assert_eq!(
+        app.state
+            .sessions
+            .revoke(mine[0].id, member.id, now)
+            .await
+            .expect("revoke"),
+        tessera_server::db::repository::session::Revocation::Ended
+    );
+    assert_eq!(
+        app.state
+            .sessions
+            .revoke(mine[0].id, member.id, now + time::Duration::minutes(5))
+            .await
+            .expect("revoke"),
+        tessera_server::db::repository::session::Revocation::AlreadyOver,
+        "a second attempt must be told it is already over, and must not write"
+    );
+
+    let after = app
+        .state
+        .sessions
+        .find_for_user(member.id)
+        .await
+        .expect("query");
+    assert_eq!(
+        after[0].expires_at, now,
+        "the ending time must not have moved"
+    );
+}
+
+/// What "sign out my other devices" is made of: the browser doing the asking
+/// keeps working, everything else stops.
+#[tokio::test]
+async fn ending_the_others_spares_the_one_you_name() {
+    let app = TestApp::ready().await;
+    let kept = register(&app, "member").await;
+    let member = account_named(&app, "member").await;
+    sign_in_as(&app, "member", "another browser").await;
+    sign_in_as(&app, "member", "a third browser").await;
+
+    let kept_id = session_behind(&app, &kept).await.id;
+    let now = time::OffsetDateTime::now_utc();
+    let ended = app
+        .state
+        .sessions
+        .end_all_for_user(
+            member.id,
+            Some(kept_id),
+            tessera_server::db::repository::session::SessionEnding::Revoked,
+            now,
+        )
+        .await
+        .expect("end");
+    assert_eq!(ended, 2);
+
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&kept))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let rows = app
+        .state
+        .sessions
+        .find_for_user(member.id)
+        .await
+        .expect("query");
+    assert_eq!(rows.len(), 3, "all three are still on the list");
+    assert_eq!(
+        rows.iter().filter(|row| row.is_valid_at(now)).count(),
+        1,
+        "and exactly one of them still works"
+    );
+}
+
+// ── seeing and ending your own sessions ─────────────────────────────
+
+async fn list_sessions(app: &TestApp, auth: Auth<'_>) -> Vec<serde_json::Value> {
+    let response = expect_status(
+        app.empty(Method::GET, "/api/v1/sessions", auth).await,
+        StatusCode::OK,
+    )
+    .await;
+    body_json(response)
+        .await
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// The one thing a person cannot work out for themselves before deciding what
+/// to end.
+#[tokio::test]
+async fn the_list_says_which_one_you_are_reading_it_from() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    sign_in_as(&app, "member", "another browser").await;
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    assert_eq!(rows.len(), 2);
+
+    let current: Vec<_> = rows.iter().filter(|row| row["current"] == true).collect();
+    assert_eq!(current.len(), 1, "exactly one row is the one asking");
+    assert_eq!(
+        current[0]["id"],
+        session_behind(&app, &here).await.id.to_string()
+    );
+    assert_eq!(current[0]["active"], true);
+}
+
+/// The sessions that are over stay on the list. Somebody reading it is asking
+/// whether anybody else has been in, and one that was revoked last week is the
+/// answer they came for.
+#[tokio::test]
+async fn the_list_keeps_the_ones_that_are_over() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let other = sign_in_as(&app, "member", "another browser").await;
+    let other_id = session_behind(&app, &other).await.id;
+
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/sessions/{other_id}"),
+            Auth::Cookie(&here),
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    assert_eq!(rows.len(), 2, "the revoked one is still listed");
+    let ended: Vec<_> = rows.iter().filter(|row| row["active"] == false).collect();
+    assert_eq!(ended.len(), 1);
+    assert_eq!(ended[0]["ended_reason"], "revoked");
+
+    // And the cookie behind it stops working.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&other))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// Ending the others leaves the browser doing the asking signed in. Being
+/// logged out by your own attempt to log everybody else out is a poor way to
+/// find out it worked.
+#[tokio::test]
+async fn ending_the_others_leaves_you_signed_in() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let second = sign_in_as(&app, "member", "another browser").await;
+    let third = sign_in_as(&app, "member", "a third browser").await;
+
+    assert_eq!(
+        app.empty(Method::DELETE, "/api/v1/sessions", Auth::Cookie(&here))
+            .await
+            .status(),
+        StatusCode::NO_CONTENT
+    );
+
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&here))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    for gone in [&second, &third] {
+        assert_eq!(
+            app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(gone))
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    assert_eq!(rows.len(), 3, "all three are still on the list");
+    assert_eq!(rows.iter().filter(|row| row["active"] == true).count(), 1);
+}
+
+/// Somebody else's identifier answers the same as one that never existed and
+/// one that is not an identifier at all. Anything else makes this a way to ask
+/// which sessions exist and whose they are.
+#[tokio::test]
+async fn ending_a_session_that_is_not_yours_says_only_that() {
+    let app = TestApp::ready().await;
+    let mine = register(&app, "owner").await;
+    let theirs = register(&app, "stranger").await;
+    let theirs_id = session_behind(&app, &theirs).await.id;
+
+    for target in [
+        theirs_id.to_string(),
+        tessera_core::SessionId::generate().to_string(),
+        "not-an-identifier".to_owned(),
+    ] {
+        assert_eq!(
+            app.empty(
+                Method::DELETE,
+                &format!("/api/v1/sessions/{target}"),
+                Auth::Cookie(&mine),
+            )
+            .await
+            .status(),
+            StatusCode::NOT_FOUND,
+            "{target}"
+        );
+    }
+
+    // And the stranger is still signed in.
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&theirs))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// A list that went stale between loading and clicking must not report a
+/// problem where there is none.
+#[tokio::test]
+async fn ending_one_twice_is_not_an_error() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let other = sign_in_as(&app, "member", "another browser").await;
+    let other_id = session_behind(&app, &other).await.id;
+
+    for _ in 0..2 {
+        assert_eq!(
+            app.empty(
+                Method::DELETE,
+                &format!("/api/v1/sessions/{other_id}"),
+                Auth::Cookie(&here),
+            )
+            .await
+            .status(),
+            StatusCode::NO_CONTENT
+        );
+    }
+}
+
+/// Stricter than the token endpoints next door, and for two reasons. Ending
+/// sessions with a token would let a leaked one throw the owner off every device
+/// they have. Listing them would hand it the addresses and browsers the owner
+/// signs in from.
+#[tokio::test]
+async fn a_bearer_token_can_neither_see_nor_end_sessions() {
+    let app = TestApp::ready().await;
+    let cookie = register(&app, "member").await;
+
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/tokens",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "name": "a script" }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let secret = body_json(response).await["secret"]
+        .as_str()
+        .expect("a secret")
+        .to_owned();
+
+    let id = session_behind(&app, &cookie).await.id;
+    for (method, uri) in [
+        (Method::GET, "/api/v1/sessions".to_owned()),
+        (Method::DELETE, "/api/v1/sessions".to_owned()),
+        (Method::DELETE, format!("/api/v1/sessions/{id}")),
+    ] {
+        assert_eq!(
+            app.empty(method.clone(), &uri, Auth::Bearer(&secret))
+                .await
+                .status(),
+            StatusCode::FORBIDDEN,
+            "{method} {uri}"
+        );
+    }
+
+    // And the session it tried to end still works.
+    expect_status(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// Signing out is an ending like any other, and says so on the list.
+#[tokio::test]
+async fn signing_out_shows_up_as_a_reason() {
+    let app = TestApp::ready().await;
+    let here = register(&app, "member").await;
+    let other = sign_in_as(&app, "member", "another browser").await;
+
+    expect_status(
+        app.empty(Method::POST, "/api/v1/auth/logout", Auth::Cookie(&other))
+            .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    let rows = list_sessions(&app, Auth::Cookie(&here)).await;
+    let ended: Vec<_> = rows
+        .iter()
+        .filter(|row| row["ended_reason"] == "signed_out")
+        .collect();
+    assert_eq!(ended.len(), 1);
+}
+
+// ── invite codes ────────────────────────────────────────────────────
+
+/// An instance that asks for a code, with no relay so registration finishes in
+/// one step.
+async fn app_with_invites() -> TestApp {
+    TestApp::with_config(|config| {
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn mint(app: &TestApp, uses: i64) -> String {
+    let now = time::OffsetDateTime::now_utc();
+    let (_, code) = app
+        .state
+        .invites
+        .issue(None, uses, now, None)
+        .await
+        .expect("issue");
+    code.expose().to_owned()
+}
+
+async fn register_with(app: &TestApp, username: &str, code: Option<&str>) -> StatusCode {
+    let body = serde_json::json!({
+        "username": username,
+        "email": format!("{username}@example.com"),
+        "password": PASSWORD,
+        "invite_code": code,
+    });
+    app.json(Method::POST, "/api/v1/auth/register", Auth::None, &body)
+        .await
+        .status()
+}
+
+/// The hole this closes: `invite` was a documented setting that behaved exactly
+/// like `closed`, so a client drawing its form from `/capabilities` produced one
+/// that could never succeed.
+#[tokio::test]
+async fn an_invite_only_instance_accepts_a_code() {
+    let app = app_with_invites().await;
+    let code = mint(&app, 1).await;
+
+    assert_eq!(
+        register_with(&app, "invited", Some(&code)).await,
+        StatusCode::CREATED
+    );
+}
+
+/// Unknown, spent, expired and absent are one message. Anything else turns the
+/// registration form into a way of testing codes.
+#[tokio::test]
+async fn every_unusable_code_says_the_same_thing() {
+    let app = app_with_invites().await;
+    let spent = mint(&app, 1).await;
+    assert_eq!(
+        register_with(&app, "first", Some(&spent)).await,
+        StatusCode::CREATED
+    );
+
+    let now = time::OffsetDateTime::now_utc();
+    let (_, expired) = app
+        .state
+        .invites
+        .issue(
+            None,
+            5,
+            now - time::Duration::days(2),
+            Some(now - time::Duration::days(1)),
+        )
+        .await
+        .expect("issue");
+
+    for (label, code) in [
+        ("spent", Some(spent.as_str())),
+        ("expired", Some(expired.expose())),
+        ("never existed", Some("0123456789abcdef")),
+        ("absent", None),
+        ("empty", Some("")),
+    ] {
+        assert_eq!(
+            register_with(&app, &format!("who-{}", label.replace(' ', "-")), code).await,
+            StatusCode::BAD_REQUEST,
+            "{label}"
+        );
+    }
+}
+
+/// One code with several places is the case this exists for: something to send
+/// to a group chat rather than a code per person.
+#[tokio::test]
+async fn a_code_admits_as_many_as_it_says_and_no_more() {
+    let app = app_with_invites().await;
+    let code = mint(&app, 3).await;
+
+    for n in 0..3 {
+        assert_eq!(
+            register_with(&app, &format!("member{n}"), Some(&code)).await,
+            StatusCode::CREATED,
+            "{n}"
+        );
+    }
+    assert_eq!(
+        register_with(&app, "one-too-many", Some(&code)).await,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+/// The condition lives in the `UPDATE`, so two people reaching for the last
+/// place do not both get it.
+#[tokio::test]
+async fn two_people_cannot_take_the_same_last_place() {
+    let app = app_with_invites().await;
+    let code = mint(&app, 1).await;
+
+    let (first, second) = tokio::join!(
+        register_with(&app, "racer-one", Some(&code)),
+        register_with(&app, "racer-two", Some(&code))
+    );
+    let mut statuses = [first, second];
+    statuses.sort_unstable();
+    assert_eq!(statuses, [StatusCode::CREATED, StatusCode::BAD_REQUEST]);
+
+    let invite = app.state.invites.list().await.expect("query");
+    assert_eq!(invite[0].used, 1, "the code must not have been overdrawn");
+}
+
+/// An open instance ignores a code rather than refusing it, so a client can send
+/// the same body whichever kind of instance it is talking to.
+#[tokio::test]
+async fn an_open_instance_ignores_a_code() {
+    let app = TestApp::ready().await;
+    assert_eq!(
+        register_with(&app, "member", Some("nonsense")).await,
+        StatusCode::CREATED
+    );
+}
+
+/// Closed still means closed, and says so before reading anything.
+#[tokio::test]
+async fn a_closed_instance_refuses_even_a_real_code() {
+    let app = TestApp::with_config(|config| {
+        config.auth.registration = RegistrationPolicy::Closed;
+    })
+    .await;
+    let code = mint(&app, 1).await;
+    assert_eq!(
+        register_with(&app, "member", Some(&code)).await,
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// The decision this feature turns on when mail is configured: a place is not
+/// taken until an account exists. Charging at submission would let somebody burn
+/// every place on a code by filling the form in five times and never opening
+/// their inbox — and there would be nothing to show for it.
+#[tokio::test]
+async fn filling_in_the_form_does_not_spend_a_place() {
+    let app = TestApp::with_config(|config| {
+        "smtp.invalid".clone_into(&mut config.mail.host);
+        "tessera@example.com".clone_into(&mut config.mail.from);
+        "https://tessera.example.com".clone_into(&mut config.mail.public_url);
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await;
+    let code = mint(&app, 2).await;
+
+    for n in 0..5 {
+        assert_eq!(
+            register_with(&app, &format!("waiting{n}"), Some(&code)).await,
+            StatusCode::ACCEPTED,
+            "{n}"
+        );
+    }
+    wait_for_pending(&app, "waiting4@example.com").await;
+
+    assert_eq!(
+        app.state.invites.list().await.expect("query")[0].used,
+        0,
+        "five submissions and nobody has confirmed, so nothing is spent"
+    );
+}
+
+/// And following the link is what charges it.
+#[tokio::test]
+async fn following_the_link_spends_the_place() {
+    let app = TestApp::with_config(|config| {
+        "smtp.invalid".clone_into(&mut config.mail.host);
+        "tessera@example.com".clone_into(&mut config.mail.from);
+        "https://tessera.example.com".clone_into(&mut config.mail.public_url);
+        config.auth.registration = RegistrationPolicy::Invite;
+    })
+    .await;
+    let code = mint(&app, 1).await;
+
+    assert_eq!(
+        register_with(&app, "invited", Some(&code)).await,
+        StatusCode::ACCEPTED
+    );
+    let pending = wait_for_pending(&app, "invited@example.com").await;
+    assert!(
+        pending.invite_id.is_some(),
+        "the waiting row must remember which code it came in on"
+    );
+
+    let now = time::OffsetDateTime::now_utc();
+    let secret = app
+        .state
+        .pending
+        .start(
+            tessera_server::db::repository::pending_registration::Waiting {
+                username: &pending.username,
+                email: &pending.email,
+                password_hash: pending.password_hash.clone(),
+                invite_id: pending.invite_id,
+            },
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue");
+
+    assert_eq!(
+        confirm_registration(&app, secret.expose()).await.status(),
+        StatusCode::CREATED
+    );
+    assert_eq!(app.state.invites.list().await.expect("query")[0].used, 1);
 }

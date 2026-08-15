@@ -31,6 +31,7 @@
 //! one derive and not the other. It is not worth the second artefact before
 //! there is a type that needs it.
 
+pub mod admin;
 pub mod auth;
 pub mod capabilities;
 pub mod extract;
@@ -38,6 +39,7 @@ pub mod gate;
 pub mod health;
 pub mod preview;
 pub mod public;
+pub mod sessions;
 pub mod shares;
 pub mod tokens;
 
@@ -74,6 +76,12 @@ pub const AUTH_TAG: &str = "auth";
 
 /// Tag grouping API-token management.
 pub const TOKENS_TAG: &str = "tokens";
+
+/// Tag for the endpoints that show and end a person's own sign-ins.
+pub const SESSIONS_TAG: &str = "sessions";
+
+/// Tag for the endpoints an administrator uses on other people's accounts.
+pub const ADMIN_TAG: &str = "admin";
 
 /// Tag grouping share creation and management.
 pub const SHARES_TAG: &str = "shares";
@@ -115,6 +123,8 @@ pub const API_PREFIX: &str = "/api/v1";
         (name = SYSTEM_TAG, description = "Health and service metadata"),
         (name = AUTH_TAG, description = "Registration, sign-in and passwords"),
         (name = TOKENS_TAG, description = "API tokens for non-browser callers"),
+        (name = SESSIONS_TAG, description = "Seeing and ending your own sign-ins"),
+        (name = ADMIN_TAG, description = "Administering the instance"),
         (name = SHARES_TAG, description = "Creating and managing shares"),
     ),
     modifiers(&SecurityAddon),
@@ -261,9 +271,26 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::confirm_password_reset))
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
+        .routes(routes!(sessions::list, sessions::revoke_others))
+        .routes(routes!(sessions::revoke))
+        .merge(admin_routes())
         .routes(routes!(shares::list, shares::create))
         .routes(routes!(shares::describe, shares::delete))
         .routes(routes!(shares::unlock))
+}
+
+/// Everything under `/admin`.
+///
+/// Its own function because it is its own surface — an operator can switch it
+/// off with `features.admin`, and the frontend for it is a separate application
+/// that somebody may never deploy. Keeping the list here rather than inline also
+/// keeps [`versioned_routes`] readable as one page.
+fn admin_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(admin::list_users))
+        .routes(routes!(admin::update_user, admin::delete_user))
+        .routes(routes!(admin::list_invites, admin::create_invite))
+        .routes(routes!(admin::revoke_invite))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA

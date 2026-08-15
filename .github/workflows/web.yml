@@ -11,7 +11,6 @@ on:
       - "apps/admin/**"
       - "apps/tui/**"
       - "apps/extension/**"
-      - "apps/fumadocs/**"
       - "packages/**"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -34,7 +33,11 @@ permissions:
 jobs:
   check:
     name: types & lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

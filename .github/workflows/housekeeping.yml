@@ -1,0 +1,70 @@
+# Disk on the self-hosted runner.
+#
+# This used to be a job at the end of every run, with `needs` on all twelve
+# checks and `if: always()`. That shape was wrong in a way that only showed up
+# when the machine went away: `timeout-minutes` does not count queue time, so a
+# cleanup job waiting for a runner that is not there waits for ever, holds the
+# run open, and cannot be cancelled from the pull request. Every run then
+# depended on cleanup succeeding, which is backwards — cleanup exists so that
+# runs keep working, not the other way round.
+#
+# On a schedule instead. Nothing waits for it, it does not care whether the last
+# run passed, and a machine that is offline simply misses a turn.
+#
+# The jobs that create something specific still clean up after themselves — see
+# the image build in `rust.yml`. This is for what accumulates.
+name: housekeeping
+
+on:
+  schedule:
+    # Small hours, when nobody is waiting on a build.
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: housekeeping
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  disk:
+    name: cap the disk
+    runs-on: [self-hosted, Linux, X64]
+    timeout-minutes: 15
+    steps:
+      # First, and without touching Docker. This is the big one and it needs no
+      # daemon, so it still works on a machine where everything else is stuck.
+      - name: Cap the Rust build directory
+        run: |
+          TARGET="${{ github.workspace }}/../.cargo-target"
+          FREE=$(df --output=pcent / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${FREE}% full"
+          [ -d "$TARGET" ] || exit 0
+          USED=$(timeout 120 du -sg "$TARGET" 2>/dev/null | cut -f1 || echo 0)
+          echo "cargo target directory: ${USED} GB"
+          # Either it has grown past what one repository needs, or the disk is
+          # nearly gone and this is the largest thing anybody here can give back.
+          if [ "$USED" -gt 40 ] || [ "$FREE" -ge 85 ]; then
+            echo "clearing it"
+            rm -rf "$TARGET"
+          fi
+
+      # Every Docker call is under `timeout`. A daemon on a full disk stops
+      # answering rather than failing, and a step waiting on it cannot be
+      # cancelled.
+      - name: Cap the Docker caches
+        run: |
+          timeout 180 docker buildx prune -f --keep-storage 10GB 2>/dev/null || true
+          timeout 60 docker container prune -f || echo "Docker did not answer"
+          timeout 60 docker image prune -f || true
+          if [ -d /tmp/tessera-buildx-cache ]; then
+            USED=$(timeout 60 du -sg /tmp/tessera-buildx-cache 2>/dev/null | cut -f1 || echo 0)
+            echo "buildx cache: ${USED} GB"
+            [ "$USED" -gt 10 ] && rm -rf /tmp/tessera-buildx-cache
+          fi
+          exit 0
+
+      - name: What is left
+        run: df -h / | tail -1

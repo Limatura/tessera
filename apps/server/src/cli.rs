@@ -30,8 +30,11 @@ use time::OffsetDateTime;
 
 use crate::{
     auth::{password, secret::Secret},
-    config::Config,
-    db::{self, repository::user::UserRepository},
+    config::{Config, RegistrationPolicy},
+    db::{
+        self,
+        repository::{invite::InviteRepository, user::UserRepository},
+    },
 };
 
 /// Argument that turns the binary into its own health probe.
@@ -50,6 +53,15 @@ pub enum Command {
         username: String,
         /// Where the new password comes from.
         source: PasswordSource,
+    },
+    /// Mint an invite code and print it.
+    Invite {
+        /// How many accounts it may create.
+        uses: i64,
+        /// How long it lasts, in days, or `None` for one that never expires.
+        expires_in_days: Option<u64>,
+        /// What to call it, so a list of them means something.
+        note: Option<String>,
     },
     /// Print usage and exit successfully.
     Help,
@@ -117,6 +129,7 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Command, String>
         HEALTH_CHECK_FLAG => Ok(Command::HealthCheck),
         "-h" | "--help" | "help" => Ok(Command::Help),
         "reset-password" => parse_reset_password(args),
+        "invite" => parse_invite(args),
         other => Err(format!(
             "unknown argument `{other}`\n\nRun `tessera-server --help` to see what this accepts."
         )),
@@ -154,6 +167,40 @@ fn parse_reset_password<I: Iterator<Item = String>>(mut args: I) -> Result<Comma
     Ok(Command::ResetPassword { username, source })
 }
 
+fn parse_invite<I: Iterator<Item = String>>(mut args: I) -> Result<Command, String> {
+    let mut uses = 1_i64;
+    let mut expires_in_days = None;
+    let mut note = None;
+
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--uses" | "-n" => {
+                uses = value(&mut args, "--uses")?
+                    .parse()
+                    .map_err(|_| "invite: --uses needs a whole number".to_owned())?;
+            }
+            "--expires-in-days" | "-d" => {
+                expires_in_days = Some(
+                    value(&mut args, "--expires-in-days")?
+                        .parse()
+                        .map_err(|_| "invite: --expires-in-days needs a whole number".to_owned())?,
+                );
+            }
+            "--note" => note = Some(value(&mut args, "--note")?),
+            other => return Err(format!("invite: unknown argument `{other}`")),
+        }
+    }
+
+    if uses < 1 {
+        return Err("invite: --uses must be at least 1".to_owned());
+    }
+    Ok(Command::Invite {
+        uses,
+        expires_in_days,
+        note,
+    })
+}
+
 /// Said when more than one of the password flags is given.
 const CONFLICT: &str =
     "reset-password: give only one of --password, --password-stdin or --generate";
@@ -172,6 +219,7 @@ USAGE:
     tessera-server                       Run the server (the usual case)
     tessera-server --health-check        Probe the configured listener, exit 0 if healthy
     tessera-server reset-password ...    Set an account's password
+    tessera-server invite ...            Mint an invite code
 
 RESET-PASSWORD:
     -u, --username <name>    Whose password to set. Required.
@@ -195,6 +243,14 @@ RESET-PASSWORD:
     This is the way back in when the only administrator has forgotten theirs.
     It follows that anyone who can run this against the database can take any
     account — which was already true of anyone holding the database file.
+
+INVITE:
+    -n, --uses <count>           How many accounts this code may create. Default 1.
+    -d, --expires-in-days <n>    How long it lasts. Never expires when omitted.
+        --note <text>            What to call it, for `invites` listings later.
+
+    Only useful with auth.registration set to `invite`. The code is printed once
+    and only its digest is stored, so there is no way to read it back.
 
 Configuration is read from tessera.yaml (or TESSERA_CONFIG_FILE), with
 TESSERA_-prefixed environment variables taking precedence.
@@ -358,11 +414,91 @@ fn first_line(raw: &str) -> anyhow::Result<&str> {
     Ok(line)
 }
 
+/// Mints an invite code and prints it, without the server running.
+///
+/// # Errors
+///
+/// When the database cannot be opened or the insert fails.
+pub async fn mint_invite(
+    config: &Config,
+    uses: i64,
+    expires_in_days: Option<u64>,
+    note: Option<String>,
+) -> anyhow::Result<()> {
+    let db = db::connect(&config.database)
+        .await
+        .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
+    // Deliberately no migrations, for the same reason `reset-password` runs
+    // none: a tool that quietly rewrites the schema is the last thing to run
+    // against a database you are unsure about.
+    let invites = InviteRepository::new(db.clone());
+
+    let now = OffsetDateTime::now_utc();
+    let expires_at = expires_in_days
+        .map(|days| {
+            i64::try_from(days)
+                .map(time::Duration::days)
+                .map(|span| now.saturating_add(span))
+                .map_err(|_| anyhow::anyhow!("that is more days than a calendar has"))
+        })
+        .transpose()?;
+
+    let issued = invites.issue(note, uses, now, expires_at).await;
+    db::close(db).await;
+    let (_, code) = issued.context("could not create the invite")?;
+
+    report_invite(code.expose(), uses, expires_at);
+    if config.auth.registration != RegistrationPolicy::Invite {
+        // Not an error: an operator may well be setting up before flipping the
+        // switch. But a code that does nothing is worth a word.
+        report_invite_is_inert();
+    }
+    Ok(())
+}
+
 /// Says what happened, on stdout.
 ///
 /// Printed rather than logged: this is the entire output of the command, and a
 /// rescue tool whose result disappears because `telemetry.filter` is set to
 /// `warn` would be worse than useless.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn report_invite(code: &str, uses: i64, expires_at: Option<OffsetDateTime>) {
+    let places = if uses == 1 {
+        "one account".to_owned()
+    } else {
+        format!("{uses} accounts")
+    };
+    let until = expires_at.map_or_else(
+        || "It does not expire.".to_owned(),
+        |when| {
+            let stamp = when
+                .format(&time::format_description::well_known::Rfc3339)
+                .unwrap_or_else(|_| when.unix_timestamp().to_string());
+            format!("It stops working at {stamp}.")
+        },
+    );
+    println!(
+        "Invite code:\n\n    {code}\n\n\
+         Good for {places}. {until}\n\
+         This is the only time it is shown — only its digest is stored."
+    );
+}
+
+/// Says that the code will not do anything until the policy changes.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn report_invite_is_inert() {
+    println!(
+        "\nNote: `auth.registration` is not `invite`, so registration does not \
+         ask for a code yet and this one will not be checked."
+    );
+}
+
 #[expect(
     clippy::print_stdout,
     reason = "a command-line tool's result belongs on stdout, not in the log"

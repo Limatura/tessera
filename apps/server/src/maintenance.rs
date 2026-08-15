@@ -61,7 +61,21 @@ pub async fn sweep_expired(state: AppState, shutdown: CancellationToken) {
 /// present — which is the only way to assert what happens to something that
 /// expired last week.
 pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
-    report("expired sessions", state.sessions.delete_expired(now).await);
+    // Sessions are the login history now, so an expired one keeps its row. It
+    // goes once it is older than the history is kept for, which is the only
+    // thing giving the table an upper bound.
+    report(
+        "sessions past the history window",
+        state
+            .sessions
+            .delete_ended_before(
+                now.saturating_sub(
+                    time::Duration::try_from(state.config.auth.login_history())
+                        .unwrap_or_else(|_| time::Duration::days(90)),
+                ),
+            )
+            .await,
+    );
     report(
         "expired download authorisations",
         state.tickets.delete_expired(now).await,
@@ -75,6 +89,10 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
     );
     // These hold a password hash, so letting them linger past their usefulness
     // keeps a credential around for an account that was never created.
+    report(
+        "expired invite codes",
+        state.invites.delete_expired(now).await,
+    );
     report(
         "unconfirmed registrations",
         state.pending.delete_expired(now).await,

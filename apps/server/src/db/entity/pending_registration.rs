@@ -26,6 +26,11 @@ pub struct Model {
     pub created_at: TimeDateTimeWithTimeZone,
     /// When it stops working. The row is swept after this.
     pub expires_at: TimeDateTimeWithTimeZone,
+    /// Which invite this registration came in on, on an invite-only instance.
+    ///
+    /// The place is charged when the account exists, not when the form was
+    /// submitted — see the migration.
+    pub invite_id: Option<String>,
 }
 
 /// No relations declared: this row deliberately points at no account, because

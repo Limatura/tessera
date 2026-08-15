@@ -336,6 +336,14 @@ pub struct AuthConfig {
 
     /// How long a browser session stays valid, in hours.
     pub session_ttl_hours: u64,
+    /// How long an ended session stays in the list of logins, in days.
+    ///
+    /// The rows are what a person reads to answer "has anybody else been in
+    /// here", so they outlive the credential. Long enough to still answer that
+    /// about last month, short enough that a home instance is not carrying a
+    /// year of them.
+    #[serde(default = "default_login_history_days")]
+    pub login_history_days: u64,
 
     /// Password length policy. Composition rules are deliberately absent — see
     /// [`PasswordPolicy`].
@@ -627,6 +635,7 @@ impl Default for AuthConfig {
             // occasionally, and being logged out between uses is the kind of
             // friction that makes a self-hosted service go unused.
             session_ttl_hours: 24 * 30,
+            login_history_days: default_login_history_days(),
             password: PasswordPolicy::default(),
             cookie_secure: SecurePolicy::default(),
             admin_username: "admin".to_owned(),
@@ -717,7 +726,7 @@ impl ServerConfig {
     /// way through migrating gets the setting that says something specific
     /// rather than the one that says "anyone".
     ///
-    /// The list is validated in [`ServerConfig::validate`], so by the time this
+    /// The list is validated during [`Config::validate`], so by the time this
     /// is called it cannot fail — an unusable entry has already stopped
     /// start-up. Falling back to trusting nothing is the safe reading of a state
     /// that should not be reachable.
@@ -733,11 +742,28 @@ impl ServerConfig {
     }
 }
 
+/// Days of login history kept, when nothing says otherwise.
+const fn default_login_history_days() -> u64 {
+    90
+}
+
+/// The most history an instance may be asked to keep.
+///
+/// A bound rather than a preference: the sweep is what stops the table growing
+/// without limit, and a value in the thousands turns it off without saying so.
+const MAX_LOGIN_HISTORY_DAYS: u64 = 365 * 2;
+
 impl AuthConfig {
     /// Session lifetime as a [`Duration`].
     #[must_use]
     pub const fn session_ttl(&self) -> Duration {
         Duration::from_secs(self.session_ttl_hours.saturating_mul(3600))
+    }
+
+    /// How long ended sessions are kept, as a [`Duration`].
+    #[must_use]
+    pub const fn login_history(&self) -> Duration {
+        Duration::from_secs(self.login_history_days.saturating_mul(24 * 3600))
     }
 }
 
@@ -1163,6 +1189,15 @@ impl FeatureConfig {
 
 impl AuthConfig {
     fn validate(&self) -> Result<(), ConfigError> {
+        if self.login_history_days == 0 || self.login_history_days > MAX_LOGIN_HISTORY_DAYS {
+            return Err(ConfigError::Invalid {
+                field: "auth.login_history_days",
+                reason: format!(
+                    "must be between 1 and {MAX_LOGIN_HISTORY_DAYS}; the sweep is what keeps the \
+                     table bounded, and a value beyond this turns it off without saying so"
+                ),
+            });
+        }
         if self.session_ttl_hours == 0 {
             return Err(ConfigError::Invalid {
                 field: "auth.session_ttl_hours",

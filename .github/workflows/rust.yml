@@ -32,6 +32,16 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # Outside the checkout on purpose. `actions/checkout` cleans the workspace at
+  # the start of every run, so a target directory inside it is a cache that
+  # gets deleted before it is ever read — which on one machine is the difference
+  # between a two-minute run and a twenty-minute one. `_work` is the runner's
+  # own directory and survives.
+  CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
+  # A build that has to redo work is slow; one that keeps every intermediate
+  # from every branch fills a disk. Measured locally: 28 GB of incremental
+  # artefacts against 4.5 GB of actual output.
+  CARGO_INCREMENTAL: "0"
   # Lint levels in Cargo.toml are `warn` so that local development is never
   # blocked mid-experiment. This is where they become blocking.
   RUSTFLAGS: -D warnings
@@ -44,70 +54,78 @@ env:
 permissions:
   contents: read
 
+# Nothing from a fork runs here, and that guard exists before it is needed.
+#
+# These jobs run on a machine somebody owns, in their house. On a private
+# repository only people with access can start one. The day this repository goes
+# public, `pull_request` becomes an invitation for a stranger to run a build
+# script of their choosing on that machine — GitHub's own documentation says not
+# to pair self-hosted runners with public repositories for exactly this reason.
+#
+# A pull request from a branch in this repository still runs, which is every
+# pull request today. One from a fork does not run at all, which is visible as a
+# skipped check rather than a silent pass.
 jobs:
-  fmt:
-    name: fmt
-    runs-on: ubuntu-latest
+  # Six checks that were six jobs until they were measured. They all read the
+  # same build output, so splitting them meant paying for a checkout, a toolchain
+  # step and a fresh look at the target directory six times over. On one runner
+  # that overhead is serial, and it was about half of what those jobs cost:
+  # 101 seconds across six jobs, of which the work itself was a few seconds each.
+  #
+  # A step keeps its own status inside the job, so a red build still says which
+  # check failed. What is lost is five tick marks on the pull request.
+  checks:
+    name: checks
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with: { tool: "cargo-deny,cargo-machete" }
 
       # rustfmt.toml uses import grouping, which is still nightly-gated. The
       # pinned stable toolchain builds and lints; only formatting needs nightly.
       - name: Install nightly rustfmt
         run: rustup toolchain install nightly --profile minimal --component rustfmt
 
-      - run: cargo +nightly fmt --all --check
+      - name: fmt
+        run: cargo +nightly fmt --all --check
 
-  clippy:
-    name: clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes. GitHub scopes caches by ref and caps a repository
-        # at 10 GB, and a pull request already reads its base branch's entries —
-        # so saving from a branch buys nothing and costs everyone's hit rate.
-        #
-        # Measured before this line existed: 6.50 GB across 68 entries, exactly
-        # doubled — 3.25 GB on `main` and 3.25 GB on one open pull request. Two
-        # more and the cap evicts by least-recent-use, and the first thing to go
-        # is whatever is largest and least often read: the buildkit blobs the
-        # docker job depends on. That job is already the whole critical path.
-        with:
-          key: clippy
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-
-  docs:
-    name: rustdoc
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: docs
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
       # The module docs carry this project's architectural reasoning, so a broken
       # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
       # this is what actually runs rustdoc to find out.
-      - run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
+      - name: rustdoc
+        run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
 
-  boundary:
-    name: core stays pure
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+      # The contract is generated, never hand-edited. Regenerating it here and
+      # diffing against the committed file is what stops the frontend and the
+      # Discord bot from generating clients against a stale spec.
+      - name: Regenerate openapi.json
+        run: cargo run --locked --bin tessera-openapi
+
+      - name: Fail if the contract drifted
+        run: |
+          if ! git diff --exit-code -- openapi.json; then
+            echo "::error::openapi.json is out of date. Run 'pnpm server:openapi' and commit the result."
+            exit 1
+          fi
+
+      # cargo-deny covers advisories, licences, banned crates and sources.
+      # cargo-audit is deliberately absent — see the comment in deny.toml.
+      - name: security and licences
+        run: cargo deny check
+
+      - name: unused dependencies
+        run: cargo machete
 
       # `tessera-core` holds the domain rules and must not learn about HTTP, SQL
       # or async IO. Its Cargo.toml already omits them, but a banned crate can
@@ -131,16 +149,16 @@ jobs:
 
   features:
     name: feature matrix
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: features
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/rust
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-hack }
 
@@ -157,32 +175,43 @@ jobs:
 
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: test
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/rust
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-nextest }
 
       - run: cargo nextest run --locked --workspace --profile ci --all-features
+
+      # Copied into the workspace first. `upload-artifact` refuses a path
+      # containing `..`, and the target directory lives outside the checkout so
+      # that `actions/checkout` does not delete it between runs.
+      - name: Collect the test report
+        if: always()
+        run: cp "$CARGO_TARGET_DIR/nextest/ci/junit.xml" junit.xml || true
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nextest-junit
-          path: target/nextest/ci/junit.xml
+          path: junit.xml
           if-no-files-found: ignore
 
   backends:
     name: ${{ matrix.backend }} backend
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # Without this job, `postgres` and `mysql` are only ever proven to *compile*.
     # The hand-written per-dialect migration SQL especially needs a real server:
     # "sqlite was updated and the others were forgotten" is the failure mode that
@@ -223,11 +252,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: backends
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: ./.github/actions/rust
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-nextest }
 
@@ -240,59 +265,32 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(backends)'
 
-  contract:
-    name: openapi contract
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: contract
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
-      # The contract is generated, never hand-edited. Regenerating it here and
-      # diffing against the committed file is what stops the frontend and the
-      # Discord bot from generating clients against a stale spec.
-      - name: Regenerate openapi.json
-        run: cargo run --locked --bin tessera-openapi
-
-      - name: Fail if the contract drifted
-        run: |
-          if ! git diff --exit-code -- openapi.json; then
-            echo "::error::openapi.json is out of date. Run 'pnpm server:openapi' and commit the result."
-            exit 1
-          fi
-
-  audit:
-    name: security & licences
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
-        with: { tool: "cargo-deny,cargo-machete" }
-
-      # cargo-deny covers advisories, licences, banned crates and sources.
-      # cargo-audit is deliberately absent — see the comment in deny.toml.
-      - run: cargo deny check
-      - run: cargo machete
-
   workflows:
     name: workflow lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/rust
 
       # `actionlint` reads the workflow the way the runner will: unknown keys,
       # expressions that cannot evaluate, shell that `shellcheck` dislikes. All
       # of it is otherwise found by pushing and watching a run go red.
-      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+      # From its own image rather than through a wrapper action. The wrapper
+      # picks a binary from the platform it thinks it is on, and on this runner
+      # it decided "unsupported" — a question that does not arise when the tool
+      # ships as a container.
+      #
+      # Pinned to a version that resolves YAML anchors. `paths: *rust-paths` is
+      # what keeps the trigger lists for push and pull_request from drifting
+      # apart, and 1.7.7 reads the alias as a syntax error.
+      - name: actionlint
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
 
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: zizmor }
@@ -307,11 +305,16 @@ jobs:
 
   docker:
     name: docker image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/rust
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Build image
@@ -321,14 +324,13 @@ jobs:
           file: apps/server/Dockerfile
           tags: tessera-server:ci
           load: true
-          cache-from: type=gha
-          # Only `main` writes, for the same reason the rust-cache steps do — but
-          # the pressure here is worse, because this cache and those share one
-          # 10 GB budget and evict each other by LRU. Measured on 2026-08-11:
-          # rust-cache 5.07 GB + buildkit 1.94 GB = 7.01 GB, with pull requests
-          # writing a second copy of both. Whichever side crosses the line first,
-          # the other one starts cold-building.
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max' || '' }}
+          # On disk, not in GitHub's cache. The runner is one machine that keeps
+          # its filesystem between runs, so a layer cache costs nothing to keep
+          # and nothing to fetch — where `type=gha` would upload gigabytes to the
+          # place we moved off in the first place. The size cap is enforced by
+          # the prune step below, not here.
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          cache-to: type=local,dest=/tmp/tessera-buildx-cache,mode=max
           # `.git` is not in the build context, so the commit has to be passed in
           # or `/health` reports `unknown`.
           build-args: |
@@ -402,19 +404,31 @@ jobs:
           docker logs tessera-smoke
           exit 1
 
+      # This job builds an image and loads it into the daemon. On a hosted
+      # runner the daemon went away with the machine; here it does not, and a
+      # tagged image survives `docker image prune`, which only takes dangling
+      # ones. So the job that made it takes it away — including when the smoke
+      # test failed and left the container behind.
+      - name: Remove what this job put on the machine
+        if: always()
+        run: |
+          docker rm -f tessera-smoke 2>/dev/null || true
+          docker image rm -f tessera-server:ci 2>/dev/null || true
+          docker image prune -f
+
   fuzz:
     name: contract fuzz
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/rust
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: fuzz
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v6
 
       - run: cargo build --locked --bin tessera-server
@@ -428,7 +442,8 @@ jobs:
           TESSERA_DATABASE__URL='sqlite:///tmp/fuzz/fuzz.db?mode=rwc' \
           TESSERA_STORAGE__URL=/tmp/fuzz/blobs \
           TESSERA_SERVER__PORT=13999 \
-            ./target/debug/tessera-server > /tmp/fuzz/server.log 2>&1 &
+            "$CARGO_TARGET_DIR/debug/tessera-server" > /tmp/fuzz/server.log 2>&1 &
+          echo $! > /tmp/fuzz/server.pid
           for _ in $(seq 1 60); do
             curl -fsS http://127.0.0.1:13999/health > /dev/null 2>&1 && break
             sleep 0.5
@@ -466,6 +481,15 @@ jobs:
           uvx schemathesis --config-file /tmp/fuzz/run.toml \
             run http://127.0.0.1:13999/openapi.json \
             -w 4 --report-junit-path /tmp/fuzz/report.xml
+
+      # The runner is one machine that keeps running after the job ends, so a
+      # server started here outlives it and the next run finds port 13999 taken.
+      # On a hosted runner the whole machine went away and nobody noticed.
+      - name: Stop the instance
+        if: always()
+        run: |
+          [ -f /tmp/fuzz/server.pid ] && kill "$(cat /tmp/fuzz/server.pid)" 2>/dev/null || true
+          rm -rf /tmp/fuzz
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
