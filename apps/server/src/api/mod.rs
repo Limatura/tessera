@@ -273,11 +273,24 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(tokens::revoke))
         .routes(routes!(sessions::list, sessions::revoke_others))
         .routes(routes!(sessions::revoke))
-        .routes(routes!(admin::list_users))
-        .routes(routes!(admin::update_user, admin::delete_user))
+        .merge(admin_routes())
         .routes(routes!(shares::list, shares::create))
         .routes(routes!(shares::describe, shares::delete))
         .routes(routes!(shares::unlock))
+}
+
+/// Everything under `/admin`.
+///
+/// Its own function because it is its own surface — an operator can switch it
+/// off with `features.admin`, and the frontend for it is a separate application
+/// that somebody may never deploy. Keeping the list here rather than inline also
+/// keeps [`versioned_routes`] readable as one page.
+fn admin_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(admin::list_users))
+        .routes(routes!(admin::update_user, admin::delete_user))
+        .routes(routes!(admin::list_invites, admin::create_invite))
+        .routes(routes!(admin::revoke_invite))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA

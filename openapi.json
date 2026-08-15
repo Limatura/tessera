@@ -159,6 +159,41 @@
         ],
         "type": "object"
       },
+      "CreateInviteRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /admin/invites`.",
+        "properties": {
+          "expires_in_days": {
+            "description": "How many days it lasts, or `null` for one that never expires.",
+            "example": 7,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "note": {
+            "description": "What to call it, so a list of them means something.",
+            "example": "family",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "uses": {
+            "description": "How many accounts this code may create.\n\nOne code with several places is what the feature is for: something to\nsend to a group rather than a code per person. `1` makes it single-use.",
+            "example": 3,
+            "format": "int64",
+            "minimum": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "uses"
+        ],
+        "type": "object"
+      },
       "CreateTokenRequest": {
         "description": "Body of `POST /tokens`.",
         "properties": {
@@ -182,6 +217,28 @@
           "name"
         ],
         "type": "object"
+      },
+      "CreatedInviteResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/InviteResponse",
+            "description": "The invite itself."
+          },
+          {
+            "properties": {
+              "code": {
+                "description": "**Shown once.** Only its SHA-256 digest is stored, so this value cannot\nbe read back afterwards — not by an administrator, not by anybody.",
+                "example": "3f9a1c…",
+                "type": "string"
+              }
+            },
+            "required": [
+              "code"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "A freshly minted invite, with its code."
       },
       "CreatedTokenResponse": {
         "allOf": [
@@ -278,6 +335,56 @@
           "build_rev",
           "uptime_seconds",
           "database"
+        ],
+        "type": "object"
+      },
+      "InviteResponse": {
+        "description": "One invite code, as an administrator sees it.\n\nNever carries the code. Only its digest is stored, so there is nothing to\nshow — see [`CreatedInviteResponse`] for the one moment there is.",
+        "properties": {
+          "active": {
+            "description": "Whether it would still admit somebody.\n\nSent rather than left to the client to work out from `used`, `max_uses`\nand `expires_at` against its own clock — the same reason a session says\nwhether it is active.",
+            "type": "boolean"
+          },
+          "created_at": {
+            "description": "When it was made.",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "When it stops working, or `null` for one that does not.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Stable identifier, for revoking it.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
+            "type": "string"
+          },
+          "max_uses": {
+            "description": "How many accounts it may create.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "note": {
+            "description": "What the operator called it.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "used": {
+            "description": "How many it has created.",
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "max_uses",
+          "used",
+          "active",
+          "created_at"
         ],
         "type": "object"
       },
@@ -778,6 +885,202 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/invites": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",
+        "operationId": "list_invites",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InviteResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Every invite on this instance"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists every invite, newest first.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "# Why this exists when the CLI already does it\n\nThe command line is the rescue path — it works with the service stopped and\nneeds nothing but the database file. This is the ordinary path: somebody\nletting a friend in should not have to reach a shell on the box.\n\n# Errors\n\n`400` when `uses` is below one or the lifetime is beyond a calendar, `401`\nwhen nothing was signed in, `403` when the caller is not an administrator or\nused a bearer token, `404` when this instance has no administration.",
+        "operationId": "create_invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateInviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedInviteResponse"
+                }
+              }
+            },
+            "description": "The invite, with its code"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A value failed its rule"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Mints an invite code and returns it, once.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/invites/{id}": {
+      "delete": {
+        "description": "The accounts it already admitted stay: an account created through a code does\nnot depend on the code still existing. What this stops is the code letting\nanybody else in, which is what somebody who posted one in the wrong chat\nwindow wants.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no invite has that\nidentifier.",
+        "operationId": "revoke_invite",
+        "parameters": [
+          {
+            "description": "Which invite to revoke",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It no longer admits anybody"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No invite has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Revokes an invite.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/users": {
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",

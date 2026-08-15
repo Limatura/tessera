@@ -20,7 +20,7 @@
 
 use axum::{Json, extract::State, http::StatusCode};
 use serde::{Deserialize, Serialize};
-use tessera_core::UserId;
+use tessera_core::{InviteId, UserId};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
@@ -29,8 +29,10 @@ use crate::{
         ADMIN_TAG,
         auth::AccountResponse,
         extract::{ApiJson, ApiPath},
+        tokens::format_timestamp,
     },
     auth::extract::AdminUser,
+    db::repository::invite::Invite,
     error::{Error, Result},
     state::AppState,
 };
@@ -222,6 +224,223 @@ pub async fn delete_user(
     }
 
     if state.users.delete(user_id).await? {
+        Ok(StatusCode::NO_CONTENT)
+    } else {
+        Err(Error::NotFound)
+    }
+}
+
+/// Body of `POST /admin/invites`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CreateInviteRequest {
+    /// How many accounts this code may create.
+    ///
+    /// One code with several places is what the feature is for: something to
+    /// send to a group rather than a code per person. `1` makes it single-use.
+    #[schema(example = 3, minimum = 1)]
+    pub uses: i64,
+    /// How many days it lasts, or `null` for one that never expires.
+    #[schema(example = 7)]
+    #[serde(default)]
+    pub expires_in_days: Option<u64>,
+    /// What to call it, so a list of them means something.
+    #[schema(example = "family")]
+    #[serde(default)]
+    pub note: Option<String>,
+}
+
+/// One invite code, as an administrator sees it.
+///
+/// Never carries the code. Only its digest is stored, so there is nothing to
+/// show — see [`CreatedInviteResponse`] for the one moment there is.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct InviteResponse {
+    /// Stable identifier, for revoking it.
+    #[schema(example = "01K1ZQK9V8QF5S3T4M2N6P7R8S")]
+    pub id: String,
+    /// What the operator called it.
+    pub note: Option<String>,
+    /// How many accounts it may create.
+    pub max_uses: i64,
+    /// How many it has created.
+    pub used: i64,
+    /// Whether it would still admit somebody.
+    ///
+    /// Sent rather than left to the client to work out from `used`, `max_uses`
+    /// and `expires_at` against its own clock — the same reason a session says
+    /// whether it is active.
+    pub active: bool,
+    /// When it was made.
+    pub created_at: String,
+    /// When it stops working, or `null` for one that does not.
+    pub expires_at: Option<String>,
+}
+
+/// A freshly minted invite, with its code.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct CreatedInviteResponse {
+    /// The invite itself.
+    #[serde(flatten)]
+    pub invite: InviteResponse,
+    /// **Shown once.** Only its SHA-256 digest is stored, so this value cannot
+    /// be read back afterwards — not by an administrator, not by anybody.
+    #[schema(example = "3f9a1c…")]
+    pub code: String,
+}
+
+impl InviteResponse {
+    fn build(invite: &Invite, now: OffsetDateTime) -> Self {
+        Self {
+            id: invite.id.to_string(),
+            note: invite.note.clone(),
+            max_uses: invite.max_uses,
+            used: invite.used,
+            active: invite.is_usable_at(now),
+            created_at: format_timestamp(invite.created_at),
+            expires_at: invite.expires_at.map(format_timestamp),
+        }
+    }
+}
+
+/// Lists every invite, newest first.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller is not an
+/// administrator or used a bearer token, `404` when this instance has no
+/// administration.
+#[utoipa::path(
+    get,
+    path = "/admin/invites",
+    operation_id = "list_invites",
+    tag = ADMIN_TAG,
+    responses(
+        (status = 200, description = "Every invite on this instance", body = Vec<InviteResponse>),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "Not an administrator, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn list_invites(
+    State(state): State<AppState>,
+    admin: AdminUser,
+) -> Result<Json<Vec<InviteResponse>>> {
+    require_admin_feature(&state)?;
+    require_session(&admin)?;
+
+    let now = OffsetDateTime::now_utc();
+    let invites = state.invites.list().await?;
+    Ok(Json(
+        invites
+            .iter()
+            .map(|invite| InviteResponse::build(invite, now))
+            .collect(),
+    ))
+}
+
+/// Mints an invite code and returns it, once.
+///
+/// # Why this exists when the CLI already does it
+///
+/// The command line is the rescue path — it works with the service stopped and
+/// needs nothing but the database file. This is the ordinary path: somebody
+/// letting a friend in should not have to reach a shell on the box.
+///
+/// # Errors
+///
+/// `400` when `uses` is below one or the lifetime is beyond a calendar, `401`
+/// when nothing was signed in, `403` when the caller is not an administrator or
+/// used a bearer token, `404` when this instance has no administration.
+#[utoipa::path(
+    post,
+    path = "/admin/invites",
+    operation_id = "create_invite",
+    tag = ADMIN_TAG,
+    request_body = CreateInviteRequest,
+    responses(
+        (status = 201, description = "The invite, with its code", body = CreatedInviteResponse),
+        (status = 400, description = "A value failed its rule", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "Not an administrator, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn create_invite(
+    State(state): State<AppState>,
+    admin: AdminUser,
+    ApiJson(body): ApiJson<CreateInviteRequest>,
+) -> Result<(StatusCode, Json<CreatedInviteResponse>)> {
+    require_admin_feature(&state)?;
+    require_session(&admin)?;
+
+    if body.uses < 1 {
+        return Err(Error::bad_request("an invite has to admit at least one"));
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let expires_at = body
+        .expires_in_days
+        .map(|days| {
+            i64::try_from(days)
+                .map(time::Duration::days)
+                .map(|span| now.saturating_add(span))
+                .map_err(|_| Error::bad_request("that is more days than a calendar has"))
+        })
+        .transpose()?;
+
+    let (invite, code) = state
+        .invites
+        .issue(body.note, body.uses, now, expires_at)
+        .await?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(CreatedInviteResponse {
+            invite: InviteResponse::build(&invite, now),
+            code: code.expose().to_owned(),
+        }),
+    ))
+}
+
+/// Revokes an invite.
+///
+/// The accounts it already admitted stay: an account created through a code does
+/// not depend on the code still existing. What this stops is the code letting
+/// anybody else in, which is what somebody who posted one in the wrong chat
+/// window wants.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller is not an
+/// administrator or used a bearer token, `404` when no invite has that
+/// identifier.
+#[utoipa::path(
+    delete,
+    path = "/admin/invites/{id}",
+    operation_id = "revoke_invite",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which invite to revoke")),
+    responses(
+        (status = 204, description = "It no longer admits anybody"),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "Not an administrator, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No invite has that id", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn revoke_invite(
+    State(state): State<AppState>,
+    admin: AdminUser,
+    ApiPath(id): ApiPath<String>,
+) -> Result<StatusCode> {
+    require_admin_feature(&state)?;
+    require_session(&admin)?;
+
+    let invite_id = InviteId::parse(&id).map_err(|_| Error::NotFound)?;
+    if state.invites.delete(invite_id).await? {
         Ok(StatusCode::NO_CONTENT)
     } else {
         Err(Error::NotFound)

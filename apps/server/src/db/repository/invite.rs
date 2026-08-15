@@ -170,6 +170,25 @@ impl InviteRepository {
         models.iter().map(Invite::from_model).collect()
     }
 
+    /// Removes one invite.
+    ///
+    /// The places it already gave out stay given: an account created through a
+    /// code does not depend on the code still existing. Revoking one stops it
+    /// admitting anybody else, which is what somebody who posted a code in the
+    /// wrong chat window wants.
+    ///
+    /// Returns whether an invite was removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the delete fails.
+    pub async fn delete(&self, id: InviteId) -> Result<bool, UserRepositoryError> {
+        let result = InviteEntity::delete_by_id(id.to_string())
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
     /// Removes invites that expired, whether or not they were used.
     ///
     /// A code with places left on it is not swept: the operator may still be
