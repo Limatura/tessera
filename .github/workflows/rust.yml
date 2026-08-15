@@ -66,8 +66,16 @@ permissions:
 # pull request today. One from a fork does not run at all, which is visible as a
 # skipped check rather than a silent pass.
 jobs:
-  fmt:
-    name: fmt
+  # Six checks that were six jobs until they were measured. They all read the
+  # same build output, so splitting them meant paying for a checkout, a toolchain
+  # step and a fresh look at the target directory six times over. On one runner
+  # that overhead is serial, and it was about half of what those jobs cost:
+  # 101 seconds across six jobs, of which the work itself was a few seconds each.
+  #
+  # A step keeps its own status inside the job, so a red build still says which
+  # check failed. What is lost is five tick marks on the pull request.
+  checks:
+    name: checks
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
@@ -78,59 +86,46 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with: { tool: "cargo-deny,cargo-machete" }
 
       # rustfmt.toml uses import grouping, which is still nightly-gated. The
       # pinned stable toolchain builds and lints; only formatting needs nightly.
       - name: Install nightly rustfmt
         run: rustup toolchain install nightly --profile minimal --component rustfmt
 
-      - run: cargo +nightly fmt --all --check
+      - name: fmt
+        run: cargo +nightly fmt --all --check
 
-  clippy:
-    name: clippy
-    runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
-    timeout-minutes: 30
-    if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/rust
-
-      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-
-  docs:
-    name: rustdoc
-    runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
-    timeout-minutes: 30
-    if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/rust
+      - name: clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
       # The module docs carry this project's architectural reasoning, so a broken
       # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
       # this is what actually runs rustdoc to find out.
-      - run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
+      - name: rustdoc
+        run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
 
-  boundary:
-    name: core stays pure
-    runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
-    timeout-minutes: 30
-    if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/rust
+      # The contract is generated, never hand-edited. Regenerating it here and
+      # diffing against the committed file is what stops the frontend and the
+      # Discord bot from generating clients against a stale spec.
+      - name: Regenerate openapi.json
+        run: cargo run --locked --bin tessera-openapi
+
+      - name: Fail if the contract drifted
+        run: |
+          if ! git diff --exit-code -- openapi.json; then
+            echo "::error::openapi.json is out of date. Run 'pnpm server:openapi' and commit the result."
+            exit 1
+          fi
+
+      # cargo-deny covers advisories, licences, banned crates and sources.
+      # cargo-audit is deliberately absent — see the comment in deny.toml.
+      - name: security and licences
+        run: cargo deny check
+
+      - name: unused dependencies
+        run: cargo machete
 
       # `tessera-core` holds the domain rules and must not learn about HTTP, SQL
       # or async IO. Its Cargo.toml already omits them, but a banned crate can
@@ -269,52 +264,6 @@ jobs:
         run: |
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(backends)'
-
-  contract:
-    name: openapi contract
-    runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
-    timeout-minutes: 30
-    if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/rust
-
-      # The contract is generated, never hand-edited. Regenerating it here and
-      # diffing against the committed file is what stops the frontend and the
-      # Discord bot from generating clients against a stale spec.
-      - name: Regenerate openapi.json
-        run: cargo run --locked --bin tessera-openapi
-
-      - name: Fail if the contract drifted
-        run: |
-          if ! git diff --exit-code -- openapi.json; then
-            echo "::error::openapi.json is out of date. Run 'pnpm server:openapi' and commit the result."
-            exit 1
-          fi
-
-  audit:
-    name: security & licences
-    runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
-    timeout-minutes: 30
-    if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
-        with: { tool: "cargo-deny,cargo-machete" }
-
-      # cargo-deny covers advisories, licences, banned crates and sources.
-      # cargo-audit is deliberately absent — see the comment in deny.toml.
-      - run: cargo deny check
-      - run: cargo machete
 
   workflows:
     name: workflow lint
