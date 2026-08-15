@@ -4,7 +4,7 @@ use sea_orm::{
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, Set,
     sea_query::OnConflict,
 };
-use tessera_core::{EmailAddress, PendingRegistrationId, Username};
+use tessera_core::{EmailAddress, InviteId, PendingRegistrationId, Username};
 use time::OffsetDateTime;
 
 use crate::{
@@ -28,6 +28,8 @@ pub struct PendingRegistration {
     pub password_hash: String,
     /// When the link stops working.
     pub expires_at: OffsetDateTime,
+    /// Which invite it came in on, if the instance is invite-only.
+    pub invite_id: Option<InviteId>,
 }
 
 impl PendingRegistration {
@@ -52,8 +54,30 @@ impl PendingRegistration {
             email: EmailAddress::parse(&model.email).map_err(fail)?,
             password_hash: model.password_hash.clone(),
             expires_at: model.expires_at,
+            invite_id: model
+                .invite_id
+                .as_deref()
+                .map(InviteId::parse)
+                .transpose()
+                .map_err(fail)?,
         })
     }
+}
+
+/// What one waiting registration is asking to become.
+///
+/// A type rather than four more arguments: they are one description of one
+/// intention, and they are only ever passed together.
+#[derive(Debug)]
+pub struct Waiting<'a> {
+    /// The name asked for.
+    pub username: &'a Username,
+    /// The address being confirmed.
+    pub email: &'a EmailAddress,
+    /// Already hashed — this table must be no more use to a thief than `users`.
+    pub password_hash: String,
+    /// Which invite it came in on, on an invite-only instance.
+    pub invite_id: Option<InviteId>,
 }
 
 /// Pending registrations, as the rest of the server sees them.
@@ -81,21 +105,20 @@ impl PendingRegistrationRepository {
     /// Returns [`UserRepositoryError`] if the write fails.
     pub async fn start(
         &self,
-        username: &Username,
-        email: &EmailAddress,
-        password_hash: String,
+        waiting: Waiting<'_>,
         now: OffsetDateTime,
         expires_at: OffsetDateTime,
     ) -> Result<Secret, UserRepositoryError> {
         let secret = Secret::generate_session();
         let row = ActiveModel {
             id: Set(PendingRegistrationId::generate().to_string()),
-            username: Set(username.as_str().to_owned()),
-            email: Set(email.as_str().to_owned()),
-            password_hash: Set(password_hash),
+            username: Set(waiting.username.as_str().to_owned()),
+            email: Set(waiting.email.as_str().to_owned()),
+            password_hash: Set(waiting.password_hash),
             secret_hash: Set(secret.digest()),
             created_at: Set(now),
             expires_at: Set(expires_at),
+            invite_id: Set(waiting.invite_id.map(|id| id.to_string())),
         };
 
         PendingEntity::insert(row)
@@ -111,6 +134,7 @@ impl PendingRegistrationRepository {
                         Column::SecretHash,
                         Column::CreatedAt,
                         Column::ExpiresAt,
+                        Column::InviteId,
                     ])
                     .to_owned(),
             )

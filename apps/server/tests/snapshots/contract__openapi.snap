@@ -447,6 +447,14 @@ expression: document
             "format": "email",
             "type": "string"
           },
+          "invite_code": {
+            "description": "An invite code, on an instance that asks for one.\n\nIgnored where registration is open, so a client does not have to know\nwhich kind of instance it is talking to before filling in the form.\n`/capabilities` says which it is.",
+            "example": "3f9a1c…",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "password": {
             "description": "At least `password_min_length` characters — see `/capabilities`.",
             "example": "correct horse battery staple",
