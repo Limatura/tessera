@@ -206,6 +206,11 @@ subtle = "2"
 axum-extra = { version = "0.12", features = ["cookie"] }
 
 # --- misc ---
+# CIDR matching, for deciding whether the thing that connected is a proxy we
+# said we trust. Already in the tree through reqwest, so it costs nothing new,
+# and hand-rolling prefix comparison across v4 and v6 is exactly the kind of
+# thing that looks right and is not.
+ipnet = "2"
 parking_lot = "0.12"
 rust-embed = "8.12"
 mime_guess = "2"
@@ -217,6 +222,11 @@ bytes = "1"
 http-body-util = "0.1"
 ulid = { workspace = true }
 time = { workspace = true }
+# Reading a password without echoing it. The alternative is `tcsetattr` through
+# `libc`, which `unsafe_code = "forbid"` rules out, and `stty -echo`, which the
+# distroless runtime image has no shell to run. Small enough not to contradict
+# what the CLI module says about dependencies: this is two files, not `clap`.
+rpassword = "7.5.4"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["async_tokio"] }

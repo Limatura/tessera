@@ -18,10 +18,11 @@ use crate::{
         cookie,
         extract::{ClientAddress, Credential, SelfServiceUser},
         password,
+        proxy::{Origin, UNPLACEABLE},
         throttle::Decision,
     },
     config::RegistrationPolicy,
-    db::repository::user::User,
+    db::repository::{session::SessionOrigin, user::User},
     error::{Error, Result},
     mail::password_reset_letter,
     state::AppState,
@@ -175,6 +176,7 @@ fn require_accounts(state: &AppState) -> Result<()> {
 )]
 pub async fn register(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     ApiJson(body): ApiJson<RegisterRequest>,
 ) -> Result<Response> {
@@ -260,7 +262,7 @@ pub async fn register(
         return Err(error.into());
     }
 
-    let cookie = start_session(&state, &user, &headers, now).await?;
+    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
@@ -289,7 +291,7 @@ pub async fn register(
 )]
 pub async fn login(
     State(state): State<AppState>,
-    ClientAddress(address): ClientAddress,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     ApiJson(body): ApiJson<LoginRequest>,
 ) -> Result<Response> {
@@ -300,9 +302,10 @@ pub async fn login(
     // would let a botnet spread its guesses and never trip the limit. A second
     // counter watches the address by itself, because otherwise naming a
     // different account each time produces a fresh key and no limit at all.
-    let key = format!("{}|{address}", body.identifier.to_lowercase());
+    let key = format!("{}|{}", body.identifier.to_lowercase(), origin.source);
     let throttles = &state.throttles;
-    if let Decision::Deny { retry_after } = throttles.check(&throttles.login, &key, &address) {
+    if let Decision::Deny { retry_after } = throttles.check(&throttles.login, &key, &origin.source)
+    {
         return Err(Error::TooManyRequests {
             retry_after_secs: retry_after.as_secs(),
         });
@@ -329,13 +332,13 @@ pub async fn login(
     };
 
     let Some(user) = user.filter(|_| authenticated) else {
-        throttles.record_failure(&throttles.login, &key, &address);
+        throttles.record_failure(&throttles.login, &key, &origin.source);
         return Err(Error::Unauthorized);
     };
 
     throttles.login.reset(&key);
     let now = OffsetDateTime::now_utc();
-    let cookie = start_session(&state, &user, &headers, now).await?;
+    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
 
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
@@ -361,6 +364,7 @@ pub async fn login(
 )]
 pub async fn logout(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     SelfServiceUser(current): SelfServiceUser,
 ) -> Result<Response> {
@@ -378,7 +382,7 @@ pub async fn logout(
         .config
         .auth
         .cookie_secure
-        .applies(&headers, state.config.server.trusted_proxy);
+        .applies(&headers, origin.via_trusted_proxy);
     Ok((
         StatusCode::NO_CONTENT,
         [(
@@ -433,6 +437,7 @@ pub async fn session(SelfServiceUser(current): SelfServiceUser) -> Result<Json<A
 )]
 pub async fn change_password(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     SelfServiceUser(current): SelfServiceUser,
     ApiJson(body): ApiJson<ChangePasswordRequest>,
@@ -465,7 +470,7 @@ pub async fn change_password(
         .await?;
     state.sessions.delete_for_user(current.user.id).await?;
 
-    let cookie = start_session(&state, &current.user, &headers, now).await?;
+    let cookie = start_session(&state, &current.user, &headers, &origin, now).await?;
     let mut account = AccountResponse::from(&current.user);
     account.must_change_password = false;
 
@@ -514,6 +519,7 @@ async fn start_session(
     state: &AppState,
     user: &User,
     headers: &HeaderMap,
+    origin: &Origin,
     now: OffsetDateTime,
 ) -> Result<Cookie<'static>> {
     // `std::time::Duration` is unsigned and `time::Duration` is not, so the
@@ -525,7 +531,12 @@ async fn start_session(
 
     let (_, secret) = state
         .sessions
-        .create(user.id, now, now.saturating_add(ttl))
+        .create(
+            user.id,
+            &session_origin(headers, origin),
+            now,
+            now.saturating_add(ttl),
+        )
         .await?;
 
     // The cookie's `Max-Age` matches the row's expiry, so a browser stops
@@ -534,8 +545,36 @@ async fn start_session(
         .config
         .auth
         .cookie_secure
-        .applies(headers, state.config.server.trusted_proxy);
+        .applies(headers, origin.via_trusted_proxy);
     Ok(cookie::session_cookie(&secret, ttl, secure))
+}
+
+/// What gets recorded about the request that started a session.
+///
+/// # Why the address can be absent
+///
+/// [`Origin::source`] always has something in it, because a throttle needs a key
+/// even when there is no address to be had — it says `unknown` then. A stored
+/// value is read by a person deciding whether a session is theirs, and
+/// `unknown` written in a column reads like a place. Nothing is a better answer
+/// than a word that looks like an answer.
+///
+/// # Why a user agent can be absent too
+///
+/// `to_str` refuses a header value outside visible ASCII, and nothing is stored
+/// when it does. Every real browser sends ASCII, so what this drops is a client
+/// that went out of its way — and a session showing no browser is a truthful
+/// thing to show, where a mangled string would not be.
+fn session_origin(headers: &HeaderMap, origin: &Origin) -> SessionOrigin {
+    SessionOrigin {
+        ip: (origin.source != UNPLACEABLE).then(|| origin.source.clone()),
+        user_agent: headers
+            .get(header::USER_AGENT)
+            .and_then(|value| value.to_str().ok())
+            .map(str::trim)
+            .filter(|agent| !agent.is_empty())
+            .map(str::to_owned),
+    }
 }
 
 /// Body of `POST /auth/register/confirm`.
@@ -690,6 +729,7 @@ fn start_verified_registration(
 )]
 pub async fn confirm_registration(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     ApiJson(body): ApiJson<RegisterConfirmRequest>,
 ) -> Result<Response> {
@@ -788,7 +828,7 @@ pub async fn confirm_registration(
     }
     state.pending.finish(pending.id).await?;
 
-    let cookie = start_session(&state, &user, &headers, now).await?;
+    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],

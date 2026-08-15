@@ -62,8 +62,8 @@ async fn main() -> anyhow::Result<()> {
         // re-executes this binary instead. It shares the configuration, which
         // means the probe always targets the port the server actually listens on.
         cli::Command::HealthCheck => return probe_health(&config).await,
-        cli::Command::ResetPassword { username, password } => {
-            return cli::reset_password(&config, &username, password).await;
+        cli::Command::ResetPassword { username, source } => {
+            return cli::reset_password(&config, &username, source).await;
         }
         cli::Command::Serve => {}
     }
@@ -93,17 +93,7 @@ async fn main() -> anyhow::Result<()> {
         "starting tessera"
     );
 
-    // The combination that turns an instance into free storage for anyone who
-    // can reach it. Neither half is wrong on its own — anonymous upload is the
-    // point of the product, and no quota is right when the operator is the only
-    // user — so this warns rather than refuses. `tessera.public.yaml` sets both.
-    if config.features.anonymous_upload && config.storage.max_total_bytes == 0 {
-        tracing::warn!(
-            "anonymous uploads are enabled and `storage.max_total_bytes` is unset: anyone who \
-             can reach this instance can fill its disk. Set a limit, or turn off \
-             `features.anonymous_upload`, if this is reachable by people you do not know."
-        );
-    }
+    warn_about_settings_that_bite(&config);
 
     // 4. Dependencies.
     let db = db::connect(&config.database)
@@ -270,4 +260,58 @@ async fn watch_for_shutdown(token: CancellationToken) {
     }
 
     token.cancel();
+}
+
+/// Says something about the settings that are legal, quiet and dangerous.
+///
+/// Warnings rather than refusals: each of these is the right setting for
+/// somebody. What they have in common is that nothing goes wrong at start-up and
+/// nothing goes wrong in testing — the cost only shows up when a stranger finds
+/// the instance.
+fn warn_about_settings_that_bite(config: &Config) {
+    // The combination that turns an instance into free storage for anyone who
+    // can reach it. Neither half is wrong on its own — anonymous upload is the
+    // point of the product, and no quota is right when the operator is the only
+    // user — so this warns rather than refuses. `tessera.public.yaml` sets both.
+    if config.features.anonymous_upload && config.storage.max_total_bytes == 0 {
+        tracing::warn!(
+            "anonymous uploads are enabled and `storage.max_total_bytes` is unset: anyone who \
+         can reach this instance can fill its disk. Set a limit, or turn off \
+         `features.anonymous_upload`, if this is reachable by people you do not know."
+        );
+    }
+
+    warn_about_proxy_trust(&config.server);
+}
+
+/// The settings that decide whether `X-Forwarded-For` may be believed.
+///
+/// Its own function because getting this wrong does not look like a mistake: the
+/// service starts, the logs fill with plausible addresses, and every throttle in
+/// it counts against something the caller chose. Two hundred sign-in attempts,
+/// none refused, against an instance that blocks the eleventh.
+fn warn_about_proxy_trust(server: &tessera_server::config::ServerConfig) {
+    if server.trusted_proxies.is_empty() && server.trusted_proxy {
+        tracing::warn!(
+            "`server.trusted_proxy` is deprecated and believes whatever connects to this \
+         service. Replace it with `server.trusted_proxies`, naming the proxy — \
+         `[\"127.0.0.1\", \"::1\"]` for one on this host, `[\"10.0.0.0/8\"]` for a container \
+         network. Anyone who can reach this port directly can otherwise pick the address \
+         their failed sign-ins are counted against."
+        );
+    }
+    if server.proxy_trust().covers_everything() {
+        tracing::warn!(
+            "`server.trusted_proxies` contains a block covering every address, so every \
+             `X-Forwarded-For` entry counts as one of ours and the whole header is believed. \
+             Anyone who can reach this service can then pick the address their failed sign-ins \
+             are counted against. Name the proxy instead."
+        );
+    }
+    if !server.trusted_proxies.is_empty() && server.trusted_proxy {
+        tracing::warn!(
+            "both `server.trusted_proxies` and the deprecated `server.trusted_proxy` are set; \
+         the list is used and the boolean is ignored"
+        );
+    }
 }

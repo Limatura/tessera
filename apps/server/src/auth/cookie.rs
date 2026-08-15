@@ -40,7 +40,8 @@ impl SecurePolicy {
     /// That header is set by whoever spoke to us last, which on a direct
     /// connection is the client — so trusting it unconditionally lets anyone
     /// claim HTTPS. It is only meaningful when a reverse proxy we control put it
-    /// there, which is what `trusted_proxy` asserts.
+    /// there, which is what naming it in `server.trusted_proxies` asserts — so
+    /// the answer depends on who connected, not on configuration alone.
     ///
     /// When the header is not trusted the answer is "not secure", and that
     /// direction is chosen on purpose. Marking a cookie `Secure` on a plain-HTTP

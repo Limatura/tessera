@@ -1738,3 +1738,167 @@ async fn two_links_racing_for_one_name_do_not_produce_a_server_error() {
         "one wins the name and the other is told so; neither may be a 5xx"
     );
 }
+
+// ── what a session remembers about where it started ─────────────────
+
+/// The row behind a session cookie.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn session_behind(
+    app: &TestApp,
+    cookie: &str,
+) -> tessera_server::db::repository::session::Session {
+    let value = cookie.split_once('=').expect("a name=value pair").1;
+    app.state
+        .sessions
+        .find_by_secret(&tessera_server::auth::secret::Secret::from_client(
+            value.to_owned(),
+        ))
+        .await
+        .expect("query")
+        .expect("the session")
+}
+
+/// Signs in with a chosen `User-Agent`, the way a particular browser would.
+async fn sign_in_as(app: &TestApp, username: &str, agent: &str) -> String {
+    let response = expect_status(
+        app.send(
+            axum::http::Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(header::USER_AGENT, agent),
+            axum::body::Body::from(
+                serde_json::json!({ "identifier": username, "password": PASSWORD }).to_string(),
+            ),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    session_cookie(&response)
+}
+
+/// Without this, a list of sessions is five rows of timestamps and no way to
+/// tell which one is not yours — which is the only question the list exists to
+/// answer.
+#[tokio::test]
+async fn a_session_remembers_the_browser_that_started_it() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+
+    let agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15";
+    let cookie = sign_in_as(&app, "member", agent).await;
+
+    assert_eq!(
+        session_behind(&app, &cookie).await.created_user_agent,
+        Some(agent.to_owned()),
+        "stored as it arrived; turning it into `Safari on macOS` belongs to whatever draws the list"
+    );
+}
+
+/// The design decision this table exists to hold: written once, never updated.
+///
+/// A row that followed the current request would show a stolen session wearing
+/// the thief's latest address — or the owner's own, if they happened to use it
+/// last. What identifies a session is where it began.
+#[tokio::test]
+async fn later_requests_do_not_rewrite_where_a_session_began() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+
+    let cookie = sign_in_as(&app, "member", "the browser that signed in").await;
+
+    // The same session, presented by something claiming to be something else.
+    expect_status(
+        app.send(
+            axum::http::Request::builder()
+                .method(Method::GET)
+                .uri("/api/v1/auth/session")
+                .header(header::COOKIE, &cookie)
+                .header(header::USER_AGENT, "somebody else entirely"),
+            axum::body::Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        session_behind(&app, &cookie).await.created_user_agent,
+        Some("the browser that signed in".to_owned())
+    );
+}
+
+/// `unknown` is what a throttle key says when there is no address to be had. A
+/// person reading a list of their sessions would take that word for a place, so
+/// nothing is stored instead.
+#[tokio::test]
+async fn an_address_we_cannot_place_is_stored_as_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+
+    // The test harness calls the router directly, so there is no peer address —
+    // exactly the case this is about.
+    let cookie = sign_in_as(&app, "member", "a browser").await;
+    assert_eq!(session_behind(&app, &cookie).await.created_ip, None);
+}
+
+/// A header is as long as the caller decides. Unbounded, a sign-in is a way to
+/// put as much into a row as the body limit allows.
+#[tokio::test]
+async fn an_enormous_user_agent_is_cut_rather_than_refused() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+
+    let cookie = sign_in_as(&app, "member", &"u".repeat(4000)).await;
+    let stored = session_behind(&app, &cookie)
+        .await
+        .created_user_agent
+        .expect("an agent");
+    assert_eq!(stored.chars().count(), 512);
+}
+
+/// A session started by something that sends no `User-Agent` — curl with the
+/// header stripped, a script — is still a session.
+#[tokio::test]
+async fn a_caller_that_names_no_browser_still_gets_a_session() {
+    let app = TestApp::ready().await;
+    let cookie = register(&app, "member").await;
+    assert_eq!(session_behind(&app, &cookie).await.created_user_agent, None);
+}
+
+/// A header value outside visible ASCII is dropped rather than mangled. Every
+/// real browser sends ASCII, so this is a client that went out of its way — and
+/// a session showing no browser is truthful, where a repaired string would not
+/// be.
+#[tokio::test]
+async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "member").await;
+
+    let response = expect_status(
+        app.send(
+            axum::http::Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/auth/login")
+                .header(header::CONTENT_TYPE, "application/json")
+                .header(
+                    header::USER_AGENT,
+                    axum::http::HeaderValue::from_bytes("瀏覽器/1.0".as_bytes())
+                        .expect("header values may carry these bytes"),
+                ),
+            axum::body::Body::from(
+                serde_json::json!({ "identifier": "member", "password": PASSWORD }).to_string(),
+            ),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let cookie = session_cookie(&response);
+    assert_eq!(session_behind(&app, &cookie).await.created_user_agent, None);
+}

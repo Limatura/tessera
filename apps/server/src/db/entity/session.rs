@@ -20,6 +20,11 @@ pub struct Model {
     pub last_seen_at: TimeDateTimeWithTimeZone,
     /// When it stops being accepted.
     pub expires_at: TimeDateTimeWithTimeZone,
+    /// The address the session was started from, if there was one worth
+    /// recording. Written once — see the migration for why it is not updated.
+    pub created_ip: Option<String>,
+    /// The `User-Agent` the session was started with, as it arrived.
+    pub created_user_agent: Option<String>,
 }
 
 /// No relations declared: the foreign key is enforced by the database, and
