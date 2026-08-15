@@ -31,7 +31,8 @@
     "docker:logs": "docker compose logs -f",
     "check": "ultracite check",
     "fix": "ultracite fix",
-    "prepare": "husky"
+    "prepare": "husky",
+    "docs:update": "git submodule update --remote apps/docs"
   },
   "dependencies": {
     "@tessera/env": "workspace:*"
