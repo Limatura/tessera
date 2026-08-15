@@ -16,16 +16,13 @@ export default defineConfig({
       emitTsDeclarations: true,
       outdir: "./src/paraglide",
       project: "./project.inlang",
-      // This app has no SEO surface — every route is either the app shell or a
-      // share link, and a share link's whole point is staying the same string
-      // regardless of who opens it. Putting the locale in the path would mean
-      // `/s/ABC` and `/en/s/ABC` are "the same" share wearing two different
-      // URLs, which buys nothing here and costs a rewrite layer plus a second
-      // parser on the Rust side.
+      // 這個應用沒有 SEO 需求——每條路由要不是應用殼，要不是分享連結
+      // 分享連結的整個目的是保持同一個字串，不管誰打開都一樣
+      // 如果把語言放在路徑，`/s/ABC` 和 `/en/s/ABC` 就變成同一個分享穿著兩套不同的 URL
+      // 這裡什麼好處都撈不著，反而得付出重寫層加上 Rust 那邊再解析一次的代價
       //
-      // `cookie` remembers a returning visitor's choice; `preferredLanguage`
-      // (Accept-Language / navigator.languages) picks a sensible default on
-      // the first visit.
+      // `cookie` 記得回訪的使用者的選擇；`preferredLanguage`
+      // (Accept-Language / navigator.languages) 在首次訪問時挑一個合理的預設
       strategy: ["cookie", "preferredLanguage", "baseLocale"],
     }),
   ],
@@ -37,6 +34,14 @@ export default defineConfig({
     port: 3001,
     proxy: {
       "/api": {
+        changeOrigin: true,
+        target: "http://localhost:8787",
+      },
+      // `/s/:code` 本身是客戶端路由（分享頁面），但它連結到的內容
+      // ——原始文字檢視和檔案下載——直接由後端提供，在 `/api` 之外
+      // 只有這兩個路徑後綴才送到後端；裸 `/s/:code` 仍然落到 SPA
+      // （在生產環境中沒有開發伺服器：兩者都是同一個嵌入二進位檔，這種分割不存在）
+      "^/s/[^/]+/(raw|download)": {
         changeOrigin: true,
         target: "http://localhost:8787",
       },
