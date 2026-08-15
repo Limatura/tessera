@@ -195,6 +195,13 @@ jobs:
 
       - run: cargo nextest run --locked --workspace --profile ci --all-features
 
+      # Copied into the workspace first. `upload-artifact` refuses a path
+      # containing `..`, and the target directory lives outside the checkout so
+      # that `actions/checkout` does not delete it between runs.
+      - name: Collect the test report
+        if: always()
+        run: cp "$CARGO_TARGET_DIR/nextest/ci/junit.xml" junit.xml || true
+
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -325,7 +332,12 @@ jobs:
       # `actionlint` reads the workflow the way the runner will: unknown keys,
       # expressions that cannot evaluate, shell that `shellcheck` dislikes. All
       # of it is otherwise found by pushing and watching a run go red.
-      - uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+      # From its own image rather than through a wrapper action. The wrapper
+      # picks a binary from the platform it thinks it is on, and on this runner
+      # it decided "unsupported" — a question that does not arise when the tool
+      # ships as a container.
+      - name: actionlint
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.7 -color .github/workflows/*.yml
 
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: zizmor }
