@@ -35,5 +35,11 @@ export default defineConfig({
   server: {
     allowedHosts: [".coder.sao-x.com"],
     port: 3001,
+    proxy: {
+      "/api": {
+        changeOrigin: true,
+        target: "http://localhost:8787",
+      },
+    },
   },
 });

@@ -3,6 +3,8 @@ import { Check, Upload } from "lucide-react";
 import { motion } from "motion/react";
 import { forwardRef, useRef, useState } from "react";
 
+import * as m from "@/paraglide/messages";
+
 import { BlobCanvas } from "./blob-canvas";
 import { PRIMARY_CLUSTER_SPECS, PRIMARY_MELT_COLOR } from "./blob-specs";
 
@@ -97,9 +99,10 @@ export const UploadButton = forwardRef<HTMLButtonElement, UploadButtonProps>(
             <Upload className="size-6" />
           )}
           <span className="text-primary-foreground/80 text-xs">
-            {status === "idle" && "Drop or click to upload"}
-            {status === "uploading" && `${Math.round(progress)}%`}
-            {status === "done" && "Done"}
+            {status === "idle" && m.upload_button_drop_or_click()}
+            {status === "uploading" &&
+              m.upload_button_uploading({ progress: Math.round(progress) })}
+            {status === "done" && m.upload_button_done()}
           </span>
         </motion.div>
       </button>
