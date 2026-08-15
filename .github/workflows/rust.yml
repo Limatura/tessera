@@ -32,6 +32,16 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # Outside the checkout on purpose. `actions/checkout` cleans the workspace at
+  # the start of every run, so a target directory inside it is a cache that
+  # gets deleted before it is ever read — which on one machine is the difference
+  # between a two-minute run and a twenty-minute one. `_work` is the runner's
+  # own directory and survives.
+  CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
+  # A build that has to redo work is slow; one that keeps every intermediate
+  # from every branch fills a disk. Measured locally: 28 GB of incremental
+  # artefacts against 4.5 GB of actual output.
+  CARGO_INCREMENTAL: "0"
   # Lint levels in Cargo.toml are `warn` so that local development is never
   # blocked mid-experiment. This is where they become blocking.
   RUSTFLAGS: -D warnings
@@ -44,10 +54,24 @@ env:
 permissions:
   contents: read
 
+# Nothing from a fork runs here, and that guard exists before it is needed.
+#
+# These jobs run on a machine somebody owns, in their house. On a private
+# repository only people with access can start one. The day this repository goes
+# public, `pull_request` becomes an invitation for a stranger to run a build
+# script of their choosing on that machine — GitHub's own documentation says not
+# to pair self-hosted runners with public repositories for exactly this reason.
+#
+# A pull request from a branch in this repository still runs, which is every
+# pull request today. One from a fork does not run at all, which is visible as a
+# skipped check rather than a silent pass.
 jobs:
   fmt:
     name: fmt
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -62,39 +86,27 @@ jobs:
 
   clippy:
     name: clippy
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes. GitHub scopes caches by ref and caps a repository
-        # at 10 GB, and a pull request already reads its base branch's entries —
-        # so saving from a branch buys nothing and costs everyone's hit rate.
-        #
-        # Measured before this line existed: 6.50 GB across 68 entries, exactly
-        # doubled — 3.25 GB on `main` and 3.25 GB on one open pull request. Two
-        # more and the cap evicts by least-recent-use, and the first thing to go
-        # is whatever is largest and least often read: the buildkit blobs the
-        # docker job depends on. That job is already the whole critical path.
-        with:
-          key: clippy
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
   docs:
     name: rustdoc
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: docs
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The module docs carry this project's architectural reasoning, so a broken
       # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
@@ -103,7 +115,10 @@ jobs:
 
   boundary:
     name: core stays pure
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -131,16 +146,14 @@ jobs:
 
   features:
     name: feature matrix
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: features
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-hack }
 
@@ -157,16 +170,14 @@ jobs:
 
   test:
     name: test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: test
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-nextest }
 
@@ -177,12 +188,15 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nextest-junit
-          path: target/nextest/ci/junit.xml
+          path: ${{ env.CARGO_TARGET_DIR }}/nextest/ci/junit.xml
           if-no-files-found: ignore
 
   backends:
     name: ${{ matrix.backend }} backend
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     # Without this job, `postgres` and `mysql` are only ever proven to *compile*.
     # The hand-written per-dialect migration SQL especially needs a real server:
     # "sqlite was updated and the others were forgotten" is the failure mode that
@@ -223,11 +237,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: backends
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: cargo-nextest }
 
@@ -242,16 +251,14 @@ jobs:
 
   contract:
     name: openapi contract
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: contract
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       # The contract is generated, never hand-edited. Regenerating it here and
       # diffing against the committed file is what stops the frontend and the
@@ -268,7 +275,10 @@ jobs:
 
   audit:
     name: security & licences
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -283,7 +293,10 @@ jobs:
 
   workflows:
     name: workflow lint
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -307,7 +320,10 @@ jobs:
 
   docker:
     name: docker image
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -321,14 +337,13 @@ jobs:
           file: apps/server/Dockerfile
           tags: tessera-server:ci
           load: true
-          cache-from: type=gha
-          # Only `main` writes, for the same reason the rust-cache steps do — but
-          # the pressure here is worse, because this cache and those share one
-          # 10 GB budget and evict each other by LRU. Measured on 2026-08-11:
-          # rust-cache 5.07 GB + buildkit 1.94 GB = 7.01 GB, with pull requests
-          # writing a second copy of both. Whichever side crosses the line first,
-          # the other one starts cold-building.
-          cache-to: ${{ github.event_name == 'push' && 'type=gha,mode=max' || '' }}
+          # On disk, not in GitHub's cache. The runner is one machine that keeps
+          # its filesystem between runs, so a layer cache costs nothing to keep
+          # and nothing to fetch — where `type=gha` would upload gigabytes to the
+          # place we moved off in the first place. The size cap is enforced by
+          # the prune step below, not here.
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          cache-to: type=local,dest=/tmp/tessera-buildx-cache,mode=max
           # `.git` is not in the build context, so the commit has to be passed in
           # or `/health` reports `unknown`.
           build-args: |
@@ -404,17 +419,15 @@ jobs:
 
   fuzz:
     name: contract fuzz
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
-        # Only `main` writes; see the first cache step for why.
-        with:
-          key: fuzz
-          save-if: ${{ github.ref == 'refs/heads/main' }}
       - uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v6
 
       - run: cargo build --locked --bin tessera-server
@@ -428,7 +441,8 @@ jobs:
           TESSERA_DATABASE__URL='sqlite:///tmp/fuzz/fuzz.db?mode=rwc' \
           TESSERA_STORAGE__URL=/tmp/fuzz/blobs \
           TESSERA_SERVER__PORT=13999 \
-            ./target/debug/tessera-server > /tmp/fuzz/server.log 2>&1 &
+            "$CARGO_TARGET_DIR/debug/tessera-server" > /tmp/fuzz/server.log 2>&1 &
+          echo $! > /tmp/fuzz/server.pid
           for _ in $(seq 1 60); do
             curl -fsS http://127.0.0.1:13999/health > /dev/null 2>&1 && break
             sleep 0.5
@@ -467,6 +481,15 @@ jobs:
             run http://127.0.0.1:13999/openapi.json \
             -w 4 --report-junit-path /tmp/fuzz/report.xml
 
+      # The runner is one machine that keeps running after the job ends, so a
+      # server started here outlives it and the next run finds port 13999 taken.
+      # On a hosted runner the whole machine went away and nobody noticed.
+      - name: Stop the instance
+        if: always()
+        run: |
+          [ -f /tmp/fuzz/server.pid ] && kill "$(cat /tmp/fuzz/server.pid)" 2>/dev/null || true
+          rm -rf /tmp/fuzz
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
@@ -475,3 +498,65 @@ jobs:
             /tmp/fuzz/report.xml
             /tmp/fuzz/server.log
           retention-days: 7
+
+  # Everything above leaves something behind, and on one machine that adds up
+  # until a build fails for a reason nobody connects to CI. Measured on the
+  # development box before this existed: 71 GB of Rust artefacts, of which 28 GB
+  # was incremental output that is now switched off, and a Docker build cache
+  # that had reached 373 GB.
+  #
+  # `needs` everything so it runs last, `always()` so a failing check still gets
+  # cleaned up after — a red build is exactly when the next one needs the space.
+  housekeeping:
+    name: housekeeping
+    runs-on: [self-hosted, Linux, X64]
+    needs:
+      - fmt
+      - clippy
+      - docs
+      - boundary
+      - features
+      - test
+      - backends
+      - contract
+      - audit
+      - workflows
+      - docker
+      - fuzz
+    if: >-
+      always() && (github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      # Wiped rather than trimmed. `cargo` has no "keep it under N GB" mode, and
+      # the cost of being wrong is one cold build — against a disk that fills up
+      # and takes every job with it.
+      - name: Cap the Rust build directory
+        run: |
+          TARGET="${{ github.workspace }}/../.cargo-target"
+          [ -d "$TARGET" ] || exit 0
+          USED=$(du -sg "$TARGET" | cut -f1)
+          echo "cargo target directory: ${USED} GB"
+          if [ "$USED" -gt 40 ]; then
+            echo "over 40 GB, clearing it"
+            rm -rf "$TARGET"
+          fi
+
+      - name: Cap the Docker build cache
+        run: |
+          docker buildx prune -f --keep-storage 10GB || true
+          if [ -d /tmp/tessera-buildx-cache ]; then
+            USED=$(du -sg /tmp/tessera-buildx-cache | cut -f1)
+            echo "buildx cache: ${USED} GB"
+            [ "$USED" -gt 10 ] && rm -rf /tmp/tessera-buildx-cache
+          fi
+          exit 0
+
+      # The backend matrix uses service containers and the image job loads one,
+      # so both leave things a hosted runner would have thrown away with itself.
+      - name: Remove stopped containers and dangling images
+        run: |
+          docker container prune -f
+          docker image prune -f
+
+      - name: What is left
+        run: df -h / | tail -1
