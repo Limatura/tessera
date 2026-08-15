@@ -29,6 +29,7 @@ WORKDIR /build
 # `workspace:*`.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
+COPY packages/api/package.json packages/api/
 COPY packages/ui/package.json packages/ui/
 COPY packages/i18n/package.json packages/i18n/
 COPY packages/env/package.json packages/env/

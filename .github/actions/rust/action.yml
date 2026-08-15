@@ -1,0 +1,31 @@
+name: Rust toolchain
+description: >-
+  Makes sure rustup and the pinned toolchain are present, on a machine that may never have had them.
+
+runs:
+  using: composite
+  steps:
+    # GitHub's hosted images ship with rustup, so this never had to be said. A
+    # self-hosted runner is whatever somebody installed on it, and a job that
+    # fails with `rustup: command not found` sends the reader to look at the
+    # workflow rather than at the machine.
+    - name: Install rustup if the machine has none
+      shell: bash
+      run: |
+        if command -v rustup > /dev/null; then
+          echo "rustup is already here"
+        else
+          echo "no rustup on this machine; installing"
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --default-toolchain none --profile minimal
+        fi
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+
+    # `rust-toolchain.toml` is what pins the version. This only makes rustup act
+    # on it now, so the first `cargo` call is not the thing that downloads a
+    # compiler in the middle of a timed step.
+    - name: Materialise the pinned toolchain
+      shell: bash
+      run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
+        rustup show active-toolchain || rustup show

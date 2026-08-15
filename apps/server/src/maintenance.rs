@@ -90,6 +90,10 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
     // These hold a password hash, so letting them linger past their usefulness
     // keeps a credential around for an account that was never created.
     report(
+        "expired invite codes",
+        state.invites.delete_expired(now).await,
+    );
+    report(
         "unconfirmed registrations",
         state.pending.delete_expired(now).await,
     );
