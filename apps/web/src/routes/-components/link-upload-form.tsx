@@ -1,5 +1,5 @@
 import { Input } from "@tessera/ui/components/input";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 
 import * as m from "@/paraglide/messages";
 
@@ -9,7 +9,7 @@ import type { SubmitStatus } from "./use-submit-transition";
 interface LinkUploadFormProps {
   status: SubmitStatus;
   progress: number;
-  onSubmit: (el: HTMLButtonElement | null) => void;
+  onSubmit: (el: HTMLButtonElement | null, payload: { url: string }) => void;
 }
 
 export function LinkUploadForm({
@@ -18,13 +18,25 @@ export function LinkUploadForm({
   onSubmit,
 }: LinkUploadFormProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const [url, setUrl] = useState("");
+
+  const handleSubmit = () => {
+    if (url.trim().length > 0) {
+      onSubmit(buttonRef.current, { url: url.trim() });
+    }
+  };
 
   return (
     <div className="flex items-center gap-3">
-      <Input placeholder={m.upload_link_placeholder()} type="url" />
+      <Input
+        onChange={(event) => setUrl(event.target.value)}
+        placeholder={m.upload_link_placeholder()}
+        type="url"
+        value={url}
+      />
       <QuickSubmitButton
         label={m.upload_shorten_link()}
-        onClick={() => onSubmit(buttonRef.current)}
+        onClick={handleSubmit}
         progress={progress}
         ref={buttonRef}
         status={status}

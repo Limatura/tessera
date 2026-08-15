@@ -4,20 +4,18 @@ import { motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 
-const PLACEHOLDER_RESULT = {
-  fileName: "design-notes.pdf",
-  shortUrl: "https://tsr.sh/x7Qk2p",
-};
+import type { UploadResultData } from "@/lib/upload";
 
 interface UploadResultProps {
   onReset: () => void;
+  result: UploadResultData;
 }
 
-export function UploadResult({ onReset }: UploadResultProps) {
+export function UploadResult({ onReset, result }: UploadResultProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(PLACEHOLDER_RESULT.shortUrl);
+    await navigator.clipboard.writeText(result.shortUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
@@ -30,19 +28,19 @@ export function UploadResult({ onReset }: UploadResultProps) {
       transition={{ delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
     >
       <div className="rounded-xl border border-neutral-900/15 bg-neutral-900/5 p-3">
-        <QRCodeSVG size={160} value={PLACEHOLDER_RESULT.shortUrl} />
+        <QRCodeSVG size={160} value={result.shortUrl} />
       </div>
 
       <div className="flex flex-col gap-1">
         <p className="font-medium text-neutral-900 text-sm">
-          {PLACEHOLDER_RESULT.fileName}
+          {result.fileName}
         </p>
         <p className="text-neutral-900/70 text-xs">Ready to share</p>
       </div>
 
       <div className="flex w-full items-center gap-2 rounded-lg border border-neutral-900/15 bg-neutral-900/5 px-3 py-2">
         <span className="flex-1 truncate text-left font-mono text-neutral-900 text-xs">
-          {PLACEHOLDER_RESULT.shortUrl}
+          {result.shortUrl}
         </span>
         <Button
           className="shrink-0 text-neutral-900 hover:bg-neutral-900/10 hover:text-neutral-900"

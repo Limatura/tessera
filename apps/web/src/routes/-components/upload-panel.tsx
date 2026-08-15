@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 
 import { GlassBackground } from "@/components/glass-background";
+import { upload } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
 import { BlobBackground } from "./blob-background";
@@ -25,13 +26,39 @@ import { UploadResult } from "./upload-result";
 import { useSubmitTransition } from "./use-submit-transition";
 
 export function UploadPanel() {
-  const { status, progress, origin, expanded, start, reset } =
+  const { status, progress, origin, expanded, result, start, reset } =
     useSubmitTransition();
   const fileButtonRef = useRef<HTMLButtonElement>(null);
 
-  const handleSelectFile = (_file: File) => {
-    // Wire this to upload({ type: "file", file }, { onProgress }) once the API is ready.
-    start(fileButtonRef.current);
+  const handleSelectFile = (file: File) => {
+    start(fileButtonRef.current, (onProgress) =>
+      upload({ file, type: "file" }, { onProgress })
+    );
+  };
+
+  const handleSubmitCode = (
+    el: HTMLButtonElement | null,
+    payload: { content: string; language: string }
+  ) => {
+    start(el, (onProgress) =>
+      upload(
+        {
+          content: payload.content,
+          language: payload.language,
+          type: "paste",
+        },
+        { onProgress }
+      )
+    );
+  };
+
+  const handleSubmitLink = (
+    el: HTMLButtonElement | null,
+    payload: { url: string }
+  ) => {
+    start(el, (onProgress) =>
+      upload({ type: "link", url: payload.url }, { onProgress })
+    );
   };
 
   return (
@@ -71,14 +98,14 @@ export function UploadPanel() {
               </TabsContent>
               <TabsContent className="py-2" value="code">
                 <CodeUploadForm
-                  onSubmit={start}
+                  onSubmit={handleSubmitCode}
                   progress={progress}
                   status={status}
                 />
               </TabsContent>
               <TabsContent className="py-2" value="link">
                 <LinkUploadForm
-                  onSubmit={start}
+                  onSubmit={handleSubmitLink}
                   progress={progress}
                   status={status}
                 />
@@ -109,7 +136,9 @@ export function UploadPanel() {
               className="pointer-events-none absolute inset-0 overflow-hidden"
               vignette={false}
             />
-            {expanded && <UploadResult onReset={reset} />}
+            {expanded && result && (
+              <UploadResult onReset={reset} result={result} />
+            )}
           </motion.div>
         )}
       </AnimatePresence>

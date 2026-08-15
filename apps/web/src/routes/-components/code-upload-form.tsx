@@ -61,7 +61,10 @@ const LANGUAGE_EXTENSIONS: Record<string, Extension> = {
 interface CodeUploadFormProps {
   status: SubmitStatus;
   progress: number;
-  onSubmit: (el: HTMLButtonElement | null) => void;
+  onSubmit: (
+    el: HTMLButtonElement | null,
+    payload: { content: string; language: string }
+  ) => void;
 }
 
 function useIsDarkMode() {
@@ -130,7 +133,11 @@ export function CodeUploadForm({
       <div className="flex justify-end">
         <QuickSubmitButton
           label="Send snippet"
-          onClick={() => onSubmit(buttonRef.current)}
+          onClick={() => {
+            if (code.trim().length > 0) {
+              onSubmit(buttonRef.current, { content: code, language });
+            }
+          }}
           progress={progress}
           ref={buttonRef}
           status={status}
