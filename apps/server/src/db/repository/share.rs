@@ -6,8 +6,8 @@
 
 use sea_orm::{
     ActiveValue::Set,
-    ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _,
-    QuerySelect as _,
+    ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _, QueryFilter as _,
+    QueryOrder as _, QuerySelect as _,
     sea_query::{Expr, ExprTrait as _},
 };
 use tessera_core::{DomainError, RetrievalCode, ShareId, ShareTicketId, UserId};
@@ -656,6 +656,40 @@ impl ShareRepository {
             .await?
             .flatten();
         Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
+    }
+
+    /// How many shares exist, and how many of those a visitor could still open.
+    ///
+    /// Two numbers rather than one because they answer different questions. The
+    /// total is what the database is holding; the live count is what the
+    /// instance is actually serving, and the gap between them is what the sweep
+    /// has not got to yet.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if either query fails.
+    pub async fn counts_at(&self, now: OffsetDateTime) -> Result<(u64, u64), ShareRepositoryError> {
+        let total = ShareEntity::find().count(&self.connection).await?;
+        // Live means the gate would let somebody in, and each clause mirrors one
+        // of `Share::availability_at` — not disabled, not past its expiry, not
+        // exhausted. Both `expires_at` and `use_limit` are nullable, and in each
+        // of them null is the *unlimited* case, so neither can be compared
+        // numerically on its own.
+        let live = ShareEntity::find()
+            .filter(share::Column::DisabledAt.is_null())
+            .filter(
+                share::Column::ExpiresAt
+                    .is_null()
+                    .or(share::Column::ExpiresAt.gt(now)),
+            )
+            .filter(
+                share::Column::UseLimit
+                    .is_null()
+                    .or(Expr::col(share::Column::UseCount).lt(Expr::col(share::Column::UseLimit))),
+            )
+            .count(&self.connection)
+            .await?;
+        Ok((total, live))
     }
 
     /// Shares whose rows can go, because they have been dead long enough that

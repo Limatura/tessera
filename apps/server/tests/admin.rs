@@ -634,3 +634,124 @@ async fn invites_need_an_administrator_with_a_cookie() {
         StatusCode::FORBIDDEN
     );
 }
+
+// ── what the instance is holding ────────────────────────────────────
+
+async fn stats(app: &TestApp, auth: Auth<'_>) -> serde_json::Value {
+    let response = expect_status(
+        app.empty(Method::GET, "/api/v1/admin/stats", auth).await,
+        StatusCode::OK,
+    )
+    .await;
+    body_json(response).await
+}
+
+#[tokio::test]
+async fn the_stats_count_what_is_there() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    register(&app, "second").await;
+    register(&app, "third").await;
+
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .invites
+        .issue(None, 5, now, None)
+        .await
+        .expect("issue");
+    app.state
+        .invites
+        .issue(
+            None,
+            5,
+            now - time::Duration::days(2),
+            Some(now - time::Duration::days(1)),
+        )
+        .await
+        .expect("issue");
+
+    let body = stats(&app, Auth::Cookie(&admin)).await;
+    assert_eq!(body["accounts"], 3);
+    assert_eq!(body["administrators"], 1);
+    assert_eq!(
+        body["live_invites"], 1,
+        "the expired one is not one somebody could use"
+    );
+    assert_eq!(body["shares"], 0);
+    assert_eq!(body["stored_bytes"], 0);
+}
+
+/// Zero is how the configuration spells "no ceiling", but a client drawing a
+/// usage bar against zero would show every instance as full.
+#[tokio::test]
+async fn an_unset_quota_is_null_rather_than_zero() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    assert!(stats(&app, Auth::Cookie(&admin)).await["quota_bytes"].is_null());
+
+    let bounded = TestApp::with_config(|config| {
+        config.storage.max_total_bytes = 5_000_000;
+    })
+    .await;
+    let (admin, _) = register(&bounded, "first").await;
+    assert_eq!(
+        stats(&bounded, Auth::Cookie(&admin)).await["quota_bytes"],
+        5_000_000
+    );
+}
+
+/// The gap between the two share counts is what the sweep has not reached, and
+/// seeing it is the point: a large one means retention is longer than somebody
+/// expected, or the sweep is not running.
+#[tokio::test]
+async fn a_share_that_nobody_can_open_still_counts_as_stored() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/shares",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "kind": "text", "content": "hello", "expiry_hours": 1 }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+
+    let before = stats(&app, Auth::Cookie(&admin)).await;
+    assert_eq!(before["shares"], 1);
+    assert_eq!(before["live_shares"], 1);
+
+    let past = time::OffsetDateTime::now_utc() - time::Duration::hours(2);
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!(
+            "UPDATE shares SET expires_at = '{}'",
+            past.format(&time::format_description::well_known::Rfc3339)
+                .expect("formattable")
+        ),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("expire it");
+
+    let after = stats(&app, Auth::Cookie(&admin)).await;
+    assert_eq!(after["shares"], 1, "the row is still there");
+    assert_eq!(after["live_shares"], 0, "but nobody can open it");
+}
+
+#[tokio::test]
+async fn stats_need_an_administrator_with_a_cookie() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (ordinary, _) = register(&app, "second").await;
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/stats", Auth::Cookie(&ordinary))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}

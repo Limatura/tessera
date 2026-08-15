@@ -291,6 +291,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::update_user, admin::delete_user))
         .routes(routes!(admin::list_invites, admin::create_invite))
         .routes(routes!(admin::revoke_invite))
+        .routes(routes!(admin::stats))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
