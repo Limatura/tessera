@@ -336,8 +336,12 @@ jobs:
       # picks a binary from the platform it thinks it is on, and on this runner
       # it decided "unsupported" — a question that does not arise when the tool
       # ships as a container.
+      #
+      # Pinned to a version that resolves YAML anchors. `paths: *rust-paths` is
+      # what keeps the trigger lists for push and pull_request from drifting
+      # apart, and 1.7.7 reads the alias as a syntax error.
       - name: actionlint
-        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.7 -color .github/workflows/*.yml
+        run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
 
       - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
         with: { tool: zizmor }
