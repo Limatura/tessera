@@ -34,6 +34,8 @@ jobs:
   check:
     name: types & lint
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:

@@ -69,6 +69,8 @@ jobs:
   fmt:
     name: fmt
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -87,6 +89,8 @@ jobs:
   clippy:
     name: clippy
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -100,6 +104,8 @@ jobs:
   docs:
     name: rustdoc
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -116,6 +122,8 @@ jobs:
   boundary:
     name: core stays pure
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -147,6 +155,8 @@ jobs:
   features:
     name: feature matrix
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -171,6 +181,8 @@ jobs:
   test:
     name: test
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -194,6 +206,8 @@ jobs:
   backends:
     name: ${{ matrix.backend }} backend
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     # Without this job, `postgres` and `mysql` are only ever proven to *compile*.
@@ -252,6 +266,8 @@ jobs:
   contract:
     name: openapi contract
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -276,6 +292,8 @@ jobs:
   audit:
     name: security & licences
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -294,6 +312,8 @@ jobs:
   workflows:
     name: workflow lint
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -321,6 +341,8 @@ jobs:
   docker:
     name: docker image
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -432,6 +454,8 @@ jobs:
   fuzz:
     name: contract fuzz
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
@@ -522,6 +546,13 @@ jobs:
   housekeeping:
     name: housekeeping
     runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    # A cleanup job that hangs is worse than one that never ran: the runner has
+    # one slot, so everything behind it waits, and a step blocked on a wedged
+    # Docker daemon does not answer a cancel either. Ten minutes is far more than
+    # any of this needs and far less than a working day.
+    timeout-minutes: 10
     needs:
       - fmt
       - clippy
@@ -541,22 +572,31 @@ jobs:
       # Wiped rather than trimmed. `cargo` has no "keep it under N GB" mode, and
       # the cost of being wrong is one cold build — against a disk that fills up
       # and takes every job with it.
+      # First, and without touching Docker. This is the big one and it needs no
+      # daemon, so it still works on a machine where everything else is stuck.
       - name: Cap the Rust build directory
         run: |
           TARGET="${{ github.workspace }}/../.cargo-target"
           [ -d "$TARGET" ] || exit 0
-          USED=$(du -sg "$TARGET" | cut -f1)
-          echo "cargo target directory: ${USED} GB"
-          if [ "$USED" -gt 40 ]; then
-            echo "over 40 GB, clearing it"
+          FREE=$(df --output=pcent / | tail -1 | tr -dc '0-9')
+          USED=$(timeout 120 du -sg "$TARGET" 2>/dev/null | cut -f1 || echo 0)
+          echo "cargo target directory: ${USED} GB, root filesystem ${FREE}% full"
+          # Either it has grown past what one repository needs, or the disk is
+          # nearly gone and this is the largest thing anybody here can give back.
+          if [ "$USED" -gt 40 ] || [ "$FREE" -ge 90 ]; then
+            echo "clearing it"
             rm -rf "$TARGET"
           fi
 
+      # Every Docker call is under `timeout`. A daemon on a full disk stops
+      # answering rather than failing, and a step waiting on it cannot be
+      # cancelled — the job sits there holding the runner's only slot until
+      # somebody restarts the service by hand. That happened once; hence this.
       - name: Cap the Docker build cache
         run: |
-          docker buildx prune -f --keep-storage 10GB 2>/dev/null || true
+          timeout 120 docker buildx prune -f --keep-storage 10GB 2>/dev/null || true
           if [ -d /tmp/tessera-buildx-cache ]; then
-            USED=$(du -sg /tmp/tessera-buildx-cache | cut -f1)
+            USED=$(timeout 60 du -sg /tmp/tessera-buildx-cache 2>/dev/null | cut -f1 || echo 0)
             echo "buildx cache: ${USED} GB"
             [ "$USED" -gt 10 ] && rm -rf /tmp/tessera-buildx-cache
           fi
@@ -570,8 +610,8 @@ jobs:
       # yet" into "cleanup never runs".
       - name: Remove stopped containers and dangling images
         run: |
-          docker container prune -f || echo "no Docker here; nothing to prune"
-          docker image prune -f || true
+          timeout 60 docker container prune -f || echo "Docker did not answer"
+          timeout 60 docker image prune -f || true
           exit 0
 
       - name: What is left
