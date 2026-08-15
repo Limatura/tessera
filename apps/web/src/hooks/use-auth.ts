@@ -87,3 +87,20 @@ export function useLogout() {
     },
   });
 }
+
+export function usePasswordReset() {
+  return useMutation({
+    mutationFn: async (
+      body: components["schemas"]["PasswordResetConfirmRequest"]
+    ) => {
+      const { data, error } = await api.POST(
+        "/api/v1/auth/password-reset/confirm",
+        { body }
+      );
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+  });
+}
