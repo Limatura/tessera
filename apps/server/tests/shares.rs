@@ -2009,3 +2009,135 @@ async fn the_same_bytes_as_a_file_are_accepted() {
     let share = upload(&app, "?filename=big.txt", "x".repeat(8192).as_bytes()).await;
     assert_eq!(share["kind"], "file");
 }
+
+/// Content an older version put somewhere else is moved by the sweep, not by an
+/// upgrade step somebody has to remember to run.
+#[tokio::test]
+async fn the_sweep_moves_a_file_that_was_kept_inline() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=old.bin", b"was inline").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    // Put it back the way the previous rule would have stored it: bytes in the
+    // database, the row saying inline, and no object anywhere.
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    let key = stored.storage.object_key().expect("an object").to_owned();
+    app.state
+        .storage
+        .delete(&object_store::path::Path::from(key.as_str()))
+        .await
+        .expect("remove the object");
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!("UPDATE shares SET storage = 'inline', object_key = NULL WHERE id = '{id}'"),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("rewrite the row");
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!(
+            "INSERT INTO share_contents (share_id, content) VALUES ('{id}', x'77617320696e6c696e65')"
+        ),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("put the bytes back");
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    let moved = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    let new_key = moved
+        .storage
+        .object_key()
+        .unwrap_or_else(|| panic!("expected the object store, got {:?}", moved.storage));
+    let bytes = app
+        .state
+        .storage
+        .get(&object_store::path::Path::from(new_key))
+        .await
+        .expect("fetch")
+        .bytes()
+        .await
+        .expect("read");
+    assert_eq!(bytes.as_ref(), b"was inline");
+    assert!(
+        app.state
+            .shares
+            .inline_content(id)
+            .await
+            .expect("query")
+            .is_none(),
+        "the database copy goes once the object is there"
+    );
+}
+
+/// And the other direction: text an older version streamed out comes back.
+#[tokio::test]
+async fn the_sweep_brings_text_back_from_the_store() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?language=rust", b"fn main() {}").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    // Store it the way the previous rule would have: bytes in the object store,
+    // the row pointing at them, nothing in the database.
+    let key = "old/text-share";
+    app.state
+        .storage
+        .put(
+            &object_store::path::Path::from(key),
+            object_store::PutPayload::from_static(b"fn main() {}"),
+        )
+        .await
+        .expect("write the object");
+    for sql in [
+        format!("UPDATE shares SET storage = 'object', object_key = '{key}' WHERE id = '{id}'"),
+        format!("DELETE FROM share_contents WHERE share_id = '{id}'"),
+        format!("DELETE FROM text_shares WHERE share_id = '{id}'"),
+    ] {
+        let statement = sea_orm::Statement::from_string(
+            sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+            sql,
+        );
+        sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+            .await
+            .expect("rewrite the row");
+    }
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    let text = app
+        .state
+        .shares
+        .text_of(id)
+        .await
+        .expect("query")
+        .expect("the text should have come back");
+    assert_eq!(text.content, b"fn main() {}");
+    assert_eq!(text.language.as_deref(), Some("rust"));
+
+    let moved = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    assert!(
+        moved.storage.object_key().is_none(),
+        "the row must stop pointing at the object, got {:?}",
+        moved.storage
+    );
+}

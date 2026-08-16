@@ -645,7 +645,7 @@ async fn flush_full_parts(upload: &mut dyn MultipartUpload, buffered: &mut Vec<u
 /// a ULID starts with a timestamp, so those characters are almost the same for
 /// everything written in the same era. Dates are also what an operator wants to
 /// see when deciding what to back up or what is old.
-fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
+pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
     format!(
         "shares/{:04}/{:02}/{id}",
         created_at.year(),

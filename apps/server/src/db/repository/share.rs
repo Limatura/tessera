@@ -471,6 +471,117 @@ impl ShareRepository {
             .await?)
     }
 
+    /// Shares whose content is not where this version keeps it.
+    ///
+    /// Two cases, and the query names both rather than the caller filtering a
+    /// full listing: a file still held inline, and text still in the object
+    /// store. Both worked under the rule this replaced, so neither is broken —
+    /// they are simply somewhere the next reader would not think to look.
+    ///
+    /// Bounded, because this runs inside the housekeeping pass and a pass that
+    /// tries to move an instance's whole history in one go is a pass that gets
+    /// killed half way through every hour.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
+    /// usable.
+    pub async fn find_misplaced(&self, limit: u64) -> Result<Vec<Share>, ShareRepositoryError> {
+        let text_in_store = share::Column::Kind
+            .eq(ShareKind::Text.as_str())
+            .and(share::Column::Storage.eq(StorageLocation::OBJECT));
+        let file_inline = share::Column::Kind
+            .eq(ShareKind::File.as_str())
+            .and(share::Column::Storage.eq(StorageLocation::INLINE));
+        let models = ShareEntity::find()
+            .filter(text_in_store.or(file_inline))
+            .order_by_asc(share::Column::CreatedAt)
+            .limit(limit)
+            .all(&self.connection)
+            .await?;
+        models
+            .into_iter()
+            .map(Share::from_model)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(ShareRepositoryError::from)
+    }
+
+    /// Records that a share's content now lives in the object store.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn moved_to_object(
+        &self,
+        id: ShareId,
+        key: &str,
+    ) -> Result<(), ShareRepositoryError> {
+        ShareEntity::update_many()
+            .col_expr(share::Column::Storage, StorageLocation::OBJECT.into())
+            .col_expr(share::Column::ObjectKey, key.into())
+            .filter(share::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        FileShareEntity::update_many()
+            .col_expr(file_share::Column::Storage, StorageLocation::OBJECT.into())
+            .col_expr(file_share::Column::ObjectKey, key.into())
+            .filter(file_share::Column::ShareId.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        // Last, and only once both rows point at the object. A failure before
+        // this leaves the bytes in two places, which the next pass fixes; a
+        // failure the other way round would leave them in none.
+        ShareContentEntity::delete_by_id(id.to_string())
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Records that a text share's content now lives in the database.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the write fails.
+    pub async fn moved_to_database(
+        &self,
+        share: &Share,
+        content: Vec<u8>,
+    ) -> Result<(), ShareRepositoryError> {
+        let id = share.id.to_string();
+        TextShareEntity::insert(text_share::ActiveModel {
+            share_id: Set(id.clone()),
+            language: Set(share.language.clone()),
+            content: Set(content.clone()),
+        })
+        .on_conflict(
+            sea_orm::sea_query::OnConflict::column(text_share::Column::ShareId)
+                .update_columns([text_share::Column::Language, text_share::Column::Content])
+                .to_owned(),
+        )
+        .exec(&self.connection)
+        .await?;
+        ShareContentEntity::insert(share_content::ActiveModel {
+            share_id: Set(id.clone()),
+            content: Set(content),
+        })
+        .on_conflict(
+            sea_orm::sea_query::OnConflict::column(share_content::Column::ShareId)
+                .update_column(share_content::Column::Content)
+                .to_owned(),
+        )
+        .exec(&self.connection)
+        .await?;
+        // The object is left where it is. Deleting it is the sweep's job on the
+        // next pass, once the row no longer points at it — and if that never
+        // happens, an orphaned object costs storage rather than correctness.
+        ShareEntity::update_many()
+            .col_expr(share::Column::Storage, StorageLocation::INLINE.into())
+            .filter(share::Column::Id.eq(id))
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
     /// Finds a share by the code a person typed.
     ///
     /// # Errors
