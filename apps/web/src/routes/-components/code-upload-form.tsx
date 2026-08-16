@@ -10,6 +10,7 @@ import { php } from "@codemirror/lang-php";
 import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { sql } from "@codemirror/lang-sql";
+import { yaml } from "@codemirror/lang-yaml";
 import { Label } from "@tessera/ui/components/label";
 import {
   Select,
@@ -40,6 +41,7 @@ const LANGUAGES = [
   { label: "C++", value: "cpp" },
   { label: "Rust", value: "rust" },
   { label: "Go", value: "go" },
+  { label: "YAML", value: "yaml" },
 ] as const;
 
 const LANGUAGE_EXTENSIONS: Record<string, Extension> = {
@@ -56,6 +58,7 @@ const LANGUAGE_EXTENSIONS: Record<string, Extension> = {
   rust: rust(),
   sql: sql(),
   typescript: javascript({ jsx: true, typescript: true }),
+  yaml: yaml(),
 };
 
 interface CodeUploadFormProps {

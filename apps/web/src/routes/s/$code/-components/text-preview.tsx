@@ -15,11 +15,11 @@ type PreviewState =
   | { status: "ready"; code: string; html: string };
 
 async function highlight(code: string, language: string, theme: string) {
-  const { codeToHtml } = await import("shiki");
+  const { codeToHtml } = await import("@/lib/shiki");
   try {
     return await codeToHtml(code, { lang: language, theme });
   } catch {
-    return await codeToHtml(code, { lang: "plaintext", theme });
+    return await codeToHtml(code, { lang: "text", theme });
   }
 }
 
