@@ -345,17 +345,25 @@ jobs:
       # the daemon uses the classic or the containerd image store.
       - name: Enforce the footprint budget
         run: |
-          # Measured 2026-08-12 with the SPA embedded: binary 14 MB, rootfs
-          # 17 MB. The previous 28/34 predated the image carrying a frontend at
-          # all and left more than 100% headroom, which is not a budget — it is
-          # a number that would have let the binary double before saying
-          # anything. These leave about a quarter, which is room for ordinary
-          # growth and not for a new backend nobody weighed.
+          # A smoke alarm, not a product constraint. Twenty megabytes is not a
+          # size anybody self-hosting notices: the images this sits next to run
+          # from about 30 MB for FileBrowser to a gigabyte for Nextcloud, the
+          # binary is mapped rather than read so unused pages cost no memory,
+          # and on a NAS the disk is not the scarce thing. What this catches is
+          # growth nobody meant — a dependency that dragged in a toolchain, a
+          # frontend bundle that quietly went up fivefold.
           #
-          # The frontend costs 1 MB of that: 13 MB with build.rs's placeholder,
-          # 14 MB with the real bundle.
-          BINARY_BUDGET_MB=18
-          ROOTFS_BUDGET_MB=21
+          # Which means the numbers want headroom, and the previous ones did
+          # not. They were set a quarter above what was measured on 2026-08-12,
+          # and by 2026-08-17 the actual was 18 and 21 — exactly the budget, so
+          # the next change of any size would have failed on somebody else's
+          # growth. An alarm that goes off every time teaches people to raise it
+          # without reading it, and then it is silent on the day it matters.
+          #
+          # These leave about half. That is loose enough to sit still through
+          # ordinary work and tight enough that a doubling still says something.
+          BINARY_BUDGET_MB=28
+          ROOTFS_BUDGET_MB=32
 
           cid=$(docker create tessera-server:ci)
           docker cp "$cid:/usr/local/bin/tessera-server" /tmp/tessera-server
