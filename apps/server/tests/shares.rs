@@ -35,7 +35,7 @@ async fn upload(app: &TestApp, query: &str, body: &[u8]) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn a_small_share_is_kept_in_the_database() {
+async fn text_is_kept_in_the_database() {
     let app = TestApp::ready().await;
     let content = b"const foo = \"bar\";\n";
 
@@ -70,7 +70,7 @@ async fn a_small_share_is_kept_in_the_database() {
 /// blob store rather than into a column, and they get there without the body
 /// ever being held whole.
 #[tokio::test]
-async fn a_large_share_is_streamed_to_the_blob_store() {
+async fn a_file_is_streamed_to_the_blob_store() {
     let app = TestApp::with_config(|config| {
         config.share.inline_threshold_bytes = 1024;
     })
@@ -1856,5 +1856,288 @@ async fn deleting_a_share_takes_its_files() {
             .await
             .expect("query")
             .is_empty()
+    );
+}
+
+/// A text share writes its content to `text_shares` as well. Same reasoning as
+/// `file_shares`: the table has to be true from the first row, and the readers
+/// move over separately.
+#[tokio::test]
+async fn a_text_share_records_its_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?language=rust", b"fn main() {}").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    let text = app
+        .state
+        .shares
+        .text_of(id)
+        .await
+        .expect("query")
+        .expect("the text");
+    assert_eq!(text.content, b"fn main() {}");
+    assert_eq!(text.language.as_deref(), Some("rust"));
+}
+
+/// A file share gets no text row, the same way a text share gets no file row.
+#[tokio::test]
+async fn a_file_share_records_no_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?filename=data.bin", b"\x00\x01\x02").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    assert!(app.state.shares.text_of(id).await.expect("query").is_none());
+}
+
+/// Deleting a share takes its text with it, by the same foreign key.
+#[tokio::test]
+async fn deleting_a_share_takes_its_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "", b"a note").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    app.state.shares.delete(id).await.expect("delete");
+    assert!(app.state.shares.text_of(id).await.expect("query").is_none());
+}
+
+/// The rule this instance follows is about what the content is, not how much of
+/// it there is. Nine bytes with a filename is a file, and a file is an object —
+/// so somebody looking for an upload finds it in one place, and a backup covers
+/// it by covering the store.
+#[tokio::test]
+async fn even_a_tiny_file_becomes_an_object() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=tiny.bin", b"nine byte").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    let key = stored
+        .storage
+        .object_key()
+        .unwrap_or_else(|| panic!("expected object storage, got {:?}", stored.storage));
+
+    let bytes = app
+        .state
+        .storage
+        .get(&object_store::path::Path::from(key))
+        .await
+        .expect("fetch")
+        .bytes()
+        .await
+        .expect("read");
+    assert_eq!(bytes.as_ref(), b"nine byte");
+}
+
+/// And text never leaves the database, however close to the limit it gets.
+#[tokio::test]
+async fn text_stays_in_the_database_at_any_size() {
+    let app = TestApp::ready().await;
+    // Well past the old inline threshold, which no longer decides anything.
+    let content = "x".repeat(200 * 1024);
+    let share = upload(&app, "", content.as_bytes()).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    assert!(
+        stored.storage.object_key().is_none(),
+        "text must not reach the object store, got {:?}",
+        stored.storage
+    );
+    assert_eq!(
+        app.state
+            .shares
+            .text_of(id)
+            .await
+            .expect("query")
+            .expect("the text")
+            .content
+            .len(),
+        content.len()
+    );
+}
+
+/// Text is held whole in memory and stored whole as a row, so there has to be a
+/// point where the answer is "that is a file". Refused as it arrives rather than
+/// after the whole thing has been read.
+#[tokio::test]
+async fn text_past_the_limit_is_refused_and_says_what_to_do() {
+    let app = TestApp::with_config(|config| {
+        config.share.max_text_bytes = 4096;
+    })
+    .await;
+
+    let response = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares"),
+            Body::from("x".repeat(8192)),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .expect("a message")
+            .contains("as a file"),
+        "the message has to say what to do instead, got {}",
+        body["message"]
+    );
+}
+
+/// The same content with a filename is a file, and files have no such limit.
+#[tokio::test]
+async fn the_same_bytes_as_a_file_are_accepted() {
+    let app = TestApp::with_config(|config| {
+        config.share.max_text_bytes = 4096;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=big.txt", "x".repeat(8192).as_bytes()).await;
+    assert_eq!(share["kind"], "file");
+}
+
+/// Content an older version put somewhere else is moved by the sweep, not by an
+/// upgrade step somebody has to remember to run.
+#[tokio::test]
+async fn the_sweep_moves_a_file_that_was_kept_inline() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=old.bin", b"was inline").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    // Put it back the way the previous rule would have stored it: bytes in the
+    // database, the row saying inline, and no object anywhere.
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    let key = stored.storage.object_key().expect("an object").to_owned();
+    app.state
+        .storage
+        .delete(&object_store::path::Path::from(key.as_str()))
+        .await
+        .expect("remove the object");
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!("UPDATE shares SET storage = 'inline', object_key = NULL WHERE id = '{id}'"),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("rewrite the row");
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!(
+            "INSERT INTO share_contents (share_id, content) VALUES ('{id}', x'77617320696e6c696e65')"
+        ),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("put the bytes back");
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    let moved = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    let new_key = moved
+        .storage
+        .object_key()
+        .unwrap_or_else(|| panic!("expected the object store, got {:?}", moved.storage));
+    let bytes = app
+        .state
+        .storage
+        .get(&object_store::path::Path::from(new_key))
+        .await
+        .expect("fetch")
+        .bytes()
+        .await
+        .expect("read");
+    assert_eq!(bytes.as_ref(), b"was inline");
+    assert!(
+        app.state
+            .shares
+            .inline_content(id)
+            .await
+            .expect("query")
+            .is_none(),
+        "the database copy goes once the object is there"
+    );
+}
+
+/// And the other direction: text an older version streamed out comes back.
+#[tokio::test]
+async fn the_sweep_brings_text_back_from_the_store() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?language=rust", b"fn main() {}").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    // Store it the way the previous rule would have: bytes in the object store,
+    // the row pointing at them, nothing in the database.
+    let key = "old/text-share";
+    app.state
+        .storage
+        .put(
+            &object_store::path::Path::from(key),
+            object_store::PutPayload::from_static(b"fn main() {}"),
+        )
+        .await
+        .expect("write the object");
+    for sql in [
+        format!("UPDATE shares SET storage = 'object', object_key = '{key}' WHERE id = '{id}'"),
+        format!("DELETE FROM share_contents WHERE share_id = '{id}'"),
+        format!("DELETE FROM text_shares WHERE share_id = '{id}'"),
+    ] {
+        let statement = sea_orm::Statement::from_string(
+            sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+            sql,
+        );
+        sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+            .await
+            .expect("rewrite the row");
+    }
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    let text = app
+        .state
+        .shares
+        .text_of(id)
+        .await
+        .expect("query")
+        .expect("the text should have come back");
+    assert_eq!(text.content, b"fn main() {}");
+    assert_eq!(text.language.as_deref(), Some("rust"));
+
+    let moved = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    assert!(
+        moved.storage.object_key().is_none(),
+        "the row must stop pointing at the object, got {:?}",
+        moved.storage
     );
 }

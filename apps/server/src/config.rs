@@ -390,6 +390,18 @@ pub struct ShareConfig {
     /// of the database is also a backup of the content. Above it, bytes belong
     /// in the store, where they can be streamed rather than loaded.
     pub inline_threshold_bytes: usize,
+    /// The largest a text share may be, in bytes.
+    ///
+    /// Text lives in the database, so this is the size of the largest row this
+    /// service will write and the most memory one upload can hold at once —
+    /// there is no streaming a value that has to be handed over whole.
+    ///
+    /// A megabyte is about a million characters. The whole of *The Lord of the
+    /// Rings* as plain text is around two and a half, so a paste that does not
+    /// fit here is not a paste. Somebody who wants to share something larger
+    /// sends it as a file, which is streamed to the object store and never held
+    /// in full.
+    pub max_text_bytes: usize,
 
     /// How long a download authorisation stays usable, in hours.
     ///
@@ -650,6 +662,7 @@ impl Default for ShareConfig {
         Self {
             code_length: 8,
             inline_threshold_bytes: 64 * 1024,
+            max_text_bytes: 1024 * 1024,
             ticket_ttl_hours: 24,
             // A week. This is what almost every share gets, because almost no
             // caller asks for a lifetime — so it, and not the ceiling below,
@@ -1033,6 +1046,16 @@ impl ShareConfig {
                 ),
             });
         }
+        if self.max_text_bytes == 0 || self.max_text_bytes > MAX_TEXT_CEILING {
+            return Err(ConfigError::Invalid {
+                field: "share.max_text_bytes",
+                reason: format!(
+                    "must be between 1 and {MAX_TEXT_CEILING}; text is held whole in memory \
+                     while it is read and stored whole as one row, so a larger value turns one \
+                     upload into that much resident memory and that much of a single read"
+                ),
+            });
+        }
         if self.inline_threshold_bytes > INLINE_CEILING {
             return Err(ConfigError::Invalid {
                 field: "share.inline_threshold_bytes",
@@ -1068,6 +1091,14 @@ impl ShareConfig {
         Ok(())
     }
 }
+
+/// The most a text share may ever be allowed to be.
+///
+/// A bound on the setting, not the setting: an operator who wants larger pastes
+/// can raise `share.max_text_bytes`, but not to a number that makes one upload
+/// a memory problem for everybody else on the instance. Sixteen megabytes is
+/// already six times the plain text of a long novel.
+const MAX_TEXT_CEILING: usize = 16 * 1024 * 1024;
 
 /// Highest inline threshold an operator may configure.
 ///

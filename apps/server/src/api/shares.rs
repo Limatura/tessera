@@ -291,7 +291,7 @@ pub async fn create(
         storage,
         size_bytes,
         inline,
-    } = ingest(&state, id, now, body).await?;
+    } = ingest(&state, id, kind, now, body).await?;
 
     // A share of nothing has nothing to hand out, and the retrieval code it
     // would occupy is not free.
@@ -488,11 +488,12 @@ async fn remaining_quota(state: &AppState) -> Result<u64> {
 async fn ingest(
     state: &AppState,
     id: ShareId,
+    kind: ShareKind,
     now: OffsetDateTime,
     body: Body,
 ) -> Result<Ingested> {
     let mut upload: Option<Box<dyn MultipartUpload>> = None;
-    let result = ingest_into(state, id, now, body, &mut upload).await;
+    let result = ingest_into(state, id, kind, now, body, &mut upload).await;
 
     if let Some(upload) = upload.as_mut() {
         // Only reachable when something failed: the success path takes the
@@ -509,10 +510,21 @@ async fn ingest(
 async fn ingest_into(
     state: &AppState,
     id: ShareId,
+    kind: ShareKind,
     now: OffsetDateTime,
     body: Body,
     upload: &mut Option<Box<dyn MultipartUpload>>,
 ) -> Result<Ingested> {
+    // Where the bytes end up is decided by what they are, not by how many of
+    // them there are. A file is an object whatever its size, so an operator
+    // looking for an upload finds it in one place; text is a row, so reading a
+    // paste is one query.
+    //
+    // The threshold still earns its keep: it is how much of a file is buffered
+    // before the multipart upload starts, which is a memory decision rather than
+    // a storage one.
+    let stream_to_object = kind == ShareKind::File;
+    let text_limit = state.config.share.max_text_bytes;
     let threshold = state.config.share.inline_threshold_bytes;
     let limit = u64::try_from(state.config.server.max_body_bytes).unwrap_or(u64::MAX);
     // What is left of the instance's allowance, checked as the body arrives
@@ -536,11 +548,23 @@ async fn ingest_into(
         if size_bytes > limit {
             return Err(Error::PayloadTooLarge);
         }
+        // Checked as it arrives rather than at the end: a paste ten times the
+        // limit should stop at the limit, not be read in full and then refused.
+        if !stream_to_object && size_bytes > u64::try_from(text_limit).unwrap_or(u64::MAX) {
+            return Err(Error::bad_request(
+                "that is larger than this instance keeps as text; send it as a file instead",
+            ));
+        }
         if size_bytes > budget {
             return Err(Error::InsufficientStorage);
         }
         buffered.extend_from_slice(&chunk);
 
+        if !stream_to_object {
+            // Text is never streamed out: it is going into a row, and a row is
+            // written whole.
+            continue;
+        }
         if upload.is_none() && buffered.len() <= threshold {
             continue;
         }
@@ -577,6 +601,24 @@ async fn ingest_into(
                 inline: None,
             })
         }
+        // A file small enough that the multipart upload never started. It still
+        // becomes an object — one `put` rather than a multipart, because a
+        // multipart upload of nine bytes is three round trips to say one thing.
+        None if stream_to_object => {
+            let object_key = object_key(id, now);
+            state
+                .storage
+                .put(
+                    &ObjectPath::from(object_key.as_str()),
+                    PutPayload::from(buffered),
+                )
+                .await?;
+            Ok(Ingested {
+                storage: StorageLocation::Object { key: object_key },
+                size_bytes,
+                inline: None,
+            })
+        }
         None => Ok(Ingested {
             storage: StorageLocation::Inline,
             size_bytes,
@@ -603,7 +645,7 @@ async fn flush_full_parts(upload: &mut dyn MultipartUpload, buffered: &mut Vec<u
 /// a ULID starts with a timestamp, so those characters are almost the same for
 /// everything written in the same era. Dates are also what an operator wants to
 /// see when deciding what to back up or what is old.
-fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
+pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
     format!(
         "shares/{:04}/{:02}/{id}",
         created_at.year(),
