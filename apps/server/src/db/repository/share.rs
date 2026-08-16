@@ -17,6 +17,7 @@ use crate::{
     auth::secret::Secret,
     db::{
         entity::{
+            file_share::{self, Entity as FileShareEntity},
             share::{self, Entity as ShareEntity},
             share_content::{self, Entity as ShareContentEntity},
             share_ticket::{self, Entity as ShareTicketEntity},
@@ -367,6 +368,18 @@ impl ShareRepository {
 
     /// Stores a new share, and its content when that content is inline.
     ///
+    /// # Why a file share is written twice
+    ///
+    /// A file's name, type, size and location now live in `file_shares`, and
+    /// they are still written to `shares` as well. That duplication is the point
+    /// of this step rather than an oversight: the new table has to be true from
+    /// the first row, and the code that reads it is a separate change. Writing
+    /// only the new one would break every reader at once; writing only the old
+    /// one would leave a table that the migration filled and nothing maintained,
+    /// which is worse than not having it.
+    ///
+    /// The columns on `shares` go when the last reader does.
+    ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the insert fails — including when the
@@ -380,6 +393,24 @@ impl ShareRepository {
             .exec(&self.connection)
             .await?;
 
+        if share.kind == ShareKind::File {
+            FileShareEntity::insert(file_share::ActiveModel {
+                // Derived from the share rather than generated, so that a share
+                // with one file keeps an identifier somebody can follow back.
+                id: Set(share.id.to_string()),
+                share_id: Set(share.id.to_string()),
+                position: Set(0),
+                filename: Set(share.filename.clone()),
+                content_type: Set(share.content_type.clone()),
+                size_bytes: Set(i64::try_from(share.size_bytes).unwrap_or(i64::MAX)),
+                storage: Set(share.storage.as_str().to_owned()),
+                object_key: Set(share.storage.object_key().map(str::to_owned)),
+                created_at: Set(share.created_at),
+            })
+            .exec(&self.connection)
+            .await?;
+        }
+
         if let Some(content) = inline_content {
             ShareContentEntity::insert(share_content::ActiveModel {
                 share_id: Set(share.id.to_string()),
@@ -389,6 +420,26 @@ impl ShareRepository {
             .await?;
         }
         Ok(())
+    }
+
+    /// The files a share holds, in the order they were given.
+    ///
+    /// One row today, because a share still carries exactly one thing. It is
+    /// here so the table has a reader and so the shape multi-file needs already
+    /// exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn files_of(
+        &self,
+        share_id: ShareId,
+    ) -> Result<Vec<file_share::Model>, ShareRepositoryError> {
+        Ok(FileShareEntity::find()
+            .filter(file_share::Column::ShareId.eq(share_id.to_string()))
+            .order_by_asc(file_share::Column::Position)
+            .all(&self.connection)
+            .await?)
     }
 
     /// Finds a share by the code a person typed.
