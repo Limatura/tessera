@@ -1,5 +1,13 @@
-import { closestCenter, DndContext, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
-import type { DragEndEvent, UniqueIdentifier } from '@dnd-kit/core';
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import type { DragEndEvent, UniqueIdentifier } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   arrayMove,
@@ -22,12 +30,34 @@ import {
   IconChevronsRight,
   IconTrendingUp,
 } from "@tabler/icons-react";
-import { columnFilteringFeature, columnVisibilityFeature, createColumnHelper, createFilteredRowModel, createPaginatedRowModel, createSortedRowModel, FlexRender, rowPaginationFeature, rowSelectionFeature, rowSortingFeature, tableFeatures, useTable } from '@tanstack/react-table';
-import type { ColumnFiltersState, ColumnVisibilityState, Row, SortingState } from '@tanstack/react-table';
+import {
+  columnFilteringFeature,
+  columnVisibilityFeature,
+  createColumnHelper,
+  createFilteredRowModel,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  FlexRender,
+  rowPaginationFeature,
+  rowSelectionFeature,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
+} from "@tanstack/react-table";
+import type {
+  ColumnFiltersState,
+  ColumnVisibilityState,
+  Row,
+  SortingState,
+} from "@tanstack/react-table";
 import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@tessera/ui/components/chart';
-import type { ChartConfig } from '@tessera/ui/components/chart';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@tessera/ui/components/chart";
+import type { ChartConfig } from "@tessera/ui/components/chart";
 import { Checkbox } from "@tessera/ui/components/checkbox";
 import {
   Drawer,
@@ -158,9 +188,7 @@ const columns = columnHelper.columns([
     id: "select",
   }),
   columnHelper.accessor("header", {
-    cell: ({ row }) => {
-      return <TableCellViewer item={row.original} />;
-    },
+    cell: ({ row }) => <TableCellViewer item={row.original} />,
     enableHiding: false,
     header: "Header",
   }),
@@ -192,10 +220,11 @@ const columns = columnHelper.columns([
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          // oxlint-disable-next-line promise/avoid-new no-promise-executor-return
           toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
+            error: "Error",
             loading: `Saving ${row.original.header}`,
             success: "Done",
-            error: "Error",
           });
         }}
       >
@@ -216,10 +245,11 @@ const columns = columnHelper.columns([
       <form
         onSubmit={(e) => {
           e.preventDefault();
+          // oxlint-disable-next-line no-promise-executor-return promise/avoid-new
           toast.promise(new Promise((resolve) => setTimeout(resolve, 1000)), {
+            error: "Error",
             loading: `Saving ${row.original.header}`,
             success: "Done",
-            error: "Error",
           });
         }}
       >
@@ -376,6 +406,7 @@ export function DataTable({
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (active && over && active.id !== over.id) {
+      // oxlint-disable-next-line no-shadow
       setData((data) => {
         const oldIndex = dataIds.indexOf(active.id);
         const newIndex = dataIds.indexOf(over.id);
@@ -441,23 +472,20 @@ export function DataTable({
                 .getAllColumns()
                 .filter(
                   (column) =>
-                    column.accessorFn !== undefined &&
-                    column.getCanHide()
+                    column.accessorFn !== undefined && column.getCanHide()
                 )
-                .map((column) => 
-                  (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                )}
+                .map((column) => (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    className="capitalize"
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) =>
+                      column.toggleVisibility(!!value)
+                    }
+                  >
+                    {column.id}
+                  </DropdownMenuCheckboxItem>
+                ))}
             </DropdownMenuContent>
           </DropdownMenu>
           <Button variant="outline" size="sm">
@@ -482,15 +510,13 @@ export function DataTable({
               <TableHeader className="sticky top-0 z-10 bg-muted">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => 
-                      (
-                        <TableHead key={header.id} colSpan={header.colSpan}>
-                          {header.isPlaceholder ? null : (
-                            <FlexRender header={header} />
-                          )}
-                        </TableHead>
-                      )
-                    )}
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id} colSpan={header.colSpan}>
+                        {header.isPlaceholder ? null : (
+                          <FlexRender header={header} />
+                        )}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 ))}
               </TableHeader>

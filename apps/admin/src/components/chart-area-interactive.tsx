@@ -8,8 +8,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@tessera/ui/components/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@tessera/ui/components/chart';
-import type { ChartConfig } from '@tessera/ui/components/chart';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@tessera/ui/components/chart";
+import type { ChartConfig } from "@tessera/ui/components/chart";
 import {
   Select,
   SelectContent,
@@ -141,6 +145,7 @@ export function ChartAreaInteractive() {
 
   React.useEffect(() => {
     if (isMobile) {
+      // oxlint-disable-next-line react/react-compiler
       setTimeRange("7d");
     }
   }, [isMobile]);
@@ -263,10 +268,10 @@ export function ChartAreaInteractive() {
               cursor={false}
               content={
                 <ChartTooltipContent
-                  labelFormatter={(value) => 
+                  labelFormatter={(value) =>
                     new Date(value).toLocaleDateString("en-US", {
-                      month: "short",
                       day: "numeric",
+                      month: "short",
                     })
                   }
                   indicator="dot"
