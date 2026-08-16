@@ -1802,3 +1802,59 @@ async fn backdate(app: &TestApp, id: &str, column: &str, at: OffsetDateTime) {
         .await
         .unwrap_or_else(|error| panic!("could not set {column}: {error}"));
 }
+
+// ── the table multi-file will need ──────────────────────────────────
+
+/// A file share writes a row to `file_shares` as well as `shares`. The table has
+/// to be true from the first row, because a table the migration filled and
+/// nothing maintains is worse than no table.
+#[tokio::test]
+async fn a_file_share_records_its_file() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?filename=notes.txt", b"hello there").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    let files = app.state.shares.files_of(id).await.expect("query");
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].filename.as_deref(), Some("notes.txt"));
+    assert_eq!(files[0].size_bytes, 11);
+    assert_eq!(files[0].position, 0);
+    assert_eq!(files[0].share_id, id.to_string());
+}
+
+/// Text has no file, and gets no row. Its content stays in `share_contents`
+/// until the migration that gives text its own table.
+#[tokio::test]
+async fn a_text_share_records_no_file() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "", b"just a note").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    assert!(
+        app.state
+            .shares
+            .files_of(id)
+            .await
+            .expect("query")
+            .is_empty()
+    );
+}
+
+/// Deleting a share takes its files with it — the foreign key says so, and
+/// nothing in the application has to remember.
+#[tokio::test]
+async fn deleting_a_share_takes_its_files() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?filename=gone.txt", b"bytes").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    app.state.shares.delete(id).await.expect("delete");
+    assert!(
+        app.state
+            .shares
+            .files_of(id)
+            .await
+            .expect("query")
+            .is_empty()
+    );
+}

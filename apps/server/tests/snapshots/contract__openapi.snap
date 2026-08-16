@@ -772,6 +772,65 @@ expression: document
         ],
         "type": "object"
       },
+      "StatsResponse": {
+        "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nFour numbers an operator can act on, not a time series. \"Am I near the\nquota\", \"how many people are on here\", \"is the sweep keeping up\" — the\nquestions somebody asks before deciding whether to change a setting. Anything\nthat wants graphs wants Prometheus, and that is a different endpoint with a\ndifferent shape.",
+        "properties": {
+          "accounts": {
+            "description": "How many accounts exist.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "administrators": {
+            "description": "How many of those administer the instance.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "live_invites": {
+            "description": "How many invites could still admit somebody.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "live_shares": {
+            "description": "How many a visitor could still open.\n\nThe gap between this and `shares` is what the sweep has not reached yet,\nwhich is worth seeing: a large one means retention is longer than\nsomebody expected, or the sweep is not running.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "quota_bytes": {
+            "description": "The ceiling from `storage.max_total_bytes`, or `null` when unset.\n\n`null` is not \"unlimited\" so much as \"nobody said\" — and on an instance\nthat takes anonymous uploads, that is the combination the start-up\nwarning is about.",
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "shares": {
+            "description": "How many shares exist, including ones nobody can open any more.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stored_bytes": {
+            "description": "Bytes of uploaded content still on the store.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "accounts",
+          "administrators",
+          "shares",
+          "live_shares",
+          "stored_bytes",
+          "live_invites"
+        ],
+        "type": "object"
+      },
       "TicketResponse": {
         "description": "What `POST /shares/{code}/unlock` hands back.",
         "properties": {
@@ -1080,6 +1139,63 @@ expression: document
           }
         ],
         "summary": "Revokes an invite.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stats": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",
+        "operationId": "instance_stats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            },
+            "description": "What this instance is holding"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reports what this instance is holding.",
         "tags": [
           "admin"
         ]

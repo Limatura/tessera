@@ -1,7 +1,8 @@
 //! Invite codes, as rows.
 
 use sea_orm::{
-    ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _, Set,
+    ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _, QueryFilter as _,
+    QueryOrder as _, Set,
     sea_query::{Expr, ExprTrait as _},
 };
 use tessera_core::InviteId;
@@ -168,6 +169,23 @@ impl InviteRepository {
             .all(&self.connection)
             .await?;
         models.iter().map(Invite::from_model).collect()
+    }
+
+    /// How many invites could still admit somebody.
+    ///
+    /// Counted in the database rather than by reading them all and filtering:
+    /// the same answer, without carrying every row across the wire to throw most
+    /// of them away.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn count_usable_at(&self, now: OffsetDateTime) -> Result<u64, UserRepositoryError> {
+        Ok(InviteEntity::find()
+            .filter(Expr::col(Column::Used).lt(Expr::col(Column::MaxUses)))
+            .filter(Column::ExpiresAt.is_null().or(Column::ExpiresAt.gt(now)))
+            .count(&self.connection)
+            .await?)
     }
 
     /// Removes one invite.

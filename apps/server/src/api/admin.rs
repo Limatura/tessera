@@ -446,3 +446,79 @@ pub async fn revoke_invite(
         Err(Error::NotFound)
     }
 }
+
+/// What one instance is holding, at a glance.
+///
+/// # Why this is not a metrics endpoint
+///
+/// Four numbers an operator can act on, not a time series. "Am I near the
+/// quota", "how many people are on here", "is the sweep keeping up" — the
+/// questions somebody asks before deciding whether to change a setting. Anything
+/// that wants graphs wants Prometheus, and that is a different endpoint with a
+/// different shape.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct StatsResponse {
+    /// How many accounts exist.
+    pub accounts: u64,
+    /// How many of those administer the instance.
+    pub administrators: u64,
+    /// How many shares exist, including ones nobody can open any more.
+    pub shares: u64,
+    /// How many a visitor could still open.
+    ///
+    /// The gap between this and `shares` is what the sweep has not reached yet,
+    /// which is worth seeing: a large one means retention is longer than
+    /// somebody expected, or the sweep is not running.
+    pub live_shares: u64,
+    /// Bytes of uploaded content still on the store.
+    pub stored_bytes: u64,
+    /// The ceiling from `storage.max_total_bytes`, or `null` when unset.
+    ///
+    /// `null` is not "unlimited" so much as "nobody said" — and on an instance
+    /// that takes anonymous uploads, that is the combination the start-up
+    /// warning is about.
+    pub quota_bytes: Option<u64>,
+    /// How many invites could still admit somebody.
+    pub live_invites: u64,
+}
+
+/// Reports what this instance is holding.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller is not an
+/// administrator or used a bearer token, `404` when this instance has no
+/// administration.
+#[utoipa::path(
+    get,
+    path = "/admin/stats",
+    operation_id = "instance_stats",
+    tag = ADMIN_TAG,
+    responses(
+        (status = 200, description = "What this instance is holding", body = StatsResponse),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "Not an administrator, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn stats(State(state): State<AppState>, admin: AdminUser) -> Result<Json<StatsResponse>> {
+    require_admin_feature(&state)?;
+    require_session(&admin)?;
+
+    let now = OffsetDateTime::now_utc();
+    let (shares, live_shares) = state.shares.counts_at(now).await?;
+    let quota = state.config.storage.max_total_bytes;
+
+    Ok(Json(StatsResponse {
+        accounts: state.users.count().await?,
+        administrators: state.users.count_admins().await?,
+        shares,
+        live_shares,
+        stored_bytes: state.shares.total_stored_bytes().await?,
+        // Zero is how the configuration spells "no ceiling", but a client
+        // drawing a usage bar against zero would show every instance as full.
+        quota_bytes: (quota > 0).then_some(quota),
+        live_invites: state.invites.count_usable_at(now).await?,
+    }))
+}

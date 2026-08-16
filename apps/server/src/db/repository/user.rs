@@ -218,6 +218,15 @@ impl UserRepository {
             .collect()
     }
 
+    /// How many accounts exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn count(&self) -> Result<u64, UserRepositoryError> {
+        Ok(UserEntity::find().count(&self.connection).await?)
+    }
+
     /// How many accounts administer this instance.
     ///
     /// Asked before taking the flag off one, or deleting one: an instance with
