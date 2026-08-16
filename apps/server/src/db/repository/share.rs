@@ -21,6 +21,7 @@ use crate::{
             share::{self, Entity as ShareEntity},
             share_content::{self, Entity as ShareContentEntity},
             share_ticket::{self, Entity as ShareTicketEntity},
+            text_share::{self, Entity as TextShareEntity},
         },
         repository::user::CorruptRow,
     },
@@ -412,6 +413,15 @@ impl ShareRepository {
         }
 
         if let Some(content) = inline_content {
+            if share.kind == ShareKind::Text {
+                TextShareEntity::insert(text_share::ActiveModel {
+                    share_id: Set(share.id.to_string()),
+                    language: Set(share.language.clone()),
+                    content: Set(content.clone()),
+                })
+                .exec(&self.connection)
+                .await?;
+            }
             ShareContentEntity::insert(share_content::ActiveModel {
                 share_id: Set(share.id.to_string()),
                 content: Set(content),
@@ -420,6 +430,25 @@ impl ShareRepository {
             .await?;
         }
         Ok(())
+    }
+
+    /// The text of a share, when it has been moved to its own table.
+    ///
+    /// `None` for a file, and for a text share whose content is still in the
+    /// object store waiting for the sweep to fetch it back. A caller that gets
+    /// `None` falls back to the old path, which is what makes the move something
+    /// that can happen gradually rather than during an upgrade.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn text_of(
+        &self,
+        share_id: ShareId,
+    ) -> Result<Option<text_share::Model>, ShareRepositoryError> {
+        Ok(TextShareEntity::find_by_id(share_id.to_string())
+            .one(&self.connection)
+            .await?)
     }
 
     /// The files a share holds, in the order they were given.

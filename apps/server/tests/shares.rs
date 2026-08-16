@@ -1858,3 +1858,44 @@ async fn deleting_a_share_takes_its_files() {
             .is_empty()
     );
 }
+
+/// A text share writes its content to `text_shares` as well. Same reasoning as
+/// `file_shares`: the table has to be true from the first row, and the readers
+/// move over separately.
+#[tokio::test]
+async fn a_text_share_records_its_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?language=rust", b"fn main() {}").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    let text = app
+        .state
+        .shares
+        .text_of(id)
+        .await
+        .expect("query")
+        .expect("the text");
+    assert_eq!(text.content, b"fn main() {}");
+    assert_eq!(text.language.as_deref(), Some("rust"));
+}
+
+/// A file share gets no text row, the same way a text share gets no file row.
+#[tokio::test]
+async fn a_file_share_records_no_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?filename=data.bin", b"\x00\x01\x02").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    assert!(app.state.shares.text_of(id).await.expect("query").is_none());
+}
+
+/// Deleting a share takes its text with it, by the same foreign key.
+#[tokio::test]
+async fn deleting_a_share_takes_its_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "", b"a note").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    app.state.shares.delete(id).await.expect("delete");
+    assert!(app.state.shares.text_of(id).await.expect("query").is_none());
+}
