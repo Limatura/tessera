@@ -2,6 +2,7 @@ import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
+import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig } from "vite";
 
 export default defineConfig({
@@ -25,6 +26,13 @@ export default defineConfig({
       // (Accept-Language / navigator.languages) 在首次訪問時挑一個合理的預設
       strategy: ["cookie", "preferredLanguage", "baseLocale"],
     }),
+    !!process.env.ANALYZE &&
+      visualizer({
+        brotliSize: true,
+        gzipSize: true,
+        open: true,
+        template: "list",
+      }),
   ],
   resolve: {
     tsconfigPaths: true,
