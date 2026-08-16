@@ -35,7 +35,7 @@ async fn upload(app: &TestApp, query: &str, body: &[u8]) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn a_small_share_is_kept_in_the_database() {
+async fn text_is_kept_in_the_database() {
     let app = TestApp::ready().await;
     let content = b"const foo = \"bar\";\n";
 
@@ -70,7 +70,7 @@ async fn a_small_share_is_kept_in_the_database() {
 /// blob store rather than into a column, and they get there without the body
 /// ever being held whole.
 #[tokio::test]
-async fn a_large_share_is_streamed_to_the_blob_store() {
+async fn a_file_is_streamed_to_the_blob_store() {
     let app = TestApp::with_config(|config| {
         config.share.inline_threshold_bytes = 1024;
     })
@@ -1898,4 +1898,114 @@ async fn deleting_a_share_takes_its_text() {
 
     app.state.shares.delete(id).await.expect("delete");
     assert!(app.state.shares.text_of(id).await.expect("query").is_none());
+}
+
+/// The rule this instance follows is about what the content is, not how much of
+/// it there is. Nine bytes with a filename is a file, and a file is an object —
+/// so somebody looking for an upload finds it in one place, and a backup covers
+/// it by covering the store.
+#[tokio::test]
+async fn even_a_tiny_file_becomes_an_object() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=tiny.bin", b"nine byte").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    let key = stored
+        .storage
+        .object_key()
+        .unwrap_or_else(|| panic!("expected object storage, got {:?}", stored.storage));
+
+    let bytes = app
+        .state
+        .storage
+        .get(&object_store::path::Path::from(key))
+        .await
+        .expect("fetch")
+        .bytes()
+        .await
+        .expect("read");
+    assert_eq!(bytes.as_ref(), b"nine byte");
+}
+
+/// And text never leaves the database, however close to the limit it gets.
+#[tokio::test]
+async fn text_stays_in_the_database_at_any_size() {
+    let app = TestApp::ready().await;
+    // Well past the old inline threshold, which no longer decides anything.
+    let content = "x".repeat(200 * 1024);
+    let share = upload(&app, "", content.as_bytes()).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    assert!(
+        stored.storage.object_key().is_none(),
+        "text must not reach the object store, got {:?}",
+        stored.storage
+    );
+    assert_eq!(
+        app.state
+            .shares
+            .text_of(id)
+            .await
+            .expect("query")
+            .expect("the text")
+            .content
+            .len(),
+        content.len()
+    );
+}
+
+/// Text is held whole in memory and stored whole as a row, so there has to be a
+/// point where the answer is "that is a file". Refused as it arrives rather than
+/// after the whole thing has been read.
+#[tokio::test]
+async fn text_past_the_limit_is_refused_and_says_what_to_do() {
+    let app = TestApp::with_config(|config| {
+        config.share.max_text_bytes = 4096;
+    })
+    .await;
+
+    let response = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares"),
+            Body::from("x".repeat(8192)),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .expect("a message")
+            .contains("as a file"),
+        "the message has to say what to do instead, got {}",
+        body["message"]
+    );
+}
+
+/// The same content with a filename is a file, and files have no such limit.
+#[tokio::test]
+async fn the_same_bytes_as_a_file_are_accepted() {
+    let app = TestApp::with_config(|config| {
+        config.share.max_text_bytes = 4096;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=big.txt", "x".repeat(8192).as_bytes()).await;
+    assert_eq!(share["kind"], "file");
 }
