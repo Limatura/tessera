@@ -17,6 +17,7 @@ use crate::{
         invite::InviteRepository,
         password_reset::PasswordResetRepository,
         pending_registration::PendingRegistrationRepository,
+        role::RoleRepository,
         session::SessionRepository,
         share::{ShareRepository, ShareTicketRepository},
         user::UserRepository,
@@ -50,6 +51,8 @@ pub struct AppState {
     pub db: DatabaseConnection,
     /// Accounts.
     pub users: UserRepository,
+    /// Roles, and what each one allows.
+    pub roles: RoleRepository,
     /// Browser sessions.
     pub sessions: SessionRepository,
     /// API tokens.
@@ -112,6 +115,7 @@ impl AppState {
 
         Self {
             users: UserRepository::new(db.clone()),
+            roles: RoleRepository::new(db.clone()),
             resets: PasswordResetRepository::new(db.clone()),
             invites: InviteRepository::new(db.clone()),
             pending: PendingRegistrationRepository::new(db.clone()),

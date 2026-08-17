@@ -133,6 +133,29 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one role.
+    ///
+    /// The two seeded roles have fixed identifiers written into the migration
+    /// rather than generated ones, so that every instance and every dialect
+    /// names them the same way.
+    RoleId,
+    "role_id"
+);
+
+/// The roles the `is_admin` boolean used to mean.
+///
+/// Written into the migration as literals, so they are named here as literals
+/// too. The test below is the only thing tying the two spellings together —
+/// without it a typo in either would show up as an instance where nobody is an
+/// administrator.
+impl RoleId {
+    /// Everything.
+    pub const ADMIN: &'static str = "00ADMN00000000000000000000";
+    /// Upload, and manage what you uploaded.
+    pub const MEMBER: &'static str = "00MEMBER000000000000000000";
+}
+
+declare_id!(
     /// Identifies one password reset link.
     PasswordResetTokenId,
     "password_reset_token_id"
@@ -228,6 +251,23 @@ mod tests {
             if let Ok(id) = UserId::parse(&raw) {
                 prop_assert_eq!(UserId::parse(&id.to_string()).unwrap(), id);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod seeded_role_tests {
+    use super::RoleId;
+
+    /// The migration inserts these two strings. If either stops being a valid
+    /// identifier, every request loading a role fails to parse the row — and
+    /// the symptom is "nobody is an administrator", which points nowhere near
+    /// here.
+    #[test]
+    fn the_seeded_roles_are_valid_identifiers() {
+        for id in [RoleId::ADMIN, RoleId::MEMBER] {
+            assert!(RoleId::parse(id).is_ok(), "{id}");
+            assert_eq!(id.len(), 26, "{id}");
         }
     }
 }

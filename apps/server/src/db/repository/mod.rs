@@ -10,6 +10,7 @@ pub mod api_token;
 pub mod invite;
 pub mod password_reset;
 pub mod pending_registration;
+pub mod role;
 pub mod session;
 pub mod share;
 pub mod user;

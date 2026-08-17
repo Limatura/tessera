@@ -34,7 +34,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) |  |  |
+| id | TEXT |  | false | [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [user_roles](user_roles.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | password_hash | TEXT |  | false |  |  |  |
@@ -68,6 +68,7 @@ erDiagram
 "api_tokens" }o--|| "users" : ""
 "shares" }o--o| "users" : ""
 "password_reset_tokens" }o--|| "users" : ""
+"user_roles" |o--|| "users" : ""
 
 "users" {
   TEXT id PK
@@ -133,6 +134,11 @@ erDiagram
   TEXT created_at
   TEXT expires_at
   TEXT used_at
+}
+"user_roles" {
+  TEXT user_id PK
+  TEXT role_id PK
+  TEXT granted_at
 }
 ```
 

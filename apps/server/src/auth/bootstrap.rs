@@ -9,7 +9,7 @@
 //! internet before its owner reaches the login page hands administration to a
 //! stranger. So the account is created at start-up, before the listener binds.
 
-use tessera_core::{EmailAddress, Password, PasswordPolicy, UserId, Username};
+use tessera_core::{EmailAddress, Password, PasswordPolicy, RoleId, UserId, Username};
 use time::OffsetDateTime;
 
 use crate::{
@@ -59,7 +59,9 @@ pub async fn ensure_admin(users: &UserRepository, auth: &AuthConfig) -> Result<(
         created_at: now,
         updated_at: now,
     };
-    users.insert(&user).await?;
+    // The first account administers the instance, which is the whole point of
+    // this function — so it goes straight into the role that says so.
+    users.insert(&user, RoleId::parse(RoleId::ADMIN)?).await?;
 
     if let Some(printed) = generated {
         // Printed once, at `warn` so it survives a default log filter, and never
