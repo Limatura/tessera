@@ -6,6 +6,13 @@ Project tessera {
   Note: 'The same tables on PostgreSQL and MySQL; only the types differ.'
 }
 
+Table api_token_permissions {
+  token_id text [pk, not null]
+  permission text [pk, not null]
+
+  Note: '一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。'
+}
+
 Table api_tokens {
   id text [pk, not null]
   user_id text [not null]
@@ -184,6 +191,7 @@ Table users {
   Note: '帳號。'
 }
 
+Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
 Ref: api_tokens.user_id > users.id [delete: cascade]
 Ref: file_shares.share_id > shares.id [delete: cascade]
 Ref: password_reset_tokens.user_id > users.id [delete: cascade]

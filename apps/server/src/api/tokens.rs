@@ -8,7 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::{Deserialize, Serialize};
-use tessera_core::ApiTokenId;
+use tessera_core::{ApiTokenId, Permission, PermissionSet};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
@@ -46,6 +46,14 @@ pub struct TokenResponse {
     /// without the service having to store either of them.
     #[schema(example = "tsk_a1b2")]
     pub display_prefix: String,
+    /// What it may do, as `resource:verb` strings.
+    ///
+    /// What it was minted with, not what it can do right now — those differ
+    /// when the owner has since been demoted, and the owner is who this list is
+    /// for. Sending the narrowed set instead would make a token look as though
+    /// it had been quietly edited.
+    #[schema(example = json!(["shares:create"]))]
+    pub permissions: Vec<String>,
     /// When it was issued, RFC 3339.
     pub created_at: String,
     /// When it was last accepted, if ever.
@@ -78,6 +86,18 @@ pub struct CreateTokenRequest {
     #[schema(example = "backup script")]
     pub name: String,
 
+    /// What the token may do, as `resource:verb` strings.
+    ///
+    /// Omitted means `shares:create` and nothing else — a token exists to
+    /// upload, and the default that is wrong in the safe direction is the one
+    /// that has to be widened on purpose. The other default would hand every
+    /// screenshot tool the ability to delete everything its owner has.
+    ///
+    /// A permission the caller does not hold is refused: a token cannot be a
+    /// way to exceed the account that minted it.
+    #[serde(default)]
+    pub permissions: Option<Vec<String>>,
+
     /// How long the token should last, in days. Omit for a token that lives
     /// until it is revoked.
     #[schema(example = 90)]
@@ -98,6 +118,11 @@ impl From<ApiToken> for TokenResponse {
             id: token.id.to_string(),
             name: token.name,
             display_prefix: token.display_prefix,
+            permissions: token
+                .permissions
+                .iter()
+                .map(|permission| permission.as_str().to_owned())
+                .collect(),
             created_at: format_timestamp(token.created_at),
             last_used_at: token.last_used_at.map(format_timestamp),
             expires_at: token.expires_at.map(format_timestamp),
@@ -129,8 +154,46 @@ pub async fn list(
     State(state): State<AppState>,
     current: CurrentUser,
 ) -> Result<Json<Vec<TokenResponse>>> {
+    current.require(Permission::TokensManage)?;
+
     let tokens = state.tokens.list_for_user(current.user.id).await?;
     Ok(Json(tokens.into_iter().map(TokenResponse::from).collect()))
+}
+
+/// What a token being minted may do.
+///
+/// # Why omitting the field is not "everything"
+///
+/// A token exists to upload. Defaulting to the whole account would mean every
+/// screenshot tool and backup script handed out the ability to delete
+/// everything its owner has, and nobody would notice until one leaked.
+///
+/// # Why a permission the caller lacks is refused
+///
+/// A token must not be a way to exceed the account that minted it. Without
+/// this, somebody demoted to `member` could still mint a token carrying
+/// `users:delete` if they had ever known to ask.
+///
+/// # Errors
+///
+/// `400` when a name is not a permission, `403` when the caller does not hold
+/// one of them.
+fn requested_permissions(current: &CurrentUser, asked: Option<&[String]>) -> Result<PermissionSet> {
+    let Some(asked) = asked else {
+        return Ok([Permission::SharesCreate].into_iter().collect());
+    };
+    let wanted: PermissionSet = asked
+        .iter()
+        .map(|name| {
+            name.parse::<Permission>().map_err(|_| {
+                Error::bad_request(format!("`{name}` is not a permission this version has"))
+            })
+        })
+        .collect::<Result<_>>()?;
+    for permission in wanted.iter() {
+        current.require(permission)?;
+    }
+    Ok(wanted)
 }
 
 /// Issues a token and returns its secret, once.
@@ -164,6 +227,7 @@ pub async fn create(
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
+    current.require(Permission::TokensManage)?;
 
     let name = body.name.trim();
     if name.is_empty() {
@@ -174,6 +238,8 @@ pub async fn create(
             "`name` must be at most {MAX_NAME_LENGTH} characters"
         )));
     }
+
+    let permissions = requested_permissions(&current, body.permissions.as_deref())?;
 
     let now = OffsetDateTime::now_utc();
     let expires_at = match body.expires_in_days {
@@ -193,7 +259,13 @@ pub async fn create(
 
     let (token, secret) = state
         .tokens
-        .create(current.user.id, name.to_owned(), now, expires_at)
+        .create(
+            current.user.id,
+            name.to_owned(),
+            &permissions,
+            now,
+            expires_at,
+        )
         .await?;
 
     Ok((
@@ -235,6 +307,7 @@ pub async fn revoke(
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
+    current.require(Permission::TokensManage)?;
 
     // An unparsable id and somebody else's id are the same answer. Telling them
     // apart would confirm which identifiers exist.
@@ -271,6 +344,7 @@ mod tests {
                 id: "01K1ZQK9V8QF5S3T4M2N6P7R8S".to_owned(),
                 name: "backup script".to_owned(),
                 display_prefix: "tsk_a1b2".to_owned(),
+                permissions: vec!["shares:create".to_owned()],
                 created_at: "2023-11-14T22:13:20Z".to_owned(),
                 last_used_at: None,
                 expires_at: None,

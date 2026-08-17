@@ -286,9 +286,16 @@ async fn authenticate_token(
     };
 
     state.tokens.touch(token.id, now).await?;
-    // A token acts as its owner. #6 narrows this to a subset the token was
-    // minted with; until then the shape is right and the set is the owner's.
-    let permissions = state.roles.permissions_of(user.id).await?;
+    // What the token was given, and no more than its owner may do *now*. Both
+    // halves matter: a token cannot exceed the account that minted it, and
+    // demoting somebody narrows every token they hold at that moment rather
+    // than at the next time somebody remembers to look.
+    let owner = state.roles.permissions_of(user.id).await?;
+    let permissions: PermissionSet = token
+        .permissions
+        .iter()
+        .filter(|permission| owner.allows(*permission))
+        .collect();
     Ok(Some(CurrentUser {
         user,
         credential: Credential::ApiToken,

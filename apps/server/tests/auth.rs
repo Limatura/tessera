@@ -8,7 +8,10 @@
 
 mod common;
 
-use axum::http::{Method, StatusCode, header};
+use axum::{
+    body::Body,
+    http::{Method, Request, StatusCode, header},
+};
 use common::{
     Auth, TestApp, account_lifecycle, body_json, expect_status, force_password_change,
     session_cookie,
@@ -1847,12 +1850,12 @@ async fn account_named(
 async fn sign_in_as(app: &TestApp, username: &str, agent: &str) -> String {
     let response = expect_status(
         app.send(
-            axum::http::Request::builder()
+            Request::builder()
                 .method(Method::POST)
                 .uri("/api/v1/auth/login")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::USER_AGENT, agent),
-            axum::body::Body::from(
+            Body::from(
                 serde_json::json!({ "identifier": username, "password": PASSWORD }).to_string(),
             ),
         )
@@ -1896,12 +1899,12 @@ async fn later_requests_do_not_rewrite_where_a_session_began() {
     // The same session, presented by something claiming to be something else.
     expect_status(
         app.send(
-            axum::http::Request::builder()
+            Request::builder()
                 .method(Method::GET)
                 .uri("/api/v1/auth/session")
                 .header(header::COOKIE, &cookie)
                 .header(header::USER_AGENT, "somebody else entirely"),
-            axum::body::Body::empty(),
+            Body::empty(),
         )
         .await,
         StatusCode::OK,
@@ -1963,7 +1966,7 @@ async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
 
     let response = expect_status(
         app.send(
-            axum::http::Request::builder()
+            Request::builder()
                 .method(Method::POST)
                 .uri("/api/v1/auth/login")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -1972,7 +1975,7 @@ async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
                     axum::http::HeaderValue::from_bytes("瀏覽器/1.0".as_bytes())
                         .expect("header values may carry these bytes"),
                 ),
-            axum::body::Body::from(
+            Body::from(
                 serde_json::json!({ "identifier": "member", "password": PASSWORD }).to_string(),
             ),
         )
@@ -2639,4 +2642,146 @@ async fn following_the_link_spends_the_place() {
         StatusCode::CREATED
     );
     assert_eq!(app.state.invites.list().await.expect("query")[0].used, 1);
+}
+
+/// A token minted without saying what it is for may upload and nothing else.
+///
+/// The other default would hand every screenshot tool the ability to delete
+/// everything its owner has, and nobody would notice until one leaked.
+#[tokio::test]
+async fn a_token_defaults_to_uploading_and_nothing_else() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+
+    let created = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&session),
+                &serde_json::json!({ "name": "a screenshot tool" }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        created["permissions"],
+        serde_json::json!(["shares:create"]),
+        "a token is for uploading"
+    );
+    let secret = created["secret"].as_str().expect("a secret").to_owned();
+
+    // Uploading works.
+    assert_eq!(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=note.txt")
+                .header(header::AUTHORIZATION, format!("Bearer {secret}")),
+            Body::from(b"hello".to_vec()),
+        )
+        .await
+        .status(),
+        StatusCode::CREATED
+    );
+
+    // Listing what the account has uploaded does not — that is `shares:read`.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// A token must not be a way to exceed the account that minted it.
+#[tokio::test]
+async fn a_token_cannot_be_given_a_permission_its_owner_lacks() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let ordinary = register(&app, "second").await;
+
+    let response = app
+        .json(
+            Method::POST,
+            "/api/v1/tokens",
+            Auth::Cookie(&ordinary),
+            &serde_json::json!({ "name": "ambitious", "permissions": ["users:delete"] }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+/// Demoting somebody narrows every token they hold, at that moment.
+///
+/// Without the intersection at the request, a token minted while its owner was
+/// an administrator would keep administering the instance after the owner
+/// stopped being one — which is the state nobody would think to check.
+#[tokio::test]
+async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
+    let app = TestApp::ready().await;
+    let admin = register(&app, "first").await;
+
+    let secret = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "name": "wide", "permissions": ["shares:create", "shares:read"] }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await["secret"]
+        .as_str()
+        .expect("a secret")
+        .to_owned();
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    // Take every share permission away without touching the token.
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let narrow = app
+        .state
+        .roles
+        .create(
+            "narrow".to_owned(),
+            None,
+            &[tessera_core::Permission::TokensManage]
+                .into_iter()
+                .collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[narrow.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("demote them");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN,
+        "the token must not outlive the permission it was minted from"
+    );
 }
