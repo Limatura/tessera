@@ -58,15 +58,11 @@ jobs:
       # plugins at build time and are both gitignored, so on a fresh checkout
       # `tsc` cannot resolve `@/paraglide/runtime.js` and reports a dozen errors
       # that say nothing about the code. Build first, then check.
-      #
-      # `web` and `admin` already spell that order into their own
-      # `check-types` script (`vite build && tsc --noEmit`); running the build
-      # task first keeps `tui` and the rest honest too.
-      - run: pnpm turbo run build
+      - run: pnpm turbo run build --filter=web --filter=admin
 
       # The point of this job. `vite build` hands the file to esbuild, which
       # strips types without checking them — a build that passes says nothing
       # about whether the types are right.
-      - run: pnpm turbo run check-types
+      - run: pnpm turbo run check-types --filter=web --filter=admin
 
       - run: pnpm exec ultracite check
