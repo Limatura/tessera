@@ -912,3 +912,43 @@ async fn the_last_account_holding_the_keys_cannot_be_deleted() {
         StatusCode::NO_CONTENT,
     );
 }
+
+/// The dashboard number has to mean the same thing the guard means.
+///
+/// It counted `users.is_admin`, which is now a mirror kept for rollback. A role
+/// granted directly does not touch that column, so the number would say one
+/// while two people could administer the instance.
+#[tokio::test]
+async fn the_administrator_count_follows_roles_not_the_column() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    register(&app, "second").await;
+
+    let second = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    // Straight into the seeded administrator role, without going through the
+    // endpoint that also writes the column.
+    let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::ADMIN).expect("an id");
+    app.state
+        .roles
+        .set_roles_of(second.id, &[admin_role], time::OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    let response = expect_status(
+        app.empty(Method::GET, "/api/v1/admin/stats", Auth::Cookie(&admin))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    let stats = body_json(response).await;
+    assert_eq!(
+        stats["administrators"], 2,
+        "the column still says one; the roles say two"
+    );
+}

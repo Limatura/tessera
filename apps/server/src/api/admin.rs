@@ -548,7 +548,12 @@ pub async fn stats(
 
     Ok(Json(StatsResponse {
         accounts: state.users.count().await?,
-        administrators: state.users.count_admins().await?,
+        // Counted over the permission, not over `users.is_admin`. The column is
+        // a mirror kept for rollback and nothing reads it to decide anything;
+        // once roles can be assigned directly it stops matching, and a number on
+        // a dashboard that quietly disagrees with who can actually administer
+        // the instance is worse than no number.
+        administrators: state.roles.holders_of(Permission::RolesWrite).await?,
         shares,
         live_shares,
         stored_bytes: state.shares.total_stored_bytes().await?,

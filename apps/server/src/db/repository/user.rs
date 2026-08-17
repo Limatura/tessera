@@ -249,22 +249,6 @@ impl UserRepository {
         Ok(UserEntity::find().count(&self.connection).await?)
     }
 
-    /// How many accounts administer this instance.
-    ///
-    /// Asked before taking the flag off one, or deleting one: an instance with
-    /// no administrator cannot be fixed through the API, only with the CLI
-    /// against the database file.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`UserRepositoryError`] if the query fails.
-    pub async fn count_admins(&self) -> Result<u64, UserRepositoryError> {
-        Ok(UserEntity::find()
-            .filter(user::Column::IsAdmin.eq(true))
-            .count(&self.connection)
-            .await?)
-    }
-
     /// Grants or removes the administrator flag.
     ///
     /// Returns whether an account changed.
