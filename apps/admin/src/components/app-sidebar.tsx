@@ -34,27 +34,25 @@ import { NavUser } from "@/components/nav-user";
 const data = {
   documents: [
     {
+      icon: <IconDatabase />,
       name: "Data Library",
       url: "#",
-      icon: <IconDatabase />,
     },
     {
+      icon: <IconReport />,
       name: "Reports",
       url: "#",
-      icon: <IconReport />,
     },
     {
+      icon: <IconFileWord />,
       name: "Word Assistant",
       url: "#",
-      icon: <IconFileWord />,
     },
   ],
   navClouds: [
     {
-      title: "Capture",
       icon: <IconCamera />,
       isActive: true,
-      url: "#",
       items: [
         {
           title: "Active Proposals",
@@ -65,11 +63,11 @@ const data = {
           url: "#",
         },
       ],
+      title: "Capture",
+      url: "#",
     },
     {
-      title: "Proposal",
       icon: <IconFileDescription />,
-      url: "#",
       items: [
         {
           title: "Active Proposals",
@@ -80,11 +78,11 @@ const data = {
           url: "#",
         },
       ],
+      title: "Proposal",
+      url: "#",
     },
     {
-      title: "Prompts",
       icon: <IconFileAi />,
-      url: "#",
       items: [
         {
           title: "Active Proposals",
@@ -95,50 +93,52 @@ const data = {
           url: "#",
         },
       ],
+      title: "Prompts",
+      url: "#",
     },
   ],
   navMain: [
     {
+      icon: <IconDashboard />,
       title: "Dashboard",
       url: "#",
-      icon: <IconDashboard />,
     },
     {
+      icon: <IconListDetails />,
       title: "Lifecycle",
       url: "#",
-      icon: <IconListDetails />,
     },
     {
+      icon: <IconChartBar />,
       title: "Analytics",
       url: "#",
-      icon: <IconChartBar />,
     },
     {
+      icon: <IconFolder />,
       title: "Projects",
       url: "#",
-      icon: <IconFolder />,
     },
     {
+      icon: <IconUsers />,
       title: "Team",
       url: "#",
-      icon: <IconUsers />,
     },
   ],
   navSecondary: [
     {
+      icon: <IconSettings />,
       title: "Settings",
       url: "#",
-      icon: <IconSettings />,
     },
     {
+      icon: <IconHelp />,
       title: "Get Help",
       url: "#",
-      icon: <IconHelp />,
     },
     {
+      icon: <IconSearch />,
       title: "Search",
       url: "#",
-      icon: <IconSearch />,
     },
   ],
   user: {
@@ -155,7 +155,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<a href="#" />}
+              render={<a href="/" aria-label="Acme Inc. home" />}
             >
               <IconInnerShadowTop className="size-5!" />
               <span className="text-base font-semibold">Acme Inc.</span>
