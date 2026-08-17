@@ -8,6 +8,7 @@ export default defineConfig({
   ignorePatterns: [
     ...(core.ignorePatterns ?? []),
     "apps/server/**",
+    "apps/docs/**",
     ".agents/**",
     ".claude/**",
     ".codex/**",
