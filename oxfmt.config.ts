@@ -10,6 +10,10 @@ export default defineConfig({
     // binary's output byte for byte. Formatting it here makes that job fail for
     // a reason nobody can act on — the generator would just undo the change.
     "openapi.json",
+    // Same arrangement: written by `scripts/schema-docs.py` (tbls plus a DBML
+    // emitter) and compared against the committed copy. Formatting it makes one
+    // of the two checks fail whichever way round anybody runs them.
+    "docs/schema/**",
     ".agents/**",
     ".claude/**",
     ".codex/**",
