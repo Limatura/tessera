@@ -27,7 +27,7 @@ use crate::{
         gate,
     },
     auth::{extract::ClientAddress, proxy::Origin},
-    db::repository::share::{Share, ShareKind},
+    db::repository::share::{Content, Share, ShareKind},
     error::{Error, Result},
     state::AppState,
 };
@@ -92,13 +92,17 @@ async fn raw(
     // cookie. GitHub solves this by serving raw content from another domain;
     // self-hosted software cannot ask its operators for a second one, so the
     // headers have to carry it.
+    let content = state.shares.content_of(&share).await?;
     serve(
         &state,
         &share,
+        &content,
         &headers,
         payload,
-        HeaderValue::from_static("text/plain; charset=utf-8"),
-        HeaderValue::from_static("inline"),
+        Labels {
+            content_type: HeaderValue::from_static("text/plain; charset=utf-8"),
+            disposition: HeaderValue::from_static("inline"),
+        },
     )
     .await
 }
@@ -126,17 +130,34 @@ async fn download(
     .await?;
     // Never the media type the uploader claimed. Serving that back is the same
     // stored-XSS hole as `/raw`, reached from the other direction.
-    let disposition = HeaderValue::from_str(&content_disposition(&share))
+    let content = state.shares.content_of(&share).await?;
+    let disposition = HeaderValue::from_str(&content_disposition(&content))
         .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
     serve(
         &state,
         &share,
+        &content,
         &headers,
         payload,
-        HeaderValue::from_static("application/octet-stream"),
-        disposition,
+        Labels {
+            content_type: HeaderValue::from_static("application/octet-stream"),
+            disposition,
+        },
     )
     .await
+}
+
+/// What a response calls the content, which is the only thing the two routes
+/// disagree about.
+///
+/// Grouped rather than passed loose because they are decided together — a
+/// download says `attachment` and an opaque type, a note says `inline` and
+/// plain text — and neither route ever mixes them.
+struct Labels {
+    /// The `Content-Type` to send, never the one the uploader claimed.
+    content_type: HeaderValue,
+    /// The `Content-Disposition` to send.
+    disposition: HeaderValue,
 }
 
 /// Answers with the slice the request asked for, and the headers that say so.
@@ -149,12 +170,16 @@ async fn download(
 async fn serve(
     state: &AppState,
     share: &Share,
+    content: &Content,
     headers: &HeaderMap,
     payload: Payload,
-    content_type: HeaderValue,
-    disposition: HeaderValue,
+    labels: Labels,
 ) -> Result<Response> {
-    let etag = etag_for(share);
+    let Labels {
+        content_type,
+        disposition,
+    } = labels;
+    let etag = etag_for(share, content);
 
     // `If-Range` is what keeps a resumed transfer from stitching two different
     // files together. A client sends the entity tag it had; if the share is not
@@ -168,7 +193,7 @@ async fn serve(
         .then(|| headers.get(header::RANGE))
         .flatten()
         .and_then(|value| value.to_str().ok())
-        .map(|value| parse_range(value, share.size_bytes))
+        .map(|value| parse_range(value, content.size_bytes))
         .transpose()?;
 
     let (status, range) = match requested {
@@ -176,12 +201,12 @@ async fn serve(
         None => (StatusCode::OK, None),
     };
 
-    let length = range.map_or(share.size_bytes, |(start, end)| {
+    let length = range.map_or(content.size_bytes, |(start, end)| {
         end.saturating_sub(start).saturating_add(1)
     });
     let body = match payload {
         Payload::Headers => Body::empty(),
-        Payload::Content => read_range(state, share, range).await?,
+        Payload::Content => read_range(state, share, content, range).await?,
     };
     let mut response = (status, body).into_response();
     let out = response.headers_mut();
@@ -200,7 +225,7 @@ async fn serve(
     }
     if let Some((start, end)) = range
         && let Ok(value) =
-            HeaderValue::from_str(&format!("bytes {start}-{end}/{}", share.size_bytes))
+            HeaderValue::from_str(&format!("bytes {start}-{end}/{}", content.size_bytes))
     {
         out.insert(header::CONTENT_RANGE, value);
     }
@@ -281,8 +306,8 @@ enum Payload {
 /// the content would mean reading it to answer a `HEAD`, and a share's bytes
 /// never change once written — only deletion and re-upload produce different
 /// content, and that produces a different identifier.
-fn etag_for(share: &Share) -> String {
-    format!("\"{}-{}\"", share.id, share.size_bytes)
+fn etag_for(share: &Share, content: &Content) -> String {
+    format!("\"{}-{}\"", share.id, content.size_bytes)
 }
 
 /// `Content-Disposition`, with the RFC 5987 form so non-ASCII names survive.
@@ -290,8 +315,8 @@ fn etag_for(share: &Share) -> String {
 /// The plain `filename` is kept for old clients and the starred one carries the
 /// real value; without the latter a Chinese or Japanese file name arrives
 /// mangled in most browsers.
-fn content_disposition(share: &Share) -> String {
-    let name = share.filename.as_deref().unwrap_or("download");
+fn content_disposition(content: &Content) -> String {
+    let name = content.filename.as_deref().unwrap_or("download");
     // The fallback keeps anything printable ASCII, which includes the space —
     // `"my file.zip"` is a perfectly ordinary name and turning its space into an
     // underscore helps nobody. What cannot survive is a quote or a backslash,
@@ -372,8 +397,13 @@ fn parse_range(value: &str, size: u64) -> Result<(u64, u64)> {
 ///
 /// Inline content is already in memory and bounded by
 /// `share.inline_threshold_bytes`, so it is handed over as it is.
-async fn read_range(state: &AppState, share: &Share, range: Option<(u64, u64)>) -> Result<Body> {
-    let Some(key) = share.storage.object_key() else {
+async fn read_range(
+    state: &AppState,
+    share: &Share,
+    content: &Content,
+    range: Option<(u64, u64)>,
+) -> Result<Body> {
+    let Some(key) = content.storage.object_key() else {
         let content = state
             .shares
             .inline_content(share.id)
@@ -438,8 +468,7 @@ mod tests {
     /// the plain one some older clients ignore the header entirely.
     #[test]
     fn a_non_ascii_filename_survives_content_disposition() {
-        let share = test_share(Some("專案 v2.zip"));
-        let value = content_disposition(&share);
+        let value = content_disposition(&named(Some("專案 v2.zip")));
         assert!(value.starts_with("attachment; "), "{value}");
         assert!(value.contains(r#"filename="__ v2.zip""#), "{value}");
         assert!(
@@ -450,37 +479,18 @@ mod tests {
 
     #[test]
     fn a_share_with_no_filename_still_downloads() {
-        let value = content_disposition(&test_share(None));
+        let value = content_disposition(&named(None));
         assert!(value.contains(r#"filename="download""#), "{value}");
     }
 
-    fn test_share(filename: Option<&str>) -> Share {
-        use tessera_core::{RetrievalCode, ShareId};
-
-        use crate::db::repository::share::StorageLocation;
-
-        Share {
-            id: ShareId::generate(),
-            code: RetrievalCode::parse("ABCD1234").expect("a valid code"),
-            user_id: None,
-            kind: ShareKind::File,
-            password_hash: None,
-            use_limit: None,
-            use_count: 0,
-            expires_at: None,
-            disabled_at: None,
-            title: None,
+    /// Only the name matters here, and it now comes from the content.
+    fn named(filename: Option<&str>) -> Content {
+        Content {
             filename: filename.map(str::to_owned),
             content_type: None,
             language: None,
-            size_bytes: 10,
-            storage: StorageLocation::Inline,
-            og_config: None,
-            management_token_hash: None,
-            view_count: 0,
-            last_accessed_at: None,
-            created_at: time::OffsetDateTime::now_utc(),
-            updated_at: time::OffsetDateTime::now_utc(),
+            size_bytes: 0,
+            storage: crate::db::repository::share::StorageLocation::Inline,
         }
     }
 }
