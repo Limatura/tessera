@@ -4,6 +4,8 @@
 //! to decide "may this be handed out" is decided here, once, so that the three
 //! public routes cannot disagree about it.
 
+use std::collections::HashMap;
+
 use sea_orm::{
     ActiveValue::Set,
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _, QueryFilter as _,
@@ -54,6 +56,75 @@ impl ShareKind {
                 field: "kind",
                 reason: "must be `text` or `file`",
             }),
+        }
+    }
+}
+
+/// What a share holds, as the tables that own content describe it.
+///
+/// One shape for both kinds rather than an enum: every reader here wants the
+/// same four answers — what it is called, what type it is, how big it is, where
+/// the bytes are — and which fields are `None` follows from the kind, which the
+/// share already states. An enum would make each of those four a `match` at
+/// sixty call sites to say the same thing.
+///
+/// #42 turns files into many parts. This is the first part, which is what every
+/// current reader means by "the file".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Content {
+    /// What it was uploaded as. Always `None` for text.
+    pub filename: Option<String>,
+    /// The media type, when one was worked out. Always `None` for text.
+    pub content_type: Option<String>,
+    /// What it is written in, when the uploader said. Always `None` for a file.
+    pub language: Option<String>,
+    /// How many bytes.
+    pub size_bytes: u64,
+    /// Where those bytes are.
+    pub storage: StorageLocation,
+}
+
+impl Content {
+    fn from_file(model: &file_share::Model) -> Result<Self, ShareRepositoryError> {
+        let fail = |source| CorruptRow {
+            id: model.share_id.clone(),
+            source,
+        };
+        Ok(Self {
+            filename: model.filename.clone(),
+            content_type: model.content_type.clone(),
+            language: None,
+            size_bytes: u64::try_from(model.size_bytes).map_err(|_| {
+                fail(DomainError::Malformed {
+                    field: "size_bytes",
+                    reason: "must not be negative",
+                })
+            })?,
+            storage: StorageLocation::parse(&model.storage, model.object_key.clone())
+                .map_err(fail)?,
+        })
+    }
+
+    fn from_text(model: &text_share::Model) -> Self {
+        Self {
+            filename: None,
+            content_type: None,
+            language: model.language.clone(),
+            // The row is the content, so its length is the size and it is in the
+            // database by definition. Nothing to reconcile with a column.
+            size_bytes: u64::try_from(model.content.len()).unwrap_or(u64::MAX),
+            storage: StorageLocation::Inline,
+        }
+    }
+
+    /// The transitional reading: a share whose subtype row is not there yet.
+    fn from_share(share: &Share) -> Self {
+        Self {
+            filename: share.filename.clone(),
+            content_type: share.content_type.clone(),
+            language: share.language.clone(),
+            size_bytes: share.size_bytes,
+            storage: share.storage.clone(),
         }
     }
 }
@@ -471,6 +542,98 @@ impl ShareRepository {
             .await?)
     }
 
+    /// Reads a share's content details from the table that owns them.
+    ///
+    /// # Why this exists rather than more columns on [`Share`]
+    ///
+    /// The columns describing content — filename, type, size, where the bytes
+    /// are — moved off `shares` onto `file_shares` and `text_shares`. They are
+    /// still written to both places, so this is the switch that decides which
+    /// copy the program believes.
+    ///
+    /// # The fallback, and why it is only here
+    ///
+    /// A row can still be missing its subtype row: the `text_shares` backfill
+    /// joined `share_contents`, so text that an older version streamed out to
+    /// the object store was not copied across, and the sweep gets to those a
+    /// few at a time. Serving such a share from the old columns is correct —
+    /// they still say where the bytes are.
+    ///
+    /// The point of putting it in one function is that removing it later is one
+    /// deletion. Spread across the handlers it would be sixty-odd, and the ones
+    /// nobody found would quietly keep the old columns alive.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if a query fails or a row is not usable.
+    pub async fn content_of(&self, share: &Share) -> Result<Content, ShareRepositoryError> {
+        match share.kind {
+            ShareKind::File => {
+                let parts = self.files_of(share.id).await?;
+                parts
+                    .first()
+                    .map_or_else(|| Ok(Content::from_share(share)), Content::from_file)
+            }
+            ShareKind::Text => Ok(self.text_of(share.id).await?.map_or_else(
+                || Content::from_share(share),
+                |text| Content::from_text(&text),
+            )),
+        }
+    }
+
+    /// The same, for a page of shares, without a query each.
+    ///
+    /// The listing endpoint builds one response per share. Asking per share
+    /// would make a page of fifty shares fifty-one queries, which is the shape
+    /// of slowness that only appears once somebody has enough shares to care.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if a query fails or a row is not usable.
+    pub async fn contents_for(
+        &self,
+        shares: &[Share],
+    ) -> Result<HashMap<ShareId, Content>, ShareRepositoryError> {
+        let ids: Vec<String> = shares.iter().map(|share| share.id.to_string()).collect();
+        if ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let files = FileShareEntity::find()
+            .filter(file_share::Column::ShareId.is_in(ids.clone()))
+            .order_by_asc(file_share::Column::Position)
+            .all(&self.connection)
+            .await?;
+        let texts = TextShareEntity::find()
+            .filter(text_share::Column::ShareId.is_in(ids))
+            .all(&self.connection)
+            .await?;
+
+        let mut found: HashMap<String, Content> = HashMap::with_capacity(shares.len());
+        for text in &texts {
+            found.insert(text.share_id.clone(), Content::from_text(text));
+        }
+        for file in &files {
+            // First position wins; the rest are #42's business. `or_insert`
+            // rather than `insert` because the query is ordered by position and
+            // a later part must not overwrite the first.
+            if let std::collections::hash_map::Entry::Vacant(slot) =
+                found.entry(file.share_id.clone())
+            {
+                slot.insert(Content::from_file(file)?);
+            }
+        }
+
+        let mut resolved = HashMap::with_capacity(shares.len());
+        for share in shares {
+            let content = found
+                .remove(&share.id.to_string())
+                .unwrap_or_else(|| Content::from_share(share));
+            resolved.insert(share.id, content);
+        }
+        Ok(resolved)
+    }
+
     /// Shares whose content is not where this version keeps it.
     ///
     /// Two cases, and the query names both rather than the caller filtering a
@@ -818,6 +981,29 @@ impl ShareRepository {
                 Expr::value(Option::<String>::None),
             )
             .filter(share::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+
+        // `file_shares` says where the bytes are, and readers now believe it
+        // over the column above. Marking only the column would leave the table
+        // pointing at an object that has just been deleted, so a reader that
+        // slipped past the gate would ask the store for it and get a `500`
+        // where the honest answer is "this is gone".
+        FileShareEntity::update_many()
+            .col_expr(
+                file_share::Column::Storage,
+                Expr::value(StorageLocation::GONE.to_owned()),
+            )
+            .col_expr(
+                file_share::Column::ObjectKey,
+                Expr::value(Option::<String>::None),
+            )
+            .filter(file_share::Column::ShareId.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        // Text's content *is* its row, so removing the row is removing the
+        // content — there is no separate marker to keep in step.
+        TextShareEntity::delete_by_id(id.to_string())
             .exec(&self.connection)
             .await?;
         Ok(())

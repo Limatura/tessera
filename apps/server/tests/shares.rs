@@ -3,7 +3,7 @@
 mod common;
 
 use axum::{
-    body::Body,
+    body::{Body, to_bytes},
     http::{Method, Request, StatusCode, header},
 };
 use common::{Auth, TestApp, body_json, body_string, expect_status, share_repository_round_trip};
@@ -2139,5 +2139,162 @@ async fn the_sweep_brings_text_back_from_the_store() {
         moved.storage.object_key().is_none(),
         "the row must stop pointing at the object, got {:?}",
         moved.storage
+    );
+}
+
+/// Proves which table the answer comes from.
+///
+/// Both are written, so every other test passes either way. This one makes them
+/// disagree: the `shares` row is rewritten to say the wrong name and the wrong
+/// size, `file_shares` keeps the right ones, and the response has to show the
+/// right ones. Before the readers were flipped it showed `WRONG.bin`.
+#[tokio::test]
+async fn what_a_share_says_about_itself_comes_from_file_shares() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=holiday.jpg", b"0123456789").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!("UPDATE shares SET filename = 'WRONG.bin', size_bytes = 999999 WHERE id = '{id}'"),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("rewrite the old columns");
+
+    let response = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/shares/{code}")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let described = body_json(response).await;
+    assert_eq!(described["filename"], "holiday.jpg");
+    assert_eq!(described["size_bytes"], 10);
+
+    // And the download path, which builds its own headers from the same source.
+    let response = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let disposition = response
+        .headers()
+        .get(header::CONTENT_DISPOSITION)
+        .expect("a disposition")
+        .to_str()
+        .expect("ascii")
+        .to_owned();
+    let length = response
+        .headers()
+        .get(header::CONTENT_LENGTH)
+        .expect("a length")
+        .to_str()
+        .expect("ascii")
+        .to_owned();
+    assert!(disposition.contains("holiday.jpg"), "{disposition}");
+    assert_eq!(length, "10");
+}
+
+/// A share whose subtype row is not there yet is still served.
+///
+/// Text that an older version streamed to the object store was not copied into
+/// `text_shares` by the migration — it joined `share_contents`, which such a
+/// share has no row in. The sweep gets to those a few at a time, and until it
+/// does the old columns are what answer.
+#[tokio::test]
+async fn a_share_without_its_new_row_falls_back_to_the_old_columns() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?language=rust", b"fn main() {}").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        format!("DELETE FROM text_shares WHERE share_id = '{id}'"),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("remove the new row");
+
+    let response = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/shares/{code}")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let described = body_json(response).await;
+    assert_eq!(described["language"], "rust");
+    assert_eq!(described["size_bytes"], 12);
+
+    // And it still serves the bytes, which is the part that matters.
+    let response = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/raw")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let body = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("read");
+    assert_eq!(body.as_ref(), b"fn main() {}");
+}
+
+/// A share whose content has been reaped must say so from the new table too.
+///
+/// The sweep marks `shares.storage` as gone. Readers believe `file_shares` now,
+/// so if that were left pointing at the object, a reader would ask the store for
+/// something that had just been deleted.
+#[tokio::test]
+async fn a_reaped_share_reads_as_gone_from_the_new_table_as_well() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=doomed.bin", b"bytes").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    app.state
+        .shares
+        .mark_content_removed(id)
+        .await
+        .expect("mark it removed");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    let content = app
+        .state
+        .shares
+        .content_of(&stored)
+        .await
+        .expect("read the content details");
+    assert_eq!(
+        content.storage,
+        tessera_server::db::repository::share::StorageLocation::Gone,
+        "the new table still points at a deleted object"
     );
 }

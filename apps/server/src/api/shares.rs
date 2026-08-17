@@ -52,7 +52,7 @@ use crate::{
         proxy::Origin,
         secret::Secret,
     },
-    db::repository::share::{Share, ShareKind, StorageLocation},
+    db::repository::share::{Content, Share, ShareKind, StorageLocation},
     error::{Error, Result},
     state::AppState,
 };
@@ -186,16 +186,16 @@ pub struct ShareResponse {
 }
 
 impl ShareResponse {
-    fn from_share(share: &Share, management_token: Option<String>) -> Self {
+    fn from_share(share: &Share, content: &Content, management_token: Option<String>) -> Self {
         Self {
             id: share.id.to_string(),
             code: share.code.as_str().to_owned(),
             path: format!("/s/{}", share.code),
             kind: share.kind.as_str().to_owned(),
             title: share.title.clone(),
-            filename: share.filename.clone(),
-            language: share.language.clone(),
-            size_bytes: share.size_bytes,
+            filename: content.filename.clone(),
+            language: content.language.clone(),
+            size_bytes: content.size_bytes,
             has_password: share.needs_password(),
             uses_remaining: share
                 .use_limit
@@ -333,8 +333,10 @@ pub async fn create(
     };
 
     let share = insert_with_fresh_code(&state, share, inline).await?;
+    let content = state.shares.content_of(&share).await?;
     let response = ShareResponse::from_share(
         &share,
+        &content,
         management_secret.map(|secret| secret.expose().to_owned()),
     );
     Ok((StatusCode::CREATED, Json(response)).into_response())
@@ -361,10 +363,17 @@ pub async fn list(
     current: CurrentUser,
 ) -> Result<Json<Vec<ShareResponse>>> {
     let shares = state.shares.list_for_user(current.user.id).await?;
+    // One query for the whole page rather than one per share: see
+    // `contents_for`.
+    let contents = state.shares.contents_for(&shares).await?;
     Ok(Json(
         shares
             .iter()
-            .map(|share| ShareResponse::from_share(share, None))
+            .filter_map(|share| {
+                contents
+                    .get(&share.id)
+                    .map(|content| ShareResponse::from_share(share, content, None))
+            })
             .collect(),
     ))
 }
@@ -418,7 +427,8 @@ pub async fn delete(
     // The object first. A row without its object is a broken share; an object
     // without its row is an orphan the sweep can still find by listing, so if
     // only one of the two can happen, this is the better order.
-    if let StorageLocation::Object { key } = &share.storage {
+    let content = state.shares.content_of(&share).await?;
+    if let StorageLocation::Object { key } = &content.storage {
         state
             .storage
             .delete(&ObjectPath::from(key.as_str()))
@@ -860,14 +870,14 @@ impl PublicShareResponse {
         }
     }
 
-    fn unlocked(share: &Share) -> Self {
+    fn unlocked(share: &Share, content: &Content) -> Self {
         Self {
             has_password: share.needs_password(),
             unlocked: true,
             title: share.title.clone(),
-            filename: share.filename.clone(),
-            language: share.language.clone(),
-            size_bytes: Some(share.size_bytes),
+            filename: content.filename.clone(),
+            language: content.language.clone(),
+            size_bytes: Some(content.size_bytes),
             uses_remaining: share
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
@@ -926,7 +936,8 @@ pub async fn describe(
     let share = gate::open(&state, &code, &source).await?;
 
     if !share.needs_password() {
-        return Ok(Json(PublicShareResponse::unlocked(&share)));
+        let content = state.shares.content_of(&share).await?;
+        return Ok(Json(PublicShareResponse::unlocked(&share, &content)));
     }
     // A locked share still answers, so the page can render a password prompt
     // rather than a dead end. What it answers is only "this exists and wants a
@@ -935,7 +946,11 @@ pub async fn describe(
         return Ok(Json(PublicShareResponse::locked(&share)));
     }
     gate::unlock(&state, &share, &headers, &source).await?;
-    Ok(Json(PublicShareResponse::unlocked(&share)))
+    // Read only once the password is right: a locked share answers without
+    // touching its content, so a wrong guess costs a gate check and nothing
+    // more.
+    let content = state.shares.content_of(&share).await?;
+    Ok(Json(PublicShareResponse::unlocked(&share, &content)))
 }
 
 /// Spends one retrieval and returns a ticket for the transfer.

@@ -125,13 +125,13 @@ async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Respons
     let Some(file) = Bundle::get(INDEX) else {
         return not_found();
     };
-    let Some(share) = preview_target(state, code).await else {
+    let Some((share, content)) = preview_target(state, code).await else {
         return respond(INDEX, file);
     };
     let Ok(html) = std::str::from_utf8(&file.data) else {
         return respond(INDEX, file);
     };
-    let tags = Preview::of(&share, time::OffsetDateTime::now_utc()).to_head_tags();
+    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc()).to_head_tags();
     let page = splice_into_document(html, &tags);
 
     (
@@ -147,7 +147,10 @@ async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Respons
 async fn preview_target(
     state: &crate::state::AppState,
     code: &str,
-) -> Option<crate::db::repository::share::Share> {
+) -> Option<(
+    crate::db::repository::share::Share,
+    crate::db::repository::share::Content,
+)> {
     crate::api::preview::lookup(state, code).await
 }
 
