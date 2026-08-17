@@ -257,18 +257,32 @@ fn require_accounts(state: &AppState) -> Result<()> {
 
 /// Which role a brand-new account goes into.
 ///
-/// The two the migration seeded, and the only place the choice is made — so
-/// "what can somebody do the moment they sign up" is one line rather than a
-/// property of whichever registration path they came through.
+/// The only place the choice is made, so "what can somebody do the moment they
+/// sign up" is one function rather than a property of whichever registration
+/// path they came through.
+///
+/// The first account administers the instance whatever the configuration says:
+/// an instance whose first account cannot administer it has nobody who can fix
+/// that.
 ///
 /// # Errors
 ///
-/// Only if one of the two literals stops being a valid identifier, which a test
-/// in the migration module rules out. It is a `Result` rather than a panic
-/// because the cost of being wrong about that is somebody's registration.
-fn seed_role(first: bool) -> Result<RoleId> {
-    let id = if first { RoleId::ADMIN } else { RoleId::MEMBER };
-    Ok(RoleId::parse(id)?)
+/// `500` when `auth.default_role` names a role that is not there. Startup
+/// refuses that configuration, so reaching it means the role was deleted while
+/// the server was running — and quietly putting somebody in `member` instead
+/// would be the server overruling a stated policy.
+async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
+    if first {
+        return Ok(RoleId::parse(RoleId::ADMIN)?);
+    }
+    let wanted = &state.config.auth.default_role;
+    let Some(role) = state.roles.find_by_name(wanted).await? else {
+        tracing::error!(role = %wanted, "auth.default_role names a role that is not there");
+        return Err(Error::Conflict(
+            "this instance is not configured to accept new accounts right now".to_owned(),
+        ));
+    };
+    Ok(role.id)
 }
 
 /// Creates an account and signs it in.
@@ -373,7 +387,11 @@ pub async fn register(
         updated_at: now,
     };
 
-    if let Err(error) = state.users.insert(&user, seed_role(first)?).await {
+    if let Err(error) = state
+        .users
+        .insert(&user, seed_role(&state, first).await?)
+        .await
+    {
         // The check above raced with another registration, or something else
         // went wrong. Which one is decided by looking, rather than by assuming
         // every insert failure is a conflict — that would report a database
@@ -978,7 +996,11 @@ pub async fn confirm_registration(
         created_at: now,
         updated_at: now,
     };
-    if let Err(error) = state.users.insert(&user, seed_role(first)?).await {
+    if let Err(error) = state
+        .users
+        .insert(&user, seed_role(&state, first).await?)
+        .await
+    {
         // The checks above raced with another confirmation. Decided by looking
         // rather than by assuming every insert failure is a conflict, which
         // would report a database outage as "that name is taken" — and the

@@ -26,9 +26,13 @@ const ADMIN_PASSWORD: &str = "correct horse battery staple";
     reason = "test helper; a fixture that cannot build has nothing to report but a failure"
 )]
 async fn admin_session(app: &TestApp) -> String {
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("bootstrap");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("bootstrap");
     let response = expect_status(
         app.json(
             Method::POST,

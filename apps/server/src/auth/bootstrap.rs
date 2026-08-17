@@ -15,7 +15,10 @@ use time::OffsetDateTime;
 use crate::{
     auth::{password, secret::Secret},
     config::AuthConfig,
-    db::repository::user::{User, UserRepository},
+    db::repository::{
+        role::RoleRepository,
+        user::{User, UserRepository},
+    },
     error::{Error, Result},
 };
 
@@ -30,7 +33,22 @@ use crate::{
 ///
 /// Returns [`Error`] if the database is unreachable, if the configured
 /// credentials fail their rules, or if hashing fails.
-pub async fn ensure_admin(users: &UserRepository, auth: &AuthConfig) -> Result<()> {
+pub async fn ensure_admin(
+    users: &UserRepository,
+    roles: &RoleRepository,
+    auth: &AuthConfig,
+) -> Result<()> {
+    // Checked whether or not an administrator is created below: the setting is
+    // read at every registration, so a name nobody seeded turns the first
+    // stranger's sign-up into a refusal with no explanation anywhere they can
+    // see. Refusing to start says it once, to the person who can fix it.
+    if roles.find_by_name(&auth.default_role).await?.is_none() {
+        return Err(Error::bad_request(format!(
+            "auth.default_role: no role is called `{}`",
+            auth.default_role
+        )));
+    }
+
     if users.any_exist().await? {
         return Ok(());
     }

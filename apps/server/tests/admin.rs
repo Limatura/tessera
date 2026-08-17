@@ -1208,3 +1208,105 @@ async fn account(app: &TestApp, username: &str) -> tessera_server::db::repositor
         .expect("query")
         .expect("the account")
 }
+
+/// A built-in role means the same thing on every instance, and that is the
+/// whole of its value.
+#[tokio::test]
+async fn a_built_in_role_can_be_renamed_but_not_repermissioned() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let member = app
+        .state
+        .roles
+        .find_by_name("member")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    let held: Vec<String> = member
+        .permissions
+        .iter()
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+
+    // A label is not a meaning.
+    expect_status(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "一般使用者", "permissions": held }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // Taking something away from it is not.
+    let fewer: Vec<String> = member
+        .permissions
+        .iter()
+        .filter(|permission| *permission != tessera_core::Permission::SharesDelete)
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+    assert_eq!(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "一般使用者", "permissions": fewer }),
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// The way to make ordinary accounts do less.
+#[tokio::test]
+async fn new_accounts_go_into_the_configured_role() {
+    let app = TestApp::with_config(|config| {
+        config.auth.default_role = "restricted".to_owned();
+    })
+    .await;
+
+    // The role has to exist before anybody registers into it.
+    app.state
+        .roles
+        .create(
+            "restricted".to_owned(),
+            None,
+            &[tessera_core::Permission::SharesCreate]
+                .into_iter()
+                .collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+
+    register(&app, "first").await;
+    let (ordinary, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let held = app
+        .state
+        .roles
+        .permissions_of(user.id)
+        .await
+        .expect("read the permissions");
+    assert!(held.allows(tessera_core::Permission::SharesCreate));
+    assert!(
+        !held.allows(tessera_core::Permission::SharesDelete),
+        "member's permissions must not leak in"
+    );
+
+    // And the first account still administers the instance whatever the setting
+    // says — an instance whose first account cannot administer it has nobody who
+    // can fix that.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}

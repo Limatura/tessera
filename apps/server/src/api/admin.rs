@@ -871,6 +871,22 @@ pub async fn update_role(
         return Err(Error::Conflict("a role already has that name".to_owned()));
     }
 
+    // A built-in role means the same thing on every instance, and that is the
+    // whole of its value: documentation, support conversations and the
+    // `auth.default_role` setting all name one expecting it to mean what it
+    // means everywhere else.
+    //
+    // The name is not part of that — an operator who wants to read `管理員` is
+    // changing a label, not a meaning — so only the permissions are refused.
+    // The way to have ordinary accounts do less is a role of your own, and
+    // `auth.default_role` to send new accounts into it.
+    if existing.is_system && permissions != existing.permissions {
+        return Err(Error::Conflict(
+            "a built-in role's permissions cannot be changed; make a role of your own and point              auth.default_role at it"
+                .to_owned(),
+        ));
+    }
+
     // Taking `roles:write` off the role that carries it for everybody is the
     // one edit that cannot be undone through any screen.
     if existing.permissions.allows(Permission::RolesWrite)
