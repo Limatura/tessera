@@ -952,3 +952,361 @@ async fn the_administrator_count_follows_roles_not_the_column() {
         "the column still says one; the roles say two"
     );
 }
+
+/// `roles:write` must not be a way to obtain every other permission.
+///
+/// Without this check somebody holding only `roles:write` mints a role granting
+/// `users:delete`, puts themselves in it, and has it. The permission would mean
+/// "may hand out anything" rather than "may hand out what I have".
+#[tokio::test]
+async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (deputy, _) = register(&app, "second").await;
+
+    let user = account(&app, "second").await;
+    let limited = app
+        .state
+        .roles
+        .create(
+            "deputy".to_owned(),
+            None,
+            &[tessera_core::Permission::RolesWrite].into_iter().collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[limited.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    let response = app
+        .json(
+            Method::POST,
+            "/api/v1/admin/roles",
+            Auth::Cookie(&deputy),
+            &serde_json::json!({
+                "name": "sneaky",
+                "permissions": ["users:delete"],
+            }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    // And the same door from the other side: granting it to somebody else.
+    let existing = app
+        .state
+        .roles
+        .find_by_name("admin")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    let response = app
+        .json(
+            Method::PUT,
+            &format!("/api/v1/admin/users/{}/roles", user.id),
+            Auth::Cookie(&deputy),
+            &serde_json::json!({ "roles": [existing.id.to_string()] }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+/// A permission this version does not have is refused, not dropped.
+///
+/// Ignoring it would save a role that does less than the screen it was ticked
+/// on says it does.
+#[tokio::test]
+async fn an_unknown_permission_is_refused_rather_than_ignored() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let response = app
+        .json(
+            Method::POST,
+            "/api/v1/admin/roles",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "odd", "permissions": ["shares:teleport"] }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+/// The seeded roles are what an instance is administered through.
+#[tokio::test]
+async fn a_seeded_role_cannot_be_deleted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let member = app
+        .state
+        .roles
+        .find_by_name("member")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin)
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// Editing a role is the other way to lock everybody out.
+#[tokio::test]
+async fn the_last_role_carrying_the_keys_cannot_drop_them() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let role = app
+        .state
+        .roles
+        .find_by_name("admin")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    let without_the_keys: Vec<String> = tessera_core::Permission::ALL
+        .into_iter()
+        .filter(|permission| *permission != tessera_core::Permission::RolesWrite)
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+
+    let response = app
+        .json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", role.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "admin", "permissions": without_the_keys }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+}
+
+/// A role is created, edited and used, end to end.
+#[tokio::test]
+async fn a_role_can_be_created_and_granted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (watcher, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/admin/roles",
+                Auth::Cookie(&admin),
+                &serde_json::json!({
+                    "name": "auditor",
+                    "description": "Can look.",
+                    "permissions": ["users:read"],
+                }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let role_id = created["id"].as_str().expect("an id").to_owned();
+    assert_eq!(created["members"], 0);
+    assert_eq!(created["is_system"], false);
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/users/{}/roles", user.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "roles": [role_id] }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // It works, and only as far as it says.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/stats", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+
+    // And the listing counts the member.
+    let roles = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/roles", Auth::Cookie(&admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let auditor = roles
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|row| row["name"] == "auditor")
+        .expect("the role");
+    assert_eq!(auditor["members"], 1);
+}
+
+/// The permission list is served rather than built into the client, so a client
+/// cannot silently stop offering permissions added since it was built.
+#[tokio::test]
+async fn every_permission_is_offered_to_the_screen() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let listed = body_json(
+        expect_status(
+            app.empty(
+                Method::GET,
+                "/api/v1/admin/permissions",
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let names: Vec<&str> = listed
+        .as_array()
+        .expect("a list")
+        .iter()
+        .map(|row| row["name"].as_str().expect("a name"))
+        .collect();
+    for permission in tessera_core::Permission::ALL {
+        assert!(names.contains(&permission.as_str()), "{permission}");
+    }
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+/// The account whose roles are being read, by name.
+async fn account(app: &TestApp, username: &str) -> tessera_server::db::repository::user::User {
+    app.state
+        .users
+        .find_by_username(&tessera_core::Username::parse(username).expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account")
+}
+
+/// A built-in role means the same thing on every instance, and that is the
+/// whole of its value.
+#[tokio::test]
+async fn a_built_in_role_can_be_renamed_but_not_repermissioned() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let member = app
+        .state
+        .roles
+        .find_by_name("member")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    let held: Vec<String> = member
+        .permissions
+        .iter()
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+
+    // A label is not a meaning.
+    expect_status(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "一般使用者", "permissions": held }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // Taking something away from it is not.
+    let fewer: Vec<String> = member
+        .permissions
+        .iter()
+        .filter(|permission| *permission != tessera_core::Permission::SharesDelete)
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+    assert_eq!(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "一般使用者", "permissions": fewer }),
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// The way to make ordinary accounts do less.
+#[tokio::test]
+async fn new_accounts_go_into_the_configured_role() {
+    let app = TestApp::with_config(|config| {
+        config.auth.default_role = "restricted".to_owned();
+    })
+    .await;
+
+    // The role has to exist before anybody registers into it.
+    app.state
+        .roles
+        .create(
+            "restricted".to_owned(),
+            None,
+            &[tessera_core::Permission::SharesCreate]
+                .into_iter()
+                .collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+
+    register(&app, "first").await;
+    let (ordinary, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let held = app
+        .state
+        .roles
+        .permissions_of(user.id)
+        .await
+        .expect("read the permissions");
+    assert!(held.allows(tessera_core::Permission::SharesCreate));
+    assert!(
+        !held.allows(tessera_core::Permission::SharesDelete),
+        "member's permissions must not leak in"
+    );
+
+    // And the first account still administers the instance whatever the setting
+    // says — an instance whose first account cannot administer it has nobody who
+    // can fix that.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}

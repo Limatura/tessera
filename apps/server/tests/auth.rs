@@ -520,9 +520,13 @@ async fn the_bootstrapped_administrator_can_sign_in() {
     })
     .await;
 
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("bootstrap");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("bootstrap");
 
     let body = body_json(
         expect_status(
@@ -563,14 +567,22 @@ async fn the_bootstrapped_administrator_can_sign_in() {
 #[tokio::test]
 async fn a_generated_administrator_password_must_be_changed() {
     let app = TestApp::ready().await;
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("bootstrap");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("bootstrap");
 
     // Running again must not create a second administrator or reset the first.
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("idempotent");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("idempotent");
 
     let name = tessera_core::Username::parse_privileged("admin").expect("a valid name");
     let admin = app
@@ -599,9 +611,13 @@ async fn an_account_owing_a_password_change_can_only_fix_itself() {
         config.auth.admin_password = PASSWORD.to_owned();
     })
     .await;
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("bootstrap");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("bootstrap");
     force_password_change(&app, "admin").await;
 
     let response = expect_status(

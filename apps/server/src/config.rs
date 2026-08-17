@@ -352,6 +352,24 @@ pub struct AuthConfig {
     /// When to mark the session cookie `Secure`.
     pub cookie_secure: SecurePolicy,
 
+    /// Which role a newly registered account goes into.
+    ///
+    /// By name, because that is what an operator reads in the admin panel.
+    ///
+    /// # Why this rather than editing the built-in role
+    ///
+    /// "I want ordinary users to be able to do less" is the real need behind
+    /// wanting to edit `member`, and it is better served by choosing a
+    /// different role than by changing what `member` means — a built-in role
+    /// that means something different on every instance is one that
+    /// documentation and support conversations cannot rely on.
+    ///
+    /// The role has to exist. That is checked at startup rather than at
+    /// somebody's registration, because the failure would otherwise arrive as
+    /// a stranger's `500`.
+    #[serde(default = "default_role")]
+    pub default_role: String,
+
     /// Name for the administrator created on first run.
     pub admin_username: String,
 
@@ -646,6 +664,7 @@ impl Default for AuthConfig {
             // 30 days. Long, on purpose: this is a tool people reach for
             // occasionally, and being logged out between uses is the kind of
             // friction that makes a self-hosted service go unused.
+            default_role: default_role(),
             session_ttl_hours: 24 * 30,
             login_history_days: default_login_history_days(),
             password: PasswordPolicy::default(),
@@ -758,6 +777,11 @@ impl ServerConfig {
 /// Days of login history kept, when nothing says otherwise.
 const fn default_login_history_days() -> u64 {
     90
+}
+
+/// The role the migration seeds ordinary accounts into.
+fn default_role() -> String {
+    "member".to_owned()
 }
 
 /// The most history an instance may be asked to keep.

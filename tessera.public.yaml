@@ -37,6 +37,12 @@ auth:
   # 註:invite 目前的行為等同 closed,邀請碼還沒做(#4)。
   registration: closed
   session_ttl_hours: 168
+  # 新帳號進哪個角色。內建的 admin 和 member 權限改不了——它們在每台
+  # instance 意思一樣,文件和支援對話才靠得住。想讓一般使用者少做一些事,
+  # 就在後台建一個角色,然後把這裡指過去。
+  #
+  # 這個名字的角色必須存在,否則 server 起不來(而不是等到有人註冊才炸)。
+  default_role: member
   password:
     min_length: 12
 

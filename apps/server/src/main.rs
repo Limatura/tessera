@@ -18,7 +18,7 @@ use tessera_server::{
     api, auth, cli,
     config::Config,
     db,
-    db::repository::user::UserRepository,
+    db::repository::{role::RoleRepository, user::UserRepository},
     maintenance,
     state::{AppState, ServiceStatus},
     storage, telemetry,
@@ -116,9 +116,13 @@ async fn main() -> anyhow::Result<()> {
     // Before the listener binds, so an instance exposed to the internet never
     // spends a moment with no administrator for a passer-by to claim.
     if config.features.accounts {
-        auth::bootstrap::ensure_admin(&UserRepository::new(db.clone()), &config.auth)
-            .await
-            .context("could not create the first administrator")?;
+        auth::bootstrap::ensure_admin(
+            &UserRepository::new(db.clone()),
+            &RoleRepository::new(db.clone()),
+            &config.auth,
+        )
+        .await
+        .context("could not create the first administrator")?;
     }
 
     // 5. Listener. Bound before announcing readiness so a port clash is fatal.
