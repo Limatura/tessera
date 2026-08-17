@@ -2708,6 +2708,16 @@ expression: document
               }
             },
             "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The credential does not carry `shares:read`"
           }
         },
         "security": [
@@ -2843,6 +2853,16 @@ expression: document
               }
             },
             "description": "This instance requires an account to upload"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The credential does not carry `shares:create`"
           },
           "413": {
             "content": {

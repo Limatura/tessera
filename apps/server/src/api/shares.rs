@@ -248,6 +248,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
             )),
         (status = 400, description = "A parameter is unusable", body = crate::error::ErrorBody),
         (status = 401, description = "This instance requires an account to upload", body = crate::error::ErrorBody),
+        (status = 403, description = "The credential does not carry `shares:create`", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
         (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
     ),
@@ -361,6 +362,7 @@ pub async fn create(
     responses(
         (status = 200, description = "The caller's shares", body = Vec<ShareResponse>),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "The credential does not carry `shares:read`", body = crate::error::ErrorBody),
     ),
     security(("session" = []), ("bearer" = [])),
 )]
