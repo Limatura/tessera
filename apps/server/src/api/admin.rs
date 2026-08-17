@@ -20,7 +20,7 @@
 
 use axum::{Json, extract::State, http::StatusCode};
 use serde::{Deserialize, Serialize};
-use tessera_core::{InviteId, Permission, UserId};
+use tessera_core::{InviteId, Permission, PermissionSet, RoleId, UserId};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
@@ -32,7 +32,10 @@ use crate::{
         tokens::format_timestamp,
     },
     auth::extract::CurrentUser,
-    db::repository::invite::Invite,
+    db::repository::{
+        invite::Invite,
+        role::{Role, RoleChange},
+    },
     error::{Error, Result},
     state::AppState,
 };
@@ -562,4 +565,494 @@ pub async fn stats(
         quota_bytes: (quota > 0).then_some(quota),
         live_invites: state.invites.count_usable_at(now).await?,
     }))
+}
+
+/// One role, as the API describes it.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RoleResponse {
+    /// Stable identifier.
+    #[schema(example = "01K1ZQK9V8QF5S3T4M2N6P7R8S")]
+    pub id: String,
+    /// What an operator types and reads.
+    #[schema(example = "auditor")]
+    pub name: String,
+    /// What it is for, in the operator's own words.
+    pub description: Option<String>,
+    /// Whether it is one of the two the instance was seeded with.
+    ///
+    /// Those cannot be deleted — an instance whose administrator role has been
+    /// removed has nobody who can create one. They can still be edited.
+    pub is_system: bool,
+    /// What it allows, as `resource:verb` strings.
+    #[schema(example = json!(["users:read"]))]
+    pub permissions: Vec<String>,
+    /// How many accounts are in it.
+    ///
+    /// The number an operator wants before editing one: changing a role that
+    /// nobody holds is free, and changing one that forty people hold is not.
+    pub members: u64,
+    /// When it was created, RFC 3339.
+    pub created_at: String,
+    /// When its permissions last changed, RFC 3339.
+    pub updated_at: String,
+}
+
+impl RoleResponse {
+    fn build(role: &Role, members: u64) -> Self {
+        Self {
+            id: role.id.to_string(),
+            name: role.name.clone(),
+            description: role.description.clone(),
+            is_system: role.is_system,
+            permissions: role
+                .permissions
+                .iter()
+                .map(|permission| permission.as_str().to_owned())
+                .collect(),
+            members,
+            created_at: format_timestamp(role.created_at),
+            updated_at: format_timestamp(role.updated_at),
+        }
+    }
+}
+
+/// Body of `POST /admin/roles` and `PUT /admin/roles/{id}`.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct RoleRequest {
+    /// What to call it.
+    pub name: String,
+    /// What it is for.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Everything it should allow, as `resource:verb` strings.
+    ///
+    /// The whole set, not a change to it. Two operators editing the same role
+    /// from two screens cannot interleave their edits into a set neither of
+    /// them chose — the last one to press save wins, visibly.
+    pub permissions: Vec<String>,
+}
+
+impl RoleRequest {
+    /// Reads the permission names, refusing any this version does not have.
+    ///
+    /// Refused rather than ignored: an operator who ticks something and is told
+    /// it was saved should get what they ticked. Silently dropping one produces
+    /// a role that does less than the screen says it does.
+    fn permissions(&self) -> Result<PermissionSet> {
+        self.permissions
+            .iter()
+            .map(|name| {
+                name.parse::<Permission>().map_err(|_| {
+                    Error::bad_request(format!("`{name}` is not a permission this version has"))
+                })
+            })
+            .collect()
+    }
+
+    fn name(&self) -> Result<String> {
+        let name = self.name.trim();
+        if name.is_empty() || name.len() > ROLE_NAME_LIMIT {
+            return Err(Error::bad_request(format!(
+                "a role name must be between 1 and {ROLE_NAME_LIMIT} characters"
+            )));
+        }
+        Ok(name.to_owned())
+    }
+}
+
+/// The longest a role name may be.
+///
+/// Matches the `VARCHAR(191)` the MySQL migration uses — a name that fits on
+/// two of the three dialects and is truncated on the third is worse than one
+/// that is refused everywhere.
+const ROLE_NAME_LIMIT: usize = 191;
+
+/// Body of `PUT /admin/users/{id}/roles`.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UserRolesRequest {
+    /// The roles this account should be in. The whole list, not a change to it.
+    pub roles: Vec<String>,
+}
+
+/// Every permission this version has, so a screen can offer them.
+///
+/// Sent rather than hard-coded in the client: a client listing permissions it
+/// was built against would silently stop offering ones added since, and the
+/// operator would have no way to grant them.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PermissionResponse {
+    /// The `resource:verb` string.
+    #[schema(example = "users:read")]
+    pub name: String,
+    /// Whether it reaches beyond the holder's own things.
+    ///
+    /// The question an operator is actually asking of a role they are about to
+    /// grant: does this let them touch other people?
+    pub privileged: bool,
+}
+
+/// Lists every role, by name.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not read roles
+/// or used a bearer token, `404` when this instance has no administration.
+#[utoipa::path(
+    get,
+    path = "/admin/roles",
+    operation_id = "list_roles",
+    tag = ADMIN_TAG,
+    responses(
+        (status = 200, description = "Every role on this instance", body = Vec<RoleResponse>),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not read roles, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn list_roles(
+    State(state): State<AppState>,
+    current: CurrentUser,
+) -> Result<Json<Vec<RoleResponse>>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesRead)?;
+
+    let roles = state.roles.list().await?;
+    let members = state.roles.member_counts().await?;
+    Ok(Json(
+        roles
+            .iter()
+            .map(|role| RoleResponse::build(role, members.get(&role.id).copied().unwrap_or(0)))
+            .collect(),
+    ))
+}
+
+/// Lists every permission this version has.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not read roles
+/// or used a bearer token, `404` when this instance has no administration.
+#[utoipa::path(
+    get,
+    path = "/admin/permissions",
+    operation_id = "list_permissions",
+    tag = ADMIN_TAG,
+    responses(
+        (status = 200, description = "Every permission this version has", body = Vec<PermissionResponse>),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not read roles, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn list_permissions(
+    State(state): State<AppState>,
+    current: CurrentUser,
+) -> Result<Json<Vec<PermissionResponse>>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesRead)?;
+
+    Ok(Json(
+        Permission::ALL
+            .into_iter()
+            .map(|permission| PermissionResponse {
+                name: permission.as_str().to_owned(),
+                privileged: permission.is_privileged(),
+            })
+            .collect(),
+    ))
+}
+
+/// Creates a role.
+///
+/// # Why a caller cannot grant what they do not hold
+///
+/// Otherwise `roles:write` is every permission: somebody holding only that
+/// could mint a role granting `users:delete`, put themselves in it, and have
+/// it. The check makes `roles:write` mean "may hand out what I have" rather
+/// than "may hand out anything".
+///
+/// # Errors
+///
+/// `400` when the name or a permission is not usable, `401` when nothing was
+/// signed in, `403` when the caller may not write roles, used a bearer token,
+/// or asked for a permission they do not hold, `409` when the name is taken,
+/// `404` when this instance has no administration.
+#[utoipa::path(
+    post,
+    path = "/admin/roles",
+    operation_id = "create_role",
+    tag = ADMIN_TAG,
+    request_body = RoleRequest,
+    responses(
+        (status = 201, description = "The role as it now stands", body = RoleResponse),
+        (status = 400, description = "The name or a permission is not usable", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, used an API token, or asked for a permission not held", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+        (status = 409, description = "A role already has that name", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn create_role(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<RoleRequest>,
+) -> Result<(StatusCode, Json<RoleResponse>)> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let name = body.name()?;
+    let permissions = body.permissions()?;
+    refuse_escalation(&current, &permissions)?;
+
+    if state.roles.find_by_name(&name).await?.is_some() {
+        return Err(Error::Conflict("a role already has that name".to_owned()));
+    }
+    let role = state
+        .roles
+        .create(
+            name,
+            body.description.clone(),
+            &permissions,
+            OffsetDateTime::now_utc(),
+        )
+        .await?;
+    Ok((StatusCode::CREATED, Json(RoleResponse::build(&role, 0))))
+}
+
+/// Replaces what a role allows.
+///
+/// # Errors
+///
+/// `400` when the name or a permission is not usable, `401` when nothing was
+/// signed in, `403` when the caller may not write roles, used a bearer token,
+/// or asked for a permission they do not hold, `404` when no role has that
+/// identifier, `409` when the name is taken or the change would leave nobody
+/// able to administer the instance.
+#[utoipa::path(
+    put,
+    path = "/admin/roles/{id}",
+    operation_id = "update_role",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which role")),
+    request_body = RoleRequest,
+    responses(
+        (status = 200, description = "The role as it now stands", body = RoleResponse),
+        (status = 400, description = "The name or a permission is not usable", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, used an API token, or asked for a permission not held", body = crate::error::ErrorBody),
+        (status = 404, description = "No such role", body = crate::error::ErrorBody),
+        (status = 409, description = "The name is taken, or nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn update_role(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+    ApiJson(body): ApiJson<RoleRequest>,
+) -> Result<Json<RoleResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let role_id = RoleId::parse(&id).map_err(|_| Error::NotFound)?;
+    let name = body.name()?;
+    let permissions = body.permissions()?;
+    refuse_escalation(&current, &permissions)?;
+
+    let Some(existing) = state.roles.find_by_id(role_id).await? else {
+        return Err(Error::NotFound);
+    };
+    if let Some(clash) = state.roles.find_by_name(&name).await?
+        && clash.id != role_id
+    {
+        return Err(Error::Conflict("a role already has that name".to_owned()));
+    }
+
+    // Taking `roles:write` off the role that carries it for everybody is the
+    // one edit that cannot be undone through any screen.
+    if existing.permissions.allows(Permission::RolesWrite)
+        && !permissions.allows(Permission::RolesWrite)
+        && state.roles.holders_of(Permission::RolesWrite).await?
+            <= state.roles.member_count(role_id).await?
+    {
+        return Err(Error::Conflict(
+            "that would leave nobody able to administer this instance".to_owned(),
+        ));
+    }
+
+    let now = OffsetDateTime::now_utc();
+    if state
+        .roles
+        .update(role_id, &name, body.description.clone(), &permissions, now)
+        .await?
+        == RoleChange::NoSuchRole
+    {
+        return Err(Error::NotFound);
+    }
+    let Some(updated) = state.roles.find_by_id(role_id).await? else {
+        return Err(Error::NotFound);
+    };
+    let members = state.roles.member_count(role_id).await?;
+    Ok(Json(RoleResponse::build(&updated, members)))
+}
+
+/// Removes a role.
+///
+/// Anybody in it stops being in it, which can leave somebody in no role at all
+/// — signed in and allowed nothing. That is a real state and not an error; the
+/// listing shows how many people it would affect.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not write roles
+/// or used a bearer token, `404` when no role has that identifier, `409` when
+/// it is a seeded role or the last one able to administer the instance.
+#[utoipa::path(
+    delete,
+    path = "/admin/roles/{id}",
+    operation_id = "delete_role",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which role")),
+    responses(
+        (status = 204, description = "It is gone"),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No such role", body = crate::error::ErrorBody),
+        (status = 409, description = "A seeded role, or nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn delete_role(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+) -> Result<StatusCode> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let role_id = RoleId::parse(&id).map_err(|_| Error::NotFound)?;
+    let Some(existing) = state.roles.find_by_id(role_id).await? else {
+        return Err(Error::NotFound);
+    };
+    if existing.permissions.allows(Permission::RolesWrite)
+        && state.roles.holders_of(Permission::RolesWrite).await?
+            <= state.roles.member_count(role_id).await?
+    {
+        return Err(Error::Conflict(
+            "that would leave nobody able to administer this instance".to_owned(),
+        ));
+    }
+
+    match state.roles.delete(role_id).await? {
+        RoleChange::Done => Ok(StatusCode::NO_CONTENT),
+        RoleChange::NoSuchRole => Err(Error::NotFound),
+        RoleChange::Seeded => Err(Error::Conflict(
+            "the roles this instance was seeded with cannot be removed".to_owned(),
+        )),
+    }
+}
+
+/// Puts an account in exactly these roles.
+///
+/// # Errors
+///
+/// `400` when a role identifier is not one, `401` when nothing was signed in,
+/// `403` when the caller may not write roles, used a bearer token, or would be
+/// granting a permission they do not hold, `404` when no such account or role,
+/// `409` when it would leave nobody able to administer the instance.
+#[utoipa::path(
+    put,
+    path = "/admin/users/{id}/roles",
+    operation_id = "set_user_roles",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which account")),
+    request_body = UserRolesRequest,
+    responses(
+        (status = 200, description = "The account as it now stands", body = AdminUserResponse),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, used an API token, or would grant a permission not held", body = crate::error::ErrorBody),
+        (status = 404, description = "No such account or role", body = crate::error::ErrorBody),
+        (status = 409, description = "Nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn set_user_roles(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+    ApiJson(body): ApiJson<UserRolesRequest>,
+) -> Result<Json<AdminUserResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
+    let Some(user) = state.users.find_by_id(user_id).await? else {
+        return Err(Error::NotFound);
+    };
+
+    let mut wanted = Vec::with_capacity(body.roles.len());
+    for role in &body.roles {
+        wanted.push(RoleId::parse(role).map_err(|_| Error::NotFound)?);
+    }
+
+    // What the account would end up holding, checked against what the caller
+    // holds — otherwise `roles:write` is a way to give somebody else, and then
+    // oneself, anything at all.
+    let mut resulting: Vec<Permission> = Vec::new();
+    for role in &wanted {
+        let Some(found) = state.roles.find_by_id(*role).await? else {
+            return Err(Error::NotFound);
+        };
+        resulting.extend(found.permissions.iter());
+    }
+    refuse_escalation(&current, &resulting.into_iter().collect())?;
+
+    // The same lock-out guard as everywhere else: this is the other way to take
+    // the last administrator's keys away.
+    let held = state.roles.permissions_of(user_id).await?;
+    let losing_the_keys =
+        held.allows(Permission::RolesWrite) && !wanted_grants_keys(&state, &wanted).await?;
+    if losing_the_keys && state.roles.holders_of(Permission::RolesWrite).await? <= 1 {
+        return Err(Error::Conflict(
+            "that would leave nobody able to administer this instance".to_owned(),
+        ));
+    }
+
+    if state
+        .roles
+        .set_roles_of(user_id, &wanted, OffsetDateTime::now_utc())
+        .await?
+        == RoleChange::NoSuchRole
+    {
+        return Err(Error::NotFound);
+    }
+    let roles = state.roles.of_user(user_id).await?;
+    Ok(Json(AdminUserResponse(AccountResponse::build(
+        &user, &roles,
+    ))))
+}
+
+/// Whether any of these roles carries `roles:write`.
+async fn wanted_grants_keys(state: &AppState, wanted: &[RoleId]) -> Result<bool> {
+    for role in wanted {
+        if let Some(found) = state.roles.find_by_id(*role).await?
+            && found.permissions.allows(Permission::RolesWrite)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Refuses to hand out a permission the caller does not hold.
+///
+/// Without it, `roles:write` is every permission — see [`create_role`].
+fn refuse_escalation(current: &CurrentUser, wanted: &PermissionSet) -> Result<()> {
+    for permission in wanted.iter() {
+        current.require(permission)?;
+    }
+    Ok(())
 }

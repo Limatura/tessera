@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use sea_orm::{
-    ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _, Set,
-    TransactionTrait as _,
+    ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait, QueryFilter as _,
+    QueryOrder as _, Set, TransactionTrait as _,
 };
 use tessera_core::{DomainError, Permission, PermissionSet, RoleId, UserId};
 use time::OffsetDateTime;
@@ -248,6 +248,124 @@ impl RoleRepository {
             .into_iter()
             .map(|(role_id, permissions)| (role_id, permissions.into_iter().collect()))
             .collect())
+    }
+
+    /// One role, by identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails or a row is not usable.
+    pub async fn find_by_id(&self, id: RoleId) -> Result<Option<Role>, UserRepositoryError> {
+        let Some(model) = RoleEntity::find_by_id(id.to_string())
+            .one(&self.connection)
+            .await?
+        else {
+            return Ok(None);
+        };
+        let held = self.permissions_of_role(&model.id).await?;
+        Ok(Some(Role::from_parts(&model, held)?))
+    }
+
+    /// One role, by the name an operator typed.
+    ///
+    /// Used to answer "is this name taken" before writing, so the unique index
+    /// is a backstop rather than the thing producing the error message.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails or a row is not usable.
+    pub async fn find_by_name(&self, name: &str) -> Result<Option<Role>, UserRepositoryError> {
+        let Some(model) = RoleEntity::find()
+            .filter(role::Column::Name.eq(name))
+            .one(&self.connection)
+            .await?
+        else {
+            return Ok(None);
+        };
+        let held = self.permissions_of_role(&model.id).await?;
+        Ok(Some(Role::from_parts(&model, held)?))
+    }
+
+    async fn permissions_of_role(
+        &self,
+        role_id: &str,
+    ) -> Result<PermissionSet, UserRepositoryError> {
+        Ok(RolePermissionEntity::find()
+            .filter(role_permission::Column::RoleId.eq(role_id))
+            .all(&self.connection)
+            .await?
+            .iter()
+            .filter_map(|row| row.permission.parse::<Permission>().ok())
+            .collect())
+    }
+
+    /// How many accounts are in each role.
+    ///
+    /// One query rather than one per role: the listing shows the number beside
+    /// every role, and it is the number an operator wants before editing one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails or a row is not usable.
+    pub async fn member_counts(&self) -> Result<HashMap<RoleId, u64>, UserRepositoryError> {
+        let mut counts: HashMap<RoleId, u64> = HashMap::new();
+        for row in UserRoleEntity::find().all(&self.connection).await? {
+            if let Ok(id) = RoleId::parse(&row.role_id) {
+                *counts.entry(id).or_insert(0) += 1;
+            }
+        }
+        Ok(counts)
+    }
+
+    /// How many accounts are in one role.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn member_count(&self, id: RoleId) -> Result<u64, UserRepositoryError> {
+        Ok(PaginatorTrait::count(
+            UserRoleEntity::find().filter(user_role::Column::RoleId.eq(id.to_string())),
+            &self.connection,
+        )
+        .await?)
+    }
+
+    /// Renames a role and replaces what it allows.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails.
+    pub async fn update(
+        &self,
+        id: RoleId,
+        name: &str,
+        description: Option<String>,
+        permissions: &PermissionSet,
+        now: OffsetDateTime,
+    ) -> Result<RoleChange, UserRepositoryError> {
+        if RoleEntity::find_by_id(id.to_string())
+            .one(&self.connection)
+            .await?
+            .is_none()
+        {
+            return Ok(RoleChange::NoSuchRole);
+        }
+
+        let transaction = self.connection.begin().await?;
+        RolePermissionEntity::delete_many()
+            .filter(role_permission::Column::RoleId.eq(id.to_string()))
+            .exec(&transaction)
+            .await?;
+        insert_permissions(&transaction, id, permissions).await?;
+        RoleEntity::update_many()
+            .col_expr(role::Column::Name, name.into())
+            .col_expr(role::Column::Description, description.into())
+            .col_expr(role::Column::UpdatedAt, now.into())
+            .filter(role::Column::Id.eq(id.to_string()))
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(RoleChange::Done)
     }
 
     /// Creates a role.
