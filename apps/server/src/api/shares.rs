@@ -36,7 +36,7 @@ use bytes::Bytes;
 use http_body_util::BodyExt as _;
 use object_store::{MultipartUpload, ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{Password, RetrievalCode, ShareId};
+use tessera_core::{Password, Permission, RetrievalCode, ShareId};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 
@@ -263,6 +263,12 @@ pub async fn create(
     if current.is_none() && !state.config.features.anonymous_upload {
         return Err(Error::Unauthorized);
     }
+    // An anonymous caller has no permissions to check — the setting above is
+    // the whole of that decision. A signed-in one does, and this is what makes
+    // a token minted for a screenshot tool unable to do anything else.
+    if let Some(user) = current.as_ref() {
+        user.require(Permission::SharesCreate)?;
+    }
 
     if params.max_uses == Some(0) {
         return Err(Error::bad_request(
@@ -362,6 +368,8 @@ pub async fn list(
     State(state): State<AppState>,
     current: CurrentUser,
 ) -> Result<Json<Vec<ShareResponse>>> {
+    current.require(Permission::SharesRead)?;
+
     let shares = state.shares.list_for_user(current.user.id).await?;
     // One query for the whole page rather than one per share: see
     // `contents_for`.
@@ -414,9 +422,12 @@ pub async fn delete(
         .await?
         .ok_or(Error::NotFound)?;
 
-    let owns = current
-        .as_ref()
-        .is_some_and(|user| share.user_id == Some(user.user.id));
+    // Owning it is not enough; the credential in hand has to carry the
+    // permission too. A token given only `shares:create` uploads on its owner's
+    // behalf and cannot then delete what the owner has.
+    let owns = current.as_ref().is_some_and(|user| {
+        share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesDelete)
+    });
     let holds_token = share.management_token_hash.as_ref().is_some_and(|stored| {
         management_token(&headers).is_some_and(|presented| presented.digest() == *stored)
     });

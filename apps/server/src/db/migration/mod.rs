@@ -36,6 +36,7 @@ mod m20260815_000001_invites;
 mod m20260816_000001_file_shares;
 mod m20260817_000001_text_shares;
 mod m20260818_000001_roles;
+mod m20260818_000002_token_permissions;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -61,6 +62,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260816_000001_file_shares::Migration),
             Box::new(m20260817_000001_text_shares::Migration),
             Box::new(m20260818_000001_roles::Migration),
+            Box::new(m20260818_000002_token_permissions::Migration),
         ]
     }
 }

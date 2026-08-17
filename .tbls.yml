@@ -33,6 +33,8 @@ comments:
     tableComment: 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `sessions_retention_days`。
   - table: api_tokens
     tableComment: 給程式用的憑證。只存摘要,原始值發出去之後就不再存在。
+  - table: api_token_permissions
+    tableComment: 一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。
   - table: invites
     tableComment: 邀請碼。同樣只存摘要。
   - table: password_reset_tokens

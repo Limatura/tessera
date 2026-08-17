@@ -29,7 +29,7 @@ CREATE TABLE api_tokens (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false |  |  |  |
+| id | TEXT |  | false | [api_token_permissions](api_token_permissions.md) |  |  |
 | user_id | TEXT |  | false |  | [users](users.md) |  |
 | name | TEXT |  | false |  |  |  |
 | secret_hash | TEXT |  | false |  |  |  |
@@ -61,6 +61,7 @@ CREATE TABLE api_tokens (
 ```mermaid
 erDiagram
 
+"api_token_permissions" |o--|| "api_tokens" : ""
 "api_tokens" }o--|| "users" : ""
 
 "api_tokens" {
@@ -73,6 +74,10 @@ erDiagram
   TEXT last_used_at
   TEXT expires_at
   TEXT revoked_at
+}
+"api_token_permissions" {
+  TEXT token_id PK
+  TEXT permission PK
 }
 "users" {
   TEXT id PK

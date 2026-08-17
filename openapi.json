@@ -234,6 +234,16 @@
             "description": "A label for the token, so its owner can recognise it later.",
             "example": "backup script",
             "type": "string"
+          },
+          "permissions": {
+            "description": "What the token may do, as `resource:verb` strings.\n\nOmitted means `shares:create` and nothing else — a token exists to\nupload, and the default that is wrong in the safe direction is the one\nthat has to be widened on purpose. The other default would hand every\nscreenshot tool the ability to delete everything its owner has.\n\nA permission the caller does not hold is refused: a token cannot be a\nway to exceed the account that minted it.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1021,6 +1031,16 @@
             "example": "backup script",
             "type": "string"
           },
+          "permissions": {
+            "description": "What it may do, as `resource:verb` strings.\n\nWhat it was minted with, not what it can do right now — those differ\nwhen the owner has since been demoted, and the owner is who this list is\nfor. Sending the narrowed set instead would make a token look as though\nit had been quietly edited.",
+            "example": [
+              "shares:create"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "revoked_at": {
             "description": "When it was revoked, if it was.",
             "type": [
@@ -1033,6 +1053,7 @@
           "id",
           "name",
           "display_prefix",
+          "permissions",
           "created_at"
         ],
         "type": "object"

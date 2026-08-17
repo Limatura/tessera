@@ -10,6 +10,7 @@
 //! change to one module rather than to every type in the program.
 
 pub mod api_token;
+pub mod api_token_permission;
 pub mod file_share;
 pub mod invite;
 pub mod password_reset_token;
