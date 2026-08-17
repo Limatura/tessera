@@ -8,7 +8,9 @@ use axum::{
 };
 use axum_extra::extract::cookie::Cookie;
 use serde::{Deserialize, Serialize};
-use tessera_core::{EmailAddress, Password, PasswordPolicy, UserId, Username};
+use tessera_core::{
+    EmailAddress, Password, PasswordPolicy, PermissionSet, RoleId, UserId, Username,
+};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
@@ -25,6 +27,7 @@ use crate::{
     db::repository::{
         invite::Invite,
         pending_registration::Waiting,
+        role::Role,
         session::{SessionEnding, SessionOrigin},
         user::User,
     },
@@ -45,8 +48,24 @@ pub struct AccountResponse {
     /// Normalised address.
     #[schema(example = "alice@example.com")]
     pub email: String,
-    /// Whether the account may reach the administrative endpoints.
+    /// Whether the account holds the seeded administrator role.
+    ///
+    /// Kept because clients read it. It is now derived rather than stored, and
+    /// it answers a narrower question than `permissions` does — somebody in a
+    /// role that grants `users:read` and nothing else is not an administrator
+    /// but can still reach one administrative endpoint. New clients should read
+    /// `permissions`.
     pub is_admin: bool,
+    /// Everything this account is allowed to do.
+    ///
+    /// `resource:verb` strings. The set a client should decide what to show
+    /// from — a screen that guesses from `is_admin` will be wrong for every
+    /// role between "member" and "everything".
+    #[schema(example = json!(["shares:create", "shares:read"]))]
+    pub permissions: Vec<String>,
+    /// The roles it is in, by name.
+    #[schema(example = json!(["member"]))]
+    pub roles: Vec<String>,
     /// Whether the account must set a new password before doing anything else.
     ///
     /// Set on the administrator generated at first run. A client seeing this
@@ -54,13 +73,31 @@ pub struct AccountResponse {
     pub must_change_password: bool,
 }
 
-impl From<&User> for AccountResponse {
-    fn from(user: &User) -> Self {
+impl AccountResponse {
+    /// Builds the response from the account and the roles it is in.
+    ///
+    /// Takes the roles rather than reading `user.is_admin`: that column is a
+    /// mirror kept only so this version can be rolled back, and a response that
+    /// read it would report whatever it said rather than what the account can
+    /// actually do.
+    #[must_use]
+    pub fn build(user: &User, roles: &[Role]) -> Self {
+        let permissions: PermissionSet = roles
+            .iter()
+            .flat_map(|role| role.permissions.iter())
+            .collect();
         Self {
             id: user.id.to_string(),
             username: user.username.to_string(),
             email: user.email.to_string(),
-            is_admin: user.is_admin,
+            is_admin: roles
+                .iter()
+                .any(|role| role.id.to_string() == RoleId::ADMIN),
+            permissions: permissions
+                .iter()
+                .map(|permission| permission.as_str().to_owned())
+                .collect(),
+            roles: roles.iter().map(|role| role.name.clone()).collect(),
             must_change_password: user.must_change_password,
         }
     }
@@ -218,6 +255,22 @@ fn require_accounts(state: &AppState) -> Result<()> {
     }
 }
 
+/// Which role a brand-new account goes into.
+///
+/// The two the migration seeded, and the only place the choice is made — so
+/// "what can somebody do the moment they sign up" is one line rather than a
+/// property of whichever registration path they came through.
+///
+/// # Errors
+///
+/// Only if one of the two literals stops being a valid identifier, which a test
+/// in the migration module rules out. It is a `Result` rather than a panic
+/// because the cost of being wrong about that is somebody's registration.
+fn seed_role(first: bool) -> Result<RoleId> {
+    let id = if first { RoleId::ADMIN } else { RoleId::MEMBER };
+    Ok(RoleId::parse(id)?)
+}
+
 /// Creates an account and signs it in.
 ///
 /// # Errors
@@ -305,21 +358,22 @@ pub async fn register(
         return Err(invite_refused());
     }
 
+    // The first account to exist becomes the administrator. On an instance
+    // where nobody bootstrapped one, that is the person who set it up.
+    let first = !state.users.any_exist().await?;
     let user = User {
         id: UserId::generate(),
         username,
         email,
         password_hash: password::hash(password).await?,
-        // The first account to exist becomes the administrator. On an instance
-        // where nobody bootstrapped one, that is the person who set it up.
-        is_admin: !state.users.any_exist().await?,
+        is_admin: first,
         must_change_password: false,
         email_verified_at: None,
         created_at: now,
         updated_at: now,
     };
 
-    if let Err(error) = state.users.insert(&user).await {
+    if let Err(error) = state.users.insert(&user, seed_role(first)?).await {
         // The check above raced with another registration, or something else
         // went wrong. Which one is decided by looking, rather than by assuming
         // every insert failure is a conflict — that would report a database
@@ -342,7 +396,10 @@ pub async fn register(
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
-        Json(AccountResponse::from(&user)),
+        Json(AccountResponse::build(
+            &user,
+            &state.roles.of_user(user.id).await?,
+        )),
     )
         .into_response())
 }
@@ -418,7 +475,10 @@ pub async fn login(
 
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
-        Json(AccountResponse::from(&user)),
+        Json(AccountResponse::build(
+            &user,
+            &state.roles.of_user(user.id).await?,
+        )),
     )
         .into_response())
 }
@@ -484,8 +544,12 @@ pub async fn logout(
     ),
     security(("session" = []), ("bearer" = [])),
 )]
-pub async fn session(SelfServiceUser(current): SelfServiceUser) -> Result<Json<AccountResponse>> {
-    Ok(Json(AccountResponse::from(&current.user)))
+pub async fn session(
+    State(state): State<AppState>,
+    SelfServiceUser(current): SelfServiceUser,
+) -> Result<Json<AccountResponse>> {
+    let roles = state.roles.of_user(current.user.id).await?;
+    Ok(Json(AccountResponse::build(&current.user, &roles)))
 }
 
 /// Changes the caller's password.
@@ -553,7 +617,8 @@ pub async fn change_password(
         .await?;
 
     let cookie = start_session(&state, &current.user, &headers, &origin, now).await?;
-    let mut account = AccountResponse::from(&current.user);
+    let roles = state.roles.of_user(current.user.id).await?;
+    let mut account = AccountResponse::build(&current.user, &roles);
     account.must_change_password = false;
 
     Ok(([(header::SET_COOKIE, cookie.to_string())], Json(account)).into_response())
@@ -893,6 +958,7 @@ pub async fn confirm_registration(
         return Err(invite_refused());
     }
 
+    let first = !state.users.any_exist().await?;
     let user = User {
         id: UserId::generate(),
         username: pending.username.clone(),
@@ -905,14 +971,14 @@ pub async fn confirm_registration(
         // worth a transaction: an instance whose first two accounts are created
         // in the same instant is one nobody has bootstrapped, and both of those
         // people are its operator.
-        is_admin: !state.users.any_exist().await?,
+        is_admin: first,
         must_change_password: false,
         // The whole point of the wait.
         email_verified_at: Some(now),
         created_at: now,
         updated_at: now,
     };
-    if let Err(error) = state.users.insert(&user).await {
+    if let Err(error) = state.users.insert(&user, seed_role(first)?).await {
         // The checks above raced with another confirmation. Decided by looking
         // rather than by assuming every insert failure is a conflict, which
         // would report a database outage as "that name is taken" — and the
@@ -939,7 +1005,10 @@ pub async fn confirm_registration(
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
-        Json(AccountResponse::from(&user)),
+        Json(AccountResponse::build(
+            &user,
+            &state.roles.of_user(user.id).await?,
+        )),
     )
         .into_response())
 }

@@ -18,12 +18,15 @@
 
 use sea_orm::{
     ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
-    QueryFilter as _, QueryOrder as _,
+    QueryFilter as _, QueryOrder as _, TransactionTrait as _,
 };
-use tessera_core::{DomainError, EmailAddress, UserId, Username};
+use tessera_core::{DomainError, EmailAddress, RoleId, UserId, Username};
 use time::OffsetDateTime;
 
-use crate::db::entity::user::{self, Entity as UserEntity};
+use crate::db::entity::{
+    user::{self, Entity as UserEntity},
+    user_role::{self, Entity as UserRoleEntity},
+};
 
 /// An account, in domain terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,16 +136,35 @@ impl UserRepository {
         Self { connection }
     }
 
-    /// Inserts an account.
+    /// Inserts an account, and puts it in a role.
+    ///
+    /// # Why the role is not optional
+    ///
+    /// Roles are the only thing granting anything now, so an account with none
+    /// is signed in and allowed nothing — and it says so through a `403` on
+    /// every request, which reads like a bug rather than like an account that
+    /// was created wrongly. Making the role part of creating an account is what
+    /// stops a future caller producing one by forgetting a second step.
+    ///
+    /// One transaction, so the pair cannot half happen.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the username or address is already
-    /// taken, or the insert otherwise fails.
-    pub async fn insert(&self, user: &User) -> Result<(), UserRepositoryError> {
+    /// taken, or either insert otherwise fails.
+    pub async fn insert(&self, user: &User, role: RoleId) -> Result<(), UserRepositoryError> {
+        let transaction = self.connection.begin().await?;
         UserEntity::insert(user.to_active_model())
-            .exec(&self.connection)
+            .exec(&transaction)
             .await?;
+        UserRoleEntity::insert(user_role::ActiveModel {
+            user_id: Set(user.id.to_string()),
+            role_id: Set(role.to_string()),
+            granted_at: Set(user.created_at),
+        })
+        .exec(&transaction)
+        .await?;
+        transaction.commit().await?;
         Ok(())
     }
 
@@ -227,22 +249,6 @@ impl UserRepository {
         Ok(UserEntity::find().count(&self.connection).await?)
     }
 
-    /// How many accounts administer this instance.
-    ///
-    /// Asked before taking the flag off one, or deleting one: an instance with
-    /// no administrator cannot be fixed through the API, only with the CLI
-    /// against the database file.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`UserRepositoryError`] if the query fails.
-    pub async fn count_admins(&self) -> Result<u64, UserRepositoryError> {
-        Ok(UserEntity::find()
-            .filter(user::Column::IsAdmin.eq(true))
-            .count(&self.connection)
-            .await?)
-    }
-
     /// Grants or removes the administrator flag.
     ///
     /// Returns whether an account changed.
@@ -256,13 +262,40 @@ impl UserRepository {
         is_admin: bool,
         now: OffsetDateTime,
     ) -> Result<bool, UserRepositoryError> {
+        let transaction = self.connection.begin().await?;
         let result = UserEntity::update_many()
+            // Still written, though nothing reads it to decide anything. The
+            // migration deliberately left the column so this version can be
+            // rolled back, and a mirror that stops being updated is worse than
+            // no mirror — it would send a rolled-back instance back to whatever
+            // the flags said the day roles arrived.
             .col_expr(user::Column::IsAdmin, is_admin.into())
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
-            .exec(&self.connection)
+            .exec(&transaction)
             .await?;
-        Ok(result.rows_affected == 1)
+        if result.rows_affected != 1 {
+            transaction.rollback().await?;
+            return Ok(false);
+        }
+
+        // The part that decides anything.
+        UserRoleEntity::delete_many()
+            .filter(user_role::Column::UserId.eq(id.to_string()))
+            .filter(user_role::Column::RoleId.eq(RoleId::ADMIN))
+            .exec(&transaction)
+            .await?;
+        if is_admin {
+            UserRoleEntity::insert(user_role::ActiveModel {
+                user_id: Set(id.to_string()),
+                role_id: Set(RoleId::ADMIN.to_owned()),
+                granted_at: Set(now),
+            })
+            .exec(&transaction)
+            .await?;
+        }
+        transaction.commit().await?;
+        Ok(true)
     }
 
     /// Removes an account.
@@ -328,6 +361,11 @@ fn convert(model: Option<user::Model>) -> Result<Option<User>, UserRepositoryErr
 
 #[cfg(test)]
 mod tests {
+    /// The seeded member role, for tests that only care that an account exists.
+    fn member() -> RoleId {
+        RoleId::parse(RoleId::MEMBER).expect("the seeded id is valid")
+    }
+
     use tessera_core::{DomainError, Password, PasswordPolicy};
 
     use super::*;
@@ -367,7 +405,7 @@ mod tests {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
 
-        repository.insert(&user).await.unwrap();
+        repository.insert(&user, member()).await.unwrap();
 
         // Every lookup path must return the same account, with the domain types
         // intact rather than the strings the columns hold.
@@ -413,7 +451,7 @@ mod tests {
     async fn lookup_is_insensitive_to_how_the_name_was_typed() {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
-        repository.insert(&user).await.unwrap();
+        repository.insert(&user, member()).await.unwrap();
 
         let typed = Username::parse("  ALICE ").unwrap();
         assert_eq!(
@@ -426,24 +464,24 @@ mod tests {
     async fn the_unique_index_rejects_a_duplicate_username() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "a@example.com"))
+            .insert(&sample("alice", "a@example.com"), member())
             .await
             .unwrap();
 
         let clash = sample("alice", "different@example.com");
-        assert!(repository.insert(&clash).await.is_err());
+        assert!(repository.insert(&clash, member()).await.is_err());
     }
 
     #[tokio::test]
     async fn the_unique_index_rejects_a_duplicate_email() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "shared@example.com"))
+            .insert(&sample("alice", "shared@example.com"), member())
             .await
             .unwrap();
 
         let clash = sample("bob", "shared@example.com");
-        assert!(repository.insert(&clash).await.is_err());
+        assert!(repository.insert(&clash, member()).await.is_err());
     }
 
     #[tokio::test]
@@ -451,7 +489,7 @@ mod tests {
         let repository = repository().await;
         assert!(!repository.any_exist().await.unwrap());
         repository
-            .insert(&sample("alice", "alice@example.com"))
+            .insert(&sample("alice", "alice@example.com"), member())
             .await
             .unwrap();
         assert!(repository.any_exist().await.unwrap());

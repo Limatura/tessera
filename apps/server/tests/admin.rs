@@ -755,3 +755,200 @@ async fn stats_need_an_administrator_with_a_cookie() {
         StatusCode::FORBIDDEN
     );
 }
+
+/// The check is the role, not the column.
+///
+/// `users.is_admin` is still written so this version can be rolled back, so
+/// every other test here passes whichever one is consulted. This one makes them
+/// disagree: the column says administrator, the roles say nothing at all.
+#[tokio::test]
+async fn the_stale_is_admin_column_grants_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (ordinary, _) = register(&app, "second").await;
+
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        "UPDATE users SET is_admin = 1 WHERE username = 'second'".to_owned(),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("set the old flag");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN,
+        "the column must not be what decides"
+    );
+}
+
+/// One permission at a time, which is the point of the change.
+///
+/// Under the boolean, reaching any administrative endpoint meant reaching all
+/// of them. A role holding only `users:read` proves that is no longer true.
+#[tokio::test]
+async fn a_role_can_grant_looking_without_granting_changing() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (watcher, _) = register(&app, "second").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let role = app
+        .state
+        .roles
+        .create(
+            "auditor".to_owned(),
+            Some("Can look, cannot touch.".to_owned()),
+            &[tessera_core::Permission::UsersRead].into_iter().collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[role.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("put them in it");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::OK,
+        "users:read was granted"
+    );
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", user.id),
+            Auth::Cookie(&watcher)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "users:delete was not"
+    );
+}
+
+/// Somebody in no role is signed in and allowed nothing, and that has to be a
+/// clean refusal rather than a crash.
+#[tokio::test]
+async fn an_account_with_no_roles_may_do_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (stripped, _) = register(&app, "second").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[], time::OffsetDateTime::now_utc())
+        .await
+        .expect("take every role away");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&stripped))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// The instance must keep somebody who can hand out roles.
+#[tokio::test]
+async fn the_last_account_holding_the_keys_cannot_be_deleted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    register(&app, "second").await;
+
+    let first = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let second = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", first.id),
+            Auth::Cookie(&admin)
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT,
+        "the only holder of roles:write"
+    );
+    // And somebody who never held them is not caught by the same guard.
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", second.id),
+            Auth::Cookie(&admin)
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT,
+    );
+}
+
+/// The dashboard number has to mean the same thing the guard means.
+///
+/// It counted `users.is_admin`, which is now a mirror kept for rollback. A role
+/// granted directly does not touch that column, so the number would say one
+/// while two people could administer the instance.
+#[tokio::test]
+async fn the_administrator_count_follows_roles_not_the_column() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    register(&app, "second").await;
+
+    let second = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    // Straight into the seeded administrator role, without going through the
+    // endpoint that also writes the column.
+    let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::ADMIN).expect("an id");
+    app.state
+        .roles
+        .set_roles_of(second.id, &[admin_role], time::OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    let response = expect_status(
+        app.empty(Method::GET, "/api/v1/admin/stats", Auth::Cookie(&admin))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    let stats = body_json(response).await;
+    assert_eq!(
+        stats["administrators"], 2,
+        "the column still says one; the roles say two"
+    );
+}

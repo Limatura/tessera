@@ -49,5 +49,11 @@ comments:
     tableComment: 舊的內容欄位,正在退場。內容改由上面兩張表持有,這張表等讀取端完全切換之後會刪掉。
   - table: share_tickets
     tableComment: 輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。
+  - table: roles
+    tableComment: 一組權限的名字。誰能做什麼只由這裡決定,users.is_admin 已經沒有人讀了。
+  - table: role_permissions
+    tableComment: 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。
+  - table: user_roles
+    tableComment: 誰在哪些角色裡。沒有任何一列 = 登入了但什麼都不能做,那是真的狀態不是錯誤。
   - table: schema_metadata
     tableComment: 這個資料庫是哪一版寫的。降版啟動時用來擋下來。

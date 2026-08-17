@@ -15,12 +15,33 @@
             "type": "string"
           },
           "is_admin": {
-            "description": "Whether the account may reach the administrative endpoints.",
+            "description": "Whether the account holds the seeded administrator role.\n\nKept because clients read it. It is now derived rather than stored, and\nit answers a narrower question than `permissions` does — somebody in a\nrole that grants `users:read` and nothing else is not an administrator\nbut can still reach one administrative endpoint. New clients should read\n`permissions`.",
             "type": "boolean"
           },
           "must_change_password": {
             "description": "Whether the account must set a new password before doing anything else.\n\nSet on the administrator generated at first run. A client seeing this\nshould send the user to a change-password screen and nowhere else.",
             "type": "boolean"
+          },
+          "permissions": {
+            "description": "Everything this account is allowed to do.\n\n`resource:verb` strings. The set a client should decide what to show\nfrom — a screen that guesses from `is_admin` will be wrong for every\nrole between \"member\" and \"everything\".",
+            "example": [
+              "shares:create",
+              "shares:read"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "description": "The roles it is in, by name.",
+            "example": [
+              "member"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "username": {
             "description": "Normalised account name.",
@@ -33,6 +54,8 @@
           "username",
           "email",
           "is_admin",
+          "permissions",
+          "roles",
           "must_change_password"
         ],
         "type": "object"

@@ -16,6 +16,9 @@
 | [invites](invites.md) | 7 | 邀請碼。同樣只存摘要。 | table |
 | [file_shares](file_shares.md) | 9 | 檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。 | table |
 | [text_shares](text_shares.md) | 3 | 文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。 | table |
+| [roles](roles.md) | 6 | 一組權限的名字。誰能做什麼只由這裡決定,users.is_admin 已經沒有人讀了。 | table |
+| [role_permissions](role_permissions.md) | 2 | 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。 | table |
+| [user_roles](user_roles.md) | 3 | 誰在哪些角色裡。沒有任何一列 = 登入了但什麼都不能做,那是真的狀態不是錯誤。 | table |
 
 ## Relations
 
@@ -30,6 +33,9 @@ erDiagram
 "password_reset_tokens" }o--|| "users" : ""
 "file_shares" }o--|| "shares" : ""
 "text_shares" |o--|| "shares" : ""
+"role_permissions" |o--|| "roles" : ""
+"user_roles" |o--|| "roles" : ""
+"user_roles" |o--|| "users" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -146,6 +152,23 @@ erDiagram
   TEXT share_id PK
   TEXT language
   BLOB content
+}
+"roles" {
+  TEXT id PK
+  TEXT name
+  TEXT description
+  INTEGER is_system
+  TEXT created_at
+  TEXT updated_at
+}
+"role_permissions" {
+  TEXT role_id PK
+  TEXT permission PK
+}
+"user_roles" {
+  TEXT user_id PK
+  TEXT role_id PK
+  TEXT granted_at
 }
 ```
 

@@ -20,7 +20,7 @@
 
 use axum::{Json, extract::State, http::StatusCode};
 use serde::{Deserialize, Serialize};
-use tessera_core::{InviteId, UserId};
+use tessera_core::{InviteId, Permission, UserId};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
@@ -31,7 +31,7 @@ use crate::{
         extract::{ApiJson, ApiPath},
         tokens::format_timestamp,
     },
-    auth::extract::AdminUser,
+    auth::extract::CurrentUser,
     db::repository::invite::Invite,
     error::{Error, Result},
     state::AppState,
@@ -62,13 +62,25 @@ fn require_admin_feature(state: &AppState) -> Result<()> {
     }
 }
 
-/// Refuses anything that did not arrive with a session cookie.
-const fn require_session(admin: &AdminUser) -> Result<()> {
-    if admin.0.credential.is_session() {
-        Ok(())
-    } else {
-        Err(Error::Forbidden)
+/// Whether one account holds a permission.
+///
+/// Asked about somebody other than the caller, which is why it is a query
+/// rather than a look at [`CurrentUser::permissions`].
+async fn holds(state: &AppState, user: UserId, permission: Permission) -> Result<bool> {
+    Ok(state.roles.permissions_of(user).await?.allows(permission))
+}
+
+/// Refuses anything that did not arrive with a session cookie, then checks the
+/// one permission this endpoint needs.
+///
+/// The two go together everywhere here: an administrative action is one a
+/// person takes at a keyboard, and every one of them names what it needs rather
+/// than sharing a single "is an administrator" answer.
+fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
+    if !current.credential.is_session() {
+        return Err(Error::Forbidden);
     }
+    current.require(permission)
 }
 
 /// Lists every account, newest first.
@@ -93,16 +105,22 @@ const fn require_session(admin: &AdminUser) -> Result<()> {
 )]
 pub async fn list_users(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
 ) -> Result<Json<Vec<AdminUserResponse>>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::UsersRead)?;
 
     let users = state.users.list().await?;
+    // One query for the whole page. Asking per account would make a list of
+    // fifty accounts a hundred and one queries.
+    let roles = state.roles.of_users(&users).await?;
     Ok(Json(
         users
             .iter()
-            .map(|user| AdminUserResponse(AccountResponse::from(user)))
+            .map(|user| {
+                let held = roles.get(&user.id).map_or(&[][..], Vec::as_slice);
+                AdminUserResponse(AccountResponse::build(user, held))
+            })
             .collect(),
     ))
 }
@@ -143,19 +161,30 @@ pub async fn list_users(
 )]
 pub async fn update_user(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiPath(id): ApiPath<String>,
     ApiJson(body): ApiJson<UpdateUserRequest>,
 ) -> Result<Json<AdminUserResponse>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::UsersWrite)?;
 
     let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
     let Some(user) = state.users.find_by_id(user_id).await? else {
         return Err(Error::NotFound);
     };
 
-    if user.is_admin && !body.is_admin && state.users.count_admins().await? <= 1 {
+    // Counted over the permission that can restore every other one: an instance
+    // where nobody holds `roles:write` cannot be given an administrator back by
+    // anybody, through any screen.
+    //
+    // Both halves matter. Demoting somebody who was never an administrator does
+    // not reduce the count, and refusing it would make the last administrator
+    // unable to change anybody at all.
+    let holds_the_keys = holds(&state, user.id, Permission::RolesWrite).await?;
+    if holds_the_keys
+        && !body.is_admin
+        && state.roles.holders_of(Permission::RolesWrite).await? <= 1
+    {
         return Err(Error::Conflict(
             "this is the only administrator; grant the flag to somebody else first".to_owned(),
         ));
@@ -171,7 +200,10 @@ pub async fn update_user(
         .find_by_id(user_id)
         .await?
         .ok_or(Error::NotFound)?;
-    Ok(Json(AdminUserResponse(AccountResponse::from(&updated))))
+    let roles = state.roles.of_user(updated.id).await?;
+    Ok(Json(AdminUserResponse(AccountResponse::build(
+        &updated, &roles,
+    ))))
 }
 
 /// Removes an account.
@@ -206,18 +238,19 @@ pub async fn update_user(
 )]
 pub async fn delete_user(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::UsersDelete)?;
 
     let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
     let Some(user) = state.users.find_by_id(user_id).await? else {
         return Err(Error::NotFound);
     };
 
-    if user.is_admin && state.users.count_admins().await? <= 1 {
+    let holds_the_keys = holds(&state, user.id, Permission::RolesWrite).await?;
+    if holds_the_keys && state.roles.holders_of(Permission::RolesWrite).await? <= 1 {
         return Err(Error::Conflict(
             "this is the only administrator; grant the flag to somebody else first".to_owned(),
         ));
@@ -325,10 +358,10 @@ impl InviteResponse {
 )]
 pub async fn list_invites(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
 ) -> Result<Json<Vec<InviteResponse>>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::InvitesRead)?;
 
     let now = OffsetDateTime::now_utc();
     let invites = state.invites.list().await?;
@@ -370,11 +403,11 @@ pub async fn list_invites(
 )]
 pub async fn create_invite(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiJson(body): ApiJson<CreateInviteRequest>,
 ) -> Result<(StatusCode, Json<CreatedInviteResponse>)> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::InvitesCreate)?;
 
     if body.uses < 1 {
         return Err(Error::bad_request("an invite has to admit at least one"));
@@ -433,11 +466,11 @@ pub async fn create_invite(
 )]
 pub async fn revoke_invite(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::InvitesDelete)?;
 
     let invite_id = InviteId::parse(&id).map_err(|_| Error::NotFound)?;
     if state.invites.delete(invite_id).await? {
@@ -502,9 +535,12 @@ pub struct StatsResponse {
     ),
     security(("session" = [])),
 )]
-pub async fn stats(State(state): State<AppState>, admin: AdminUser) -> Result<Json<StatsResponse>> {
+pub async fn stats(
+    State(state): State<AppState>,
+    current: CurrentUser,
+) -> Result<Json<StatsResponse>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::StatsRead)?;
 
     let now = OffsetDateTime::now_utc();
     let (shares, live_shares) = state.shares.counts_at(now).await?;
@@ -512,7 +548,12 @@ pub async fn stats(State(state): State<AppState>, admin: AdminUser) -> Result<Js
 
     Ok(Json(StatsResponse {
         accounts: state.users.count().await?,
-        administrators: state.users.count_admins().await?,
+        // Counted over the permission, not over `users.is_admin`. The column is
+        // a mirror kept for rollback and nothing reads it to decide anything;
+        // once roles can be assigned directly it stops matching, and a number on
+        // a dashboard that quietly disagrees with who can actually administer
+        // the instance is worse than no number.
+        administrators: state.roles.holders_of(Permission::RolesWrite).await?,
         shares,
         live_shares,
         stored_bytes: state.shares.total_stored_bytes().await?,
