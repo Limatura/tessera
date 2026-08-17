@@ -1,0 +1,53 @@
+# Generated documentation for the database, drawn by tbls.
+#
+# `scripts/schema-docs.py` replays the migrations into a temporary SQLite file
+# and points tbls at it. The result is committed under `docs/schema/` and CI
+# fails when it drifts, the same arrangement `openapi.json` has: a generated
+# thing that is only useful if it is never stale.
+#
+# The comments below are the part a tool cannot produce. A generated diagram
+# says `file_shares.share_id` is a foreign key; only a person can say that the
+# row's existence is what makes a share a file share.
+
+# 這個名字會變成產出的標題。
+name: tessera
+
+dsn: sqlite:///work/schema.db
+docPath: /work/out
+
+er:
+  format: mermaid
+  # Without this every line is labelled with its whole `FOREIGN KEY ... ON
+  # DELETE CASCADE MATCH NONE` clause, which is on the table's own page anyway
+  # and here turns the diagram into a wall of text.
+  hideDef: true
+
+exclude:
+  # sea-orm's bookkeeping: which migrations have run. Nothing models it.
+  - seaql_migrations
+
+comments:
+  - table: users
+    tableComment: 帳號。
+  - table: sessions
+    tableComment: 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `sessions_retention_days`。
+  - table: api_tokens
+    tableComment: 給程式用的憑證。只存摘要,原始值發出去之後就不再存在。
+  - table: invites
+    tableComment: 邀請碼。同樣只存摘要。
+  - table: password_reset_tokens
+    tableComment: 重設密碼的一次性連結。
+  - table: pending_registrations
+    tableComment: 還沒驗證的註冊。帳號在信件被點開之前不存在,所以資料先放這裡——這樣「這個 email 註冊了沒」問不出來。
+  - table: shares
+    tableComment: 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。
+  - table: file_shares
+    tableComment: 檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。
+  - table: text_shares
+    tableComment: 文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。
+  - table: share_contents
+    tableComment: 舊的內容欄位,正在退場。內容改由上面兩張表持有,這張表等讀取端完全切換之後會刪掉。
+  - table: share_tickets
+    tableComment: 輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。
+  - table: schema_metadata
+    tableComment: 這個資料庫是哪一版寫的。降版啟動時用來擋下來。
