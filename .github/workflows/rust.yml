@@ -119,6 +119,24 @@ jobs:
             exit 1
           fi
 
+      # The same arrangement as the contract above, for the same reason. A
+      # generated diagram is only worth having if it cannot be stale, and the
+      # thing that goes stale is not the diagram — it is somebody's memory of
+      # which tables exist.
+      - name: Regenerate the schema docs
+        run: python3 scripts/schema-docs.py
+
+      # `git status` rather than `git diff`, because a new table writes a new
+      # file and `git diff` does not see untracked ones — which is the drift
+      # most worth catching.
+      - name: Fail if the schema docs drifted
+        run: |
+          if [ -n "$(git status --porcelain -- docs/schema)" ]; then
+            git status --short -- docs/schema
+            echo "::error::docs/schema is out of date. Run 'python3 scripts/schema-docs.py' and commit the result."
+            exit 1
+          fi
+
       # cargo-deny covers advisories, licences, banned crates and sources.
       # cargo-audit is deliberately absent — see the comment in deny.toml.
       - name: security and licences
