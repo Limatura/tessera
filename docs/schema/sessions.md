@@ -2,7 +2,7 @@
 
 ## Description
 
-一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `sessions_retention_days`。
+一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。
 
 <details>
 <summary><strong>Table Definition</strong></summary>
