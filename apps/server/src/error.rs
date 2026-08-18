@@ -91,6 +91,15 @@ pub enum Error {
     #[error("{0}")]
     Domain(#[from] tessera_core::DomainError),
 
+    /// The caller stopped sending, or took longer than this route allows.
+    ///
+    /// For an upload it means no byte arrived within `server.upload_stall_secs`,
+    /// which is a statement about the connection rather than about how long the
+    /// transfer was going to take. For everything else it is
+    /// `server.request_timeout_secs`.
+    #[error("timeout")]
+    Timeout,
+
     /// The service is not ready to take traffic (starting up or shutting down).
     #[error("service unavailable")]
     Unavailable,
@@ -146,6 +155,8 @@ pub enum ErrorCode {
     TooManyRequests,
     /// See [`Error::InsufficientStorage`].
     InsufficientStorage,
+    /// See [`Error::Timeout`].
+    Timeout,
     /// See [`Error::Unavailable`].
     Unavailable,
     /// Any failure whose cause is deliberately not exposed to the caller.
@@ -176,6 +187,7 @@ impl ErrorCode {
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
+            Self::Timeout => StatusCode::REQUEST_TIMEOUT,
             Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
         }
@@ -196,6 +208,7 @@ impl ErrorCode {
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
             Self::InsufficientStorage => "this instance has no room for more content",
+            Self::Timeout => "nothing arrived for a while, so the request was dropped; try again",
             Self::Unavailable => "the service is not accepting requests right now",
             Self::Internal => "an internal error occurred",
         }
@@ -227,6 +240,7 @@ impl Error {
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
             Self::InsufficientStorage => ErrorCode::InsufficientStorage,
+            Self::Timeout => ErrorCode::Timeout,
             Self::Unavailable => ErrorCode::Unavailable,
             Self::Database(_)
             | Self::Storage(_)
