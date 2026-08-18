@@ -57,6 +57,8 @@ pub struct Model {
     pub view_count: i32,
     /// How many times the content was copied.
     pub copy_count: i32,
+    /// How many bytes this share has sent out. See the migration.
+    pub bytes_served: i64,
     /// When the share was last touched, used to decide what is worth keeping.
     pub last_accessed_at: Option<TimeDateTimeWithTimeZone>,
 

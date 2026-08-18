@@ -1079,6 +1079,12 @@ expression: document
             "minimum": 0,
             "type": "integer"
           },
+          "bytes_served": {
+            "description": "How many bytes this instance has sent out.\n\nBytes that left the process, not bytes that reached anybody — a proxy in\nfront holds some, and a caching CDN answers requests this never sees.\nFor what crossed the network, a reverse proxy's own log is the authority.\n\nCounted over the shares still here: a swept share takes its tally with\nit, so this falls when one goes.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "live_invites": {
             "description": "How many invites could still admit somebody.",
             "format": "int64",
@@ -1119,6 +1125,7 @@ expression: document
           "shares",
           "live_shares",
           "stored_bytes",
+          "bytes_served",
           "live_invites"
         ],
         "type": "object"

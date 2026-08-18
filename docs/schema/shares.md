@@ -2,7 +2,7 @@
 
 ## Description
 
-一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。
+一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -56,7 +56,7 @@ CREATE TABLE shares (
 
     created_at     TEXT    NOT NULL,
     updated_at     TEXT    NOT NULL
-, copy_count INTEGER NOT NULL DEFAULT 0)
+, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0)
 ```
 
 </details>
@@ -88,6 +88,7 @@ CREATE TABLE shares (
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
 | copy_count | INTEGER | 0 | false |  |  |  |
+| bytes_served | INTEGER | 0 | false |  |  |  |
 
 ## Constraints
 
@@ -142,6 +143,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   INTEGER copy_count
+  INTEGER bytes_served
 }
 "share_contents" {
   TEXT share_id PK

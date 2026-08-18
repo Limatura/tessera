@@ -576,6 +576,15 @@ pub struct StatsResponse {
     pub live_shares: u64,
     /// Bytes of uploaded content still on the store.
     pub stored_bytes: u64,
+    /// How many bytes this instance has sent out.
+    ///
+    /// Bytes that left the process, not bytes that reached anybody — a proxy in
+    /// front holds some, and a caching CDN answers requests this never sees.
+    /// For what crossed the network, a reverse proxy's own log is the authority.
+    ///
+    /// Counted over the shares still here: a swept share takes its tally with
+    /// it, so this falls when one goes.
+    pub bytes_served: u64,
     /// The ceiling from `storage.max_total_bytes`, or `null` when unset.
     ///
     /// `null` is not "unlimited" so much as "nobody said" — and on an instance
@@ -628,6 +637,7 @@ pub async fn stats(
         shares,
         live_shares,
         stored_bytes: state.shares.total_stored_bytes().await?,
+        bytes_served: state.shares.total_bytes_served().await?,
         // Zero is how the configuration spells "no ceiling", but a client
         // drawing a usage bar against zero would show every instance as full.
         quota_bytes: (quota > 0).then_some(quota),

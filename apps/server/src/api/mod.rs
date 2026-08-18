@@ -37,6 +37,7 @@ pub mod capabilities;
 pub mod extract;
 pub mod gate;
 pub mod health;
+pub mod meter;
 pub mod preview;
 pub mod public;
 pub mod sessions;
@@ -307,6 +308,9 @@ fn admin_routes() -> OpenApiRouter<AppState> {
 /// and the middleware stack.
 pub fn build(state: AppState) -> Router {
     let config = Arc::clone(&state.config);
+    // Cloned before the router takes ownership: the meter is a `from_fn_with_state`
+    // layer applied after `with_state`, so it needs its own handle.
+    let metering_state = state.clone();
     let (routes, api) = api_routes().split_for_parts();
 
     // The contract is served unconditionally. Turning the browsable docs off is
@@ -340,6 +344,13 @@ pub fn build(state: AppState) -> Router {
         // Compression sits closest to the handler and therefore compresses the
         // final body exactly once.
         .layer(CompressionLayer::new().compress_when(compression_predicate()))
+        // Outside compression, so it counts the bytes that go on the wire
+        // rather than the ones the handler produced. Measured: for a 64 KiB run
+        // of one character those differ by a factor of six hundred.
+        .layer(axum::middleware::from_fn_with_state(
+            metering_state,
+            meter::count_bytes_served,
+        ))
         .layer(DefaultBodyLimit::max(config.server.max_body_bytes))
         .layer(cors(&config))
         .layer(TimeoutLayer::with_status_code(

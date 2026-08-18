@@ -351,6 +351,7 @@ pub async fn create(
         management_token_hash: management_secret.as_ref().map(Secret::digest),
         view_count: 0,
         copy_count: 0,
+        bytes_served: 0,
         last_accessed_at: None,
         created_at: now,
         updated_at: now,

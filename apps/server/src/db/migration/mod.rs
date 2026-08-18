@@ -41,6 +41,7 @@ mod m20260818_000003_admin_share_permissions;
 mod m20260818_000004_account_state;
 mod m20260818_000005_owner_role;
 mod m20260818_000006_copy_count;
+mod m20260818_000007_bytes_served;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -71,6 +72,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260818_000004_account_state::Migration),
             Box::new(m20260818_000005_owner_role::Migration),
             Box::new(m20260818_000006_copy_count::Migration),
+            Box::new(m20260818_000007_bytes_served::Migration),
         ]
     }
 }

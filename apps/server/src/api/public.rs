@@ -25,6 +25,7 @@ use crate::{
     api::{
         extract::{ApiPath, ApiQuery},
         gate,
+        meter::Served,
     },
     auth::{extract::ClientAddress, proxy::Origin},
     db::repository::share::{Content, Share, ShareKind},
@@ -230,6 +231,11 @@ async fn serve(
         out.insert(header::CONTENT_RANGE, value);
     }
     harden(out);
+    // Tells the meter which share to credit. Set here rather than worked out
+    // from the path in the middleware: this is the only place that has already
+    // resolved the code, and doing it again would be a second lookup on every
+    // retrieval.
+    response.extensions_mut().insert(Served(share.id));
     Ok(response)
 }
 

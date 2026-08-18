@@ -75,6 +75,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   INTEGER copy_count
+  INTEGER bytes_served
 }
 ```
 
