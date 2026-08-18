@@ -50,8 +50,25 @@ code=$(curl -s -b "$JAR" -c "$JAR" -o /dev/null -w '%{http_code}' -X PATCH "$API
   -d "{\"current_password\":\"$BOOTSTRAP\",\"new_password\":\"schemathesis-seed-password\"}")
 fail_unless 200 "$code" "change password"
 
+# Every permission this version has, asked for rather than written down: a
+# hand-kept list here goes stale the moment one is added, and it goes stale
+# silently — the token keeps working, just not for the new endpoint.
+#
+# Without this the token carries the mint-time default, which is `shares:create`
+# and nothing else. Measured before it was asked for: `GET /admin/roles`,
+# `GET /admin/users` and even `GET /tokens` all answered 403, so every
+# authenticated operation in the run was exercising its refusal path and
+# nothing else.
+PERMISSIONS=$(curl -s -b "$JAR" "$API/admin/permissions" \
+  | python3 -c 'import json,sys; print(json.dumps([p["name"] for p in json.load(sys.stdin)]))')
+if [ -z "$PERMISSIONS" ] || [ "$PERMISSIONS" = "[]" ]; then
+  echo "::error::could not read the permission list from $API/admin/permissions" >&2
+  exit 1
+fi
+
 token_body=$(curl -s -b "$JAR" -X POST "$API/tokens" \
-  -H 'content-type: application/json' -d '{"name":"schemathesis"}')
+  -H 'content-type: application/json' \
+  -d "{\"name\":\"schemathesis\",\"permissions\":$PERMISSIONS}")
 TOKEN=$(printf '%s' "$token_body" | python3 -c 'import json,sys; print(json.load(sys.stdin)["secret"])')
 
 # One share, so `/shares/{code}` and `/unlock` have something real to answer
