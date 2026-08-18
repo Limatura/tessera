@@ -1331,8 +1331,15 @@ pub struct DeleteAccountRequest {
     /// means "and the things I sent" — and somebody who wants the links they
     /// handed out to keep working is the rarer case, worth one explicit `false`.
     ///
-    /// The bytes go as the reaper reaches them, so the answer arrives before
-    /// the space does.
+    /// # What "delete" means here
+    ///
+    /// Every link stops working the moment this returns. The bytes go later,
+    /// when the housekeeping pass reaches them — removing hundreds of objects
+    /// inside one request is a request that times out half way through with no
+    /// record of where it got to.
+    ///
+    /// So the content does go, and nothing serves it in the meantime; what
+    /// arrives after the answer is the disk space.
     #[serde(default = "delete_shares_by_default")]
     pub delete_shares: bool,
 }

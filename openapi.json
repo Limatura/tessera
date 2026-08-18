@@ -387,7 +387,7 @@
             "type": "string"
           },
           "delete_shares": {
-            "description": "Whether to end everything this account uploaded.\n\nDefaults to ending it. For a file courier, \"delete my account\" usually\nmeans \"and the things I sent\" — and somebody who wants the links they\nhanded out to keep working is the rarer case, worth one explicit `false`.\n\nThe bytes go as the reaper reaches them, so the answer arrives before\nthe space does.",
+            "description": "Whether to end everything this account uploaded.\n\nDefaults to ending it. For a file courier, \"delete my account\" usually\nmeans \"and the things I sent\" — and somebody who wants the links they\nhanded out to keep working is the rarer case, worth one explicit `false`.\n\n# What \"delete\" means here\n\nEvery link stops working the moment this returns. The bytes go later,\nwhen the housekeeping pass reaches them — removing hundreds of objects\ninside one request is a request that times out half way through with no\nrecord of where it got to.\n\nSo the content does go, and nothing serves it in the meantime; what\narrives after the answer is the disk space.",
             "type": "boolean"
           }
         },

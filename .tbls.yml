@@ -30,7 +30,7 @@ comments:
   - table: users
     tableComment: 帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
   - table: sessions
-    tableComment: 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `sessions_retention_days`。
+    tableComment: 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。
   - table: api_tokens
     tableComment: 給程式用的憑證。只存摘要,原始值發出去之後就不再存在。
   - table: api_token_permissions

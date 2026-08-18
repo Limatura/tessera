@@ -6,7 +6,7 @@
 | ---- | ------- | ------- | ---- |
 | [schema_metadata](schema_metadata.md) | 3 | 這個資料庫是哪一版寫的。降版啟動時用來擋下來。 | table |
 | [users](users.md) | 12 | 帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。 | table |
-| [sessions](sessions.md) | 9 | 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `sessions_retention_days`。 | table |
+| [sessions](sessions.md) | 9 | 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。 | table |
 | [api_tokens](api_tokens.md) | 9 | 給程式用的憑證。只存摘要,原始值發出去之後就不再存在。 | table |
 | [shares](shares.md) | 22 | 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。 | table |
 | [share_contents](share_contents.md) | 2 | 舊的內容欄位,正在退場。內容改由上面兩張表持有,這張表等讀取端完全切換之後會刪掉。 | table |
