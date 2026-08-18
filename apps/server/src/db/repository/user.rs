@@ -412,15 +412,27 @@ impl UserRepository {
         }
 
         // The part that decides anything.
+        //
+        // Both seeded roles come off; `owner` goes back on.
+        //
+        // `false` has to reach an owner or the field cannot demote one. `true`
+        // grants `owner` rather than the lesser `admin` because that is what
+        // this boolean has always meant — everything. Making it mean less would
+        // silently change what an existing client does, and it would break the
+        // one sequence an operator most needs: promote a successor, then step
+        // down. A successor without `roles:write` cannot be stepped down to.
+        //
+        // The narrower `admin` is reached through the role endpoints, which is
+        // where roles belong now.
         UserRoleEntity::delete_many()
             .filter(user_role::Column::UserId.eq(id.to_string()))
-            .filter(user_role::Column::RoleId.eq(RoleId::ADMIN))
+            .filter(user_role::Column::RoleId.is_in([RoleId::OWNER, RoleId::ADMIN]))
             .exec(&transaction)
             .await?;
         if is_admin {
             UserRoleEntity::insert(user_role::ActiveModel {
                 user_id: Set(id.to_string()),
-                role_id: Set(RoleId::ADMIN.to_owned()),
+                role_id: Set(RoleId::OWNER.to_owned()),
                 granted_at: Set(now),
             })
             .exec(&transaction)

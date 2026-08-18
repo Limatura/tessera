@@ -91,9 +91,14 @@ impl AccountResponse {
             id: user.id.to_string(),
             username: user.username.to_string(),
             email: user.email.to_string(),
-            is_admin: roles
-                .iter()
-                .any(|role| role.id.to_string() == RoleId::ADMIN),
+            // Either seeded role that administers the instance. The field is
+            // kept for clients that still read it; `permissions` is what a
+            // screen should decide from, because neither of these two answers
+            // "may they delete an account".
+            is_admin: roles.iter().any(|role| {
+                let id = role.id.to_string();
+                id == RoleId::OWNER || id == RoleId::ADMIN
+            }),
             permissions: permissions
                 .iter()
                 .map(|permission| permission.as_str().to_owned())
@@ -274,7 +279,11 @@ fn require_accounts(state: &AppState) -> Result<()> {
 /// would be the server overruling a stated policy.
 async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
     if first {
-        return Ok(RoleId::parse(RoleId::ADMIN)?);
+        // The owner role, not `admin`: the first account is the person whose
+        // instance this is, and `admin` deliberately cannot grant permissions —
+        // an instance whose only account cannot hand out roles has nobody who
+        // can bring anybody else in.
+        return Ok(RoleId::parse(RoleId::OWNER)?);
     }
     let wanted = &state.config.auth.default_role;
     let Some(role) = state.roles.find_by_name(wanted).await? else {
