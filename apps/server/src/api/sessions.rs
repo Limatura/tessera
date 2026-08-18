@@ -70,7 +70,7 @@ pub struct SessionResponse {
     /// Why it ended early, if somebody ended it.
     ///
     /// `null` means it simply ran out. The values are `signed_out`, `revoked`,
-    /// `password_changed` and `password_reset`.
+    /// `password_changed`, `password_reset` and `account_disabled`.
     #[schema(example = "revoked")]
     pub ended_reason: Option<String>,
 }

@@ -20,7 +20,7 @@ use sea_orm::{
     ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
     QueryFilter as _, QueryOrder as _, TransactionTrait as _,
 };
-use tessera_core::{DomainError, EmailAddress, RoleId, UserId, Username};
+use tessera_core::{AccountState, DomainError, EmailAddress, RoleId, UserId, Username};
 use time::OffsetDateTime;
 
 use crate::db::entity::{
@@ -43,6 +43,12 @@ pub struct User {
     pub is_admin: bool,
     /// Whether the account must set a new password before doing anything else.
     pub must_change_password: bool,
+    /// Whether the account works, is suspended, or is gone.
+    pub state: AccountState,
+    /// When it was removed, if it was.
+    pub deleted_at: Option<OffsetDateTime>,
+    /// Who removed it — an administrator, or the account itself.
+    pub deleted_by: Option<UserId>,
     /// When the address was proven reachable, if it ever was.
     pub email_verified_at: Option<OffsetDateTime>,
     /// When the account was created.
@@ -85,6 +91,15 @@ impl User {
             password_hash: model.password_hash,
             is_admin: model.is_admin,
             must_change_password: model.must_change_password,
+            state: model.state.parse().map_err(fail)?,
+            deleted_at: model.deleted_at,
+            // A `deleted_by` that will not parse is a broken pointer, not a
+            // broken account. Dropping it costs the record of who did it and
+            // keeps the account readable, which is the better of the two.
+            deleted_by: model
+                .deleted_by
+                .as_deref()
+                .and_then(|id| UserId::parse(id).ok()),
             email_verified_at: model.email_verified_at,
             created_at: model.created_at,
             updated_at: model.updated_at,
@@ -100,6 +115,9 @@ impl User {
             password_hash: Set(self.password_hash.clone()),
             is_admin: Set(self.is_admin),
             must_change_password: Set(self.must_change_password),
+            state: Set(self.state.as_str().to_owned()),
+            deleted_at: Set(self.deleted_at),
+            deleted_by: Set(self.deleted_by.map(|id| id.to_string())),
             email_verified_at: Set(self.email_verified_at),
             created_at: Set(self.created_at),
             updated_at: Set(self.updated_at),
@@ -229,11 +247,15 @@ impl UserRepository {
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the query fails or a row is not usable.
-    pub async fn list(&self) -> Result<Vec<User>, UserRepositoryError> {
-        let models = UserEntity::find()
-            .order_by_desc(user::Column::CreatedAt)
-            .all(&self.connection)
-            .await?;
+    pub async fn list(&self, include_deleted: bool) -> Result<Vec<User>, UserRepositoryError> {
+        let mut query = UserEntity::find().order_by_desc(user::Column::CreatedAt);
+        if !include_deleted {
+            // Off by default: a deleted account is a row that exists to keep
+            // shares attributable, not a person an operator manages. Left in,
+            // every listing would fill with scrubbed names nobody can act on.
+            query = query.filter(user::Column::State.ne(AccountState::Deleted.as_str()));
+        }
+        let models = query.all(&self.connection).await?;
         models
             .into_iter()
             .map(|model| User::from_model(model).map_err(UserRepositoryError::from))
@@ -247,6 +269,81 @@ impl UserRepository {
     /// Returns [`UserRepositoryError`] if the query fails.
     pub async fn count(&self) -> Result<u64, UserRepositoryError> {
         Ok(UserEntity::find().count(&self.connection).await?)
+    }
+
+    /// Suspends an account, or lets it back in.
+    ///
+    /// Refuses to touch one that has been deleted: that is not a state anybody
+    /// comes back from, and quietly reactivating a scrubbed row would produce an
+    /// account with a tombstone for a name.
+    ///
+    /// Returns whether the account changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails.
+    pub async fn set_state(
+        &self,
+        id: UserId,
+        state: AccountState,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::State, state.as_str().into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .filter(user::Column::State.ne(AccountState::Deleted.as_str()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Removes an account, leaving a row that says one was here.
+    ///
+    /// # What is left and what is not
+    ///
+    /// The identifier stays, because `shares.user_id` points at it and a share
+    /// whose uploader is gone is a different thing from one nobody uploaded.
+    /// The name and the address are replaced with values that identify nobody,
+    /// which also frees the originals for somebody else. The password hash goes.
+    ///
+    /// # Why the sessions and tokens go too
+    ///
+    /// Authentication already refuses a deleted account, so they would not
+    /// work — but a row that cannot work is a row that has to be explained. The
+    /// login history goes with them, which is the point: it is the most
+    /// identifying thing this service holds about a person.
+    ///
+    /// Returns whether an account was removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails.
+    pub async fn soft_delete(
+        &self,
+        id: UserId,
+        by: UserId,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let (name, email) = tessera_core::tombstone(id);
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::State, AccountState::Deleted.as_str().into())
+            .col_expr(user::Column::Username, name.as_str().into())
+            .col_expr(user::Column::Email, email.as_str().into())
+            // Not emptied: the column is `NOT NULL`, and a value nothing can
+            // ever verify against is what "there is no password here" has to
+            // look like. `verify` treats an unparsable hash as a failure.
+            .col_expr(user::Column::PasswordHash, "".into())
+            .col_expr(user::Column::EmailVerifiedAt, Option::<OffsetDateTime>::None.into())
+            .col_expr(user::Column::MustChangePassword, false.into())
+            .col_expr(user::Column::DeletedAt, now.into())
+            .col_expr(user::Column::DeletedBy, by.to_string().into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .filter(user::Column::State.ne(AccountState::Deleted.as_str()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
     }
 
     /// Grants or removes the administrator flag.
@@ -381,6 +478,9 @@ mod tests {
             password_hash: "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
             is_admin: false,
             must_change_password: false,
+            state: AccountState::Active,
+            deleted_at: None,
+            deleted_by: None,
             email_verified_at: None,
             created_at: now,
             updated_at: now,
@@ -508,6 +608,9 @@ mod tests {
             password_hash: String::new(),
             is_admin: false,
             must_change_password: false,
+            state: "active".to_owned(),
+            deleted_at: None,
+            deleted_by: None,
             email_verified_at: None,
             created_at: now,
             updated_at: now,

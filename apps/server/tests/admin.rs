@@ -262,7 +262,36 @@ async fn deleting_an_account_ends_what_it_was_holding() {
             .status(),
         StatusCode::UNAUTHORIZED
     );
+    // The listing shows the one account left. The row the deletion left behind
+    // is not somebody an operator manages, so it takes asking to see it.
     assert_eq!(list(&app, Auth::Cookie(&admin)).await.len(), 1);
+
+    let with_deleted = body_json(
+        expect_status(
+            app.empty(
+                Method::GET,
+                "/api/v1/admin/users?include_deleted=true",
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let rows = with_deleted.as_array().expect("a list");
+    assert_eq!(rows.len(), 2);
+
+    // And what is left of it identifies nobody.
+    let gone = rows
+        .iter()
+        .find(|row| row["id"] == id)
+        .expect("the row the deletion left");
+    let name = gone["username"].as_str().expect("a name");
+    let email = gone["email"].as_str().expect("an address");
+    assert!(name.starts_with("gone-"), "{name}");
+    assert!(email.ends_with("@deleted.invalid"), "{email}");
+    assert!(!name.contains("second"), "the original name is gone");
 }
 
 /// An identifier that is not an identifier answers the same as one that names
@@ -1529,5 +1558,272 @@ async fn reading_every_share_does_not_imply_removing_one() {
         .await
         .status(),
         StatusCode::FORBIDDEN
+    );
+}
+
+/// Suspending stops the person, not their content.
+///
+/// Whoever holds a link that account handed out did nothing wrong, and a
+/// suspension that broke every one of those links would be a different act from
+/// the one the operator asked for. Stopping the content too is what a share's
+/// own `disabled_at` is for.
+#[tokio::test]
+async fn suspending_an_account_stops_it_signing_in_but_keeps_its_shares_served() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (theirs, id) = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=theirs.bin")
+                    .header(header::COOKIE, &theirs),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "disabled" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // The session they already held stops working — not only the next sign-in.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&theirs))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    // Signing in again answers the same as a wrong password, so nobody can ask
+    // this endpoint which accounts are suspended.
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "second", "password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+
+    // Their share is still served.
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    // And letting them back in works.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "active" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "second", "password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::OK,
+        "a suspension is something an account comes back from"
+    );
+}
+
+/// A deletion is not.
+#[tokio::test]
+async fn a_deleted_account_cannot_be_reactivated() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    // The patch reports success — the row is there and the flag was written —
+    // but the state does not move.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "active" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "second", "password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// The name and the address a deleted account gave up are free again.
+#[tokio::test]
+async fn a_deleted_accounts_name_can_be_registered_again() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "second",
+                "email": "second@example.com",
+                "password": PASSWORD,
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::CREATED,
+        "the scrubbed row must not keep the name out of circulation"
+    );
+}
+
+/// Who did it is recorded, because a tombstone cannot say it by itself.
+#[tokio::test]
+async fn a_deletion_records_who_did_it() {
+    let app = TestApp::ready().await;
+    let (admin, admin_id) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    let removed = app
+        .state
+        .users
+        .find_by_id(tessera_core::UserId::parse(&id).expect("an id"))
+        .await
+        .expect("query")
+        .expect("the row the deletion left");
+    assert_eq!(removed.state, tessera_core::AccountState::Deleted);
+    assert_eq!(
+        removed.deleted_by.map(|by| by.to_string()),
+        Some(admin_id),
+        "a row alone cannot say who did it"
+    );
+    assert!(removed.deleted_at.is_some());
+}
+
+/// Suspending an account has to stop its API tokens too.
+///
+/// Ending the sessions is what makes the cookie stop working, and for a while
+/// that looked like enough. It is not: a token is not a session, so nothing
+/// ended it — the state check at authentication is the only thing that does.
+#[tokio::test]
+async fn suspending_an_account_stops_its_tokens() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (theirs, id) = register(&app, "second").await;
+
+    let secret = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&theirs),
+                &serde_json::json!({ "name": "a script", "permissions": ["shares:read"] }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await["secret"]
+        .as_str()
+        .expect("a secret")
+        .to_owned();
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "disabled" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED,
+        "a token is not a session; nothing else stops it"
     );
 }

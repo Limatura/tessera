@@ -74,6 +74,9 @@ erDiagram
   TEXT email_verified_at
   TEXT created_at
   TEXT updated_at
+  TEXT state
+  TEXT deleted_at
+  TEXT deleted_by FK
 }
 ```
 

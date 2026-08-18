@@ -9,7 +9,7 @@ use axum::{
 use axum_extra::extract::cookie::Cookie;
 use serde::{Deserialize, Serialize};
 use tessera_core::{
-    EmailAddress, Password, PasswordPolicy, PermissionSet, RoleId, UserId, Username,
+    AccountState, EmailAddress, Password, PasswordPolicy, PermissionSet, RoleId, UserId, Username,
 };
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -382,6 +382,9 @@ pub async fn register(
         password_hash: password::hash(password).await?,
         is_admin: first,
         must_change_password: false,
+        state: AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
         email_verified_at: None,
         created_at: now,
         updated_at: now,
@@ -482,7 +485,11 @@ pub async fn login(
         false
     };
 
-    let Some(user) = user.filter(|_| authenticated) else {
+    // The state is checked here rather than before the hash, and answers the
+    // same `401` as a wrong password. Checking earlier would return faster for a
+    // suspended account than for a wrong password, which tells anybody who asks
+    // that the account exists — the oracle the work above exists to close.
+    let Some(user) = user.filter(|found| authenticated && found.state.may_sign_in()) else {
         throttles.record_failure(&throttles.login, &key, &origin.source);
         return Err(Error::Unauthorized);
     };
@@ -991,6 +998,9 @@ pub async fn confirm_registration(
         // people are its operator.
         is_admin: first,
         must_change_password: false,
+        state: AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
         // The whole point of the wait.
         email_verified_at: Some(now),
         created_at: now,

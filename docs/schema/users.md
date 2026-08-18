@@ -2,7 +2,7 @@
 
 ## Description
 
-帳號。
+帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -25,7 +25,7 @@ CREATE TABLE users (
     email_verified_at    TEXT,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
-)
+, state TEXT NOT NULL DEFAULT 'active', deleted_at TEXT, deleted_by TEXT REFERENCES users (id) ON DELETE SET NULL)
 ```
 
 </details>
@@ -34,7 +34,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [user_roles](user_roles.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [user_roles](user_roles.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | password_hash | TEXT |  | false |  |  |  |
@@ -43,18 +43,23 @@ CREATE TABLE users (
 | email_verified_at | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
+| state | TEXT | 'active' | false |  |  |  |
+| deleted_at | TEXT |  | true |  |  |  |
+| deleted_by | TEXT |  | true |  | [users](users.md) |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | id | PRIMARY KEY | PRIMARY KEY (id) |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (deleted_by) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
 | sqlite_autoindex_users_1 | PRIMARY KEY | PRIMARY KEY (id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_users_state | CREATE INDEX idx_users_state ON users (state) |
 | idx_users_email | CREATE UNIQUE INDEX idx_users_email ON users (email) |
 | idx_users_username | CREATE UNIQUE INDEX idx_users_username ON users (username) |
 | sqlite_autoindex_users_1 | PRIMARY KEY (id) |
@@ -64,6 +69,7 @@ CREATE TABLE users (
 ```mermaid
 erDiagram
 
+"users" }o--o| "users" : ""
 "sessions" }o--|| "users" : ""
 "api_tokens" }o--|| "users" : ""
 "shares" }o--o| "users" : ""
@@ -80,6 +86,9 @@ erDiagram
   TEXT email_verified_at
   TEXT created_at
   TEXT updated_at
+  TEXT state
+  TEXT deleted_at
+  TEXT deleted_by FK
 }
 "sessions" {
   TEXT id PK

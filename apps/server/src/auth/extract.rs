@@ -255,6 +255,12 @@ async fn authenticate_session(
         state.sessions.delete(session.id).await?;
         return Ok(None);
     };
+    // Suspending or removing an account has to stop the sessions it already
+    // holds, not only the next sign-in — otherwise somebody suspended at noon
+    // carries on working until their cookie happens to expire.
+    if !user.state.may_sign_in() {
+        return Ok(None);
+    }
 
     state.sessions.touch(session.id, now).await?;
     let permissions = state.roles.permissions_of(user.id).await?;
@@ -284,6 +290,11 @@ async fn authenticate_token(
     let Some(user) = state.users.find_by_id(token.user_id).await? else {
         return Ok(None);
     };
+    // Same for a token: it acts as its owner, and an owner who may not sign in
+    // may not act.
+    if !user.state.may_sign_in() {
+        return Ok(None);
+    }
 
     state.tokens.touch(token.id, now).await?;
     // What the token was given, and no more than its owner may do *now*. Both

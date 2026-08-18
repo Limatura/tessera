@@ -187,8 +187,11 @@ Table users {
   email_verified_at text
   created_at text [not null]
   updated_at text [not null]
+  state text [not null]
+  deleted_at text
+  deleted_by text
 
-  Note: '帳號。'
+  Note: '帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。'
 }
 
 Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
@@ -203,3 +206,4 @@ Ref: shares.user_id > users.id
 Ref: text_shares.share_id > shares.id [delete: cascade]
 Ref: user_roles.role_id > roles.id [delete: cascade]
 Ref: user_roles.user_id > users.id [delete: cascade]
+Ref: users.deleted_by > users.id

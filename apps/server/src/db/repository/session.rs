@@ -54,6 +54,12 @@ pub enum SessionEnding {
     PasswordChanged,
     /// A password reset did, which usually means the account was in trouble.
     PasswordReset,
+    /// The account was suspended.
+    ///
+    /// Its own reason rather than `Revoked`: that one reads as "somebody ended
+    /// this session", and the person looking at the list wants to know their
+    /// account was stopped, not their browser.
+    AccountDisabled,
 }
 
 impl SessionEnding {
@@ -65,6 +71,7 @@ impl SessionEnding {
             Self::Revoked => "revoked",
             Self::PasswordChanged => "password_changed",
             Self::PasswordReset => "password_reset",
+            Self::AccountDisabled => "account_disabled",
         }
     }
 
@@ -80,6 +87,7 @@ impl SessionEnding {
             "revoked" => Some(Self::Revoked),
             "password_changed" => Some(Self::PasswordChanged),
             "password_reset" => Some(Self::PasswordReset),
+            "account_disabled" => Some(Self::AccountDisabled),
             _ => None,
         }
     }
@@ -375,6 +383,28 @@ impl SessionRepository {
         } else {
             Revocation::NotYours
         })
+    }
+
+    /// Removes every session an account ever had.
+    ///
+    /// Not the same as ending them. Ending keeps the row, because the list of
+    /// sessions is also the login history — and that history is where a person
+    /// signed in from and on what, which is the most identifying thing this
+    /// service stores about anybody. Removing the account and keeping that
+    /// would leave behind the part that matters most.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the delete fails.
+    pub async fn delete_all_for_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<u64, SessionRepositoryError> {
+        let result = SessionEntity::delete_many()
+            .filter(session::Column::UserId.eq(user_id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected)
     }
 
     /// Ends every live session an account has, optionally sparing one.
