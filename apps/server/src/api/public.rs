@@ -410,12 +410,16 @@ async fn read_range(
     range: Option<(u64, u64)>,
 ) -> Result<Body> {
     let Some(key) = content.storage.object_key() else {
-        let content = state
+        // No object means the content is a row, which only text has — its
+        // content *is* the row, so it is already in hand. A file with no object
+        // has been reaped, and `Gone` is what the gate refuses before reaching
+        // here.
+        let text = state
             .shares
-            .inline_content(share.id)
+            .text_of(share.id)
             .await?
             .ok_or(Error::NotFound)?;
-        return Ok(Body::from(slice(&content, range)));
+        return Ok(Body::from(slice(&text.content, range)));
     };
 
     let options = GetOptions {

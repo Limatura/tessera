@@ -14,12 +14,12 @@
 
 use std::{sync::Arc, time::Duration};
 
-use object_store::{ObjectStore, ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
+use object_store::{ObjectStore, ObjectStoreExt as _, path::Path as ObjectPath};
 use time::OffsetDateTime;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    db::repository::share::{Share, ShareKind, ShareRepository, ShareRepositoryError},
+    db::repository::share::{ShareRepository, ShareRepositoryError},
     state::AppState,
 };
 
@@ -101,10 +101,6 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
     // records which object to delete, so releasing the bytes has to happen while
     // there is still something pointing at them.
     report(
-        "content moved to where this version keeps it",
-        relocate_misplaced_content(state, now).await,
-    );
-    report(
         "dead shares' content",
         reap_dead_content(&state.shares, &state.storage, now).await,
     );
@@ -140,109 +136,18 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
 /// Doing this separately is what stops a burn-after-reading share from
 /// occupying its full size for a week after the one person who was meant to
 /// have it already did.
-/// Anything that stopped one share's content being moved.
+/// Removes every one, and says whether all of them went.
 ///
-/// Its own type because moving touches two systems: a row and an object. The
-/// existing sweeps only ever talk to one, so folding an object-store failure
-/// into a repository error would say "database" about a thing that was the
-/// store.
-#[derive(Debug, thiserror::Error)]
-enum RelocationError {
-    /// The row could not be read or written.
-    #[error(transparent)]
-    Row(#[from] ShareRepositoryError),
-    /// The object could not be read or written.
-    #[error(transparent)]
-    Object(#[from] object_store::Error),
-}
-
-/// Moves content that an older version put somewhere else.
-///
-/// # Why here and not in a migration
-///
-/// The rule changed from "small things live in the database" to "text lives in
-/// the database and files live in the store". Rows written under the old rule
-/// still work — nothing reads them wrongly — but a file held inline never
-/// appears in the store an operator is backing up, and text in the store is a
-/// round trip for something that could have been a column.
-///
-/// Putting them right means reading and writing an object, which SQL cannot do
-/// and a migration should not attempt: it would turn an upgrade into an
-/// operation that can fail half way with a database mid-flight.
-///
-/// So it happens here, a few at a time, on a pass that already runs. A failure
-/// costs one row one hour. Nobody has to run anything, and an instance that is
-/// switched off for a month simply catches up when it comes back.
-///
-/// # Why the count is small
-///
-/// Each one is an object-store round trip and a write. Moving thirty an hour
-/// clears a thousand shares in a day and a half, which is fast enough for
-/// something nobody is waiting on, and slow enough that the pass stays a pass.
-const RELOCATION_BATCH: u64 = 30;
-
-async fn relocate_misplaced_content(
-    state: &AppState,
-    now: OffsetDateTime,
-) -> Result<u64, RelocationError> {
-    let misplaced = state.shares.find_misplaced(RELOCATION_BATCH).await?;
-    let mut moved = 0;
-
-    for share in misplaced {
-        // One at a time and one failure at a time: a store that is refusing
-        // everything should not turn a housekeeping pass into a hundred
-        // consecutive errors in the log.
-        let result = match share.kind {
-            ShareKind::File => relocate_into_store(state, &share, now).await,
-            ShareKind::Text => relocate_into_database(state, &share).await,
-        };
-        match result {
-            Ok(()) => moved += 1,
-            Err(error) => {
-                tracing::warn!(?error, share = %share.id, "could not move a share's content");
-                break;
-            }
+/// One failure stops the share being marked, because a share marked clean with
+/// an object still in the store is an object nothing will ever look for again.
+async fn remove_every_object(storage: &Arc<dyn ObjectStore>, keys: &[String]) -> bool {
+    let mut all_gone = true;
+    for key in keys {
+        if !remove_object(storage, key).await {
+            all_gone = false;
         }
     }
-    Ok(moved)
-}
-
-/// A file that was small enough to be kept inline under the old rule.
-async fn relocate_into_store(
-    state: &AppState,
-    share: &Share,
-    now: OffsetDateTime,
-) -> Result<(), RelocationError> {
-    let Some(content) = state.shares.inline_content(share.id).await? else {
-        // Nothing to move. The row says inline and there is no row to be inline
-        // in, which the reaper handles rather than this.
-        return Ok(());
-    };
-    let key = crate::api::shares::object_key(share.id, now);
-    state
-        .storage
-        .put(&ObjectPath::from(key.as_str()), PutPayload::from(content))
-        .await?;
-    state.shares.moved_to_object(share.id, &key).await?;
-    Ok(())
-}
-
-/// Text that was large enough to be streamed out under the old rule.
-async fn relocate_into_database(state: &AppState, share: &Share) -> Result<(), RelocationError> {
-    let Some(key) = share.storage.object_key() else {
-        return Ok(());
-    };
-    let content = state
-        .storage
-        .get(&ObjectPath::from(key))
-        .await?
-        .bytes()
-        .await?;
-    state
-        .shares
-        .moved_to_database(share, content.to_vec())
-        .await?;
-    Ok(())
+    all_gone
 }
 
 async fn reap_dead_content(
@@ -252,12 +157,13 @@ async fn reap_dead_content(
 ) -> Result<u64, ShareRepositoryError> {
     let mut reaped: u64 = 0;
     for share in shares.find_reapable(now, SHARES_PER_PASS).await? {
-        if let Some(key) = share.storage.object_key()
-            && !remove_object(storage, key).await
-        {
-            // Leave the row saying `object`: it is the only record of what to
-            // delete, and the next pass will find it again. Marking it `gone`
-            // here would strand those bytes for good.
+        // Every object, not the first: a share holds one file today and several
+        // once #42 lands, and stopping after one would leave the rest paid for
+        // and unreachable once the rows naming them are gone.
+        let keys = shares.object_keys_of(share.id).await?;
+        if !remove_every_object(storage, &keys).await {
+            // The rows stay, still naming what to delete, so the next pass finds
+            // them again. Marking them `gone` here would strand those bytes.
             continue;
         }
         // Inline content lives in a child row that goes with the share, so
@@ -302,15 +208,14 @@ async fn sweep_dead_shares(
 
     let mut removed: u64 = 0;
     for share in shares.find_dead(cutoff, SHARES_PER_PASS).await? {
-        // Usually already `gone` by now — `reap_dead_content` runs first — but a
-        // disabled share reaches retention with its object intact, and so does
+        // Usually already gone by now — `reap_dead_content` runs first — but a
+        // disabled share reaches retention with its objects intact, and so does
         // anything the reaper could not delete earlier.
-        if let Some(key) = share.storage.object_key()
-            && !remove_object(storage, key).await
-        {
-            // The row stays. It is the only record of which object to remove, so
-            // dropping it now would strand those bytes for good; the next pass
-            // tries again.
+        let keys = shares.object_keys_of(share.id).await?;
+        if !remove_every_object(storage, &keys).await {
+            // The rows stay. They are the only record of what to remove, so
+            // dropping them now would strand those bytes; the next pass tries
+            // again.
             continue;
         }
         shares.delete(share.id).await?;

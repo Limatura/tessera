@@ -607,7 +607,7 @@ pub(crate) async fn share_repository_round_trip(app: &TestApp, suffix: &str) {
 
 use tessera_core::{RetrievalCode, ShareId};
 use tessera_server::db::repository::share::{
-    Availability, Share, ShareEvent, ShareKind, ShareRepository, StorageLocation,
+    Availability, NewContent, Share, ShareEvent, ShareKind, ShareRepository, StorageLocation,
 };
 use time::{Duration, OffsetDateTime};
 
@@ -654,11 +654,6 @@ impl<'a> Shares<'a> {
             expires_at: None,
             disabled_at: None,
             title: None,
-            filename: None,
-            content_type: None,
-            language: None,
-            size_bytes: 0,
-            storage: StorageLocation::Inline,
             og_config: None,
             management_token_hash: None,
             view_count: 0,
@@ -667,6 +662,14 @@ impl<'a> Shares<'a> {
             last_accessed_at: None,
             created_at: self.now,
             updated_at: self.now,
+        }
+    }
+
+    /// Text for a case that only needs the share to exist.
+    fn some_text() -> NewContent {
+        NewContent::Text {
+            language: None,
+            body: b"gone shortly".to_vec(),
         }
     }
 
@@ -680,17 +683,15 @@ impl<'a> Shares<'a> {
 
     /// Every optional column populated, so one the entity and the schema
     /// disagree about cannot slip through as NULL.
-    fn populated_text(&self, content: &[u8]) -> Share {
+    fn populated_text(&self, _content: &[u8]) -> Share {
         Share {
             kind: ShareKind::Text,
-            language: Some("typescript".to_owned()),
             title: Some("a snippet".to_owned()),
             password_hash: Some("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned()),
             use_limit: Some(3),
             expires_at: Some(self.now + Duration::hours(1)),
             og_config: Some(r#"{"layout":"default"}"#.to_owned()),
             management_token_hash: Some("a".repeat(64)),
-            size_bytes: u64::try_from(content.len()).expect("a test payload fits"),
             ..self.blank(1)
         }
     }
@@ -699,7 +700,13 @@ impl<'a> Shares<'a> {
         let content = "const foo = \"bar\";\n".repeat(64).into_bytes();
         let share = self.populated_text(&content);
         self.repository
-            .insert(&share, Some(content.clone()))
+            .insert(
+                &share,
+                &NewContent::Text {
+                    language: Some("typescript".to_owned()),
+                    body: content.clone(),
+                },
+            )
             .await
             .expect("insert");
 
@@ -710,38 +717,46 @@ impl<'a> Shares<'a> {
             .expect("query")
             .expect("the share just written");
         assert_eq!(stored, share, "a stored share must read back unchanged");
+        let text = self
+            .repository
+            .text_of(share.id)
+            .await
+            .expect("query")
+            .expect("text lives in its own table now");
         assert_eq!(
-            self.repository
-                .inline_content(share.id)
-                .await
-                .expect("query"),
-            Some(content),
-            "inline content must survive the round trip"
+            text.content, content,
+            "the text must survive the round trip"
         );
+        assert_eq!(text.language.as_deref(), Some("typescript"));
     }
 
     async fn an_object_backed_share_has_no_inline_row(&self) {
         let share = Share {
             kind: ShareKind::File,
-            filename: Some("專案.zip".to_owned()),
-            content_type: Some("application/zip".to_owned()),
-            size_bytes: 1_048_576,
-            storage: StorageLocation::Object {
-                key: format!("2026/08/{}", self.suffix),
-            },
             ..self.blank(2)
         };
-        self.repository.insert(&share, None).await.expect("insert");
+        self.repository
+            .insert(
+                &share,
+                &NewContent::File {
+                    filename: Some("專案.zip".to_owned()),
+                    content_type: Some("application/zip".to_owned()),
+                    size_bytes: 1_048_576,
+                    storage: StorageLocation::Object {
+                        key: format!("2026/08/{}", self.suffix),
+                    },
+                },
+            )
+            .await
+            .expect("insert");
 
         assert_eq!(self.stored(share.id).await, share);
-        assert_eq!(
-            self.repository
-                .inline_content(share.id)
-                .await
-                .expect("query"),
-            None,
-            "an object-backed share has no inline row"
-        );
+        let keys = self
+            .repository
+            .object_keys_of(share.id)
+            .await
+            .expect("query");
+        assert_eq!(keys.len(), 1, "an object-backed share names its object");
     }
 
     fn the_gate_reads_the_columns_it_should(&self) {
@@ -791,7 +806,10 @@ impl<'a> Shares<'a> {
             use_limit: Some(3),
             ..self.blank(7)
         };
-        self.repository.insert(&share, None).await.expect("insert");
+        self.repository
+            .insert(&share, &Self::some_text())
+            .await
+            .expect("insert");
 
         for spent in 1..=3 {
             assert!(
@@ -819,7 +837,10 @@ impl<'a> Shares<'a> {
 
     async fn a_view_is_not_a_retrieval(&self) {
         let share = self.blank(8);
-        self.repository.insert(&share, None).await.expect("insert");
+        self.repository
+            .insert(&share, &Self::some_text())
+            .await
+            .expect("insert");
 
         // An unlimited share is never refused.
         for _ in 0..5 {
@@ -848,7 +869,7 @@ impl<'a> Shares<'a> {
     async fn deleting_takes_the_content_with_it(&self) {
         let share = self.blank(9);
         self.repository
-            .insert(&share, Some(b"gone shortly".to_vec()))
+            .insert(&share, &Self::some_text())
             .await
             .expect("insert");
 
@@ -862,11 +883,11 @@ impl<'a> Shares<'a> {
         );
         assert!(
             self.repository
-                .inline_content(share.id)
+                .text_of(share.id)
                 .await
                 .expect("query")
                 .is_none(),
-            "ON DELETE CASCADE should have removed the content row"
+            "the content goes with the row"
         );
     }
 
@@ -887,7 +908,10 @@ impl<'a> Shares<'a> {
         };
         let live = self.blank(12);
         for share in [&expired, &exhausted, &live] {
-            self.repository.insert(share, None).await.expect("insert");
+            self.repository
+                .insert(share, &Self::some_text())
+                .await
+                .expect("insert");
         }
         // Spending the last retrieval is what makes it dead, and what stamps the
         // time its age is measured from.
