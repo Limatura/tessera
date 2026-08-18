@@ -30,6 +30,8 @@
 //! Every format is checked against an outside tool: `zipfile` and `tarfile` from
 //! Python's standard library, and 7-Zip itself for the third.
 
+use std::collections::HashSet;
+
 pub mod sevenz;
 pub mod tar;
 pub mod zip;
@@ -107,7 +109,7 @@ pub fn check_size(format: Format, total: u64) -> crate::error::Result<()> {
     Ok(())
 }
 
-/// Makes a name safe to put in an archive.
+/// Makes one name safe to put in an archive.
 ///
 /// # Why this exists
 ///
@@ -115,8 +117,7 @@ pub fn check_size(format: Format, total: u64) -> crate::error::Result<()> {
 /// is a path traversal against whatever unpacks it, and plenty of tools still
 /// honour one. Separators go, and so does anything that would leave the name
 /// empty.
-#[must_use]
-pub fn safe_name(raw: Option<&str>, position: usize) -> String {
+fn sanitise(raw: Option<&str>, position: usize) -> String {
     let cleaned: String = raw
         .unwrap_or("")
         .chars()
@@ -127,5 +128,104 @@ pub fn safe_name(raw: Option<&str>, position: usize) -> String {
         format!("file-{}", position + 1)
     } else {
         trimmed.to_owned()
+    }
+}
+
+/// The names a share's files take inside an archive, all of them different.
+///
+/// # Why the whole list at once
+///
+/// Two files in one share can have the same name — somebody dragging a photo
+/// from each of two folders is the ordinary way it happens, not a contrived
+/// one. An archive holding two entries called `photo.jpg` unpacks to one file:
+/// the second overwrites the first, and nothing reports it. Measured before
+/// this existed: two files in, one file out, no error anywhere.
+///
+/// So a repeat gets a number before its extension, the way a desktop does it.
+/// Doing that needs to see the other names, which one-name-at-a-time cannot.
+#[must_use]
+pub fn safe_names(raw: &[Option<&str>]) -> Vec<String> {
+    let mut taken: HashSet<String> = HashSet::new();
+    let mut out = Vec::with_capacity(raw.len());
+    for (position, name) in raw.iter().enumerate() {
+        let base = sanitise(*name, position);
+        let mut candidate = base.clone();
+        let mut attempt = 1u32;
+        while !taken.insert(candidate.to_lowercase()) {
+            // Folded before comparing: `Photo.jpg` and `photo.jpg` are two files
+            // on Linux and one on Windows and macOS, and the archive has to
+            // survive being unpacked on any of them.
+            candidate = numbered(&base, attempt);
+            attempt = attempt.saturating_add(1);
+        }
+        out.push(candidate);
+    }
+    out
+}
+
+/// `photo.jpg` and 1 becomes `photo (1).jpg`.
+fn numbered(base: &str, attempt: u32) -> String {
+    match base.rsplit_once('.') {
+        // A leading dot is the whole name of a dotfile, not an extension.
+        Some((stem, extension)) if !stem.is_empty() => format!("{stem} ({attempt}).{extension}"),
+        _ => format!("{base} ({attempt})"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A name from an uploader is a name an attacker chose.
+    #[test]
+    fn a_name_cannot_climb_out_of_the_archive() {
+        assert_eq!(safe_names(&[Some("../../etc/passwd")]), ["etcpasswd"]);
+        assert_eq!(safe_names(&[Some("a/b/c.txt")]), ["abc.txt"]);
+        assert_eq!(safe_names(&[Some("...")]), ["file-1"]);
+        assert_eq!(
+            safe_names(&[None, None, None]),
+            ["file-1", "file-2", "file-3"]
+        );
+        assert_eq!(safe_names(&[Some("holiday.jpg")]), ["holiday.jpg"]);
+    }
+
+    /// Two files with one name unpack to one file, silently. Measured before
+    /// this existed: two in, one out, no error.
+    #[test]
+    fn a_repeated_name_is_made_different() {
+        assert_eq!(
+            safe_names(&[Some("photo.jpg"), Some("photo.jpg"), Some("photo.jpg")]),
+            ["photo.jpg", "photo (1).jpg", "photo (2).jpg"]
+        );
+    }
+
+    /// `Photo.jpg` and `photo.jpg` are two files on Linux and one on Windows and
+    /// macOS. The archive has to survive being unpacked on any of them.
+    #[test]
+    fn a_repeat_that_differs_only_in_case_still_counts() {
+        assert_eq!(
+            safe_names(&[Some("Photo.JPG"), Some("photo.jpg")]),
+            ["Photo.JPG", "photo (1).jpg"]
+        );
+    }
+
+    /// A dotfile's leading dot is its name, not an extension.
+    #[test]
+    fn a_dotfile_keeps_its_shape() {
+        // The leading dot is stripped as a traversal guard, so this is really a
+        // check that the numbering does not produce `. (1)gitignore`.
+        assert_eq!(
+            safe_names(&[Some(".gitignore"), Some(".gitignore")]),
+            ["gitignore", "gitignore (1)"]
+        );
+    }
+
+    /// Names with no extension get the number at the end.
+    #[test]
+    fn a_name_without_an_extension_is_numbered_at_the_end() {
+        assert_eq!(
+            safe_names(&[Some("README"), Some("README")]),
+            ["README", "README (1)"]
+        );
     }
 }

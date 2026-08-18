@@ -162,3 +162,54 @@ async fn every_format_is_written_out_for_inspection() {
         std::fs::write(out.join(format!("sample.{format}")), &bytes).expect("write");
     }
 }
+
+/// Two files with one name must not unpack to one file.
+///
+/// A share is built from several separate additions, and those come from
+/// wherever the uploader had them — two folders each holding a `photo.jpg` is
+/// ordinary, and so is one phone's `IMG_0001.jpg` beside another's. Measured
+/// before the names were made different: two files in, one file out, and
+/// nothing anywhere said so.
+#[tokio::test]
+async fn files_sharing_a_name_all_survive_the_archive() {
+    let app = TestApp::ready().await;
+    let code = multi_file_share(
+        &app,
+        &[
+            ("photo.jpg", b"the first one".to_vec()),
+            ("photo.jpg", b"the second one".to_vec()),
+            ("Photo.JPG", b"the third one".to_vec()),
+        ],
+    )
+    .await;
+
+    for format in ["zip", "tar", "7z"] {
+        let (bytes, declared) = fetch(&app, &code, format).await;
+        assert_eq!(
+            declared,
+            Some(bytes.len() as u64),
+            "{format} predicted wrong"
+        );
+
+        // Every name appears in the archive's own bookkeeping, so an entry that
+        // was silently dropped or overwritten is a name that is not there. 7z
+        // writes its names in UTF-16, the other two in bytes.
+        for name in ["photo.jpg", "photo (1).jpg", "Photo (2).JPG"] {
+            let needle: Vec<u8> = if format == "7z" {
+                name.encode_utf16().flat_map(u16::to_le_bytes).collect()
+            } else {
+                name.as_bytes().to_vec()
+            };
+            assert!(
+                bytes.windows(needle.len()).any(|w| w == needle),
+                "{format} has no entry called {name}"
+            );
+        }
+        for body in ["the first one", "the second one", "the third one"] {
+            assert!(
+                bytes.windows(body.len()).any(|w| w == body.as_bytes()),
+                "{format} lost {body}"
+            );
+        }
+    }
+}

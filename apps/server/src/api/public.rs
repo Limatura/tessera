@@ -191,15 +191,10 @@ fn archived(content: &Content, format: Format) -> Option<u64> {
     if files.len() < 2 {
         return None;
     }
-    let listed: Vec<(String, u64)> = files
-        .iter()
-        .enumerate()
-        .map(|(position, file)| {
-            (
-                archive::safe_name(file.filename.as_deref(), position),
-                file.size_bytes,
-            )
-        })
+    let raw: Vec<Option<&str>> = files.iter().map(|f| f.filename.as_deref()).collect();
+    let listed: Vec<(String, u64)> = archive::safe_names(&raw)
+        .into_iter()
+        .zip(files.iter().map(|file| file.size_bytes))
         .collect();
     Some(format.archive_size(&listed))
 }
@@ -542,12 +537,17 @@ async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>
 /// gets the whole thing.
 async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) -> Result<Body> {
     let storage = Arc::clone(&state.storage);
-    let planned: Vec<(String, u64, Option<String>)> = files
-        .iter()
-        .enumerate()
-        .map(|(position, file)| {
+    // The same names `archived` predicted the size from. Two files can share a
+    // name, and an archive with two identical entries unpacks to one file — so
+    // the names are decided for the set, not one at a time, and both places have
+    // to decide them the same way.
+    let raw: Vec<Option<&str>> = files.iter().map(|f| f.filename.as_deref()).collect();
+    let planned: Vec<(String, u64, Option<String>)> = archive::safe_names(&raw)
+        .into_iter()
+        .zip(files.iter())
+        .map(|(name, file)| {
             (
-                archive::safe_name(file.filename.as_deref(), position),
+                name,
                 file.size_bytes,
                 file.storage.object_key().map(str::to_owned),
             )

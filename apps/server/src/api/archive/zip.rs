@@ -167,29 +167,6 @@ pub fn archive_size(names_and_sizes: &[(String, u64)]) -> u64 {
     entries + directory + 22
 }
 
-/// Makes a name safe to put in an archive.
-///
-/// # Why this exists
-///
-/// The name came from whoever uploaded the file. An entry called `../../etc/x`
-/// is a path traversal against whatever unpacks it, and plenty of tools still
-/// honour one. Separators go, and so does anything that would leave the name
-/// empty.
-#[must_use]
-pub fn safe_name(raw: Option<&str>, position: usize) -> String {
-    let cleaned: String = raw
-        .unwrap_or("")
-        .chars()
-        .filter(|c| !matches!(c, '/' | '\\' | '\0'))
-        .collect();
-    let trimmed = cleaned.trim().trim_start_matches('.');
-    if trimmed.is_empty() {
-        format!("file-{}", position + 1)
-    } else {
-        trimmed.to_owned()
-    }
-}
-
 /// CRC-32 over a whole slice.
 ///
 /// The 7z signature header needs one over bytes it already holds, where the
@@ -328,16 +305,6 @@ mod tests {
         let mut crc = Crc32::default();
         crc.update(b"123456789");
         assert_eq!(crc.finish(), 0xCBF4_3926);
-    }
-
-    /// A name from an uploader is a name an attacker chose.
-    #[test]
-    fn a_name_cannot_climb_out_of_the_archive() {
-        assert_eq!(safe_name(Some("../../etc/passwd"), 0), "etcpasswd");
-        assert_eq!(safe_name(Some("a/b/c.txt"), 0), "abc.txt");
-        assert_eq!(safe_name(Some("..."), 0), "file-1");
-        assert_eq!(safe_name(None, 2), "file-3");
-        assert_eq!(safe_name(Some("holiday.jpg"), 0), "holiday.jpg");
     }
 
     #[test]
