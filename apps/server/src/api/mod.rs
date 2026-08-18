@@ -296,6 +296,8 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::update_role, admin::delete_role))
         .routes(routes!(admin::list_permissions))
         .routes(routes!(admin::set_user_roles))
+        .routes(routes!(admin::list_shares))
+        .routes(routes!(admin::delete_share))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA

@@ -18,23 +18,35 @@
 //! it without knowing which switches an operator threw. `/capabilities` is what
 //! says which half of the software is live here.
 
+// `params(SharePageParams)` makes utoipa emit a fully-qualified path to the
+// type. The generated code lands outside the function it decorates, so the
+// suppression has to be module-wide; dropping `params(..)` instead would take
+// the paging parameters out of the contract, which is the point of declaring
+// them. Same arrangement as `super::shares`.
+#![expect(
+    unused_qualifications,
+    reason = "emitted by utoipa's params(..), not written here"
+)]
+
 use axum::{Json, extract::State, http::StatusCode};
+use object_store::{ObjectStoreExt as _, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{InviteId, Permission, PermissionSet, RoleId, UserId};
+use tessera_core::{InviteId, Permission, PermissionSet, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     api::{
         ADMIN_TAG,
         auth::AccountResponse,
-        extract::{ApiJson, ApiPath},
+        extract::{ApiJson, ApiPath, ApiQuery},
         tokens::format_timestamp,
     },
     auth::extract::CurrentUser,
     db::repository::{
         invite::Invite,
         role::{Role, RoleChange},
+        share::{Availability, Content, Share},
     },
     error::{Error, Result},
     state::AppState,
@@ -1071,4 +1083,181 @@ fn refuse_escalation(current: &CurrentUser, wanted: &PermissionSet) -> Result<()
         current.require(permission)?;
     }
     Ok(())
+}
+
+/// One share, as an administrator sees it.
+///
+/// Deliberately not the same shape a person sees of their own: this listing
+/// exists to find things that need removing, so it carries who uploaded it and
+/// how big it is, and it never carries the retrieval code. An administrator who
+/// can read every code can open every share, and that is a different power from
+/// being able to delete one.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AdminShareResponse {
+    /// Stable identifier, for [`delete_share`].
+    #[schema(example = "01K1ZQK9V8QF5S3T4M2N6P7R8S")]
+    pub id: String,
+    /// Whether it holds a file or text.
+    #[schema(example = "file")]
+    pub kind: String,
+    /// What the uploader called it, when it is a file.
+    pub filename: Option<String>,
+    /// How many bytes it holds.
+    pub size_bytes: u64,
+    /// Who uploaded it, or `null` when nobody was signed in.
+    ///
+    /// An account that has since been deleted still appears here — the row it
+    /// left behind is what keeps this answerable. `null` means the upload was
+    /// anonymous, which is a different fact and worth telling apart.
+    pub owner_id: Option<String>,
+    /// Whether a visitor could still open it.
+    pub active: bool,
+    /// When it was uploaded, RFC 3339.
+    pub created_at: String,
+    /// When it stops being served, RFC 3339, or `null` if it never does.
+    pub expires_at: Option<String>,
+}
+
+impl AdminShareResponse {
+    fn build(share: &Share, content: &Content, now: OffsetDateTime) -> Self {
+        Self {
+            id: share.id.to_string(),
+            kind: share.kind.as_str().to_owned(),
+            filename: content.filename.clone(),
+            size_bytes: content.size_bytes,
+            owner_id: share.user_id.map(|id| id.to_string()),
+            active: matches!(share.availability_at(now), Availability::Available),
+            created_at: format_timestamp(share.created_at),
+            expires_at: share.expires_at.map(format_timestamp),
+        }
+    }
+}
+
+/// A page of shares.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AdminSharePage {
+    /// The shares on this page.
+    pub shares: Vec<AdminShareResponse>,
+    /// How many exist in total, so a client can render pagination.
+    pub total: u64,
+}
+
+/// Which slice of the listing to return.
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct SharePageParams {
+    /// How many to return. Capped, and defaulted when omitted.
+    #[serde(default)]
+    pub limit: Option<u64>,
+    /// How many to skip.
+    #[serde(default)]
+    pub offset: Option<u64>,
+}
+
+/// The most shares one request will return.
+const MAX_SHARE_PAGE: u64 = 200;
+/// How many it returns when the caller does not say.
+const DEFAULT_SHARE_PAGE: u64 = 50;
+
+/// Lists every share on the instance, newest first.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not read every
+/// share or used a bearer token, `404` when this instance has no
+/// administration.
+#[utoipa::path(
+    get,
+    path = "/admin/shares",
+    operation_id = "list_all_shares",
+    tag = ADMIN_TAG,
+    params(SharePageParams),
+    responses(
+        (status = 200, description = "A page of shares", body = AdminSharePage),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not read every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn list_shares(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiQuery(params): ApiQuery<SharePageParams>,
+) -> Result<Json<AdminSharePage>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesReadAny)?;
+
+    let limit = params
+        .limit
+        .unwrap_or(DEFAULT_SHARE_PAGE)
+        .min(MAX_SHARE_PAGE);
+    let offset = params.offset.unwrap_or(0);
+    let shares = state.shares.list_all(limit, offset).await?;
+    let contents = state.shares.contents_for(&shares).await?;
+    let now = OffsetDateTime::now_utc();
+
+    Ok(Json(AdminSharePage {
+        shares: shares
+            .iter()
+            .filter_map(|share| {
+                contents
+                    .get(&share.id)
+                    .map(|content| AdminShareResponse::build(share, content, now))
+            })
+            .collect(),
+        total: state.shares.count_all().await?,
+    }))
+}
+
+/// Removes any share, whoever uploaded it.
+///
+/// # Why this exists
+///
+/// The ordinary delete route asks whether the caller owns the share. An upload
+/// from an account that has since been deleted is owned by nobody, so nothing
+/// could remove it — it kept serving its content, kept its place in the storage
+/// quota, and was never swept if it had no expiry and no use limit. This is the
+/// only way to reach one.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not delete every
+/// share or used a bearer token, `404` when no share has that identifier.
+#[utoipa::path(
+    delete,
+    path = "/admin/shares/{id}",
+    operation_id = "delete_any_share",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which share")),
+    responses(
+        (status = 204, description = "It is gone"),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not delete every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No such share", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn delete_share(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+) -> Result<StatusCode> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesDeleteAny)?;
+
+    let share_id = ShareId::parse(&id).map_err(|_| Error::NotFound)?;
+    let Some(share) = state.shares.find_by_id(share_id).await? else {
+        return Err(Error::NotFound);
+    };
+    let content = state.shares.content_of(&share).await?;
+
+    // The object first, for the same reason the owner's own delete does it in
+    // this order: a row without its object is a broken share, an object without
+    // its row is an orphan a sweep can still find by listing.
+    if let Some(key) = content.storage.object_key() {
+        state.storage.delete(&ObjectPath::from(key)).await?;
+    }
+    state.shares.delete(share_id).await?;
+    tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
+    Ok(StatusCode::NO_CONTENT)
 }
