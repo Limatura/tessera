@@ -25,6 +25,8 @@
     reason = "emitted by utoipa's params(..), not written here"
 )]
 
+use std::time::Duration;
+
 use axum::{
     Json,
     body::Body,
@@ -627,9 +629,9 @@ async fn ingest_into(
     let mut size_bytes: u64 = 0;
     let mut key: Option<String> = None;
 
-    while let Some(frame) = body.frame().await {
-        let frame =
-            frame.map_err(|error| Error::bad_request(format!("body ended early: {error}")))?;
+    let stall = state.config.server.upload_stall();
+
+    while let Some(frame) = next_frame(&mut body, stall).await? {
         let Ok(chunk) = frame.into_data() else {
             // Trailers carry no content; a body that is only trailers is empty.
             continue;
@@ -714,6 +716,25 @@ async fn ingest_into(
             size_bytes,
             inline: Some(buffered),
         }),
+    }
+}
+
+/// The next piece of the body, or `None` at its end.
+///
+/// The wait is bounded by how long the connection may go silent, not by how
+/// long the upload may take: a large file over a slow line is answering all the
+/// way through, and a client that stopped sending is not answering at all. This
+/// is the only place that can tell those apart — by the time a request-wide
+/// budget expires, both look the same.
+///
+/// See `api::timeout` for why the wall-clock budget is not applied here.
+async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body::Frame<Bytes>>> {
+    match tokio::time::timeout(stall, body.frame()).await {
+        Ok(Some(frame)) => frame
+            .map(Some)
+            .map_err(|error| Error::bad_request(format!("body ended early: {error}"))),
+        Ok(None) => Ok(None),
+        Err(_) => Err(Error::Timeout),
     }
 }
 

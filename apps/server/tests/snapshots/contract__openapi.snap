@@ -439,6 +439,7 @@ expression: document
           "conflict",
           "too_many_requests",
           "insufficient_storage",
+          "timeout",
           "unavailable",
           "internal"
         ],

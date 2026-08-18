@@ -477,7 +477,25 @@ pub struct ServerConfig {
     /// TCP port to bind.
     pub port: u16,
     /// Per-request wall-clock budget, in seconds.
+    ///
+    /// Does not apply to upload routes — see `upload_stall_secs` for why they
+    /// need a different question asked of them.
     pub request_timeout_secs: u64,
+
+    /// How long an upload may go without a byte arriving, in seconds.
+    ///
+    /// # Why uploads are not given a wall-clock budget
+    ///
+    /// One number cannot be both. To let a 5 GB upload finish over a 20 Mbit/s
+    /// line it would have to be 2400 seconds, and that is also how long a client
+    /// that connects and then sends nothing would hold a slot. The two demands
+    /// are three orders of magnitude apart, so any single value is wrong for one
+    /// of them.
+    ///
+    /// This asks the question that separates them: is the other end still
+    /// sending? A 5 GB upload passes for as long as it takes, because every
+    /// second of it moves bytes; a dead connection is dropped in this many.
+    pub upload_stall_secs: u64,
     /// Maximum accepted request body, in bytes.
     pub max_body_bytes: usize,
     /// Origins allowed to call the API from a browser. Empty means same-origin
@@ -604,6 +622,7 @@ impl Default for ServerConfig {
             host: IpAddr::from([127, 0, 0, 1]),
             port: 8787,
             request_timeout_secs: 30,
+            upload_stall_secs: 30,
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
             cors_allowed_origins: Vec::new(),
@@ -750,6 +769,12 @@ impl ServerConfig {
     #[must_use]
     pub const fn request_timeout(&self) -> Duration {
         Duration::from_secs(self.request_timeout_secs)
+    }
+
+    /// How long an upload may go without a byte, as a [`Duration`].
+    #[must_use]
+    pub const fn upload_stall(&self) -> Duration {
+        Duration::from_secs(self.upload_stall_secs)
     }
 
     /// The proxies this instance will be spoken for by.
@@ -1147,6 +1172,12 @@ impl ServerConfig {
                 reason: "must be at least 1 second".to_owned(),
             });
         }
+        if self.upload_stall_secs == 0 {
+            return Err(ConfigError::Invalid {
+                field: "server.upload_stall_secs",
+                reason: "must be at least 1 second".to_owned(),
+            });
+        }
         if self.max_body_bytes == 0 {
             return Err(ConfigError::Invalid {
                 field: "server.max_body_bytes",
@@ -1381,6 +1412,7 @@ mod tests {
     #[case::zero_timeout("server.request_timeout_secs", |c: &mut Config| {
         c.server.request_timeout_secs = 0;
     })]
+    #[case::zero_stall("server.upload_stall_secs", |c: &mut Config| c.server.upload_stall_secs = 0)]
     #[case::zero_body("server.max_body_bytes", |c: &mut Config| c.server.max_body_bytes = 0)]
     #[case::bad_origin("server.cors_allowed_origins", |c: &mut Config| {
         c.server.cors_allowed_origins = vec!["example.com".to_owned()];

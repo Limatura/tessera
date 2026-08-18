@@ -43,6 +43,7 @@ pub mod preview;
 pub mod public;
 pub mod sessions;
 pub mod shares;
+pub mod timeout;
 pub mod tokens;
 
 use std::{sync::Arc, time::Duration};
@@ -50,7 +51,7 @@ use std::{sync::Arc, time::Duration};
 use axum::{
     Json, Router,
     extract::DefaultBodyLimit,
-    http::{HeaderName, HeaderValue, Method, Request, StatusCode, header},
+    http::{HeaderName, HeaderValue, Method, Request, header},
 };
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -60,7 +61,6 @@ use tower_http::{
     },
     cors::{AllowOrigin, CorsLayer},
     request_id::{MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer},
-    timeout::TimeoutLayer,
     trace::TraceLayer,
 };
 use ulid::Ulid;
@@ -313,6 +313,7 @@ pub fn build(state: AppState) -> Router {
     // Cloned before the router takes ownership: the meter is a `from_fn_with_state`
     // layer applied after `with_state`, so it needs its own handle.
     let metering_state = state.clone();
+    let timeout_state = state.clone();
     let (routes, api) = api_routes().split_for_parts();
 
     // The contract is served unconditionally. Turning the browsable docs off is
@@ -355,9 +356,12 @@ pub fn build(state: AppState) -> Router {
         ))
         .layer(DefaultBodyLimit::max(config.server.max_body_bytes))
         .layer(cors(&config))
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::REQUEST_TIMEOUT,
-            config.server.request_timeout(),
+        // Reads the budget per request rather than holding the value it was
+        // built with, and exempts the routes that receive a file — a wall-clock
+        // budget answers the wrong question about those. See `timeout`.
+        .layer(axum::middleware::from_fn_with_state(
+            timeout_state,
+            timeout::enforce,
         ))
         // Outside the timeout, so a panicking handler becomes a 500 rather than a
         // dropped connection.

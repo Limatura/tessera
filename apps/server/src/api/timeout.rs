@@ -1,0 +1,100 @@
+//! How long a request is given, and why uploads are asked a different question.
+//!
+//! # The two questions
+//!
+//! Every route except the ones that receive a file gets a wall-clock budget:
+//! from the moment the request arrives to the moment a response is produced.
+//! That is the right shape for work whose duration does not depend on the
+//! caller's line — a query, a login, a listing.
+//!
+//! An upload's duration depends on almost nothing else. A wall-clock budget
+//! large enough for the biggest file an operator allows, sent over the slowest
+//! line they expect, is also how long a client that connects and then sends
+//! nothing gets to hold a slot. Measured on the default settings before this
+//! existed: a 4 KiB body dribbled out over two seconds was answered `408` at
+//! exactly the one-second budget it was given. Size had nothing to do with it.
+//!
+//! So uploads are asked whether the other end is still sending, not how long
+//! they have been going. That question lives in the body loop, next to the only
+//! thing that can answer it — see `shares::ingest_into`.
+//!
+//! # Why a middleware and not `TimeoutLayer`
+//!
+//! `TimeoutLayer` is built once, from the configured value, and holds it. This
+//! reads the setting per request, which is what lets an operator change it
+//! without a restart (#110), and is also the only place that can see which
+//! route a request is for before deciding whether to apply a budget at all.
+
+use axum::{
+    extract::{Request, State},
+    http::Method,
+    middleware::Next,
+    response::{IntoResponse as _, Response},
+};
+
+use crate::{error::Error, state::AppState};
+
+/// Applies the wall-clock budget, except to the routes that receive a file.
+pub async fn enforce(State(state): State<AppState>, request: Request, next: Next) -> Response {
+    if carries_an_upload(request.method(), request.uri().path()) {
+        return next.run(request).await;
+    }
+    let budget = state.config.server.request_timeout();
+    (tokio::time::timeout(budget, next.run(request)).await)
+        .unwrap_or_else(|_| Error::Timeout.into_response())
+}
+
+/// Whether this request's body is a file being sent to us.
+///
+/// Matched on the path rather than on `MatchedPath`, which axum fills in during
+/// routing and is therefore not there yet: this layer wraps the router. The two
+/// routes are named exactly, because `POST /shares/{code}/unlock` and
+/// `POST /shares/{code}/events` sit under the same prefix and are ordinary
+/// requests that should keep their budget.
+fn carries_an_upload(method: &Method, path: &str) -> bool {
+    if method != Method::POST {
+        return false;
+    }
+    let Some(rest) = path.strip_prefix("/api/v1/shares") else {
+        return false;
+    };
+    // `POST /shares` creates a share from its first file; `POST
+    // /shares/{code}/files` adds the rest.
+    rest.is_empty() || rest == "/" || rest.strip_suffix("/files").is_some_and(|c| !c.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_two_routes_that_receive_a_file_are_exempt() {
+        assert!(carries_an_upload(&Method::POST, "/api/v1/shares"));
+        assert!(carries_an_upload(
+            &Method::POST,
+            "/api/v1/shares/abc123/files"
+        ));
+    }
+
+    /// These share the prefix and are ordinary requests. Exempting them would
+    /// hand an anonymous caller a socket that is never reclaimed.
+    #[test]
+    fn the_other_routes_under_the_same_prefix_keep_their_budget() {
+        for path in [
+            "/api/v1/shares/abc123/unlock",
+            "/api/v1/shares/abc123/events",
+            "/api/v1/shares/abc123",
+            "/api/v1/shares/files",
+        ] {
+            assert!(!carries_an_upload(&Method::POST, path), "{path}");
+        }
+    }
+
+    /// Listing shares is not uploading one, whatever the path says.
+    #[test]
+    fn only_post_is_an_upload() {
+        for method in [Method::GET, Method::DELETE, Method::PUT, Method::HEAD] {
+            assert!(!carries_an_upload(&method, "/api/v1/shares"), "{method}");
+        }
+    }
+}
