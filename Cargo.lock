@@ -3984,6 +3984,7 @@ dependencies = [
  "criterion",
  "figment",
  "futures-util",
+ "http-body",
  "http-body-util",
  "insta",
  "ipnet",

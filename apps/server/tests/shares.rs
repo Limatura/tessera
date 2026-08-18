@@ -2298,3 +2298,112 @@ async fn a_reaped_share_reads_as_gone_from_the_new_table_as_well() {
         "the new table still points at a deleted object"
     );
 }
+
+/// What a share sent is counted as it goes, not assumed from its size.
+#[tokio::test]
+async fn a_completed_download_counts_what_it_sent() {
+    let app = TestApp::ready().await;
+    let content = vec![7u8; 40 * 1024];
+    let share = upload(&app, "?filename=big.bin", &content).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let served = || async {
+        app.state
+            .shares
+            .find_by_id(id)
+            .await
+            .expect("query")
+            .expect("the share")
+            .bytes_served
+    };
+    assert_eq!(served().await, 0);
+
+    for _ in 0..2 {
+        let response = expect_status(
+            app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+                .await,
+            StatusCode::OK,
+        )
+        .await;
+        // The body has to be consumed for anything to have been sent.
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read");
+        assert_eq!(body.len(), content.len());
+    }
+
+    // The write is spawned from the body being dropped, so it lands just after.
+    for _ in 0..50 {
+        if served().await == u64::try_from(content.len() * 2).expect("a size") {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_eq!(
+        served().await,
+        u64::try_from(content.len() * 2).expect("a size"),
+        "two whole downloads"
+    );
+}
+
+/// A transfer that stops half way counts the half that went.
+///
+/// This is the whole reason the count lives in the body rather than being added
+/// on at the start: adding the size per request would report a full download
+/// every time somebody clicked and changed their mind.
+#[tokio::test]
+async fn an_abandoned_download_counts_only_what_left() {
+    use http_body::Body as _;
+
+    let app = TestApp::ready().await;
+    let content = vec![7u8; 512 * 1024];
+    let share = upload(&app, "?filename=big.bin", &content).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let response = expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    let mut body = response.into_body();
+    let mut taken = 0usize;
+    // One frame, then walk away.
+    if let Some(Ok(frame)) =
+        std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx)).await
+        && let Some(data) = frame.data_ref()
+    {
+        taken = data.len();
+    }
+    drop(body);
+
+    let served = || async {
+        app.state
+            .shares
+            .find_by_id(id)
+            .await
+            .expect("query")
+            .expect("the share")
+            .bytes_served
+    };
+    for _ in 0..50 {
+        if served().await > 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+
+    let counted = served().await;
+    assert_eq!(
+        counted,
+        u64::try_from(taken).expect("a size"),
+        "only what actually left"
+    );
+    assert!(
+        counted < u64::try_from(content.len()).expect("a size"),
+        "the whole file must not be counted: {counted} of {}",
+        content.len()
+    );
+}

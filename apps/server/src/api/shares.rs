@@ -334,6 +334,7 @@ pub async fn create(
         og_config: None,
         management_token_hash: management_secret.as_ref().map(Secret::digest),
         view_count: 0,
+        bytes_served: 0,
         last_accessed_at: None,
         created_at: now,
         updated_at: now,

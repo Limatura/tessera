@@ -236,6 +236,7 @@ mod tests {
             og_config: None,
             management_token_hash: None,
             view_count: 0,
+            bytes_served: 0,
             last_accessed_at: None,
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),

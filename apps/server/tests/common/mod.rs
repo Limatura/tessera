@@ -662,6 +662,7 @@ impl<'a> Shares<'a> {
             og_config: None,
             management_token_hash: None,
             view_count: 0,
+            bytes_served: 0,
             last_accessed_at: None,
             created_at: self.now,
             updated_at: self.now,

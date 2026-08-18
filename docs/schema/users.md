@@ -135,6 +135,7 @@ erDiagram
   TEXT last_accessed_at
   TEXT created_at
   TEXT updated_at
+  INTEGER bytes_served
 }
 "password_reset_tokens" {
   TEXT id PK

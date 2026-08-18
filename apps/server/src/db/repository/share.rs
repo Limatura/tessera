@@ -255,6 +255,11 @@ pub struct Share {
     pub management_token_hash: Option<String>,
     /// How many times the share page was looked at. Statistics only.
     pub view_count: u32,
+    /// How many bytes this share has sent out.
+    ///
+    /// Bytes that left this process, not bytes that reached anybody — see the
+    /// migration for what a proxy in front does to the difference.
+    pub bytes_served: u64,
     /// When the share was last touched.
     pub last_accessed_at: Option<OffsetDateTime>,
 
@@ -341,6 +346,7 @@ impl Share {
             og_config: model.og_config,
             management_token_hash: model.management_token_hash,
             view_count: unsigned(model.view_count),
+            bytes_served: u64::try_from(model.bytes_served).unwrap_or(0),
             last_accessed_at: model.last_accessed_at,
 
             created_at: model.created_at,
@@ -381,6 +387,7 @@ impl Share {
             og_config: Set(self.og_config.clone()),
             management_token_hash: Set(self.management_token_hash.clone()),
             view_count: Set(signed(self.view_count)),
+            bytes_served: Set(i64::try_from(self.bytes_served).unwrap_or(i64::MAX)),
             last_accessed_at: Set(self.last_accessed_at),
 
             created_at: Set(self.created_at),
@@ -938,6 +945,49 @@ impl ShareRepository {
             .exec(&self.connection)
             .await?;
         Ok(result.rows_affected > 0)
+    }
+
+    /// How much this instance has sent out, over every share it still has.
+    ///
+    /// Shares that have been swept take their tally with them, so this is "what
+    /// the rows still here have sent", not "what this instance has ever sent".
+    /// Keeping the latter would mean a counter that survives its subject, and
+    /// nothing here has one of those yet.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn total_bytes_served(&self) -> Result<u64, ShareRepositoryError> {
+        let total: Option<i64> = ShareEntity::find()
+            .select_only()
+            .column_as(share::Column::BytesServed.sum(), "total")
+            .into_tuple()
+            .one(&self.connection)
+            .await?
+            .flatten();
+        Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
+    }
+
+    /// Adds to what a share has sent out.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn add_bytes_served(
+        &self,
+        id: ShareId,
+        bytes: u64,
+    ) -> Result<(), ShareRepositoryError> {
+        let bytes = i64::try_from(bytes).unwrap_or(i64::MAX);
+        ShareEntity::update_many()
+            .col_expr(
+                share::Column::BytesServed,
+                Expr::col(share::Column::BytesServed).add(bytes),
+            )
+            .filter(share::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(())
     }
 
     /// Records that the share page was looked at.

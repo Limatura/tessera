@@ -8,7 +8,7 @@
 | [users](users.md) | 12 | 帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。 | table |
 | [sessions](sessions.md) | 9 | 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。 | table |
 | [api_tokens](api_tokens.md) | 9 | 給程式用的憑證。只存摘要,原始值發出去之後就不再存在。 | table |
-| [shares](shares.md) | 22 | 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。 | table |
+| [shares](shares.md) | 23 | 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。 | table |
 | [share_contents](share_contents.md) | 2 | 舊的內容欄位,正在退場。內容改由上面兩張表持有,這張表等讀取端完全切換之後會刪掉。 | table |
 | [share_tickets](share_tickets.md) | 5 | 輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。 | table |
 | [password_reset_tokens](password_reset_tokens.md) | 6 | 重設密碼的一次性連結。 | table |
@@ -104,6 +104,7 @@ erDiagram
   TEXT last_accessed_at
   TEXT created_at
   TEXT updated_at
+  INTEGER bytes_served
 }
 "share_contents" {
   TEXT share_id PK

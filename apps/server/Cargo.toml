@@ -219,6 +219,7 @@ bytes = "1"
 # time. The alternative is `futures-util` for `StreamExt::next`, which is a much
 # larger crate for one method — this one is a thin layer over the `http-body`
 # traits axum already uses.
+http-body = "1"
 http-body-util = "0.1"
 ulid = { workspace = true }
 time = { workspace = true }
@@ -237,6 +238,7 @@ figment = { version = "0.10", features = ["test"] }
 # Only the tests need to drain a stream — `object_store::list` returns one. The
 # server itself deliberately avoids this crate; see the `http-body-util` note.
 futures-util = "0.3"
+http-body = "1"
 http-body-util = "0.1"
 insta = { version = "1.48", features = ["json", "redactions"] }
 proptest = "1.11"
