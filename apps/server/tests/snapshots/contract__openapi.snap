@@ -105,8 +105,14 @@ expression: document
               "null"
             ]
           },
+          "file_count": {
+            "description": "How many files it holds. Zero for text.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
           "filename": {
-            "description": "What the uploader called it, when it is a file.",
+            "description": "What the uploader called it, when the share holds exactly one file.\n\n`null` for text and for a share with several — see `file_count`.",
             "type": [
               "string",
               "null"
@@ -139,6 +145,7 @@ expression: document
         "required": [
           "id",
           "kind",
+          "file_count",
           "size_bytes",
           "active",
           "created_at"
@@ -623,12 +630,12 @@ expression: document
               "null"
             ]
           },
-          "filename": {
-            "description": "Original file name.",
-            "type": [
-              "string",
-              "null"
-            ]
+          "files": {
+            "description": "Every file this share holds. Empty for text and for a locked share.",
+            "items": {
+              "$ref": "#/components/schemas/SharedFile"
+            },
+            "type": "array"
           },
           "has_password": {
             "description": "Whether a password must be presented before anything else is revealed.",
@@ -680,7 +687,8 @@ expression: document
           "code",
           "kind",
           "has_password",
-          "unlocked"
+          "unlocked",
+          "files"
         ],
         "type": "object"
       },
@@ -967,12 +975,12 @@ expression: document
               "null"
             ]
           },
-          "filename": {
-            "description": "Original file name.",
-            "type": [
-              "string",
-              "null"
-            ]
+          "files": {
+            "description": "Every file this share holds. Empty for text and for a locked share.",
+            "items": {
+              "$ref": "#/components/schemas/SharedFile"
+            },
+            "type": "array"
           },
           "has_password": {
             "description": "Whether a password must be presented to retrieve it.",
@@ -1055,12 +1063,43 @@ expression: document
           "code",
           "path",
           "kind",
+          "files",
           "size_bytes",
           "has_password",
           "use_count",
           "view_count",
           "copy_count",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "SharedFile": {
+        "description": "One file in a share, as the API describes it.",
+        "properties": {
+          "filename": {
+            "description": "What it was uploaded as.",
+            "example": "holiday.jpg",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "description": "Its position in the share, from zero.\n\nSent rather than left to the array's order: a client that sorts or\nfilters the list still has the uploader's order to put it back in.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size_bytes": {
+            "description": "How many bytes it holds.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "size_bytes"
         ],
         "type": "object"
       },
@@ -3656,6 +3695,124 @@ expression: document
           {}
         ],
         "summary": "Records something a client saw that the server could not.",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/api/v1/shares/{code}/files": {
+      "post": {
+        "description": "# Why files arrive one at a time\n\nOne request carrying five files is one request that loses five when it drops\nat the fourth — which is the case somebody uploading a folder of photographs\non a home connection hits, not a theoretical one. A file that fails here is\nretried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an upload interrupted\nhalf way leaves a share holding what did arrive rather than nothing at all.\n\nThe cost is that somebody who opened the link during the upload would see\npart of it. The link is handed out after the upload, by the person doing it.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when the instance is out of room.",
+        "operationId": "add_share_file",
+        "parameters": [
+          {
+            "description": "The share to add to",
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "What to call this file.",
+            "example": "holiday.jpg",
+            "in": "query",
+            "name": "filename",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "items": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "description": "The file",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            },
+            "description": "The share as it now stands"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not yours"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such share"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That share holds text"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Body exceeds the configured limit"
+          },
+          "507": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance is out of room"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Adds another file to a share.",
         "tags": [
           "shares"
         ]

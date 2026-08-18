@@ -59,6 +59,19 @@ impl ShareKind {
     }
 }
 
+/// One file being added to a share.
+#[derive(Debug, Clone)]
+pub struct NewFile {
+    /// What it was uploaded as.
+    pub filename: Option<String>,
+    /// The media type the uploader claimed. Recorded, never echoed.
+    pub content_type: Option<String>,
+    /// How many bytes.
+    pub size_bytes: u64,
+    /// Where those bytes are.
+    pub storage: StorageLocation,
+}
+
 /// What a share is being created with.
 ///
 /// # Why the details are an argument and not fields on [`Share`]
@@ -73,16 +86,12 @@ impl ShareKind {
 #[derive(Debug, Clone)]
 pub enum NewContent {
     /// One file, wherever its bytes ended up.
-    File {
-        /// What it was uploaded as.
-        filename: Option<String>,
-        /// The media type the uploader claimed. Recorded, never echoed.
-        content_type: Option<String>,
-        /// How many bytes.
-        size_bytes: u64,
-        /// Where those bytes are.
-        storage: StorageLocation,
-    },
+    ///
+    /// A share is created with one and grown with
+    /// [`append_file`](ShareRepository::append_file) — rather than created with
+    /// a list — because the files arrive in separate requests. One request
+    /// carrying five means losing five when it drops at the fourth.
+    File(NewFile),
     /// Text, which is its own row.
     Text {
         /// Syntax-highlighting hint.
@@ -92,76 +101,116 @@ pub enum NewContent {
     },
 }
 
-/// What a share holds, as the tables that own content describe it.
-///
-/// One shape for both kinds rather than an enum: every reader here wants the
-/// same four answers — what it is called, what type it is, how big it is, where
-/// the bytes are — and which fields are `None` follows from the kind, which the
-/// share already states. An enum would make each of those four a `match` at
-/// sixty call sites to say the same thing.
-///
-/// #42 turns files into many parts. This is the first part, which is what every
-/// current reader means by "the file".
+/// One file in a share.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Content {
-    /// What it was uploaded as. Always `None` for text.
+pub struct FilePart {
+    /// What it was uploaded as.
     pub filename: Option<String>,
-    /// The media type, when one was worked out. Always `None` for text.
+    /// The media type, when one was worked out. Recorded, never echoed.
     pub content_type: Option<String>,
-    /// What it is written in, when the uploader said. Always `None` for a file.
-    pub language: Option<String>,
     /// How many bytes.
     pub size_bytes: u64,
     /// Where those bytes are.
     pub storage: StorageLocation,
 }
 
+/// The text of a share.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextPart {
+    /// Syntax-highlighting hint.
+    pub language: Option<String>,
+    /// How many bytes the text is.
+    pub size_bytes: u64,
+}
+
+/// What a share holds, as the tables that own content describe it.
+///
+/// # Why an enum now
+///
+/// It was one flat struct while a share held exactly one thing, and the fields
+/// that did not apply were `None`. A share can hold several files, and "several"
+/// is not something optional fields express — a reader that wants the second
+/// file has nowhere to ask.
+///
+/// The three cases are the three a reader has to handle differently: stream one
+/// object, hand over a row, or explain that there is nothing left.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Content {
+    /// One or more files, in the order the uploader chose.
+    Files(Vec<FilePart>),
+    /// Text, which is its own row.
+    Text(TextPart),
+    /// The content has been removed; only the share survives.
+    Gone,
+}
+
 impl Content {
-    fn from_file(model: &file_share::Model) -> Result<Self, ShareRepositoryError> {
-        let fail = |source| CorruptRow {
-            id: model.share_id.clone(),
-            source,
-        };
-        Ok(Self {
-            filename: model.filename.clone(),
-            content_type: model.content_type.clone(),
-            language: None,
-            size_bytes: u64::try_from(model.size_bytes).map_err(|_| {
-                fail(DomainError::Malformed {
-                    field: "size_bytes",
-                    reason: "must not be negative",
-                })
-            })?,
-            storage: StorageLocation::parse(&model.storage, model.object_key.clone())
-                .map_err(fail)?,
-        })
+    /// How many bytes the whole share holds.
+    #[must_use]
+    pub fn size_bytes(&self) -> u64 {
+        match self {
+            Self::Files(files) => files.iter().map(|file| file.size_bytes).sum(),
+            Self::Text(text) => text.size_bytes,
+            Self::Gone => 0,
+        }
     }
 
-    /// A share whose content has been removed.
+    /// The one file, when there is exactly one.
     ///
-    /// Every reader already handles [`StorageLocation::Gone`] — it is what a
-    /// reaped share looks like — so a row without its content answers the same
-    /// way rather than needing a state of its own.
-    const fn gone() -> Self {
-        Self {
-            filename: None,
-            content_type: None,
-            language: None,
-            size_bytes: 0,
-            storage: StorageLocation::Gone,
+    /// The case worth naming: a share with one file is downloaded as that file,
+    /// resumable and under its own name. Two or more become an archive, which
+    /// is neither.
+    #[must_use]
+    pub fn single_file(&self) -> Option<&FilePart> {
+        match self {
+            Self::Files(files) if files.len() == 1 => files.first(),
+            _ => None,
         }
+    }
+
+    /// Every file, or nothing for text.
+    #[must_use]
+    pub fn files(&self) -> &[FilePart] {
+        match self {
+            Self::Files(files) => files,
+            Self::Text(_) | Self::Gone => &[],
+        }
+    }
+
+    fn from_files(models: &[file_share::Model]) -> Result<Self, ShareRepositoryError> {
+        if models.is_empty() {
+            return Ok(Self::Gone);
+        }
+        let parts = models
+            .iter()
+            .map(|model| {
+                let fail = |source| CorruptRow {
+                    id: model.share_id.clone(),
+                    source,
+                };
+                Ok(FilePart {
+                    filename: model.filename.clone(),
+                    content_type: model.content_type.clone(),
+                    size_bytes: u64::try_from(model.size_bytes).map_err(|_| {
+                        fail(DomainError::Malformed {
+                            field: "size_bytes",
+                            reason: "must not be negative",
+                        })
+                    })?,
+                    storage: StorageLocation::parse(&model.storage, model.object_key.clone())
+                        .map_err(fail)?,
+                })
+            })
+            .collect::<Result<Vec<_>, ShareRepositoryError>>()?;
+        Ok(Self::Files(parts))
     }
 
     fn from_text(model: &text_share::Model) -> Self {
-        Self {
-            filename: None,
-            content_type: None,
+        Self::Text(TextPart {
             language: model.language.clone(),
-            // The row is the content, so its length is the size and it is in the
-            // database by definition. Nothing to reconcile with a column.
+            // The row is the content, so its length is the size.
             size_bytes: u64::try_from(model.content.len()).unwrap_or(u64::MAX),
-            storage: StorageLocation::Inline,
-        }
+        })
     }
 }
 
@@ -504,12 +553,7 @@ impl ShareRepository {
             .await?;
 
         match content {
-            NewContent::File {
-                filename,
-                content_type,
-                size_bytes,
-                storage,
-            } => {
+            NewContent::File(file) => {
                 FileShareEntity::insert(file_share::ActiveModel {
                     // Derived from the share rather than generated, so that a
                     // share with one file keeps an identifier somebody can
@@ -517,11 +561,11 @@ impl ShareRepository {
                     id: Set(share.id.to_string()),
                     share_id: Set(share.id.to_string()),
                     position: Set(0),
-                    filename: Set(filename.clone()),
-                    content_type: Set(content_type.clone()),
-                    size_bytes: Set(i64::try_from(*size_bytes).unwrap_or(i64::MAX)),
-                    storage: Set(storage.as_str().to_owned()),
-                    object_key: Set(storage.object_key().map(str::to_owned)),
+                    filename: Set(file.filename.clone()),
+                    content_type: Set(file.content_type.clone()),
+                    size_bytes: Set(i64::try_from(file.size_bytes).unwrap_or(i64::MAX)),
+                    storage: Set(file.storage.as_str().to_owned()),
+                    object_key: Set(file.storage.object_key().map(str::to_owned)),
                     created_at: Set(share.created_at),
                 })
                 .exec(&self.connection)
@@ -579,6 +623,46 @@ impl ShareRepository {
             .await?)
     }
 
+    /// Adds one more file to a share.
+    ///
+    /// # Why the position is worked out here
+    ///
+    /// It is the count of what is already there, and reading it in the handler
+    /// would leave a window for two uploads to pick the same one. Deciding it
+    /// in the same statement that writes the row is what stops two files
+    /// claiming to be third.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if a query fails.
+    pub async fn append_file(
+        &self,
+        share_id: ShareId,
+        file: &NewFile,
+        now: OffsetDateTime,
+    ) -> Result<u32, ShareRepositoryError> {
+        let position = FileShareEntity::find()
+            .filter(file_share::Column::ShareId.eq(share_id.to_string()))
+            .count(&self.connection)
+            .await?;
+        FileShareEntity::insert(file_share::ActiveModel {
+            // Its own identifier, unlike the first file's — that one borrows the
+            // share's so a single-file share stays followable.
+            id: Set(ShareId::generate().to_string()),
+            share_id: Set(share_id.to_string()),
+            position: Set(i64::try_from(position).unwrap_or(i64::MAX)),
+            filename: Set(file.filename.clone()),
+            content_type: Set(file.content_type.clone()),
+            size_bytes: Set(i64::try_from(file.size_bytes).unwrap_or(i64::MAX)),
+            storage: Set(file.storage.as_str().to_owned()),
+            object_key: Set(file.storage.object_key().map(str::to_owned)),
+            created_at: Set(now),
+        })
+        .exec(&self.connection)
+        .await?;
+        Ok(u32::try_from(position).unwrap_or(u32::MAX))
+    }
+
     /// Every object this share has in the store.
     ///
     /// # Why a list
@@ -633,19 +717,11 @@ impl ShareRepository {
     /// Returns [`ShareRepositoryError`] if a query fails or a row is not usable.
     pub async fn content_of(&self, share: &Share) -> Result<Content, ShareRepositoryError> {
         match share.kind {
-            ShareKind::File => {
-                let parts = self.files_of(share.id).await?;
-                // No row means no content. That is not a share missing its
-                // details — it is a share whose content has been removed, and
-                // `Gone` is what every reader already knows to do with that.
-                parts
-                    .first()
-                    .map_or_else(|| Ok(Content::gone()), Content::from_file)
-            }
+            ShareKind::File => Content::from_files(&self.files_of(share.id).await?),
             ShareKind::Text => Ok(self
                 .text_of(share.id)
                 .await?
-                .map_or_else(Content::gone, |text| Content::from_text(&text))),
+                .map_or(Content::Gone, |text| Content::from_text(&text))),
         }
     }
 
@@ -677,26 +753,29 @@ impl ShareRepository {
             .all(&self.connection)
             .await?;
 
-        let mut found: HashMap<String, Content> = HashMap::with_capacity(shares.len());
+        let mut texts_by_share: HashMap<String, Content> = HashMap::with_capacity(texts.len());
         for text in &texts {
-            found.insert(text.share_id.clone(), Content::from_text(text));
+            texts_by_share.insert(text.share_id.clone(), Content::from_text(text));
         }
-        for file in &files {
-            // First position wins; the rest are #42's business. `or_insert`
-            // rather than `insert` because the query is ordered by position and
-            // a later part must not overwrite the first.
-            if let std::collections::hash_map::Entry::Vacant(slot) =
-                found.entry(file.share_id.clone())
-            {
-                slot.insert(Content::from_file(file)?);
-            }
+        // Grouped rather than taken one at a time: the query is ordered by
+        // position, so pushing in order keeps the uploader's order.
+        let mut files_by_share: HashMap<String, Vec<file_share::Model>> = HashMap::new();
+        for file in files {
+            files_by_share
+                .entry(file.share_id.clone())
+                .or_default()
+                .push(file);
         }
 
         let mut resolved = HashMap::with_capacity(shares.len());
         for share in shares {
-            let content = found
-                .remove(&share.id.to_string())
-                .unwrap_or_else(Content::gone);
+            let key = share.id.to_string();
+            let content = match share.kind {
+                ShareKind::File => {
+                    Content::from_files(files_by_share.get(&key).map_or(&[][..], Vec::as_slice))?
+                }
+                ShareKind::Text => texts_by_share.remove(&key).unwrap_or(Content::Gone),
+            };
             resolved.insert(share.id, content);
         }
         Ok(resolved)

@@ -32,6 +32,7 @@
 //! there is a type that needs it.
 
 pub mod admin;
+pub mod archive;
 pub mod auth;
 pub mod capabilities;
 pub mod extract;
@@ -280,6 +281,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(shares::describe, shares::delete))
         .routes(routes!(shares::unlock))
         .routes(routes!(shares::record_event))
+        .routes(routes!(shares::add_file))
 }
 
 /// Everything under `/admin`.
