@@ -9,7 +9,8 @@ use axum::{
 use axum_extra::extract::cookie::Cookie;
 use serde::{Deserialize, Serialize};
 use tessera_core::{
-    AccountState, EmailAddress, Password, PasswordPolicy, PermissionSet, RoleId, UserId, Username,
+    AccountState, EmailAddress, Password, PasswordPolicy, Permission, PermissionSet, RoleId,
+    UserId, Username,
 };
 use time::OffsetDateTime;
 use utoipa::ToSchema;
@@ -18,7 +19,7 @@ use crate::{
     api::{AUTH_TAG, extract::ApiJson},
     auth::{
         cookie,
-        extract::{ClientAddress, SelfServiceUser},
+        extract::{ClientAddress, CurrentUser, SelfServiceUser},
         password,
         proxy::{Origin, UNPLACEABLE},
         throttle::Decision,
@@ -1285,4 +1286,243 @@ mod tests {
             "the dummy hash must parse, or the timing defence is a no-op"
         );
     }
+}
+
+/// Body of `PATCH /account`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateAccountRequest {
+    /// A new name, or omitted to keep the current one.
+    #[schema(
+        example = "alice",
+        min_length = 3,
+        max_length = 32,
+        pattern = "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+    )]
+    #[serde(default)]
+    pub username: Option<String>,
+    /// A new address, or omitted to keep the current one.
+    ///
+    /// Changing it clears the verification: the new address has not been proven
+    /// reachable, and carrying the old flag over would mean an unverified
+    /// address wearing a verified one's badge.
+    #[schema(example = "alice@example.com", format = Email)]
+    #[serde(default)]
+    pub email: Option<String>,
+    /// The password in force now.
+    ///
+    /// Required even though the caller is signed in. An unlocked browser left
+    /// on a desk is otherwise enough to move the account's address to one the
+    /// finder controls, and from there the reset flow hands them the account.
+    #[schema(min_length = 8, max_length = 1024)]
+    pub current_password: String,
+}
+
+/// Body of `DELETE /account`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteAccountRequest {
+    /// The password in force now, for the same reason as above.
+    #[schema(min_length = 8, max_length = 1024)]
+    pub current_password: String,
+    /// Whether to end everything this account uploaded.
+    ///
+    /// Defaults to ending it. For a file courier, "delete my account" usually
+    /// means "and the things I sent" — and somebody who wants the links they
+    /// handed out to keep working is the rarer case, worth one explicit `false`.
+    ///
+    /// The bytes go as the reaper reaches them, so the answer arrives before
+    /// the space does.
+    #[serde(default = "delete_shares_by_default")]
+    pub delete_shares: bool,
+}
+
+const fn delete_shares_by_default() -> bool {
+    true
+}
+
+/// Confirms the caller's password, for an act that is worth confirming.
+///
+/// # Errors
+///
+/// `401` when it is wrong, `403` when the caller used an API token.
+async fn reconfirm(current: &CurrentUser, supplied: String) -> Result<()> {
+    // A leaked API token must not be able to rename or remove the account. The
+    // same reasoning as changing a password: the blast radius of a token stays
+    // what the token can do.
+    if !current.credential.is_session() {
+        return Err(Error::Forbidden);
+    }
+    let supplied =
+        Password::parse(supplied, PasswordPolicy::widest()).map_err(|_| Error::Unauthorized)?;
+    if password::verify(supplied, current.user.password_hash.clone()).await? {
+        Ok(())
+    } else {
+        Err(Error::Unauthorized)
+    }
+}
+
+/// Changes the caller's own name or address.
+///
+/// # Errors
+///
+/// `400` when a value fails its rule, `401` when the password is wrong, `403`
+/// when an API token was used, `409` when the name or address is taken.
+#[utoipa::path(
+    patch,
+    path = "/account",
+    operation_id = "update_account",
+    tag = AUTH_TAG,
+    request_body = UpdateAccountRequest,
+    responses(
+        (status = 200, description = "The account as it now stands", body = AccountResponse),
+        (status = 400, description = "A value is not usable", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in, or the password is wrong", body = crate::error::ErrorBody),
+        (status = 403, description = "Authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 409, description = "The name or address is taken", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn update_account(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<UpdateAccountRequest>,
+) -> Result<Json<AccountResponse>> {
+    reconfirm(&current, body.current_password).await?;
+
+    let username = match body.username {
+        // Not `parse_privileged`: nobody renames themselves to `admin`. The
+        // reserved list exists for exactly this door as well as registration.
+        Some(wanted) => Username::parse(&wanted)?,
+        None => current.user.username.clone(),
+    };
+    let email = match body.email {
+        Some(wanted) => EmailAddress::parse(&wanted)?,
+        None => current.user.email.clone(),
+    };
+
+    let renamed = username != current.user.username;
+    let moved = email != current.user.email;
+    if renamed && state.users.find_by_username(&username).await?.is_some() {
+        return Err(Error::Conflict("that name is taken".to_owned()));
+    }
+    if moved && state.users.find_by_email(&email).await?.is_some() {
+        return Err(Error::Conflict("that address is taken".to_owned()));
+    }
+
+    // Cleared when the address moves, kept otherwise. Somebody correcting a
+    // typo in their name should not have to prove their address again.
+    let verified_at = if moved {
+        None
+    } else {
+        current.user.email_verified_at
+    };
+    if !state
+        .users
+        .rename(
+            current.user.id,
+            &username,
+            &email,
+            verified_at,
+            OffsetDateTime::now_utc(),
+        )
+        .await?
+    {
+        return Err(Error::NotFound);
+    }
+
+    let updated = state
+        .users
+        .find_by_id(current.user.id)
+        .await?
+        .ok_or(Error::NotFound)?;
+    let roles = state.roles.of_user(updated.id).await?;
+    Ok(Json(AccountResponse::build(&updated, &roles)))
+}
+
+/// Removes the caller's own account.
+///
+/// # Why the shares are the caller's decision and not an administrator's
+///
+/// They are the person's own uploads. An administrator removing somebody else
+/// does not touch their content — that is a separate, explicit act — but
+/// somebody removing themselves is entitled to say what happens to what they
+/// sent.
+///
+/// # Errors
+///
+/// `401` when the password is wrong, `403` when an API token was used or the
+/// caller is the last one able to administer the instance.
+#[utoipa::path(
+    delete,
+    path = "/account",
+    operation_id = "delete_account",
+    tag = AUTH_TAG,
+    request_body = DeleteAccountRequest,
+    responses(
+        (status = 204, description = "The account is gone"),
+        (status = 401, description = "Not signed in, or the password is wrong", body = crate::error::ErrorBody),
+        (status = 403, description = "Authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 409, description = "Nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn delete_account(
+    State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
+    headers: HeaderMap,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<DeleteAccountRequest>,
+) -> Result<Response> {
+    reconfirm(&current, body.current_password).await?;
+
+    // The same guard the administrative route has, reached from the other side:
+    // an instance whose last administrator removes themselves is one nobody can
+    // administer, and nothing can undo that.
+    if current.permissions.allows(Permission::RolesWrite)
+        && state.roles.holders_of(Permission::RolesWrite).await? <= 1
+    {
+        return Err(Error::Conflict(
+            "you are the only administrator; give somebody else the role first".to_owned(),
+        ));
+    }
+
+    let now = OffsetDateTime::now_utc();
+    if body.delete_shares {
+        // Before the account goes, while the rows still point at it.
+        state
+            .shares
+            .expire_all_for_user(current.user.id, now)
+            .await?;
+    }
+    if !state
+        .users
+        .soft_delete(current.user.id, current.user.id, now)
+        .await?
+    {
+        return Err(Error::NotFound);
+    }
+    state.sessions.delete_all_for_user(current.user.id).await?;
+    state.tokens.delete_all_for_user(current.user.id).await?;
+
+    tracing::info!(account = %current.user.id, "an account removed itself");
+
+    // The rows are gone, so the cookie is already dead — but leaving it in the
+    // browser means the next request carries a credential for an account that
+    // does not exist, and the client has to work out that `401` means "you are
+    // finished" rather than "sign in again". `logout` clears it for the same
+    // reason.
+    let secure = state
+        .config
+        .auth
+        .cookie_secure
+        .applies(&headers, origin.via_trusted_proxy);
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(
+            header::SET_COOKIE,
+            cookie::clearing_cookie(secure).to_string(),
+        )],
+    )
+        .into_response())
 }

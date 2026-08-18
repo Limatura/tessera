@@ -376,6 +376,26 @@
         ],
         "description": "A newly issued token. The only response that ever carries the secret."
       },
+      "DeleteAccountRequest": {
+        "additionalProperties": false,
+        "description": "Body of `DELETE /account`.",
+        "properties": {
+          "current_password": {
+            "description": "The password in force now, for the same reason as above.",
+            "maxLength": 1024,
+            "minLength": 8,
+            "type": "string"
+          },
+          "delete_shares": {
+            "description": "Whether to end everything this account uploaded.\n\nDefaults to ending it. For a file courier, \"delete my account\" usually\nmeans \"and the things I sent\" — and somebody who wants the links they\nhanded out to keep working is the rarer case, worth one explicit `false`.\n\nThe bytes go as the reaper reaches them, so the answer arrives before\nthe space does.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "current_password"
+        ],
+        "type": "object"
+      },
       "ErrorBody": {
         "description": "The JSON body returned for every non-2xx response.",
         "properties": {
@@ -1154,6 +1174,42 @@
         ],
         "type": "object"
       },
+      "UpdateAccountRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PATCH /account`.",
+        "properties": {
+          "current_password": {
+            "description": "The password in force now.\n\nRequired even though the caller is signed in. An unlocked browser left\non a desk is otherwise enough to move the account's address to one the\nfinder controls, and from there the reset flow hands them the account.",
+            "maxLength": 1024,
+            "minLength": 8,
+            "type": "string"
+          },
+          "email": {
+            "description": "A new address, or omitted to keep the current one.\n\nChanging it clears the verification: the new address has not been proven\nreachable, and carrying the old flag over would mean an unverified\naddress wearing a verified one's badge.",
+            "example": "alice@example.com",
+            "format": "email",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "description": "A new name, or omitted to keep the current one.",
+            "example": "alice",
+            "maxLength": 32,
+            "minLength": 3,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "current_password"
+        ],
+        "type": "object"
+      },
       "UpdateUserRequest": {
         "additionalProperties": false,
         "description": "Body of `PATCH /admin/users/{id}`.",
@@ -1214,6 +1270,141 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/account": {
+      "delete": {
+        "description": "# Why the shares are the caller's decision and not an administrator's\n\nThey are the person's own uploads. An administrator removing somebody else\ndoes not touch their content — that is a separate, explicit act — but\nsomebody removing themselves is entitled to say what happens to what they\nsent.\n\n# Errors\n\n`401` when the password is wrong, `403` when an API token was used or the\ncaller is the last one able to administer the instance.",
+        "operationId": "delete_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The account is gone"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in, or the password is wrong"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Nobody would be left to administer the instance"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes the caller's own account.",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "description": "# Errors\n\n`400` when a value fails its rule, `401` when the password is wrong, `403`\nwhen an API token was used, `409` when the name or address is taken.",
+        "operationId": "update_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description": "The account as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A value is not usable"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in, or the password is wrong"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The name or address is taken"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Changes the caller's own name or address.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/admin/invites": {
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",

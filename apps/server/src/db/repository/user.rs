@@ -87,7 +87,11 @@ impl User {
             // list refuses — so the ordinary parser would declare the one row
             // every instance has to be corrupt.
             username: Username::parse_privileged(&model.username).map_err(fail)?,
-            email: EmailAddress::parse(&model.email).map_err(fail)?,
+            // Privileged, for the same reason the name above is: reading a row
+            // back is not claiming the address. A deleted account's row holds
+            // one at the reserved tombstone domain, and the ordinary parser
+            // refuses that — which is what stops anybody else taking it.
+            email: EmailAddress::parse_privileged(&model.email).map_err(fail)?,
             password_hash: model.password_hash,
             is_admin: model.is_admin,
             must_change_password: model.must_change_password,
@@ -269,6 +273,37 @@ impl UserRepository {
     /// Returns [`UserRepositoryError`] if the query fails.
     pub async fn count(&self) -> Result<u64, UserRepositoryError> {
         Ok(UserEntity::find().count(&self.connection).await?)
+    }
+
+    /// Changes an account's name, address, or both.
+    ///
+    /// Clearing `email_verified_at` when the address moves is the caller's
+    /// decision, not this one's — see the handler, which has the address to
+    /// compare against.
+    ///
+    /// Returns whether the account changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the update fails, including when the
+    /// name or address is already taken.
+    pub async fn rename(
+        &self,
+        id: UserId,
+        username: &Username,
+        email: &EmailAddress,
+        verified_at: Option<OffsetDateTime>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::Username, username.as_str().into())
+            .col_expr(user::Column::Email, email.as_str().into())
+            .col_expr(user::Column::EmailVerifiedAt, verified_at.into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
     }
 
     /// Suspends an account, or lets it back in.

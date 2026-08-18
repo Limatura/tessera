@@ -263,6 +263,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::logout))
         .routes(routes!(auth::session))
         .routes(routes!(auth::change_password))
+        .routes(routes!(auth::update_account, auth::delete_account))
         // Mounted even where no relay is configured, like every other switched
         // off feature: the handler answers 404 and the document stays the same
         // on every instance. `/capabilities` is what tells a client whether to

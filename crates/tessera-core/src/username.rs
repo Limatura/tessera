@@ -9,6 +9,19 @@ use crate::DomainError;
 /// Names the service needs for itself, or that would mislead if a stranger held
 /// them.
 ///
+/// The prefix a deleted account's name is rebuilt from.
+///
+/// Reserved as a prefix rather than as a name, because what follows it is an
+/// identifier — and identifiers are public. Every response that names an
+/// account carries one, so without this a person could read somebody else's,
+/// rename themselves to the tombstone that account will one day need, and the
+/// unique index would then refuse the deletion. The account becomes
+/// undeletable, by its owner and by an administrator alike.
+///
+/// Declared here and used by `tombstone` so the two cannot drift apart; a test
+/// there checks that what it produces is refused by this.
+pub(crate) const TOMBSTONE_PREFIX: &str = "gone-";
+
 /// Compared after normalisation, so `Admin` and `ADMIN` are caught too.
 const RESERVED: [&str; 12] = [
     "admin",
@@ -117,7 +130,9 @@ impl Username {
             });
         }
 
-        if !allow_reserved && RESERVED.contains(&normalised.as_str()) {
+        if !allow_reserved
+            && (RESERVED.contains(&normalised.as_str()) || normalised.starts_with(TOMBSTONE_PREFIX))
+        {
             return Err(DomainError::Reserved { value: normalised });
         }
 
