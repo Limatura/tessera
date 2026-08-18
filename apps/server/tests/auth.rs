@@ -2785,3 +2785,254 @@ async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
         "the token must not outlive the permission it was minted from"
     );
 }
+
+/// Changing the address has to un-verify it.
+///
+/// Carrying the old flag over would mean an address nobody has proven reachable
+/// wearing a verified one's badge — and on an instance that trusts that flag,
+/// that is the whole of the check.
+#[tokio::test]
+async fn moving_the_address_clears_the_verification() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("alice").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .users
+        .rename(user.id, &user.username, &user.email, Some(now), now)
+        .await
+        .expect("mark the address verified");
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({
+                "email": "elsewhere@example.com",
+                "current_password": PASSWORD,
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let moved = app
+        .state
+        .users
+        .find_by_id(user.id)
+        .await
+        .expect("query")
+        .expect("the account");
+    assert_eq!(moved.email.as_str(), "elsewhere@example.com");
+    assert!(
+        moved.email_verified_at.is_none(),
+        "the new address has not been proven"
+    );
+}
+
+/// Renaming without touching the address keeps it verified.
+#[tokio::test]
+async fn a_rename_does_not_cost_the_verification() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("alice").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .users
+        .rename(user.id, &user.username, &user.email, Some(now), now)
+        .await
+        .expect("mark the address verified");
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "username": "alicia", "current_password": PASSWORD }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let renamed = app
+        .state
+        .users
+        .find_by_id(user.id)
+        .await
+        .expect("query")
+        .expect("the account");
+    assert_eq!(renamed.username.as_str(), "alicia");
+    assert!(renamed.email_verified_at.is_some());
+}
+
+/// An unlocked browser left on a desk must not be enough to take the account.
+#[tokio::test]
+async fn changing_the_address_needs_the_password() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+
+    assert_eq!(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({
+                "email": "attacker@example.com",
+                "current_password": "not the password",
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// Nobody renames themselves into a reserved name.
+#[tokio::test]
+async fn a_rename_cannot_claim_a_reserved_name() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    assert_eq!(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "username": "admin", "current_password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST,
+        "the reserved list guards this door too, not only registration"
+    );
+}
+
+/// Removing your own account ends what you sent, unless you say otherwise.
+#[tokio::test]
+async fn removing_your_own_account_ends_your_shares_by_default() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=mine.bin")
+                    .header(header::COOKIE, &session),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "current_password": PASSWORD }),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::GONE
+    );
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&session))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// And keeps them when you do say otherwise.
+#[tokio::test]
+async fn removing_your_own_account_can_leave_your_shares_working() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=mine.bin")
+                    .header(header::COOKIE, &session),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "current_password": PASSWORD, "delete_shares": false }),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::OK,
+        "whoever holds this link did nothing wrong"
+    );
+}
+
+/// The last person who can administer the instance cannot walk out.
+#[tokio::test]
+async fn the_only_administrator_cannot_remove_themselves() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "first").await;
+
+    assert_eq!(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "current_password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}

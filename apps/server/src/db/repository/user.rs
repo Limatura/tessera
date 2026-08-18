@@ -271,6 +271,37 @@ impl UserRepository {
         Ok(UserEntity::find().count(&self.connection).await?)
     }
 
+    /// Changes an account's name, address, or both.
+    ///
+    /// Clearing `email_verified_at` when the address moves is the caller's
+    /// decision, not this one's — see the handler, which has the address to
+    /// compare against.
+    ///
+    /// Returns whether the account changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the update fails, including when the
+    /// name or address is already taken.
+    pub async fn rename(
+        &self,
+        id: UserId,
+        username: &Username,
+        email: &EmailAddress,
+        verified_at: Option<OffsetDateTime>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::Username, username.as_str().into())
+            .col_expr(user::Column::Email, email.as_str().into())
+            .col_expr(user::Column::EmailVerifiedAt, verified_at.into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
     /// Suspends an account, or lets it back in.
     ///
     /// Refuses to touch one that has been deleted: that is not a state anybody
