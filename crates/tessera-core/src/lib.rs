@@ -34,6 +34,7 @@
 //! declare one would cost the guarantee above while buying little: the
 //! swappability such a port usually provides is already supplied by SeaORM.
 
+mod account_state;
 mod code;
 mod email;
 mod error;
@@ -43,6 +44,7 @@ mod permission;
 mod username;
 
 pub use crate::{
+    account_state::{AccountState, tombstone},
     code::RetrievalCode,
     email::EmailAddress,
     error::DomainError,

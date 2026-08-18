@@ -9,7 +9,9 @@
 //! internet before its owner reaches the login page hands administration to a
 //! stranger. So the account is created at start-up, before the listener binds.
 
-use tessera_core::{EmailAddress, Password, PasswordPolicy, RoleId, UserId, Username};
+use tessera_core::{
+    AccountState, EmailAddress, Password, PasswordPolicy, RoleId, UserId, Username,
+};
 use time::OffsetDateTime;
 
 use crate::{
@@ -73,6 +75,9 @@ pub async fn ensure_admin(
         // already know, and forcing a change on it is a pointless step; one we
         // printed has been through a log file and should not stay in force.
         must_change_password: generated.is_some(),
+        state: AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
         email_verified_at: None,
         created_at: now,
         updated_at: now,

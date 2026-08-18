@@ -31,7 +31,7 @@
 use axum::{Json, extract::State, http::StatusCode};
 use object_store::{ObjectStoreExt as _, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{InviteId, Permission, PermissionSet, RoleId, ShareId, UserId};
+use tessera_core::{AccountState, InviteId, Permission, PermissionSet, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 
@@ -46,6 +46,7 @@ use crate::{
     db::repository::{
         invite::Invite,
         role::{Role, RoleChange},
+        session::SessionEnding,
         share::{Availability, Content, Share},
     },
     error::{Error, Result},
@@ -58,6 +59,12 @@ use crate::{
 pub struct UpdateUserRequest {
     /// Whether this account administers the instance.
     pub is_admin: bool,
+    /// `active` to let it in, `disabled` to suspend it.
+    ///
+    /// Omitted leaves it as it is. `deleted` is refused here — removing an
+    /// account scrubs it, and that is `DELETE` rather than a field on a patch.
+    #[serde(default)]
+    pub state: Option<String>,
 }
 
 /// One account, as an administrator sees it.
@@ -110,6 +117,7 @@ fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
     path = "/admin/users",
     operation_id = "list_users",
     tag = ADMIN_TAG,
+    params(UserListParams),
     responses(
         (status = 200, description = "Every account on this instance", body = Vec<AdminUserResponse>),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
@@ -121,11 +129,12 @@ fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
 pub async fn list_users(
     State(state): State<AppState>,
     current: CurrentUser,
+    ApiQuery(params): ApiQuery<UserListParams>,
 ) -> Result<Json<Vec<AdminUserResponse>>> {
     require_admin_feature(&state)?;
     admitted(&current, Permission::UsersRead)?;
 
-    let users = state.users.list().await?;
+    let users = state.users.list(params.include_deleted).await?;
     // One query for the whole page. Asking per account would make a list of
     // fifty accounts a hundred and one queries.
     let roles = state.roles.of_users(&users).await?;
@@ -205,10 +214,39 @@ pub async fn update_user(
         ));
     }
 
-    state
-        .users
-        .set_admin(user_id, body.is_admin, OffsetDateTime::now_utc())
-        .await?;
+    let now = OffsetDateTime::now_utc();
+    if let Some(wanted) = body.state.as_deref() {
+        let wanted: AccountState = wanted
+            .parse()
+            .map_err(|_| Error::bad_request("`state` must be `active` or `disabled`"))?;
+        if wanted == AccountState::Deleted {
+            return Err(Error::bad_request(
+                "removing an account scrubs it; use DELETE rather than this field",
+            ));
+        }
+        // Suspending somebody who holds the keys is the same lock-out as
+        // demoting them, reached by another door.
+        if wanted != AccountState::Active
+            && holds_the_keys
+            && state.roles.holders_of(Permission::RolesWrite).await? <= 1
+        {
+            return Err(Error::Conflict(
+                "this is the only administrator; grant the flag to somebody else first".to_owned(),
+            ));
+        }
+        state.users.set_state(user_id, wanted, now).await?;
+        if wanted != AccountState::Active {
+            // Authentication already refuses a suspended account, so this is
+            // not what stops them — it is what makes the session list they see
+            // afterwards true.
+            state
+                .sessions
+                .end_all_for_user(user_id, None, SessionEnding::AccountDisabled, now)
+                .await?;
+        }
+    }
+
+    state.users.set_admin(user_id, body.is_admin, now).await?;
 
     let updated = state
         .users
@@ -271,11 +309,29 @@ pub async fn delete_user(
         ));
     }
 
-    if state.users.delete(user_id).await? {
-        Ok(StatusCode::NO_CONTENT)
-    } else {
-        Err(Error::NotFound)
+    // Already gone answers the same as gone: the caller asked for the account
+    // to stop existing, and it does not.
+    if user.state == AccountState::Deleted {
+        return Ok(StatusCode::NO_CONTENT);
     }
+
+    let now = OffsetDateTime::now_utc();
+    if !state
+        .users
+        .soft_delete(user_id, current.user.id, now)
+        .await?
+    {
+        return Err(Error::NotFound);
+    }
+
+    // The login history is the most identifying thing this service holds about
+    // a person — where they signed in from and on what. Removing the account
+    // without removing that would leave the part that matters most.
+    state.sessions.delete_all_for_user(user_id).await?;
+    state.tokens.delete_all_for_user(user_id).await?;
+
+    tracing::info!(account = %user_id, by = %current.user.id, "an account was removed");
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Body of `POST /admin/invites`.
@@ -1131,6 +1187,18 @@ impl AdminShareResponse {
             expires_at: share.expires_at.map(format_timestamp),
         }
     }
+}
+
+/// Whether a listing should include accounts that have been removed.
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct UserListParams {
+    /// Include accounts that have been deleted.
+    ///
+    /// Off by default: what is left of one identifies nobody and cannot be
+    /// acted on, so it belongs in an answer somebody asked for rather than in
+    /// every listing.
+    #[serde(default)]
+    pub include_deleted: bool,
 }
 
 /// A page of shares.

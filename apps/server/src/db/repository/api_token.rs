@@ -255,6 +255,26 @@ impl ApiTokenRepository {
             .collect())
     }
 
+    /// Removes every token an account ever had.
+    ///
+    /// Revoking would do for stopping them — authentication refuses a deleted
+    /// account anyway — but a revoked token keeps its name, and the name is
+    /// something its owner chose.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ApiTokenRepositoryError`] if the delete fails.
+    pub async fn delete_all_for_user(
+        &self,
+        user_id: UserId,
+    ) -> Result<u64, ApiTokenRepositoryError> {
+        let result = ApiTokenEntity::delete_many()
+            .filter(api_token::Column::UserId.eq(user_id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected)
+    }
+
     /// Records that a token was accepted.
     ///
     /// # Errors

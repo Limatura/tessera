@@ -34,6 +34,13 @@ pub struct Model {
     /// cannot become a permanent one.
     pub must_change_password: bool,
     /// When the address was proven reachable, if it ever was.
+    /// `active`, `disabled` or `deleted`.
+    pub state: String,
+    /// When the account was removed, if it was.
+    pub deleted_at: Option<TimeDateTimeWithTimeZone>,
+    /// Who removed it, or the account itself.
+    pub deleted_by: Option<String>,
+    /// When the address was proven reachable, if it ever was.
     pub email_verified_at: Option<TimeDateTimeWithTimeZone>,
     /// When the account was created.
     pub created_at: TimeDateTimeWithTimeZone,

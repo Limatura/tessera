@@ -852,7 +852,7 @@
             "type": "boolean"
           },
           "ended_reason": {
-            "description": "Why it ended early, if somebody ended it.\n\n`null` means it simply ran out. The values are `signed_out`, `revoked`,\n`password_changed` and `password_reset`.",
+            "description": "Why it ended early, if somebody ended it.\n\n`null` means it simply ran out. The values are `signed_out`, `revoked`,\n`password_changed`, `password_reset` and `account_disabled`.",
             "example": "revoked",
             "type": [
               "string",
@@ -1146,6 +1146,13 @@
           "is_admin": {
             "description": "Whether this account administers the instance.",
             "type": "boolean"
+          },
+          "state": {
+            "description": "`active` to let it in, `disabled` to suspend it.\n\nOmitted leaves it as it is. `deleted` is refused here — removing an\naccount scrubs it, and that is `DELETE` rather than a field on a patch.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
@@ -1969,6 +1976,17 @@
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",
         "operationId": "list_users",
+        "parameters": [
+          {
+            "description": "Include accounts that have been deleted.\n\nOff by default: what is left of one identifies nobody and cannot be\nacted on, so it belongs in an answer somebody asked for rather than in\nevery listing.",
+            "in": "path",
+            "name": "include_deleted",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
