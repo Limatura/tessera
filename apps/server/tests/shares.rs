@@ -19,6 +19,14 @@ async fn shares_round_trip_through_the_repository() {
     share_repository_round_trip(&TestApp::ready().await, "SQ").await;
 }
 
+/// The first file's object key, for a test that wants to reach into the store.
+fn first_key(content: &Content) -> Option<&str> {
+    content
+        .files()
+        .first()
+        .and_then(|file| file.storage.object_key())
+}
+
 #[expect(
     clippy::expect_used,
     reason = "test fixture; a panic is how it reports"
@@ -75,7 +83,13 @@ async fn text_is_kept_in_the_database() {
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
     let stored = content_of(&app, id).await;
-    assert_eq!(stored.storage, StorageLocation::Inline);
+    let Content::Text(text) = &stored else {
+        panic!("text belongs in its own table, got {stored:?}");
+    };
+    assert_eq!(
+        text.size_bytes,
+        u64::try_from(content.len()).expect("a size")
+    );
     assert_eq!(
         app.state
             .shares
@@ -105,10 +119,8 @@ async fn a_file_is_streamed_to_the_blob_store() {
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
     let stored = content_of(&app, id).await;
-    let key = stored
-        .storage
-        .object_key()
-        .unwrap_or_else(|| panic!("expected object storage, got {:?}", stored.storage))
+    let key = first_key(&stored)
+        .unwrap_or_else(|| panic!("expected object storage, got {stored:?}"))
         .to_owned();
     assert!(
         key.starts_with("shares/") && key.ends_with(&id.to_string()),
@@ -197,10 +209,8 @@ async fn deleting_a_share_removes_its_object_too() {
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("id")).expect("id");
     let stored = content_of(&app, id).await;
-    let key = stored
-        .storage
-        .object_key()
-        .unwrap_or_else(|| panic!("expected object storage, got {:?}", stored.storage))
+    let key = first_key(&stored)
+        .unwrap_or_else(|| panic!("expected object storage, got {stored:?}"))
         .to_owned();
 
     expect_status(
@@ -1555,11 +1565,7 @@ async fn a_share_whose_object_already_vanished_is_still_reaped() {
     // Somebody cleaned the bucket out from under us.
     let id: tessera_core::ShareId = share["id"].as_str().expect("an id").parse().expect("an id");
     let stored = content_of(&app, id).await;
-    let key = stored
-        .storage
-        .object_key()
-        .expect("an object key")
-        .to_owned();
+    let key = first_key(&stored).expect("an object key").to_owned();
     app.state
         .storage
         .delete(&object_store::path::Path::from(key))
@@ -1915,10 +1921,8 @@ async fn even_a_tiny_file_becomes_an_object() {
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
 
     let stored = content_of(&app, id).await;
-    let key = stored
-        .storage
-        .object_key()
-        .unwrap_or_else(|| panic!("expected object storage, got {:?}", stored.storage));
+    let key =
+        first_key(&stored).unwrap_or_else(|| panic!("expected object storage, got {stored:?}"));
 
     let bytes = app
         .state
@@ -1943,9 +1947,8 @@ async fn text_stays_in_the_database_at_any_size() {
 
     let stored = content_of(&app, id).await;
     assert!(
-        stored.storage.object_key().is_none(),
-        "text must not reach the object store, got {:?}",
-        stored.storage
+        first_key(&stored).is_none(),
+        "text must not reach the object store, got {stored:?}"
     );
     assert_eq!(
         app.state
@@ -2019,11 +2022,14 @@ async fn a_reaped_share_reads_as_gone_from_the_new_table_as_well() {
         .await
         .expect("mark it removed");
 
+    // The row survives — it is the record of what was removed — but it stops
+    // naming an object, which is what stops a reader asking the store for one.
     let content = content_of(&app, id).await;
+    let file = content.single_file().expect("the row is still there");
     assert_eq!(
-        content.storage,
+        file.storage,
         StorageLocation::Gone,
-        "the new table still points at a deleted object"
+        "a reaped file must not still point at its object"
     );
 }
 
@@ -2313,8 +2319,9 @@ async fn a_shares_details_come_from_the_table_that_owns_them() {
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
 
     let content = content_of(&app, id).await;
-    assert_eq!(content.filename.as_deref(), Some("holiday.jpg"));
-    assert_eq!(content.size_bytes, 10);
+    let file = content.single_file().expect("one file");
+    assert_eq!(file.filename.as_deref(), Some("holiday.jpg"));
+    assert_eq!(file.size_bytes, 10);
 
     // And the only row carrying that is the one on `file_shares`.
     let files = app.state.shares.files_of(id).await.expect("query");

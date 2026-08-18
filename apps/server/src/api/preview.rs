@@ -47,10 +47,15 @@ impl Preview {
             },
             Availability::Available => Self {
                 title: share.title.clone().unwrap_or_else(|| match share.kind {
-                    ShareKind::File => content
-                        .filename
-                        .clone()
-                        .unwrap_or_else(|| "Shared file".to_owned()),
+                    ShareKind::File => match content.files() {
+                        [only] => only
+                            .filename
+                            .clone()
+                            .unwrap_or_else(|| "Shared file".to_owned()),
+                        // A count rather than the first name: naming one of
+                        // five tells somebody about one of five.
+                        many => format!("{} shared files", many.len()),
+                    },
                     ShareKind::Text => "Shared note".to_owned(),
                 }),
                 description: describe(share, content),
@@ -75,8 +80,8 @@ impl Preview {
 
 fn describe(share: &Share, content: &Content) -> String {
     let mut parts = vec![match share.kind {
-        ShareKind::File => human_size(content.size_bytes),
-        ShareKind::Text => format!("{} of text", human_size(content.size_bytes)),
+        ShareKind::File => human_size(content.size_bytes()),
+        ShareKind::Text => format!("{} of text", human_size(content.size_bytes())),
     }];
     if let Some(limit) = share.use_limit {
         let left = limit.saturating_sub(share.use_count);
@@ -202,18 +207,27 @@ mod tests {
     use time::OffsetDateTime;
 
     use super::*;
-    use crate::db::repository::share::StorageLocation;
+    use crate::db::repository::share::{FilePart, StorageLocation};
 
     /// The content as the owning table describes it — which is where a preview
     /// now reads the name and the size from.
     fn content() -> Content {
-        Content {
+        Content::Files(vec![FilePart {
             filename: None,
             content_type: None,
-            language: None,
             size_bytes: 2048,
             storage: StorageLocation::Inline,
-        }
+        }])
+    }
+
+    /// The same, with a name on the one file.
+    fn named(filename: &str) -> Content {
+        Content::Files(vec![FilePart {
+            filename: Some(filename.to_owned()),
+            content_type: None,
+            size_bytes: 2048,
+            storage: StorageLocation::Inline,
+        }])
     }
 
     fn share(kind: ShareKind) -> Share {
@@ -293,8 +307,7 @@ mod tests {
         let mut share = share_;
         share.title = Some("Q3 salaries".to_owned());
         share.password_hash = Some("$argon2id$...".to_owned());
-        let mut content = content();
-        content.filename = Some("payroll.xlsx".to_owned());
+        let content = named("payroll.xlsx");
 
         let tags = Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags();
         assert!(!tags.contains("payroll"), "{tags}");
@@ -306,8 +319,7 @@ mod tests {
     fn a_dead_share_says_so_rather_than_describing_itself() {
         let mut share = share(ShareKind::File);
         share.expires_at = Some(OffsetDateTime::now_utc() - time::Duration::hours(1));
-        let mut content = content();
-        content.filename = Some("gone.zip".to_owned());
+        let content = named("gone.zip");
 
         let tags = Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags();
         assert!(!tags.contains("gone.zip"), "{tags}");
@@ -318,8 +330,7 @@ mod tests {
     fn a_live_share_names_itself() {
         let mut share = share(ShareKind::File);
         share.use_limit = Some(3);
-        let mut content = content();
-        content.filename = Some("holiday.jpg".to_owned());
+        let content = named("holiday.jpg");
 
         let preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
         assert_eq!(preview.title, "holiday.jpg");

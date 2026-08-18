@@ -3978,6 +3978,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "argon2",
+ "async-stream",
  "axum",
  "axum-extra",
  "bytes",
@@ -4009,6 +4010,7 @@ dependencies = [
  "thiserror",
  "time",
  "tokio",
+ "tokio-stream",
  "tokio-util",
  "tower",
  "tower-http 0.7.0",

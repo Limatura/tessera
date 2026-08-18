@@ -607,7 +607,8 @@ pub(crate) async fn share_repository_round_trip(app: &TestApp, suffix: &str) {
 
 use tessera_core::{RetrievalCode, ShareId};
 use tessera_server::db::repository::share::{
-    Availability, NewContent, Share, ShareEvent, ShareKind, ShareRepository, StorageLocation,
+    Availability, NewContent, NewFile, Share, ShareEvent, ShareKind, ShareRepository,
+    StorageLocation,
 };
 use time::{Duration, OffsetDateTime};
 
@@ -738,14 +739,14 @@ impl<'a> Shares<'a> {
         self.repository
             .insert(
                 &share,
-                &NewContent::File {
+                &NewContent::File(NewFile {
                     filename: Some("專案.zip".to_owned()),
                     content_type: Some("application/zip".to_owned()),
                     size_bytes: 1_048_576,
                     storage: StorageLocation::Object {
                         key: format!("2026/08/{}", self.suffix),
                     },
-                },
+                }),
             )
             .await
             .expect("insert");

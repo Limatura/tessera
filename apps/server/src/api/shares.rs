@@ -53,7 +53,9 @@ use crate::{
         secret::Secret,
         throttle::Decision,
     },
-    db::repository::share::{Content, NewContent, Share, ShareEvent, ShareKind, StorageLocation},
+    db::repository::share::{
+        Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+    },
     error::{Error, Result},
     state::AppState,
 };
@@ -159,8 +161,8 @@ pub struct ShareResponse {
     pub kind: String,
     /// Display name.
     pub title: Option<String>,
-    /// Original file name.
-    pub filename: Option<String>,
+    /// Every file this share holds. Empty for text and for a locked share.
+    pub files: Vec<SharedFile>,
     /// Syntax-highlighting hint.
     pub language: Option<String>,
     /// Size of the content in bytes.
@@ -198,6 +200,36 @@ pub struct ShareResponse {
     pub management_token: Option<String>,
 }
 
+/// One file in a share, as the API describes it.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SharedFile {
+    /// Its position in the share, from zero.
+    ///
+    /// Sent rather than left to the array's order: a client that sorts or
+    /// filters the list still has the uploader's order to put it back in.
+    pub position: u32,
+    /// What it was uploaded as.
+    #[schema(example = "holiday.jpg")]
+    pub filename: Option<String>,
+    /// How many bytes it holds.
+    pub size_bytes: u64,
+}
+
+impl SharedFile {
+    fn list(content: &Content) -> Vec<Self> {
+        content
+            .files()
+            .iter()
+            .enumerate()
+            .map(|(position, file)| Self {
+                position: u32::try_from(position).unwrap_or(u32::MAX),
+                filename: file.filename.clone(),
+                size_bytes: file.size_bytes,
+            })
+            .collect()
+    }
+}
+
 impl ShareResponse {
     fn from_share(share: &Share, content: &Content, management_token: Option<String>) -> Self {
         Self {
@@ -206,9 +238,12 @@ impl ShareResponse {
             path: format!("/s/{}", share.code),
             kind: share.kind.as_str().to_owned(),
             title: share.title.clone(),
-            filename: content.filename.clone(),
-            language: content.language.clone(),
-            size_bytes: content.size_bytes,
+            files: SharedFile::list(content),
+            language: match &content {
+                Content::Text(text) => text.language.clone(),
+                Content::Files(_) | Content::Gone => None,
+            },
+            size_bytes: content.size_bytes(),
             has_password: share.needs_password(),
             uses_remaining: share
                 .use_limit
@@ -350,7 +385,7 @@ pub async fn create(
     };
 
     let content = match kind {
-        ShareKind::File => NewContent::File {
+        ShareKind::File => NewContent::File(NewFile {
             filename,
             // What the uploader claimed, recorded so a future feature can use it
             // — and never echoed, because serving an attacker-chosen media type
@@ -359,7 +394,7 @@ pub async fn create(
             content_type: claimed_content_type(&headers),
             size_bytes,
             storage,
-        },
+        }),
         ShareKind::Text => NewContent::Text {
             language,
             // Text is its own row, so it is always here by the time a share
@@ -468,8 +503,8 @@ pub async fn delete(
     // The object first. A row without its object is a broken share; an object
     // without its row is an orphan the sweep can still find by listing, so if
     // only one of the two can happen, this is the better order.
-    let content = state.shares.content_of(&share).await?;
-    if let StorageLocation::Object { key } = &content.storage {
+    // Every object, not the first: a share can hold several.
+    for key in state.shares.object_keys_of(share.id).await? {
         state
             .storage
             .delete(&ObjectPath::from(key.as_str()))
@@ -543,6 +578,10 @@ async fn ingest(
     now: OffsetDateTime,
     body: Body,
 ) -> Result<Ingested> {
+    // `id` names the object, not the share. A share holds several files and each
+    // needs its own key — deriving it from the share meant the second upload
+    // wrote over the first, silently, and the download sent one file's bytes
+    // three times. Measured before it was fixed: two rows, one object.
     let mut upload: Option<Box<dyn MultipartUpload>> = None;
     let result = ingest_into(state, id, kind, now, body, &mut upload).await;
 
@@ -880,8 +919,8 @@ pub struct PublicShareResponse {
 
     /// Display name.
     pub title: Option<String>,
-    /// Original file name.
-    pub filename: Option<String>,
+    /// Every file this share holds. Empty for text and for a locked share.
+    pub files: Vec<SharedFile>,
     /// Syntax-highlighting hint.
     pub language: Option<String>,
     /// Size of the content in bytes.
@@ -902,7 +941,7 @@ impl PublicShareResponse {
             has_password: true,
             unlocked: false,
             title: None,
-            filename: None,
+            files: Vec::new(),
             language: None,
             size_bytes: None,
             uses_remaining: None,
@@ -916,9 +955,12 @@ impl PublicShareResponse {
             has_password: share.needs_password(),
             unlocked: true,
             title: share.title.clone(),
-            filename: content.filename.clone(),
-            language: content.language.clone(),
-            size_bytes: Some(content.size_bytes),
+            files: SharedFile::list(content),
+            language: match content {
+                Content::Text(text) => text.language.clone(),
+                Content::Files(_) | Content::Gone => None,
+            },
+            size_bytes: Some(content.size_bytes()),
             uses_remaining: share
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
@@ -1137,4 +1179,119 @@ pub async fn record_event(
         state.shares.record_event(share.id, kind).await?;
     }
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Adds another file to a share.
+///
+/// # Why files arrive one at a time
+///
+/// One request carrying five files is one request that loses five when it drops
+/// at the fourth — which is the case somebody uploading a folder of photographs
+/// on a home connection hits, not a theoretical one. A file that fails here is
+/// retried on its own.
+///
+/// # Why the share exists before its second file
+///
+/// There is no draft state. A share is created by its first file and grown by
+/// the rest, so nothing has to remember to finish, and an upload interrupted
+/// half way leaves a share holding what did arrive rather than nothing at all.
+///
+/// The cost is that somebody who opened the link during the upload would see
+/// part of it. The link is handed out after the upload, by the person doing it.
+///
+/// # Errors
+///
+/// `403` when the caller cannot show it is theirs, `404` when no share has that
+/// code, `409` when the share holds text, `413` when the body is too large,
+/// `507` when the instance is out of room.
+#[utoipa::path(
+    post,
+    path = "/shares/{code}/files",
+    operation_id = "add_share_file",
+    tag = SHARES_TAG,
+    params(("code" = String, Path, description = "The share to add to"), AddFileParams),
+    request_body(content = Vec<u8>, description = "The file", content_type = "application/octet-stream"),
+    responses(
+        (status = 201, description = "The share as it now stands", body = ShareResponse),
+        (status = 403, description = "Not yours", body = crate::error::ErrorBody),
+        (status = 404, description = "No such share", body = crate::error::ErrorBody),
+        (status = 409, description = "That share holds text", body = crate::error::ErrorBody),
+        (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
+        (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
+    ),
+    security((), ("session" = []), ("bearer" = [])),
+)]
+pub async fn add_file(
+    State(state): State<AppState>,
+    MaybeUser(current): MaybeUser,
+    ApiPath(code): ApiPath<String>,
+    ApiQuery(params): ApiQuery<AddFileParams>,
+    headers: HeaderMap,
+    body: Body,
+) -> Result<Response> {
+    let code = RetrievalCode::parse(&code).map_err(|_| Error::NotFound)?;
+    let share = state
+        .shares
+        .find_by_code(&code)
+        .await?
+        .ok_or(Error::NotFound)?;
+
+    // Adding to somebody else's share would let a stranger put content behind
+    // their link. The same two proofs the delete route accepts: the management
+    // token the uploader was handed, or being the account that owns it.
+    let owns = current.as_ref().is_some_and(|user| {
+        share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesCreate)
+    });
+    let holds_token = share.management_token_hash.as_ref().is_some_and(|stored| {
+        management_token(&headers).is_some_and(|presented| presented.digest() == *stored)
+    });
+    if !owns && !holds_token {
+        // The same answer as a share that is not there, for the same reason the
+        // delete route gives it: otherwise this endpoint says which codes exist.
+        return Err(Error::NotFound);
+    }
+
+    if share.kind == ShareKind::Text {
+        return Err(Error::Conflict(
+            "that share holds text; a text share holds one thing".to_owned(),
+        ));
+    }
+
+    let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;
+    let now = OffsetDateTime::now_utc();
+    let Ingested {
+        storage,
+        size_bytes,
+        inline: _,
+    } = ingest(&state, ShareId::generate(), ShareKind::File, now, body).await?;
+
+    state
+        .shares
+        .append_file(
+            share.id,
+            &NewFile {
+                filename,
+                content_type: claimed_content_type(&headers),
+                size_bytes,
+                storage,
+            },
+            now,
+        )
+        .await?;
+
+    let content = state.shares.content_of(&share).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(ShareResponse::from_share(&share, &content, None)),
+    )
+        .into_response())
+}
+
+/// Metadata for `POST /shares/{code}/files`.
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct AddFileParams {
+    /// What to call this file.
+    #[param(example = "holiday.jpg")]
+    pub filename: Option<String>,
 }

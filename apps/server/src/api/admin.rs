@@ -1166,8 +1166,12 @@ pub struct AdminShareResponse {
     /// Whether it holds a file or text.
     #[schema(example = "file")]
     pub kind: String,
-    /// What the uploader called it, when it is a file.
+    /// What the uploader called it, when the share holds exactly one file.
+    ///
+    /// `null` for text and for a share with several — see `file_count`.
     pub filename: Option<String>,
+    /// How many files it holds. Zero for text.
+    pub file_count: u32,
     /// How many bytes it holds.
     pub size_bytes: u64,
     /// Who uploaded it, or `null` when nobody was signed in.
@@ -1189,8 +1193,12 @@ impl AdminShareResponse {
         Self {
             id: share.id.to_string(),
             kind: share.kind.as_str().to_owned(),
-            filename: content.filename.clone(),
-            size_bytes: content.size_bytes,
+            // The one file's name, or how many there are. An administrator
+            // scanning for something to remove wants to recognise it, and "3
+            // files" is what a multi-file share is.
+            filename: content.single_file().and_then(|file| file.filename.clone()),
+            file_count: u32::try_from(content.files().len()).unwrap_or(u32::MAX),
+            size_bytes: content.size_bytes(),
             owner_id: share.user_id.map(|id| id.to_string()),
             active: matches!(share.availability_at(now), Availability::Available),
             created_at: format_timestamp(share.created_at),
@@ -1324,16 +1332,20 @@ pub async fn delete_share(
     admitted(&current, Permission::SharesDeleteAny)?;
 
     let share_id = ShareId::parse(&id).map_err(|_| Error::NotFound)?;
-    let Some(share) = state.shares.find_by_id(share_id).await? else {
+    let Some(_) = state.shares.find_by_id(share_id).await? else {
         return Err(Error::NotFound);
     };
-    let content = state.shares.content_of(&share).await?;
 
     // The object first, for the same reason the owner's own delete does it in
     // this order: a row without its object is a broken share, an object without
     // its row is an orphan a sweep can still find by listing.
-    if let Some(key) = content.storage.object_key() {
-        state.storage.delete(&ObjectPath::from(key)).await?;
+    // Every object, not the first: a share can hold several, and removing one
+    // would leave the rest paid for and unreachable.
+    for key in state.shares.object_keys_of(share_id).await? {
+        state
+            .storage
+            .delete(&ObjectPath::from(key.as_str()))
+            .await?;
     }
     state.shares.delete(share_id).await?;
     tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
