@@ -287,3 +287,42 @@ async fn a_folder_survives_the_round_trip() {
         );
     }
 }
+
+/// The download header names a file, never a path.
+///
+/// A stored name is what the uploader sent — it can carry the folder it came
+/// from, and nothing stops it being separators and nothing else.
+#[tokio::test]
+async fn the_disposition_names_a_file_and_not_a_path() {
+    let app = TestApp::ready().await;
+
+    for (uploaded, expected) in [
+        ("holiday/2024/photo.jpg", "photo.jpg"),
+        (r"..\..\etc\passwd", "passwd"),
+        ("../../etc/passwd", "passwd"),
+        // Nothing survives being reduced to a last component.
+        ("/", "download"),
+    ] {
+        let code = multi_file_share(&app, &[(uploaded, b"only".to_vec())]).await;
+        let response = expect_status(
+            app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+                .await,
+            StatusCode::OK,
+        )
+        .await;
+        let disposition = response
+            .headers()
+            .get("content-disposition")
+            .and_then(|value| value.to_str().ok())
+            .expect("a disposition")
+            .to_owned();
+        assert!(
+            disposition.contains(&format!("filename=\"{expected}\"")),
+            "{uploaded} produced {disposition}"
+        );
+        assert!(
+            !disposition.contains('/') && !disposition.contains('\\'),
+            "{uploaded} produced {disposition}"
+        );
+    }
+}
