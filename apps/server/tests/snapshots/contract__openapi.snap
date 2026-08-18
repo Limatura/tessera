@@ -727,6 +727,21 @@ expression: document
         ],
         "type": "string"
       },
+      "RemovedSharesResponse": {
+        "description": "How many shares an operation ended.",
+        "properties": {
+          "removed": {
+            "description": "How many were still live and are now finished.\n\nThe bytes go as the reaper reaches them, so this number is not how much\nspace came back yet.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "type": "object"
+      },
       "RoleRequest": {
         "description": "Body of `POST /admin/roles` and `PUT /admin/roles/{id}`.",
         "properties": {
@@ -2287,6 +2302,74 @@ expression: document
           }
         ],
         "summary": "Puts an account in exactly these roles.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/shares": {
+      "delete": {
+        "description": "# Why this is not part of deleting the account\n\nRemoving somebody and destroying what they uploaded are different acts. An\noperator clearing space wants this and not that; one removing a person who\nhas left wants that and not this. Welding them together would make one of\nthose two impossible and the other a surprise.\n\nIt works on an account in any state, including one still in use — an\noperator reclaiming space from somebody who is still here should not have to\nsuspend them first.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no account has that identifier.",
+        "operationId": "remove_user_shares",
+        "parameters": [
+          {
+            "description": "Whose shares to end",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedSharesResponse"
+                }
+              }
+            },
+            "description": "How many were ended"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not delete every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No account has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ends every share one account uploaded.",
         "tags": [
           "admin"
         ]

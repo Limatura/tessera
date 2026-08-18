@@ -790,6 +790,54 @@ impl ShareRepository {
         Ok(model.map(|row| row.content))
     }
 
+    /// Ends every share one account uploaded.
+    ///
+    /// # Why this expires them rather than deleting them
+    ///
+    /// The bytes live in an object store, and removing five hundred objects
+    /// inside one request is a request that times out half way through with no
+    /// record of where it got to. Expiring them is one `UPDATE`; the reaper
+    /// then removes the content a batch at a time, and the retention sweep
+    /// removes the rows later — machinery that already exists and is already
+    /// tested.
+    ///
+    /// # What it costs
+    ///
+    /// A visitor following one of these links is told it expired rather than
+    /// that somebody removed it. That is the right amount to tell them: both
+    /// mean the link is finished, and the difference is the operator's business.
+    ///
+    /// `disabled_at` would have been the more literal marker and is deliberately
+    /// not used — the reaper leaves disabled shares alone, because disabling is
+    /// something an operator may undo and re-enabling a share whose content has
+    /// been destroyed gives them a live link to nothing.
+    ///
+    /// Returns how many were ended.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn expire_all_for_user(
+        &self,
+        user_id: UserId,
+        now: OffsetDateTime,
+    ) -> Result<u64, ShareRepositoryError> {
+        let result = ShareEntity::update_many()
+            .col_expr(share::Column::ExpiresAt, now.into())
+            .col_expr(share::Column::UpdatedAt, now.into())
+            .filter(share::Column::UserId.eq(user_id.to_string()))
+            // Ones that already finished are left alone, so the count means
+            // "this many were still live" rather than "this many rows exist".
+            .filter(
+                share::Column::ExpiresAt
+                    .is_null()
+                    .or(share::Column::ExpiresAt.gt(now)),
+            )
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected)
+    }
+
     /// Every share on the instance, newest first, a page at a time.
     ///
     /// # Why this is paged and `list_for_user` is not
