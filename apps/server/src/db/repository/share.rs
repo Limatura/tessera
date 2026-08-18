@@ -21,7 +21,6 @@ use crate::{
         entity::{
             file_share::{self, Entity as FileShareEntity},
             share::{self, Entity as ShareEntity},
-            share_content::{self, Entity as ShareContentEntity},
             share_ticket::{self, Entity as ShareTicketEntity},
             text_share::{self, Entity as TextShareEntity},
         },
@@ -58,6 +57,39 @@ impl ShareKind {
             }),
         }
     }
+}
+
+/// What a share is being created with.
+///
+/// # Why the details are an argument and not fields on [`Share`]
+///
+/// They used to be columns on `shares`, which worked while a share held exactly
+/// one thing. It stops working the moment it can hold several — `filename` has
+/// no honest value for a share with three files — so they live on the tables
+/// that own them, and creating a share says what goes in those tables.
+///
+/// #42 turns the file case into a list. The enum is the shape that survives
+/// that; a set of optional columns is not.
+#[derive(Debug, Clone)]
+pub enum NewContent {
+    /// One file, wherever its bytes ended up.
+    File {
+        /// What it was uploaded as.
+        filename: Option<String>,
+        /// The media type the uploader claimed. Recorded, never echoed.
+        content_type: Option<String>,
+        /// How many bytes.
+        size_bytes: u64,
+        /// Where those bytes are.
+        storage: StorageLocation,
+    },
+    /// Text, which is its own row.
+    Text {
+        /// Syntax-highlighting hint.
+        language: Option<String>,
+        /// The text itself.
+        body: Vec<u8>,
+    },
 }
 
 /// What a share holds, as the tables that own content describe it.
@@ -105,6 +137,21 @@ impl Content {
         })
     }
 
+    /// A share whose content has been removed.
+    ///
+    /// Every reader already handles [`StorageLocation::Gone`] — it is what a
+    /// reaped share looks like — so a row without its content answers the same
+    /// way rather than needing a state of its own.
+    const fn gone() -> Self {
+        Self {
+            filename: None,
+            content_type: None,
+            language: None,
+            size_bytes: 0,
+            storage: StorageLocation::Gone,
+        }
+    }
+
     fn from_text(model: &text_share::Model) -> Self {
         Self {
             filename: None,
@@ -114,17 +161,6 @@ impl Content {
             // database by definition. Nothing to reconcile with a column.
             size_bytes: u64::try_from(model.content.len()).unwrap_or(u64::MAX),
             storage: StorageLocation::Inline,
-        }
-    }
-
-    /// The transitional reading: a share whose subtype row is not there yet.
-    fn from_share(share: &Share) -> Self {
-        Self {
-            filename: share.filename.clone(),
-            content_type: share.content_type.clone(),
-            language: share.language.clone(),
-            size_bytes: share.size_bytes,
-            storage: share.storage.clone(),
         }
     }
 }
@@ -259,16 +295,6 @@ pub struct Share {
 
     /// Display name.
     pub title: Option<String>,
-    /// Original file name.
-    pub filename: Option<String>,
-    /// The media type the uploader claimed. Recorded, never echoed.
-    pub content_type: Option<String>,
-    /// Syntax-highlighting hint.
-    pub language: Option<String>,
-    /// Size of the content in bytes.
-    pub size_bytes: u64,
-    /// Where the bytes are.
-    pub storage: StorageLocation,
 
     /// JSON describing how to draw the OG image.
     pub og_config: Option<String>,
@@ -351,7 +377,7 @@ impl Share {
                 .map(UserId::parse)
                 .transpose()
                 .map_err(fail.clone())?,
-            kind: ShareKind::parse(&model.kind).map_err(fail.clone())?,
+            kind: ShareKind::parse(&model.kind).map_err(fail)?,
 
             password_hash: model.password_hash,
             use_limit: model.use_limit.map(unsigned),
@@ -360,11 +386,6 @@ impl Share {
             disabled_at: model.disabled_at,
 
             title: model.title,
-            filename: model.filename,
-            content_type: model.content_type,
-            language: model.language,
-            size_bytes: model.size_bytes.try_into().unwrap_or(0),
-            storage: StorageLocation::parse(&model.storage, model.object_key).map_err(fail)?,
 
             og_config: model.og_config,
             management_token_hash: model.management_token_hash,
@@ -379,15 +400,6 @@ impl Share {
     }
 
     fn to_active_model(&self) -> share::ActiveModel {
-        // `Gone` clears the key along with the bytes. The key is only ever used
-        // to fetch or delete an object, and the row is marked `gone` solely
-        // after a delete has succeeded — so there is nothing left for it to
-        // point at.
-        let object_key = match &self.storage {
-            StorageLocation::Gone | StorageLocation::Inline => None,
-            StorageLocation::Object { key } => Some(key.clone()),
-        };
-
         share::ActiveModel {
             id: Set(self.id.to_string()),
             code: Set(self.code.as_str().to_owned()),
@@ -401,12 +413,6 @@ impl Share {
             disabled_at: Set(self.disabled_at),
 
             title: Set(self.title.clone()),
-            filename: Set(self.filename.clone()),
-            content_type: Set(self.content_type.clone()),
-            language: Set(self.language.clone()),
-            size_bytes: Set(self.size_bytes.try_into().unwrap_or(i64::MAX)),
-            storage: Set(self.storage.as_str().to_owned()),
-            object_key: Set(object_key),
 
             og_config: Set(self.og_config.clone()),
             management_token_hash: Set(self.management_token_hash.clone()),
@@ -491,46 +497,45 @@ impl ShareRepository {
     pub async fn insert(
         &self,
         share: &Share,
-        inline_content: Option<Vec<u8>>,
+        content: &NewContent,
     ) -> Result<(), ShareRepositoryError> {
         ShareEntity::insert(share.to_active_model())
             .exec(&self.connection)
             .await?;
 
-        if share.kind == ShareKind::File {
-            FileShareEntity::insert(file_share::ActiveModel {
-                // Derived from the share rather than generated, so that a share
-                // with one file keeps an identifier somebody can follow back.
-                id: Set(share.id.to_string()),
-                share_id: Set(share.id.to_string()),
-                position: Set(0),
-                filename: Set(share.filename.clone()),
-                content_type: Set(share.content_type.clone()),
-                size_bytes: Set(i64::try_from(share.size_bytes).unwrap_or(i64::MAX)),
-                storage: Set(share.storage.as_str().to_owned()),
-                object_key: Set(share.storage.object_key().map(str::to_owned)),
-                created_at: Set(share.created_at),
-            })
-            .exec(&self.connection)
-            .await?;
-        }
-
-        if let Some(content) = inline_content {
-            if share.kind == ShareKind::Text {
-                TextShareEntity::insert(text_share::ActiveModel {
+        match content {
+            NewContent::File {
+                filename,
+                content_type,
+                size_bytes,
+                storage,
+            } => {
+                FileShareEntity::insert(file_share::ActiveModel {
+                    // Derived from the share rather than generated, so that a
+                    // share with one file keeps an identifier somebody can
+                    // follow back.
+                    id: Set(share.id.to_string()),
                     share_id: Set(share.id.to_string()),
-                    language: Set(share.language.clone()),
-                    content: Set(content.clone()),
+                    position: Set(0),
+                    filename: Set(filename.clone()),
+                    content_type: Set(content_type.clone()),
+                    size_bytes: Set(i64::try_from(*size_bytes).unwrap_or(i64::MAX)),
+                    storage: Set(storage.as_str().to_owned()),
+                    object_key: Set(storage.object_key().map(str::to_owned)),
+                    created_at: Set(share.created_at),
                 })
                 .exec(&self.connection)
                 .await?;
             }
-            ShareContentEntity::insert(share_content::ActiveModel {
-                share_id: Set(share.id.to_string()),
-                content: Set(content),
-            })
-            .exec(&self.connection)
-            .await?;
+            NewContent::Text { language, body } => {
+                TextShareEntity::insert(text_share::ActiveModel {
+                    share_id: Set(share.id.to_string()),
+                    language: Set(language.clone()),
+                    content: Set(body.clone()),
+                })
+                .exec(&self.connection)
+                .await?;
+            }
         }
         Ok(())
     }
@@ -574,6 +579,34 @@ impl ShareRepository {
             .await?)
     }
 
+    /// Every object this share has in the store.
+    ///
+    /// # Why a list
+    ///
+    /// One today, because a share holds one file. #42 makes it several, and a
+    /// sweep that removed the first and stopped would leave the rest paid for
+    /// and unreachable — a leak nothing would ever find, because the row that
+    /// named them is gone.
+    ///
+    /// Text has no objects: its content is its row.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn object_keys_of(
+        &self,
+        share_id: ShareId,
+    ) -> Result<Vec<String>, ShareRepositoryError> {
+        Ok(FileShareEntity::find()
+            .filter(file_share::Column::ShareId.eq(share_id.to_string()))
+            .order_by_asc(file_share::Column::Position)
+            .all(&self.connection)
+            .await?
+            .into_iter()
+            .filter_map(|model| model.object_key)
+            .collect())
+    }
+
     /// Reads a share's content details from the table that owns them.
     ///
     /// # Why this exists rather than more columns on [`Share`]
@@ -602,14 +635,17 @@ impl ShareRepository {
         match share.kind {
             ShareKind::File => {
                 let parts = self.files_of(share.id).await?;
+                // No row means no content. That is not a share missing its
+                // details — it is a share whose content has been removed, and
+                // `Gone` is what every reader already knows to do with that.
                 parts
                     .first()
-                    .map_or_else(|| Ok(Content::from_share(share)), Content::from_file)
+                    .map_or_else(|| Ok(Content::gone()), Content::from_file)
             }
-            ShareKind::Text => Ok(self.text_of(share.id).await?.map_or_else(
-                || Content::from_share(share),
-                |text| Content::from_text(&text),
-            )),
+            ShareKind::Text => Ok(self
+                .text_of(share.id)
+                .await?
+                .map_or_else(Content::gone, |text| Content::from_text(&text))),
         }
     }
 
@@ -660,121 +696,10 @@ impl ShareRepository {
         for share in shares {
             let content = found
                 .remove(&share.id.to_string())
-                .unwrap_or_else(|| Content::from_share(share));
+                .unwrap_or_else(Content::gone);
             resolved.insert(share.id, content);
         }
         Ok(resolved)
-    }
-
-    /// Shares whose content is not where this version keeps it.
-    ///
-    /// Two cases, and the query names both rather than the caller filtering a
-    /// full listing: a file still held inline, and text still in the object
-    /// store. Both worked under the rule this replaced, so neither is broken —
-    /// they are simply somewhere the next reader would not think to look.
-    ///
-    /// Bounded, because this runs inside the housekeeping pass and a pass that
-    /// tries to move an instance's whole history in one go is a pass that gets
-    /// killed half way through every hour.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
-    /// usable.
-    pub async fn find_misplaced(&self, limit: u64) -> Result<Vec<Share>, ShareRepositoryError> {
-        let text_in_store = share::Column::Kind
-            .eq(ShareKind::Text.as_str())
-            .and(share::Column::Storage.eq(StorageLocation::OBJECT));
-        let file_inline = share::Column::Kind
-            .eq(ShareKind::File.as_str())
-            .and(share::Column::Storage.eq(StorageLocation::INLINE));
-        let models = ShareEntity::find()
-            .filter(text_in_store.or(file_inline))
-            .order_by_asc(share::Column::CreatedAt)
-            .limit(limit)
-            .all(&self.connection)
-            .await?;
-        models
-            .into_iter()
-            .map(Share::from_model)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(ShareRepositoryError::from)
-    }
-
-    /// Records that a share's content now lives in the object store.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ShareRepositoryError`] if the update fails.
-    pub async fn moved_to_object(
-        &self,
-        id: ShareId,
-        key: &str,
-    ) -> Result<(), ShareRepositoryError> {
-        ShareEntity::update_many()
-            .col_expr(share::Column::Storage, StorageLocation::OBJECT.into())
-            .col_expr(share::Column::ObjectKey, key.into())
-            .filter(share::Column::Id.eq(id.to_string()))
-            .exec(&self.connection)
-            .await?;
-        FileShareEntity::update_many()
-            .col_expr(file_share::Column::Storage, StorageLocation::OBJECT.into())
-            .col_expr(file_share::Column::ObjectKey, key.into())
-            .filter(file_share::Column::ShareId.eq(id.to_string()))
-            .exec(&self.connection)
-            .await?;
-        // Last, and only once both rows point at the object. A failure before
-        // this leaves the bytes in two places, which the next pass fixes; a
-        // failure the other way round would leave them in none.
-        ShareContentEntity::delete_by_id(id.to_string())
-            .exec(&self.connection)
-            .await?;
-        Ok(())
-    }
-
-    /// Records that a text share's content now lives in the database.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ShareRepositoryError`] if the write fails.
-    pub async fn moved_to_database(
-        &self,
-        share: &Share,
-        content: Vec<u8>,
-    ) -> Result<(), ShareRepositoryError> {
-        let id = share.id.to_string();
-        TextShareEntity::insert(text_share::ActiveModel {
-            share_id: Set(id.clone()),
-            language: Set(share.language.clone()),
-            content: Set(content.clone()),
-        })
-        .on_conflict(
-            sea_orm::sea_query::OnConflict::column(text_share::Column::ShareId)
-                .update_columns([text_share::Column::Language, text_share::Column::Content])
-                .to_owned(),
-        )
-        .exec(&self.connection)
-        .await?;
-        ShareContentEntity::insert(share_content::ActiveModel {
-            share_id: Set(id.clone()),
-            content: Set(content),
-        })
-        .on_conflict(
-            sea_orm::sea_query::OnConflict::column(share_content::Column::ShareId)
-                .update_column(share_content::Column::Content)
-                .to_owned(),
-        )
-        .exec(&self.connection)
-        .await?;
-        // The object is left where it is. Deleting it is the sweep's job on the
-        // next pass, once the row no longer points at it — and if that never
-        // happens, an orphaned object costs storage rather than correctness.
-        ShareEntity::update_many()
-            .col_expr(share::Column::Storage, StorageLocation::INLINE.into())
-            .filter(share::Column::Id.eq(id))
-            .exec(&self.connection)
-            .await?;
-        Ok(())
     }
 
     /// Finds a share by the code a person typed.
@@ -805,21 +730,6 @@ impl ShareRepository {
             .one(&self.connection)
             .await?;
         Ok(model.map(Share::from_model).transpose()?)
-    }
-
-    /// Reads inline content.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ShareRepositoryError`] if the query fails.
-    pub async fn inline_content(
-        &self,
-        id: ShareId,
-    ) -> Result<Option<Vec<u8>>, ShareRepositoryError> {
-        let model = ShareContentEntity::find_by_id(id.to_string())
-            .one(&self.connection)
-            .await?;
-        Ok(model.map(|row| row.content))
     }
 
     /// Ends every share one account uploaded.
@@ -1106,7 +1016,23 @@ impl ShareRepository {
         // The row's own retention still removes it eventually, content and all.
         let models = ShareEntity::find()
             .filter(expired.or(exhausted))
-            .filter(share::Column::Storage.ne(StorageLocation::GONE))
+            // Storage now lives on `file_shares`. Text has no object, so a
+            // text share is reapable on the strength of its own row alone —
+            // which is why this is a `NOT EXISTS` over gone files rather than a
+            // join that would drop every text share.
+            .filter(
+                share::Column::Kind.eq(ShareKind::Text.as_str()).or(
+                    share::Column::Id.in_subquery(
+                        sea_orm::sea_query::Query::select()
+                            .column(file_share::Column::ShareId)
+                            .from(FileShareEntity)
+                            .and_where(
+                                file_share::Column::Storage.ne(StorageLocation::GONE),
+                            )
+                            .to_owned(),
+                    ),
+                ),
+            )
             .order_by_asc(share::Column::Id)
             .limit(limit)
             .all(&self.connection)
@@ -1132,26 +1058,6 @@ impl ShareRepository {
     ///
     /// Returns [`ShareRepositoryError`] if either statement fails.
     pub async fn mark_content_removed(&self, id: ShareId) -> Result<(), ShareRepositoryError> {
-        // Deleted before the row is marked, so a failure here leaves a share
-        // still claiming to hold its content — which is the direction that
-        // makes the next pass try again rather than forget.
-        ShareContentEntity::delete_by_id(id.to_string())
-            .exec(&self.connection)
-            .await?;
-
-        ShareEntity::update_many()
-            .col_expr(
-                share::Column::Storage,
-                Expr::value(StorageLocation::GONE.to_owned()),
-            )
-            .col_expr(
-                share::Column::ObjectKey,
-                Expr::value(Option::<String>::None),
-            )
-            .filter(share::Column::Id.eq(id.to_string()))
-            .exec(&self.connection)
-            .await?;
-
         // `file_shares` says where the bytes are, and readers now believe it
         // over the column above. Marking only the column would leave the table
         // pointing at an object that has just been deleted, so a reader that
@@ -1192,15 +1098,33 @@ impl ShareRepository {
     ///
     /// Returns [`ShareRepositoryError`] if the query fails.
     pub async fn total_stored_bytes(&self) -> Result<u64, ShareRepositoryError> {
-        let total: Option<i64> = ShareEntity::find()
-            .filter(share::Column::Storage.ne(StorageLocation::GONE))
+        // Two tables now, because content lives on the table that owns it. A
+        // file's size is a column; text's size is the length of its row, and
+        // `length()` returns bytes for a binary column on all three dialects —
+        // checked against each of them rather than assumed.
+        let files: Option<i64> = FileShareEntity::find()
+            .filter(file_share::Column::Storage.ne(StorageLocation::GONE))
             .select_only()
-            .column_as(share::Column::SizeBytes.sum(), "total")
+            .column_as(file_share::Column::SizeBytes.sum(), "total")
             .into_tuple()
             .one(&self.connection)
             .await?
             .flatten();
-        Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
+        let texts: Option<i64> = TextShareEntity::find()
+            .select_only()
+            .column_as(
+                Expr::expr(sea_orm::sea_query::Func::char_length(Expr::col(
+                    text_share::Column::Content,
+                )))
+                .sum(),
+                "total",
+            )
+            .into_tuple()
+            .one(&self.connection)
+            .await?
+            .flatten();
+        let total = files.unwrap_or(0).saturating_add(texts.unwrap_or(0));
+        Ok(u64::try_from(total).unwrap_or(0))
     }
 
     /// How many shares exist, and how many of those a visitor could still open.

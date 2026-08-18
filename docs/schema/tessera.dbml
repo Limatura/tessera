@@ -117,13 +117,6 @@ Table sessions {
   Note: '一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。'
 }
 
-Table share_contents {
-  share_id text [pk, not null]
-  content blob [not null]
-
-  Note: '舊的內容欄位,正在退場。內容改由上面兩張表持有,這張表等讀取端完全切換之後會刪掉。'
-}
-
 Table share_tickets {
   id text [pk, not null]
   share_id text [not null]
@@ -145,12 +138,6 @@ Table shares {
   expires_at text
   disabled_at text
   title text
-  filename text
-  content_type text
-  language text
-  size_bytes integer [not null]
-  storage text [not null]
-  object_key text
   og_config text
   management_token_hash text
   view_count integer [not null]
@@ -160,7 +147,7 @@ Table shares {
   copy_count integer [not null]
   bytes_served integer [not null]
 
-  Note: '一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。'
+  Note: '一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。'
 }
 
 Table text_shares {
@@ -202,7 +189,6 @@ Ref: file_shares.share_id > shares.id [delete: cascade]
 Ref: password_reset_tokens.user_id > users.id [delete: cascade]
 Ref: role_permissions.role_id > roles.id [delete: cascade]
 Ref: sessions.user_id > users.id [delete: cascade]
-Ref: share_contents.share_id > shares.id [delete: cascade]
 Ref: share_tickets.share_id > shares.id [delete: cascade]
 Ref: shares.user_id > users.id
 Ref: text_shares.share_id > shares.id [delete: cascade]

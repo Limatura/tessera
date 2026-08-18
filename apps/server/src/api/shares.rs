@@ -53,7 +53,7 @@ use crate::{
         secret::Secret,
         throttle::Decision,
     },
-    db::repository::share::{Content, Share, ShareEvent, ShareKind, StorageLocation},
+    db::repository::share::{Content, NewContent, Share, ShareEvent, ShareKind, StorageLocation},
     error::{Error, Result},
     state::AppState,
 };
@@ -339,14 +339,6 @@ pub async fn create(
         expires_at,
         disabled_at: None,
         title,
-        filename,
-        // What the uploader claimed, recorded so a future feature can use it —
-        // and never echoed, because serving an attacker-chosen media type back
-        // is how a `text/html` upload becomes stored XSS on our own origin.
-        content_type: claimed_content_type(&headers),
-        language,
-        size_bytes,
-        storage,
         og_config: None,
         management_token_hash: management_secret.as_ref().map(Secret::digest),
         view_count: 0,
@@ -357,7 +349,25 @@ pub async fn create(
         updated_at: now,
     };
 
-    let share = insert_with_fresh_code(&state, share, inline).await?;
+    let content = match kind {
+        ShareKind::File => NewContent::File {
+            filename,
+            // What the uploader claimed, recorded so a future feature can use it
+            // — and never echoed, because serving an attacker-chosen media type
+            // back is how a `text/html` upload becomes stored XSS on our own
+            // origin.
+            content_type: claimed_content_type(&headers),
+            size_bytes,
+            storage,
+        },
+        ShareKind::Text => NewContent::Text {
+            language,
+            // Text is its own row, so it is always here by the time a share
+            // exists — `ingest` refuses anything it could not hold.
+            body: inline.unwrap_or_default(),
+        },
+    };
+    let share = insert_with_fresh_code(&state, share, &content).await?;
     let content = state.shares.content_of(&share).await?;
     let response = ShareResponse::from_share(
         &share,
@@ -698,11 +708,11 @@ pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
 async fn insert_with_fresh_code(
     state: &AppState,
     mut share: Share,
-    inline: Option<Vec<u8>>,
+    content: &NewContent,
 ) -> Result<Share> {
     for _ in 0..CODE_ATTEMPTS {
         share.code = generate_code(state.config.share.code_length)?;
-        match state.shares.insert(&share, inline.clone()).await {
+        match state.shares.insert(&share, content).await {
             Ok(()) => return Ok(share),
             Err(error) => {
                 // Distinguish "that code is taken" from a database that is

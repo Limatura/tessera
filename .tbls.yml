@@ -42,13 +42,11 @@ comments:
   - table: pending_registrations
     tableComment: 還沒驗證的註冊。帳號在信件被點開之前不存在,所以資料先放這裡——這樣「這個 email 註冊了沒」問不出來。
   - table: shares
-    tableComment: 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
+    tableComment: 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
   - table: file_shares
     tableComment: 檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。
   - table: text_shares
     tableComment: 文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。
-  - table: share_contents
-    tableComment: 舊的內容欄位,正在退場。內容改由上面兩張表持有,這張表等讀取端完全切換之後會刪掉。
   - table: share_tickets
     tableComment: 輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。
   - table: roles

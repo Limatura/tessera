@@ -10,12 +10,37 @@ use common::{Auth, TestApp, body_json, body_string, expect_status, share_reposit
 use futures_util::TryStreamExt as _;
 use object_store::{ObjectStore as _, ObjectStoreExt as _};
 use sea_orm::ConnectionTrait as _;
+use tessera_server::db::repository::share::{Content, StorageLocation};
 use time::OffsetDateTime;
 use tower::ServiceExt as _;
 
 #[tokio::test]
 async fn shares_round_trip_through_the_repository() {
     share_repository_round_trip(&TestApp::ready().await, "SQ").await;
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+/// Where a share's content is, as the tables that own it say.
+///
+/// The columns these used to read came off `shares` — the subtype tables own
+/// them now, so a test asking "where did the bytes go" asks the same way the
+/// program does.
+async fn content_of(app: &TestApp, id: tessera_core::ShareId) -> Content {
+    let share = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    app.state
+        .shares
+        .content_of(&share)
+        .await
+        .expect("read the content details")
 }
 
 /// Posts a body and returns the created share.
@@ -49,20 +74,17 @@ async fn text_is_kept_in_the_database() {
     );
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
+    let stored = content_of(&app, id).await;
+    assert_eq!(stored.storage, StorageLocation::Inline);
     assert_eq!(
-        stored.storage,
-        tessera_server::db::repository::share::StorageLocation::Inline
-    );
-    assert_eq!(
-        app.state.shares.inline_content(id).await.expect("query"),
-        Some(content.to_vec())
+        app.state
+            .shares
+            .text_of(id)
+            .await
+            .expect("query")
+            .expect("text lives in its own table")
+            .content,
+        content.to_vec()
     );
 }
 
@@ -82,13 +104,7 @@ async fn a_file_is_streamed_to_the_blob_store() {
     assert_eq!(share["size_bytes"], content.len());
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
+    let stored = content_of(&app, id).await;
     let key = stored
         .storage
         .object_key()
@@ -99,13 +115,8 @@ async fn a_file_is_streamed_to_the_blob_store() {
         "keys are sharded by date: {key}"
     );
     assert!(
-        app.state
-            .shares
-            .inline_content(id)
-            .await
-            .expect("query")
-            .is_none(),
-        "an object-backed share must not also occupy a content row"
+        app.state.shares.text_of(id).await.expect("query").is_none(),
+        "a file has no text row"
     );
 
     let fetched = app
@@ -185,13 +196,7 @@ async fn deleting_a_share_removes_its_object_too() {
     let code = share["code"].as_str().expect("code").to_owned();
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("id")).expect("id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("share");
+    let stored = content_of(&app, id).await;
     let key = stored
         .storage
         .object_key()
@@ -1402,7 +1407,12 @@ async fn reaping_an_inline_share_actually_frees_the_database() {
     );
     // …so they had better actually be.
     assert_eq!(
-        app.state.shares.inline_content(id).await.expect("a lookup"),
+        app.state
+            .shares
+            .text_of(id)
+            .await
+            .expect("a lookup")
+            .map(|t| t.content),
         None,
         "the quota released this content, so the database must have too"
     );
@@ -1544,13 +1554,7 @@ async fn a_share_whose_object_already_vanished_is_still_reaped() {
 
     // Somebody cleaned the bucket out from under us.
     let id: tessera_core::ShareId = share["id"].as_str().expect("an id").parse().expect("an id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("a lookup")
-        .expect("the share");
+    let stored = content_of(&app, id).await;
     let key = stored
         .storage
         .object_key()
@@ -1910,13 +1914,7 @@ async fn even_a_tiny_file_becomes_an_object() {
     let share = upload(&app, "?filename=tiny.bin", b"nine byte").await;
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
 
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
+    let stored = content_of(&app, id).await;
     let key = stored
         .storage
         .object_key()
@@ -1943,13 +1941,7 @@ async fn text_stays_in_the_database_at_any_size() {
     let share = upload(&app, "", content.as_bytes()).await;
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
 
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
+    let stored = content_of(&app, id).await;
     assert!(
         stored.storage.object_key().is_none(),
         "text must not reach the object store, got {:?}",
@@ -2010,263 +2002,11 @@ async fn the_same_bytes_as_a_file_are_accepted() {
     assert_eq!(share["kind"], "file");
 }
 
-/// Content an older version put somewhere else is moved by the sweep, not by an
-/// upgrade step somebody has to remember to run.
-#[tokio::test]
-async fn the_sweep_moves_a_file_that_was_kept_inline() {
-    let app = TestApp::ready().await;
-    let share = upload(&app, "?filename=old.bin", b"was inline").await;
-    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
-
-    // Put it back the way the previous rule would have stored it: bytes in the
-    // database, the row saying inline, and no object anywhere.
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
-    let key = stored.storage.object_key().expect("an object").to_owned();
-    app.state
-        .storage
-        .delete(&object_store::path::Path::from(key.as_str()))
-        .await
-        .expect("remove the object");
-    let statement = sea_orm::Statement::from_string(
-        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
-        format!("UPDATE shares SET storage = 'inline', object_key = NULL WHERE id = '{id}'"),
-    );
-    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
-        .await
-        .expect("rewrite the row");
-    let statement = sea_orm::Statement::from_string(
-        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
-        format!(
-            "INSERT INTO share_contents (share_id, content) VALUES ('{id}', x'77617320696e6c696e65')"
-        ),
-    );
-    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
-        .await
-        .expect("put the bytes back");
-
-    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
-
-    let moved = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
-    let new_key = moved
-        .storage
-        .object_key()
-        .unwrap_or_else(|| panic!("expected the object store, got {:?}", moved.storage));
-    let bytes = app
-        .state
-        .storage
-        .get(&object_store::path::Path::from(new_key))
-        .await
-        .expect("fetch")
-        .bytes()
-        .await
-        .expect("read");
-    assert_eq!(bytes.as_ref(), b"was inline");
-    assert!(
-        app.state
-            .shares
-            .inline_content(id)
-            .await
-            .expect("query")
-            .is_none(),
-        "the database copy goes once the object is there"
-    );
-}
-
-/// And the other direction: text an older version streamed out comes back.
-#[tokio::test]
-async fn the_sweep_brings_text_back_from_the_store() {
-    let app = TestApp::ready().await;
-    let share = upload(&app, "?language=rust", b"fn main() {}").await;
-    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
-
-    // Store it the way the previous rule would have: bytes in the object store,
-    // the row pointing at them, nothing in the database.
-    let key = "old/text-share";
-    app.state
-        .storage
-        .put(
-            &object_store::path::Path::from(key),
-            object_store::PutPayload::from_static(b"fn main() {}"),
-        )
-        .await
-        .expect("write the object");
-    for sql in [
-        format!("UPDATE shares SET storage = 'object', object_key = '{key}' WHERE id = '{id}'"),
-        format!("DELETE FROM share_contents WHERE share_id = '{id}'"),
-        format!("DELETE FROM text_shares WHERE share_id = '{id}'"),
-    ] {
-        let statement = sea_orm::Statement::from_string(
-            sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
-            sql,
-        );
-        sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
-            .await
-            .expect("rewrite the row");
-    }
-
-    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
-
-    let text = app
-        .state
-        .shares
-        .text_of(id)
-        .await
-        .expect("query")
-        .expect("the text should have come back");
-    assert_eq!(text.content, b"fn main() {}");
-    assert_eq!(text.language.as_deref(), Some("rust"));
-
-    let moved = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
-    assert!(
-        moved.storage.object_key().is_none(),
-        "the row must stop pointing at the object, got {:?}",
-        moved.storage
-    );
-}
-
-/// Proves which table the answer comes from.
+/// A share whose content has been reaped says so.
 ///
-/// Both are written, so every other test passes either way. This one makes them
-/// disagree: the `shares` row is rewritten to say the wrong name and the wrong
-/// size, `file_shares` keeps the right ones, and the response has to show the
-/// right ones. Before the readers were flipped it showed `WRONG.bin`.
-#[tokio::test]
-async fn what_a_share_says_about_itself_comes_from_file_shares() {
-    let app = TestApp::ready().await;
-    let share = upload(&app, "?filename=holiday.jpg", b"0123456789").await;
-    let code = share["code"].as_str().expect("a code").to_owned();
-    let id = share["id"].as_str().expect("an id").to_owned();
-
-    let statement = sea_orm::Statement::from_string(
-        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
-        format!("UPDATE shares SET filename = 'WRONG.bin', size_bytes = 999999 WHERE id = '{id}'"),
-    );
-    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
-        .await
-        .expect("rewrite the old columns");
-
-    let response = expect_status(
-        app.send(
-            Request::builder()
-                .method(Method::GET)
-                .uri(format!("/api/v1/shares/{code}")),
-            Body::empty(),
-        )
-        .await,
-        StatusCode::OK,
-    )
-    .await;
-    let described = body_json(response).await;
-    assert_eq!(described["filename"], "holiday.jpg");
-    assert_eq!(described["size_bytes"], 10);
-
-    // And the download path, which builds its own headers from the same source.
-    let response = expect_status(
-        app.send(
-            Request::builder()
-                .method(Method::GET)
-                .uri(format!("/s/{code}/download")),
-            Body::empty(),
-        )
-        .await,
-        StatusCode::OK,
-    )
-    .await;
-    let disposition = response
-        .headers()
-        .get(header::CONTENT_DISPOSITION)
-        .expect("a disposition")
-        .to_str()
-        .expect("ascii")
-        .to_owned();
-    let length = response
-        .headers()
-        .get(header::CONTENT_LENGTH)
-        .expect("a length")
-        .to_str()
-        .expect("ascii")
-        .to_owned();
-    assert!(disposition.contains("holiday.jpg"), "{disposition}");
-    assert_eq!(length, "10");
-}
-
-/// A share whose subtype row is not there yet is still served.
-///
-/// Text that an older version streamed to the object store was not copied into
-/// `text_shares` by the migration — it joined `share_contents`, which such a
-/// share has no row in. The sweep gets to those a few at a time, and until it
-/// does the old columns are what answer.
-#[tokio::test]
-async fn a_share_without_its_new_row_falls_back_to_the_old_columns() {
-    let app = TestApp::ready().await;
-    let share = upload(&app, "?language=rust", b"fn main() {}").await;
-    let code = share["code"].as_str().expect("a code").to_owned();
-    let id = share["id"].as_str().expect("an id").to_owned();
-
-    let statement = sea_orm::Statement::from_string(
-        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
-        format!("DELETE FROM text_shares WHERE share_id = '{id}'"),
-    );
-    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
-        .await
-        .expect("remove the new row");
-
-    let response = expect_status(
-        app.send(
-            Request::builder()
-                .method(Method::GET)
-                .uri(format!("/api/v1/shares/{code}")),
-            Body::empty(),
-        )
-        .await,
-        StatusCode::OK,
-    )
-    .await;
-    let described = body_json(response).await;
-    assert_eq!(described["language"], "rust");
-    assert_eq!(described["size_bytes"], 12);
-
-    // And it still serves the bytes, which is the part that matters.
-    let response = expect_status(
-        app.send(
-            Request::builder()
-                .method(Method::GET)
-                .uri(format!("/s/{code}/raw")),
-            Body::empty(),
-        )
-        .await,
-        StatusCode::OK,
-    )
-    .await;
-    let body = to_bytes(response.into_body(), usize::MAX)
-        .await
-        .expect("read");
-    assert_eq!(body.as_ref(), b"fn main() {}");
-}
-
-/// A share whose content has been reaped must say so from the new table too.
-///
-/// The sweep marks `shares.storage` as gone. Readers believe `file_shares` now,
-/// so if that were left pointing at the object, a reader would ask the store for
-/// something that had just been deleted.
+/// The reaper marks `file_shares` as gone once the object is deleted. Leaving
+/// it pointing at the object would mean a reader that slipped past the gate
+/// asking the store for something that is not there.
 #[tokio::test]
 async fn a_reaped_share_reads_as_gone_from_the_new_table_as_well() {
     let app = TestApp::ready().await;
@@ -2279,22 +2019,10 @@ async fn a_reaped_share_reads_as_gone_from_the_new_table_as_well() {
         .await
         .expect("mark it removed");
 
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
-    let content = app
-        .state
-        .shares
-        .content_of(&stored)
-        .await
-        .expect("read the content details");
+    let content = content_of(&app, id).await;
     assert_eq!(
         content.storage,
-        tessera_server::db::repository::share::StorageLocation::Gone,
+        StorageLocation::Gone,
         "the new table still points at a deleted object"
     );
 }
@@ -2568,4 +2296,28 @@ async fn an_abandoned_download_counts_only_what_left() {
         "the whole file must not be counted: {counted} of {}",
         content.len()
     );
+}
+
+/// The columns are gone, so nothing can disagree with the subtype tables.
+///
+/// This replaces the pair that used to prove the readers had switched: one made
+/// `shares` say the wrong name and checked the response said the right one, the
+/// other checked a share with no subtype row still worked. Neither is
+/// expressible now — there is no second copy to be wrong, and no fallback to
+/// fall back to. What is left worth asserting is that the one remaining source
+/// answers.
+#[tokio::test]
+async fn a_shares_details_come_from_the_table_that_owns_them() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=holiday.jpg", b"0123456789").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let content = content_of(&app, id).await;
+    assert_eq!(content.filename.as_deref(), Some("holiday.jpg"));
+    assert_eq!(content.size_bytes, 10);
+
+    // And the only row carrying that is the one on `file_shares`.
+    let files = app.state.shares.files_of(id).await.expect("query");
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].filename.as_deref(), Some("holiday.jpg"));
 }

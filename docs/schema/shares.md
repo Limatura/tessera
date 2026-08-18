@@ -2,7 +2,7 @@
 
 ## Description
 
-一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
+一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -34,19 +34,6 @@ CREATE TABLE shares (
 
     -- Presentation.
     title          TEXT,
-    filename       TEXT,
-    -- Recorded, never echoed. The uploader chooses this value, and serving it
-    -- back is how a text/html upload becomes stored XSS on our own origin.
-    content_type   TEXT,
-    language       TEXT,
-    size_bytes     INTEGER NOT NULL,
-
-    -- Where the bytes live. `object_key` is stored rather than derived from the
-    -- id and date: storing it means the layout can change later without moving a
-    -- single byte, because old rows keep the key they were written with.
-    storage        TEXT    NOT NULL,
-    object_key     TEXT,
-
     og_config      TEXT,
     -- Lets an anonymous uploader delete what they just posted. Without it a
     -- mistaken upload is permanent.
@@ -65,7 +52,7 @@ CREATE TABLE shares (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [share_contents](share_contents.md) [share_tickets](share_tickets.md) [file_shares](file_shares.md) [text_shares](text_shares.md) |  |  |
+| id | TEXT |  | false | [share_tickets](share_tickets.md) [file_shares](file_shares.md) [text_shares](text_shares.md) |  |  |
 | code | TEXT |  | false |  |  |  |
 | user_id | TEXT |  | true |  | [users](users.md) |  |
 | kind | TEXT |  | false |  |  |  |
@@ -75,12 +62,6 @@ CREATE TABLE shares (
 | expires_at | TEXT |  | true |  |  |  |
 | disabled_at | TEXT |  | true |  |  |  |
 | title | TEXT |  | true |  |  |  |
-| filename | TEXT |  | true |  |  |  |
-| content_type | TEXT |  | true |  |  |  |
-| language | TEXT |  | true |  |  |  |
-| size_bytes | INTEGER |  | false |  |  |  |
-| storage | TEXT |  | false |  |  |  |
-| object_key | TEXT |  | true |  |  |  |
 | og_config | TEXT |  | true |  |  |  |
 | management_token_hash | TEXT |  | true |  |  |  |
 | view_count | INTEGER | 0 | false |  |  |  |
@@ -113,7 +94,6 @@ CREATE TABLE shares (
 ```mermaid
 erDiagram
 
-"share_contents" |o--|| "shares" : ""
 "share_tickets" }o--|| "shares" : ""
 "file_shares" }o--|| "shares" : ""
 "text_shares" |o--|| "shares" : ""
@@ -130,12 +110,6 @@ erDiagram
   TEXT expires_at
   TEXT disabled_at
   TEXT title
-  TEXT filename
-  TEXT content_type
-  TEXT language
-  INTEGER size_bytes
-  TEXT storage
-  TEXT object_key
   TEXT og_config
   TEXT management_token_hash
   INTEGER view_count
@@ -144,10 +118,6 @@ erDiagram
   TEXT updated_at
   INTEGER copy_count
   INTEGER bytes_served
-}
-"share_contents" {
-  TEXT share_id PK
-  BLOB content
 }
 "share_tickets" {
   TEXT id PK

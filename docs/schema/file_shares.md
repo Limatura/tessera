@@ -85,12 +85,6 @@ erDiagram
   TEXT expires_at
   TEXT disabled_at
   TEXT title
-  TEXT filename
-  TEXT content_type
-  TEXT language
-  INTEGER size_bytes
-  TEXT storage
-  TEXT object_key
   TEXT og_config
   TEXT management_token_hash
   INTEGER view_count
