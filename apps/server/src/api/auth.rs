@@ -1460,9 +1460,11 @@ pub async fn update_account(
 )]
 pub async fn delete_account(
     State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
+    headers: HeaderMap,
     current: CurrentUser,
     ApiJson(body): ApiJson<DeleteAccountRequest>,
-) -> Result<StatusCode> {
+) -> Result<Response> {
     reconfirm(&current, body.current_password).await?;
 
     // The same guard the administrative route has, reached from the other side:
@@ -1495,5 +1497,23 @@ pub async fn delete_account(
     state.tokens.delete_all_for_user(current.user.id).await?;
 
     tracing::info!(account = %current.user.id, "an account removed itself");
-    Ok(StatusCode::NO_CONTENT)
+
+    // The rows are gone, so the cookie is already dead — but leaving it in the
+    // browser means the next request carries a credential for an account that
+    // does not exist, and the client has to work out that `401` means "you are
+    // finished" rather than "sign in again". `logout` clears it for the same
+    // reason.
+    let secure = state
+        .config
+        .auth
+        .cookie_secure
+        .applies(&headers, origin.via_trusted_proxy);
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(
+            header::SET_COOKIE,
+            cookie::clearing_cookie(secure).to_string(),
+        )],
+    )
+        .into_response())
 }

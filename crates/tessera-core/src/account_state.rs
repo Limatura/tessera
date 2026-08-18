@@ -94,13 +94,24 @@ impl FromStr for AccountState {
 /// address. What is left identifies nobody: the identifier was already public
 /// to anyone who could see the account, and `.invalid` is reserved precisely so
 /// that it can never be a real domain (RFC 2606).
+///
+/// # Why these two are themselves reserved
+///
+/// The identifier is public — every response naming an account carries one. So
+/// without reserving them, a person could read somebody else's, take the name
+/// and address that account's deletion will one day need, and the unique index
+/// would then refuse the deletion. The account becomes undeletable, by its
+/// owner and by an administrator alike. Measured before it was fixed:
+/// `UNIQUE constraint failed: users.username`.
+///
+/// Which is why this builds them through the privileged parsers. It is the one
+/// caller allowed to produce what everybody else is refused.
 #[must_use]
 pub fn tombstone(id: UserId) -> (Username, EmailAddress) {
-    let name = Username::parse(&format!("gone-{id}")).unwrap_or_else(|_| {
-        unreachable!("a ULID with a four-character prefix is a valid username")
-    });
-    let email = EmailAddress::parse(&format!("{id}@deleted.invalid"))
-        .unwrap_or_else(|_| unreachable!("a ULID at a reserved domain is a valid address"));
+    let name = Username::parse_privileged(&format!("{}{id}", crate::username::TOMBSTONE_PREFIX))
+        .unwrap_or_else(|_| unreachable!("a ULID behind the tombstone prefix is a valid name"));
+    let email = EmailAddress::parse_privileged(&format!("{id}@{}", crate::email::TOMBSTONE_DOMAIN))
+        .unwrap_or_else(|_| unreachable!("a ULID at the tombstone domain is a valid address"));
     (name, email)
 }
 
@@ -143,8 +154,28 @@ mod tests {
         let (name, email) = tombstone(id);
         assert!(name.to_string().starts_with("gone-"));
         assert!(email.to_string().ends_with("@deleted.invalid"));
-        assert_eq!(Username::parse(&name.to_string()), Ok(name));
-        assert_eq!(EmailAddress::parse(&email.to_string()), Ok(email));
+        assert_eq!(Username::parse_privileged(&name.to_string()), Ok(name));
+        assert_eq!(
+            EmailAddress::parse_privileged(&email.to_string()),
+            Ok(email)
+        );
+    }
+
+    /// The two halves of the fix, tied together.
+    ///
+    /// If the parsers ever stop refusing what this produces, somebody can take
+    /// a tombstone that is not theirs and make that account undeletable.
+    #[test]
+    fn nobody_else_can_take_a_tombstone() {
+        let (name, email) = tombstone(UserId::generate());
+        assert!(
+            Username::parse(&name.to_string()).is_err(),
+            "the name a deletion needs must not be claimable"
+        );
+        assert!(
+            EmailAddress::parse(&email.to_string()).is_err(),
+            "the address a deletion needs must not be claimable"
+        );
     }
 
     /// Two deleted accounts must not collide on the unique index.

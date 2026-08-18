@@ -3036,3 +3036,102 @@ async fn the_only_administrator_cannot_remove_themselves() {
         StatusCode::CONFLICT
     );
 }
+
+/// Somebody must not be able to take the name a deletion will need.
+///
+/// A tombstone is `gone-<the account's own ulid>`, and identifiers are public —
+/// every response that names an account carries one. So a person can read
+/// somebody else's, rename themselves to the tombstone that account will one
+/// day need, and the unique index then refuses the deletion.
+#[tokio::test]
+async fn a_rename_cannot_take_a_tombstone_that_is_not_yours() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    let victim = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let (their_tombstone, _) = tessera_core::tombstone(victim.id);
+
+    let refused = app
+        .json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({
+                "username": their_tombstone.as_str(),
+                "current_password": PASSWORD,
+            }),
+        )
+        .await;
+    assert_eq!(
+        refused.status(),
+        StatusCode::BAD_REQUEST,
+        "taking it would make that account undeletable"
+    );
+
+    // The point of refusing: with the name taken, the deletion cannot write the
+    // tombstone and the account can never be removed.
+    assert!(
+        app.state
+            .users
+            .soft_delete(victim.id, victim.id, time::OffsetDateTime::now_utc())
+            .await
+            .is_ok(),
+        "the account must still be deletable"
+    );
+}
+
+/// The same door, reached by registering rather than renaming.
+#[tokio::test]
+async fn registration_cannot_take_a_tombstone_either() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+
+    let victim = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let (their_name, their_email) = tessera_core::tombstone(victim.id);
+
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": their_name.as_str(),
+                "email": "someone@example.com",
+                "password": PASSWORD,
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST
+    );
+
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "someone",
+                "email": their_email.as_str(),
+                "password": PASSWORD,
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST,
+        "the address a deletion needs must not be claimable either"
+    );
+}

@@ -87,7 +87,11 @@ impl User {
             // list refuses — so the ordinary parser would declare the one row
             // every instance has to be corrupt.
             username: Username::parse_privileged(&model.username).map_err(fail)?,
-            email: EmailAddress::parse(&model.email).map_err(fail)?,
+            // Privileged, for the same reason the name above is: reading a row
+            // back is not claiming the address. A deleted account's row holds
+            // one at the reserved tombstone domain, and the ordinary parser
+            // refuses that — which is what stops anybody else taking it.
+            email: EmailAddress::parse_privileged(&model.email).map_err(fail)?,
             password_hash: model.password_hash,
             is_admin: model.is_admin,
             must_change_password: model.must_change_password,

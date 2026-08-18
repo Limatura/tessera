@@ -31,6 +31,11 @@ pub struct EmailAddress {
     at: usize,
 }
 
+/// The domain a deleted account's address is rebuilt at.
+///
+/// Declared here and used by `tombstone` so the two cannot drift apart.
+pub(crate) const TOMBSTONE_DOMAIN: &str = "deleted.invalid";
+
 impl EmailAddress {
     /// Longest accepted address, in characters.
     ///
@@ -53,6 +58,24 @@ impl EmailAddress {
     /// more than one, has an empty half, contains whitespace or control
     /// characters, or has a domain without a dot.
     pub fn parse(raw: &str) -> Result<Self, DomainError> {
+        Self::parse_inner(raw, false)
+    }
+
+    /// Reads an address the program itself is producing.
+    ///
+    /// The one caller is `tombstone`, which has to build an address at the very
+    /// domain [`parse`](Self::parse) refuses — refusing it is what stops anybody
+    /// else taking it. Reading a stored row back goes through here too, for the
+    /// same reason: the row is already there.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`parse`](Self::parse), less the reserved domain.
+    pub fn parse_privileged(raw: &str) -> Result<Self, DomainError> {
+        Self::parse_inner(raw, true)
+    }
+
+    fn parse_inner(raw: &str, allow_reserved: bool) -> Result<Self, DomainError> {
         let trimmed = raw.trim();
 
         if trimmed.is_empty() {
@@ -82,6 +105,20 @@ impl EmailAddress {
                 reason: "must contain an `@`",
             });
         };
+
+        // The domain a deleted account's address is rebuilt at. Refused for the
+        // same reason `Username` refuses the `gone-` prefix: what precedes it is
+        // a public identifier, so without this somebody could register the
+        // address a deletion will one day need and the unique index would then
+        // refuse that deletion.
+        //
+        // `.invalid` is reserved by RFC 2606 and can never be a real domain, so
+        // nothing legitimate is being taken away.
+        if !allow_reserved && domain.eq_ignore_ascii_case(TOMBSTONE_DOMAIN) {
+            return Err(DomainError::Reserved {
+                value: trimmed.to_owned(),
+            });
+        }
 
         if domain.contains('@') {
             return Err(DomainError::Malformed {
