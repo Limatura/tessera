@@ -278,6 +278,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(shares::list, shares::create))
         .routes(routes!(shares::describe, shares::delete))
         .routes(routes!(shares::unlock))
+        .routes(routes!(shares::record_event))
 }
 
 /// Everything under `/admin`.

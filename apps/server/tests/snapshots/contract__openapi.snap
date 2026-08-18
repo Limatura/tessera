@@ -927,6 +927,21 @@ expression: document
         "format": "binary",
         "type": "string"
       },
+      "ShareEventRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /shares/{code}/events`.",
+        "properties": {
+          "kind": {
+            "description": "What happened: `view` or `copy`.\n\nRetrieval is deliberately not one of these — see [`record_event`].",
+            "example": "view",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "ShareResponse": {
         "description": "A share as the API describes it. Never carries the content.",
         "properties": {
@@ -934,6 +949,12 @@ expression: document
             "description": "The retrieval code, as a person reads it.",
             "example": "0ZPQ4M7K",
             "type": "string"
+          },
+          "copy_count": {
+            "description": "How many times a client reported it being copied.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
           },
           "created_at": {
             "description": "When it was created, RFC 3339.",
@@ -974,6 +995,13 @@ expression: document
               "null"
             ]
           },
+          "last_accessed_at": {
+            "description": "When it was last retrieved, RFC 3339.\n\nThe answer to the question somebody actually asks of their own share:\nhas the person I sent this to picked it up yet?",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "management_token": {
             "description": "Token that lets an anonymous uploader delete this share.\n\n**Shown once, at creation, and only when nobody was signed in.** Only its\ndigest is stored. Without it a mistaken anonymous upload could never be\ntaken back.",
             "type": [
@@ -1001,7 +1029,7 @@ expression: document
             ]
           },
           "use_count": {
-            "description": "How many times it has been retrieved.",
+            "description": "How many times it has been retrieved.\n\nCounted by the server on the transfer path, so it is the number to\ntrust — the two below are what a client told us.",
             "format": "int32",
             "minimum": 0,
             "type": "integer"
@@ -1014,6 +1042,12 @@ expression: document
               "integer",
               "null"
             ]
+          },
+          "view_count": {
+            "description": "How many times a client reported showing it.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
@@ -1024,6 +1058,8 @@ expression: document
           "size_bytes",
           "has_password",
           "use_count",
+          "view_count",
+          "copy_count",
           "created_at"
         ],
         "type": "object"
@@ -3554,6 +3590,65 @@ expression: document
           }
         },
         "summary": "Describes a share without spending one of its retrievals.",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/api/v1/shares/{code}/events": {
+      "post": {
+        "description": "# Why retrieval is not accepted here\n\n`use_count` is a limit. A client that could report its own retrievals would\nbe a client deciding whether the limit applied, and one `curl` at\n`/s/{code}/raw` would walk past it. The server counts that itself, on the\ntransfer path, where it cannot be skipped.\n\nThese two are the opposite case: nothing reaches the server when somebody\nreads a note on screen or presses a copy button, so a client is the only\nthing that can see them at all. The price is that anybody who can call this\ncan inflate them, which is tolerable precisely because nothing depends on\nthem.\n\n# Why it does not say whether the share exists\n\n`204` whatever happens, including for a code that names nothing. Answering\n`404` would make an unauthenticated endpoint into a way to ask which codes\nare real — the same oracle the retrieval throttle exists to close, reached\nthrough a door nobody was watching.\n\n# Errors\n\n`400` when `kind` is not one of the two, `429` when the source is asking too\noften.",
+        "operationId": "record_share_event",
+        "parameters": [
+          {
+            "description": "The share's retrieval code",
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Recorded, or the code names nothing"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`kind` is not `view` or `copy`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many events from this source"
+          }
+        },
+        "security": [
+          {}
+        ],
+        "summary": "Records something a client saw that the server could not.",
         "tags": [
           "shares"
         ]

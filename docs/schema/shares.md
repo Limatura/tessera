@@ -56,7 +56,7 @@ CREATE TABLE shares (
 
     created_at     TEXT    NOT NULL,
     updated_at     TEXT    NOT NULL
-)
+, copy_count INTEGER NOT NULL DEFAULT 0)
 ```
 
 </details>
@@ -87,6 +87,7 @@ CREATE TABLE shares (
 | last_accessed_at | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
+| copy_count | INTEGER | 0 | false |  |  |  |
 
 ## Constraints
 
@@ -140,6 +141,7 @@ erDiagram
   TEXT last_accessed_at
   TEXT created_at
   TEXT updated_at
+  INTEGER copy_count
 }
 "share_contents" {
   TEXT share_id PK

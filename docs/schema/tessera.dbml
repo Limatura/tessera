@@ -157,6 +157,7 @@ Table shares {
   last_accessed_at text
   created_at text [not null]
   updated_at text [not null]
+  copy_count integer [not null]
 
   Note: '一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。'
 }

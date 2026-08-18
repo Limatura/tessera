@@ -55,6 +55,8 @@ pub struct Model {
     /// How many times the share page was looked at. Statistics only — the number
     /// that gates access is `use_count`.
     pub view_count: i32,
+    /// How many times the content was copied.
+    pub copy_count: i32,
     /// When the share was last touched, used to decide what is worth keeping.
     pub last_accessed_at: Option<TimeDateTimeWithTimeZone>,
 
