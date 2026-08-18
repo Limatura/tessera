@@ -84,7 +84,7 @@ pub async fn ensure_admin(
     };
     // The first account administers the instance, which is the whole point of
     // this function — so it goes straight into the role that says so.
-    users.insert(&user, RoleId::parse(RoleId::ADMIN)?).await?;
+    users.insert(&user, RoleId::parse(RoleId::OWNER)?).await?;
 
     if let Some(printed) = generated {
         // Printed once, at `warn` so it survives a default log filter, and never

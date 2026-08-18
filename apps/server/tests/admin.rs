@@ -965,7 +965,7 @@ async fn the_administrator_count_follows_roles_not_the_column() {
         .expect("the account");
     // Straight into the seeded administrator role, without going through the
     // endpoint that also writes the column.
-    let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::ADMIN).expect("an id");
+    let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::OWNER).expect("an id");
     app.state
         .roles
         .set_roles_of(second.id, &[admin_role], time::OffsetDateTime::now_utc())
@@ -1350,20 +1350,20 @@ async fn new_accounts_go_into_the_configured_role() {
 /// and a permission nobody can hold is an endpoint nobody can reach, on a fresh
 /// instance, with no error anywhere to say so.
 #[tokio::test]
-async fn the_administrator_role_ends_up_holding_every_permission() {
+async fn the_owner_role_ends_up_holding_every_permission() {
     let app = TestApp::ready().await;
 
     let admin = app
         .state
         .roles
-        .find_by_name("admin")
+        .find_by_name("owner")
         .await
         .expect("query")
         .expect("the seeded role");
     for permission in tessera_core::Permission::ALL {
         assert!(
             admin.permissions.allows(permission),
-            "the administrator role cannot be granted {permission}"
+            "the owner role cannot be granted {permission}"
         );
     }
 }
@@ -1825,5 +1825,164 @@ async fn suspending_an_account_stops_its_tokens() {
             .status(),
         StatusCode::UNAUTHORIZED,
         "a token is not a session; nothing else stops it"
+    );
+}
+
+/// The three powers that separate somebody helping from somebody whose instance
+/// it is.
+///
+/// Before this split the seeded set had nothing between `admin` (everything)
+/// and `member`, so "help me run this" meant handing over deleting accounts,
+/// destroying other people's content, and granting permissions.
+#[tokio::test]
+async fn an_admin_helps_run_the_instance_without_being_able_to_take_it() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+    let (helper, _) = register(&app, "second").await;
+    let (victim, victim_id) = register(&app, "third").await;
+
+    let helper_account = account(&app, "second").await;
+    let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::ADMIN).expect("an id");
+    app.state
+        .roles
+        .set_roles_of(
+            helper_account.id,
+            &[admin_role],
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("make them an admin");
+
+    // What an admin is for.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&helper))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&helper))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{victim_id}"),
+            Auth::Cookie(&helper),
+            &serde_json::json!({ "is_admin": false, "state": "disabled" }),
+        )
+        .await
+        .status(),
+        StatusCode::OK,
+        "suspending is help, not a takeover"
+    );
+
+    // What an admin is not for.
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{victim_id}"),
+            Auth::Cookie(&helper)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "users:delete"
+    );
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/roles",
+            Auth::Cookie(&helper),
+            &serde_json::json!({ "name": "mine", "permissions": ["users:delete"] }),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "roles:write is what would let them raise themselves"
+    );
+
+    // And a share of somebody else's, which is the content half.
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=theirs.bin")
+                    .header(header::COOKIE, &victim),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let share_id = created["id"].as_str().expect("an id").to_owned();
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&helper)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "shares:delete:any"
+    );
+
+    // The owner can do all three.
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&owner)
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+}
+
+/// The sequence the split must not break: hand over, then leave.
+#[tokio::test]
+async fn an_owner_can_promote_a_successor_and_step_down() {
+    let app = TestApp::ready().await;
+    let (owner, owner_id) = register(&app, "first").await;
+    let (successor, successor_id) = register(&app, "second").await;
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{successor_id}"),
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "is_admin": true }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // The successor can do what the outgoing owner could.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{owner_id}"),
+            Auth::Cookie(&successor),
+            &serde_json::json!({ "is_admin": false }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&owner))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN,
+        "they stepped down"
     );
 }
