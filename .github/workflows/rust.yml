@@ -333,7 +333,37 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+      # Before the build, and unconditionally for the builders.
+      #
+      # There is one runner and `concurrency` cancels the previous run on a
+      # branch, so nothing else on this machine is using a builder when this
+      # starts — every one of them is left over from a run that was cancelled or
+      # whose runner went away before it could tidy up. Waiting for a disk
+      # threshold to remove them is waiting for the failure this exists to
+      # prevent.
+      #
+      # The heavier `system prune` stays behind a threshold: it throws away base
+      # images the next build will pull again, which is worth it on a full disk
+      # and not worth it otherwise.
+      - name: Clear what previous runs left
+        run: |
+          timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
+            | grep -v '^default$' \
+            | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
+          timeout 60 docker container prune -f 2>/dev/null || true
+          timeout 60 docker volume prune -f 2>/dev/null || true
+
+          FREE=$(df --output=pcent / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${FREE}% full"
+          if [ "$FREE" -ge 75 ]; then
+            echo "short on room; clearing images and caches too"
+            timeout 300 docker system prune -a --volumes -f || true
+            rm -rf /tmp/tessera-buildx-cache
+          fi
+          df -h / | tail -1
+
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        id: buildx
 
       - name: Build image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -441,6 +471,18 @@ jobs:
           docker rm -f tessera-smoke 2>/dev/null || true
           docker image rm -f tessera-server:ci 2>/dev/null || true
           docker image prune -f
+          # `setup-buildx-action` starts a builder in a container of its own,
+          # and each one keeps its state in a volume. Removing the image this
+          # job built left those behind, so every run added one — which is what
+          # filled the disk. `--keep-state` is deliberately absent: the layer
+          # cache this job wants is the local one under /tmp, not the builder's.
+          docker buildx rm --force "$BUILDER" 2>/dev/null || true
+          # Belt as well as braces: if this job was cancelled before the line
+          # above, the next run's opening step removes whatever is left. Both
+          # exist because a cancelled job runs neither.
+          docker volume prune -f 2>/dev/null || true
+        env:
+          BUILDER: ${{ steps.buildx.outputs.name }}
 
   fuzz:
     name: contract fuzz
