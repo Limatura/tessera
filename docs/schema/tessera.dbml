@@ -157,6 +157,7 @@ Table shares {
   last_accessed_at text
   created_at text [not null]
   updated_at text [not null]
+  copy_count integer [not null]
   bytes_served integer [not null]
 
   Note: '一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容本身在下面那幾張表。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。'

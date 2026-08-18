@@ -2299,6 +2299,172 @@ async fn a_reaped_share_reads_as_gone_from_the_new_table_as_well() {
     );
 }
 
+/// The two a client can report, and the one it cannot.
+#[tokio::test]
+async fn a_client_may_report_a_view_but_not_a_retrieval() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=note.txt", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    for kind in ["view", "copy", "view"] {
+        assert_eq!(
+            app.json(
+                Method::POST,
+                &format!("/api/v1/shares/{code}/events"),
+                Auth::None,
+                &serde_json::json!({ "kind": kind }),
+            )
+            .await
+            .status(),
+            StatusCode::NO_CONTENT,
+            "{kind}"
+        );
+    }
+
+    // A retrieval is a limit, so reporting one is refused rather than ignored —
+    // a client that got this wrong should hear about it.
+    assert_eq!(
+        app.json(
+            Method::POST,
+            &format!("/api/v1/shares/{code}/events"),
+            Auth::None,
+            &serde_json::json!({ "kind": "download" }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST
+    );
+
+    let stored = app
+        .state
+        .shares
+        .find_by_code(&tessera_core::RetrievalCode::parse(&code).expect("a code"))
+        .await
+        .expect("query")
+        .expect("the share");
+    assert_eq!(stored.view_count, 2);
+    assert_eq!(stored.copy_count, 1);
+    assert_eq!(stored.use_count, 0, "none of that was a retrieval");
+}
+
+/// An unauthenticated endpoint must not become a way to ask which codes exist.
+#[tokio::test]
+async fn reporting_against_an_unknown_code_says_nothing() {
+    let app = TestApp::ready().await;
+    let real = upload(&app, "?filename=note.txt", b"hello").await;
+    let real_code = real["code"].as_str().expect("a code").to_owned();
+
+    let answer_for_real = app
+        .json(
+            Method::POST,
+            &format!("/api/v1/shares/{real_code}/events"),
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await
+        .status();
+    let answer_for_nothing = app
+        .json(
+            Method::POST,
+            "/api/v1/shares/ZZZZZZZZZZ/events",
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await
+        .status();
+    let answer_for_nonsense = app
+        .json(
+            Method::POST,
+            "/api/v1/shares/not-a-code/events",
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await
+        .status();
+
+    assert_eq!(answer_for_real, StatusCode::NO_CONTENT);
+    assert_eq!(answer_for_nothing, answer_for_real);
+    assert_eq!(answer_for_nonsense, answer_for_real);
+}
+
+/// The uploader's own listing carries the numbers, and says which to trust.
+#[tokio::test]
+async fn the_uploader_sees_the_counts_on_their_own_share() {
+    let app = TestApp::ready().await;
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "counter",
+                "email": "counter@example.com",
+                "password": "a perfectly adequate passphrase",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let session = common::session_cookie(&response);
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=mine.bin")
+                    .header(header::COOKIE, &session),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::POST,
+            &format!("/api/v1/shares/{code}/events"),
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+    expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let listed = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/shares", Auth::Cookie(&session))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let mine = listed
+        .as_array()
+        .expect("a list")
+        .first()
+        .expect("the share");
+    assert_eq!(mine["view_count"], 1);
+    assert_eq!(mine["copy_count"], 0);
+    assert_eq!(mine["use_count"], 1, "the server counted the retrieval");
+    assert!(
+        mine["last_accessed_at"].is_string(),
+        "has anybody picked it up yet"
+    );
+}
+
 /// What a share sent is counted as it goes, not assumed from its size.
 #[tokio::test]
 async fn a_completed_download_counts_what_it_sent() {
@@ -2347,10 +2513,6 @@ async fn a_completed_download_counts_what_it_sent() {
     );
 }
 
-/// A transfer that stops half way counts the half that went.
-///
-/// This is the whole reason the count lives in the body rather than being added
-/// on at the start: adding the size per request would report a full download
 /// every time somebody clicked and changed their mind.
 #[tokio::test]
 async fn an_abandoned_download_counts_only_what_left() {

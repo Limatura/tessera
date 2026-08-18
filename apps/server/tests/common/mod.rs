@@ -607,7 +607,7 @@ pub(crate) async fn share_repository_round_trip(app: &TestApp, suffix: &str) {
 
 use tessera_core::{RetrievalCode, ShareId};
 use tessera_server::db::repository::share::{
-    Availability, Share, ShareKind, ShareRepository, StorageLocation,
+    Availability, Share, ShareEvent, ShareKind, ShareRepository, StorageLocation,
 };
 use time::{Duration, OffsetDateTime};
 
@@ -662,6 +662,7 @@ impl<'a> Shares<'a> {
             og_config: None,
             management_token_hash: None,
             view_count: 0,
+            copy_count: 0,
             bytes_served: 0,
             last_accessed_at: None,
             created_at: self.now,
@@ -830,13 +831,18 @@ impl<'a> Shares<'a> {
             );
         }
         self.repository
-            .record_view(share.id)
+            .record_event(share.id, ShareEvent::View)
             .await
             .expect("record view");
+        self.repository
+            .record_event(share.id, ShareEvent::Copy)
+            .await
+            .expect("record copy");
 
         let stored = self.stored(share.id).await;
         assert_eq!(stored.view_count, 1);
-        assert_eq!(stored.use_count, 5, "a view must not spend a use");
+        assert_eq!(stored.copy_count, 1);
+        assert_eq!(stored.use_count, 5, "neither one spends a use");
     }
 
     async fn deleting_takes_the_content_with_it(&self) {

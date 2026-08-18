@@ -43,7 +43,7 @@ use utoipa::{IntoParams, ToSchema};
 use crate::{
     api::{
         SHARES_TAG,
-        extract::{ApiPath, ApiQuery},
+        extract::{ApiJson, ApiPath, ApiQuery},
         gate,
     },
     auth::{
@@ -51,8 +51,9 @@ use crate::{
         password,
         proxy::Origin,
         secret::Secret,
+        throttle::Decision,
     },
-    db::repository::share::{Content, Share, ShareKind, StorageLocation},
+    db::repository::share::{Content, Share, ShareEvent, ShareKind, StorageLocation},
     error::{Error, Result},
     state::AppState,
 };
@@ -170,7 +171,19 @@ pub struct ShareResponse {
     /// How many retrievals remain, or `null` for unlimited.
     pub uses_remaining: Option<u32>,
     /// How many times it has been retrieved.
+    ///
+    /// Counted by the server on the transfer path, so it is the number to
+    /// trust — the two below are what a client told us.
     pub use_count: u32,
+    /// How many times a client reported showing it.
+    pub view_count: u32,
+    /// How many times a client reported it being copied.
+    pub copy_count: u32,
+    /// When it was last retrieved, RFC 3339.
+    ///
+    /// The answer to the question somebody actually asks of their own share:
+    /// has the person I sent this to picked it up yet?
+    pub last_accessed_at: Option<String>,
     /// When it stops being served, RFC 3339, or `null` to live until deleted.
     pub expires_at: Option<String>,
     /// When it was created, RFC 3339.
@@ -201,6 +214,9 @@ impl ShareResponse {
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
             use_count: share.use_count,
+            view_count: share.view_count,
+            copy_count: share.copy_count,
+            last_accessed_at: share.last_accessed_at.map(format_timestamp),
             expires_at: share.expires_at.map(format_timestamp),
             created_at: format_timestamp(share.created_at),
             management_token,
@@ -334,6 +350,7 @@ pub async fn create(
         og_config: None,
         management_token_hash: management_secret.as_ref().map(Secret::digest),
         view_count: 0,
+        copy_count: 0,
         bytes_served: 0,
         last_accessed_at: None,
         created_at: now,
@@ -1020,4 +1037,94 @@ pub async fn unlock(
             .use_limit
             .map(|limit| limit.saturating_sub(share.use_count.saturating_add(1))),
     }))
+}
+
+/// Body of `POST /shares/{code}/events`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ShareEventRequest {
+    /// What happened: `view` or `copy`.
+    ///
+    /// Retrieval is deliberately not one of these — see [`record_event`].
+    #[schema(example = "view")]
+    pub kind: String,
+}
+
+/// Records something a client saw that the server could not.
+///
+/// # Why retrieval is not accepted here
+///
+/// `use_count` is a limit. A client that could report its own retrievals would
+/// be a client deciding whether the limit applied, and one `curl` at
+/// `/s/{code}/raw` would walk past it. The server counts that itself, on the
+/// transfer path, where it cannot be skipped.
+///
+/// These two are the opposite case: nothing reaches the server when somebody
+/// reads a note on screen or presses a copy button, so a client is the only
+/// thing that can see them at all. The price is that anybody who can call this
+/// can inflate them, which is tolerable precisely because nothing depends on
+/// them.
+///
+/// # Why it does not say whether the share exists
+///
+/// `204` whatever happens, including for a code that names nothing. Answering
+/// `404` would make an unauthenticated endpoint into a way to ask which codes
+/// are real — the same oracle the retrieval throttle exists to close, reached
+/// through a door nobody was watching.
+///
+/// # Errors
+///
+/// `400` when `kind` is not one of the two, `429` when the source is asking too
+/// often.
+#[utoipa::path(
+    post,
+    path = "/shares/{code}/events",
+    operation_id = "record_share_event",
+    tag = SHARES_TAG,
+    params(("code" = String, Path, description = "The share's retrieval code")),
+    request_body = ShareEventRequest,
+    responses(
+        (status = 204, description = "Recorded, or the code names nothing"),
+        (status = 400, description = "`kind` is not `view` or `copy`", body = crate::error::ErrorBody),
+        (status = 429, description = "Too many events from this source", body = crate::error::ErrorBody),
+    ),
+    security(()),
+)]
+pub async fn record_event(
+    State(state): State<AppState>,
+    ClientAddress(Origin { source, .. }): ClientAddress,
+    ApiPath(code): ApiPath<String>,
+    ApiJson(body): ApiJson<ShareEventRequest>,
+) -> Result<StatusCode> {
+    let kind = match body.kind.as_str() {
+        "view" => ShareEvent::View,
+        "copy" => ShareEvent::Copy,
+        // Named rather than listed as "invalid": a client sending `download`
+        // has misread what this endpoint is for, and saying so is more use than
+        // a list of two words.
+        "download" | "retrieval" => {
+            return Err(Error::bad_request(
+                "retrievals are counted by the server on the transfer path, not reported here",
+            ));
+        }
+        _ => return Err(Error::bad_request("`kind` must be `view` or `copy`")),
+    };
+
+    // Keyed on the source, like the retrieval lookup: what varies is the code,
+    // so counting per code would count nothing.
+    if let Decision::Deny { retry_after } = state.throttles.lookup.check(&source) {
+        return Err(Error::TooManyRequests {
+            retry_after_secs: retry_after.as_secs(),
+        });
+    }
+
+    // Parsed after the throttle so a flood of unparsable codes costs the same
+    // as a flood of real ones.
+    let Ok(code) = RetrievalCode::parse(&code) else {
+        return Ok(StatusCode::NO_CONTENT);
+    };
+    if let Some(share) = state.shares.find_by_code(&code).await? {
+        state.shares.record_event(share.id, kind).await?;
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
