@@ -129,6 +129,27 @@ impl Content {
     }
 }
 
+/// Something a client saw happen that the server could not.
+///
+/// # Why these two and not retrieval
+///
+/// A retrieval is a limit, so the server has to be the one counting it — a
+/// client that reported its own would be a client deciding whether the limit
+/// applied, and `curl /s/{code}/raw` would walk past it. These two have no side
+/// effect and no server-side moment to observe: nothing reaches the server when
+/// somebody reads a note on screen or presses a copy button.
+///
+/// So the trade is the other way round from `use_count`. These numbers can be
+/// inflated by anybody who can call the endpoint, and that is tolerable because
+/// nothing depends on them being right.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShareEvent {
+    /// The content was shown to somebody.
+    View,
+    /// The content was copied to a clipboard.
+    Copy,
+}
+
 /// Where a share's bytes live.
 ///
 /// An enum rather than a `storage` string plus a nullable `object_key`, so that
@@ -255,6 +276,8 @@ pub struct Share {
     pub management_token_hash: Option<String>,
     /// How many times the share page was looked at. Statistics only.
     pub view_count: u32,
+    /// How many times the content was copied.
+    pub copy_count: u32,
     /// When the share was last touched.
     pub last_accessed_at: Option<OffsetDateTime>,
 
@@ -341,6 +364,7 @@ impl Share {
             og_config: model.og_config,
             management_token_hash: model.management_token_hash,
             view_count: unsigned(model.view_count),
+            copy_count: unsigned(model.copy_count),
             last_accessed_at: model.last_accessed_at,
 
             created_at: model.created_at,
@@ -381,6 +405,7 @@ impl Share {
             og_config: Set(self.og_config.clone()),
             management_token_hash: Set(self.management_token_hash.clone()),
             view_count: Set(signed(self.view_count)),
+            copy_count: Set(signed(self.copy_count)),
             last_accessed_at: Set(self.last_accessed_at),
 
             created_at: Set(self.created_at),
@@ -949,12 +974,17 @@ impl ShareRepository {
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the update fails.
-    pub async fn record_view(&self, id: ShareId) -> Result<(), ShareRepositoryError> {
+    pub async fn record_event(
+        &self,
+        id: ShareId,
+        kind: ShareEvent,
+    ) -> Result<(), ShareRepositoryError> {
+        let column = match kind {
+            ShareEvent::View => share::Column::ViewCount,
+            ShareEvent::Copy => share::Column::CopyCount,
+        };
         ShareEntity::update_many()
-            .col_expr(
-                share::Column::ViewCount,
-                Expr::col(share::Column::ViewCount).add(1),
-            )
+            .col_expr(column, Expr::col(column).add(1))
             .filter(share::Column::Id.eq(id.to_string()))
             .exec(&self.connection)
             .await?;

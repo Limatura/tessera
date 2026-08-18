@@ -97,6 +97,7 @@ erDiagram
   TEXT last_accessed_at
   TEXT created_at
   TEXT updated_at
+  INTEGER copy_count
 }
 ```
 
