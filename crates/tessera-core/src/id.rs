@@ -149,10 +149,12 @@ declare_id!(
 /// without it a typo in either would show up as an instance where nobody is an
 /// administrator.
 impl RoleId {
-    /// Everything.
+    /// Helping run the instance, short of the three destructive powers.
     pub const ADMIN: &'static str = "00ADMN00000000000000000000";
     /// Upload, and manage what you uploaded.
     pub const MEMBER: &'static str = "00MEMBER000000000000000000";
+    /// Everything, including removing accounts and other people's content.
+    pub const OWNER: &'static str = "00WNER00000000000000000000";
 }
 
 declare_id!(
@@ -265,7 +267,7 @@ mod seeded_role_tests {
     /// here.
     #[test]
     fn the_seeded_roles_are_valid_identifiers() {
-        for id in [RoleId::ADMIN, RoleId::MEMBER] {
+        for id in [RoleId::OWNER, RoleId::ADMIN, RoleId::MEMBER] {
             assert!(RoleId::parse(id).is_ok(), "{id}");
             assert_eq!(id.len(), 26, "{id}");
         }
