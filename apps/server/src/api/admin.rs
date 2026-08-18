@@ -1329,3 +1329,65 @@ pub async fn delete_share(
     tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
     Ok(StatusCode::NO_CONTENT)
 }
+
+/// How many shares an operation ended.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RemovedSharesResponse {
+    /// How many were still live and are now finished.
+    ///
+    /// The bytes go as the reaper reaches them, so this number is not how much
+    /// space came back yet.
+    pub removed: u64,
+}
+
+/// Ends every share one account uploaded.
+///
+/// # Why this is not part of deleting the account
+///
+/// Removing somebody and destroying what they uploaded are different acts. An
+/// operator clearing space wants this and not that; one removing a person who
+/// has left wants that and not this. Welding them together would make one of
+/// those two impossible and the other a surprise.
+///
+/// It works on an account in any state, including one still in use — an
+/// operator reclaiming space from somebody who is still here should not have to
+/// suspend them first.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not delete every
+/// share or used a bearer token, `404` when no account has that identifier.
+#[utoipa::path(
+    delete,
+    path = "/admin/users/{id}/shares",
+    operation_id = "remove_user_shares",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Whose shares to end")),
+    responses(
+        (status = 200, description = "How many were ended", body = RemovedSharesResponse),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not delete every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No account has that id", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn remove_user_shares(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+) -> Result<Json<RemovedSharesResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesDeleteAny)?;
+
+    let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
+    if state.users.find_by_id(user_id).await?.is_none() {
+        return Err(Error::NotFound);
+    }
+
+    let removed = state
+        .shares
+        .expire_all_for_user(user_id, OffsetDateTime::now_utc())
+        .await?;
+    tracing::info!(account = %user_id, by = %current.user.id, removed, "an administrator ended an account's shares");
+    Ok(Json(RemovedSharesResponse { removed }))
+}

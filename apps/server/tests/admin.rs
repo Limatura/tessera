@@ -1827,3 +1827,88 @@ async fn suspending_an_account_stops_its_tokens() {
         "a token is not a session; nothing else stops it"
     );
 }
+
+/// Clearing space is one call, not one per share.
+#[tokio::test]
+async fn an_operator_can_end_everything_one_account_uploaded() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+    let (uploader, id) = register(&app, "second").await;
+
+    let mut codes = Vec::new();
+    for name in ["one.bin", "two.bin", "three.bin"] {
+        let created = body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(format!("/api/v1/shares?filename={name}"))
+                        .header(header::COOKIE, &uploader),
+                    Body::from(b"content".to_vec()),
+                )
+                .await,
+                StatusCode::CREATED,
+            )
+            .await,
+        )
+        .await;
+        codes.push(created["code"].as_str().expect("a code").to_owned());
+    }
+
+    let answer = body_json(
+        expect_status(
+            app.empty(
+                Method::DELETE,
+                &format!("/api/v1/admin/users/{id}/shares"),
+                Auth::Cookie(&owner),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(answer["removed"], 3);
+
+    for code in &codes {
+        assert_eq!(
+            app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+                .await
+                .status(),
+            StatusCode::GONE,
+            "{code}"
+        );
+    }
+
+    // The bytes come back when the reaper reaches them, not in the request.
+    tessera_server::maintenance::sweep_once(&app.state, time::OffsetDateTime::now_utc()).await;
+    let stored = app.state.shares.total_stored_bytes().await.expect("query");
+    assert_eq!(stored, 0, "the reaper reclaims what the update marked");
+}
+
+/// The account is untouched — this is about content, not about people.
+#[tokio::test]
+async fn ending_an_accounts_shares_leaves_the_account_alone() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+    let (uploader, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}/shares"),
+            Auth::Cookie(&owner),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&uploader))
+            .await
+            .status(),
+        StatusCode::OK,
+        "they are still here"
+    );
+}
