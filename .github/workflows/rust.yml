@@ -333,7 +333,24 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+      # Before the build, not after: housekeeping runs at four in the morning,
+      # and a disk that fills at noon has eaten every run until then. This is
+      # the job that needs the space, so it is the one that should check.
+      - name: Make room if the disk is short
+        run: |
+          FREE=$(df --output=pcent / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${FREE}% full"
+          [ "$FREE" -lt 80 ] && exit 0
+          echo "clearing what nothing is using"
+          # Builders left by previous runs, which is what accumulates fastest.
+          timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
+            | grep -v '^default$' \
+            | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
+          timeout 300 docker system prune -a --volumes -f || true
+          df -h / | tail -1
+
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        id: buildx
 
       - name: Build image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -441,6 +458,14 @@ jobs:
           docker rm -f tessera-smoke 2>/dev/null || true
           docker image rm -f tessera-server:ci 2>/dev/null || true
           docker image prune -f
+          # `setup-buildx-action` starts a builder in a container of its own,
+          # and each one keeps its state in a volume. Removing the image this
+          # job built left those behind, so every run added one — which is what
+          # filled the disk. `--keep-state` is deliberately absent: the layer
+          # cache this job wants is the local one under /tmp, not the builder's.
+          docker buildx rm --force "$BUILDER" 2>/dev/null || true
+        env:
+          BUILDER: ${{ steps.buildx.outputs.name }}
 
   fuzz:
     name: contract fuzz
