@@ -64,6 +64,87 @@ expression: document
         ],
         "type": "object"
       },
+      "AdminSharePage": {
+        "description": "A page of shares.",
+        "properties": {
+          "shares": {
+            "description": "The shares on this page.",
+            "items": {
+              "$ref": "#/components/schemas/AdminShareResponse"
+            },
+            "type": "array"
+          },
+          "total": {
+            "description": "How many exist in total, so a client can render pagination.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "shares",
+          "total"
+        ],
+        "type": "object"
+      },
+      "AdminShareResponse": {
+        "description": "One share, as an administrator sees it.\n\nDeliberately not the same shape a person sees of their own: this listing\nexists to find things that need removing, so it carries who uploaded it and\nhow big it is, and it never carries the retrieval code. An administrator who\ncan read every code can open every share, and that is a different power from\nbeing able to delete one.",
+        "properties": {
+          "active": {
+            "description": "Whether a visitor could still open it.",
+            "type": "boolean"
+          },
+          "created_at": {
+            "description": "When it was uploaded, RFC 3339.",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "When it stops being served, RFC 3339, or `null` if it never does.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "filename": {
+            "description": "What the uploader called it, when it is a file.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Stable identifier, for [`delete_share`].",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Whether it holds a file or text.",
+            "example": "file",
+            "type": "string"
+          },
+          "owner_id": {
+            "description": "Who uploaded it, or `null` when nobody was signed in.\n\nAn account that has since been deleted still appears here — the row it\nleft behind is what keeps this answerable. `null` means the upload was\nanonymous, which is a different fact and worth telling apart.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size_bytes": {
+            "description": "How many bytes it holds.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "size_bytes",
+          "active",
+          "created_at"
+        ],
+        "type": "object"
+      },
       "AdminUserResponse": {
         "$ref": "#/components/schemas/AccountResponse",
         "description": "One account, as an administrator sees it.\n\nThe same shape a person sees of themselves. There is nothing extra to show:\nthis service stores no profile, and the one thing an administrator can change\nis already a field."
@@ -1678,6 +1759,154 @@ expression: document
           }
         ],
         "summary": "Replaces what a role allows.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/shares": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read every\nshare or used a bearer token, `404` when this instance has no\nadministration.",
+        "operationId": "list_all_shares",
+        "parameters": [
+          {
+            "description": "How many to return. Capped, and defaulted when omitted.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "How many to skip.",
+            "in": "path",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSharePage"
+                }
+              }
+            },
+            "description": "A page of shares"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists every share on the instance, newest first.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/shares/{id}": {
+      "delete": {
+        "description": "# Why this exists\n\nThe ordinary delete route asks whether the caller owns the share. An upload\nfrom an account that has since been deleted is owned by nobody, so nothing\ncould remove it — it kept serving its content, kept its place in the storage\nquota, and was never swept if it had no expiry and no use limit. This is the\nonly way to reach one.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no share has that identifier.",
+        "operationId": "delete_any_share",
+        "parameters": [
+          {
+            "description": "Which share",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is gone"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not delete every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such share"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes any share, whoever uploaded it.",
         "tags": [
           "admin"
         ]

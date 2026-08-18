@@ -2,7 +2,10 @@
 
 mod common;
 
-use axum::http::{Method, StatusCode};
+use axum::{
+    body::Body,
+    http::{Method, Request, StatusCode, header},
+};
 use common::{Auth, TestApp, body_json, expect_status};
 use tessera_server::config::RegistrationPolicy;
 
@@ -1307,6 +1310,224 @@ async fn new_accounts_go_into_the_configured_role() {
         app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
             .await
             .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// After every migration has run, the administrator role holds everything.
+///
+/// The per-migration tests each check what their own file wrote, which is what
+/// a migration is answerable for. Nothing checked the state they add up to —
+/// and a permission nobody can hold is an endpoint nobody can reach, on a fresh
+/// instance, with no error anywhere to say so.
+#[tokio::test]
+async fn the_administrator_role_ends_up_holding_every_permission() {
+    let app = TestApp::ready().await;
+
+    let admin = app
+        .state
+        .roles
+        .find_by_name("admin")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    for permission in tessera_core::Permission::ALL {
+        assert!(
+            admin.permissions.allows(permission),
+            "the administrator role cannot be granted {permission}"
+        );
+    }
+}
+
+/// The gap this endpoint exists to close.
+///
+/// A share whose uploader is gone is owned by nobody, so the ordinary delete
+/// route — which asks whether the caller owns it — could never reach one. With
+/// no expiry and no use limit the sweep never reaches it either, so it served
+/// its content forever and nothing could stop it.
+#[tokio::test]
+async fn an_administrator_can_remove_a_share_nobody_owns() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (leaver, _) = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=left-behind.bin")
+                    .header(header::COOKIE, &leaver),
+                Body::from(b"orphan".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let share_id = created["id"].as_str().expect("an id").to_owned();
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    // The uploader's account goes. Today that orphans the share.
+    let second = account(&app, "second").await;
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", second.id),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    // It is still served — which is the part that makes this worth fixing.
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::OK,
+        "an orphaned share keeps working"
+    );
+
+    // And now somebody can remove it.
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+}
+
+/// The listing tells an anonymous upload apart from one whose owner is gone.
+///
+/// Both have no reachable account, and collapsing them would throw away which
+/// is which — information nothing could recover afterwards.
+#[tokio::test]
+async fn the_listing_says_who_uploaded_each_share() {
+    let app = TestApp::with_config(|config| {
+        config.features.anonymous_upload = true;
+    })
+    .await;
+    let (admin, admin_id) = register(&app, "first").await;
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=mine.bin")
+                .header(header::COOKIE, &admin),
+            Body::from(b"mine".to_vec()),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=nobodys.bin"),
+            Body::from(b"nobody".to_vec()),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+
+    let page = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(page["total"], 2);
+
+    let rows = page["shares"].as_array().expect("a list");
+    let mine = rows
+        .iter()
+        .find(|row| row["filename"] == "mine.bin")
+        .expect("the signed-in upload");
+    let nobodys = rows
+        .iter()
+        .find(|row| row["filename"] == "nobodys.bin")
+        .expect("the anonymous upload");
+    assert_eq!(mine["owner_id"], admin_id);
+    assert!(nobodys["owner_id"].is_null(), "anonymous means nobody");
+}
+
+/// Reading every share and deleting every share are separate powers.
+#[tokio::test]
+async fn reading_every_share_does_not_imply_removing_one() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (watcher, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=someone-elses.bin")
+                    .header(header::COOKIE, &admin),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let share_id = created["id"].as_str().expect("an id").to_owned();
+
+    let role = app
+        .state
+        .roles
+        .create(
+            "moderator".to_owned(),
+            None,
+            &[tessera_core::Permission::SharesReadAny]
+                .into_iter()
+                .collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[role.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&watcher)
+        )
+        .await
+        .status(),
         StatusCode::FORBIDDEN
     );
 }

@@ -42,12 +42,34 @@ mod tests {
 
     use super::{MYSQL, POSTGRES, SQLITE};
 
+    /// What a token could do before this migration ran.
+    ///
+    /// Deliberately not [`Permission::ALL`]: a token minted before this version
+    /// acted as its owner *as the program was then*, and permissions added
+    /// later were not among them. Carrying a later one over would widen every
+    /// existing token on upgrade, which is the opposite of what this is for.
+    const CARRIED_OVER: [Permission; 13] = [
+        Permission::SharesCreate,
+        Permission::SharesRead,
+        Permission::SharesDelete,
+        Permission::TokensManage,
+        Permission::UsersRead,
+        Permission::UsersWrite,
+        Permission::UsersDelete,
+        Permission::InvitesRead,
+        Permission::InvitesCreate,
+        Permission::InvitesDelete,
+        Permission::RolesRead,
+        Permission::RolesWrite,
+        Permission::StatsRead,
+    ];
+
     /// An existing token that is not given a permission loses it, silently, on
     /// upgrade — and the symptom lands on whoever's script is using it.
     #[test]
-    fn existing_tokens_keep_every_permission() {
+    fn existing_tokens_keep_what_they_could_already_do() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {
-            for permission in Permission::ALL {
+            for permission in CARRIED_OVER {
                 assert!(
                     sql.contains(&format!("'{}'", permission.as_str())),
                     "{dialect} does not carry {permission} over"

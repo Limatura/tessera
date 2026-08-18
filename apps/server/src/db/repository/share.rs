@@ -790,6 +790,46 @@ impl ShareRepository {
         Ok(model.map(|row| row.content))
     }
 
+    /// Every share on the instance, newest first, a page at a time.
+    ///
+    /// # Why this is paged and `list_for_user` is not
+    ///
+    /// One person's shares are bounded by what one person uploaded. Every share
+    /// on the instance is not, and an administrator opening the page on a busy
+    /// instance would otherwise pull the whole table across the wire to render
+    /// the first twenty rows.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
+    /// usable.
+    pub async fn list_all(
+        &self,
+        limit: u64,
+        offset: u64,
+    ) -> Result<Vec<Share>, ShareRepositoryError> {
+        let models = ShareEntity::find()
+            .order_by_desc(share::Column::CreatedAt)
+            .order_by_desc(share::Column::Id)
+            .limit(limit)
+            .offset(offset)
+            .all(&self.connection)
+            .await?;
+        models
+            .into_iter()
+            .map(|model| Share::from_model(model).map_err(Into::into))
+            .collect()
+    }
+
+    /// How many shares exist, for the listing to page through.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn count_all(&self) -> Result<u64, ShareRepositoryError> {
+        Ok(ShareEntity::find().count(&self.connection).await?)
+    }
+
     /// Lists an account's shares, newest first.
     ///
     /// # Errors

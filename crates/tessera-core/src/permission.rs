@@ -36,6 +36,13 @@ pub enum Permission {
     SharesDelete,
     /// Mint and revoke one's own API tokens.
     TokensManage,
+    /// See every share on the instance, not only one's own.
+    SharesReadAny,
+    /// Remove any share on the instance.
+    ///
+    /// The only way to reach a share whose uploader is gone: ownership is what
+    /// the delete route checks, and a deleted account owns nothing.
+    SharesDeleteAny,
     /// List every account.
     UsersRead,
     /// Change an account that is not one's own.
@@ -62,11 +69,13 @@ impl Permission {
     /// Used to seed the administrator role and to answer "what could a role
     /// possibly contain", so it has to stay exhaustive — adding a variant
     /// without adding it here would make a permission nobody can be granted.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 15] = [
         Self::SharesCreate,
         Self::SharesRead,
         Self::SharesDelete,
         Self::TokensManage,
+        Self::SharesReadAny,
+        Self::SharesDeleteAny,
         Self::UsersRead,
         Self::UsersWrite,
         Self::UsersDelete,
@@ -86,6 +95,8 @@ impl Permission {
             Self::SharesRead => "shares:read",
             Self::SharesDelete => "shares:delete",
             Self::TokensManage => "tokens:manage",
+            Self::SharesReadAny => "shares:read:any",
+            Self::SharesDeleteAny => "shares:delete:any",
             Self::UsersRead => "users:read",
             Self::UsersWrite => "users:write",
             Self::UsersDelete => "users:delete",

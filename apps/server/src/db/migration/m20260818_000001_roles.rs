@@ -56,12 +56,35 @@ mod tests {
         }
     }
 
+    /// The permissions that existed when this migration was written.
+    ///
+    /// Named rather than taken from [`Permission::ALL`]: a migration records
+    /// what it did, and a later version adding a permission does not change
+    /// that. Granting the new ones is the later migration's job — see
+    /// `m20260818_000003`. The invariant that matters after every migration has
+    /// run is checked against a real database, in `tests/admin.rs`.
+    const SEEDED: [Permission; 13] = [
+        Permission::SharesCreate,
+        Permission::SharesRead,
+        Permission::SharesDelete,
+        Permission::TokensManage,
+        Permission::UsersRead,
+        Permission::UsersWrite,
+        Permission::UsersDelete,
+        Permission::InvitesRead,
+        Permission::InvitesCreate,
+        Permission::InvitesDelete,
+        Permission::RolesRead,
+        Permission::RolesWrite,
+        Permission::StatsRead,
+    ];
+
     /// A permission the administrator role is not granted is one nobody can
     /// hold on a fresh instance, and the endpoint protecting it is unreachable.
     #[test]
-    fn the_administrator_role_is_seeded_with_every_permission() {
+    fn the_administrator_role_is_seeded_with_the_permissions_of_its_day() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {
-            for permission in Permission::ALL {
+            for permission in SEEDED {
                 assert!(
                     sql.contains(&format!("'{}'", permission.as_str())),
                     "{dialect} does not grant {permission} to anybody"
