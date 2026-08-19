@@ -687,26 +687,18 @@ impl ShareRepository {
             .collect())
     }
 
-    /// Reads a share's content details from the table that owns them.
+    /// Reads what a share holds, from the table that owns it.
     ///
     /// # Why this exists rather than more columns on [`Share`]
     ///
     /// The columns describing content — filename, type, size, where the bytes
-    /// are — moved off `shares` onto `file_shares` and `text_shares`. They are
-    /// still written to both places, so this is the switch that decides which
-    /// copy the program believes.
+    /// are — only make sense for one kind of share, and half of them were
+    /// always `NULL`. They live on `file_shares` and `text_shares` now, and
+    /// `kind` is what says which to read.
     ///
-    /// # The fallback, and why it is only here
-    ///
-    /// A row can still be missing its subtype row: the `text_shares` backfill
-    /// joined `share_contents`, so text that an older version streamed out to
-    /// the object store was not copied across, and the sweep gets to those a
-    /// few at a time. Serving such a share from the old columns is correct —
-    /// they still say where the bytes are.
-    ///
-    /// The point of putting it in one function is that removing it later is one
-    /// deletion. Spread across the handlers it would be sixty-odd, and the ones
-    /// nobody found would quietly keep the old columns alive.
+    /// A share whose subtype row is gone reads as [`Content::Gone`] rather than
+    /// failing: that is what a share whose content was swept looks like, and
+    /// the listing still has to be able to show it.
     ///
     /// # Errors
     ///
@@ -1120,14 +1112,14 @@ impl ShareRepository {
 
     /// Removes a share's content and records that it is gone.
     ///
-    /// Both halves, because "content" means two different places. Content above
-    /// `inline_threshold_bytes` is an object, which the caller has already
-    /// deleted by the time it gets here; below it, the bytes are a row in
-    /// `share_contents`, and that row is this function's to remove.
+    /// Both halves, because "content" means two different places. A file is an
+    /// object, which the caller has already deleted by the time it gets here;
+    /// text is a row in `text_shares`, and that row is this function's to
+    /// remove.
     ///
-    /// Marking without deleting the inline row would be the dangerous half of a
-    /// lie: the quota would report the space as free while the database still
-    /// held it, and the gap would widen for as long as the retention window.
+    /// Marking without deleting the row would be the dangerous half of a lie:
+    /// the quota would report the space as free while the database still held
+    /// it, and the gap would widen for as long as the retention window.
     ///
     /// # Errors
     ///

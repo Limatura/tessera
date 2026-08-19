@@ -1,8 +1,8 @@
 //! The `shares` table, as SeaORM sees it.
 //!
-//! Deliberately narrow: this is read on every public request, so the content
-//! bytes live in `share_contents` (or the blob store) rather than here. See the
-//! migration SQL for why the split is by size rather than by kind.
+//! Deliberately narrow: this is read on every public request, so what a share
+//! holds lives in `text_shares` and `file_shares` rather than here. `kind` says
+//! which of the two to read.
 
 use sea_orm::entity::prelude::*;
 
