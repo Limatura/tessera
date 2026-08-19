@@ -118,17 +118,50 @@ pub fn check_size(format: Format, total: u64) -> crate::error::Result<()> {
 /// honour one. Separators go, and so does anything that would leave the name
 /// empty.
 fn sanitise(raw: Option<&str>, position: usize) -> String {
-    let cleaned: String = raw
+    let kept: Vec<String> = raw
         .unwrap_or("")
-        .chars()
-        .filter(|c| !matches!(c, '/' | '\\' | '\0'))
+        .split(['/', '\\'])
+        .map(clean_segment)
+        .filter(|segment| !segment.is_empty())
         .collect();
-    let trimmed = cleaned.trim().trim_start_matches('.');
-    if trimmed.is_empty() {
+    if kept.is_empty() {
         format!("file-{}", position + 1)
     } else {
-        trimmed.to_owned()
+        kept.join("/")
     }
+}
+
+/// One component of a path, made safe to be a directory or file name.
+///
+/// # What escaping would look like, and why none of it survives
+///
+/// `..` is the whole attack. Stripping leading dots turns it into nothing,
+/// which the caller then drops — so `../../etc/passwd` arrives as `etc/passwd`,
+/// a name relative to wherever it is unpacked. A leading `/` becomes an empty
+/// first segment and goes the same way, and a Windows drive letter loses its
+/// colon below and becomes an ordinary directory called `C`.
+///
+/// Backslash is a separator here as well as `/`. It is one on Windows, and an
+/// entry called `a\b.txt` is a directory there and a strange file name
+/// everywhere else — splitting on it gives the same tree on every machine.
+///
+/// # The characters removed
+///
+/// `< > : " | ? *` are illegal in a Windows file name, and an archive holding
+/// one extracts everywhere except the place most people will open it. Trailing
+/// dots and spaces are removed for the same reason: Windows silently drops
+/// them, so `report.` and `report` are one file there and would collide after
+/// this function had already decided they were two.
+fn clean_segment(raw: &str) -> String {
+    let cleaned: String = raw
+        .chars()
+        .filter(|c| !matches!(c, '<' | '>' | ':' | '"' | '|' | '?' | '*') && !c.is_control())
+        .collect();
+    cleaned
+        .trim()
+        .trim_start_matches('.')
+        .trim_end_matches(['.', ' '])
+        .to_owned()
 }
 
 /// The names a share's files take inside an archive, all of them different.
@@ -165,10 +198,19 @@ pub fn safe_names(raw: &[Option<&str>]) -> Vec<String> {
 
 /// `photo.jpg` and 1 becomes `photo (1).jpg`.
 fn numbered(base: &str, attempt: u32) -> String {
-    match base.rsplit_once('.') {
+    // Only the last component is a file name; the ones before it are
+    // directories, and numbering those would put one file in a folder of its
+    // own rather than renaming it.
+    let (directory, name) = match base.rsplit_once('/') {
+        Some((directory, name)) => (format!("{directory}/"), name),
+        None => (String::new(), base),
+    };
+    match name.rsplit_once('.') {
         // A leading dot is the whole name of a dotfile, not an extension.
-        Some((stem, extension)) if !stem.is_empty() => format!("{stem} ({attempt}).{extension}"),
-        _ => format!("{base} ({attempt})"),
+        Some((stem, extension)) if !stem.is_empty() => {
+            format!("{directory}{stem} ({attempt}).{extension}")
+        }
+        _ => format!("{directory}{name} ({attempt})"),
     }
 }
 
@@ -177,16 +219,81 @@ mod tests {
     use super::*;
 
     /// A name from an uploader is a name an attacker chose.
+    ///
+    /// The guarantee is not that the name is flat — folders are the point now —
+    /// but that whatever comes out is relative and cannot reach above wherever
+    /// it is unpacked.
     #[test]
     fn a_name_cannot_climb_out_of_the_archive() {
-        assert_eq!(safe_names(&[Some("../../etc/passwd")]), ["etcpasswd"]);
-        assert_eq!(safe_names(&[Some("a/b/c.txt")]), ["abc.txt"]);
+        assert_eq!(safe_names(&[Some("../../etc/passwd")]), ["etc/passwd"]);
+        assert_eq!(safe_names(&[Some("/etc/passwd")]), ["etc/passwd"]);
+        assert_eq!(safe_names(&[Some("a/../../b.txt")]), ["a/b.txt"]);
         assert_eq!(safe_names(&[Some("...")]), ["file-1"]);
         assert_eq!(
             safe_names(&[None, None, None]),
             ["file-1", "file-2", "file-3"]
         );
-        assert_eq!(safe_names(&[Some("holiday.jpg")]), ["holiday.jpg"]);
+    }
+
+    /// Whatever is thrown at it, the result is a relative path with no way up.
+    #[test]
+    fn nothing_produces_a_segment_that_climbs() {
+        for attempt in [
+            "../x",
+            "..",
+            "../..",
+            "/",
+            "//x",
+            "a/./b",
+            "a/../../../b",
+            "....//....//x",
+            "C:\\Windows\\System32\\x",
+            "\\\\server\\share\\x",
+        ] {
+            let [name] = safe_names(&[Some(attempt)]).try_into().expect("one name");
+            assert!(!name.starts_with('/'), "{attempt} -> {name}");
+            assert!(
+                !name
+                    .split('/')
+                    .any(|segment| segment == ".." || segment == "."),
+                "{attempt} -> {name}"
+            );
+            assert!(!name.contains('\\'), "{attempt} -> {name}");
+        }
+    }
+
+    /// The point of the change: a folder someone picked keeps its shape.
+    #[test]
+    fn a_folder_keeps_its_structure() {
+        assert_eq!(
+            safe_names(&[Some("holiday/2024/photo.jpg")]),
+            ["holiday/2024/photo.jpg"]
+        );
+    }
+
+    /// Backslash is a separator on Windows, and `webkitRelativePath` is not the
+    /// only way a name arrives.
+    #[test]
+    fn a_backslash_is_a_separator_too() {
+        assert_eq!(safe_names(&[Some("a\\b\\c.txt")]), ["a/b/c.txt"]);
+        // The drive letter loses its colon and becomes an ordinary directory.
+        assert_eq!(
+            safe_names(&[Some("C:\\Users\\me\\notes.txt")]),
+            ["C/Users/me/notes.txt"]
+        );
+    }
+
+    /// An archive holding one of these extracts everywhere except Windows,
+    /// which is where most people will open it.
+    #[test]
+    fn characters_windows_refuses_are_removed() {
+        assert_eq!(
+            safe_names(&[Some(r#"a<b>c:d"e|f?g*h.txt"#)]),
+            ["abcdefgh.txt"]
+        );
+        // Windows drops trailing dots and spaces, so keeping them would make two
+        // names that are one file there.
+        assert_eq!(safe_names(&[Some("report. ")]), ["report"]);
     }
 
     /// Two files with one name unpack to one file, silently. Measured before
@@ -206,6 +313,27 @@ mod tests {
         assert_eq!(
             safe_names(&[Some("Photo.JPG"), Some("photo.jpg")]),
             ["Photo.JPG", "photo (1).jpg"]
+        );
+    }
+
+    /// Two files can share a basename without being the same file — that is
+    /// what folders are for, and numbering them would undo the structure the
+    /// uploader picked.
+    #[test]
+    fn the_same_name_in_two_folders_is_two_files() {
+        assert_eq!(
+            safe_names(&[Some("a/photo.jpg"), Some("b/photo.jpg")]),
+            ["a/photo.jpg", "b/photo.jpg"]
+        );
+    }
+
+    /// A repeat inside one folder is still a repeat, and the number goes on the
+    /// file rather than on the folder.
+    #[test]
+    fn a_repeat_within_a_folder_numbers_the_file() {
+        assert_eq!(
+            safe_names(&[Some("a/photo.jpg"), Some("a/photo.jpg")]),
+            ["a/photo.jpg", "a/photo (1).jpg"]
         );
     }
 

@@ -605,10 +605,6 @@ impl ShareRepository {
 
     /// The files a share holds, in the order they were given.
     ///
-    /// One row today, because a share still carries exactly one thing. It is
-    /// here so the table has a reader and so the shape multi-file needs already
-    /// exists.
-    ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails.

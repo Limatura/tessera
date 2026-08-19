@@ -213,3 +213,116 @@ async fn files_sharing_a_name_all_survive_the_archive() {
         }
     }
 }
+
+/// A folder somebody picked keeps its shape inside the archive.
+///
+/// `<input webkitdirectory>` gives the browser a flat list where every file
+/// carries its `webkitRelativePath`, so a folder upload is several ordinary
+/// additions whose names happen to contain separators. Nothing else about the
+/// upload changes.
+///
+/// Checked by hand against the outside tools, the same way the formats
+/// themselves were:
+///
+/// ```text
+/// zipfile.namelist  -> holiday/2024/photo.jpg, holiday/2025/photo.jpg,
+///                      holiday/notes.txt, holiday/notes (1).txt, escape.txt
+/// zipfile.testzip   -> None
+/// zipfile.extractall-> the tree above, and nothing beside the directory
+/// tarfile.getnames  -> the same five
+/// 7z l              -> the same five, 5 files, 27 bytes
+/// ```
+#[tokio::test]
+async fn a_folder_survives_the_round_trip() {
+    let app = TestApp::ready().await;
+    let code = multi_file_share(
+        &app,
+        &[
+            ("holiday/2024/photo.jpg", b"first".to_vec()),
+            ("holiday/2025/photo.jpg", b"second".to_vec()),
+            ("holiday/notes.txt", b"third".to_vec()),
+            // Same folder, same name: this one is the repeat.
+            ("holiday/notes.txt", b"fourth".to_vec()),
+            // Relative after cleaning, and it must stay under the extraction
+            // directory rather than beside it.
+            ("../../escape.txt", b"fifth".to_vec()),
+        ],
+    )
+    .await;
+
+    for format in ["zip", "tar", "7z"] {
+        let (bytes, declared) = fetch(&app, &code, format).await;
+        assert_eq!(
+            declared,
+            Some(bytes.len() as u64),
+            "{format} predicted wrong"
+        );
+
+        for name in [
+            "holiday/2024/photo.jpg",
+            "holiday/2025/photo.jpg",
+            "holiday/notes.txt",
+            "holiday/notes (1).txt",
+            "escape.txt",
+        ] {
+            let needle: Vec<u8> = if format == "7z" {
+                name.encode_utf16().flat_map(u16::to_le_bytes).collect()
+            } else {
+                name.as_bytes().to_vec()
+            };
+            assert!(
+                bytes.windows(needle.len()).any(|w| w == needle),
+                "{format} has no entry called {name}"
+            );
+        }
+
+        let escaping: Vec<u8> = if format == "7z" {
+            "..".encode_utf16().flat_map(u16::to_le_bytes).collect()
+        } else {
+            b"..".to_vec()
+        };
+        assert!(
+            !bytes.windows(escaping.len()).any(|w| w == escaping),
+            "{format} carries a `..` somewhere"
+        );
+    }
+}
+
+/// The download header names a file, never a path.
+///
+/// A stored name is what the uploader sent — it can carry the folder it came
+/// from, and nothing stops it being separators and nothing else.
+#[tokio::test]
+async fn the_disposition_names_a_file_and_not_a_path() {
+    let app = TestApp::ready().await;
+
+    for (uploaded, expected) in [
+        ("holiday/2024/photo.jpg", "photo.jpg"),
+        (r"..\..\etc\passwd", "passwd"),
+        ("../../etc/passwd", "passwd"),
+        // Nothing survives being reduced to a last component.
+        ("/", "download"),
+    ] {
+        let code = multi_file_share(&app, &[(uploaded, b"only".to_vec())]).await;
+        let response = expect_status(
+            app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+                .await,
+            StatusCode::OK,
+        )
+        .await;
+        let disposition = response
+            .headers()
+            .get("content-disposition")
+            .and_then(|value| value.to_str().ok())
+            .expect("a disposition")
+            .to_owned();
+        assert!(
+            disposition.contains(&format!("filename=\"{expected}\"")),
+            "{uploaded} produced {disposition}"
+        );
+        assert!(
+            !disposition.contains('/') && !disposition.contains('\\'),
+            "{uploaded} produced {disposition}"
+        );
+    }
+}

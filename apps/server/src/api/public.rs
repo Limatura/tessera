@@ -384,9 +384,18 @@ fn content_disposition(content: &Content) -> String {
     // The single file's own name, or the archive's. A share with one file is
     // still that file — it does not become an archive because the feature that
     // makes archives exists.
+    //
+    // The last component only, and after either separator. A stored name is
+    // what the uploader sent, unchanged apart from a length and control-character
+    // check — so it can carry the folder it came from, and it can be nothing but
+    // separators. A header naming a path is a header saying where on the
+    // recipient's disk to put the file, which is not ours to say and which RFC
+    // 6266 tells us not to try.
     let name = content
         .single_file()
         .and_then(|file| file.filename.as_deref())
+        .and_then(|filename| filename.rsplit(['/', '\\']).next())
+        .filter(|last| !last.is_empty())
         .unwrap_or("download");
     // The fallback keeps anything printable ASCII, which includes the space —
     // `"my file.zip"` is a perfectly ordinary name and turning its space into an
