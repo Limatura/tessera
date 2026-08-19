@@ -1,8 +1,14 @@
-//! The embedded SPA and its fallback routing.
+//! The SPA and its fallback routing.
 //!
 //! The frontend bundle is compiled into the binary by `rust-embed` (see
 //! `build.rs` for how the directory is populated), so a deployment is one file
 //! with no web server in front of it.
+//!
+//! `server.assets_dir` reads from a directory instead. That is a development
+//! convenience, and it is also the only mode with a filesystem to get wrong —
+//! see [`load`] for what confines it.
+
+use std::path::PathBuf;
 
 use axum::{
     extract::State,
@@ -10,7 +16,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use bytes::Bytes;
-use rust_embed::{Embed, EmbeddedFile};
+use rust_embed::Embed;
+use sha2::{Digest as _, Sha256};
 
 /// Bundle produced by the web workspace. `build.rs` guarantees the directory
 /// exists and contains at least a placeholder page.
@@ -21,6 +28,95 @@ struct Bundle;
 /// Entry point of the SPA.
 const INDEX: &str = "index.html";
 
+/// Where the frontend is read from.
+///
+/// # Why the root is resolved once
+///
+/// Confinement is decided by comparing the resolved path of the request against
+/// the resolved path of the root, and a root that resolved differently per
+/// request would be comparing against a moving target. Resolving it at start-up
+/// also means a directory that does not exist is a start-up failure rather than
+/// a 404 on every page.
+#[derive(Debug, Clone)]
+pub enum Source {
+    /// The bundle compiled into this binary.
+    Embedded,
+    /// A directory on disk, already resolved to a canonical path.
+    Directory(PathBuf),
+}
+
+impl Source {
+    /// Reads `server.assets_dir`, or reports why it cannot be served from.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message naming what is wrong, for a caller that is about to
+    /// refuse to start.
+    pub fn resolve(configured: &str) -> Result<Self, String> {
+        if configured.trim().is_empty() {
+            return Ok(Self::Embedded);
+        }
+        let root = PathBuf::from(configured.trim())
+            .canonicalize()
+            .map_err(|error| format!("`{configured}` cannot be read: {error}"))?;
+        if !root.is_dir() {
+            return Err(format!("`{configured}` is not a directory"));
+        }
+        // Checked here rather than on the first request: an operator who
+        // mistyped the path should be told while they are still looking at the
+        // terminal, not by a blank page an hour later.
+        if !root.join(INDEX).is_file() {
+            return Err(format!("`{configured}` has no {INDEX} in it"));
+        }
+        Ok(Self::Directory(root))
+    }
+}
+
+/// One asset, however it was found.
+struct Asset {
+    bytes: Bytes,
+    etag: String,
+}
+
+/// Reads an asset, or `None` if this source does not have it.
+///
+/// # Why the directory case resolves the path again
+///
+/// [`normalize_asset_path`] already removes `..`, and against the embedded
+/// bundle that is the whole of it — there is no filesystem to escape to. A
+/// directory has one, and a name that survived normalisation can still be a
+/// symbolic link pointing anywhere: a `logo.png` in the mounted directory that
+/// points at `/etc/shadow` is a path with no `..` in it at all.
+///
+/// So the resolved path is compared against the resolved root, and anything
+/// that lands outside is treated as absent.
+fn load(source: &Source, path: &str) -> Option<Asset> {
+    match source {
+        Source::Embedded => Bundle::get(path).map(|file| Asset {
+            etag: quoted_etag(&file.metadata.sha256_hash()),
+            // `Cow::Borrowed` is the release-build case: the bytes live in
+            // `.rodata` and the response body borrows them rather than copying
+            // per request.
+            bytes: match file.data {
+                std::borrow::Cow::Borrowed(bytes) => Bytes::from_static(bytes),
+                std::borrow::Cow::Owned(bytes) => Bytes::from(bytes),
+            },
+        }),
+        Source::Directory(root) => {
+            let resolved = root.join(path).canonicalize().ok()?;
+            if !resolved.starts_with(root) {
+                return None;
+            }
+            let bytes = std::fs::read(&resolved).ok()?;
+            let etag = quoted_etag(&Sha256::digest(&bytes).into());
+            Some(Asset {
+                bytes: Bytes::from(bytes),
+                etag,
+            })
+        }
+    }
+}
+
 /// Hashed build output is safe to cache forever; `index.html` is the mutable
 /// pointer at it and must not be.
 const IMMUTABLE_CACHE: &str = "public, max-age=31536000, immutable";
@@ -28,10 +124,13 @@ const NO_CACHE: &str = "no-cache";
 
 /// Turns a request path into a lookup key for the embedded bundle.
 ///
-/// Returns `None` when the path could escape the bundle root. `rust-embed` only
-/// serves what was compiled in, so traversal cannot reach the filesystem — but a
-/// request that *tries* is a probe, and answering it with `index.html` would
-/// quietly reward the attempt.
+/// Returns `None` when the path could escape the bundle root.
+///
+/// Against the compiled-in bundle this is not the security boundary — there is
+/// no filesystem behind it — but a request that *tries* is a probe, and
+/// answering it with `index.html` would quietly reward the attempt. Against a
+/// directory it is the first of two checks; the second is in [`load`], because
+/// a symbolic link is a path with no `..` in it.
 ///
 /// The result never starts with `/`, never contains a `.` or `..` segment, and is
 /// idempotent under a second application.
@@ -62,12 +161,14 @@ pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> R
         return not_found();
     };
 
+    let source = &state.assets;
+
     if path.is_empty() {
-        return serve(INDEX);
+        return serve(source, INDEX);
     }
 
-    if let Some(file) = Bundle::get(&path) {
-        return respond(&path, file);
+    if let Some(asset) = load(source, &path) {
+        return respond(&path, asset);
     }
 
     // `foo.js` missing means a broken build, not a client-side route.
@@ -83,7 +184,7 @@ pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> R
     if let Some(code) = share_code(&path) {
         return serve_share_page(&state, code).await;
     }
-    serve(INDEX)
+    serve(source, INDEX)
 }
 
 /// The retrieval code in `/s/{code}`, if that is what this path is.
@@ -122,17 +223,18 @@ fn strip_locale_prefix(path: &str) -> &str {
 async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Response {
     use crate::api::preview::{Preview, splice_into_document};
 
-    let Some(file) = Bundle::get(INDEX) else {
+    let Some(asset) = load(&state.assets, INDEX) else {
         return not_found();
     };
     let Some((share, content)) = preview_target(state, code).await else {
-        return respond(INDEX, file);
+        return respond(INDEX, asset);
     };
-    let Ok(html) = std::str::from_utf8(&file.data) else {
-        return respond(INDEX, file);
+    let Ok(html) = std::str::from_utf8(&asset.bytes) else {
+        return respond(INDEX, asset);
     };
+    let html = html.to_owned();
     let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc()).to_head_tags();
-    let page = splice_into_document(html, &tags);
+    let page = splice_into_document(&html, &tags);
 
     (
         [
@@ -154,37 +256,29 @@ async fn preview_target(
     crate::api::preview::lookup(state, code).await
 }
 
-fn serve(path: &str) -> Response {
-    Bundle::get(path).map_or_else(not_found, |file| respond(path, file))
+fn serve(source: &Source, path: &str) -> Response {
+    load(source, path).map_or_else(not_found, |asset| respond(path, asset))
 }
 
 fn not_found() -> Response {
     (StatusCode::NOT_FOUND, "not found").into_response()
 }
 
-fn respond(path: &str, file: EmbeddedFile) -> Response {
+fn respond(path: &str, asset: Asset) -> Response {
     let mime = mime_guess::from_path(path).first_or_octet_stream();
     let cache = if path == INDEX {
         NO_CACHE
     } else {
         IMMUTABLE_CACHE
     };
-    let etag = quoted_etag(&file.metadata.sha256_hash());
-
-    // `Cow::Borrowed` is the release-build case: the bytes live in `.rodata` and
-    // the response body borrows them rather than copying per request.
-    let body = match file.data {
-        std::borrow::Cow::Borrowed(bytes) => Bytes::from_static(bytes),
-        std::borrow::Cow::Owned(bytes) => Bytes::from(bytes),
-    };
 
     (
         [
             (header::CONTENT_TYPE, mime.as_ref().to_owned()),
             (header::CACHE_CONTROL, cache.to_owned()),
-            (header::ETAG, etag),
+            (header::ETAG, asset.etag),
         ],
-        body,
+        asset.bytes,
     )
         .into_response()
 }

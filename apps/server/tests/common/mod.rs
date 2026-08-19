@@ -98,7 +98,9 @@ impl TestApp {
         db::migrate(&db).await.expect("migrations");
         let store = storage::build(&config.storage).expect("local store");
 
-        let state = AppState::new(Arc::new(config), db, store);
+        let assets =
+            tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets_dir");
+        let state = AppState::new(Arc::new(config), db, store, assets);
         state.set_status(status);
 
         Self {

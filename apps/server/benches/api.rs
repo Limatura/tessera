@@ -58,7 +58,12 @@ fn router_assembly(c: &mut Criterion) {
         .block_on(db::connect(&config.database))
         .expect("sqlite pool");
     let store = storage::build(&config.storage).expect("local store");
-    let state = AppState::new(Arc::new(config), db, store);
+    let state = AppState::new(
+        Arc::new(config),
+        db,
+        store,
+        tessera_server::assets::Source::Embedded,
+    );
     state.set_status(ServiceStatus::Ready);
 
     c.bench_function("api::build_router", |b| {

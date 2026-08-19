@@ -567,3 +567,79 @@ async fn the_docs_path_serves_the_page_when_it_is_on() {
     assert_eq!(response.status(), StatusCode::OK);
     assert!(!body_string(response).await.contains("features.docs"));
 }
+
+/// Serving the frontend from a directory, which is what makes changing one line
+/// of CSS not mean waiting for a Rust build.
+#[tokio::test]
+async fn a_configured_directory_is_served_instead_of_the_bundle() {
+    let dir = tempfile::tempdir().expect("a directory");
+    std::fs::write(dir.path().join("index.html"), "<!doctype html><p>from disk")
+        .expect("write index");
+    std::fs::write(dir.path().join("app.js"), "console.log(1)").expect("write asset");
+
+    let root = dir.path().to_string_lossy().into_owned();
+    let app = TestApp::with_config(move |config| config.server.assets_dir = root).await;
+
+    let index = expect_status(app.get("/").await, StatusCode::OK).await;
+    assert!(body_string(index).await.contains("from disk"));
+
+    let asset = expect_status(app.get("/app.js").await, StatusCode::OK).await;
+    assert_eq!(body_string(asset).await, "console.log(1)");
+
+    // Changing the file changes what is served, with no restart. That is the
+    // whole point of the setting.
+    std::fs::write(dir.path().join("app.js"), "console.log(2)").expect("rewrite");
+    let again = expect_status(app.get("/app.js").await, StatusCode::OK).await;
+    assert_eq!(body_string(again).await, "console.log(2)");
+}
+
+/// A symbolic link out of the directory is not a way out of the directory.
+///
+/// `normalize_asset_path` removes `..`, and against the compiled-in bundle that
+/// was the whole of it — there was no filesystem to escape to. A directory has
+/// one, and a link is a path with no `..` in it at all.
+#[tokio::test]
+async fn a_symlink_cannot_lead_out_of_the_assets_directory() {
+    let dir = tempfile::tempdir().expect("a directory");
+    std::fs::write(dir.path().join("index.html"), "<!doctype html>").expect("write index");
+
+    let secret = dir.path().parent().expect("a parent").join("outside.txt");
+    std::fs::write(&secret, "not yours").expect("write the target");
+
+    #[cfg(unix)]
+    std::os::unix::fs::symlink(&secret, dir.path().join("escape.txt")).expect("symlink");
+
+    let root = dir.path().to_string_lossy().into_owned();
+    let app = TestApp::with_config(move |config| config.server.assets_dir = root).await;
+
+    assert_eq!(
+        app.get("/escape.txt").await.status(),
+        StatusCode::NOT_FOUND,
+        "a link out of the directory was followed"
+    );
+    // And the ordinary path still works, so this is confinement rather than the
+    // directory being broken.
+    assert_eq!(app.get("/").await.status(), StatusCode::OK);
+}
+
+/// A directory with no entry point stops the server rather than falling back.
+#[test]
+fn a_directory_without_an_index_is_refused() {
+    let dir = tempfile::tempdir().expect("a directory");
+    let empty = tessera_server::assets::Source::resolve(&dir.path().to_string_lossy());
+    assert!(empty.is_err_and(|reason| reason.contains("index.html")),);
+
+    std::fs::write(dir.path().join("index.html"), "<!doctype html>").expect("write index");
+    assert!(matches!(
+        tessera_server::assets::Source::resolve(&dir.path().to_string_lossy()),
+        Ok(tessera_server::assets::Source::Directory(_))
+    ));
+
+    // Empty is the default and means the compiled-in bundle.
+    assert!(matches!(
+        tessera_server::assets::Source::resolve("  "),
+        Ok(tessera_server::assets::Source::Embedded)
+    ));
+    // A path that is not there is a typo, and typos stop the server.
+    assert!(tessera_server::assets::Source::resolve("/nonexistent/assets").is_err());
+}

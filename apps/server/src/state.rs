@@ -87,6 +87,8 @@ pub struct AppState {
     pub throttles: Arc<Throttles>,
     /// Blob store.
     pub storage: Arc<dyn ObjectStore>,
+    /// Where the frontend is read from — the compiled-in bundle, or a directory.
+    pub assets: Arc<crate::assets::Source>,
     /// Current lifecycle status.
     ///
     /// A `parking_lot::RwLock` rather than an async lock: the critical section is
@@ -100,7 +102,12 @@ impl AppState {
     /// Assembles state for a process that has connected its dependencies but is
     /// not yet serving traffic.
     #[must_use]
-    pub fn new(config: Arc<Config>, db: DatabaseConnection, storage: Arc<dyn ObjectStore>) -> Self {
+    pub fn new(
+        config: Arc<Config>,
+        db: DatabaseConnection,
+        storage: Arc<dyn ObjectStore>,
+        assets: crate::assets::Source,
+    ) -> Self {
         // A relay that will not build is reported and then treated as absent.
         // Refusing to start would take the whole service down over the one
         // feature that exists to be used when something else has already gone
@@ -124,6 +131,7 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
+            assets: Arc::new(assets),
             proxies: Arc::new(config.server.proxy_trust()),
             throttles: Arc::new(Throttles::default()),
             config,
