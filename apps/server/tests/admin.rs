@@ -2071,3 +2071,71 @@ async fn ending_an_accounts_shares_leaves_the_account_alone() {
         "they are still here"
     );
 }
+
+/// `guest` is seeded, holds nothing, and is a name `auth.default_role` can use.
+///
+/// The instance this exists for is one running `features.admin: false`: no role
+/// endpoints, so only the seeded roles, and their permissions are locked. Before
+/// this row its operator chose between open registration where every stranger
+/// can upload and closed registration where nobody can join.
+#[tokio::test]
+async fn a_new_account_can_be_given_nothing_at_all() {
+    let app = TestApp::with_config(|config| {
+        config.auth.default_role = "guest".to_owned();
+    })
+    .await;
+
+    // The first account is the administrator and does not read the setting —
+    // an instance whose first account cannot administer it is one nobody can
+    // repair.
+    register(&app, "first").await;
+    let (guest, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let held = app
+        .state
+        .roles
+        .permissions_of(user.id)
+        .await
+        .expect("read the permissions");
+    assert!(held.is_empty(), "guest holds {held:?}");
+
+    // Signed in, and stopped at the first thing an account is for.
+    //
+    // Worth knowing before choosing this role: the refusal is about the
+    // account, not about the instance. With `features.anonymous_upload` on — it
+    // is on by default — the same person could sign out and upload as a
+    // stranger. So `guest` restricts somebody only on an instance that has
+    // already closed the anonymous door; on one that has not, it is a label.
+    assert_eq!(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=x.bin")
+                .header("content-type", "application/octet-stream")
+                .header("cookie", &guest),
+            Body::from("hello".as_bytes().to_vec()),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// Deleting it would break an instance whose configuration names it.
+#[tokio::test]
+async fn guest_cannot_be_deleted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/roles/{}", tessera_core::RoleId::GUEST),
+            Auth::Cookie(&admin),
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}

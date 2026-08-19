@@ -43,6 +43,7 @@ mod m20260818_000005_owner_role;
 mod m20260818_000006_copy_count;
 mod m20260818_000007_bytes_served;
 mod m20260818_000008_drop_legacy_share_columns;
+mod m20260819_000001_guest_role;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -75,6 +76,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260818_000006_copy_count::Migration),
             Box::new(m20260818_000007_bytes_served::Migration),
             Box::new(m20260818_000008_drop_legacy_share_columns::Migration),
+            Box::new(m20260819_000001_guest_role::Migration),
         ]
     }
 }

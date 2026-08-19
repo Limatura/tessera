@@ -151,6 +151,11 @@ declare_id!(
 impl RoleId {
     /// Helping run the instance, short of the three destructive powers.
     pub const ADMIN: &'static str = "00ADMN00000000000000000000";
+    /// Signed in and allowed nothing.
+    ///
+    /// Reads as `GEST` for the same reason `admin` reads as `ADMN`: Crockford
+    /// base32 has no `U`.
+    pub const GUEST: &'static str = "00GEST00000000000000000000";
     /// Upload, and manage what you uploaded.
     pub const MEMBER: &'static str = "00MEMBER000000000000000000";
     /// Everything, including removing accounts and other people's content.
