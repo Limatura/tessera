@@ -338,6 +338,17 @@ pub fn build(state: AppState) -> Router {
 
     if config.features.docs {
         app = app.merge(Scalar::with_url(DOCS_PATH, api));
+    } else {
+        // Answered rather than left to the fallback. Without this `/docs` is a
+        // path the router does not know, so it reaches the SPA and comes back
+        // as the same "page not found" a typo produces — and the person reading
+        // it has no way to tell "this instance turned the docs off" from "I
+        // spelt it wrong".
+        //
+        // Still a 404, because from outside there is no docs page here; what
+        // changes is that the body says so, and says where the contract is. The
+        // contract is served whether or not the browsable page is.
+        app = app.route(DOCS_PATH, axum::routing::get(docs_are_off));
     }
 
     let request_id_header = HeaderName::from_static(REQUEST_ID_HEADER);
@@ -371,6 +382,24 @@ pub fn build(state: AppState) -> Router {
         // Outermost: stamped before anything else, so every log line and every
         // error response for this request can be correlated.
         .layer(SetRequestIdLayer::new(request_id_header, UlidRequestId))
+}
+
+/// The answer at `/docs` when `features.docs` is off.
+///
+/// Plain text rather than the JSON every other error uses: this is a path
+/// somebody typed into a browser, and a person looking for documentation is
+/// better served by a sentence than by a machine-readable envelope.
+async fn docs_are_off() -> impl axum::response::IntoResponse {
+    (
+        axum::http::StatusCode::NOT_FOUND,
+        [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        format!(
+            "The browsable API documentation is turned off on this instance \
+             (`features.docs`).\n\nThe contract itself is always served, at \
+             {OPENAPI_PATH} — point a client generator or a local viewer at \
+             that.\n"
+        ),
+    )
 }
 
 /// What is worth compressing.

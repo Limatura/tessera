@@ -211,19 +211,21 @@ async fn contract_is_served_as_json() {
 
 #[tokio::test]
 async fn the_api_reference_is_off_by_default() {
-    // A development convenience, so the shipped defaults do not serve it. An
-    // instance that has not opted in answers `/docs` with the SPA, like any
-    // other unknown client-side route.
+    // A development convenience, so the shipped defaults do not serve it.
+    //
+    // It used to fall through to the SPA, which answered `200` with the app
+    // shell — so the default instance claimed there was a page at `/docs` and
+    // then showed nothing. Now the path answers for itself.
     let app = TestApp::ready().await;
-    let response = expect_status(app.get("/docs").await, StatusCode::OK).await;
+    let response = expect_status(app.get("/docs").await, StatusCode::NOT_FOUND).await;
     let body = body_string(response).await;
-    assert!(
-        body.contains("<!doctype html>"),
-        "should be the SPA fallback"
-    );
     assert!(
         !body.contains("scalar"),
         "the reference should not be mounted"
+    );
+    assert!(
+        !body.contains("<!doctype html>"),
+        "should be its own answer, not the SPA shell"
     );
 }
 
@@ -525,4 +527,43 @@ async fn a_title_cannot_inject_script_into_the_page() {
             .await;
     assert!(!page.contains("<script>alert(1)"), "{page}");
     assert!(page.contains("&quot;&gt;&lt;script&gt;"), "{page}");
+}
+
+/// With the docs off, `/docs` says so instead of looking like a typo.
+///
+/// It used to reach the SPA fallback, which answers every unknown path the same
+/// way — so an operator who had turned the page off and one who had misspelt it
+/// got the identical "page not found".
+#[tokio::test]
+async fn the_docs_path_says_when_it_has_been_turned_off() {
+    let app = TestApp::with_config(|config| config.features.docs = false).await;
+
+    let response = app.get("/docs").await;
+    assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        response
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok()),
+        Some("text/plain; charset=utf-8"),
+        "the SPA fallback would have answered with HTML"
+    );
+
+    let body = body_string(response).await;
+    assert!(body.contains("features.docs"), "{body}");
+    // The contract is served either way, and somebody who wanted the docs page
+    // wants that next.
+    assert!(body.contains(api::OPENAPI_PATH), "{body}");
+
+    // And it really is still served.
+    assert_eq!(app.get(api::OPENAPI_PATH).await.status(), StatusCode::OK);
+}
+
+/// With them on, the page is there.
+#[tokio::test]
+async fn the_docs_path_serves_the_page_when_it_is_on() {
+    let app = TestApp::with_config(|config| config.features.docs = true).await;
+    let response = app.get("/docs").await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(!body_string(response).await.contains("features.docs"));
 }
