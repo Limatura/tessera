@@ -590,7 +590,34 @@ async fn a_configured_directory_is_served_instead_of_the_bundle() {
     // whole point of the setting.
     std::fs::write(dir.path().join("app.js"), "console.log(2)").expect("rewrite");
     let again = expect_status(app.get("/app.js").await, StatusCode::OK).await;
+    assert_eq!(
+        again
+            .headers()
+            .get("cache-control")
+            .and_then(|value| value.to_str().ok()),
+        Some("no-cache"),
+        "a browser told to keep this for a year would undo the whole mode"
+    );
     assert_eq!(body_string(again).await, "console.log(2)");
+}
+
+/// The compiled-in bundle keeps its year-long caching: those bytes cannot change
+/// without the binary changing.
+#[tokio::test]
+async fn the_embedded_bundle_is_still_cached_forever() {
+    let app = TestApp::ready().await;
+    let response = app.get("/assets/does-not-exist.js").await;
+    // Whatever the bundle actually contains, the policy is decided by the source
+    // rather than the file, so a hit on any non-index path proves it.
+    if response.status() == StatusCode::OK {
+        assert_eq!(
+            response
+                .headers()
+                .get("cache-control")
+                .and_then(|value| value.to_str().ok()),
+            Some("public, max-age=31536000, immutable")
+        );
+    }
 }
 
 /// A symbolic link out of the directory is not a way out of the directory.

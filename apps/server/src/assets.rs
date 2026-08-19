@@ -168,7 +168,7 @@ pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> R
     }
 
     if let Some(asset) = load(source, &path) {
-        return respond(&path, asset);
+        return respond(source, &path, asset);
     }
 
     // `foo.js` missing means a broken build, not a client-side route.
@@ -227,10 +227,10 @@ async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Respons
         return not_found();
     };
     let Some((share, content)) = preview_target(state, code).await else {
-        return respond(INDEX, asset);
+        return respond(&state.assets, INDEX, asset);
     };
     let Ok(html) = std::str::from_utf8(&asset.bytes) else {
-        return respond(INDEX, asset);
+        return respond(&state.assets, INDEX, asset);
     };
     let html = html.to_owned();
     let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc()).to_head_tags();
@@ -257,16 +257,22 @@ async fn preview_target(
 }
 
 fn serve(source: &Source, path: &str) -> Response {
-    load(source, path).map_or_else(not_found, |asset| respond(path, asset))
+    load(source, path).map_or_else(not_found, |asset| respond(source, path, asset))
 }
 
 fn not_found() -> Response {
     (StatusCode::NOT_FOUND, "not found").into_response()
 }
 
-fn respond(path: &str, asset: Asset) -> Response {
+fn respond(source: &Source, path: &str, asset: Asset) -> Response {
     let mime = mime_guess::from_path(path).first_or_octet_stream();
-    let cache = if path == INDEX {
+    // Nothing from a directory is immutable, whatever it is called. The bundle
+    // compiled in cannot change without the binary changing, so a hashed name
+    // in it will never mean different bytes; a directory is the opposite — it
+    // exists to be rewritten while the server keeps running. Telling a browser
+    // to keep `favicon.ico` for a year would undo the one thing this mode is
+    // for, and would do it silently, on exactly the files vite does not hash.
+    let cache = if path == INDEX || matches!(source, Source::Directory(_)) {
         NO_CACHE
     } else {
         IMMUTABLE_CACHE
