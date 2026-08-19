@@ -94,6 +94,12 @@ expression: document
             "description": "Whether a visitor could still open it.",
             "type": "boolean"
           },
+          "bytes_served": {
+            "description": "How many bytes it has sent out, over its whole life.\n\nThe instance-wide figure in `StatsResponse` answers \"what is this\ncosting me\"; this answers the question that follows it, which is which\nshare to do something about. One link posted somewhere busy is the way\nan operator finds out their transfer is being spent, and the total\ncannot say which one.\n\nNot `size_bytes` times `use_count`: a range request, a resumed download\nand an abandoned one all send some other amount.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "created_at": {
             "description": "When it was uploaded, RFC 3339.",
             "type": "string"
@@ -147,6 +153,7 @@ expression: document
           "kind",
           "file_count",
           "size_bytes",
+          "bytes_served",
           "active",
           "created_at"
         ],
