@@ -1174,6 +1174,17 @@ pub struct AdminShareResponse {
     pub file_count: u32,
     /// How many bytes it holds.
     pub size_bytes: u64,
+    /// How many bytes it has sent out, over its whole life.
+    ///
+    /// The instance-wide figure in `StatsResponse` answers "what is this
+    /// costing me"; this answers the question that follows it, which is which
+    /// share to do something about. One link posted somewhere busy is the way
+    /// an operator finds out their transfer is being spent, and the total
+    /// cannot say which one.
+    ///
+    /// Not `size_bytes` times `use_count`: a range request, a resumed download
+    /// and an abandoned one all send some other amount.
+    pub bytes_served: u64,
     /// Who uploaded it, or `null` when nobody was signed in.
     ///
     /// An account that has since been deleted still appears here — the row it
@@ -1199,6 +1210,7 @@ impl AdminShareResponse {
             filename: content.single_file().and_then(|file| file.filename.clone()),
             file_count: u32::try_from(content.files().len()).unwrap_or(u32::MAX),
             size_bytes: content.size_bytes(),
+            bytes_served: share.bytes_served,
             owner_id: share.user_id.map(|id| id.to_string()),
             active: matches!(share.availability_at(now), Availability::Available),
             created_at: format_timestamp(share.created_at),

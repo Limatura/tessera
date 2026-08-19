@@ -6,7 +6,7 @@ use axum::{
     body::Body,
     http::{Method, Request, StatusCode, header},
 };
-use common::{Auth, TestApp, body_json, expect_status};
+use common::{Auth, TestApp, body_json, body_string, expect_status};
 use tessera_server::config::RegistrationPolicy;
 
 const PASSWORD: &str = "a perfectly adequate passphrase";
@@ -2138,4 +2138,104 @@ async fn guest_cannot_be_deleted() {
         .status(),
         StatusCode::CONFLICT
     );
+}
+
+/// The listing says how much each share has sent, not just how much it holds.
+///
+/// The instance-wide figure answers "what is this costing me". This is the
+/// question after it: one link posted somewhere busy is how an operator's
+/// transfer gets spent, and a total cannot say which link.
+#[tokio::test]
+async fn the_share_listing_says_what_each_one_has_sent() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=note.txt")
+                    .header("content-type", "application/octet-stream")
+                    .header("cookie", &admin),
+                Body::from("0123456789".as_bytes().to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created
+        .get("code")
+        .and_then(serde_json::Value::as_str)
+        .expect("a code")
+        .to_owned();
+
+    // Nothing sent yet.
+    assert_eq!(admin_share(&app, &admin).await, 0);
+
+    // A whole download, then a partial one — the second is why this cannot be
+    // worked out from `size_bytes` and a count.
+    //
+    // The bodies are read rather than dropped: the meter counts what leaves
+    // through the response body, so a test that only looks at the status line
+    // measures a transfer that never happened.
+    let whole = expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(body_string(whole).await.len(), 10);
+
+    let partial = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download"))
+                .header("range", "bytes=0-3"),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::PARTIAL_CONTENT,
+    )
+    .await;
+    assert_eq!(body_string(partial).await.len(), 4);
+
+    // The meter writes from a `Drop`, spawned, so it lands just after the body.
+    for _ in 0..50 {
+        if admin_share(&app, &admin).await == 14 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_eq!(
+        admin_share(&app, &admin).await,
+        14,
+        "ten bytes whole plus four from the range"
+    );
+}
+
+/// `bytes_served` of the one share in the listing.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn admin_share(app: &TestApp, admin: &str) -> u64 {
+    let body = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    body.get("shares")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|rows| rows.first())
+        .and_then(|row| row.get("bytes_served"))
+        .and_then(serde_json::Value::as_u64)
+        .expect("bytes_served in the listing")
 }
