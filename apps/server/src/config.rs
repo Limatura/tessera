@@ -499,6 +499,15 @@ pub struct ServerConfig {
     /// Maximum accepted request body, in bytes.
     pub max_body_bytes: usize,
 
+    /// How much of an upload is gathered before a part goes to the store.
+    ///
+    /// Only reaches an object store that does multipart. S3 refuses every part
+    /// but the last below 5 MiB, and Cloudflare R2 additionally requires every
+    /// part but the last to be the *same* size — so an instance on R2 wants
+    /// this and the minimum to agree, which is what tusd does. Garage enforces
+    /// neither, which is why the CI job cannot catch a mistake here.
+    pub part_size_bytes: usize,
+
     /// Directory to serve the frontend from, instead of the bundle compiled in.
     ///
     /// Empty, the default, serves the compiled-in bundle — one file, no web
@@ -641,6 +650,9 @@ impl Default for ServerConfig {
             upload_stall_secs: 30,
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
+            // 8 MiB: above S3's 5 MiB floor with room to spare, and small
+            // enough that a part which has to be retried is not a long retry.
+            part_size_bytes: 8 * 1024 * 1024,
             assets_dir: String::new(),
             cors_allowed_origins: Vec::new(),
             trusted_proxies: Vec::new(),
@@ -1189,6 +1201,16 @@ impl ServerConfig {
                 reason: "must be at least 1 second".to_owned(),
             });
         }
+        // Below S3's floor every multipart upload of more than one part fails
+        // at `complete`, which is late, remote and hard to read.
+        if self.part_size_bytes < 5 * 1024 * 1024 {
+            return Err(ConfigError::Invalid {
+                field: "server.part_size_bytes",
+                reason: "must be at least 5 MiB, which is S3's minimum for every \
+                         part but the last"
+                    .to_owned(),
+            });
+        }
         if self.upload_stall_secs == 0 {
             return Err(ConfigError::Invalid {
                 field: "server.upload_stall_secs",
@@ -1429,6 +1451,7 @@ mod tests {
     #[case::zero_timeout("server.request_timeout_secs", |c: &mut Config| {
         c.server.request_timeout_secs = 0;
     })]
+    #[case::small_part("server.part_size_bytes", |c: &mut Config| c.server.part_size_bytes = 1024)]
     #[case::zero_stall("server.upload_stall_secs", |c: &mut Config| c.server.upload_stall_secs = 0)]
     #[case::zero_body("server.max_body_bytes", |c: &mut Config| c.server.max_body_bytes = 0)]
     #[case::bad_origin("server.cors_allowed_origins", |c: &mut Config| {

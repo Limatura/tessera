@@ -62,17 +62,6 @@ use crate::{
     state::AppState,
 };
 
-/// Bytes accumulated before a part is pushed to the blob store.
-///
-/// Most object stores require every part but the last to be at least 5 MiB, and
-/// some require them all to be the same size, so the block size is fixed rather
-/// than following whatever chunk sizes the network happened to deliver.
-///
-/// **This is the memory an in-flight upload holds** — one block per concurrent
-/// upload, not one per connection, because a block is flushed as soon as it
-/// fills.
-const PART_SIZE: usize = 8 * 1024 * 1024;
-
 /// Attempts to find an unused retrieval code before giving up.
 ///
 /// Collisions are vanishingly rare at the default length, so more than a couple
@@ -618,6 +607,7 @@ async fn ingest_into(
     let stream_to_object = kind == ShareKind::File;
     let text_limit = state.config.share.max_text_bytes;
     let threshold = state.config.share.inline_threshold_bytes;
+    let part_size = state.config.server.part_size_bytes;
     let limit = u64::try_from(state.config.server.max_body_bytes).unwrap_or(u64::MAX);
     // What is left of the instance's allowance, checked as the body arrives
     // rather than only up front: the caller need not send a `Content-Length`,
@@ -672,7 +662,7 @@ async fn ingest_into(
             *upload = Some(started);
         }
         if let Some(upload) = upload.as_mut() {
-            flush_full_parts(upload.as_mut(), &mut buffered).await?;
+            flush_full_parts(upload.as_mut(), &mut buffered, part_size).await?;
         }
     }
 
@@ -739,9 +729,21 @@ async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body
 }
 
 /// Pushes as many whole blocks as the buffer holds, leaving the remainder.
-async fn flush_full_parts(upload: &mut dyn MultipartUpload, buffered: &mut Vec<u8>) -> Result<()> {
-    while buffered.len() >= PART_SIZE {
-        let rest = buffered.split_off(PART_SIZE);
+///
+/// `part_size` is `server.part_size_bytes`. It is fixed rather than following
+/// whatever chunk sizes the network delivered, because most object stores
+/// require every part but the last to be at least 5 MiB and some require them
+/// all to be the same size.
+///
+/// **It is also the memory an in-flight upload holds** — one block per upload,
+/// not one per connection, because a block goes out as soon as it fills.
+async fn flush_full_parts(
+    upload: &mut dyn MultipartUpload,
+    buffered: &mut Vec<u8>,
+    part_size: usize,
+) -> Result<()> {
+    while buffered.len() >= part_size {
+        let rest = buffered.split_off(part_size);
         let part = std::mem::replace(buffered, rest);
         upload.put_part(PutPayload::from(Bytes::from(part))).await?;
     }

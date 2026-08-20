@@ -1,0 +1,284 @@
+//! Where the bytes of an unfinished upload go.
+//!
+//! # Why there are two of these
+//!
+//! `object_store` has two ways to build one object from several requests, and
+//! only one of them works for us on every backend.
+//!
+//! [`MultipartStore`] hands out an identifier that outlives the call, so the
+//! parts of one object can be written by separate HTTP requests — which is the
+//! whole of what a resumable upload needs. `aws`, `azure` and `gcp` implement
+//! it. **`LocalFileSystem` does not**, and there is nothing to work around: a
+//! local store has no multipart concept to expose.
+//!
+//! So local disk gets its own path, and it is the simpler of the two — a file
+//! opened for appending *is* a resumable upload, and its length *is* the
+//! offset. No parts to remember, no minimum size, nothing to abort but an
+//! `unlink`.
+//!
+//! # The minimum part size, and the remainder
+//!
+//! S3 refuses every part but the last below 5 MiB. A client that sends 2 MiB
+//! and pauses leaves us holding bytes that cannot become a part yet, so they
+//! are parked in a sibling object and prepended when the upload resumes. tusd
+//! does the same thing with a `.part` file, and its documentation is where the
+//! shape came from.
+//!
+//! Garage enforces neither the floor nor equal sizes — measured against
+//! `dxflrs/garage:v2.3.0` — so the CI job cannot catch a mistake here. That is
+//! why the arithmetic is pinned by unit tests below rather than by the run
+//! against a real store.
+
+use std::{path::PathBuf, sync::Arc};
+
+use bytes::Bytes;
+use object_store::{
+    MultipartId, ObjectStore,
+    multipart::{MultipartStore, PartId},
+    path::Path as ObjectPath,
+};
+
+use crate::error::{Error, Result};
+
+/// Where a part number starts. S3 counts from one.
+const FIRST_PART: i32 = 1;
+
+/// Suffix of the object holding bytes too few to be a part.
+const REMAINDER_SUFFIX: &str = ".part";
+
+/// One part the store has taken, as it needs handing back at completion.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TakenPart {
+    /// Its position, from one.
+    pub number: i32,
+    /// The store's identifier for it — an `ETag` on S3.
+    pub content_id: String,
+}
+
+/// How an upload's bytes reach the store.
+#[derive(Clone)]
+pub enum Sink {
+    /// A store that can hold a multipart upload open across requests.
+    Multipart {
+        /// The store, which must also implement [`MultipartStore`].
+        store: Arc<dyn MultipartStore>,
+        /// Its identifier for this upload.
+        id: MultipartId,
+    },
+    /// A local filesystem, which appends to a partial file instead.
+    Appending {
+        /// Where the partial file lives.
+        path: PathBuf,
+    },
+}
+
+/// What a chunk of bytes did to the upload.
+#[derive(Debug, Default)]
+pub struct Written {
+    /// Parts the store took, in order, to be recorded.
+    pub parts: Vec<TakenPart>,
+    /// Bytes accepted, which is all of them or the call failed.
+    pub accepted: u64,
+}
+
+// `dyn MultipartStore` is not `Debug`, and a store in a log line would be its
+// configuration rather than anything about this upload.
+impl core::fmt::Debug for Sink {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Multipart { id, .. } => {
+                formatter.debug_struct("Multipart").field("id", id).finish()
+            }
+            Self::Appending { path } => formatter
+                .debug_struct("Appending")
+                .field("path", path)
+                .finish(),
+        }
+    }
+}
+
+impl Sink {
+    /// Opens a sink for `key`, choosing by what the store can do.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Storage`] if the store refuses to begin.
+    pub async fn open(
+        store: &Arc<dyn ObjectStore>,
+        multipart: Option<&Arc<dyn MultipartStore>>,
+        local_root: Option<&PathBuf>,
+        key: &str,
+    ) -> Result<Self> {
+        let _ = store;
+        if let Some(multipart) = multipart {
+            let id = multipart
+                .create_multipart(&ObjectPath::from(key))
+                .await
+                .map_err(Error::Storage)?;
+            return Ok(Self::Multipart {
+                store: Arc::clone(multipart),
+                id,
+            });
+        }
+        let root = local_root.ok_or_else(|| {
+            Error::bad_request("this instance's store cannot hold a resumable upload")
+        })?;
+        let path = root.join(format!("{key}{REMAINDER_SUFFIX}"));
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        tokio::fs::File::create(&path).await?;
+        Ok(Self::Appending { path })
+    }
+}
+
+/// Splits `pending` into whole parts and what is left over.
+///
+/// Returned rather than written so the arithmetic can be tested without a
+/// store: it is the half that Garage will not catch being wrong.
+#[must_use]
+pub fn split_into_parts(pending: &[u8], part_size: usize, is_final: bool) -> (Vec<Bytes>, Vec<u8>) {
+    // `chunks_exact` rather than arithmetic on indices: it cannot slice past
+    // the end, and its `remainder` is exactly the tail that is too short.
+    let mut parts: Vec<Bytes> = pending
+        .chunks_exact(part_size)
+        .map(Bytes::copy_from_slice)
+        .collect();
+    let remainder = pending.chunks_exact(part_size).remainder().to_vec();
+    if is_final && !remainder.is_empty() {
+        // The last part is the one allowed to be short, so on the final write
+        // the remainder becomes a part rather than being parked.
+        parts.push(Bytes::from(remainder));
+        return (parts, Vec::new());
+    }
+    (parts, remainder)
+}
+
+/// The part number that follows `taken` parts.
+#[must_use]
+pub fn next_part_number(taken: usize) -> i32 {
+    // Saturating rather than wrapping: an upload with more parts than an `i32`
+    // holds was refused long before this, and a wrapped part number would be
+    // accepted by the database and rejected by the store.
+    FIRST_PART.saturating_add(i32::try_from(taken).unwrap_or(i32::MAX))
+}
+
+impl Sink {
+    /// Writes whole parts, returning what the store took.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Storage`] if a part is refused, or [`Error::Io`] if the
+    /// local file cannot be extended.
+    pub async fn write(
+        &self,
+        key: &str,
+        already_taken: usize,
+        parts: Vec<Bytes>,
+    ) -> Result<Written> {
+        let mut written = Written::default();
+        match self {
+            Self::Multipart { store, id } => {
+                for (offset, bytes) in parts.into_iter().enumerate() {
+                    let number = next_part_number(already_taken + offset);
+                    let length = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+                    let PartId { content_id } = store
+                        .put_part(
+                            &ObjectPath::from(key),
+                            id,
+                            usize::try_from(number - FIRST_PART).unwrap_or(0),
+                            bytes.into(),
+                        )
+                        .await
+                        .map_err(Error::Storage)?;
+                    written.parts.push(TakenPart { number, content_id });
+                    written.accepted = written.accepted.saturating_add(length);
+                }
+            }
+            Self::Appending { path } => {
+                use tokio::io::AsyncWriteExt as _;
+                let mut file = tokio::fs::OpenOptions::new()
+                    .append(true)
+                    .open(path)
+                    .await?;
+                for bytes in parts {
+                    written.accepted = written
+                        .accepted
+                        .saturating_add(u64::try_from(bytes.len()).unwrap_or(u64::MAX));
+                    file.write_all(&bytes).await?;
+                }
+                file.flush().await?;
+            }
+        }
+        Ok(written)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const PART: usize = 5 * 1024 * 1024;
+
+    /// The floor S3 enforces and Garage does not: every part but the last is
+    /// exactly `part_size`, whatever sizes the network delivered.
+    #[test]
+    fn every_part_but_the_last_is_the_full_size() {
+        let pending = vec![0_u8; PART * 2 + 17];
+        let (parts, remainder) = split_into_parts(&pending, PART, false);
+
+        assert_eq!(parts.len(), 2);
+        assert!(parts.iter().all(|part| part.len() == PART));
+        assert_eq!(remainder.len(), 17, "the short tail waits for more");
+    }
+
+    /// A chunk too small to be a part is kept, not sent and not dropped.
+    ///
+    /// Sending it would make a part below the floor; dropping it would lose the
+    /// bytes. Parking it is the only remaining answer, and it is what tusd does.
+    #[test]
+    fn a_chunk_below_the_floor_becomes_no_part_at_all() {
+        let (parts, remainder) = split_into_parts(&[7; 1024], PART, false);
+        assert!(parts.is_empty());
+        assert_eq!(remainder.len(), 1024);
+    }
+
+    /// The last part is the one allowed to be short, so the remainder goes out
+    /// rather than being parked forever.
+    #[test]
+    fn the_final_write_sends_the_remainder_as_a_part() {
+        let (parts, remainder) = split_into_parts(&[7; 1024], PART, true);
+        assert_eq!(parts.len(), 1);
+        assert_eq!(parts[0].len(), 1024);
+        assert!(remainder.is_empty());
+    }
+
+    /// An exact multiple leaves nothing behind, on either kind of write.
+    #[test]
+    fn an_exact_multiple_leaves_no_remainder() {
+        for is_final in [false, true] {
+            let (parts, remainder) = split_into_parts(&vec![0; PART * 3], PART, is_final);
+            assert_eq!(parts.len(), 3, "final={is_final}");
+            assert!(remainder.is_empty(), "final={is_final}");
+        }
+    }
+
+    /// Nothing in, nothing out — a `PATCH` with an empty body is legal and must
+    /// not produce a zero-length part, which S3 refuses.
+    #[test]
+    fn nothing_produces_no_part() {
+        for is_final in [false, true] {
+            let (parts, remainder) = split_into_parts(&[], PART, is_final);
+            assert!(parts.is_empty(), "final={is_final}");
+            assert!(remainder.is_empty(), "final={is_final}");
+        }
+    }
+
+    /// S3 counts parts from one. Starting at zero makes `complete` reject the
+    /// whole upload after every byte has already been paid for.
+    #[test]
+    fn part_numbers_start_at_one() {
+        assert_eq!(next_part_number(0), 1);
+        assert_eq!(next_part_number(3), 4);
+    }
+}

@@ -30,6 +30,7 @@ pub mod maintenance;
 pub mod state;
 pub mod storage;
 pub mod telemetry;
+pub mod upload;
 
 /// The domain rules, re-exported so that callers depend on one crate.
 ///
