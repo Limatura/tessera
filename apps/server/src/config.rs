@@ -498,6 +498,22 @@ pub struct ServerConfig {
     pub upload_stall_secs: u64,
     /// Maximum accepted request body, in bytes.
     pub max_body_bytes: usize,
+
+    /// Directory to serve the frontend from, instead of the bundle compiled in.
+    ///
+    /// Empty, the default, serves the compiled-in bundle — one file, no web
+    /// server in front of it, which is the point of embedding it.
+    ///
+    /// Set, every request reads from disk, so rebuilding the frontend and
+    /// refreshing the browser is the whole loop. That is what this exists for:
+    /// without it, changing one line of CSS and seeing it in a container means
+    /// waiting for a Rust build.
+    ///
+    /// A directory with no `index.html` in it stops the server rather than
+    /// falling back. Falling back quietly would show somebody yesterday's build
+    /// while they believed they were looking at today's.
+    #[serde(default)]
+    pub assets_dir: String,
     /// Origins allowed to call the API from a browser. Empty means same-origin
     /// only, which is the correct default for the single-binary deployment.
     pub cors_allowed_origins: Vec<String>,
@@ -625,6 +641,7 @@ impl Default for ServerConfig {
             upload_stall_secs: 30,
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
+            assets_dir: String::new(),
             cors_allowed_origins: Vec::new(),
             trusted_proxies: Vec::new(),
             trusted_proxy: false,

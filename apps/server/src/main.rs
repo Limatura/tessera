@@ -132,8 +132,10 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| format!("could not bind {addr}"))?;
     let local_addr = listener.local_addr().unwrap_or(addr);
 
+    let assets = resolve_assets(&config.server.assets_dir)?;
+
     let config = Arc::new(config);
-    let state = AppState::new(Arc::clone(&config), db.clone(), store);
+    let state = AppState::new(Arc::clone(&config), db.clone(), store, assets);
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
@@ -323,4 +325,17 @@ fn warn_about_proxy_trust(server: &tessera_server::config::ServerConfig) {
          the list is used and the boolean is ignored"
         );
     }
+}
+
+/// Where the frontend comes from, decided before anything is served.
+///
+/// Fatal when it cannot be: a mistyped `assets_dir` should be answered while
+/// somebody is still looking at the terminal, not by a blank page later.
+fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::Source> {
+    let assets = tessera_server::assets::Source::resolve(configured)
+        .map_err(|reason| anyhow::anyhow!("server.assets_dir — {reason}"))?;
+    if let tessera_server::assets::Source::Directory(root) = &assets {
+        tracing::info!(directory = %root.display(), "serving the frontend from disk");
+    }
+    Ok(assets)
 }
