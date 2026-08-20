@@ -464,6 +464,15 @@ pub struct ShareConfig {
     ///
     /// `0` removes them on the next sweep.
     pub retain_after_death_hours: u64,
+
+    /// How long an unfinished upload waits before the sweep removes it.
+    ///
+    /// It is holding real bytes in the store the whole time, and they count
+    /// against the quota — so this is how long somebody may reserve space by
+    /// starting an upload and walking away. Long enough that a laptop closed
+    /// overnight can still resume; short enough that abandoned ones do not
+    /// accumulate.
+    pub upload_session_ttl_hours: u64,
 }
 
 use crate::auth::proxy::TrustedProxies;
@@ -746,6 +755,7 @@ impl Default for ShareConfig {
             // A week. Long enough that somebody coming back to a link they were
             // sent gets told what happened, short enough that dead payloads do
             // not become the reason the disk fills.
+            upload_session_ttl_hours: 24,
             retain_after_death_hours: 24 * 7,
         }
     }
@@ -1082,6 +1092,12 @@ impl ShareConfig {
     #[must_use]
     pub const fn retention(&self) -> Duration {
         Duration::from_secs(self.retain_after_death_hours.saturating_mul(3600))
+    }
+
+    /// How long an unfinished upload waits, as a [`Duration`].
+    #[must_use]
+    pub const fn upload_session_ttl(&self) -> Duration {
+        Duration::from_secs(self.upload_session_ttl_hours.saturating_mul(3600))
     }
 
     /// Lifetime an unspecified share gets, or `None` when even that is

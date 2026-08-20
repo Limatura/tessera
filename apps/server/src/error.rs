@@ -91,6 +91,15 @@ pub enum Error {
     #[error("{0}")]
     Domain(#[from] tessera_core::DomainError),
 
+    /// The body was not the type this route accepts.
+    ///
+    /// Distinct from [`Error::BadRequest`] because it names something the
+    /// caller can fix without guessing: the tus `PATCH` takes exactly one
+    /// content type, and a client that sends another has usually forgotten to
+    /// set it at all.
+    #[error("unsupported media type")]
+    UnsupportedMediaType,
+
     /// The caller stopped sending, or took longer than this route allows.
     ///
     /// For an upload it means no byte arrived within `server.upload_stall_secs`,
@@ -155,6 +164,8 @@ pub enum ErrorCode {
     TooManyRequests,
     /// See [`Error::InsufficientStorage`].
     InsufficientStorage,
+    /// See [`Error::UnsupportedMediaType`].
+    UnsupportedMediaType,
     /// See [`Error::Timeout`].
     Timeout,
     /// See [`Error::Unavailable`].
@@ -187,6 +198,7 @@ impl ErrorCode {
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
+            Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             Self::Timeout => StatusCode::REQUEST_TIMEOUT,
             Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
             Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
@@ -208,6 +220,7 @@ impl ErrorCode {
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
             Self::InsufficientStorage => "this instance has no room for more content",
+            Self::UnsupportedMediaType => "that content type is not accepted here",
             Self::Timeout => "nothing arrived for a while, so the request was dropped; try again",
             Self::Unavailable => "the service is not accepting requests right now",
             Self::Internal => "an internal error occurred",
@@ -240,6 +253,7 @@ impl Error {
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
             Self::InsufficientStorage => ErrorCode::InsufficientStorage,
+            Self::UnsupportedMediaType => ErrorCode::UnsupportedMediaType,
             Self::Timeout => ErrorCode::Timeout,
             Self::Unavailable => ErrorCode::Unavailable,
             Self::Database(_)
@@ -346,6 +360,7 @@ repository_error!(user::UserRepositoryError);
 repository_error!(session::SessionRepositoryError);
 repository_error!(api_token::ApiTokenRepositoryError);
 repository_error!(share::ShareRepositoryError);
+repository_error!(upload::UploadRepositoryError);
 
 #[cfg(test)]
 mod tests {

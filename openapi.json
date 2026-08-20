@@ -442,6 +442,7 @@
           "conflict",
           "too_many_requests",
           "insufficient_storage",
+          "unsupported_media_type",
           "timeout",
           "unavailable",
           "internal"
