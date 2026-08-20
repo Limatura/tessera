@@ -214,6 +214,73 @@ impl Sink {
     }
 }
 
+impl Sink {
+    /// Whether bytes have to accumulate before any of them can be written.
+    ///
+    /// Only a multipart store does. The block size exists because S3 refuses
+    /// every part but the last below 5 MiB — a file on disk takes a byte at a
+    /// time, so buffering for it would be pure loss: a local upload sending one
+    /// megabyte at a time would never reach a block boundary, never advance its
+    /// offset, and re-send the same megabyte forever.
+    #[must_use]
+    pub const fn buffers(&self) -> bool {
+        matches!(self, Self::Multipart { .. })
+    }
+
+    /// Seals the object, so it becomes readable at `key`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Storage`] if the store refuses to complete, or
+    /// [`Error::Io`] if the finished file cannot be moved into place.
+    pub async fn complete(&self, key: &str, parts: Vec<TakenPart>) -> Result<()> {
+        match self {
+            Self::Multipart { store, id } => {
+                let parts = parts
+                    .into_iter()
+                    .map(|part| PartId {
+                        content_id: part.content_id,
+                    })
+                    .collect();
+                store
+                    .complete_multipart(&ObjectPath::from(key), id, parts)
+                    .await
+                    .map_err(Error::Storage)?;
+            }
+            Self::Appending { path } => {
+                // The partial file becomes the object by losing its suffix. A
+                // rename within one directory is atomic, so a reader either
+                // finds the finished object or does not find it at all —
+                // never half of one.
+                let finished = path.with_extension("");
+                tokio::fs::rename(path, &finished).await?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Throws away everything an abandoned upload left behind.
+    ///
+    /// Errors are reported rather than returned: this runs from the sweep, and
+    /// one store that will not co-operate must not stop the rest of the pass.
+    pub async fn discard(&self, key: &str) {
+        match self {
+            Self::Multipart { store, id } => {
+                if let Err(error) = store.abort_multipart(&ObjectPath::from(key), id).await {
+                    tracing::warn!(?error, key, "could not abort an abandoned upload");
+                }
+            }
+            Self::Appending { path } => {
+                if let Err(error) = tokio::fs::remove_file(path).await
+                    && error.kind() != std::io::ErrorKind::NotFound
+                {
+                    tracing::warn!(?error, ?path, "could not remove a partial upload");
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

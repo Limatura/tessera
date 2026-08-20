@@ -45,6 +45,7 @@ pub mod sessions;
 pub mod shares;
 pub mod timeout;
 pub mod tokens;
+pub mod uploads;
 
 use std::{sync::Arc, time::Duration};
 
@@ -282,6 +283,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(shares::unlock))
         .routes(routes!(shares::record_event))
         .routes(routes!(shares::add_file))
+        .merge(upload_routes())
 }
 
 /// Everything under `/admin`.
@@ -304,6 +306,17 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::list_shares))
         .routes(routes!(admin::delete_share))
         .routes(routes!(admin::remove_user_shares))
+}
+
+/// The resumable-upload endpoints.
+///
+/// Kept out of [`versioned_routes`] for the same reason `admin_routes` is: that
+/// function reads as one page, and three more lines in it is three more lines
+/// somebody has to scan past to find what they came for.
+fn upload_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(uploads::create))
+        .routes(routes!(uploads::offset, uploads::append))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA

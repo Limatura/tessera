@@ -222,7 +222,11 @@ impl SharedFile {
 }
 
 impl ShareResponse {
-    fn from_share(share: &Share, content: &Content, management_token: Option<String>) -> Self {
+    pub(crate) fn from_share(
+        share: &Share,
+        content: &Content,
+        management_token: Option<String>,
+    ) -> Self {
         Self {
             id: share.id.to_string(),
             code: share.code.as_str().to_owned(),
@@ -553,6 +557,30 @@ struct Ingested {
 /// should have been kept, to make a limit whose entire job is to stop unbounded
 /// growth slightly more exact. Set the figure with the same slack you would
 /// give a disk.
+/// What is left of the instance's allowance, counting uploads still arriving.
+///
+/// An upload that has landed eight megabytes is holding eight megabytes whether
+/// or not anybody finishes it, so a session that has not completed still spends
+/// quota. Without that, opening sessions and abandoning them is free storage.
+///
+/// # Errors
+///
+/// Returns [`Error`] if either total cannot be read.
+pub(crate) async fn remaining_room(state: &AppState) -> Result<u64> {
+    let free = remaining_quota(state).await?;
+    Ok(free.saturating_sub(state.uploads.in_flight_bytes().await?))
+}
+
+/// A filename from a query parameter, length- and control-character-checked.
+///
+/// # Errors
+///
+/// Returns [`Error::BadRequest`] if it is too long or holds a control
+/// character.
+pub(crate) fn checked_filename(value: Option<String>) -> Result<Option<String>> {
+    checked_label(value, "filename", MAX_TEXT_FIELD)
+}
+
 async fn remaining_quota(state: &AppState) -> Result<u64> {
     let quota = state.config.storage.max_total_bytes;
     if quota == 0 {
@@ -709,6 +737,24 @@ async fn ingest_into(
     }
 }
 
+/// The next piece of a body's data, or `None` at its end.
+///
+/// Trailers carry no content, so they are skipped rather than returned. The
+/// wait is bounded the same way `next_frame` bounds it — see there.
+///
+/// # Errors
+///
+/// Returns [`Error::Timeout`] when nothing arrives for `stall`, or
+/// [`Error::BadRequest`] when the body ends part-way.
+pub(crate) async fn next_chunk(body: &mut Body, stall: Duration) -> Result<Option<Bytes>> {
+    while let Some(frame) = next_frame(body, stall).await? {
+        if let Ok(data) = frame.into_data() {
+            return Ok(Some(data));
+        }
+    }
+    Ok(None)
+}
+
 /// The next piece of the body, or `None` at its end.
 ///
 /// The wait is bounded by how long the connection may go silent, not by how
@@ -764,6 +810,76 @@ pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
         created_at.year(),
         u8::from(created_at.month())
     )
+}
+
+/// Makes a share whose one file arrived through a resumable upload.
+///
+/// Separate from [`create`] because the bytes are already in the store: this
+/// only writes the rows and picks a code. Everything a `POST /shares` decides
+/// from its query — password, expiry, use limit — is not available to an upload
+/// session, so those take their defaults and the uploader adjusts the share
+/// afterwards.
+///
+/// # Errors
+///
+/// Returns [`Error`] if no unused code can be found or the insert fails.
+pub(crate) async fn create_from_file(
+    state: &AppState,
+    user_id: Option<tessera_core::UserId>,
+    file: NewFile,
+    now: OffsetDateTime,
+) -> Result<ShareResponse> {
+    let management_secret = user_id.is_none().then(Secret::generate_session);
+    let share = Share {
+        id: ShareId::generate(),
+        code: RetrievalCode::parse("0000").unwrap_or_else(|_| unreachable!("four zeroes parse")),
+        user_id,
+        kind: ShareKind::File,
+        password_hash: None,
+        use_limit: None,
+        use_count: 0,
+        expires_at: resolve_expiry(state, None, now)?,
+        disabled_at: None,
+        title: None,
+        og_config: None,
+        management_token_hash: management_secret.as_ref().map(Secret::digest),
+        view_count: 0,
+        copy_count: 0,
+        bytes_served: 0,
+        last_accessed_at: None,
+        created_at: now,
+        updated_at: now,
+    };
+    let content = NewContent::File(file);
+    let share = insert_with_fresh_code(state, share, &content).await?;
+    let stored = state.shares.content_of(&share).await?;
+    Ok(ShareResponse::from_share(
+        &share,
+        &stored,
+        management_secret.map(|secret| secret.expose().to_owned()),
+    ))
+}
+
+/// The share as its owner sees it, for the response to a finished upload.
+///
+/// No management token: this share already existed, so its token was handed out
+/// when it was made and is not ours to show again.
+///
+/// # Errors
+///
+/// Returns [`Error::NotFound`] if the share went away, or [`Error`] if a query
+/// fails.
+pub(crate) async fn describe_for_owner(
+    state: &AppState,
+    share_id: ShareId,
+) -> Result<ShareResponse> {
+    let share = state
+        .shares
+        .find_by_id(share_id)
+        .await?
+        .ok_or(Error::NotFound)?;
+    let content = state.shares.content_of(&share).await?;
+    Ok(ShareResponse::from_share(&share, &content, None))
 }
 
 /// Inserts the share, trying another code each time one is already taken.

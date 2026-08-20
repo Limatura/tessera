@@ -175,7 +175,7 @@ where
 /// A value with no `://` is a path. `file://` is also accepted, because it is
 /// what people write once they have seen the other schemes — and `file:///data`
 /// means the *absolute* path `/data`, so the third slash has to survive.
-fn local_path(location: &str) -> Option<String> {
+pub(crate) fn local_path(location: &str) -> Option<String> {
     let Some(rest) = location.strip_prefix("file://") else {
         return (!location.contains("://")).then(|| location.to_owned());
     };
