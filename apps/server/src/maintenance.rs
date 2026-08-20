@@ -136,6 +136,20 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
 /// Doing this separately is what stops a burn-after-reading share from
 /// occupying its full size for a week after the one person who was meant to
 /// have it already did.
+/// Removes every one, and says whether all of them went.
+///
+/// One failure stops the share being marked, because a share marked clean with
+/// an object still in the store is an object nothing will ever look for again.
+async fn remove_every_object(storage: &Arc<dyn ObjectStore>, keys: &[String]) -> bool {
+    let mut all_gone = true;
+    for key in keys {
+        if !remove_object(storage, key).await {
+            all_gone = false;
+        }
+    }
+    all_gone
+}
+
 async fn reap_dead_content(
     shares: &ShareRepository,
     storage: &Arc<dyn ObjectStore>,
@@ -143,12 +157,13 @@ async fn reap_dead_content(
 ) -> Result<u64, ShareRepositoryError> {
     let mut reaped: u64 = 0;
     for share in shares.find_reapable(now, SHARES_PER_PASS).await? {
-        if let Some(key) = share.storage.object_key()
-            && !remove_object(storage, key).await
-        {
-            // Leave the row saying `object`: it is the only record of what to
-            // delete, and the next pass will find it again. Marking it `gone`
-            // here would strand those bytes for good.
+        // Every object, not the first: a share holds one file today and several
+        // once #42 lands, and stopping after one would leave the rest paid for
+        // and unreachable once the rows naming them are gone.
+        let keys = shares.object_keys_of(share.id).await?;
+        if !remove_every_object(storage, &keys).await {
+            // The rows stay, still naming what to delete, so the next pass finds
+            // them again. Marking them `gone` here would strand those bytes.
             continue;
         }
         // Inline content lives in a child row that goes with the share, so
@@ -193,15 +208,14 @@ async fn sweep_dead_shares(
 
     let mut removed: u64 = 0;
     for share in shares.find_dead(cutoff, SHARES_PER_PASS).await? {
-        // Usually already `gone` by now — `reap_dead_content` runs first — but a
-        // disabled share reaches retention with its object intact, and so does
+        // Usually already gone by now — `reap_dead_content` runs first — but a
+        // disabled share reaches retention with its objects intact, and so does
         // anything the reaper could not delete earlier.
-        if let Some(key) = share.storage.object_key()
-            && !remove_object(storage, key).await
-        {
-            // The row stays. It is the only record of which object to remove, so
-            // dropping it now would strand those bytes for good; the next pass
-            // tries again.
+        let keys = shares.object_keys_of(share.id).await?;
+        if !remove_every_object(storage, &keys).await {
+            // The rows stay. They are the only record of what to remove, so
+            // dropping them now would strand those bytes; the next pass tries
+            // again.
             continue;
         }
         shares.delete(share.id).await?;

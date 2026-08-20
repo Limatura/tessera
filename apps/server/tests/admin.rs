@@ -2,8 +2,11 @@
 
 mod common;
 
-use axum::http::{Method, StatusCode};
-use common::{Auth, TestApp, body_json, expect_status};
+use axum::{
+    body::Body,
+    http::{Method, Request, StatusCode, header},
+};
+use common::{Auth, TestApp, body_json, body_string, expect_status};
 use tessera_server::config::RegistrationPolicy;
 
 const PASSWORD: &str = "a perfectly adequate passphrase";
@@ -259,7 +262,36 @@ async fn deleting_an_account_ends_what_it_was_holding() {
             .status(),
         StatusCode::UNAUTHORIZED
     );
+    // The listing shows the one account left. The row the deletion left behind
+    // is not somebody an operator manages, so it takes asking to see it.
     assert_eq!(list(&app, Auth::Cookie(&admin)).await.len(), 1);
+
+    let with_deleted = body_json(
+        expect_status(
+            app.empty(
+                Method::GET,
+                "/api/v1/admin/users?include_deleted=true",
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let rows = with_deleted.as_array().expect("a list");
+    assert_eq!(rows.len(), 2);
+
+    // And what is left of it identifies nobody.
+    let gone = rows
+        .iter()
+        .find(|row| row["id"] == id)
+        .expect("the row the deletion left");
+    let name = gone["username"].as_str().expect("a name");
+    let email = gone["email"].as_str().expect("an address");
+    assert!(name.starts_with("gone-"), "{name}");
+    assert!(email.ends_with("@deleted.invalid"), "{email}");
+    assert!(!name.contains("second"), "the original name is gone");
 }
 
 /// An identifier that is not an identifier answers the same as one that names
@@ -754,4 +786,1456 @@ async fn stats_need_an_administrator_with_a_cookie() {
             .status(),
         StatusCode::FORBIDDEN
     );
+}
+
+/// The check is the role, not the column.
+///
+/// `users.is_admin` is still written so this version can be rolled back, so
+/// every other test here passes whichever one is consulted. This one makes them
+/// disagree: the column says administrator, the roles say nothing at all.
+#[tokio::test]
+async fn the_stale_is_admin_column_grants_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (ordinary, _) = register(&app, "second").await;
+
+    let statement = sea_orm::Statement::from_string(
+        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
+        "UPDATE users SET is_admin = 1 WHERE username = 'second'".to_owned(),
+    );
+    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
+        .await
+        .expect("set the old flag");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN,
+        "the column must not be what decides"
+    );
+}
+
+/// One permission at a time, which is the point of the change.
+///
+/// Under the boolean, reaching any administrative endpoint meant reaching all
+/// of them. A role holding only `users:read` proves that is no longer true.
+#[tokio::test]
+async fn a_role_can_grant_looking_without_granting_changing() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (watcher, _) = register(&app, "second").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let role = app
+        .state
+        .roles
+        .create(
+            "auditor".to_owned(),
+            Some("Can look, cannot touch.".to_owned()),
+            &[tessera_core::Permission::UsersRead].into_iter().collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[role.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("put them in it");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::OK,
+        "users:read was granted"
+    );
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", user.id),
+            Auth::Cookie(&watcher)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "users:delete was not"
+    );
+}
+
+/// Somebody in no role is signed in and allowed nothing, and that has to be a
+/// clean refusal rather than a crash.
+#[tokio::test]
+async fn an_account_with_no_roles_may_do_nothing() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (stripped, _) = register(&app, "second").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[], time::OffsetDateTime::now_utc())
+        .await
+        .expect("take every role away");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&stripped))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// The instance must keep somebody who can hand out roles.
+#[tokio::test]
+async fn the_last_account_holding_the_keys_cannot_be_deleted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    register(&app, "second").await;
+
+    let first = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let second = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", first.id),
+            Auth::Cookie(&admin)
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT,
+        "the only holder of roles:write"
+    );
+    // And somebody who never held them is not caught by the same guard.
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", second.id),
+            Auth::Cookie(&admin)
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT,
+    );
+}
+
+/// The dashboard number has to mean the same thing the guard means.
+///
+/// It counted `users.is_admin`, which is now a mirror kept for rollback. A role
+/// granted directly does not touch that column, so the number would say one
+/// while two people could administer the instance.
+#[tokio::test]
+async fn the_administrator_count_follows_roles_not_the_column() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    register(&app, "second").await;
+
+    let second = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    // Straight into the seeded administrator role, without going through the
+    // endpoint that also writes the column.
+    let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::OWNER).expect("an id");
+    app.state
+        .roles
+        .set_roles_of(second.id, &[admin_role], time::OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    let response = expect_status(
+        app.empty(Method::GET, "/api/v1/admin/stats", Auth::Cookie(&admin))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    let stats = body_json(response).await;
+    assert_eq!(
+        stats["administrators"], 2,
+        "the column still says one; the roles say two"
+    );
+}
+
+/// `roles:write` must not be a way to obtain every other permission.
+///
+/// Without this check somebody holding only `roles:write` mints a role granting
+/// `users:delete`, puts themselves in it, and has it. The permission would mean
+/// "may hand out anything" rather than "may hand out what I have".
+#[tokio::test]
+async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (deputy, _) = register(&app, "second").await;
+
+    let user = account(&app, "second").await;
+    let limited = app
+        .state
+        .roles
+        .create(
+            "deputy".to_owned(),
+            None,
+            &[tessera_core::Permission::RolesWrite].into_iter().collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[limited.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    let response = app
+        .json(
+            Method::POST,
+            "/api/v1/admin/roles",
+            Auth::Cookie(&deputy),
+            &serde_json::json!({
+                "name": "sneaky",
+                "permissions": ["users:delete"],
+            }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+
+    // And the same door from the other side: granting it to somebody else.
+    let existing = app
+        .state
+        .roles
+        .find_by_name("admin")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    let response = app
+        .json(
+            Method::PUT,
+            &format!("/api/v1/admin/users/{}/roles", user.id),
+            Auth::Cookie(&deputy),
+            &serde_json::json!({ "roles": [existing.id.to_string()] }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+/// A permission this version does not have is refused, not dropped.
+///
+/// Ignoring it would save a role that does less than the screen it was ticked
+/// on says it does.
+#[tokio::test]
+async fn an_unknown_permission_is_refused_rather_than_ignored() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let response = app
+        .json(
+            Method::POST,
+            "/api/v1/admin/roles",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "odd", "permissions": ["shares:teleport"] }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+/// The seeded roles are what an instance is administered through.
+#[tokio::test]
+async fn a_seeded_role_cannot_be_deleted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let member = app
+        .state
+        .roles
+        .find_by_name("member")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin)
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// Editing a role is the other way to lock everybody out.
+#[tokio::test]
+async fn the_last_role_carrying_the_keys_cannot_drop_them() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let role = app
+        .state
+        .roles
+        .find_by_name("admin")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    let without_the_keys: Vec<String> = tessera_core::Permission::ALL
+        .into_iter()
+        .filter(|permission| *permission != tessera_core::Permission::RolesWrite)
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+
+    let response = app
+        .json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", role.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "admin", "permissions": without_the_keys }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::CONFLICT);
+}
+
+/// A role is created, edited and used, end to end.
+#[tokio::test]
+async fn a_role_can_be_created_and_granted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (watcher, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/admin/roles",
+                Auth::Cookie(&admin),
+                &serde_json::json!({
+                    "name": "auditor",
+                    "description": "Can look.",
+                    "permissions": ["users:read"],
+                }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let role_id = created["id"].as_str().expect("an id").to_owned();
+    assert_eq!(created["members"], 0);
+    assert_eq!(created["is_system"], false);
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/users/{}/roles", user.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "roles": [role_id] }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // It works, and only as far as it says.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/stats", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+
+    // And the listing counts the member.
+    let roles = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/roles", Auth::Cookie(&admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let auditor = roles
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|row| row["name"] == "auditor")
+        .expect("the role");
+    assert_eq!(auditor["members"], 1);
+}
+
+/// The permission list is served rather than built into the client, so a client
+/// cannot silently stop offering permissions added since it was built.
+#[tokio::test]
+async fn every_permission_is_offered_to_the_screen() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let listed = body_json(
+        expect_status(
+            app.empty(
+                Method::GET,
+                "/api/v1/admin/permissions",
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let names: Vec<&str> = listed
+        .as_array()
+        .expect("a list")
+        .iter()
+        .map(|row| row["name"].as_str().expect("a name"))
+        .collect();
+    for permission in tessera_core::Permission::ALL {
+        assert!(names.contains(&permission.as_str()), "{permission}");
+    }
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+/// The account whose roles are being read, by name.
+async fn account(app: &TestApp, username: &str) -> tessera_server::db::repository::user::User {
+    app.state
+        .users
+        .find_by_username(&tessera_core::Username::parse(username).expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account")
+}
+
+/// A built-in role means the same thing on every instance, and that is the
+/// whole of its value.
+#[tokio::test]
+async fn a_built_in_role_can_be_renamed_but_not_repermissioned() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let member = app
+        .state
+        .roles
+        .find_by_name("member")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    let held: Vec<String> = member
+        .permissions
+        .iter()
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+
+    // A label is not a meaning.
+    expect_status(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "一般使用者", "permissions": held }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // Taking something away from it is not.
+    let fewer: Vec<String> = member
+        .permissions
+        .iter()
+        .filter(|permission| *permission != tessera_core::Permission::SharesDelete)
+        .map(|permission| permission.as_str().to_owned())
+        .collect();
+    assert_eq!(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/roles/{}", member.id),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "一般使用者", "permissions": fewer }),
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// The way to make ordinary accounts do less.
+#[tokio::test]
+async fn new_accounts_go_into_the_configured_role() {
+    let app = TestApp::with_config(|config| {
+        config.auth.default_role = "restricted".to_owned();
+    })
+    .await;
+
+    // The role has to exist before anybody registers into it.
+    app.state
+        .roles
+        .create(
+            "restricted".to_owned(),
+            None,
+            &[tessera_core::Permission::SharesCreate]
+                .into_iter()
+                .collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+
+    register(&app, "first").await;
+    let (ordinary, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let held = app
+        .state
+        .roles
+        .permissions_of(user.id)
+        .await
+        .expect("read the permissions");
+    assert!(held.allows(tessera_core::Permission::SharesCreate));
+    assert!(
+        !held.allows(tessera_core::Permission::SharesDelete),
+        "member's permissions must not leak in"
+    );
+
+    // And the first account still administers the instance whatever the setting
+    // says — an instance whose first account cannot administer it has nobody who
+    // can fix that.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// After every migration has run, the administrator role holds everything.
+///
+/// The per-migration tests each check what their own file wrote, which is what
+/// a migration is answerable for. Nothing checked the state they add up to —
+/// and a permission nobody can hold is an endpoint nobody can reach, on a fresh
+/// instance, with no error anywhere to say so.
+#[tokio::test]
+async fn the_owner_role_ends_up_holding_every_permission() {
+    let app = TestApp::ready().await;
+
+    let admin = app
+        .state
+        .roles
+        .find_by_name("owner")
+        .await
+        .expect("query")
+        .expect("the seeded role");
+    for permission in tessera_core::Permission::ALL {
+        assert!(
+            admin.permissions.allows(permission),
+            "the owner role cannot be granted {permission}"
+        );
+    }
+}
+
+/// The gap this endpoint exists to close.
+///
+/// A share whose uploader is gone is owned by nobody, so the ordinary delete
+/// route — which asks whether the caller owns it — could never reach one. With
+/// no expiry and no use limit the sweep never reaches it either, so it served
+/// its content forever and nothing could stop it.
+#[tokio::test]
+async fn an_administrator_can_remove_a_share_nobody_owns() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (leaver, _) = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=left-behind.bin")
+                    .header(header::COOKIE, &leaver),
+                Body::from(b"orphan".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let share_id = created["id"].as_str().expect("an id").to_owned();
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    // The uploader's account goes. Today that orphans the share.
+    let second = account(&app, "second").await;
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{}", second.id),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    // It is still served — which is the part that makes this worth fixing.
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::OK,
+        "an orphaned share keeps working"
+    );
+
+    // And now somebody can remove it.
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::NOT_FOUND
+    );
+}
+
+/// The listing tells an anonymous upload apart from one whose owner is gone.
+///
+/// Both have no reachable account, and collapsing them would throw away which
+/// is which — information nothing could recover afterwards.
+#[tokio::test]
+async fn the_listing_says_who_uploaded_each_share() {
+    let app = TestApp::with_config(|config| {
+        config.features.anonymous_upload = true;
+    })
+    .await;
+    let (admin, admin_id) = register(&app, "first").await;
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=mine.bin")
+                .header(header::COOKIE, &admin),
+            Body::from(b"mine".to_vec()),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=nobodys.bin"),
+            Body::from(b"nobody".to_vec()),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+
+    let page = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(page["total"], 2);
+
+    let rows = page["shares"].as_array().expect("a list");
+    let mine = rows
+        .iter()
+        .find(|row| row["filename"] == "mine.bin")
+        .expect("the signed-in upload");
+    let nobodys = rows
+        .iter()
+        .find(|row| row["filename"] == "nobodys.bin")
+        .expect("the anonymous upload");
+    assert_eq!(mine["owner_id"], admin_id);
+    assert!(nobodys["owner_id"].is_null(), "anonymous means nobody");
+}
+
+/// Reading every share and deleting every share are separate powers.
+#[tokio::test]
+async fn reading_every_share_does_not_imply_removing_one() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (watcher, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=someone-elses.bin")
+                    .header(header::COOKIE, &admin),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let share_id = created["id"].as_str().expect("an id").to_owned();
+
+    let role = app
+        .state
+        .roles
+        .create(
+            "moderator".to_owned(),
+            None,
+            &[tessera_core::Permission::SharesReadAny]
+                .into_iter()
+                .collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[role.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&watcher))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&watcher)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// Suspending stops the person, not their content.
+///
+/// Whoever holds a link that account handed out did nothing wrong, and a
+/// suspension that broke every one of those links would be a different act from
+/// the one the operator asked for. Stopping the content too is what a share's
+/// own `disabled_at` is for.
+#[tokio::test]
+async fn suspending_an_account_stops_it_signing_in_but_keeps_its_shares_served() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (theirs, id) = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=theirs.bin")
+                    .header(header::COOKIE, &theirs),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "disabled" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // The session they already held stops working — not only the next sign-in.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&theirs))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+    // Signing in again answers the same as a wrong password, so nobody can ask
+    // this endpoint which accounts are suspended.
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "second", "password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+
+    // Their share is still served.
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    // And letting them back in works.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "active" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "second", "password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::OK,
+        "a suspension is something an account comes back from"
+    );
+}
+
+/// A deletion is not.
+#[tokio::test]
+async fn a_deleted_account_cannot_be_reactivated() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    // The patch reports success — the row is there and the flag was written —
+    // but the state does not move.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "active" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "second", "password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// The name and the address a deleted account gave up are free again.
+#[tokio::test]
+async fn a_deleted_accounts_name_can_be_registered_again() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "second",
+                "email": "second@example.com",
+                "password": PASSWORD,
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::CREATED,
+        "the scrubbed row must not keep the name out of circulation"
+    );
+}
+
+/// Who did it is recorded, because a tombstone cannot say it by itself.
+#[tokio::test]
+async fn a_deletion_records_who_did_it() {
+    let app = TestApp::ready().await;
+    let (admin, admin_id) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    let removed = app
+        .state
+        .users
+        .find_by_id(tessera_core::UserId::parse(&id).expect("an id"))
+        .await
+        .expect("query")
+        .expect("the row the deletion left");
+    assert_eq!(removed.state, tessera_core::AccountState::Deleted);
+    assert_eq!(
+        removed.deleted_by.map(|by| by.to_string()),
+        Some(admin_id),
+        "a row alone cannot say who did it"
+    );
+    assert!(removed.deleted_at.is_some());
+}
+
+/// Suspending an account has to stop its API tokens too.
+///
+/// Ending the sessions is what makes the cookie stop working, and for a while
+/// that looked like enough. It is not: a token is not a session, so nothing
+/// ended it — the state check at authentication is the only thing that does.
+#[tokio::test]
+async fn suspending_an_account_stops_its_tokens() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (theirs, id) = register(&app, "second").await;
+
+    let secret = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&theirs),
+                &serde_json::json!({ "name": "a script", "permissions": ["shares:read"] }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await["secret"]
+        .as_str()
+        .expect("a secret")
+        .to_owned();
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "is_admin": false, "state": "disabled" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED,
+        "a token is not a session; nothing else stops it"
+    );
+}
+
+/// The three powers that separate somebody helping from somebody whose instance
+/// it is.
+///
+/// Before this split the seeded set had nothing between `admin` (everything)
+/// and `member`, so "help me run this" meant handing over deleting accounts,
+/// destroying other people's content, and granting permissions.
+#[tokio::test]
+async fn an_admin_helps_run_the_instance_without_being_able_to_take_it() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+    let (helper, _) = register(&app, "second").await;
+    let (victim, victim_id) = register(&app, "third").await;
+
+    let helper_account = account(&app, "second").await;
+    let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::ADMIN).expect("an id");
+    app.state
+        .roles
+        .set_roles_of(
+            helper_account.id,
+            &[admin_role],
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("make them an admin");
+
+    // What an admin is for.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&helper))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&helper))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+    assert_eq!(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{victim_id}"),
+            Auth::Cookie(&helper),
+            &serde_json::json!({ "is_admin": false, "state": "disabled" }),
+        )
+        .await
+        .status(),
+        StatusCode::OK,
+        "suspending is help, not a takeover"
+    );
+
+    // What an admin is not for.
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{victim_id}"),
+            Auth::Cookie(&helper)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "users:delete"
+    );
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/roles",
+            Auth::Cookie(&helper),
+            &serde_json::json!({ "name": "mine", "permissions": ["users:delete"] }),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "roles:write is what would let them raise themselves"
+    );
+
+    // And a share of somebody else's, which is the content half.
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=theirs.bin")
+                    .header(header::COOKIE, &victim),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let share_id = created["id"].as_str().expect("an id").to_owned();
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&helper)
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+        "shares:delete:any"
+    );
+
+    // The owner can do all three.
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/shares/{share_id}"),
+            Auth::Cookie(&owner)
+        )
+        .await
+        .status(),
+        StatusCode::NO_CONTENT
+    );
+}
+
+/// The sequence the split must not break: hand over, then leave.
+#[tokio::test]
+async fn an_owner_can_promote_a_successor_and_step_down() {
+    let app = TestApp::ready().await;
+    let (owner, owner_id) = register(&app, "first").await;
+    let (successor, successor_id) = register(&app, "second").await;
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{successor_id}"),
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "is_admin": true }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // The successor can do what the outgoing owner could.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            &format!("/api/v1/admin/users/{owner_id}"),
+            Auth::Cookie(&successor),
+            &serde_json::json!({ "is_admin": false }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&owner))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN,
+        "they stepped down"
+    );
+}
+
+/// Clearing space is one call, not one per share.
+#[tokio::test]
+async fn an_operator_can_end_everything_one_account_uploaded() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+    let (uploader, id) = register(&app, "second").await;
+
+    let mut codes = Vec::new();
+    for name in ["one.bin", "two.bin", "three.bin"] {
+        let created = body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(format!("/api/v1/shares?filename={name}"))
+                        .header(header::COOKIE, &uploader),
+                    Body::from(b"content".to_vec()),
+                )
+                .await,
+                StatusCode::CREATED,
+            )
+            .await,
+        )
+        .await;
+        codes.push(created["code"].as_str().expect("a code").to_owned());
+    }
+
+    let answer = body_json(
+        expect_status(
+            app.empty(
+                Method::DELETE,
+                &format!("/api/v1/admin/users/{id}/shares"),
+                Auth::Cookie(&owner),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(answer["removed"], 3);
+
+    for code in &codes {
+        assert_eq!(
+            app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+                .await
+                .status(),
+            StatusCode::GONE,
+            "{code}"
+        );
+    }
+
+    // The bytes come back when the reaper reaches them, not in the request.
+    tessera_server::maintenance::sweep_once(&app.state, time::OffsetDateTime::now_utc()).await;
+    let stored = app.state.shares.total_stored_bytes().await.expect("query");
+    assert_eq!(stored, 0, "the reaper reclaims what the update marked");
+}
+
+/// The account is untouched — this is about content, not about people.
+#[tokio::test]
+async fn ending_an_accounts_shares_leaves_the_account_alone() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+    let (uploader, id) = register(&app, "second").await;
+
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}/shares"),
+            Auth::Cookie(&owner),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&uploader))
+            .await
+            .status(),
+        StatusCode::OK,
+        "they are still here"
+    );
+}
+
+/// `guest` is seeded, holds nothing, and is a name `auth.default_role` can use.
+///
+/// The instance this exists for is one running `features.admin: false`: no role
+/// endpoints, so only the seeded roles, and their permissions are locked. Before
+/// this row its operator chose between open registration where every stranger
+/// can upload and closed registration where nobody can join.
+#[tokio::test]
+async fn a_new_account_can_be_given_nothing_at_all() {
+    let app = TestApp::with_config(|config| {
+        config.auth.default_role = "guest".to_owned();
+    })
+    .await;
+
+    // The first account is the administrator and does not read the setting —
+    // an instance whose first account cannot administer it is one nobody can
+    // repair.
+    register(&app, "first").await;
+    let (guest, _) = register(&app, "second").await;
+    let user = account(&app, "second").await;
+
+    let held = app
+        .state
+        .roles
+        .permissions_of(user.id)
+        .await
+        .expect("read the permissions");
+    assert!(held.is_empty(), "guest holds {held:?}");
+
+    // Signed in, and stopped at the first thing an account is for.
+    //
+    // Worth knowing before choosing this role: the refusal is about the
+    // account, not about the instance. With `features.anonymous_upload` on — it
+    // is on by default — the same person could sign out and upload as a
+    // stranger. So `guest` restricts somebody only on an instance that has
+    // already closed the anonymous door; on one that has not, it is a label.
+    assert_eq!(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=x.bin")
+                .header("content-type", "application/octet-stream")
+                .header("cookie", &guest),
+            Body::from("hello".as_bytes().to_vec()),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// Deleting it would break an instance whose configuration names it.
+#[tokio::test]
+async fn guest_cannot_be_deleted() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/roles/{}", tessera_core::RoleId::GUEST),
+            Auth::Cookie(&admin),
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// The listing says how much each share has sent, not just how much it holds.
+///
+/// The instance-wide figure answers "what is this costing me". This is the
+/// question after it: one link posted somewhere busy is how an operator's
+/// transfer gets spent, and a total cannot say which link.
+#[tokio::test]
+async fn the_share_listing_says_what_each_one_has_sent() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=note.txt")
+                    .header("content-type", "application/octet-stream")
+                    .header("cookie", &admin),
+                Body::from("0123456789".as_bytes().to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created
+        .get("code")
+        .and_then(serde_json::Value::as_str)
+        .expect("a code")
+        .to_owned();
+
+    // Nothing sent yet.
+    assert_eq!(admin_share(&app, &admin).await, 0);
+
+    // A whole download, then a partial one — the second is why this cannot be
+    // worked out from `size_bytes` and a count.
+    //
+    // The bodies are read rather than dropped: the meter counts what leaves
+    // through the response body, so a test that only looks at the status line
+    // measures a transfer that never happened.
+    let whole = expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(body_string(whole).await.len(), 10);
+
+    let partial = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download"))
+                .header("range", "bytes=0-3"),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::PARTIAL_CONTENT,
+    )
+    .await;
+    assert_eq!(body_string(partial).await.len(), 4);
+
+    // The meter writes from a `Drop`, spawned, so it lands just after the body.
+    for _ in 0..50 {
+        if admin_share(&app, &admin).await == 14 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_eq!(
+        admin_share(&app, &admin).await,
+        14,
+        "ten bytes whole plus four from the range"
+    );
+}
+
+/// `bytes_served` of the one share in the listing.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn admin_share(app: &TestApp, admin: &str) -> u64 {
+    let body = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    body.get("shares")
+        .and_then(serde_json::Value::as_array)
+        .and_then(|rows| rows.first())
+        .and_then(|row| row.get("bytes_served"))
+        .and_then(serde_json::Value::as_u64)
+        .expect("bytes_served in the listing")
 }

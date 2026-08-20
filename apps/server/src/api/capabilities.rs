@@ -2,6 +2,7 @@
 
 use axum::{Json, extract::State};
 use serde::{Deserialize, Serialize};
+use tessera_core::Permission;
 use utoipa::ToSchema;
 
 use crate::{
@@ -202,7 +203,12 @@ pub async fn capabilities(
     let mut capabilities = Capabilities::from_state(&state);
 
     let quota = state.config.storage.max_total_bytes;
-    if current.is_some_and(|current| current.user.is_admin) && quota != 0 {
+    // The remaining space is an instance-wide number, so it is told to whoever
+    // may read instance-wide numbers — not to whoever happens to be called an
+    // administrator.
+    let may_see_totals =
+        current.is_some_and(|current| current.permissions.allows(Permission::StatsRead));
+    if may_see_totals && quota != 0 {
         let used = state.shares.total_stored_bytes().await?;
         capabilities.storage_remaining_bytes = Some(quota.saturating_sub(used));
     }

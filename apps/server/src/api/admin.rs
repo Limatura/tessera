@@ -18,21 +18,37 @@
 //! it without knowing which switches an operator threw. `/capabilities` is what
 //! says which half of the software is live here.
 
+// `params(SharePageParams)` makes utoipa emit a fully-qualified path to the
+// type. The generated code lands outside the function it decorates, so the
+// suppression has to be module-wide; dropping `params(..)` instead would take
+// the paging parameters out of the contract, which is the point of declaring
+// them. Same arrangement as `super::shares`.
+#![expect(
+    unused_qualifications,
+    reason = "emitted by utoipa's params(..), not written here"
+)]
+
 use axum::{Json, extract::State, http::StatusCode};
+use object_store::{ObjectStoreExt as _, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{InviteId, UserId};
+use tessera_core::{AccountState, InviteId, Permission, PermissionSet, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
-use utoipa::ToSchema;
+use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     api::{
         ADMIN_TAG,
         auth::AccountResponse,
-        extract::{ApiJson, ApiPath},
+        extract::{ApiJson, ApiPath, ApiQuery},
         tokens::format_timestamp,
     },
-    auth::extract::AdminUser,
-    db::repository::invite::Invite,
+    auth::extract::CurrentUser,
+    db::repository::{
+        invite::Invite,
+        role::{Role, RoleChange},
+        session::SessionEnding,
+        share::{Availability, Content, Share},
+    },
     error::{Error, Result},
     state::AppState,
 };
@@ -43,6 +59,12 @@ use crate::{
 pub struct UpdateUserRequest {
     /// Whether this account administers the instance.
     pub is_admin: bool,
+    /// `active` to let it in, `disabled` to suspend it.
+    ///
+    /// Omitted leaves it as it is. `deleted` is refused here — removing an
+    /// account scrubs it, and that is `DELETE` rather than a field on a patch.
+    #[serde(default)]
+    pub state: Option<String>,
 }
 
 /// One account, as an administrator sees it.
@@ -62,13 +84,25 @@ fn require_admin_feature(state: &AppState) -> Result<()> {
     }
 }
 
-/// Refuses anything that did not arrive with a session cookie.
-const fn require_session(admin: &AdminUser) -> Result<()> {
-    if admin.0.credential.is_session() {
-        Ok(())
-    } else {
-        Err(Error::Forbidden)
+/// Whether one account holds a permission.
+///
+/// Asked about somebody other than the caller, which is why it is a query
+/// rather than a look at [`CurrentUser::permissions`].
+async fn holds(state: &AppState, user: UserId, permission: Permission) -> Result<bool> {
+    Ok(state.roles.permissions_of(user).await?.allows(permission))
+}
+
+/// Refuses anything that did not arrive with a session cookie, then checks the
+/// one permission this endpoint needs.
+///
+/// The two go together everywhere here: an administrative action is one a
+/// person takes at a keyboard, and every one of them names what it needs rather
+/// than sharing a single "is an administrator" answer.
+fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
+    if !current.credential.is_session() {
+        return Err(Error::Forbidden);
     }
+    current.require(permission)
 }
 
 /// Lists every account, newest first.
@@ -83,6 +117,7 @@ const fn require_session(admin: &AdminUser) -> Result<()> {
     path = "/admin/users",
     operation_id = "list_users",
     tag = ADMIN_TAG,
+    params(UserListParams),
     responses(
         (status = 200, description = "Every account on this instance", body = Vec<AdminUserResponse>),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
@@ -93,16 +128,23 @@ const fn require_session(admin: &AdminUser) -> Result<()> {
 )]
 pub async fn list_users(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
+    ApiQuery(params): ApiQuery<UserListParams>,
 ) -> Result<Json<Vec<AdminUserResponse>>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::UsersRead)?;
 
-    let users = state.users.list().await?;
+    let users = state.users.list(params.include_deleted).await?;
+    // One query for the whole page. Asking per account would make a list of
+    // fifty accounts a hundred and one queries.
+    let roles = state.roles.of_users(&users).await?;
     Ok(Json(
         users
             .iter()
-            .map(|user| AdminUserResponse(AccountResponse::from(user)))
+            .map(|user| {
+                let held = roles.get(&user.id).map_or(&[][..], Vec::as_slice);
+                AdminUserResponse(AccountResponse::build(user, held))
+            })
             .collect(),
     ))
 }
@@ -143,35 +185,78 @@ pub async fn list_users(
 )]
 pub async fn update_user(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiPath(id): ApiPath<String>,
     ApiJson(body): ApiJson<UpdateUserRequest>,
 ) -> Result<Json<AdminUserResponse>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::UsersWrite)?;
 
     let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
     let Some(user) = state.users.find_by_id(user_id).await? else {
         return Err(Error::NotFound);
     };
 
-    if user.is_admin && !body.is_admin && state.users.count_admins().await? <= 1 {
+    // Counted over the permission that can restore every other one: an instance
+    // where nobody holds `roles:write` cannot be given an administrator back by
+    // anybody, through any screen.
+    //
+    // Both halves matter. Demoting somebody who was never an administrator does
+    // not reduce the count, and refusing it would make the last administrator
+    // unable to change anybody at all.
+    let holds_the_keys = holds(&state, user.id, Permission::RolesWrite).await?;
+    if holds_the_keys
+        && !body.is_admin
+        && state.roles.holders_of(Permission::RolesWrite).await? <= 1
+    {
         return Err(Error::Conflict(
             "this is the only administrator; grant the flag to somebody else first".to_owned(),
         ));
     }
 
-    state
-        .users
-        .set_admin(user_id, body.is_admin, OffsetDateTime::now_utc())
-        .await?;
+    let now = OffsetDateTime::now_utc();
+    if let Some(wanted) = body.state.as_deref() {
+        let wanted: AccountState = wanted
+            .parse()
+            .map_err(|_| Error::bad_request("`state` must be `active` or `disabled`"))?;
+        if wanted == AccountState::Deleted {
+            return Err(Error::bad_request(
+                "removing an account scrubs it; use DELETE rather than this field",
+            ));
+        }
+        // Suspending somebody who holds the keys is the same lock-out as
+        // demoting them, reached by another door.
+        if wanted != AccountState::Active
+            && holds_the_keys
+            && state.roles.holders_of(Permission::RolesWrite).await? <= 1
+        {
+            return Err(Error::Conflict(
+                "this is the only administrator; grant the flag to somebody else first".to_owned(),
+            ));
+        }
+        state.users.set_state(user_id, wanted, now).await?;
+        if wanted != AccountState::Active {
+            // Authentication already refuses a suspended account, so this is
+            // not what stops them — it is what makes the session list they see
+            // afterwards true.
+            state
+                .sessions
+                .end_all_for_user(user_id, None, SessionEnding::AccountDisabled, now)
+                .await?;
+        }
+    }
+
+    state.users.set_admin(user_id, body.is_admin, now).await?;
 
     let updated = state
         .users
         .find_by_id(user_id)
         .await?
         .ok_or(Error::NotFound)?;
-    Ok(Json(AdminUserResponse(AccountResponse::from(&updated))))
+    let roles = state.roles.of_user(updated.id).await?;
+    Ok(Json(AdminUserResponse(AccountResponse::build(
+        &updated, &roles,
+    ))))
 }
 
 /// Removes an account.
@@ -206,28 +291,47 @@ pub async fn update_user(
 )]
 pub async fn delete_user(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::UsersDelete)?;
 
     let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
     let Some(user) = state.users.find_by_id(user_id).await? else {
         return Err(Error::NotFound);
     };
 
-    if user.is_admin && state.users.count_admins().await? <= 1 {
+    let holds_the_keys = holds(&state, user.id, Permission::RolesWrite).await?;
+    if holds_the_keys && state.roles.holders_of(Permission::RolesWrite).await? <= 1 {
         return Err(Error::Conflict(
             "this is the only administrator; grant the flag to somebody else first".to_owned(),
         ));
     }
 
-    if state.users.delete(user_id).await? {
-        Ok(StatusCode::NO_CONTENT)
-    } else {
-        Err(Error::NotFound)
+    // Already gone answers the same as gone: the caller asked for the account
+    // to stop existing, and it does not.
+    if user.state == AccountState::Deleted {
+        return Ok(StatusCode::NO_CONTENT);
     }
+
+    let now = OffsetDateTime::now_utc();
+    if !state
+        .users
+        .soft_delete(user_id, current.user.id, now)
+        .await?
+    {
+        return Err(Error::NotFound);
+    }
+
+    // The login history is the most identifying thing this service holds about
+    // a person — where they signed in from and on what. Removing the account
+    // without removing that would leave the part that matters most.
+    state.sessions.delete_all_for_user(user_id).await?;
+    state.tokens.delete_all_for_user(user_id).await?;
+
+    tracing::info!(account = %user_id, by = %current.user.id, "an account was removed");
+    Ok(StatusCode::NO_CONTENT)
 }
 
 /// Body of `POST /admin/invites`.
@@ -325,10 +429,10 @@ impl InviteResponse {
 )]
 pub async fn list_invites(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
 ) -> Result<Json<Vec<InviteResponse>>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::InvitesRead)?;
 
     let now = OffsetDateTime::now_utc();
     let invites = state.invites.list().await?;
@@ -370,11 +474,11 @@ pub async fn list_invites(
 )]
 pub async fn create_invite(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiJson(body): ApiJson<CreateInviteRequest>,
 ) -> Result<(StatusCode, Json<CreatedInviteResponse>)> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::InvitesCreate)?;
 
     if body.uses < 1 {
         return Err(Error::bad_request("an invite has to admit at least one"));
@@ -433,11 +537,11 @@ pub async fn create_invite(
 )]
 pub async fn revoke_invite(
     State(state): State<AppState>,
-    admin: AdminUser,
+    current: CurrentUser,
     ApiPath(id): ApiPath<String>,
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::InvitesDelete)?;
 
     let invite_id = InviteId::parse(&id).map_err(|_| Error::NotFound)?;
     if state.invites.delete(invite_id).await? {
@@ -472,6 +576,15 @@ pub struct StatsResponse {
     pub live_shares: u64,
     /// Bytes of uploaded content still on the store.
     pub stored_bytes: u64,
+    /// How many bytes this instance has sent out.
+    ///
+    /// Bytes that left the process, not bytes that reached anybody — a proxy in
+    /// front holds some, and a caching CDN answers requests this never sees.
+    /// For what crossed the network, a reverse proxy's own log is the authority.
+    ///
+    /// Counted over the shares still here: a swept share takes its tally with
+    /// it, so this falls when one goes.
+    pub bytes_served: u64,
     /// The ceiling from `storage.max_total_bytes`, or `null` when unset.
     ///
     /// `null` is not "unlimited" so much as "nobody said" — and on an instance
@@ -502,9 +615,12 @@ pub struct StatsResponse {
     ),
     security(("session" = [])),
 )]
-pub async fn stats(State(state): State<AppState>, admin: AdminUser) -> Result<Json<StatsResponse>> {
+pub async fn stats(
+    State(state): State<AppState>,
+    current: CurrentUser,
+) -> Result<Json<StatsResponse>> {
     require_admin_feature(&state)?;
-    require_session(&admin)?;
+    admitted(&current, Permission::StatsRead)?;
 
     let now = OffsetDateTime::now_utc();
     let (shares, live_shares) = state.shares.counts_at(now).await?;
@@ -512,13 +628,800 @@ pub async fn stats(State(state): State<AppState>, admin: AdminUser) -> Result<Js
 
     Ok(Json(StatsResponse {
         accounts: state.users.count().await?,
-        administrators: state.users.count_admins().await?,
+        // Counted over the permission, not over `users.is_admin`. The column is
+        // a mirror kept for rollback and nothing reads it to decide anything;
+        // once roles can be assigned directly it stops matching, and a number on
+        // a dashboard that quietly disagrees with who can actually administer
+        // the instance is worse than no number.
+        administrators: state.roles.holders_of(Permission::RolesWrite).await?,
         shares,
         live_shares,
         stored_bytes: state.shares.total_stored_bytes().await?,
+        bytes_served: state.shares.total_bytes_served().await?,
         // Zero is how the configuration spells "no ceiling", but a client
         // drawing a usage bar against zero would show every instance as full.
         quota_bytes: (quota > 0).then_some(quota),
         live_invites: state.invites.count_usable_at(now).await?,
     }))
+}
+
+/// One role, as the API describes it.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RoleResponse {
+    /// Stable identifier.
+    #[schema(example = "01K1ZQK9V8QF5S3T4M2N6P7R8S")]
+    pub id: String,
+    /// What an operator types and reads.
+    #[schema(example = "auditor")]
+    pub name: String,
+    /// What it is for, in the operator's own words.
+    pub description: Option<String>,
+    /// Whether it is one of the two the instance was seeded with.
+    ///
+    /// Those cannot be deleted — an instance whose administrator role has been
+    /// removed has nobody who can create one. They can still be edited.
+    pub is_system: bool,
+    /// What it allows, as `resource:verb` strings.
+    #[schema(example = json!(["users:read"]))]
+    pub permissions: Vec<String>,
+    /// How many accounts are in it.
+    ///
+    /// The number an operator wants before editing one: changing a role that
+    /// nobody holds is free, and changing one that forty people hold is not.
+    pub members: u64,
+    /// When it was created, RFC 3339.
+    pub created_at: String,
+    /// When its permissions last changed, RFC 3339.
+    pub updated_at: String,
+}
+
+impl RoleResponse {
+    fn build(role: &Role, members: u64) -> Self {
+        Self {
+            id: role.id.to_string(),
+            name: role.name.clone(),
+            description: role.description.clone(),
+            is_system: role.is_system,
+            permissions: role
+                .permissions
+                .iter()
+                .map(|permission| permission.as_str().to_owned())
+                .collect(),
+            members,
+            created_at: format_timestamp(role.created_at),
+            updated_at: format_timestamp(role.updated_at),
+        }
+    }
+}
+
+/// Body of `POST /admin/roles` and `PUT /admin/roles/{id}`.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct RoleRequest {
+    /// What to call it.
+    pub name: String,
+    /// What it is for.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// Everything it should allow, as `resource:verb` strings.
+    ///
+    /// The whole set, not a change to it. Two operators editing the same role
+    /// from two screens cannot interleave their edits into a set neither of
+    /// them chose — the last one to press save wins, visibly.
+    pub permissions: Vec<String>,
+}
+
+impl RoleRequest {
+    /// Reads the permission names, refusing any this version does not have.
+    ///
+    /// Refused rather than ignored: an operator who ticks something and is told
+    /// it was saved should get what they ticked. Silently dropping one produces
+    /// a role that does less than the screen says it does.
+    fn permissions(&self) -> Result<PermissionSet> {
+        self.permissions
+            .iter()
+            .map(|name| {
+                name.parse::<Permission>().map_err(|_| {
+                    Error::bad_request(format!("`{name}` is not a permission this version has"))
+                })
+            })
+            .collect()
+    }
+
+    fn name(&self) -> Result<String> {
+        let name = self.name.trim();
+        if name.is_empty() || name.len() > ROLE_NAME_LIMIT {
+            return Err(Error::bad_request(format!(
+                "a role name must be between 1 and {ROLE_NAME_LIMIT} characters"
+            )));
+        }
+        Ok(name.to_owned())
+    }
+}
+
+/// The longest a role name may be.
+///
+/// Matches the `VARCHAR(191)` the MySQL migration uses — a name that fits on
+/// two of the three dialects and is truncated on the third is worse than one
+/// that is refused everywhere.
+const ROLE_NAME_LIMIT: usize = 191;
+
+/// Body of `PUT /admin/users/{id}/roles`.
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct UserRolesRequest {
+    /// The roles this account should be in. The whole list, not a change to it.
+    pub roles: Vec<String>,
+}
+
+/// Every permission this version has, so a screen can offer them.
+///
+/// Sent rather than hard-coded in the client: a client listing permissions it
+/// was built against would silently stop offering ones added since, and the
+/// operator would have no way to grant them.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct PermissionResponse {
+    /// The `resource:verb` string.
+    #[schema(example = "users:read")]
+    pub name: String,
+    /// Whether it reaches beyond the holder's own things.
+    ///
+    /// The question an operator is actually asking of a role they are about to
+    /// grant: does this let them touch other people?
+    pub privileged: bool,
+}
+
+/// Lists every role, by name.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not read roles
+/// or used a bearer token, `404` when this instance has no administration.
+#[utoipa::path(
+    get,
+    path = "/admin/roles",
+    operation_id = "list_roles",
+    tag = ADMIN_TAG,
+    responses(
+        (status = 200, description = "Every role on this instance", body = Vec<RoleResponse>),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not read roles, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn list_roles(
+    State(state): State<AppState>,
+    current: CurrentUser,
+) -> Result<Json<Vec<RoleResponse>>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesRead)?;
+
+    let roles = state.roles.list().await?;
+    let members = state.roles.member_counts().await?;
+    Ok(Json(
+        roles
+            .iter()
+            .map(|role| RoleResponse::build(role, members.get(&role.id).copied().unwrap_or(0)))
+            .collect(),
+    ))
+}
+
+/// Lists every permission this version has.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not read roles
+/// or used a bearer token, `404` when this instance has no administration.
+#[utoipa::path(
+    get,
+    path = "/admin/permissions",
+    operation_id = "list_permissions",
+    tag = ADMIN_TAG,
+    responses(
+        (status = 200, description = "Every permission this version has", body = Vec<PermissionResponse>),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not read roles, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn list_permissions(
+    State(state): State<AppState>,
+    current: CurrentUser,
+) -> Result<Json<Vec<PermissionResponse>>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesRead)?;
+
+    Ok(Json(
+        Permission::ALL
+            .into_iter()
+            .map(|permission| PermissionResponse {
+                name: permission.as_str().to_owned(),
+                privileged: permission.is_privileged(),
+            })
+            .collect(),
+    ))
+}
+
+/// Creates a role.
+///
+/// # Why a caller cannot grant what they do not hold
+///
+/// Otherwise `roles:write` is every permission: somebody holding only that
+/// could mint a role granting `users:delete`, put themselves in it, and have
+/// it. The check makes `roles:write` mean "may hand out what I have" rather
+/// than "may hand out anything".
+///
+/// # Errors
+///
+/// `400` when the name or a permission is not usable, `401` when nothing was
+/// signed in, `403` when the caller may not write roles, used a bearer token,
+/// or asked for a permission they do not hold, `409` when the name is taken,
+/// `404` when this instance has no administration.
+#[utoipa::path(
+    post,
+    path = "/admin/roles",
+    operation_id = "create_role",
+    tag = ADMIN_TAG,
+    request_body = RoleRequest,
+    responses(
+        (status = 201, description = "The role as it now stands", body = RoleResponse),
+        (status = 400, description = "The name or a permission is not usable", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, used an API token, or asked for a permission not held", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+        (status = 409, description = "A role already has that name", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn create_role(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<RoleRequest>,
+) -> Result<(StatusCode, Json<RoleResponse>)> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let name = body.name()?;
+    let permissions = body.permissions()?;
+    refuse_escalation(&current, &permissions)?;
+
+    if state.roles.find_by_name(&name).await?.is_some() {
+        return Err(Error::Conflict("a role already has that name".to_owned()));
+    }
+    let role = state
+        .roles
+        .create(
+            name,
+            body.description.clone(),
+            &permissions,
+            OffsetDateTime::now_utc(),
+        )
+        .await?;
+    Ok((StatusCode::CREATED, Json(RoleResponse::build(&role, 0))))
+}
+
+/// Replaces what a role allows.
+///
+/// # Errors
+///
+/// `400` when the name or a permission is not usable, `401` when nothing was
+/// signed in, `403` when the caller may not write roles, used a bearer token,
+/// or asked for a permission they do not hold, `404` when no role has that
+/// identifier, `409` when the name is taken or the change would leave nobody
+/// able to administer the instance.
+#[utoipa::path(
+    put,
+    path = "/admin/roles/{id}",
+    operation_id = "update_role",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which role")),
+    request_body = RoleRequest,
+    responses(
+        (status = 200, description = "The role as it now stands", body = RoleResponse),
+        (status = 400, description = "The name or a permission is not usable", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, used an API token, or asked for a permission not held", body = crate::error::ErrorBody),
+        (status = 404, description = "No such role", body = crate::error::ErrorBody),
+        (status = 409, description = "The name is taken, or nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn update_role(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+    ApiJson(body): ApiJson<RoleRequest>,
+) -> Result<Json<RoleResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let role_id = RoleId::parse(&id).map_err(|_| Error::NotFound)?;
+    let name = body.name()?;
+    let permissions = body.permissions()?;
+    refuse_escalation(&current, &permissions)?;
+
+    let Some(existing) = state.roles.find_by_id(role_id).await? else {
+        return Err(Error::NotFound);
+    };
+    if let Some(clash) = state.roles.find_by_name(&name).await?
+        && clash.id != role_id
+    {
+        return Err(Error::Conflict("a role already has that name".to_owned()));
+    }
+
+    // A built-in role means the same thing on every instance, and that is the
+    // whole of its value: documentation, support conversations and the
+    // `auth.default_role` setting all name one expecting it to mean what it
+    // means everywhere else.
+    //
+    // The name is not part of that — an operator who wants to read `管理員` is
+    // changing a label, not a meaning — so only the permissions are refused.
+    // The way to have ordinary accounts do less is a role of your own, and
+    // `auth.default_role` to send new accounts into it.
+    if existing.is_system && permissions != existing.permissions {
+        return Err(Error::Conflict(
+            "a built-in role's permissions cannot be changed; make a role of your own and point              auth.default_role at it"
+                .to_owned(),
+        ));
+    }
+
+    // Taking `roles:write` off the role that carries it for everybody is the
+    // one edit that cannot be undone through any screen.
+    if existing.permissions.allows(Permission::RolesWrite)
+        && !permissions.allows(Permission::RolesWrite)
+        && state.roles.holders_of(Permission::RolesWrite).await?
+            <= state.roles.member_count(role_id).await?
+    {
+        return Err(Error::Conflict(
+            "that would leave nobody able to administer this instance".to_owned(),
+        ));
+    }
+
+    let now = OffsetDateTime::now_utc();
+    if state
+        .roles
+        .update(role_id, &name, body.description.clone(), &permissions, now)
+        .await?
+        == RoleChange::NoSuchRole
+    {
+        return Err(Error::NotFound);
+    }
+    let Some(updated) = state.roles.find_by_id(role_id).await? else {
+        return Err(Error::NotFound);
+    };
+    let members = state.roles.member_count(role_id).await?;
+    Ok(Json(RoleResponse::build(&updated, members)))
+}
+
+/// Removes a role.
+///
+/// Anybody in it stops being in it, which can leave somebody in no role at all
+/// — signed in and allowed nothing. That is a real state and not an error; the
+/// listing shows how many people it would affect.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not write roles
+/// or used a bearer token, `404` when no role has that identifier, `409` when
+/// it is a seeded role or the last one able to administer the instance.
+#[utoipa::path(
+    delete,
+    path = "/admin/roles/{id}",
+    operation_id = "delete_role",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which role")),
+    responses(
+        (status = 204, description = "It is gone"),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No such role", body = crate::error::ErrorBody),
+        (status = 409, description = "A seeded role, or nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn delete_role(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+) -> Result<StatusCode> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let role_id = RoleId::parse(&id).map_err(|_| Error::NotFound)?;
+    let Some(existing) = state.roles.find_by_id(role_id).await? else {
+        return Err(Error::NotFound);
+    };
+    if existing.permissions.allows(Permission::RolesWrite)
+        && state.roles.holders_of(Permission::RolesWrite).await?
+            <= state.roles.member_count(role_id).await?
+    {
+        return Err(Error::Conflict(
+            "that would leave nobody able to administer this instance".to_owned(),
+        ));
+    }
+
+    match state.roles.delete(role_id).await? {
+        RoleChange::Done => Ok(StatusCode::NO_CONTENT),
+        RoleChange::NoSuchRole => Err(Error::NotFound),
+        RoleChange::Seeded => Err(Error::Conflict(
+            "the roles this instance was seeded with cannot be removed".to_owned(),
+        )),
+    }
+}
+
+/// Puts an account in exactly these roles.
+///
+/// # Errors
+///
+/// `400` when a role identifier is not one, `401` when nothing was signed in,
+/// `403` when the caller may not write roles, used a bearer token, or would be
+/// granting a permission they do not hold, `404` when no such account or role,
+/// `409` when it would leave nobody able to administer the instance.
+#[utoipa::path(
+    put,
+    path = "/admin/users/{id}/roles",
+    operation_id = "set_user_roles",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which account")),
+    request_body = UserRolesRequest,
+    responses(
+        (status = 200, description = "The account as it now stands", body = AdminUserResponse),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write roles, used an API token, or would grant a permission not held", body = crate::error::ErrorBody),
+        (status = 404, description = "No such account or role", body = crate::error::ErrorBody),
+        (status = 409, description = "Nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn set_user_roles(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+    ApiJson(body): ApiJson<UserRolesRequest>,
+) -> Result<Json<AdminUserResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::RolesWrite)?;
+
+    let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
+    let Some(user) = state.users.find_by_id(user_id).await? else {
+        return Err(Error::NotFound);
+    };
+
+    let mut wanted = Vec::with_capacity(body.roles.len());
+    for role in &body.roles {
+        wanted.push(RoleId::parse(role).map_err(|_| Error::NotFound)?);
+    }
+
+    // What the account would end up holding, checked against what the caller
+    // holds — otherwise `roles:write` is a way to give somebody else, and then
+    // oneself, anything at all.
+    let mut resulting: Vec<Permission> = Vec::new();
+    for role in &wanted {
+        let Some(found) = state.roles.find_by_id(*role).await? else {
+            return Err(Error::NotFound);
+        };
+        resulting.extend(found.permissions.iter());
+    }
+    refuse_escalation(&current, &resulting.into_iter().collect())?;
+
+    // The same lock-out guard as everywhere else: this is the other way to take
+    // the last administrator's keys away.
+    let held = state.roles.permissions_of(user_id).await?;
+    let losing_the_keys =
+        held.allows(Permission::RolesWrite) && !wanted_grants_keys(&state, &wanted).await?;
+    if losing_the_keys && state.roles.holders_of(Permission::RolesWrite).await? <= 1 {
+        return Err(Error::Conflict(
+            "that would leave nobody able to administer this instance".to_owned(),
+        ));
+    }
+
+    if state
+        .roles
+        .set_roles_of(user_id, &wanted, OffsetDateTime::now_utc())
+        .await?
+        == RoleChange::NoSuchRole
+    {
+        return Err(Error::NotFound);
+    }
+    let roles = state.roles.of_user(user_id).await?;
+    Ok(Json(AdminUserResponse(AccountResponse::build(
+        &user, &roles,
+    ))))
+}
+
+/// Whether any of these roles carries `roles:write`.
+async fn wanted_grants_keys(state: &AppState, wanted: &[RoleId]) -> Result<bool> {
+    for role in wanted {
+        if let Some(found) = state.roles.find_by_id(*role).await?
+            && found.permissions.allows(Permission::RolesWrite)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Refuses to hand out a permission the caller does not hold.
+///
+/// Without it, `roles:write` is every permission — see [`create_role`].
+fn refuse_escalation(current: &CurrentUser, wanted: &PermissionSet) -> Result<()> {
+    for permission in wanted.iter() {
+        current.require(permission)?;
+    }
+    Ok(())
+}
+
+/// One share, as an administrator sees it.
+///
+/// Deliberately not the same shape a person sees of their own: this listing
+/// exists to find things that need removing, so it carries who uploaded it and
+/// how big it is, and it never carries the retrieval code. An administrator who
+/// can read every code can open every share, and that is a different power from
+/// being able to delete one.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AdminShareResponse {
+    /// Stable identifier, for [`delete_share`].
+    #[schema(example = "01K1ZQK9V8QF5S3T4M2N6P7R8S")]
+    pub id: String,
+    /// Whether it holds a file or text.
+    #[schema(example = "file")]
+    pub kind: String,
+    /// What the uploader called it, when the share holds exactly one file.
+    ///
+    /// `null` for text and for a share with several — see `file_count`.
+    pub filename: Option<String>,
+    /// How many files it holds. Zero for text.
+    pub file_count: u32,
+    /// How many bytes it holds.
+    pub size_bytes: u64,
+    /// How many bytes it has sent out, over its whole life.
+    ///
+    /// The instance-wide figure in `StatsResponse` answers "what is this
+    /// costing me"; this answers the question that follows it, which is which
+    /// share to do something about. One link posted somewhere busy is the way
+    /// an operator finds out their transfer is being spent, and the total
+    /// cannot say which one.
+    ///
+    /// Not `size_bytes` times `use_count`: a range request, a resumed download
+    /// and an abandoned one all send some other amount.
+    pub bytes_served: u64,
+    /// Who uploaded it, or `null` when nobody was signed in.
+    ///
+    /// An account that has since been deleted still appears here — the row it
+    /// left behind is what keeps this answerable. `null` means the upload was
+    /// anonymous, which is a different fact and worth telling apart.
+    pub owner_id: Option<String>,
+    /// Whether a visitor could still open it.
+    pub active: bool,
+    /// When it was uploaded, RFC 3339.
+    pub created_at: String,
+    /// When it stops being served, RFC 3339, or `null` if it never does.
+    pub expires_at: Option<String>,
+}
+
+impl AdminShareResponse {
+    fn build(share: &Share, content: &Content, now: OffsetDateTime) -> Self {
+        Self {
+            id: share.id.to_string(),
+            kind: share.kind.as_str().to_owned(),
+            // The one file's name, or how many there are. An administrator
+            // scanning for something to remove wants to recognise it, and "3
+            // files" is what a multi-file share is.
+            filename: content.single_file().and_then(|file| file.filename.clone()),
+            file_count: u32::try_from(content.files().len()).unwrap_or(u32::MAX),
+            size_bytes: content.size_bytes(),
+            bytes_served: share.bytes_served,
+            owner_id: share.user_id.map(|id| id.to_string()),
+            active: matches!(share.availability_at(now), Availability::Available),
+            created_at: format_timestamp(share.created_at),
+            expires_at: share.expires_at.map(format_timestamp),
+        }
+    }
+}
+
+/// Whether a listing should include accounts that have been removed.
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct UserListParams {
+    /// Include accounts that have been deleted.
+    ///
+    /// Off by default: what is left of one identifies nobody and cannot be
+    /// acted on, so it belongs in an answer somebody asked for rather than in
+    /// every listing.
+    #[serde(default)]
+    pub include_deleted: bool,
+}
+
+/// A page of shares.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AdminSharePage {
+    /// The shares on this page.
+    pub shares: Vec<AdminShareResponse>,
+    /// How many exist in total, so a client can render pagination.
+    pub total: u64,
+}
+
+/// Which slice of the listing to return.
+#[derive(Debug, Deserialize, IntoParams)]
+pub struct SharePageParams {
+    /// How many to return. Capped, and defaulted when omitted.
+    #[serde(default)]
+    pub limit: Option<u64>,
+    /// How many to skip.
+    #[serde(default)]
+    pub offset: Option<u64>,
+}
+
+/// The most shares one request will return.
+const MAX_SHARE_PAGE: u64 = 200;
+/// How many it returns when the caller does not say.
+const DEFAULT_SHARE_PAGE: u64 = 50;
+
+/// Lists every share on the instance, newest first.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not read every
+/// share or used a bearer token, `404` when this instance has no
+/// administration.
+#[utoipa::path(
+    get,
+    path = "/admin/shares",
+    operation_id = "list_all_shares",
+    tag = ADMIN_TAG,
+    params(SharePageParams),
+    responses(
+        (status = 200, description = "A page of shares", body = AdminSharePage),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not read every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn list_shares(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiQuery(params): ApiQuery<SharePageParams>,
+) -> Result<Json<AdminSharePage>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesReadAny)?;
+
+    let limit = params
+        .limit
+        .unwrap_or(DEFAULT_SHARE_PAGE)
+        .min(MAX_SHARE_PAGE);
+    let offset = params.offset.unwrap_or(0);
+    let shares = state.shares.list_all(limit, offset).await?;
+    let contents = state.shares.contents_for(&shares).await?;
+    let now = OffsetDateTime::now_utc();
+
+    Ok(Json(AdminSharePage {
+        shares: shares
+            .iter()
+            .filter_map(|share| {
+                contents
+                    .get(&share.id)
+                    .map(|content| AdminShareResponse::build(share, content, now))
+            })
+            .collect(),
+        total: state.shares.count_all().await?,
+    }))
+}
+
+/// Removes any share, whoever uploaded it.
+///
+/// # Why this exists
+///
+/// The ordinary delete route asks whether the caller owns the share. An upload
+/// from an account that has since been deleted is owned by nobody, so nothing
+/// could remove it — it kept serving its content, kept its place in the storage
+/// quota, and was never swept if it had no expiry and no use limit. This is the
+/// only way to reach one.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not delete every
+/// share or used a bearer token, `404` when no share has that identifier.
+#[utoipa::path(
+    delete,
+    path = "/admin/shares/{id}",
+    operation_id = "delete_any_share",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Which share")),
+    responses(
+        (status = 204, description = "It is gone"),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not delete every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No such share", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn delete_share(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+) -> Result<StatusCode> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesDeleteAny)?;
+
+    let share_id = ShareId::parse(&id).map_err(|_| Error::NotFound)?;
+    let Some(_) = state.shares.find_by_id(share_id).await? else {
+        return Err(Error::NotFound);
+    };
+
+    // The object first, for the same reason the owner's own delete does it in
+    // this order: a row without its object is a broken share, an object without
+    // its row is an orphan a sweep can still find by listing.
+    // Every object, not the first: a share can hold several, and removing one
+    // would leave the rest paid for and unreachable.
+    for key in state.shares.object_keys_of(share_id).await? {
+        state
+            .storage
+            .delete(&ObjectPath::from(key.as_str()))
+            .await?;
+    }
+    state.shares.delete(share_id).await?;
+    tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// How many shares an operation ended.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct RemovedSharesResponse {
+    /// How many were still live and are now finished.
+    ///
+    /// The bytes go as the reaper reaches them, so this number is not how much
+    /// space came back yet.
+    pub removed: u64,
+}
+
+/// Ends every share one account uploaded.
+///
+/// # Why this is not part of deleting the account
+///
+/// Removing somebody and destroying what they uploaded are different acts. An
+/// operator clearing space wants this and not that; one removing a person who
+/// has left wants that and not this. Welding them together would make one of
+/// those two impossible and the other a surprise.
+///
+/// It works on an account in any state, including one still in use — an
+/// operator reclaiming space from somebody who is still here should not have to
+/// suspend them first.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not delete every
+/// share or used a bearer token, `404` when no account has that identifier.
+#[utoipa::path(
+    delete,
+    path = "/admin/users/{id}/shares",
+    operation_id = "remove_user_shares",
+    tag = ADMIN_TAG,
+    params(("id" = String, Path, description = "Whose shares to end")),
+    responses(
+        (status = 200, description = "How many were ended", body = RemovedSharesResponse),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not delete every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No account has that id", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn remove_user_shares(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+) -> Result<Json<RemovedSharesResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesDeleteAny)?;
+
+    let user_id = UserId::parse(&id).map_err(|_| Error::NotFound)?;
+    if state.users.find_by_id(user_id).await?.is_none() {
+        return Err(Error::NotFound);
+    }
+
+    let removed = state
+        .shares
+        .expire_all_for_user(user_id, OffsetDateTime::now_utc())
+        .await?;
+    tracing::info!(account = %user_id, by = %current.user.id, removed, "an administrator ended an account's shares");
+    Ok(Json(RemovedSharesResponse { removed }))
 }

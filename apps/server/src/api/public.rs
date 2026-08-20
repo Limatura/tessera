@@ -10,6 +10,8 @@
 //! fallback, which then reads `GET /api/v1/shares/{code}` to decide what to
 //! render.
 
+use std::sync::Arc;
+
 use axum::{
     Router,
     body::Body,
@@ -18,16 +20,20 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use object_store::{GetOptions, GetRange, path::Path as ObjectPath};
+use bytes::Bytes;
+use object_store::{GetOptions, GetRange, ObjectStoreExt as _, path::Path as ObjectPath};
 use serde::Deserialize;
+use tokio_stream::StreamExt as _;
 
 use crate::{
     api::{
+        archive::{self, Format},
         extract::{ApiPath, ApiQuery},
         gate,
+        meter::Served,
     },
     auth::{extract::ClientAddress, proxy::Origin},
-    db::repository::share::{Share, ShareKind},
+    db::repository::share::{Content, FilePart, Share, ShareKind},
     error::{Error, Result},
     state::AppState,
 };
@@ -45,6 +51,14 @@ pub struct RetrievalQuery {
     /// headers — so the ticket has to be able to ride in the URL. The header is
     /// preferred where it is available.
     pub t: Option<String>,
+    /// Which container to pack several files into: `zip`, `tar` or `7z`.
+    ///
+    /// Ignored for a share with one file, which is served as that file.
+    /// Defaulted rather than required, because the person following the link
+    /// did not choose it — a client offering the choice sends one, and a bare
+    /// link still works.
+    #[serde(default)]
+    pub format: Format,
 }
 
 /// Routes that are not part of the versioned API.
@@ -92,13 +106,18 @@ async fn raw(
     // cookie. GitHub solves this by serving raw content from another domain;
     // self-hosted software cannot ask its operators for a second one, so the
     // headers have to carry it.
+    let content = state.shares.content_of(&share).await?;
     serve(
         &state,
         &share,
+        &content,
         &headers,
         payload,
-        HeaderValue::from_static("text/plain; charset=utf-8"),
-        HeaderValue::from_static("inline"),
+        Labels {
+            content_type: HeaderValue::from_static("text/plain; charset=utf-8"),
+            disposition: HeaderValue::from_static("inline"),
+            format: query.format,
+        },
     )
     .await
 }
@@ -126,17 +145,58 @@ async fn download(
     .await?;
     // Never the media type the uploader claimed. Serving that back is the same
     // stored-XSS hole as `/raw`, reached from the other direction.
-    let disposition = HeaderValue::from_str(&content_disposition(&share))
+    let content = state.shares.content_of(&share).await?;
+    let disposition = HeaderValue::from_str(&content_disposition(&content))
         .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
     serve(
         &state,
         &share,
+        &content,
         &headers,
         payload,
-        HeaderValue::from_static("application/octet-stream"),
-        disposition,
+        Labels {
+            content_type: HeaderValue::from_static("application/octet-stream"),
+            disposition,
+            format: query.format,
+        },
     )
     .await
+}
+
+/// What a response calls the content, which is the only thing the two routes
+/// disagree about.
+///
+/// Grouped rather than passed loose because they are decided together — a
+/// download says `attachment` and an opaque type, a note says `inline` and
+/// plain text — and neither route ever mixes them.
+struct Labels {
+    /// The `Content-Type` to send, never the one the uploader claimed.
+    content_type: HeaderValue,
+    /// The `Content-Disposition` to send.
+    disposition: HeaderValue,
+    /// Which container several files are packed into.
+    ///
+    /// Grouped with the labels because it decides two of them: an archive has
+    /// its own media type and its own name.
+    format: Format,
+}
+
+/// The size of the archive this share becomes, or `None` when it is one file.
+///
+/// One file is not archived. Two or more are, and then this is the exact number
+/// of bytes the response will carry — which is what lets it go out as a
+/// `Content-Length` before the first byte is read.
+fn archived(content: &Content, format: Format) -> Option<u64> {
+    let files = content.files();
+    if files.len() < 2 {
+        return None;
+    }
+    let raw: Vec<Option<&str>> = files.iter().map(|f| f.filename.as_deref()).collect();
+    let listed: Vec<(String, u64)> = archive::safe_names(&raw)
+        .into_iter()
+        .zip(files.iter().map(|file| file.size_bytes))
+        .collect();
+    Some(format.archive_size(&listed))
 }
 
 /// Answers with the slice the request asked for, and the headers that say so.
@@ -149,12 +209,38 @@ async fn download(
 async fn serve(
     state: &AppState,
     share: &Share,
+    content: &Content,
     headers: &HeaderMap,
     payload: Payload,
-    content_type: HeaderValue,
-    disposition: HeaderValue,
+    labels: Labels,
 ) -> Result<Response> {
-    let etag = etag_for(share);
+    let Labels {
+        mut content_type,
+        mut disposition,
+        format,
+    } = labels;
+
+    // Several files leave as one archive, which has its own size, its own type
+    // and its own name. One file is still that file — the feature that makes
+    // archives exists, and that is not a reason to wrap something that is
+    // already a single download.
+    let packed = archived(content, format);
+    if let Some(size) = packed {
+        archive::check_size(format, size)?;
+        content_type = HeaderValue::from_static("application/octet-stream");
+        if let Ok(value) = HeaderValue::from_str(format.media_type()) {
+            content_type = value;
+        }
+        if let Ok(value) = HeaderValue::from_str(&format!(
+            "attachment; filename=\"{}.{}\"",
+            share.code,
+            format.extension()
+        )) {
+            disposition = value;
+        }
+    }
+    let total = packed.unwrap_or_else(|| content.size_bytes());
+    let etag = etag_for(share, content);
 
     // `If-Range` is what keeps a resumed transfer from stitching two different
     // files together. A client sends the entity tag it had; if the share is not
@@ -168,7 +254,7 @@ async fn serve(
         .then(|| headers.get(header::RANGE))
         .flatten()
         .and_then(|value| value.to_str().ok())
-        .map(|value| parse_range(value, share.size_bytes))
+        .map(|value| parse_range(value, total))
         .transpose()?;
 
     let (status, range) = match requested {
@@ -176,12 +262,12 @@ async fn serve(
         None => (StatusCode::OK, None),
     };
 
-    let length = range.map_or(share.size_bytes, |(start, end)| {
+    let length = range.map_or(total, |(start, end)| {
         end.saturating_sub(start).saturating_add(1)
     });
     let body = match payload {
         Payload::Headers => Body::empty(),
-        Payload::Content => read_range(state, share, range).await?,
+        Payload::Content => read_range(state, share, content, range, format).await?,
     };
     let mut response = (status, body).into_response();
     let out = response.headers_mut();
@@ -199,12 +285,16 @@ async fn serve(
         out.insert(header::ETAG, value);
     }
     if let Some((start, end)) = range
-        && let Ok(value) =
-            HeaderValue::from_str(&format!("bytes {start}-{end}/{}", share.size_bytes))
+        && let Ok(value) = HeaderValue::from_str(&format!("bytes {start}-{end}/{total}"))
     {
         out.insert(header::CONTENT_RANGE, value);
     }
     harden(out);
+    // Tells the meter which share to credit. Set here rather than worked out
+    // from the path in the middleware: this is the only place that has already
+    // resolved the code, and doing it again would be a second lookup on every
+    // retrieval.
+    response.extensions_mut().insert(Served(share.id));
     Ok(response)
 }
 
@@ -281,8 +371,8 @@ enum Payload {
 /// the content would mean reading it to answer a `HEAD`, and a share's bytes
 /// never change once written — only deletion and re-upload produce different
 /// content, and that produces a different identifier.
-fn etag_for(share: &Share) -> String {
-    format!("\"{}-{}\"", share.id, share.size_bytes)
+fn etag_for(share: &Share, content: &Content) -> String {
+    format!("\"{}-{}\"", share.id, content.size_bytes())
 }
 
 /// `Content-Disposition`, with the RFC 5987 form so non-ASCII names survive.
@@ -290,8 +380,23 @@ fn etag_for(share: &Share) -> String {
 /// The plain `filename` is kept for old clients and the starred one carries the
 /// real value; without the latter a Chinese or Japanese file name arrives
 /// mangled in most browsers.
-fn content_disposition(share: &Share) -> String {
-    let name = share.filename.as_deref().unwrap_or("download");
+fn content_disposition(content: &Content) -> String {
+    // The single file's own name, or the archive's. A share with one file is
+    // still that file — it does not become an archive because the feature that
+    // makes archives exists.
+    //
+    // The last component only, and after either separator. A stored name is
+    // what the uploader sent, unchanged apart from a length and control-character
+    // check — so it can carry the folder it came from, and it can be nothing but
+    // separators. A header naming a path is a header saying where on the
+    // recipient's disk to put the file, which is not ours to say and which RFC
+    // 6266 tells us not to try.
+    let name = content
+        .single_file()
+        .and_then(|file| file.filename.as_deref())
+        .and_then(|filename| filename.rsplit(['/', '\\']).next())
+        .filter(|last| !last.is_empty())
+        .unwrap_or("download");
     // The fallback keeps anything printable ASCII, which includes the space —
     // `"my file.zip"` is a perfectly ordinary name and turning its space into an
     // underscore helps nobody. What cannot survive is a quote or a backslash,
@@ -372,16 +477,41 @@ fn parse_range(value: &str, size: u64) -> Result<(u64, u64)> {
 ///
 /// Inline content is already in memory and bounded by
 /// `share.inline_threshold_bytes`, so it is handed over as it is.
-async fn read_range(state: &AppState, share: &Share, range: Option<(u64, u64)>) -> Result<Body> {
-    let Some(key) = share.storage.object_key() else {
-        let content = state
+async fn read_range(
+    state: &AppState,
+    share: &Share,
+    content: &Content,
+    range: Option<(u64, u64)>,
+    format: Format,
+) -> Result<Body> {
+    // Text is its own row, so it is already in hand.
+    if matches!(content, Content::Text(_)) {
+        let text = state
             .shares
-            .inline_content(share.id)
+            .text_of(share.id)
             .await?
             .ok_or(Error::NotFound)?;
-        return Ok(Body::from(slice(&content, range)));
-    };
+        return Ok(Body::from(slice(&text.content, range)));
+    }
 
+    let files = content.files();
+    match files {
+        [] => Err(Error::NotFound),
+        // One file is that file. It keeps its name, its ranges and its ability
+        // to be resumed — none of which an archive has, and all of which the
+        // share that has always been single-file already had.
+        [only] => stream_one(state, only, range).await,
+        // Several become an archive, and an archive has no ranges: it is
+        // produced as it is sent, so there is no earlier part to seek back to.
+        many => stream_archive(state, many, format).await,
+    }
+}
+
+/// Streams one file, honouring a range.
+async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>) -> Result<Body> {
+    let Some(key) = file.storage.object_key() else {
+        return Err(Error::NotFound);
+    };
     let options = GetOptions {
         // HTTP ranges are inclusive at both ends; `GetRange::Bounded` is not.
         range: range.map(|(start, end)| GetRange::Bounded(start..end.saturating_add(1))),
@@ -394,6 +524,129 @@ async fn read_range(state: &AppState, share: &Share, range: Option<(u64, u64)>) 
     // The store hands back a stream of chunks; passing it straight through means
     // the process never holds more than one chunk of the object.
     Ok(Body::from_stream(result.into_stream()))
+}
+
+#[expect(
+    clippy::unused_async,
+    reason = "the caller awaits every arm; a sync signature here would split it"
+)]
+/// Streams several files as one archive.
+///
+/// # Why the whole thing is not built first
+///
+/// It would mean holding every byte of the share in memory to send it. The
+/// entries go out one at a time, exactly as they are read from the store, and
+/// the parts this adds — headers, descriptors, the directory — are a few dozen
+/// bytes each.
+///
+/// # Why there is no range
+///
+/// The archive does not exist until it is sent, so there is no earlier part to
+/// seek to. `serve` does not offer ranges for one, and a client asking for one
+/// gets the whole thing.
+async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) -> Result<Body> {
+    let storage = Arc::clone(&state.storage);
+    // The same names `archived` predicted the size from. Two files can share a
+    // name, and an archive with two identical entries unpacks to one file — so
+    // the names are decided for the set, not one at a time, and both places have
+    // to decide them the same way.
+    let raw: Vec<Option<&str>> = files.iter().map(|f| f.filename.as_deref()).collect();
+    let planned: Vec<(String, u64, Option<String>)> = archive::safe_names(&raw)
+        .into_iter()
+        .zip(files.iter())
+        .map(|(name, file)| {
+            (
+                name,
+                file.size_bytes,
+                file.storage.object_key().map(str::to_owned),
+            )
+        })
+        .collect();
+
+    let stream = async_stream::try_stream! {
+        match format {
+            Format::Zip => {
+                let mut entries: Vec<(archive::zip::Entry, u64)> = Vec::with_capacity(planned.len());
+                let mut offset: u64 = 0;
+                for (name, _, key) in &planned {
+                    let start = offset;
+                    let header: Bytes = archive::zip::local_header(name);
+                    offset += u64::try_from(header.len()).unwrap_or(0);
+                    yield header;
+
+                    let mut crc = archive::zip::Crc32::default();
+                    let mut size: u64 = 0;
+                    if let Some(key) = key {
+                        let mut chunks = storage.get(&ObjectPath::from(key.as_str())).await?.into_stream();
+                        while let Some(chunk) = chunks.next().await {
+                            let chunk = chunk?;
+                            crc.update(&chunk);
+                            size += u64::try_from(chunk.len()).unwrap_or(0);
+                            offset += u64::try_from(chunk.len()).unwrap_or(0);
+                            yield chunk;
+                        }
+                    }
+                    let crc = crc.finish();
+                    let descriptor: Bytes = archive::zip::data_descriptor(crc, size);
+                    offset += u64::try_from(descriptor.len()).unwrap_or(0);
+                    yield descriptor;
+                    entries.push((archive::zip::Entry { name: name.clone(), size, crc }, start));
+                }
+                let directory: Bytes = archive::zip::central_directory(&entries);
+                yield directory;
+            }
+            Format::Tar => {
+                for (name, size, key) in &planned {
+                    let header: Bytes = archive::tar::header(name, *size);
+                    yield header;
+                    if let Some(key) = key {
+                        let mut chunks = storage.get(&ObjectPath::from(key.as_str())).await?.into_stream();
+                        while let Some(chunk) = chunks.next().await {
+                            yield chunk?;
+                        }
+                    }
+                    let padding: Bytes = archive::tar::padding(*size);
+                    if !padding.is_empty() {
+                        yield padding;
+                    }
+                }
+                let trailer: Bytes = archive::tar::trailer();
+                yield trailer;
+            }
+            Format::SevenZ => {
+                // The signature goes first and names the header, so the header
+                // is built before anything is read — which is only possible
+                // because it carries no per-file checksums. See the module.
+                let listed: Vec<(String, u64)> = planned
+                    .iter()
+                    .map(|(name, size, _)| (name.clone(), *size))
+                    .collect();
+                let header = archive::sevenz::header(&listed);
+                let packed: u64 = listed.iter().map(|(_, size)| *size).sum();
+                let signature: Bytes = archive::sevenz::signature_header(packed, &header);
+                yield signature;
+
+                for (_, _, key) in &planned {
+                    if let Some(key) = key {
+                        let mut chunks = storage.get(&ObjectPath::from(key.as_str())).await?.into_stream();
+                        while let Some(chunk) = chunks.next().await {
+                            yield chunk?;
+                        }
+                    }
+                }
+                yield header;
+            }
+        }
+    };
+    Ok(Body::from_stream(annotate(stream)))
+}
+
+/// Pins the archive stream's error type, which the block cannot infer.
+const fn annotate<S>(stream: S) -> S
+where
+    S: tokio_stream::Stream<Item = std::result::Result<Bytes, object_store::Error>>,
+{
+    stream
 }
 
 fn slice(content: &[u8], range: Option<(u64, u64)>) -> Vec<u8> {
@@ -438,8 +691,7 @@ mod tests {
     /// the plain one some older clients ignore the header entirely.
     #[test]
     fn a_non_ascii_filename_survives_content_disposition() {
-        let share = test_share(Some("專案 v2.zip"));
-        let value = content_disposition(&share);
+        let value = content_disposition(&named(Some("專案 v2.zip")));
         assert!(value.starts_with("attachment; "), "{value}");
         assert!(value.contains(r#"filename="__ v2.zip""#), "{value}");
         assert!(
@@ -450,37 +702,40 @@ mod tests {
 
     #[test]
     fn a_share_with_no_filename_still_downloads() {
-        let value = content_disposition(&test_share(None));
+        let value = content_disposition(&named(None));
         assert!(value.contains(r#"filename="download""#), "{value}");
     }
 
-    fn test_share(filename: Option<&str>) -> Share {
-        use tessera_core::{RetrievalCode, ShareId};
-
-        use crate::db::repository::share::StorageLocation;
-
-        Share {
-            id: ShareId::generate(),
-            code: RetrievalCode::parse("ABCD1234").expect("a valid code"),
-            user_id: None,
-            kind: ShareKind::File,
-            password_hash: None,
-            use_limit: None,
-            use_count: 0,
-            expires_at: None,
-            disabled_at: None,
-            title: None,
+    /// Only the name matters here, and it now comes from the content.
+    fn named(filename: Option<&str>) -> Content {
+        Content::Files(vec![FilePart {
             filename: filename.map(str::to_owned),
             content_type: None,
-            language: None,
-            size_bytes: 10,
-            storage: StorageLocation::Inline,
-            og_config: None,
-            management_token_hash: None,
-            view_count: 0,
-            last_accessed_at: None,
-            created_at: time::OffsetDateTime::now_utc(),
-            updated_at: time::OffsetDateTime::now_utc(),
-        }
+            size_bytes: 0,
+            storage: crate::db::repository::share::StorageLocation::Inline,
+        }])
+    }
+
+    /// Two files, which is what stops being one file's download.
+    #[test]
+    fn a_share_with_several_files_is_offered_as_an_archive() {
+        let two = Content::Files(vec![
+            FilePart {
+                filename: Some("one.txt".to_owned()),
+                content_type: None,
+                size_bytes: 5,
+                storage: crate::db::repository::share::StorageLocation::Inline,
+            },
+            FilePart {
+                filename: Some("two.txt".to_owned()),
+                content_type: None,
+                size_bytes: 7,
+                storage: crate::db::repository::share::StorageLocation::Inline,
+            },
+        ]);
+        assert!(two.single_file().is_none());
+        assert_eq!(two.size_bytes(), 12);
+        // No single name to offer, so the archive's is used.
+        assert!(content_disposition(&two).contains(r#"filename="download""#));
     }
 }

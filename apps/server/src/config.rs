@@ -352,6 +352,24 @@ pub struct AuthConfig {
     /// When to mark the session cookie `Secure`.
     pub cookie_secure: SecurePolicy,
 
+    /// Which role a newly registered account goes into.
+    ///
+    /// By name, because that is what an operator reads in the admin panel.
+    ///
+    /// # Why this rather than editing the built-in role
+    ///
+    /// "I want ordinary users to be able to do less" is the real need behind
+    /// wanting to edit `member`, and it is better served by choosing a
+    /// different role than by changing what `member` means — a built-in role
+    /// that means something different on every instance is one that
+    /// documentation and support conversations cannot rely on.
+    ///
+    /// The role has to exist. That is checked at startup rather than at
+    /// somebody's registration, because the failure would otherwise arrive as
+    /// a stranger's `500`.
+    #[serde(default = "default_role")]
+    pub default_role: String,
+
     /// Name for the administrator created on first run.
     pub admin_username: String,
 
@@ -390,6 +408,18 @@ pub struct ShareConfig {
     /// of the database is also a backup of the content. Above it, bytes belong
     /// in the store, where they can be streamed rather than loaded.
     pub inline_threshold_bytes: usize,
+    /// The largest a text share may be, in bytes.
+    ///
+    /// Text lives in the database, so this is the size of the largest row this
+    /// service will write and the most memory one upload can hold at once —
+    /// there is no streaming a value that has to be handed over whole.
+    ///
+    /// A megabyte is about a million characters. The whole of *The Lord of the
+    /// Rings* as plain text is around two and a half, so a paste that does not
+    /// fit here is not a paste. Somebody who wants to share something larger
+    /// sends it as a file, which is streamed to the object store and never held
+    /// in full.
+    pub max_text_bytes: usize,
 
     /// How long a download authorisation stays usable, in hours.
     ///
@@ -447,9 +477,43 @@ pub struct ServerConfig {
     /// TCP port to bind.
     pub port: u16,
     /// Per-request wall-clock budget, in seconds.
+    ///
+    /// Does not apply to upload routes — see `upload_stall_secs` for why they
+    /// need a different question asked of them.
     pub request_timeout_secs: u64,
+
+    /// How long an upload may go without a byte arriving, in seconds.
+    ///
+    /// # Why uploads are not given a wall-clock budget
+    ///
+    /// One number cannot be both. To let a 5 GB upload finish over a 20 Mbit/s
+    /// line it would have to be 2400 seconds, and that is also how long a client
+    /// that connects and then sends nothing would hold a slot. The two demands
+    /// are three orders of magnitude apart, so any single value is wrong for one
+    /// of them.
+    ///
+    /// This asks the question that separates them: is the other end still
+    /// sending? A 5 GB upload passes for as long as it takes, because every
+    /// second of it moves bytes; a dead connection is dropped in this many.
+    pub upload_stall_secs: u64,
     /// Maximum accepted request body, in bytes.
     pub max_body_bytes: usize,
+
+    /// Directory to serve the frontend from, instead of the bundle compiled in.
+    ///
+    /// Empty, the default, serves the compiled-in bundle — one file, no web
+    /// server in front of it, which is the point of embedding it.
+    ///
+    /// Set, every request reads from disk, so rebuilding the frontend and
+    /// refreshing the browser is the whole loop. That is what this exists for:
+    /// without it, changing one line of CSS and seeing it in a container means
+    /// waiting for a Rust build.
+    ///
+    /// A directory with no `index.html` in it stops the server rather than
+    /// falling back. Falling back quietly would show somebody yesterday's build
+    /// while they believed they were looking at today's.
+    #[serde(default)]
+    pub assets_dir: String,
     /// Origins allowed to call the API from a browser. Empty means same-origin
     /// only, which is the correct default for the single-binary deployment.
     pub cors_allowed_origins: Vec<String>,
@@ -574,8 +638,10 @@ impl Default for ServerConfig {
             host: IpAddr::from([127, 0, 0, 1]),
             port: 8787,
             request_timeout_secs: 30,
+            upload_stall_secs: 30,
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
+            assets_dir: String::new(),
             cors_allowed_origins: Vec::new(),
             trusted_proxies: Vec::new(),
             trusted_proxy: false,
@@ -634,6 +700,7 @@ impl Default for AuthConfig {
             // 30 days. Long, on purpose: this is a tool people reach for
             // occasionally, and being logged out between uses is the kind of
             // friction that makes a self-hosted service go unused.
+            default_role: default_role(),
             session_ttl_hours: 24 * 30,
             login_history_days: default_login_history_days(),
             password: PasswordPolicy::default(),
@@ -650,6 +717,7 @@ impl Default for ShareConfig {
         Self {
             code_length: 8,
             inline_threshold_bytes: 64 * 1024,
+            max_text_bytes: 1024 * 1024,
             ticket_ttl_hours: 24,
             // A week. This is what almost every share gets, because almost no
             // caller asks for a lifetime — so it, and not the ceiling below,
@@ -720,6 +788,12 @@ impl ServerConfig {
         Duration::from_secs(self.request_timeout_secs)
     }
 
+    /// How long an upload may go without a byte, as a [`Duration`].
+    #[must_use]
+    pub const fn upload_stall(&self) -> Duration {
+        Duration::from_secs(self.upload_stall_secs)
+    }
+
     /// The proxies this instance will be spoken for by.
     ///
     /// A non-empty list wins over the deprecated boolean, so an operator part
@@ -745,6 +819,11 @@ impl ServerConfig {
 /// Days of login history kept, when nothing says otherwise.
 const fn default_login_history_days() -> u64 {
     90
+}
+
+/// The role the migration seeds ordinary accounts into.
+fn default_role() -> String {
+    "member".to_owned()
 }
 
 /// The most history an instance may be asked to keep.
@@ -1033,6 +1112,16 @@ impl ShareConfig {
                 ),
             });
         }
+        if self.max_text_bytes == 0 || self.max_text_bytes > MAX_TEXT_CEILING {
+            return Err(ConfigError::Invalid {
+                field: "share.max_text_bytes",
+                reason: format!(
+                    "must be between 1 and {MAX_TEXT_CEILING}; text is held whole in memory \
+                     while it is read and stored whole as one row, so a larger value turns one \
+                     upload into that much resident memory and that much of a single read"
+                ),
+            });
+        }
         if self.inline_threshold_bytes > INLINE_CEILING {
             return Err(ConfigError::Invalid {
                 field: "share.inline_threshold_bytes",
@@ -1069,6 +1158,14 @@ impl ShareConfig {
     }
 }
 
+/// The most a text share may ever be allowed to be.
+///
+/// A bound on the setting, not the setting: an operator who wants larger pastes
+/// can raise `share.max_text_bytes`, but not to a number that makes one upload
+/// a memory problem for everybody else on the instance. Sixteen megabytes is
+/// already six times the plain text of a long novel.
+const MAX_TEXT_CEILING: usize = 16 * 1024 * 1024;
+
 /// Highest inline threshold an operator may configure.
 ///
 /// Inline content is read into memory whole, so this is the largest allocation a
@@ -1089,6 +1186,12 @@ impl ServerConfig {
         if self.request_timeout_secs == 0 {
             return Err(ConfigError::Invalid {
                 field: "server.request_timeout_secs",
+                reason: "must be at least 1 second".to_owned(),
+            });
+        }
+        if self.upload_stall_secs == 0 {
+            return Err(ConfigError::Invalid {
+                field: "server.upload_stall_secs",
                 reason: "must be at least 1 second".to_owned(),
             });
         }
@@ -1326,6 +1429,7 @@ mod tests {
     #[case::zero_timeout("server.request_timeout_secs", |c: &mut Config| {
         c.server.request_timeout_secs = 0;
     })]
+    #[case::zero_stall("server.upload_stall_secs", |c: &mut Config| c.server.upload_stall_secs = 0)]
     #[case::zero_body("server.max_body_bytes", |c: &mut Config| c.server.max_body_bytes = 0)]
     #[case::bad_origin("server.cors_allowed_origins", |c: &mut Config| {
         c.server.cors_allowed_origins = vec!["example.com".to_owned()];

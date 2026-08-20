@@ -17,7 +17,7 @@ use axum::{
     extract::{ConnectInfo, FromRequestParts},
     http::{header, request::Parts},
 };
-use tessera_core::SessionId;
+use tessera_core::{Permission, PermissionSet, SessionId};
 use time::OffsetDateTime;
 
 use crate::{
@@ -82,6 +82,36 @@ pub struct CurrentUser {
     /// Which mechanism proved it, so a handler can refuse one of them where
     /// that matters — changing a password with an API token, for instance.
     pub credential: Credential,
+    /// Everything this account is allowed to do, from every role it is in.
+    ///
+    /// Loaded once here rather than queried by each handler: a handler that has
+    /// to remember to ask is a handler that can forget to.
+    pub permissions: PermissionSet,
+}
+
+impl CurrentUser {
+    /// Refuses the request unless this account holds the permission.
+    ///
+    /// # Why the handler names it rather than an extractor
+    ///
+    /// `AdminUser` said "one of the privileged endpoints" and nothing more, so
+    /// every one of them was as powerful as the most powerful. Naming the
+    /// permission at the point of use is what makes a role like "can invite
+    /// people but cannot delete accounts" possible, and it is greppable: the
+    /// answer to "what does `users:delete` protect" is a search.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Forbidden`] when the account does not hold it. Forbidden
+    /// rather than not-found: the caller is authenticated, so telling them the
+    /// endpoint exists reveals nothing they could not read in the contract.
+    pub fn require(&self, permission: Permission) -> Result<(), Error> {
+        if self.permissions.allows(permission) {
+            Ok(())
+        } else {
+            Err(Error::Forbidden)
+        }
+    }
 }
 
 /// An authenticated account, whether or not it owes a password change.
@@ -92,10 +122,6 @@ pub struct CurrentUser {
 /// think about this state gives you the strict behaviour rather than the lax one.
 #[derive(Debug, Clone)]
 pub struct SelfServiceUser(pub CurrentUser);
-
-/// An authenticated administrator.
-#[derive(Debug, Clone)]
-pub struct AdminUser(pub CurrentUser);
 
 /// An account, if the request carried one.
 #[derive(Debug, Clone)]
@@ -142,25 +168,6 @@ impl FromRequestParts<AppState> for CurrentUser {
             return Err(Error::PasswordChangeRequired);
         }
         Ok(current)
-    }
-}
-
-impl FromRequestParts<AppState> for AdminUser {
-    type Rejection = Error;
-
-    async fn from_request_parts(
-        parts: &mut Parts,
-        state: &AppState,
-    ) -> Result<Self, Self::Rejection> {
-        let current = CurrentUser::from_request_parts(parts, state).await?;
-        if current.user.is_admin {
-            Ok(Self(current))
-        } else {
-            // Forbidden rather than not-found: the caller is authenticated, so
-            // telling them the endpoint exists reveals nothing they could not
-            // already infer from the published contract.
-            Err(Error::Forbidden)
-        }
     }
 }
 
@@ -248,11 +255,19 @@ async fn authenticate_session(
         state.sessions.delete(session.id).await?;
         return Ok(None);
     };
+    // Suspending or removing an account has to stop the sessions it already
+    // holds, not only the next sign-in — otherwise somebody suspended at noon
+    // carries on working until their cookie happens to expire.
+    if !user.state.may_sign_in() {
+        return Ok(None);
+    }
 
     state.sessions.touch(session.id, now).await?;
+    let permissions = state.roles.permissions_of(user.id).await?;
     Ok(Some(CurrentUser {
         user,
         credential: Credential::Session { id: session.id },
+        permissions,
     }))
 }
 
@@ -275,11 +290,27 @@ async fn authenticate_token(
     let Some(user) = state.users.find_by_id(token.user_id).await? else {
         return Ok(None);
     };
+    // Same for a token: it acts as its owner, and an owner who may not sign in
+    // may not act.
+    if !user.state.may_sign_in() {
+        return Ok(None);
+    }
 
     state.tokens.touch(token.id, now).await?;
+    // What the token was given, and no more than its owner may do *now*. Both
+    // halves matter: a token cannot exceed the account that minted it, and
+    // demoting somebody narrows every token they hold at that moment rather
+    // than at the next time somebody remembers to look.
+    let owner = state.roles.permissions_of(user.id).await?;
+    let permissions: PermissionSet = token
+        .permissions
+        .iter()
+        .filter(|permission| owner.allows(*permission))
+        .collect();
     Ok(Some(CurrentUser {
         user,
         credential: Credential::ApiToken,
+        permissions,
     }))
 }
 

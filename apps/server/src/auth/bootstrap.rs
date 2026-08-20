@@ -9,13 +9,18 @@
 //! internet before its owner reaches the login page hands administration to a
 //! stranger. So the account is created at start-up, before the listener binds.
 
-use tessera_core::{EmailAddress, Password, PasswordPolicy, UserId, Username};
+use tessera_core::{
+    AccountState, EmailAddress, Password, PasswordPolicy, RoleId, UserId, Username,
+};
 use time::OffsetDateTime;
 
 use crate::{
     auth::{password, secret::Secret},
     config::AuthConfig,
-    db::repository::user::{User, UserRepository},
+    db::repository::{
+        role::RoleRepository,
+        user::{User, UserRepository},
+    },
     error::{Error, Result},
 };
 
@@ -30,7 +35,22 @@ use crate::{
 ///
 /// Returns [`Error`] if the database is unreachable, if the configured
 /// credentials fail their rules, or if hashing fails.
-pub async fn ensure_admin(users: &UserRepository, auth: &AuthConfig) -> Result<()> {
+pub async fn ensure_admin(
+    users: &UserRepository,
+    roles: &RoleRepository,
+    auth: &AuthConfig,
+) -> Result<()> {
+    // Checked whether or not an administrator is created below: the setting is
+    // read at every registration, so a name nobody seeded turns the first
+    // stranger's sign-up into a refusal with no explanation anywhere they can
+    // see. Refusing to start says it once, to the person who can fix it.
+    if roles.find_by_name(&auth.default_role).await?.is_none() {
+        return Err(Error::bad_request(format!(
+            "auth.default_role: no role is called `{}`",
+            auth.default_role
+        )));
+    }
+
     if users.any_exist().await? {
         return Ok(());
     }
@@ -55,11 +75,16 @@ pub async fn ensure_admin(users: &UserRepository, auth: &AuthConfig) -> Result<(
         // already know, and forcing a change on it is a pointless step; one we
         // printed has been through a log file and should not stay in force.
         must_change_password: generated.is_some(),
+        state: AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
         email_verified_at: None,
         created_at: now,
         updated_at: now,
     };
-    users.insert(&user).await?;
+    // The first account administers the instance, which is the whole point of
+    // this function — so it goes straight into the role that says so.
+    users.insert(&user, RoleId::parse(RoleId::OWNER)?).await?;
 
     if let Some(printed) = generated {
         // Printed once, at `warn` so it survives a default log filter, and never

@@ -21,7 +21,7 @@
 //!   password would be decorative.
 
 use crate::{
-    db::repository::share::{Availability, Share, ShareKind},
+    db::repository::share::{Availability, Content, Share, ShareKind},
     state::AppState,
 };
 
@@ -35,7 +35,7 @@ pub struct Preview {
 impl Preview {
     /// What a share should say about itself to a channel full of people.
     #[must_use]
-    pub fn of(share: &Share, now: time::OffsetDateTime) -> Self {
+    pub fn of(share: &Share, content: &Content, now: time::OffsetDateTime) -> Self {
         match share.availability_at(now) {
             Availability::Expired | Availability::Exhausted | Availability::Disabled => Self {
                 title: "Share unavailable".to_owned(),
@@ -47,13 +47,18 @@ impl Preview {
             },
             Availability::Available => Self {
                 title: share.title.clone().unwrap_or_else(|| match share.kind {
-                    ShareKind::File => share
-                        .filename
-                        .clone()
-                        .unwrap_or_else(|| "Shared file".to_owned()),
+                    ShareKind::File => match content.files() {
+                        [only] => only
+                            .filename
+                            .clone()
+                            .unwrap_or_else(|| "Shared file".to_owned()),
+                        // A count rather than the first name: naming one of
+                        // five tells somebody about one of five.
+                        many => format!("{} shared files", many.len()),
+                    },
                     ShareKind::Text => "Shared note".to_owned(),
                 }),
-                description: describe(share),
+                description: describe(share, content),
             },
         }
     }
@@ -73,10 +78,10 @@ impl Preview {
     }
 }
 
-fn describe(share: &Share) -> String {
+fn describe(share: &Share, content: &Content) -> String {
     let mut parts = vec![match share.kind {
-        ShareKind::File => human_size(share.size_bytes),
-        ShareKind::Text => format!("{} of text", human_size(share.size_bytes)),
+        ShareKind::File => human_size(content.size_bytes()),
+        ShareKind::Text => format!("{} of text", human_size(content.size_bytes())),
     }];
     if let Some(limit) = share.use_limit {
         let left = limit.saturating_sub(share.use_count);
@@ -189,9 +194,11 @@ fn insertion_point(html: &str) -> usize {
 /// counts misses against the lookup limit, and neither is right here. A crawler
 /// following a dead link should still get a page that explains itself, and a
 /// crawler should not be able to exhaust a limit meant for people guessing.
-pub async fn lookup(state: &AppState, code: &str) -> Option<Share> {
+pub async fn lookup(state: &AppState, code: &str) -> Option<(Share, Content)> {
     let code = tessera_core::RetrievalCode::parse(code).ok()?;
-    state.shares.find_by_code(&code).await.ok().flatten()
+    let share = state.shares.find_by_code(&code).await.ok().flatten()?;
+    let content = state.shares.content_of(&share).await.ok()?;
+    Some((share, content))
 }
 
 #[cfg(test)]
@@ -200,7 +207,28 @@ mod tests {
     use time::OffsetDateTime;
 
     use super::*;
-    use crate::db::repository::share::StorageLocation;
+    use crate::db::repository::share::{FilePart, StorageLocation};
+
+    /// The content as the owning table describes it — which is where a preview
+    /// now reads the name and the size from.
+    fn content() -> Content {
+        Content::Files(vec![FilePart {
+            filename: None,
+            content_type: None,
+            size_bytes: 2048,
+            storage: StorageLocation::Inline,
+        }])
+    }
+
+    /// The same, with a name on the one file.
+    fn named(filename: &str) -> Content {
+        Content::Files(vec![FilePart {
+            filename: Some(filename.to_owned()),
+            content_type: None,
+            size_bytes: 2048,
+            storage: StorageLocation::Inline,
+        }])
+    }
 
     fn share(kind: ShareKind) -> Share {
         Share {
@@ -214,14 +242,11 @@ mod tests {
             expires_at: None,
             disabled_at: None,
             title: None,
-            filename: None,
-            content_type: None,
-            language: None,
-            size_bytes: 2048,
-            storage: StorageLocation::Inline,
             og_config: None,
             management_token_hash: None,
             view_count: 0,
+            copy_count: 0,
+            bytes_served: 0,
             last_accessed_at: None,
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),
@@ -269,7 +294,7 @@ mod tests {
         let mut share = share(ShareKind::Text);
         share.title = Some(r#""><script>alert(1)</script>"#.to_owned());
 
-        let tags = Preview::of(&share, OffsetDateTime::now_utc()).to_head_tags();
+        let tags = Preview::of(&share, &content(), OffsetDateTime::now_utc()).to_head_tags();
         assert!(!tags.contains("<script"), "{tags}");
         assert!(tags.contains("&quot;&gt;&lt;script&gt;"), "{tags}");
     }
@@ -278,12 +303,13 @@ mod tests {
     /// the password would be decorative.
     #[test]
     fn a_locked_share_describes_nothing() {
-        let mut share = share(ShareKind::File);
-        share.filename = Some("payroll.xlsx".to_owned());
+        let share_ = share(ShareKind::File);
+        let mut share = share_;
         share.title = Some("Q3 salaries".to_owned());
         share.password_hash = Some("$argon2id$...".to_owned());
+        let content = named("payroll.xlsx");
 
-        let tags = Preview::of(&share, OffsetDateTime::now_utc()).to_head_tags();
+        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags();
         assert!(!tags.contains("payroll"), "{tags}");
         assert!(!tags.contains("Q3"), "{tags}");
         assert!(tags.contains("Password-protected"), "{tags}");
@@ -292,10 +318,10 @@ mod tests {
     #[test]
     fn a_dead_share_says_so_rather_than_describing_itself() {
         let mut share = share(ShareKind::File);
-        share.filename = Some("gone.zip".to_owned());
         share.expires_at = Some(OffsetDateTime::now_utc() - time::Duration::hours(1));
+        let content = named("gone.zip");
 
-        let tags = Preview::of(&share, OffsetDateTime::now_utc()).to_head_tags();
+        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags();
         assert!(!tags.contains("gone.zip"), "{tags}");
         assert!(tags.contains("Share unavailable"), "{tags}");
     }
@@ -303,10 +329,10 @@ mod tests {
     #[test]
     fn a_live_share_names_itself() {
         let mut share = share(ShareKind::File);
-        share.filename = Some("holiday.jpg".to_owned());
         share.use_limit = Some(3);
+        let content = named("holiday.jpg");
 
-        let preview = Preview::of(&share, OffsetDateTime::now_utc());
+        let preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
         assert_eq!(preview.title, "holiday.jpg");
         assert_eq!(preview.description, "2.0 KiB · 3 retrievals left");
     }
@@ -317,7 +343,7 @@ mod tests {
         share.use_limit = Some(3);
         share.use_count = 2;
         assert!(
-            Preview::of(&share, OffsetDateTime::now_utc())
+            Preview::of(&share, &content(), OffsetDateTime::now_utc())
                 .description
                 .contains("one retrieval left")
         );

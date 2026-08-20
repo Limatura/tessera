@@ -34,6 +34,17 @@ mod m20260814_000001_session_metadata;
 mod m20260814_000002_session_endings;
 mod m20260815_000001_invites;
 mod m20260816_000001_file_shares;
+mod m20260817_000001_text_shares;
+mod m20260818_000001_roles;
+mod m20260818_000002_token_permissions;
+mod m20260818_000003_admin_share_permissions;
+mod m20260818_000004_account_state;
+mod m20260818_000005_owner_role;
+mod m20260818_000006_copy_count;
+mod m20260818_000007_bytes_served;
+mod m20260818_000008_drop_legacy_share_columns;
+mod m20260819_000001_guest_role;
+mod m20260819_000002_mysql_datetime;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -57,6 +68,17 @@ impl MigratorTrait for Migrator {
             Box::new(m20260814_000002_session_endings::Migration),
             Box::new(m20260815_000001_invites::Migration),
             Box::new(m20260816_000001_file_shares::Migration),
+            Box::new(m20260817_000001_text_shares::Migration),
+            Box::new(m20260818_000001_roles::Migration),
+            Box::new(m20260818_000002_token_permissions::Migration),
+            Box::new(m20260818_000003_admin_share_permissions::Migration),
+            Box::new(m20260818_000004_account_state::Migration),
+            Box::new(m20260818_000005_owner_role::Migration),
+            Box::new(m20260818_000006_copy_count::Migration),
+            Box::new(m20260818_000007_bytes_served::Migration),
+            Box::new(m20260818_000008_drop_legacy_share_columns::Migration),
+            Box::new(m20260819_000001_guest_role::Migration),
+            Box::new(m20260819_000002_mysql_datetime::Migration),
         ]
     }
 }

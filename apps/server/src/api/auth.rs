@@ -8,7 +8,10 @@ use axum::{
 };
 use axum_extra::extract::cookie::Cookie;
 use serde::{Deserialize, Serialize};
-use tessera_core::{EmailAddress, Password, PasswordPolicy, UserId, Username};
+use tessera_core::{
+    AccountState, EmailAddress, Password, PasswordPolicy, Permission, PermissionSet, RoleId,
+    UserId, Username,
+};
 use time::OffsetDateTime;
 use utoipa::ToSchema;
 
@@ -16,7 +19,7 @@ use crate::{
     api::{AUTH_TAG, extract::ApiJson},
     auth::{
         cookie,
-        extract::{ClientAddress, SelfServiceUser},
+        extract::{ClientAddress, CurrentUser, SelfServiceUser},
         password,
         proxy::{Origin, UNPLACEABLE},
         throttle::Decision,
@@ -25,6 +28,7 @@ use crate::{
     db::repository::{
         invite::Invite,
         pending_registration::Waiting,
+        role::Role,
         session::{SessionEnding, SessionOrigin},
         user::User,
     },
@@ -45,8 +49,24 @@ pub struct AccountResponse {
     /// Normalised address.
     #[schema(example = "alice@example.com")]
     pub email: String,
-    /// Whether the account may reach the administrative endpoints.
+    /// Whether the account holds the seeded administrator role.
+    ///
+    /// Kept because clients read it. It is now derived rather than stored, and
+    /// it answers a narrower question than `permissions` does — somebody in a
+    /// role that grants `users:read` and nothing else is not an administrator
+    /// but can still reach one administrative endpoint. New clients should read
+    /// `permissions`.
     pub is_admin: bool,
+    /// Everything this account is allowed to do.
+    ///
+    /// `resource:verb` strings. The set a client should decide what to show
+    /// from — a screen that guesses from `is_admin` will be wrong for every
+    /// role between "member" and "everything".
+    #[schema(example = json!(["shares:create", "shares:read"]))]
+    pub permissions: Vec<String>,
+    /// The roles it is in, by name.
+    #[schema(example = json!(["member"]))]
+    pub roles: Vec<String>,
     /// Whether the account must set a new password before doing anything else.
     ///
     /// Set on the administrator generated at first run. A client seeing this
@@ -54,13 +74,36 @@ pub struct AccountResponse {
     pub must_change_password: bool,
 }
 
-impl From<&User> for AccountResponse {
-    fn from(user: &User) -> Self {
+impl AccountResponse {
+    /// Builds the response from the account and the roles it is in.
+    ///
+    /// Takes the roles rather than reading `user.is_admin`: that column is a
+    /// mirror kept only so this version can be rolled back, and a response that
+    /// read it would report whatever it said rather than what the account can
+    /// actually do.
+    #[must_use]
+    pub fn build(user: &User, roles: &[Role]) -> Self {
+        let permissions: PermissionSet = roles
+            .iter()
+            .flat_map(|role| role.permissions.iter())
+            .collect();
         Self {
             id: user.id.to_string(),
             username: user.username.to_string(),
             email: user.email.to_string(),
-            is_admin: user.is_admin,
+            // Either seeded role that administers the instance. The field is
+            // kept for clients that still read it; `permissions` is what a
+            // screen should decide from, because neither of these two answers
+            // "may they delete an account".
+            is_admin: roles.iter().any(|role| {
+                let id = role.id.to_string();
+                id == RoleId::OWNER || id == RoleId::ADMIN
+            }),
+            permissions: permissions
+                .iter()
+                .map(|permission| permission.as_str().to_owned())
+                .collect(),
+            roles: roles.iter().map(|role| role.name.clone()).collect(),
             must_change_password: user.must_change_password,
         }
     }
@@ -218,6 +261,40 @@ fn require_accounts(state: &AppState) -> Result<()> {
     }
 }
 
+/// Which role a brand-new account goes into.
+///
+/// The only place the choice is made, so "what can somebody do the moment they
+/// sign up" is one function rather than a property of whichever registration
+/// path they came through.
+///
+/// The first account administers the instance whatever the configuration says:
+/// an instance whose first account cannot administer it has nobody who can fix
+/// that.
+///
+/// # Errors
+///
+/// `500` when `auth.default_role` names a role that is not there. Startup
+/// refuses that configuration, so reaching it means the role was deleted while
+/// the server was running — and quietly putting somebody in `member` instead
+/// would be the server overruling a stated policy.
+async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
+    if first {
+        // The owner role, not `admin`: the first account is the person whose
+        // instance this is, and `admin` deliberately cannot grant permissions —
+        // an instance whose only account cannot hand out roles has nobody who
+        // can bring anybody else in.
+        return Ok(RoleId::parse(RoleId::OWNER)?);
+    }
+    let wanted = &state.config.auth.default_role;
+    let Some(role) = state.roles.find_by_name(wanted).await? else {
+        tracing::error!(role = %wanted, "auth.default_role names a role that is not there");
+        return Err(Error::Conflict(
+            "this instance is not configured to accept new accounts right now".to_owned(),
+        ));
+    };
+    Ok(role.id)
+}
+
 /// Creates an account and signs it in.
 ///
 /// # Errors
@@ -305,21 +382,29 @@ pub async fn register(
         return Err(invite_refused());
     }
 
+    // The first account to exist becomes the administrator. On an instance
+    // where nobody bootstrapped one, that is the person who set it up.
+    let first = !state.users.any_exist().await?;
     let user = User {
         id: UserId::generate(),
         username,
         email,
         password_hash: password::hash(password).await?,
-        // The first account to exist becomes the administrator. On an instance
-        // where nobody bootstrapped one, that is the person who set it up.
-        is_admin: !state.users.any_exist().await?,
+        is_admin: first,
         must_change_password: false,
+        state: AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
         email_verified_at: None,
         created_at: now,
         updated_at: now,
     };
 
-    if let Err(error) = state.users.insert(&user).await {
+    if let Err(error) = state
+        .users
+        .insert(&user, seed_role(&state, first).await?)
+        .await
+    {
         // The check above raced with another registration, or something else
         // went wrong. Which one is decided by looking, rather than by assuming
         // every insert failure is a conflict — that would report a database
@@ -342,7 +427,10 @@ pub async fn register(
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
-        Json(AccountResponse::from(&user)),
+        Json(AccountResponse::build(
+            &user,
+            &state.roles.of_user(user.id).await?,
+        )),
     )
         .into_response())
 }
@@ -407,7 +495,11 @@ pub async fn login(
         false
     };
 
-    let Some(user) = user.filter(|_| authenticated) else {
+    // The state is checked here rather than before the hash, and answers the
+    // same `401` as a wrong password. Checking earlier would return faster for a
+    // suspended account than for a wrong password, which tells anybody who asks
+    // that the account exists — the oracle the work above exists to close.
+    let Some(user) = user.filter(|found| authenticated && found.state.may_sign_in()) else {
         throttles.record_failure(&throttles.login, &key, &origin.source);
         return Err(Error::Unauthorized);
     };
@@ -418,7 +510,10 @@ pub async fn login(
 
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
-        Json(AccountResponse::from(&user)),
+        Json(AccountResponse::build(
+            &user,
+            &state.roles.of_user(user.id).await?,
+        )),
     )
         .into_response())
 }
@@ -484,8 +579,12 @@ pub async fn logout(
     ),
     security(("session" = []), ("bearer" = [])),
 )]
-pub async fn session(SelfServiceUser(current): SelfServiceUser) -> Result<Json<AccountResponse>> {
-    Ok(Json(AccountResponse::from(&current.user)))
+pub async fn session(
+    State(state): State<AppState>,
+    SelfServiceUser(current): SelfServiceUser,
+) -> Result<Json<AccountResponse>> {
+    let roles = state.roles.of_user(current.user.id).await?;
+    Ok(Json(AccountResponse::build(&current.user, &roles)))
 }
 
 /// Changes the caller's password.
@@ -553,7 +652,8 @@ pub async fn change_password(
         .await?;
 
     let cookie = start_session(&state, &current.user, &headers, &origin, now).await?;
-    let mut account = AccountResponse::from(&current.user);
+    let roles = state.roles.of_user(current.user.id).await?;
+    let mut account = AccountResponse::build(&current.user, &roles);
     account.must_change_password = false;
 
     Ok(([(header::SET_COOKIE, cookie.to_string())], Json(account)).into_response())
@@ -893,6 +993,7 @@ pub async fn confirm_registration(
         return Err(invite_refused());
     }
 
+    let first = !state.users.any_exist().await?;
     let user = User {
         id: UserId::generate(),
         username: pending.username.clone(),
@@ -905,14 +1006,21 @@ pub async fn confirm_registration(
         // worth a transaction: an instance whose first two accounts are created
         // in the same instant is one nobody has bootstrapped, and both of those
         // people are its operator.
-        is_admin: !state.users.any_exist().await?,
+        is_admin: first,
         must_change_password: false,
+        state: AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
         // The whole point of the wait.
         email_verified_at: Some(now),
         created_at: now,
         updated_at: now,
     };
-    if let Err(error) = state.users.insert(&user).await {
+    if let Err(error) = state
+        .users
+        .insert(&user, seed_role(&state, first).await?)
+        .await
+    {
         // The checks above raced with another confirmation. Decided by looking
         // rather than by assuming every insert failure is a conflict, which
         // would report a database outage as "that name is taken" — and the
@@ -939,7 +1047,10 @@ pub async fn confirm_registration(
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
-        Json(AccountResponse::from(&user)),
+        Json(AccountResponse::build(
+            &user,
+            &state.roles.of_user(user.id).await?,
+        )),
     )
         .into_response())
 }
@@ -1175,4 +1286,250 @@ mod tests {
             "the dummy hash must parse, or the timing defence is a no-op"
         );
     }
+}
+
+/// Body of `PATCH /account`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateAccountRequest {
+    /// A new name, or omitted to keep the current one.
+    #[schema(
+        example = "alice",
+        min_length = 3,
+        max_length = 32,
+        pattern = "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
+    )]
+    #[serde(default)]
+    pub username: Option<String>,
+    /// A new address, or omitted to keep the current one.
+    ///
+    /// Changing it clears the verification: the new address has not been proven
+    /// reachable, and carrying the old flag over would mean an unverified
+    /// address wearing a verified one's badge.
+    #[schema(example = "alice@example.com", format = Email)]
+    #[serde(default)]
+    pub email: Option<String>,
+    /// The password in force now.
+    ///
+    /// Required even though the caller is signed in. An unlocked browser left
+    /// on a desk is otherwise enough to move the account's address to one the
+    /// finder controls, and from there the reset flow hands them the account.
+    #[schema(min_length = 8, max_length = 1024)]
+    pub current_password: String,
+}
+
+/// Body of `DELETE /account`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeleteAccountRequest {
+    /// The password in force now, for the same reason as above.
+    #[schema(min_length = 8, max_length = 1024)]
+    pub current_password: String,
+    /// Whether to end everything this account uploaded.
+    ///
+    /// Defaults to ending it. For a file courier, "delete my account" usually
+    /// means "and the things I sent" — and somebody who wants the links they
+    /// handed out to keep working is the rarer case, worth one explicit `false`.
+    ///
+    /// # What "delete" means here
+    ///
+    /// Every link stops working the moment this returns. The bytes go later,
+    /// when the housekeeping pass reaches them — removing hundreds of objects
+    /// inside one request is a request that times out half way through with no
+    /// record of where it got to.
+    ///
+    /// So the content does go, and nothing serves it in the meantime; what
+    /// arrives after the answer is the disk space.
+    #[serde(default = "delete_shares_by_default")]
+    pub delete_shares: bool,
+}
+
+const fn delete_shares_by_default() -> bool {
+    true
+}
+
+/// Confirms the caller's password, for an act that is worth confirming.
+///
+/// # Errors
+///
+/// `401` when it is wrong, `403` when the caller used an API token.
+async fn reconfirm(current: &CurrentUser, supplied: String) -> Result<()> {
+    // A leaked API token must not be able to rename or remove the account. The
+    // same reasoning as changing a password: the blast radius of a token stays
+    // what the token can do.
+    if !current.credential.is_session() {
+        return Err(Error::Forbidden);
+    }
+    let supplied =
+        Password::parse(supplied, PasswordPolicy::widest()).map_err(|_| Error::Unauthorized)?;
+    if password::verify(supplied, current.user.password_hash.clone()).await? {
+        Ok(())
+    } else {
+        Err(Error::Unauthorized)
+    }
+}
+
+/// Changes the caller's own name or address.
+///
+/// # Errors
+///
+/// `400` when a value fails its rule, `401` when the password is wrong, `403`
+/// when an API token was used, `409` when the name or address is taken.
+#[utoipa::path(
+    patch,
+    path = "/account",
+    operation_id = "update_account",
+    tag = AUTH_TAG,
+    request_body = UpdateAccountRequest,
+    responses(
+        (status = 200, description = "The account as it now stands", body = AccountResponse),
+        (status = 400, description = "A value is not usable", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in, or the password is wrong", body = crate::error::ErrorBody),
+        (status = 403, description = "Authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 409, description = "The name or address is taken", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn update_account(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<UpdateAccountRequest>,
+) -> Result<Json<AccountResponse>> {
+    reconfirm(&current, body.current_password).await?;
+
+    let username = match body.username {
+        // Not `parse_privileged`: nobody renames themselves to `admin`. The
+        // reserved list exists for exactly this door as well as registration.
+        Some(wanted) => Username::parse(&wanted)?,
+        None => current.user.username.clone(),
+    };
+    let email = match body.email {
+        Some(wanted) => EmailAddress::parse(&wanted)?,
+        None => current.user.email.clone(),
+    };
+
+    let renamed = username != current.user.username;
+    let moved = email != current.user.email;
+    if renamed && state.users.find_by_username(&username).await?.is_some() {
+        return Err(Error::Conflict("that name is taken".to_owned()));
+    }
+    if moved && state.users.find_by_email(&email).await?.is_some() {
+        return Err(Error::Conflict("that address is taken".to_owned()));
+    }
+
+    // Cleared when the address moves, kept otherwise. Somebody correcting a
+    // typo in their name should not have to prove their address again.
+    let verified_at = if moved {
+        None
+    } else {
+        current.user.email_verified_at
+    };
+    if !state
+        .users
+        .rename(
+            current.user.id,
+            &username,
+            &email,
+            verified_at,
+            OffsetDateTime::now_utc(),
+        )
+        .await?
+    {
+        return Err(Error::NotFound);
+    }
+
+    let updated = state
+        .users
+        .find_by_id(current.user.id)
+        .await?
+        .ok_or(Error::NotFound)?;
+    let roles = state.roles.of_user(updated.id).await?;
+    Ok(Json(AccountResponse::build(&updated, &roles)))
+}
+
+/// Removes the caller's own account.
+///
+/// # Why the shares are the caller's decision and not an administrator's
+///
+/// They are the person's own uploads. An administrator removing somebody else
+/// does not touch their content — that is a separate, explicit act — but
+/// somebody removing themselves is entitled to say what happens to what they
+/// sent.
+///
+/// # Errors
+///
+/// `401` when the password is wrong, `403` when an API token was used or the
+/// caller is the last one able to administer the instance.
+#[utoipa::path(
+    delete,
+    path = "/account",
+    operation_id = "delete_account",
+    tag = AUTH_TAG,
+    request_body = DeleteAccountRequest,
+    responses(
+        (status = 204, description = "The account is gone"),
+        (status = 401, description = "Not signed in, or the password is wrong", body = crate::error::ErrorBody),
+        (status = 403, description = "Authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 409, description = "Nobody would be left to administer the instance", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn delete_account(
+    State(state): State<AppState>,
+    ClientAddress(origin): ClientAddress,
+    headers: HeaderMap,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<DeleteAccountRequest>,
+) -> Result<Response> {
+    reconfirm(&current, body.current_password).await?;
+
+    // The same guard the administrative route has, reached from the other side:
+    // an instance whose last administrator removes themselves is one nobody can
+    // administer, and nothing can undo that.
+    if current.permissions.allows(Permission::RolesWrite)
+        && state.roles.holders_of(Permission::RolesWrite).await? <= 1
+    {
+        return Err(Error::Conflict(
+            "you are the only administrator; give somebody else the role first".to_owned(),
+        ));
+    }
+
+    let now = OffsetDateTime::now_utc();
+    if body.delete_shares {
+        // Before the account goes, while the rows still point at it.
+        state
+            .shares
+            .expire_all_for_user(current.user.id, now)
+            .await?;
+    }
+    if !state
+        .users
+        .soft_delete(current.user.id, current.user.id, now)
+        .await?
+    {
+        return Err(Error::NotFound);
+    }
+    state.sessions.delete_all_for_user(current.user.id).await?;
+    state.tokens.delete_all_for_user(current.user.id).await?;
+
+    tracing::info!(account = %current.user.id, "an account removed itself");
+
+    // The rows are gone, so the cookie is already dead — but leaving it in the
+    // browser means the next request carries a credential for an account that
+    // does not exist, and the client has to work out that `401` means "you are
+    // finished" rather than "sign in again". `logout` clears it for the same
+    // reason.
+    let secure = state
+        .config
+        .auth
+        .cookie_secure
+        .applies(&headers, origin.via_trusted_proxy);
+    Ok((
+        StatusCode::NO_CONTENT,
+        [(
+            header::SET_COOKIE,
+            cookie::clearing_cookie(secure).to_string(),
+        )],
+    )
+        .into_response())
 }

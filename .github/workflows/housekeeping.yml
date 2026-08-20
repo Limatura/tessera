@@ -17,7 +17,9 @@ name: housekeeping
 
 on:
   schedule:
-    # Small hours, when nobody is waiting on a build.
+    # Small hours, when nobody is waiting on a build. The docker job also
+    # clears space for itself before building — a disk that fills at noon has
+    # eaten every run until this would have got to it.
     - cron: "0 4 * * *"
   workflow_dispatch:
 
@@ -54,15 +56,26 @@ jobs:
       # Every Docker call is under `timeout`. A daemon on a full disk stops
       # answering rather than failing, and a step waiting on it cannot be
       # cancelled.
+      # `docker buildx ls` and `docker image prune` between them left the two
+      # things that actually filled the machine: builder containers, and images
+      # nothing is using but which are not dangling. This is what a full disk
+      # took to clear by hand.
       - name: Cap the Docker caches
         run: |
-          timeout 180 docker buildx prune -f --keep-storage 10GB 2>/dev/null || true
-          timeout 60 docker container prune -f || echo "Docker did not answer"
-          timeout 60 docker image prune -f || true
+          # Builders first. `setup-buildx-action` starts one per run and each
+          # keeps a volume, so they are the fastest-growing thing here — and
+          # `system prune` will not touch a builder that is still registered.
+          timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
+            | grep -v '^default$' \
+            | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
+          # `-a` rather than the default: without it this only removes dangling
+          # images, and the ones taking the room are tagged. `--volumes` because
+          # a removed builder leaves its volume behind.
+          timeout 300 docker system prune -a --volumes -f || echo "Docker did not answer"
           if [ -d /tmp/tessera-buildx-cache ]; then
             USED=$(timeout 60 du -sg /tmp/tessera-buildx-cache 2>/dev/null | cut -f1 || echo 0)
             echo "buildx cache: ${USED} GB"
-            [ "$USED" -gt 10 ] && rm -rf /tmp/tessera-buildx-cache
+            [ "$USED" -gt 6 ] && rm -rf /tmp/tessera-buildx-cache
           fi
           exit 0
 

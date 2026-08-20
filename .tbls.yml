@@ -1,0 +1,59 @@
+# Generated documentation for the database, drawn by tbls.
+#
+# `scripts/schema-docs.py` replays the migrations into a temporary SQLite file
+# and points tbls at it. The result is committed under `docs/schema/` and CI
+# fails when it drifts, the same arrangement `openapi.json` has: a generated
+# thing that is only useful if it is never stale.
+#
+# The comments below are the part a tool cannot produce. A generated diagram
+# says `file_shares.share_id` is a foreign key; only a person can say that the
+# row's existence is what makes a share a file share.
+
+# 這個名字會變成產出的標題。
+name: tessera
+
+dsn: sqlite:///work/schema.db
+docPath: /work/out
+
+er:
+  format: mermaid
+  # Without this every line is labelled with its whole `FOREIGN KEY ... ON
+  # DELETE CASCADE MATCH NONE` clause, which is on the table's own page anyway
+  # and here turns the diagram into a wall of text.
+  hideDef: true
+
+exclude:
+  # sea-orm's bookkeeping: which migrations have run. Nothing models it.
+  - seaql_migrations
+
+comments:
+  - table: users
+    tableComment: 帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
+  - table: sessions
+    tableComment: 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。
+  - table: api_tokens
+    tableComment: 給程式用的憑證。只存摘要,原始值發出去之後就不再存在。
+  - table: api_token_permissions
+    tableComment: 一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。
+  - table: invites
+    tableComment: 邀請碼。同樣只存摘要。
+  - table: password_reset_tokens
+    tableComment: 重設密碼的一次性連結。
+  - table: pending_registrations
+    tableComment: 還沒驗證的註冊。帳號在信件被點開之前不存在,所以資料先放這裡——這樣「這個 email 註冊了沒」問不出來。
+  - table: shares
+    tableComment: 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
+  - table: file_shares
+    tableComment: 檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。
+  - table: text_shares
+    tableComment: 文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。
+  - table: share_tickets
+    tableComment: 輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。
+  - table: roles
+    tableComment: 一組權限的名字。誰能做什麼只由這裡決定,users.is_admin 已經沒有人讀了。
+  - table: role_permissions
+    tableComment: 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。
+  - table: user_roles
+    tableComment: 誰在哪些角色裡。沒有任何一列 = 登入了但什麼都不能做,那是真的狀態不是錯誤。
+  - table: schema_metadata
+    tableComment: 這個資料庫是哪一版寫的。降版啟動時用來擋下來。

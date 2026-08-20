@@ -119,6 +119,24 @@ jobs:
             exit 1
           fi
 
+      # The same arrangement as the contract above, for the same reason. A
+      # generated diagram is only worth having if it cannot be stale, and the
+      # thing that goes stale is not the diagram — it is somebody's memory of
+      # which tables exist.
+      - name: Regenerate the schema docs
+        run: python3 scripts/schema-docs.py
+
+      # `git status` rather than `git diff`, because a new table writes a new
+      # file and `git diff` does not see untracked ones — which is the drift
+      # most worth catching.
+      - name: Fail if the schema docs drifted
+        run: |
+          if [ -n "$(git status --porcelain -- docs/schema)" ]; then
+            git status --short -- docs/schema
+            echo "::error::docs/schema is out of date. Run 'python3 scripts/schema-docs.py' and commit the result."
+            exit 1
+          fi
+
       # cargo-deny covers advisories, licences, banned crates and sources.
       # cargo-audit is deliberately absent — see the comment in deny.toml.
       - name: security and licences
@@ -265,6 +283,94 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(backends)'
 
+  storage:
+    name: object store
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Without this job, `storage-s3` is only ever proven to *compile*. Nothing
+    # had put a byte into a bucket and read it back, so "we support S3" rested
+    # on the options being spelled right and nothing checking that.
+    #
+    # Garage rather than MinIO: MinIO's open-source repository was archived in
+    # early 2026, and Garage is what the self-hosting audience actually runs —
+    # so this doubles as a compatibility statement rather than testing a store
+    # nobody uses.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with: { tool: cargo-nextest }
+
+      # Not a `services:` block, because Garage needs a configuration file and
+      # `services:` can only pass an image and environment variables. Only four
+      # of its settings can come from the environment; without `/etc/garage.toml`
+      # it exits with "No such file or directory".
+      #
+      # `--single-node --default-bucket` creates the key and the bucket from the
+      # variables below, which is what makes this nine lines instead of the
+      # layout/bucket/key/allow dance. Both flags need v2.3.0 or newer.
+      - name: Start Garage
+        run: |
+          mkdir -p /tmp/garage
+          cat > /tmp/garage/garage.toml <<'EOF'
+          metadata_dir = "/tmp/meta"
+          data_dir = "/tmp/data"
+          db_engine = "sqlite"
+          replication_factor = 1
+          rpc_bind_addr = "[::]:3901"
+          rpc_public_addr = "127.0.0.1:3901"
+
+          [s3_api]
+          s3_region = "garage"
+          api_bind_addr = "[::]:3900"
+          EOF
+          docker run -d --name tessera-garage -p 3900:3900 \
+            -v /tmp/garage/garage.toml:/etc/garage.toml:ro \
+            -e GARAGE_RPC_SECRET="$(openssl rand -hex 32)" \
+            -e GARAGE_DEFAULT_ACCESS_KEY=tesseratest \
+            -e GARAGE_DEFAULT_SECRET_KEY=tesseratestsecret \
+            -e GARAGE_DEFAULT_BUCKET=tessera \
+            dxflrs/garage:v2.3.0 /garage server --single-node --default-bucket
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:3900 && exit 0
+            sleep 1
+          done
+          echo "::error::Garage did not start"
+          docker logs tessera-garage || true
+          exit 1
+
+      # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
+      # demand an object store; `--run-ignored all` is what opts into them.
+      #
+      # The options go through the environment because `storage.options` is
+      # passed to `object_store::parse_url_opts` unchanged — no code in this
+      # repository knows these names, which is why they are also the answer an
+      # operator needs, and why this job doubles as the source for that
+      # documentation.
+      - name: Run the object store suite
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: garage
+          AWS_ENDPOINT: http://127.0.0.1:3900
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store)'
+
+      # The runner keeps running after the job ends, so a container started here
+      # outlives it and the next run finds the name and the port taken.
+      - name: Stop Garage
+        if: always()
+        run: docker rm -f tessera-garage 2>/dev/null || true
+
   workflows:
     name: workflow lint
     runs-on: [self-hosted, Linux, X64]
@@ -315,7 +421,37 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
+      # Before the build, and unconditionally for the builders.
+      #
+      # There is one runner and `concurrency` cancels the previous run on a
+      # branch, so nothing else on this machine is using a builder when this
+      # starts — every one of them is left over from a run that was cancelled or
+      # whose runner went away before it could tidy up. Waiting for a disk
+      # threshold to remove them is waiting for the failure this exists to
+      # prevent.
+      #
+      # The heavier `system prune` stays behind a threshold: it throws away base
+      # images the next build will pull again, which is worth it on a full disk
+      # and not worth it otherwise.
+      - name: Clear what previous runs left
+        run: |
+          timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
+            | grep -v '^default$' \
+            | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
+          timeout 60 docker container prune -f 2>/dev/null || true
+          timeout 60 docker volume prune -f 2>/dev/null || true
+
+          FREE=$(df --output=pcent / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${FREE}% full"
+          if [ "$FREE" -ge 75 ]; then
+            echo "short on room; clearing images and caches too"
+            timeout 300 docker system prune -a --volumes -f || true
+            rm -rf /tmp/tessera-buildx-cache
+          fi
+          df -h / | tail -1
+
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+        id: buildx
 
       - name: Build image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
@@ -345,17 +481,25 @@ jobs:
       # the daemon uses the classic or the containerd image store.
       - name: Enforce the footprint budget
         run: |
-          # Measured 2026-08-12 with the SPA embedded: binary 14 MB, rootfs
-          # 17 MB. The previous 28/34 predated the image carrying a frontend at
-          # all and left more than 100% headroom, which is not a budget — it is
-          # a number that would have let the binary double before saying
-          # anything. These leave about a quarter, which is room for ordinary
-          # growth and not for a new backend nobody weighed.
+          # A smoke alarm, not a product constraint. Twenty megabytes is not a
+          # size anybody self-hosting notices: the images this sits next to run
+          # from about 30 MB for FileBrowser to a gigabyte for Nextcloud, the
+          # binary is mapped rather than read so unused pages cost no memory,
+          # and on a NAS the disk is not the scarce thing. What this catches is
+          # growth nobody meant — a dependency that dragged in a toolchain, a
+          # frontend bundle that quietly went up fivefold.
           #
-          # The frontend costs 1 MB of that: 13 MB with build.rs's placeholder,
-          # 14 MB with the real bundle.
-          BINARY_BUDGET_MB=18
-          ROOTFS_BUDGET_MB=21
+          # Which means the numbers want headroom, and the previous ones did
+          # not. They were set a quarter above what was measured on 2026-08-12,
+          # and by 2026-08-17 the actual was 18 and 21 — exactly the budget, so
+          # the next change of any size would have failed on somebody else's
+          # growth. An alarm that goes off every time teaches people to raise it
+          # without reading it, and then it is silent on the day it matters.
+          #
+          # These leave about half. That is loose enough to sit still through
+          # ordinary work and tight enough that a doubling still says something.
+          BINARY_BUDGET_MB=28
+          ROOTFS_BUDGET_MB=32
 
           cid=$(docker create tessera-server:ci)
           docker cp "$cid:/usr/local/bin/tessera-server" /tmp/tessera-server
@@ -415,6 +559,18 @@ jobs:
           docker rm -f tessera-smoke 2>/dev/null || true
           docker image rm -f tessera-server:ci 2>/dev/null || true
           docker image prune -f
+          # `setup-buildx-action` starts a builder in a container of its own,
+          # and each one keeps its state in a volume. Removing the image this
+          # job built left those behind, so every run added one — which is what
+          # filled the disk. `--keep-state` is deliberately absent: the layer
+          # cache this job wants is the local one under /tmp, not the builder's.
+          docker buildx rm --force "$BUILDER" 2>/dev/null || true
+          # Belt as well as braces: if this job was cancelled before the line
+          # above, the next run's opening step removes whatever is left. Both
+          # exist because a cancelled job runs neither.
+          docker volume prune -f 2>/dev/null || true
+        env:
+          BUILDER: ${{ steps.buildx.outputs.name }}
 
   fuzz:
     name: contract fuzz
@@ -478,9 +634,26 @@ jobs:
 
       - name: Schemathesis
         run: |
+          # `filter_too_much` fires on the `/admin` operations, and the reason
+          # is a property of this API rather than a bad schema. Those refuse an
+          # API token outright — `admitted()` asks `is_session()` before it
+          # looks at any permission — so they answer 403 whether or not the
+          # token is sent. The `ignored_auth` check works by re-sending without
+          # credentials and asking whether anything changed; here nothing does,
+          # so it can decide nothing and the example is filtered. Enough
+          # filtered examples trip the health check, and whether that happens at
+          # all depends on the seed, which is why this went red on one merge
+          # commit and green on the branch that produced it.
+          #
+          # Reaching those operations needs the session cookie, and handing the
+          # fuzzer one is not free: it would generate `POST /auth/logout`,
+          # `PATCH /auth/password` and `DELETE /account` against its own
+          # credential. Measured with a cookie and nothing excluded: 28
+          # operations answering only 401/403, against 24 without one.
           uvx schemathesis --config-file /tmp/fuzz/run.toml \
             run http://127.0.0.1:13999/openapi.json \
-            -w 4 --report-junit-path /tmp/fuzz/report.xml
+            -w 4 --suppress-health-check=filter_too_much \
+            --report-junit-path /tmp/fuzz/report.xml
 
       # The runner is one machine that keeps running after the job ends, so a
       # server started here outlives it and the next run finds port 13999 taken.

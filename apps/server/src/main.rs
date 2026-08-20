@@ -18,7 +18,7 @@ use tessera_server::{
     api, auth, cli,
     config::Config,
     db,
-    db::repository::user::UserRepository,
+    db::repository::{role::RoleRepository, user::UserRepository},
     maintenance,
     state::{AppState, ServiceStatus},
     storage, telemetry,
@@ -116,9 +116,13 @@ async fn main() -> anyhow::Result<()> {
     // Before the listener binds, so an instance exposed to the internet never
     // spends a moment with no administrator for a passer-by to claim.
     if config.features.accounts {
-        auth::bootstrap::ensure_admin(&UserRepository::new(db.clone()), &config.auth)
-            .await
-            .context("could not create the first administrator")?;
+        auth::bootstrap::ensure_admin(
+            &UserRepository::new(db.clone()),
+            &RoleRepository::new(db.clone()),
+            &config.auth,
+        )
+        .await
+        .context("could not create the first administrator")?;
     }
 
     // 5. Listener. Bound before announcing readiness so a port clash is fatal.
@@ -128,8 +132,10 @@ async fn main() -> anyhow::Result<()> {
         .with_context(|| format!("could not bind {addr}"))?;
     let local_addr = listener.local_addr().unwrap_or(addr);
 
+    let assets = resolve_assets(&config.server.assets_dir)?;
+
     let config = Arc::new(config);
-    let state = AppState::new(Arc::clone(&config), db.clone(), store);
+    let state = AppState::new(Arc::clone(&config), db.clone(), store, assets);
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
@@ -319,4 +325,17 @@ fn warn_about_proxy_trust(server: &tessera_server::config::ServerConfig) {
          the list is used and the boolean is ignored"
         );
     }
+}
+
+/// Where the frontend comes from, decided before anything is served.
+///
+/// Fatal when it cannot be: a mistyped `assets_dir` should be answered while
+/// somebody is still looking at the terminal, not by a blank page later.
+fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::Source> {
+    let assets = tessera_server::assets::Source::resolve(configured)
+        .map_err(|reason| anyhow::anyhow!("server.assets_dir — {reason}"))?;
+    if let tessera_server::assets::Source::Directory(root) = &assets {
+        tracing::info!(directory = %root.display(), "serving the frontend from disk");
+    }
+    Ok(assets)
 }

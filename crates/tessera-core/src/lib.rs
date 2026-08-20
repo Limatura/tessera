@@ -34,22 +34,26 @@
 //! declare one would cost the guarantee above while buying little: the
 //! swappability such a port usually provides is already supplied by SeaORM.
 
+mod account_state;
 mod code;
 mod email;
 mod error;
 mod id;
 mod password;
+mod permission;
 mod username;
 
 pub use crate::{
+    account_state::{AccountState, tombstone},
     code::RetrievalCode,
     email::EmailAddress,
     error::DomainError,
     id::{
-        ApiTokenId, InviteId, PasswordResetTokenId, PendingRegistrationId, SessionId, ShareId,
-        ShareTicketId, UserId,
+        ApiTokenId, InviteId, PasswordResetTokenId, PendingRegistrationId, RoleId, SessionId,
+        ShareId, ShareTicketId, UserId,
     },
     password::{Password, PasswordPolicy},
+    permission::{Permission, PermissionSet},
     username::Username,
 };
 

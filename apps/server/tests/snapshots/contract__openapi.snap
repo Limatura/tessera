@@ -19,12 +19,33 @@ expression: document
             "type": "string"
           },
           "is_admin": {
-            "description": "Whether the account may reach the administrative endpoints.",
+            "description": "Whether the account holds the seeded administrator role.\n\nKept because clients read it. It is now derived rather than stored, and\nit answers a narrower question than `permissions` does — somebody in a\nrole that grants `users:read` and nothing else is not an administrator\nbut can still reach one administrative endpoint. New clients should read\n`permissions`.",
             "type": "boolean"
           },
           "must_change_password": {
             "description": "Whether the account must set a new password before doing anything else.\n\nSet on the administrator generated at first run. A client seeing this\nshould send the user to a change-password screen and nowhere else.",
             "type": "boolean"
+          },
+          "permissions": {
+            "description": "Everything this account is allowed to do.\n\n`resource:verb` strings. The set a client should decide what to show\nfrom — a screen that guesses from `is_admin` will be wrong for every\nrole between \"member\" and \"everything\".",
+            "example": [
+              "shares:create",
+              "shares:read"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "roles": {
+            "description": "The roles it is in, by name.",
+            "example": [
+              "member"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
           },
           "username": {
             "description": "Normalised account name.",
@@ -37,7 +58,104 @@ expression: document
           "username",
           "email",
           "is_admin",
+          "permissions",
+          "roles",
           "must_change_password"
+        ],
+        "type": "object"
+      },
+      "AdminSharePage": {
+        "description": "A page of shares.",
+        "properties": {
+          "shares": {
+            "description": "The shares on this page.",
+            "items": {
+              "$ref": "#/components/schemas/AdminShareResponse"
+            },
+            "type": "array"
+          },
+          "total": {
+            "description": "How many exist in total, so a client can render pagination.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "shares",
+          "total"
+        ],
+        "type": "object"
+      },
+      "AdminShareResponse": {
+        "description": "One share, as an administrator sees it.\n\nDeliberately not the same shape a person sees of their own: this listing\nexists to find things that need removing, so it carries who uploaded it and\nhow big it is, and it never carries the retrieval code. An administrator who\ncan read every code can open every share, and that is a different power from\nbeing able to delete one.",
+        "properties": {
+          "active": {
+            "description": "Whether a visitor could still open it.",
+            "type": "boolean"
+          },
+          "bytes_served": {
+            "description": "How many bytes it has sent out, over its whole life.\n\nThe instance-wide figure in `StatsResponse` answers \"what is this\ncosting me\"; this answers the question that follows it, which is which\nshare to do something about. One link posted somewhere busy is the way\nan operator finds out their transfer is being spent, and the total\ncannot say which one.\n\nNot `size_bytes` times `use_count`: a range request, a resumed download\nand an abandoned one all send some other amount.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "created_at": {
+            "description": "When it was uploaded, RFC 3339.",
+            "type": "string"
+          },
+          "expires_at": {
+            "description": "When it stops being served, RFC 3339, or `null` if it never does.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "file_count": {
+            "description": "How many files it holds. Zero for text.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "filename": {
+            "description": "What the uploader called it, when the share holds exactly one file.\n\n`null` for text and for a share with several — see `file_count`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Stable identifier, for [`delete_share`].",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Whether it holds a file or text.",
+            "example": "file",
+            "type": "string"
+          },
+          "owner_id": {
+            "description": "Who uploaded it, or `null` when nobody was signed in.\n\nAn account that has since been deleted still appears here — the row it\nleft behind is what keeps this answerable. `null` means the upload was\nanonymous, which is a different fact and worth telling apart.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size_bytes": {
+            "description": "How many bytes it holds.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "file_count",
+          "size_bytes",
+          "bytes_served",
+          "active",
+          "created_at"
         ],
         "type": "object"
       },
@@ -215,6 +333,16 @@ expression: document
             "description": "A label for the token, so its owner can recognise it later.",
             "example": "backup script",
             "type": "string"
+          },
+          "permissions": {
+            "description": "What the token may do, as `resource:verb` strings.\n\nOmitted means `shares:create` and nothing else — a token exists to\nupload, and the default that is wrong in the safe direction is the one\nthat has to be widened on purpose. The other default would hand every\nscreenshot tool the ability to delete everything its owner has.\n\nA permission the caller does not hold is refused: a token cannot be a\nway to exceed the account that minted it.",
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
           }
         },
         "required": [
@@ -266,6 +394,26 @@ expression: document
         ],
         "description": "A newly issued token. The only response that ever carries the secret."
       },
+      "DeleteAccountRequest": {
+        "additionalProperties": false,
+        "description": "Body of `DELETE /account`.",
+        "properties": {
+          "current_password": {
+            "description": "The password in force now, for the same reason as above.",
+            "maxLength": 1024,
+            "minLength": 8,
+            "type": "string"
+          },
+          "delete_shares": {
+            "description": "Whether to end everything this account uploaded.\n\nDefaults to ending it. For a file courier, \"delete my account\" usually\nmeans \"and the things I sent\" — and somebody who wants the links they\nhanded out to keep working is the rarer case, worth one explicit `false`.\n\n# What \"delete\" means here\n\nEvery link stops working the moment this returns. The bytes go later,\nwhen the housekeeping pass reaches them — removing hundreds of objects\ninside one request is a request that times out half way through with no\nrecord of where it got to.\n\nSo the content does go, and nothing serves it in the meantime; what\narrives after the answer is the disk space.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "current_password"
+        ],
+        "type": "object"
+      },
       "ErrorBody": {
         "description": "The JSON body returned for every non-2xx response.",
         "properties": {
@@ -298,6 +446,7 @@ expression: document
           "conflict",
           "too_many_requests",
           "insufficient_storage",
+          "timeout",
           "unavailable",
           "internal"
         ],
@@ -448,6 +597,25 @@ expression: document
         ],
         "type": "object"
       },
+      "PermissionResponse": {
+        "description": "Every permission this version has, so a screen can offer them.\n\nSent rather than hard-coded in the client: a client listing permissions it\nwas built against would silently stop offering ones added since, and the\noperator would have no way to grant them.",
+        "properties": {
+          "name": {
+            "description": "The `resource:verb` string.",
+            "example": "users:read",
+            "type": "string"
+          },
+          "privileged": {
+            "description": "Whether it reaches beyond the holder's own things.\n\nThe question an operator is actually asking of a role they are about to\ngrant: does this let them touch other people?",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "privileged"
+        ],
+        "type": "object"
+      },
       "PublicShareResponse": {
         "description": "A share as a public visitor sees it.\n\nEverything but `code`, `kind` and `has_password` is withheld until the share\nis unlocked. A file name and a size are a description of the content, and a\npassword-protected share should not describe itself to somebody who has not\npresented the password — the same reason its link preview must not.",
         "properties": {
@@ -470,12 +638,12 @@ expression: document
               "null"
             ]
           },
-          "filename": {
-            "description": "Original file name.",
-            "type": [
-              "string",
-              "null"
-            ]
+          "files": {
+            "description": "Every file this share holds. Empty for text and for a locked share.",
+            "items": {
+              "$ref": "#/components/schemas/SharedFile"
+            },
+            "type": "array"
           },
           "has_password": {
             "description": "Whether a password must be presented before anything else is revealed.",
@@ -527,7 +695,8 @@ expression: document
           "code",
           "kind",
           "has_password",
-          "unlocked"
+          "unlocked",
+          "files"
         ],
         "type": "object"
       },
@@ -594,6 +763,109 @@ expression: document
         ],
         "type": "string"
       },
+      "RemovedSharesResponse": {
+        "description": "How many shares an operation ended.",
+        "properties": {
+          "removed": {
+            "description": "How many were still live and are now finished.\n\nThe bytes go as the reaper reaches them, so this number is not how much\nspace came back yet.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "type": "object"
+      },
+      "RoleRequest": {
+        "description": "Body of `POST /admin/roles` and `PUT /admin/roles/{id}`.",
+        "properties": {
+          "description": {
+            "description": "What it is for.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "description": "What to call it.",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "Everything it should allow, as `resource:verb` strings.\n\nThe whole set, not a change to it. Two operators editing the same role\nfrom two screens cannot interleave their edits into a set neither of\nthem chose — the last one to press save wins, visibly.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "permissions"
+        ],
+        "type": "object"
+      },
+      "RoleResponse": {
+        "description": "One role, as the API describes it.",
+        "properties": {
+          "created_at": {
+            "description": "When it was created, RFC 3339.",
+            "type": "string"
+          },
+          "description": {
+            "description": "What it is for, in the operator's own words.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "description": "Stable identifier.",
+            "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
+            "type": "string"
+          },
+          "is_system": {
+            "description": "Whether it is one of the two the instance was seeded with.\n\nThose cannot be deleted — an instance whose administrator role has been\nremoved has nobody who can create one. They can still be edited.",
+            "type": "boolean"
+          },
+          "members": {
+            "description": "How many accounts are in it.\n\nThe number an operator wants before editing one: changing a role that\nnobody holds is free, and changing one that forty people hold is not.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "name": {
+            "description": "What an operator types and reads.",
+            "example": "auditor",
+            "type": "string"
+          },
+          "permissions": {
+            "description": "What it allows, as `resource:verb` strings.",
+            "example": [
+              "users:read"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updated_at": {
+            "description": "When its permissions last changed, RFC 3339.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "is_system",
+          "permissions",
+          "members",
+          "created_at",
+          "updated_at"
+        ],
+        "type": "object"
+      },
       "ServiceStatus": {
         "description": "Where the process is in its lifecycle.\n\nLoad balancers and `docker healthcheck` need to distinguish \"still migrating\"\nfrom \"draining\" from \"healthy\"; a bare 200/500 cannot express that.",
         "enum": [
@@ -635,7 +907,7 @@ expression: document
             "type": "boolean"
           },
           "ended_reason": {
-            "description": "Why it ended early, if somebody ended it.\n\n`null` means it simply ran out. The values are `signed_out`, `revoked`,\n`password_changed` and `password_reset`.",
+            "description": "Why it ended early, if somebody ended it.\n\n`null` means it simply ran out. The values are `signed_out`, `revoked`,\n`password_changed`, `password_reset` and `account_disabled`.",
             "example": "revoked",
             "type": [
               "string",
@@ -671,6 +943,21 @@ expression: document
         "format": "binary",
         "type": "string"
       },
+      "ShareEventRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /shares/{code}/events`.",
+        "properties": {
+          "kind": {
+            "description": "What happened: `view` or `copy`.\n\nRetrieval is deliberately not one of these — see [`record_event`].",
+            "example": "view",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "type": "object"
+      },
       "ShareResponse": {
         "description": "A share as the API describes it. Never carries the content.",
         "properties": {
@@ -678,6 +965,12 @@ expression: document
             "description": "The retrieval code, as a person reads it.",
             "example": "0ZPQ4M7K",
             "type": "string"
+          },
+          "copy_count": {
+            "description": "How many times a client reported it being copied.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
           },
           "created_at": {
             "description": "When it was created, RFC 3339.",
@@ -690,12 +983,12 @@ expression: document
               "null"
             ]
           },
-          "filename": {
-            "description": "Original file name.",
-            "type": [
-              "string",
-              "null"
-            ]
+          "files": {
+            "description": "Every file this share holds. Empty for text and for a locked share.",
+            "items": {
+              "$ref": "#/components/schemas/SharedFile"
+            },
+            "type": "array"
           },
           "has_password": {
             "description": "Whether a password must be presented to retrieve it.",
@@ -713,6 +1006,13 @@ expression: document
           },
           "language": {
             "description": "Syntax-highlighting hint.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "last_accessed_at": {
+            "description": "When it was last retrieved, RFC 3339.\n\nThe answer to the question somebody actually asks of their own share:\nhas the person I sent this to picked it up yet?",
             "type": [
               "string",
               "null"
@@ -745,7 +1045,7 @@ expression: document
             ]
           },
           "use_count": {
-            "description": "How many times it has been retrieved.",
+            "description": "How many times it has been retrieved.\n\nCounted by the server on the transfer path, so it is the number to\ntrust — the two below are what a client told us.",
             "format": "int32",
             "minimum": 0,
             "type": "integer"
@@ -758,6 +1058,12 @@ expression: document
               "integer",
               "null"
             ]
+          },
+          "view_count": {
+            "description": "How many times a client reported showing it.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
           }
         },
         "required": [
@@ -765,10 +1071,43 @@ expression: document
           "code",
           "path",
           "kind",
+          "files",
           "size_bytes",
           "has_password",
           "use_count",
+          "view_count",
+          "copy_count",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "SharedFile": {
+        "description": "One file in a share, as the API describes it.",
+        "properties": {
+          "filename": {
+            "description": "What it was uploaded as.",
+            "example": "holiday.jpg",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "position": {
+            "description": "Its position in the share, from zero.\n\nSent rather than left to the array's order: a client that sorts or\nfilters the list still has the uploader's order to put it back in.",
+            "format": "int32",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "size_bytes": {
+            "description": "How many bytes it holds.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "position",
+          "size_bytes"
         ],
         "type": "object"
       },
@@ -783,6 +1122,12 @@ expression: document
           },
           "administrators": {
             "description": "How many of those administer the instance.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "bytes_served": {
+            "description": "How many bytes this instance has sent out.\n\nBytes that left the process, not bytes that reached anybody — a proxy in\nfront holds some, and a caching CDN answers requests this never sees.\nFor what crossed the network, a reverse proxy's own log is the authority.\n\nCounted over the shares still here: a swept share takes its tally with\nit, so this falls when one goes.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -827,6 +1172,7 @@ expression: document
           "shares",
           "live_shares",
           "stored_bytes",
+          "bytes_served",
           "live_invites"
         ],
         "type": "object"
@@ -895,6 +1241,16 @@ expression: document
             "example": "backup script",
             "type": "string"
           },
+          "permissions": {
+            "description": "What it may do, as `resource:verb` strings.\n\nWhat it was minted with, not what it can do right now — those differ\nwhen the owner has since been demoted, and the owner is who this list is\nfor. Sending the narrowed set instead would make a token look as though\nit had been quietly edited.",
+            "example": [
+              "shares:create"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "revoked_at": {
             "description": "When it was revoked, if it was.",
             "type": [
@@ -907,7 +1263,44 @@ expression: document
           "id",
           "name",
           "display_prefix",
+          "permissions",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "UpdateAccountRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PATCH /account`.",
+        "properties": {
+          "current_password": {
+            "description": "The password in force now.\n\nRequired even though the caller is signed in. An unlocked browser left\non a desk is otherwise enough to move the account's address to one the\nfinder controls, and from there the reset flow hands them the account.",
+            "maxLength": 1024,
+            "minLength": 8,
+            "type": "string"
+          },
+          "email": {
+            "description": "A new address, or omitted to keep the current one.\n\nChanging it clears the verification: the new address has not been proven\nreachable, and carrying the old flag over would mean an unverified\naddress wearing a verified one's badge.",
+            "example": "alice@example.com",
+            "format": "email",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "username": {
+            "description": "A new name, or omitted to keep the current one.",
+            "example": "alice",
+            "maxLength": 32,
+            "minLength": 3,
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "current_password"
         ],
         "type": "object"
       },
@@ -918,10 +1311,33 @@ expression: document
           "is_admin": {
             "description": "Whether this account administers the instance.",
             "type": "boolean"
+          },
+          "state": {
+            "description": "`active` to let it in, `disabled` to suspend it.\n\nOmitted leaves it as it is. `deleted` is refused here — removing an\naccount scrubs it, and that is `DELETE` rather than a field on a patch.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "required": [
           "is_admin"
+        ],
+        "type": "object"
+      },
+      "UserRolesRequest": {
+        "description": "Body of `PUT /admin/users/{id}/roles`.",
+        "properties": {
+          "roles": {
+            "description": "The roles this account should be in. The whole list, not a change to it.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles"
         ],
         "type": "object"
       }
@@ -948,6 +1364,141 @@ expression: document
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/account": {
+      "delete": {
+        "description": "# Why the shares are the caller's decision and not an administrator's\n\nThey are the person's own uploads. An administrator removing somebody else\ndoes not touch their content — that is a separate, explicit act — but\nsomebody removing themselves is entitled to say what happens to what they\nsent.\n\n# Errors\n\n`401` when the password is wrong, `403` when an API token was used or the\ncaller is the last one able to administer the instance.",
+        "operationId": "delete_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The account is gone"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in, or the password is wrong"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Nobody would be left to administer the instance"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes the caller's own account.",
+        "tags": [
+          "auth"
+        ]
+      },
+      "patch": {
+        "description": "# Errors\n\n`400` when a value fails its rule, `401` when the password is wrong, `403`\nwhen an API token was used, `409` when the name or address is taken.",
+        "operationId": "update_account",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAccountRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountResponse"
+                }
+              }
+            },
+            "description": "The account as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A value is not usable"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in, or the password is wrong"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The name or address is taken"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Changes the caller's own name or address.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/admin/invites": {
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",
@@ -1144,6 +1695,526 @@ expression: document
         ]
       }
     },
+    "/api/v1/admin/permissions": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read roles\nor used a bearer token, `404` when this instance has no administration.",
+        "operationId": "list_permissions",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PermissionResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Every permission this version has"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read roles, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists every permission this version has.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/roles": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read roles\nor used a bearer token, `404` when this instance has no administration.",
+        "operationId": "list_roles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RoleResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Every role on this instance"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read roles, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists every role, by name.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "post": {
+        "description": "# Why a caller cannot grant what they do not hold\n\nOtherwise `roles:write` is every permission: somebody holding only that\ncould mint a role granting `users:delete`, put themselves in it, and have\nit. The check makes `roles:write` mean \"may hand out what I have\" rather\nthan \"may hand out anything\".\n\n# Errors\n\n`400` when the name or a permission is not usable, `401` when nothing was\nsigned in, `403` when the caller may not write roles, used a bearer token,\nor asked for a permission they do not hold, `409` when the name is taken,\n`404` when this instance has no administration.",
+        "operationId": "create_role",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            },
+            "description": "The role as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The name or a permission is not usable"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not write roles, used an API token, or asked for a permission not held"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A role already has that name"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Creates a role.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/roles/{id}": {
+      "delete": {
+        "description": "Anybody in it stops being in it, which can leave somebody in no role at all\n— signed in and allowed nothing. That is a real state and not an error; the\nlisting shows how many people it would affect.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write roles\nor used a bearer token, `404` when no role has that identifier, `409` when\nit is a seeded role or the last one able to administer the instance.",
+        "operationId": "delete_role",
+        "parameters": [
+          {
+            "description": "Which role",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is gone"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not write roles, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such role"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A seeded role, or nobody would be left to administer the instance"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes a role.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "description": "# Errors\n\n`400` when the name or a permission is not usable, `401` when nothing was\nsigned in, `403` when the caller may not write roles, used a bearer token,\nor asked for a permission they do not hold, `404` when no role has that\nidentifier, `409` when the name is taken or the change would leave nobody\nable to administer the instance.",
+        "operationId": "update_role",
+        "parameters": [
+          {
+            "description": "Which role",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoleResponse"
+                }
+              }
+            },
+            "description": "The role as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The name or a permission is not usable"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not write roles, used an API token, or asked for a permission not held"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such role"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The name is taken, or nobody would be left to administer the instance"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Replaces what a role allows.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/shares": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read every\nshare or used a bearer token, `404` when this instance has no\nadministration.",
+        "operationId": "list_all_shares",
+        "parameters": [
+          {
+            "description": "How many to return. Capped, and defaulted when omitted.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "How many to skip.",
+            "in": "path",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminSharePage"
+                }
+              }
+            },
+            "description": "A page of shares"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists every share on the instance, newest first.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/shares/{id}": {
+      "delete": {
+        "description": "# Why this exists\n\nThe ordinary delete route asks whether the caller owns the share. An upload\nfrom an account that has since been deleted is owned by nobody, so nothing\ncould remove it — it kept serving its content, kept its place in the storage\nquota, and was never swept if it had no expiry and no use limit. This is the\nonly way to reach one.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no share has that identifier.",
+        "operationId": "delete_any_share",
+        "parameters": [
+          {
+            "description": "Which share",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "It is gone"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not delete every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such share"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Removes any share, whoever uploaded it.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
     "/api/v1/admin/stats": {
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",
@@ -1205,6 +2276,17 @@ expression: document
       "get": {
         "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when this instance has no\nadministration.",
         "operationId": "list_users",
+        "parameters": [
+          {
+            "description": "Include accounts that have been deleted.\n\nOff by default: what is left of one identifies nobody and cannot be\nacted on, so it belongs in an answer somebody asked for rather than in\nevery listing.",
+            "in": "path",
+            "name": "include_deleted",
+            "required": true,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -1413,6 +2495,162 @@ expression: document
           }
         ],
         "summary": "Grants or removes the administrator flag.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/roles": {
+      "put": {
+        "description": "# Errors\n\n`400` when a role identifier is not one, `401` when nothing was signed in,\n`403` when the caller may not write roles, used a bearer token, or would be\ngranting a permission they do not hold, `404` when no such account or role,\n`409` when it would leave nobody able to administer the instance.",
+        "operationId": "set_user_roles",
+        "parameters": [
+          {
+            "description": "Which account",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRolesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminUserResponse"
+                }
+              }
+            },
+            "description": "The account as it now stands"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not write roles, used an API token, or would grant a permission not held"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such account or role"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Nobody would be left to administer the instance"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Puts an account in exactly these roles.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{id}/shares": {
+      "delete": {
+        "description": "# Why this is not part of deleting the account\n\nRemoving somebody and destroying what they uploaded are different acts. An\noperator clearing space wants this and not that; one removing a person who\nhas left wants that and not this. Welding them together would make one of\nthose two impossible and the other a surprise.\n\nIt works on an account in any state, including one still in use — an\noperator reclaiming space from somebody who is still here should not have to\nsuspend them first.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no account has that identifier.",
+        "operationId": "remove_user_shares",
+        "parameters": [
+          {
+            "description": "Whose shares to end",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedSharesResponse"
+                }
+              }
+            },
+            "description": "How many were ended"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not delete every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No account has that id"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Ends every share one account uploaded.",
         "tags": [
           "admin"
         ]
@@ -2081,6 +3319,16 @@ expression: document
               }
             },
             "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The credential does not carry `shares:read`"
           }
         },
         "security": [
@@ -2216,6 +3464,16 @@ expression: document
               }
             },
             "description": "This instance requires an account to upload"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The credential does not carry `shares:create`"
           },
           "413": {
             "content": {
@@ -2386,6 +3644,183 @@ expression: document
           }
         },
         "summary": "Describes a share without spending one of its retrievals.",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/api/v1/shares/{code}/events": {
+      "post": {
+        "description": "# Why retrieval is not accepted here\n\n`use_count` is a limit. A client that could report its own retrievals would\nbe a client deciding whether the limit applied, and one `curl` at\n`/s/{code}/raw` would walk past it. The server counts that itself, on the\ntransfer path, where it cannot be skipped.\n\nThese two are the opposite case: nothing reaches the server when somebody\nreads a note on screen or presses a copy button, so a client is the only\nthing that can see them at all. The price is that anybody who can call this\ncan inflate them, which is tolerable precisely because nothing depends on\nthem.\n\n# Why it does not say whether the share exists\n\n`204` whatever happens, including for a code that names nothing. Answering\n`404` would make an unauthenticated endpoint into a way to ask which codes\nare real — the same oracle the retrieval throttle exists to close, reached\nthrough a door nobody was watching.\n\n# Errors\n\n`400` when `kind` is not one of the two, `429` when the source is asking too\noften.",
+        "operationId": "record_share_event",
+        "parameters": [
+          {
+            "description": "The share's retrieval code",
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShareEventRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Recorded, or the code names nothing"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`kind` is not `view` or `copy`"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many events from this source"
+          }
+        },
+        "security": [
+          {}
+        ],
+        "summary": "Records something a client saw that the server could not.",
+        "tags": [
+          "shares"
+        ]
+      }
+    },
+    "/api/v1/shares/{code}/files": {
+      "post": {
+        "description": "# Why files arrive one at a time\n\nOne request carrying five files is one request that loses five when it drops\nat the fourth — which is the case somebody uploading a folder of photographs\non a home connection hits, not a theoretical one. A file that fails here is\nretried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an upload interrupted\nhalf way leaves a share holding what did arrive rather than nothing at all.\n\nThe cost is that somebody who opened the link during the upload would see\npart of it. The link is handed out after the upload, by the person doing it.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when the instance is out of room.",
+        "operationId": "add_share_file",
+        "parameters": [
+          {
+            "description": "The share to add to",
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "What to call this file.",
+            "example": "holiday.jpg",
+            "in": "query",
+            "name": "filename",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "items": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "description": "The file",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            },
+            "description": "The share as it now stands"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not yours"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such share"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That share holds text"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Body exceeds the configured limit"
+          },
+          "507": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance is out of room"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Adds another file to a share.",
         "tags": [
           "shares"
         ]

@@ -3,19 +3,52 @@
 mod common;
 
 use axum::{
-    body::Body,
+    body::{Body, to_bytes},
     http::{Method, Request, StatusCode, header},
 };
 use common::{Auth, TestApp, body_json, body_string, expect_status, share_repository_round_trip};
 use futures_util::TryStreamExt as _;
 use object_store::{ObjectStore as _, ObjectStoreExt as _};
 use sea_orm::ConnectionTrait as _;
+use tessera_server::db::repository::share::{Content, StorageLocation};
 use time::OffsetDateTime;
 use tower::ServiceExt as _;
 
 #[tokio::test]
 async fn shares_round_trip_through_the_repository() {
     share_repository_round_trip(&TestApp::ready().await, "SQ").await;
+}
+
+/// The first file's object key, for a test that wants to reach into the store.
+fn first_key(content: &Content) -> Option<&str> {
+    content
+        .files()
+        .first()
+        .and_then(|file| file.storage.object_key())
+}
+
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+/// Where a share's content is, as the tables that own it say.
+///
+/// The columns these used to read came off `shares` — the subtype tables own
+/// them now, so a test asking "where did the bytes go" asks the same way the
+/// program does.
+async fn content_of(app: &TestApp, id: tessera_core::ShareId) -> Content {
+    let share = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    app.state
+        .shares
+        .content_of(&share)
+        .await
+        .expect("read the content details")
 }
 
 /// Posts a body and returns the created share.
@@ -35,7 +68,7 @@ async fn upload(app: &TestApp, query: &str, body: &[u8]) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn a_small_share_is_kept_in_the_database() {
+async fn text_is_kept_in_the_database() {
     let app = TestApp::ready().await;
     let content = b"const foo = \"bar\";\n";
 
@@ -49,20 +82,23 @@ async fn a_small_share_is_kept_in_the_database() {
     );
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
+    let stored = content_of(&app, id).await;
+    let Content::Text(text) = &stored else {
+        panic!("text belongs in its own table, got {stored:?}");
+    };
     assert_eq!(
-        stored.storage,
-        tessera_server::db::repository::share::StorageLocation::Inline
+        text.size_bytes,
+        u64::try_from(content.len()).expect("a size")
     );
     assert_eq!(
-        app.state.shares.inline_content(id).await.expect("query"),
-        Some(content.to_vec())
+        app.state
+            .shares
+            .text_of(id)
+            .await
+            .expect("query")
+            .expect("text lives in its own table")
+            .content,
+        content.to_vec()
     );
 }
 
@@ -70,7 +106,7 @@ async fn a_small_share_is_kept_in_the_database() {
 /// blob store rather than into a column, and they get there without the body
 /// ever being held whole.
 #[tokio::test]
-async fn a_large_share_is_streamed_to_the_blob_store() {
+async fn a_file_is_streamed_to_the_blob_store() {
     let app = TestApp::with_config(|config| {
         config.share.inline_threshold_bytes = 1024;
     })
@@ -82,30 +118,17 @@ async fn a_large_share_is_streamed_to_the_blob_store() {
     assert_eq!(share["size_bytes"], content.len());
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("the share");
-    let key = stored
-        .storage
-        .object_key()
-        .unwrap_or_else(|| panic!("expected object storage, got {:?}", stored.storage))
+    let stored = content_of(&app, id).await;
+    let key = first_key(&stored)
+        .unwrap_or_else(|| panic!("expected object storage, got {stored:?}"))
         .to_owned();
     assert!(
         key.starts_with("shares/") && key.ends_with(&id.to_string()),
         "keys are sharded by date: {key}"
     );
     assert!(
-        app.state
-            .shares
-            .inline_content(id)
-            .await
-            .expect("query")
-            .is_none(),
-        "an object-backed share must not also occupy a content row"
+        app.state.shares.text_of(id).await.expect("query").is_none(),
+        "a file has no text row"
     );
 
     let fetched = app
@@ -185,17 +208,9 @@ async fn deleting_a_share_removes_its_object_too() {
     let code = share["code"].as_str().expect("code").to_owned();
 
     let id = tessera_core::ShareId::parse(share["id"].as_str().expect("id")).expect("id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("query")
-        .expect("share");
-    let key = stored
-        .storage
-        .object_key()
-        .unwrap_or_else(|| panic!("expected object storage, got {:?}", stored.storage))
+    let stored = content_of(&app, id).await;
+    let key = first_key(&stored)
+        .unwrap_or_else(|| panic!("expected object storage, got {stored:?}"))
         .to_owned();
 
     expect_status(
@@ -1402,7 +1417,12 @@ async fn reaping_an_inline_share_actually_frees_the_database() {
     );
     // …so they had better actually be.
     assert_eq!(
-        app.state.shares.inline_content(id).await.expect("a lookup"),
+        app.state
+            .shares
+            .text_of(id)
+            .await
+            .expect("a lookup")
+            .map(|t| t.content),
         None,
         "the quota released this content, so the database must have too"
     );
@@ -1544,18 +1564,8 @@ async fn a_share_whose_object_already_vanished_is_still_reaped() {
 
     // Somebody cleaned the bucket out from under us.
     let id: tessera_core::ShareId = share["id"].as_str().expect("an id").parse().expect("an id");
-    let stored = app
-        .state
-        .shares
-        .find_by_id(id)
-        .await
-        .expect("a lookup")
-        .expect("the share");
-    let key = stored
-        .storage
-        .object_key()
-        .expect("an object key")
-        .to_owned();
+    let stored = content_of(&app, id).await;
+    let key = first_key(&stored).expect("an object key").to_owned();
     app.state
         .storage
         .delete(&object_store::path::Path::from(key))
@@ -1857,4 +1867,464 @@ async fn deleting_a_share_takes_its_files() {
             .expect("query")
             .is_empty()
     );
+}
+
+/// A text share writes its content to `text_shares` as well. Same reasoning as
+/// `file_shares`: the table has to be true from the first row, and the readers
+/// move over separately.
+#[tokio::test]
+async fn a_text_share_records_its_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?language=rust", b"fn main() {}").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    let text = app
+        .state
+        .shares
+        .text_of(id)
+        .await
+        .expect("query")
+        .expect("the text");
+    assert_eq!(text.content, b"fn main() {}");
+    assert_eq!(text.language.as_deref(), Some("rust"));
+}
+
+/// A file share gets no text row, the same way a text share gets no file row.
+#[tokio::test]
+async fn a_file_share_records_no_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "?filename=data.bin", b"\x00\x01\x02").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    assert!(app.state.shares.text_of(id).await.expect("query").is_none());
+}
+
+/// Deleting a share takes its text with it, by the same foreign key.
+#[tokio::test]
+async fn deleting_a_share_takes_its_text() {
+    let app = TestApp::ready().await;
+    let created = upload(&app, "", b"a note").await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    app.state.shares.delete(id).await.expect("delete");
+    assert!(app.state.shares.text_of(id).await.expect("query").is_none());
+}
+
+/// The rule this instance follows is about what the content is, not how much of
+/// it there is. Nine bytes with a filename is a file, and a file is an object —
+/// so somebody looking for an upload finds it in one place, and a backup covers
+/// it by covering the store.
+#[tokio::test]
+async fn even_a_tiny_file_becomes_an_object() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=tiny.bin", b"nine byte").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = content_of(&app, id).await;
+    let key =
+        first_key(&stored).unwrap_or_else(|| panic!("expected object storage, got {stored:?}"));
+
+    let bytes = app
+        .state
+        .storage
+        .get(&object_store::path::Path::from(key))
+        .await
+        .expect("fetch")
+        .bytes()
+        .await
+        .expect("read");
+    assert_eq!(bytes.as_ref(), b"nine byte");
+}
+
+/// And text never leaves the database, however close to the limit it gets.
+#[tokio::test]
+async fn text_stays_in_the_database_at_any_size() {
+    let app = TestApp::ready().await;
+    // Well past the old inline threshold, which no longer decides anything.
+    let content = "x".repeat(200 * 1024);
+    let share = upload(&app, "", content.as_bytes()).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = content_of(&app, id).await;
+    assert!(
+        first_key(&stored).is_none(),
+        "text must not reach the object store, got {stored:?}"
+    );
+    assert_eq!(
+        app.state
+            .shares
+            .text_of(id)
+            .await
+            .expect("query")
+            .expect("the text")
+            .content
+            .len(),
+        content.len()
+    );
+}
+
+/// Text is held whole in memory and stored whole as a row, so there has to be a
+/// point where the answer is "that is a file". Refused as it arrives rather than
+/// after the whole thing has been read.
+#[tokio::test]
+async fn text_past_the_limit_is_refused_and_says_what_to_do() {
+    let app = TestApp::with_config(|config| {
+        config.share.max_text_bytes = 4096;
+    })
+    .await;
+
+    let response = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares"),
+            Body::from("x".repeat(8192)),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .expect("a message")
+            .contains("as a file"),
+        "the message has to say what to do instead, got {}",
+        body["message"]
+    );
+}
+
+/// The same content with a filename is a file, and files have no such limit.
+#[tokio::test]
+async fn the_same_bytes_as_a_file_are_accepted() {
+    let app = TestApp::with_config(|config| {
+        config.share.max_text_bytes = 4096;
+    })
+    .await;
+
+    let share = upload(&app, "?filename=big.txt", "x".repeat(8192).as_bytes()).await;
+    assert_eq!(share["kind"], "file");
+}
+
+/// A share whose content has been reaped says so.
+///
+/// The reaper marks `file_shares` as gone once the object is deleted. Leaving
+/// it pointing at the object would mean a reader that slipped past the gate
+/// asking the store for something that is not there.
+#[tokio::test]
+async fn a_reaped_share_reads_as_gone_from_the_new_table_as_well() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=doomed.bin", b"bytes").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    app.state
+        .shares
+        .mark_content_removed(id)
+        .await
+        .expect("mark it removed");
+
+    // The row survives — it is the record of what was removed — but it stops
+    // naming an object, which is what stops a reader asking the store for one.
+    let content = content_of(&app, id).await;
+    let file = content.single_file().expect("the row is still there");
+    assert_eq!(
+        file.storage,
+        StorageLocation::Gone,
+        "a reaped file must not still point at its object"
+    );
+}
+
+/// The two a client can report, and the one it cannot.
+#[tokio::test]
+async fn a_client_may_report_a_view_but_not_a_retrieval() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=note.txt", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    for kind in ["view", "copy", "view"] {
+        assert_eq!(
+            app.json(
+                Method::POST,
+                &format!("/api/v1/shares/{code}/events"),
+                Auth::None,
+                &serde_json::json!({ "kind": kind }),
+            )
+            .await
+            .status(),
+            StatusCode::NO_CONTENT,
+            "{kind}"
+        );
+    }
+
+    // A retrieval is a limit, so reporting one is refused rather than ignored —
+    // a client that got this wrong should hear about it.
+    assert_eq!(
+        app.json(
+            Method::POST,
+            &format!("/api/v1/shares/{code}/events"),
+            Auth::None,
+            &serde_json::json!({ "kind": "download" }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST
+    );
+
+    let stored = app
+        .state
+        .shares
+        .find_by_code(&tessera_core::RetrievalCode::parse(&code).expect("a code"))
+        .await
+        .expect("query")
+        .expect("the share");
+    assert_eq!(stored.view_count, 2);
+    assert_eq!(stored.copy_count, 1);
+    assert_eq!(stored.use_count, 0, "none of that was a retrieval");
+}
+
+/// An unauthenticated endpoint must not become a way to ask which codes exist.
+#[tokio::test]
+async fn reporting_against_an_unknown_code_says_nothing() {
+    let app = TestApp::ready().await;
+    let real = upload(&app, "?filename=note.txt", b"hello").await;
+    let real_code = real["code"].as_str().expect("a code").to_owned();
+
+    let answer_for_real = app
+        .json(
+            Method::POST,
+            &format!("/api/v1/shares/{real_code}/events"),
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await
+        .status();
+    let answer_for_nothing = app
+        .json(
+            Method::POST,
+            "/api/v1/shares/ZZZZZZZZZZ/events",
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await
+        .status();
+    let answer_for_nonsense = app
+        .json(
+            Method::POST,
+            "/api/v1/shares/not-a-code/events",
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await
+        .status();
+
+    assert_eq!(answer_for_real, StatusCode::NO_CONTENT);
+    assert_eq!(answer_for_nothing, answer_for_real);
+    assert_eq!(answer_for_nonsense, answer_for_real);
+}
+
+/// The uploader's own listing carries the numbers, and says which to trust.
+#[tokio::test]
+async fn the_uploader_sees_the_counts_on_their_own_share() {
+    let app = TestApp::ready().await;
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "counter",
+                "email": "counter@example.com",
+                "password": "a perfectly adequate passphrase",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let session = common::session_cookie(&response);
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=mine.bin")
+                    .header(header::COOKIE, &session),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::POST,
+            &format!("/api/v1/shares/{code}/events"),
+            Auth::None,
+            &serde_json::json!({ "kind": "view" }),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+    expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let listed = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/shares", Auth::Cookie(&session))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let mine = listed
+        .as_array()
+        .expect("a list")
+        .first()
+        .expect("the share");
+    assert_eq!(mine["view_count"], 1);
+    assert_eq!(mine["copy_count"], 0);
+    assert_eq!(mine["use_count"], 1, "the server counted the retrieval");
+    assert!(
+        mine["last_accessed_at"].is_string(),
+        "has anybody picked it up yet"
+    );
+}
+
+/// What a share sent is counted as it goes, not assumed from its size.
+#[tokio::test]
+async fn a_completed_download_counts_what_it_sent() {
+    let app = TestApp::ready().await;
+    let content = vec![7u8; 40 * 1024];
+    let share = upload(&app, "?filename=big.bin", &content).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let served = || async {
+        app.state
+            .shares
+            .find_by_id(id)
+            .await
+            .expect("query")
+            .expect("the share")
+            .bytes_served
+    };
+    assert_eq!(served().await, 0);
+
+    for _ in 0..2 {
+        let response = expect_status(
+            app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+                .await,
+            StatusCode::OK,
+        )
+        .await;
+        // The body has to be consumed for anything to have been sent.
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("read");
+        assert_eq!(body.len(), content.len());
+    }
+
+    // The write is spawned from the body being dropped, so it lands just after.
+    for _ in 0..50 {
+        if served().await == u64::try_from(content.len() * 2).expect("a size") {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert_eq!(
+        served().await,
+        u64::try_from(content.len() * 2).expect("a size"),
+        "two whole downloads"
+    );
+}
+
+/// every time somebody clicked and changed their mind.
+#[tokio::test]
+async fn an_abandoned_download_counts_only_what_left() {
+    use http_body::Body as _;
+
+    let app = TestApp::ready().await;
+    let content = vec![7u8; 512 * 1024];
+    let share = upload(&app, "?filename=big.bin", &content).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let response = expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    let mut body = response.into_body();
+    let mut taken = 0usize;
+    // One frame, then walk away.
+    if let Some(Ok(frame)) =
+        std::future::poll_fn(|cx| std::pin::Pin::new(&mut body).poll_frame(cx)).await
+        && let Some(data) = frame.data_ref()
+    {
+        taken = data.len();
+    }
+    drop(body);
+
+    let served = || async {
+        app.state
+            .shares
+            .find_by_id(id)
+            .await
+            .expect("query")
+            .expect("the share")
+            .bytes_served
+    };
+    for _ in 0..50 {
+        if served().await > 0 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+
+    let counted = served().await;
+    assert_eq!(
+        counted,
+        u64::try_from(taken).expect("a size"),
+        "only what actually left"
+    );
+    assert!(
+        counted < u64::try_from(content.len()).expect("a size"),
+        "the whole file must not be counted: {counted} of {}",
+        content.len()
+    );
+}
+
+/// The columns are gone, so nothing can disagree with the subtype tables.
+///
+/// This replaces the pair that used to prove the readers had switched: one made
+/// `shares` say the wrong name and checked the response said the right one, the
+/// other checked a share with no subtype row still worked. Neither is
+/// expressible now — there is no second copy to be wrong, and no fallback to
+/// fall back to. What is left worth asserting is that the one remaining source
+/// answers.
+#[tokio::test]
+async fn a_shares_details_come_from_the_table_that_owns_them() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?filename=holiday.jpg", b"0123456789").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let content = content_of(&app, id).await;
+    let file = content.single_file().expect("one file");
+    assert_eq!(file.filename.as_deref(), Some("holiday.jpg"));
+    assert_eq!(file.size_bytes, 10);
+
+    // And the only row carrying that is the one on `file_shares`.
+    let files = app.state.shares.files_of(id).await.expect("query");
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0].filename.as_deref(), Some("holiday.jpg"));
 }

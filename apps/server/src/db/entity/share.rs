@@ -1,8 +1,8 @@
 //! The `shares` table, as SeaORM sees it.
 //!
-//! Deliberately narrow: this is read on every public request, so the content
-//! bytes live in `share_contents` (or the blob store) rather than here. See the
-//! migration SQL for why the split is by size rather than by kind.
+//! Deliberately narrow: this is read on every public request, so what a share
+//! holds lives in `text_shares` and `file_shares` rather than here. `kind` says
+//! which of the two to read.
 
 use sea_orm::entity::prelude::*;
 
@@ -34,19 +34,6 @@ pub struct Model {
 
     /// Display name, shown on the share page and in the OG image.
     pub title: Option<String>,
-    /// Original file name, for `Content-Disposition`.
-    pub filename: Option<String>,
-    /// The media type the uploader claimed. Recorded, never echoed.
-    pub content_type: Option<String>,
-    /// Syntax-highlighting hint for a text share.
-    pub language: Option<String>,
-    /// Size of the content in bytes.
-    pub size_bytes: i64,
-
-    /// `inline` or `object`.
-    pub storage: String,
-    /// Key in the blob store, when `storage` is `object`.
-    pub object_key: Option<String>,
 
     /// JSON describing how to draw the OG image.
     pub og_config: Option<String>,
@@ -55,6 +42,10 @@ pub struct Model {
     /// How many times the share page was looked at. Statistics only — the number
     /// that gates access is `use_count`.
     pub view_count: i32,
+    /// How many times the content was copied.
+    pub copy_count: i32,
+    /// How many bytes this share has sent out. See the migration.
+    pub bytes_served: i64,
     /// When the share was last touched, used to decide what is worth keeping.
     pub last_accessed_at: Option<TimeDateTimeWithTimeZone>,
 

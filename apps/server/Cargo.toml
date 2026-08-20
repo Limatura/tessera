@@ -219,6 +219,16 @@ bytes = "1"
 # time. The alternative is `futures-util` for `StreamExt::next`, which is a much
 # larger crate for one method — this one is a thin layer over the `http-body`
 # traits axum already uses.
+# Writing the archive stream as a loop rather than a hand-rolled state machine.
+# The nested "for each file, for each chunk" shape is what `unfold` makes
+# unreadable.
+async-stream = "0.3"
+# `StreamExt::next`, for walking the object store's chunks while building an
+# archive. `futures-util` would do it too and is deliberately not a dependency
+# of the server — see the note on `http-body-util`; this one is already in the
+# tree through tokio.
+tokio-stream = "0.1"
+http-body = "1"
 http-body-util = "0.1"
 ulid = { workspace = true }
 time = { workspace = true }
@@ -237,6 +247,7 @@ figment = { version = "0.10", features = ["test"] }
 # Only the tests need to drain a stream — `object_store::list` returns one. The
 # server itself deliberately avoids this crate; see the `http-body-util` note.
 futures-util = "0.3"
+http-body = "1"
 http-body-util = "0.1"
 insta = { version = "1.48", features = ["json", "redactions"] }
 proptest = "1.11"

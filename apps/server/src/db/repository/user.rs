@@ -18,12 +18,15 @@
 
 use sea_orm::{
     ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
-    QueryFilter as _, QueryOrder as _,
+    QueryFilter as _, QueryOrder as _, TransactionTrait as _,
 };
-use tessera_core::{DomainError, EmailAddress, UserId, Username};
+use tessera_core::{AccountState, DomainError, EmailAddress, RoleId, UserId, Username};
 use time::OffsetDateTime;
 
-use crate::db::entity::user::{self, Entity as UserEntity};
+use crate::db::entity::{
+    user::{self, Entity as UserEntity},
+    user_role::{self, Entity as UserRoleEntity},
+};
 
 /// An account, in domain terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,6 +43,12 @@ pub struct User {
     pub is_admin: bool,
     /// Whether the account must set a new password before doing anything else.
     pub must_change_password: bool,
+    /// Whether the account works, is suspended, or is gone.
+    pub state: AccountState,
+    /// When it was removed, if it was.
+    pub deleted_at: Option<OffsetDateTime>,
+    /// Who removed it — an administrator, or the account itself.
+    pub deleted_by: Option<UserId>,
     /// When the address was proven reachable, if it ever was.
     pub email_verified_at: Option<OffsetDateTime>,
     /// When the account was created.
@@ -78,10 +87,23 @@ impl User {
             // list refuses — so the ordinary parser would declare the one row
             // every instance has to be corrupt.
             username: Username::parse_privileged(&model.username).map_err(fail)?,
-            email: EmailAddress::parse(&model.email).map_err(fail)?,
+            // Privileged, for the same reason the name above is: reading a row
+            // back is not claiming the address. A deleted account's row holds
+            // one at the reserved tombstone domain, and the ordinary parser
+            // refuses that — which is what stops anybody else taking it.
+            email: EmailAddress::parse_privileged(&model.email).map_err(fail)?,
             password_hash: model.password_hash,
             is_admin: model.is_admin,
             must_change_password: model.must_change_password,
+            state: model.state.parse().map_err(fail)?,
+            deleted_at: model.deleted_at,
+            // A `deleted_by` that will not parse is a broken pointer, not a
+            // broken account. Dropping it costs the record of who did it and
+            // keeps the account readable, which is the better of the two.
+            deleted_by: model
+                .deleted_by
+                .as_deref()
+                .and_then(|id| UserId::parse(id).ok()),
             email_verified_at: model.email_verified_at,
             created_at: model.created_at,
             updated_at: model.updated_at,
@@ -97,6 +119,9 @@ impl User {
             password_hash: Set(self.password_hash.clone()),
             is_admin: Set(self.is_admin),
             must_change_password: Set(self.must_change_password),
+            state: Set(self.state.as_str().to_owned()),
+            deleted_at: Set(self.deleted_at),
+            deleted_by: Set(self.deleted_by.map(|id| id.to_string())),
             email_verified_at: Set(self.email_verified_at),
             created_at: Set(self.created_at),
             updated_at: Set(self.updated_at),
@@ -133,16 +158,35 @@ impl UserRepository {
         Self { connection }
     }
 
-    /// Inserts an account.
+    /// Inserts an account, and puts it in a role.
+    ///
+    /// # Why the role is not optional
+    ///
+    /// Roles are the only thing granting anything now, so an account with none
+    /// is signed in and allowed nothing — and it says so through a `403` on
+    /// every request, which reads like a bug rather than like an account that
+    /// was created wrongly. Making the role part of creating an account is what
+    /// stops a future caller producing one by forgetting a second step.
+    ///
+    /// One transaction, so the pair cannot half happen.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the username or address is already
-    /// taken, or the insert otherwise fails.
-    pub async fn insert(&self, user: &User) -> Result<(), UserRepositoryError> {
+    /// taken, or either insert otherwise fails.
+    pub async fn insert(&self, user: &User, role: RoleId) -> Result<(), UserRepositoryError> {
+        let transaction = self.connection.begin().await?;
         UserEntity::insert(user.to_active_model())
-            .exec(&self.connection)
+            .exec(&transaction)
             .await?;
+        UserRoleEntity::insert(user_role::ActiveModel {
+            user_id: Set(user.id.to_string()),
+            role_id: Set(role.to_string()),
+            granted_at: Set(user.created_at),
+        })
+        .exec(&transaction)
+        .await?;
+        transaction.commit().await?;
         Ok(())
     }
 
@@ -207,11 +251,15 @@ impl UserRepository {
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the query fails or a row is not usable.
-    pub async fn list(&self) -> Result<Vec<User>, UserRepositoryError> {
-        let models = UserEntity::find()
-            .order_by_desc(user::Column::CreatedAt)
-            .all(&self.connection)
-            .await?;
+    pub async fn list(&self, include_deleted: bool) -> Result<Vec<User>, UserRepositoryError> {
+        let mut query = UserEntity::find().order_by_desc(user::Column::CreatedAt);
+        if !include_deleted {
+            // Off by default: a deleted account is a row that exists to keep
+            // shares attributable, not a person an operator manages. Left in,
+            // every listing would fill with scrubbed names nobody can act on.
+            query = query.filter(user::Column::State.ne(AccountState::Deleted.as_str()));
+        }
+        let models = query.all(&self.connection).await?;
         models
             .into_iter()
             .map(|model| User::from_model(model).map_err(UserRepositoryError::from))
@@ -227,20 +275,110 @@ impl UserRepository {
         Ok(UserEntity::find().count(&self.connection).await?)
     }
 
-    /// How many accounts administer this instance.
+    /// Changes an account's name, address, or both.
     ///
-    /// Asked before taking the flag off one, or deleting one: an instance with
-    /// no administrator cannot be fixed through the API, only with the CLI
-    /// against the database file.
+    /// Clearing `email_verified_at` when the address moves is the caller's
+    /// decision, not this one's — see the handler, which has the address to
+    /// compare against.
+    ///
+    /// Returns whether the account changed.
     ///
     /// # Errors
     ///
-    /// Returns [`UserRepositoryError`] if the query fails.
-    pub async fn count_admins(&self) -> Result<u64, UserRepositoryError> {
-        Ok(UserEntity::find()
-            .filter(user::Column::IsAdmin.eq(true))
-            .count(&self.connection)
-            .await?)
+    /// Returns [`UserRepositoryError`] if the update fails, including when the
+    /// name or address is already taken.
+    pub async fn rename(
+        &self,
+        id: UserId,
+        username: &Username,
+        email: &EmailAddress,
+        verified_at: Option<OffsetDateTime>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::Username, username.as_str().into())
+            .col_expr(user::Column::Email, email.as_str().into())
+            .col_expr(user::Column::EmailVerifiedAt, verified_at.into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Suspends an account, or lets it back in.
+    ///
+    /// Refuses to touch one that has been deleted: that is not a state anybody
+    /// comes back from, and quietly reactivating a scrubbed row would produce an
+    /// account with a tombstone for a name.
+    ///
+    /// Returns whether the account changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails.
+    pub async fn set_state(
+        &self,
+        id: UserId,
+        state: AccountState,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::State, state.as_str().into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .filter(user::Column::State.ne(AccountState::Deleted.as_str()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Removes an account, leaving a row that says one was here.
+    ///
+    /// # What is left and what is not
+    ///
+    /// The identifier stays, because `shares.user_id` points at it and a share
+    /// whose uploader is gone is a different thing from one nobody uploaded.
+    /// The name and the address are replaced with values that identify nobody,
+    /// which also frees the originals for somebody else. The password hash goes.
+    ///
+    /// # Why the sessions and tokens go too
+    ///
+    /// Authentication already refuses a deleted account, so they would not
+    /// work — but a row that cannot work is a row that has to be explained. The
+    /// login history goes with them, which is the point: it is the most
+    /// identifying thing this service holds about a person.
+    ///
+    /// Returns whether an account was removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails.
+    pub async fn soft_delete(
+        &self,
+        id: UserId,
+        by: UserId,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let (name, email) = tessera_core::tombstone(id);
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::State, AccountState::Deleted.as_str().into())
+            .col_expr(user::Column::Username, name.as_str().into())
+            .col_expr(user::Column::Email, email.as_str().into())
+            // Not emptied: the column is `NOT NULL`, and a value nothing can
+            // ever verify against is what "there is no password here" has to
+            // look like. `verify` treats an unparsable hash as a failure.
+            .col_expr(user::Column::PasswordHash, "".into())
+            .col_expr(user::Column::EmailVerifiedAt, Option::<OffsetDateTime>::None.into())
+            .col_expr(user::Column::MustChangePassword, false.into())
+            .col_expr(user::Column::DeletedAt, now.into())
+            .col_expr(user::Column::DeletedBy, by.to_string().into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .filter(user::Column::State.ne(AccountState::Deleted.as_str()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
     }
 
     /// Grants or removes the administrator flag.
@@ -256,13 +394,52 @@ impl UserRepository {
         is_admin: bool,
         now: OffsetDateTime,
     ) -> Result<bool, UserRepositoryError> {
+        let transaction = self.connection.begin().await?;
         let result = UserEntity::update_many()
+            // Still written, though nothing reads it to decide anything. The
+            // migration deliberately left the column so this version can be
+            // rolled back, and a mirror that stops being updated is worse than
+            // no mirror — it would send a rolled-back instance back to whatever
+            // the flags said the day roles arrived.
             .col_expr(user::Column::IsAdmin, is_admin.into())
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
-            .exec(&self.connection)
+            .exec(&transaction)
             .await?;
-        Ok(result.rows_affected == 1)
+        if result.rows_affected != 1 {
+            transaction.rollback().await?;
+            return Ok(false);
+        }
+
+        // The part that decides anything.
+        //
+        // Both seeded roles come off; `owner` goes back on.
+        //
+        // `false` has to reach an owner or the field cannot demote one. `true`
+        // grants `owner` rather than the lesser `admin` because that is what
+        // this boolean has always meant — everything. Making it mean less would
+        // silently change what an existing client does, and it would break the
+        // one sequence an operator most needs: promote a successor, then step
+        // down. A successor without `roles:write` cannot be stepped down to.
+        //
+        // The narrower `admin` is reached through the role endpoints, which is
+        // where roles belong now.
+        UserRoleEntity::delete_many()
+            .filter(user_role::Column::UserId.eq(id.to_string()))
+            .filter(user_role::Column::RoleId.is_in([RoleId::OWNER, RoleId::ADMIN]))
+            .exec(&transaction)
+            .await?;
+        if is_admin {
+            UserRoleEntity::insert(user_role::ActiveModel {
+                user_id: Set(id.to_string()),
+                role_id: Set(RoleId::OWNER.to_owned()),
+                granted_at: Set(now),
+            })
+            .exec(&transaction)
+            .await?;
+        }
+        transaction.commit().await?;
+        Ok(true)
     }
 
     /// Removes an account.
@@ -328,6 +505,11 @@ fn convert(model: Option<user::Model>) -> Result<Option<User>, UserRepositoryErr
 
 #[cfg(test)]
 mod tests {
+    /// The seeded member role, for tests that only care that an account exists.
+    fn member() -> RoleId {
+        RoleId::parse(RoleId::MEMBER).expect("the seeded id is valid")
+    }
+
     use tessera_core::{DomainError, Password, PasswordPolicy};
 
     use super::*;
@@ -343,6 +525,9 @@ mod tests {
             password_hash: "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
             is_admin: false,
             must_change_password: false,
+            state: AccountState::Active,
+            deleted_at: None,
+            deleted_by: None,
             email_verified_at: None,
             created_at: now,
             updated_at: now,
@@ -367,7 +552,7 @@ mod tests {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
 
-        repository.insert(&user).await.unwrap();
+        repository.insert(&user, member()).await.unwrap();
 
         // Every lookup path must return the same account, with the domain types
         // intact rather than the strings the columns hold.
@@ -413,7 +598,7 @@ mod tests {
     async fn lookup_is_insensitive_to_how_the_name_was_typed() {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
-        repository.insert(&user).await.unwrap();
+        repository.insert(&user, member()).await.unwrap();
 
         let typed = Username::parse("  ALICE ").unwrap();
         assert_eq!(
@@ -426,24 +611,24 @@ mod tests {
     async fn the_unique_index_rejects_a_duplicate_username() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "a@example.com"))
+            .insert(&sample("alice", "a@example.com"), member())
             .await
             .unwrap();
 
         let clash = sample("alice", "different@example.com");
-        assert!(repository.insert(&clash).await.is_err());
+        assert!(repository.insert(&clash, member()).await.is_err());
     }
 
     #[tokio::test]
     async fn the_unique_index_rejects_a_duplicate_email() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "shared@example.com"))
+            .insert(&sample("alice", "shared@example.com"), member())
             .await
             .unwrap();
 
         let clash = sample("bob", "shared@example.com");
-        assert!(repository.insert(&clash).await.is_err());
+        assert!(repository.insert(&clash, member()).await.is_err());
     }
 
     #[tokio::test]
@@ -451,7 +636,7 @@ mod tests {
         let repository = repository().await;
         assert!(!repository.any_exist().await.unwrap());
         repository
-            .insert(&sample("alice", "alice@example.com"))
+            .insert(&sample("alice", "alice@example.com"), member())
             .await
             .unwrap();
         assert!(repository.any_exist().await.unwrap());
@@ -470,6 +655,9 @@ mod tests {
             password_hash: String::new(),
             is_admin: false,
             must_change_password: false,
+            state: "active".to_owned(),
+            deleted_at: None,
+            deleted_by: None,
             email_verified_at: None,
             created_at: now,
             updated_at: now,

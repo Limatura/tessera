@@ -8,7 +8,10 @@
 
 mod common;
 
-use axum::http::{Method, StatusCode, header};
+use axum::{
+    body::Body,
+    http::{Method, Request, StatusCode, header},
+};
 use common::{
     Auth, TestApp, account_lifecycle, body_json, expect_status, force_password_change,
     session_cookie,
@@ -520,9 +523,13 @@ async fn the_bootstrapped_administrator_can_sign_in() {
     })
     .await;
 
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("bootstrap");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("bootstrap");
 
     let body = body_json(
         expect_status(
@@ -563,14 +570,22 @@ async fn the_bootstrapped_administrator_can_sign_in() {
 #[tokio::test]
 async fn a_generated_administrator_password_must_be_changed() {
     let app = TestApp::ready().await;
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("bootstrap");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("bootstrap");
 
     // Running again must not create a second administrator or reset the first.
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("idempotent");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("idempotent");
 
     let name = tessera_core::Username::parse_privileged("admin").expect("a valid name");
     let admin = app
@@ -599,9 +614,13 @@ async fn an_account_owing_a_password_change_can_only_fix_itself() {
         config.auth.admin_password = PASSWORD.to_owned();
     })
     .await;
-    tessera_server::auth::bootstrap::ensure_admin(&app.state.users, &app.state.config.auth)
-        .await
-        .expect("bootstrap");
+    tessera_server::auth::bootstrap::ensure_admin(
+        &app.state.users,
+        &app.state.roles,
+        &app.state.config.auth,
+    )
+    .await
+    .expect("bootstrap");
     force_password_change(&app, "admin").await;
 
     let response = expect_status(
@@ -1831,12 +1850,12 @@ async fn account_named(
 async fn sign_in_as(app: &TestApp, username: &str, agent: &str) -> String {
     let response = expect_status(
         app.send(
-            axum::http::Request::builder()
+            Request::builder()
                 .method(Method::POST)
                 .uri("/api/v1/auth/login")
                 .header(header::CONTENT_TYPE, "application/json")
                 .header(header::USER_AGENT, agent),
-            axum::body::Body::from(
+            Body::from(
                 serde_json::json!({ "identifier": username, "password": PASSWORD }).to_string(),
             ),
         )
@@ -1880,12 +1899,12 @@ async fn later_requests_do_not_rewrite_where_a_session_began() {
     // The same session, presented by something claiming to be something else.
     expect_status(
         app.send(
-            axum::http::Request::builder()
+            Request::builder()
                 .method(Method::GET)
                 .uri("/api/v1/auth/session")
                 .header(header::COOKIE, &cookie)
                 .header(header::USER_AGENT, "somebody else entirely"),
-            axum::body::Body::empty(),
+            Body::empty(),
         )
         .await,
         StatusCode::OK,
@@ -1947,7 +1966,7 @@ async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
 
     let response = expect_status(
         app.send(
-            axum::http::Request::builder()
+            Request::builder()
                 .method(Method::POST)
                 .uri("/api/v1/auth/login")
                 .header(header::CONTENT_TYPE, "application/json")
@@ -1956,7 +1975,7 @@ async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
                     axum::http::HeaderValue::from_bytes("瀏覽器/1.0".as_bytes())
                         .expect("header values may carry these bytes"),
                 ),
-            axum::body::Body::from(
+            Body::from(
                 serde_json::json!({ "identifier": "member", "password": PASSWORD }).to_string(),
             ),
         )
@@ -2623,4 +2642,496 @@ async fn following_the_link_spends_the_place() {
         StatusCode::CREATED
     );
     assert_eq!(app.state.invites.list().await.expect("query")[0].used, 1);
+}
+
+/// A token minted without saying what it is for may upload and nothing else.
+///
+/// The other default would hand every screenshot tool the ability to delete
+/// everything its owner has, and nobody would notice until one leaked.
+#[tokio::test]
+async fn a_token_defaults_to_uploading_and_nothing_else() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+
+    let created = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&session),
+                &serde_json::json!({ "name": "a screenshot tool" }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        created["permissions"],
+        serde_json::json!(["shares:create"]),
+        "a token is for uploading"
+    );
+    let secret = created["secret"].as_str().expect("a secret").to_owned();
+
+    // Uploading works.
+    assert_eq!(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=note.txt")
+                .header(header::AUTHORIZATION, format!("Bearer {secret}")),
+            Body::from(b"hello".to_vec()),
+        )
+        .await
+        .status(),
+        StatusCode::CREATED
+    );
+
+    // Listing what the account has uploaded does not — that is `shares:read`.
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// A token must not be a way to exceed the account that minted it.
+#[tokio::test]
+async fn a_token_cannot_be_given_a_permission_its_owner_lacks() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let ordinary = register(&app, "second").await;
+
+    let response = app
+        .json(
+            Method::POST,
+            "/api/v1/tokens",
+            Auth::Cookie(&ordinary),
+            &serde_json::json!({ "name": "ambitious", "permissions": ["users:delete"] }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+}
+
+/// Demoting somebody narrows every token they hold, at that moment.
+///
+/// Without the intersection at the request, a token minted while its owner was
+/// an administrator would keep administering the instance after the owner
+/// stopped being one — which is the state nobody would think to check.
+#[tokio::test]
+async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
+    let app = TestApp::ready().await;
+    let admin = register(&app, "first").await;
+
+    let secret = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "name": "wide", "permissions": ["shares:create", "shares:read"] }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await["secret"]
+        .as_str()
+        .expect("a secret")
+        .to_owned();
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::OK
+    );
+
+    // Take every share permission away without touching the token.
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let narrow = app
+        .state
+        .roles
+        .create(
+            "narrow".to_owned(),
+            None,
+            &[tessera_core::Permission::TokensManage]
+                .into_iter()
+                .collect(),
+            time::OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_roles_of(user.id, &[narrow.id], time::OffsetDateTime::now_utc())
+        .await
+        .expect("demote them");
+
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
+            .await
+            .status(),
+        StatusCode::FORBIDDEN,
+        "the token must not outlive the permission it was minted from"
+    );
+}
+
+/// Changing the address has to un-verify it.
+///
+/// Carrying the old flag over would mean an address nobody has proven reachable
+/// wearing a verified one's badge — and on an instance that trusts that flag,
+/// that is the whole of the check.
+#[tokio::test]
+async fn moving_the_address_clears_the_verification() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("alice").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .users
+        .rename(user.id, &user.username, &user.email, Some(now), now)
+        .await
+        .expect("mark the address verified");
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({
+                "email": "elsewhere@example.com",
+                "current_password": PASSWORD,
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let moved = app
+        .state
+        .users
+        .find_by_id(user.id)
+        .await
+        .expect("query")
+        .expect("the account");
+    assert_eq!(moved.email.as_str(), "elsewhere@example.com");
+    assert!(
+        moved.email_verified_at.is_none(),
+        "the new address has not been proven"
+    );
+}
+
+/// Renaming without touching the address keeps it verified.
+#[tokio::test]
+async fn a_rename_does_not_cost_the_verification() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("alice").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .users
+        .rename(user.id, &user.username, &user.email, Some(now), now)
+        .await
+        .expect("mark the address verified");
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "username": "alicia", "current_password": PASSWORD }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let renamed = app
+        .state
+        .users
+        .find_by_id(user.id)
+        .await
+        .expect("query")
+        .expect("the account");
+    assert_eq!(renamed.username.as_str(), "alicia");
+    assert!(renamed.email_verified_at.is_some());
+}
+
+/// An unlocked browser left on a desk must not be enough to take the account.
+#[tokio::test]
+async fn changing_the_address_needs_the_password() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "alice").await;
+
+    assert_eq!(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({
+                "email": "attacker@example.com",
+                "current_password": "not the password",
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// Nobody renames themselves into a reserved name.
+#[tokio::test]
+async fn a_rename_cannot_claim_a_reserved_name() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    assert_eq!(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "username": "admin", "current_password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST,
+        "the reserved list guards this door too, not only registration"
+    );
+}
+
+/// Removing your own account ends what you sent, unless you say otherwise.
+#[tokio::test]
+async fn removing_your_own_account_ends_your_shares_by_default() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=mine.bin")
+                    .header(header::COOKIE, &session),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "current_password": PASSWORD }),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::GONE
+    );
+    assert_eq!(
+        app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&session))
+            .await
+            .status(),
+        StatusCode::UNAUTHORIZED
+    );
+}
+
+/// And keeps them when you do say otherwise.
+#[tokio::test]
+async fn removing_your_own_account_can_leave_your_shares_working() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=mine.bin")
+                    .header(header::COOKIE, &session),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "current_password": PASSWORD, "delete_shares": false }),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert_eq!(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await
+            .status(),
+        StatusCode::OK,
+        "whoever holds this link did nothing wrong"
+    );
+}
+
+/// The last person who can administer the instance cannot walk out.
+#[tokio::test]
+async fn the_only_administrator_cannot_remove_themselves() {
+    let app = TestApp::ready().await;
+    let session = register(&app, "first").await;
+
+    assert_eq!(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "current_password": PASSWORD }),
+        )
+        .await
+        .status(),
+        StatusCode::CONFLICT
+    );
+}
+
+/// Somebody must not be able to take the name a deletion will need.
+///
+/// A tombstone is `gone-<the account's own ulid>`, and identifiers are public —
+/// every response that names an account carries one. So a person can read
+/// somebody else's, rename themselves to the tombstone that account will one
+/// day need, and the unique index then refuses the deletion.
+#[tokio::test]
+async fn a_rename_cannot_take_a_tombstone_that_is_not_yours() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "second").await;
+
+    let victim = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let (their_tombstone, _) = tessera_core::tombstone(victim.id);
+
+    let refused = app
+        .json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({
+                "username": their_tombstone.as_str(),
+                "current_password": PASSWORD,
+            }),
+        )
+        .await;
+    assert_eq!(
+        refused.status(),
+        StatusCode::BAD_REQUEST,
+        "taking it would make that account undeletable"
+    );
+
+    // The point of refusing: with the name taken, the deletion cannot write the
+    // tombstone and the account can never be removed.
+    assert!(
+        app.state
+            .users
+            .soft_delete(victim.id, victim.id, time::OffsetDateTime::now_utc())
+            .await
+            .is_ok(),
+        "the account must still be deletable"
+    );
+}
+
+/// The same door, reached by registering rather than renaming.
+#[tokio::test]
+async fn registration_cannot_take_a_tombstone_either() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+
+    let victim = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("first").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let (their_name, their_email) = tessera_core::tombstone(victim.id);
+
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": their_name.as_str(),
+                "email": "someone@example.com",
+                "password": PASSWORD,
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST
+    );
+
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "someone",
+                "email": their_email.as_str(),
+                "password": PASSWORD,
+            }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST,
+        "the address a deletion needs must not be claimable either"
+    );
 }

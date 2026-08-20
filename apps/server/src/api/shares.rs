@@ -25,6 +25,8 @@
     reason = "emitted by utoipa's params(..), not written here"
 )]
 
+use std::time::Duration;
+
 use axum::{
     Json,
     body::Body,
@@ -36,14 +38,14 @@ use bytes::Bytes;
 use http_body_util::BodyExt as _;
 use object_store::{MultipartUpload, ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{Password, RetrievalCode, ShareId};
+use tessera_core::{Password, Permission, RetrievalCode, ShareId};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     api::{
         SHARES_TAG,
-        extract::{ApiPath, ApiQuery},
+        extract::{ApiJson, ApiPath, ApiQuery},
         gate,
     },
     auth::{
@@ -51,8 +53,11 @@ use crate::{
         password,
         proxy::Origin,
         secret::Secret,
+        throttle::Decision,
     },
-    db::repository::share::{Share, ShareKind, StorageLocation},
+    db::repository::share::{
+        Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+    },
     error::{Error, Result},
     state::AppState,
 };
@@ -158,8 +163,8 @@ pub struct ShareResponse {
     pub kind: String,
     /// Display name.
     pub title: Option<String>,
-    /// Original file name.
-    pub filename: Option<String>,
+    /// Every file this share holds. Empty for text and for a locked share.
+    pub files: Vec<SharedFile>,
     /// Syntax-highlighting hint.
     pub language: Option<String>,
     /// Size of the content in bytes.
@@ -170,7 +175,19 @@ pub struct ShareResponse {
     /// How many retrievals remain, or `null` for unlimited.
     pub uses_remaining: Option<u32>,
     /// How many times it has been retrieved.
+    ///
+    /// Counted by the server on the transfer path, so it is the number to
+    /// trust — the two below are what a client told us.
     pub use_count: u32,
+    /// How many times a client reported showing it.
+    pub view_count: u32,
+    /// How many times a client reported it being copied.
+    pub copy_count: u32,
+    /// When it was last retrieved, RFC 3339.
+    ///
+    /// The answer to the question somebody actually asks of their own share:
+    /// has the person I sent this to picked it up yet?
+    pub last_accessed_at: Option<String>,
     /// When it stops being served, RFC 3339, or `null` to live until deleted.
     pub expires_at: Option<String>,
     /// When it was created, RFC 3339.
@@ -185,22 +202,58 @@ pub struct ShareResponse {
     pub management_token: Option<String>,
 }
 
+/// One file in a share, as the API describes it.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SharedFile {
+    /// Its position in the share, from zero.
+    ///
+    /// Sent rather than left to the array's order: a client that sorts or
+    /// filters the list still has the uploader's order to put it back in.
+    pub position: u32,
+    /// What it was uploaded as.
+    #[schema(example = "holiday.jpg")]
+    pub filename: Option<String>,
+    /// How many bytes it holds.
+    pub size_bytes: u64,
+}
+
+impl SharedFile {
+    fn list(content: &Content) -> Vec<Self> {
+        content
+            .files()
+            .iter()
+            .enumerate()
+            .map(|(position, file)| Self {
+                position: u32::try_from(position).unwrap_or(u32::MAX),
+                filename: file.filename.clone(),
+                size_bytes: file.size_bytes,
+            })
+            .collect()
+    }
+}
+
 impl ShareResponse {
-    fn from_share(share: &Share, management_token: Option<String>) -> Self {
+    fn from_share(share: &Share, content: &Content, management_token: Option<String>) -> Self {
         Self {
             id: share.id.to_string(),
             code: share.code.as_str().to_owned(),
             path: format!("/s/{}", share.code),
             kind: share.kind.as_str().to_owned(),
             title: share.title.clone(),
-            filename: share.filename.clone(),
-            language: share.language.clone(),
-            size_bytes: share.size_bytes,
+            files: SharedFile::list(content),
+            language: match &content {
+                Content::Text(text) => text.language.clone(),
+                Content::Files(_) | Content::Gone => None,
+            },
+            size_bytes: content.size_bytes(),
             has_password: share.needs_password(),
             uses_remaining: share
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
             use_count: share.use_count,
+            view_count: share.view_count,
+            copy_count: share.copy_count,
+            last_accessed_at: share.last_accessed_at.map(format_timestamp),
             expires_at: share.expires_at.map(format_timestamp),
             created_at: format_timestamp(share.created_at),
             management_token,
@@ -248,6 +301,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
             )),
         (status = 400, description = "A parameter is unusable", body = crate::error::ErrorBody),
         (status = 401, description = "This instance requires an account to upload", body = crate::error::ErrorBody),
+        (status = 403, description = "The credential does not carry `shares:create`", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
         (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
     ),
@@ -262,6 +316,12 @@ pub async fn create(
 ) -> Result<Response> {
     if current.is_none() && !state.config.features.anonymous_upload {
         return Err(Error::Unauthorized);
+    }
+    // An anonymous caller has no permissions to check — the setting above is
+    // the whole of that decision. A signed-in one does, and this is what makes
+    // a token minted for a screenshot tool unable to do anything else.
+    if let Some(user) = current.as_ref() {
+        user.require(Permission::SharesCreate)?;
     }
 
     if params.max_uses == Some(0) {
@@ -291,7 +351,7 @@ pub async fn create(
         storage,
         size_bytes,
         inline,
-    } = ingest(&state, id, now, body).await?;
+    } = ingest(&state, id, kind, now, body).await?;
 
     // A share of nothing has nothing to hand out, and the retrieval code it
     // would occupy is not free.
@@ -316,25 +376,39 @@ pub async fn create(
         expires_at,
         disabled_at: None,
         title,
-        filename,
-        // What the uploader claimed, recorded so a future feature can use it —
-        // and never echoed, because serving an attacker-chosen media type back
-        // is how a `text/html` upload becomes stored XSS on our own origin.
-        content_type: claimed_content_type(&headers),
-        language,
-        size_bytes,
-        storage,
         og_config: None,
         management_token_hash: management_secret.as_ref().map(Secret::digest),
         view_count: 0,
+        copy_count: 0,
+        bytes_served: 0,
         last_accessed_at: None,
         created_at: now,
         updated_at: now,
     };
 
-    let share = insert_with_fresh_code(&state, share, inline).await?;
+    let content = match kind {
+        ShareKind::File => NewContent::File(NewFile {
+            filename,
+            // What the uploader claimed, recorded so a future feature can use it
+            // — and never echoed, because serving an attacker-chosen media type
+            // back is how a `text/html` upload becomes stored XSS on our own
+            // origin.
+            content_type: claimed_content_type(&headers),
+            size_bytes,
+            storage,
+        }),
+        ShareKind::Text => NewContent::Text {
+            language,
+            // Text is its own row, so it is always here by the time a share
+            // exists — `ingest` refuses anything it could not hold.
+            body: inline.unwrap_or_default(),
+        },
+    };
+    let share = insert_with_fresh_code(&state, share, &content).await?;
+    let content = state.shares.content_of(&share).await?;
     let response = ShareResponse::from_share(
         &share,
+        &content,
         management_secret.map(|secret| secret.expose().to_owned()),
     );
     Ok((StatusCode::CREATED, Json(response)).into_response())
@@ -353,6 +427,7 @@ pub async fn create(
     responses(
         (status = 200, description = "The caller's shares", body = Vec<ShareResponse>),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "The credential does not carry `shares:read`", body = crate::error::ErrorBody),
     ),
     security(("session" = []), ("bearer" = [])),
 )]
@@ -360,11 +435,20 @@ pub async fn list(
     State(state): State<AppState>,
     current: CurrentUser,
 ) -> Result<Json<Vec<ShareResponse>>> {
+    current.require(Permission::SharesRead)?;
+
     let shares = state.shares.list_for_user(current.user.id).await?;
+    // One query for the whole page rather than one per share: see
+    // `contents_for`.
+    let contents = state.shares.contents_for(&shares).await?;
     Ok(Json(
         shares
             .iter()
-            .map(|share| ShareResponse::from_share(share, None))
+            .filter_map(|share| {
+                contents
+                    .get(&share.id)
+                    .map(|content| ShareResponse::from_share(share, content, None))
+            })
             .collect(),
     ))
 }
@@ -405,9 +489,12 @@ pub async fn delete(
         .await?
         .ok_or(Error::NotFound)?;
 
-    let owns = current
-        .as_ref()
-        .is_some_and(|user| share.user_id == Some(user.user.id));
+    // Owning it is not enough; the credential in hand has to carry the
+    // permission too. A token given only `shares:create` uploads on its owner's
+    // behalf and cannot then delete what the owner has.
+    let owns = current.as_ref().is_some_and(|user| {
+        share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesDelete)
+    });
     let holds_token = share.management_token_hash.as_ref().is_some_and(|stored| {
         management_token(&headers).is_some_and(|presented| presented.digest() == *stored)
     });
@@ -418,7 +505,8 @@ pub async fn delete(
     // The object first. A row without its object is a broken share; an object
     // without its row is an orphan the sweep can still find by listing, so if
     // only one of the two can happen, this is the better order.
-    if let StorageLocation::Object { key } = &share.storage {
+    // Every object, not the first: a share can hold several.
+    for key in state.shares.object_keys_of(share.id).await? {
         state
             .storage
             .delete(&ObjectPath::from(key.as_str()))
@@ -488,11 +576,16 @@ async fn remaining_quota(state: &AppState) -> Result<u64> {
 async fn ingest(
     state: &AppState,
     id: ShareId,
+    kind: ShareKind,
     now: OffsetDateTime,
     body: Body,
 ) -> Result<Ingested> {
+    // `id` names the object, not the share. A share holds several files and each
+    // needs its own key — deriving it from the share meant the second upload
+    // wrote over the first, silently, and the download sent one file's bytes
+    // three times. Measured before it was fixed: two rows, one object.
     let mut upload: Option<Box<dyn MultipartUpload>> = None;
-    let result = ingest_into(state, id, now, body, &mut upload).await;
+    let result = ingest_into(state, id, kind, now, body, &mut upload).await;
 
     if let Some(upload) = upload.as_mut() {
         // Only reachable when something failed: the success path takes the
@@ -509,10 +602,21 @@ async fn ingest(
 async fn ingest_into(
     state: &AppState,
     id: ShareId,
+    kind: ShareKind,
     now: OffsetDateTime,
     body: Body,
     upload: &mut Option<Box<dyn MultipartUpload>>,
 ) -> Result<Ingested> {
+    // Where the bytes end up is decided by what they are, not by how many of
+    // them there are. A file is an object whatever its size, so an operator
+    // looking for an upload finds it in one place; text is a row, so reading a
+    // paste is one query.
+    //
+    // The threshold still earns its keep: it is how much of a file is buffered
+    // before the multipart upload starts, which is a memory decision rather than
+    // a storage one.
+    let stream_to_object = kind == ShareKind::File;
+    let text_limit = state.config.share.max_text_bytes;
     let threshold = state.config.share.inline_threshold_bytes;
     let limit = u64::try_from(state.config.server.max_body_bytes).unwrap_or(u64::MAX);
     // What is left of the instance's allowance, checked as the body arrives
@@ -525,9 +629,9 @@ async fn ingest_into(
     let mut size_bytes: u64 = 0;
     let mut key: Option<String> = None;
 
-    while let Some(frame) = body.frame().await {
-        let frame =
-            frame.map_err(|error| Error::bad_request(format!("body ended early: {error}")))?;
+    let stall = state.config.server.upload_stall();
+
+    while let Some(frame) = next_frame(&mut body, stall).await? {
         let Ok(chunk) = frame.into_data() else {
             // Trailers carry no content; a body that is only trailers is empty.
             continue;
@@ -536,11 +640,23 @@ async fn ingest_into(
         if size_bytes > limit {
             return Err(Error::PayloadTooLarge);
         }
+        // Checked as it arrives rather than at the end: a paste ten times the
+        // limit should stop at the limit, not be read in full and then refused.
+        if !stream_to_object && size_bytes > u64::try_from(text_limit).unwrap_or(u64::MAX) {
+            return Err(Error::bad_request(
+                "that is larger than this instance keeps as text; send it as a file instead",
+            ));
+        }
         if size_bytes > budget {
             return Err(Error::InsufficientStorage);
         }
         buffered.extend_from_slice(&chunk);
 
+        if !stream_to_object {
+            // Text is never streamed out: it is going into a row, and a row is
+            // written whole.
+            continue;
+        }
         if upload.is_none() && buffered.len() <= threshold {
             continue;
         }
@@ -577,11 +693,48 @@ async fn ingest_into(
                 inline: None,
             })
         }
+        // A file small enough that the multipart upload never started. It still
+        // becomes an object — one `put` rather than a multipart, because a
+        // multipart upload of nine bytes is three round trips to say one thing.
+        None if stream_to_object => {
+            let object_key = object_key(id, now);
+            state
+                .storage
+                .put(
+                    &ObjectPath::from(object_key.as_str()),
+                    PutPayload::from(buffered),
+                )
+                .await?;
+            Ok(Ingested {
+                storage: StorageLocation::Object { key: object_key },
+                size_bytes,
+                inline: None,
+            })
+        }
         None => Ok(Ingested {
             storage: StorageLocation::Inline,
             size_bytes,
             inline: Some(buffered),
         }),
+    }
+}
+
+/// The next piece of the body, or `None` at its end.
+///
+/// The wait is bounded by how long the connection may go silent, not by how
+/// long the upload may take: a large file over a slow line is answering all the
+/// way through, and a client that stopped sending is not answering at all. This
+/// is the only place that can tell those apart — by the time a request-wide
+/// budget expires, both look the same.
+///
+/// See `api::timeout` for why the wall-clock budget is not applied here.
+async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body::Frame<Bytes>>> {
+    match tokio::time::timeout(stall, body.frame()).await {
+        Ok(Some(frame)) => frame
+            .map(Some)
+            .map_err(|error| Error::bad_request(format!("body ended early: {error}"))),
+        Ok(None) => Ok(None),
+        Err(_) => Err(Error::Timeout),
     }
 }
 
@@ -603,7 +756,7 @@ async fn flush_full_parts(upload: &mut dyn MultipartUpload, buffered: &mut Vec<u
 /// a ULID starts with a timestamp, so those characters are almost the same for
 /// everything written in the same era. Dates are also what an operator wants to
 /// see when deciding what to back up or what is old.
-fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
+pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
     format!(
         "shares/{:04}/{:02}/{id}",
         created_at.year(),
@@ -615,11 +768,11 @@ fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
 async fn insert_with_fresh_code(
     state: &AppState,
     mut share: Share,
-    inline: Option<Vec<u8>>,
+    content: &NewContent,
 ) -> Result<Share> {
     for _ in 0..CODE_ATTEMPTS {
         share.code = generate_code(state.config.share.code_length)?;
-        match state.shares.insert(&share, inline.clone()).await {
+        match state.shares.insert(&share, content).await {
             Ok(()) => return Ok(share),
             Err(error) => {
                 // Distinguish "that code is taken" from a database that is
@@ -787,8 +940,8 @@ pub struct PublicShareResponse {
 
     /// Display name.
     pub title: Option<String>,
-    /// Original file name.
-    pub filename: Option<String>,
+    /// Every file this share holds. Empty for text and for a locked share.
+    pub files: Vec<SharedFile>,
     /// Syntax-highlighting hint.
     pub language: Option<String>,
     /// Size of the content in bytes.
@@ -809,7 +962,7 @@ impl PublicShareResponse {
             has_password: true,
             unlocked: false,
             title: None,
-            filename: None,
+            files: Vec::new(),
             language: None,
             size_bytes: None,
             uses_remaining: None,
@@ -818,14 +971,17 @@ impl PublicShareResponse {
         }
     }
 
-    fn unlocked(share: &Share) -> Self {
+    fn unlocked(share: &Share, content: &Content) -> Self {
         Self {
             has_password: share.needs_password(),
             unlocked: true,
             title: share.title.clone(),
-            filename: share.filename.clone(),
-            language: share.language.clone(),
-            size_bytes: Some(share.size_bytes),
+            files: SharedFile::list(content),
+            language: match content {
+                Content::Text(text) => text.language.clone(),
+                Content::Files(_) | Content::Gone => None,
+            },
+            size_bytes: Some(content.size_bytes()),
             uses_remaining: share
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
@@ -884,7 +1040,8 @@ pub async fn describe(
     let share = gate::open(&state, &code, &source).await?;
 
     if !share.needs_password() {
-        return Ok(Json(PublicShareResponse::unlocked(&share)));
+        let content = state.shares.content_of(&share).await?;
+        return Ok(Json(PublicShareResponse::unlocked(&share, &content)));
     }
     // A locked share still answers, so the page can render a password prompt
     // rather than a dead end. What it answers is only "this exists and wants a
@@ -893,7 +1050,11 @@ pub async fn describe(
         return Ok(Json(PublicShareResponse::locked(&share)));
     }
     gate::unlock(&state, &share, &headers, &source).await?;
-    Ok(Json(PublicShareResponse::unlocked(&share)))
+    // Read only once the password is right: a locked share answers without
+    // touching its content, so a wrong guess costs a gate check and nothing
+    // more.
+    let content = state.shares.content_of(&share).await?;
+    Ok(Json(PublicShareResponse::unlocked(&share, &content)))
 }
 
 /// Spends one retrieval and returns a ticket for the transfer.
@@ -949,4 +1110,209 @@ pub async fn unlock(
             .use_limit
             .map(|limit| limit.saturating_sub(share.use_count.saturating_add(1))),
     }))
+}
+
+/// Body of `POST /shares/{code}/events`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ShareEventRequest {
+    /// What happened: `view` or `copy`.
+    ///
+    /// Retrieval is deliberately not one of these — see [`record_event`].
+    #[schema(example = "view")]
+    pub kind: String,
+}
+
+/// Records something a client saw that the server could not.
+///
+/// # Why retrieval is not accepted here
+///
+/// `use_count` is a limit. A client that could report its own retrievals would
+/// be a client deciding whether the limit applied, and one `curl` at
+/// `/s/{code}/raw` would walk past it. The server counts that itself, on the
+/// transfer path, where it cannot be skipped.
+///
+/// These two are the opposite case: nothing reaches the server when somebody
+/// reads a note on screen or presses a copy button, so a client is the only
+/// thing that can see them at all. The price is that anybody who can call this
+/// can inflate them, which is tolerable precisely because nothing depends on
+/// them.
+///
+/// # Why it does not say whether the share exists
+///
+/// `204` whatever happens, including for a code that names nothing. Answering
+/// `404` would make an unauthenticated endpoint into a way to ask which codes
+/// are real — the same oracle the retrieval throttle exists to close, reached
+/// through a door nobody was watching.
+///
+/// # Errors
+///
+/// `400` when `kind` is not one of the two, `429` when the source is asking too
+/// often.
+#[utoipa::path(
+    post,
+    path = "/shares/{code}/events",
+    operation_id = "record_share_event",
+    tag = SHARES_TAG,
+    params(("code" = String, Path, description = "The share's retrieval code")),
+    request_body = ShareEventRequest,
+    responses(
+        (status = 204, description = "Recorded, or the code names nothing"),
+        (status = 400, description = "`kind` is not `view` or `copy`", body = crate::error::ErrorBody),
+        (status = 429, description = "Too many events from this source", body = crate::error::ErrorBody),
+    ),
+    security(()),
+)]
+pub async fn record_event(
+    State(state): State<AppState>,
+    ClientAddress(Origin { source, .. }): ClientAddress,
+    ApiPath(code): ApiPath<String>,
+    ApiJson(body): ApiJson<ShareEventRequest>,
+) -> Result<StatusCode> {
+    let kind = match body.kind.as_str() {
+        "view" => ShareEvent::View,
+        "copy" => ShareEvent::Copy,
+        // Named rather than listed as "invalid": a client sending `download`
+        // has misread what this endpoint is for, and saying so is more use than
+        // a list of two words.
+        "download" | "retrieval" => {
+            return Err(Error::bad_request(
+                "retrievals are counted by the server on the transfer path, not reported here",
+            ));
+        }
+        _ => return Err(Error::bad_request("`kind` must be `view` or `copy`")),
+    };
+
+    // Keyed on the source, like the retrieval lookup: what varies is the code,
+    // so counting per code would count nothing.
+    if let Decision::Deny { retry_after } = state.throttles.lookup.check(&source) {
+        return Err(Error::TooManyRequests {
+            retry_after_secs: retry_after.as_secs(),
+        });
+    }
+
+    // Parsed after the throttle so a flood of unparsable codes costs the same
+    // as a flood of real ones.
+    let Ok(code) = RetrievalCode::parse(&code) else {
+        return Ok(StatusCode::NO_CONTENT);
+    };
+    if let Some(share) = state.shares.find_by_code(&code).await? {
+        state.shares.record_event(share.id, kind).await?;
+    }
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Adds another file to a share.
+///
+/// # Why files arrive one at a time
+///
+/// One request carrying five files is one request that loses five when it drops
+/// at the fourth — which is the case somebody uploading a folder of photographs
+/// on a home connection hits, not a theoretical one. A file that fails here is
+/// retried on its own.
+///
+/// # Why the share exists before its second file
+///
+/// There is no draft state. A share is created by its first file and grown by
+/// the rest, so nothing has to remember to finish, and an upload interrupted
+/// half way leaves a share holding what did arrive rather than nothing at all.
+///
+/// The cost is that somebody who opened the link during the upload would see
+/// part of it. The link is handed out after the upload, by the person doing it.
+///
+/// # Errors
+///
+/// `403` when the caller cannot show it is theirs, `404` when no share has that
+/// code, `409` when the share holds text, `413` when the body is too large,
+/// `507` when the instance is out of room.
+#[utoipa::path(
+    post,
+    path = "/shares/{code}/files",
+    operation_id = "add_share_file",
+    tag = SHARES_TAG,
+    params(("code" = String, Path, description = "The share to add to"), AddFileParams),
+    request_body(content = Vec<u8>, description = "The file", content_type = "application/octet-stream"),
+    responses(
+        (status = 201, description = "The share as it now stands", body = ShareResponse),
+        (status = 403, description = "Not yours", body = crate::error::ErrorBody),
+        (status = 404, description = "No such share", body = crate::error::ErrorBody),
+        (status = 409, description = "That share holds text", body = crate::error::ErrorBody),
+        (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
+        (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
+    ),
+    security((), ("session" = []), ("bearer" = [])),
+)]
+pub async fn add_file(
+    State(state): State<AppState>,
+    MaybeUser(current): MaybeUser,
+    ApiPath(code): ApiPath<String>,
+    ApiQuery(params): ApiQuery<AddFileParams>,
+    headers: HeaderMap,
+    body: Body,
+) -> Result<Response> {
+    let code = RetrievalCode::parse(&code).map_err(|_| Error::NotFound)?;
+    let share = state
+        .shares
+        .find_by_code(&code)
+        .await?
+        .ok_or(Error::NotFound)?;
+
+    // Adding to somebody else's share would let a stranger put content behind
+    // their link. The same two proofs the delete route accepts: the management
+    // token the uploader was handed, or being the account that owns it.
+    let owns = current.as_ref().is_some_and(|user| {
+        share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesCreate)
+    });
+    let holds_token = share.management_token_hash.as_ref().is_some_and(|stored| {
+        management_token(&headers).is_some_and(|presented| presented.digest() == *stored)
+    });
+    if !owns && !holds_token {
+        // The same answer as a share that is not there, for the same reason the
+        // delete route gives it: otherwise this endpoint says which codes exist.
+        return Err(Error::NotFound);
+    }
+
+    if share.kind == ShareKind::Text {
+        return Err(Error::Conflict(
+            "that share holds text; a text share holds one thing".to_owned(),
+        ));
+    }
+
+    let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;
+    let now = OffsetDateTime::now_utc();
+    let Ingested {
+        storage,
+        size_bytes,
+        inline: _,
+    } = ingest(&state, ShareId::generate(), ShareKind::File, now, body).await?;
+
+    state
+        .shares
+        .append_file(
+            share.id,
+            &NewFile {
+                filename,
+                content_type: claimed_content_type(&headers),
+                size_bytes,
+                storage,
+            },
+            now,
+        )
+        .await?;
+
+    let content = state.shares.content_of(&share).await?;
+    Ok((
+        StatusCode::CREATED,
+        Json(ShareResponse::from_share(&share, &content, None)),
+    )
+        .into_response())
+}
+
+/// Metadata for `POST /shares/{code}/files`.
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+pub struct AddFileParams {
+    /// What to call this file.
+    #[param(example = "holiday.jpg")]
+    pub filename: Option<String>,
 }

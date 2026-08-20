@@ -32,15 +32,18 @@
 //! there is a type that needs it.
 
 pub mod admin;
+pub mod archive;
 pub mod auth;
 pub mod capabilities;
 pub mod extract;
 pub mod gate;
 pub mod health;
+pub mod meter;
 pub mod preview;
 pub mod public;
 pub mod sessions;
 pub mod shares;
+pub mod timeout;
 pub mod tokens;
 
 use std::{sync::Arc, time::Duration};
@@ -48,7 +51,7 @@ use std::{sync::Arc, time::Duration};
 use axum::{
     Json, Router,
     extract::DefaultBodyLimit,
-    http::{HeaderName, HeaderValue, Method, Request, StatusCode, header},
+    http::{HeaderName, HeaderValue, Method, Request, header},
 };
 use tower_http::{
     catch_panic::CatchPanicLayer,
@@ -58,7 +61,6 @@ use tower_http::{
     },
     cors::{AllowOrigin, CorsLayer},
     request_id::{MakeRequestId, PropagateRequestIdLayer, RequestId, SetRequestIdLayer},
-    timeout::TimeoutLayer,
     trace::TraceLayer,
 };
 use ulid::Ulid;
@@ -263,6 +265,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::logout))
         .routes(routes!(auth::session))
         .routes(routes!(auth::change_password))
+        .routes(routes!(auth::update_account, auth::delete_account))
         // Mounted even where no relay is configured, like every other switched
         // off feature: the handler answers 404 and the document stays the same
         // on every instance. `/capabilities` is what tells a client whether to
@@ -277,6 +280,8 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(shares::list, shares::create))
         .routes(routes!(shares::describe, shares::delete))
         .routes(routes!(shares::unlock))
+        .routes(routes!(shares::record_event))
+        .routes(routes!(shares::add_file))
 }
 
 /// Everything under `/admin`.
@@ -292,12 +297,23 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::list_invites, admin::create_invite))
         .routes(routes!(admin::revoke_invite))
         .routes(routes!(admin::stats))
+        .routes(routes!(admin::list_roles, admin::create_role))
+        .routes(routes!(admin::update_role, admin::delete_role))
+        .routes(routes!(admin::list_permissions))
+        .routes(routes!(admin::set_user_roles))
+        .routes(routes!(admin::list_shares))
+        .routes(routes!(admin::delete_share))
+        .routes(routes!(admin::remove_user_shares))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
 /// and the middleware stack.
 pub fn build(state: AppState) -> Router {
     let config = Arc::clone(&state.config);
+    // Cloned before the router takes ownership: the meter is a `from_fn_with_state`
+    // layer applied after `with_state`, so it needs its own handle.
+    let metering_state = state.clone();
+    let timeout_state = state.clone();
     let (routes, api) = api_routes().split_for_parts();
 
     // The contract is served unconditionally. Turning the browsable docs off is
@@ -322,6 +338,17 @@ pub fn build(state: AppState) -> Router {
 
     if config.features.docs {
         app = app.merge(Scalar::with_url(DOCS_PATH, api));
+    } else {
+        // Answered rather than left to the fallback. Without this `/docs` is a
+        // path the router does not know, so it reaches the SPA and comes back
+        // as the same "page not found" a typo produces — and the person reading
+        // it has no way to tell "this instance turned the docs off" from "I
+        // spelt it wrong".
+        //
+        // Still a 404, because from outside there is no docs page here; what
+        // changes is that the body says so, and says where the contract is. The
+        // contract is served whether or not the browsable page is.
+        app = app.route(DOCS_PATH, axum::routing::get(docs_are_off));
     }
 
     let request_id_header = HeaderName::from_static(REQUEST_ID_HEADER);
@@ -331,11 +358,21 @@ pub fn build(state: AppState) -> Router {
         // Compression sits closest to the handler and therefore compresses the
         // final body exactly once.
         .layer(CompressionLayer::new().compress_when(compression_predicate()))
+        // Outside compression, so it counts the bytes that go on the wire
+        // rather than the ones the handler produced. Measured: for a 64 KiB run
+        // of one character those differ by a factor of six hundred.
+        .layer(axum::middleware::from_fn_with_state(
+            metering_state,
+            meter::count_bytes_served,
+        ))
         .layer(DefaultBodyLimit::max(config.server.max_body_bytes))
         .layer(cors(&config))
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::REQUEST_TIMEOUT,
-            config.server.request_timeout(),
+        // Reads the budget per request rather than holding the value it was
+        // built with, and exempts the routes that receive a file — a wall-clock
+        // budget answers the wrong question about those. See `timeout`.
+        .layer(axum::middleware::from_fn_with_state(
+            timeout_state,
+            timeout::enforce,
         ))
         // Outside the timeout, so a panicking handler becomes a 500 rather than a
         // dropped connection.
@@ -345,6 +382,24 @@ pub fn build(state: AppState) -> Router {
         // Outermost: stamped before anything else, so every log line and every
         // error response for this request can be correlated.
         .layer(SetRequestIdLayer::new(request_id_header, UlidRequestId))
+}
+
+/// The answer at `/docs` when `features.docs` is off.
+///
+/// Plain text rather than the JSON every other error uses: this is a path
+/// somebody typed into a browser, and a person looking for documentation is
+/// better served by a sentence than by a machine-readable envelope.
+async fn docs_are_off() -> impl axum::response::IntoResponse {
+    (
+        axum::http::StatusCode::NOT_FOUND,
+        [(header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        format!(
+            "The browsable API documentation is turned off on this instance \
+             (`features.docs`).\n\nThe contract itself is always served, at \
+             {OPENAPI_PATH} — point a client generator or a local viewer at \
+             that.\n"
+        ),
+    )
 }
 
 /// What is worth compressing.
