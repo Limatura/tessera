@@ -140,6 +140,11 @@ pub fn build_with_multipart(config: &StorageConfig) -> Result<Stores, StorageErr
 ///
 /// `PrefixStore` implements both traits, so wrapping does not cost the second
 /// one — see `apache/arrow-rs-object-store#586`.
+#[cfg(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+))]
 fn prefixed_pair<S>(store: S, prefix: object_store::path::Path) -> Stores
 where
     S: ObjectStore + MultipartStore,
@@ -161,6 +166,11 @@ where
 /// position: `Arc::clone` infers its parameter from the annotation, so naming
 /// the target type on the binding asks it for an `&Arc<dyn ObjectStore>` that
 /// nobody has.
+#[cfg(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+))]
 fn both_views<S>(shared: Arc<S>) -> Stores
 where
     S: ObjectStore + MultipartStore,
@@ -259,6 +269,11 @@ fn is_backend_option(lowercased_key: &str) -> bool {
     false
 }
 
+#[cfg(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+))]
 /// Builds the store for a scheme that can hold a multipart upload open.
 ///
 /// `None` when the scheme is not one of those, or the feature for it was not
@@ -318,6 +333,23 @@ fn build_multipart_capable(
         // the ordinary path builds it.
         _ => Ok(None),
     }
+}
+
+/// The same, for a build with no multipart-capable backend compiled in.
+///
+/// Every arm of the other one is behind a feature, so with none of them there
+/// is nothing to match on — and a store that cannot do multipart is exactly
+/// what `None` means.
+#[cfg(not(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+)))]
+const fn build_multipart_capable(
+    _url: &url::Url,
+    _options: &BTreeMap<String, String>,
+) -> Result<Option<Stores>, StorageError> {
+    Ok(None)
 }
 
 #[cfg(test)]

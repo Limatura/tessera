@@ -4247,14 +4247,10 @@
             "description": "`Upload-Offset` says how much has arrived"
           },
           "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
             "description": "No such session"
+          },
+          "410": {
+            "description": "That session was abandoned"
           }
         },
         "security": [

@@ -650,9 +650,16 @@ jobs:
           # `PATCH /auth/password` and `DELETE /account` against its own
           # credential. Measured with a cookie and nothing excluded: 28
           # operations answering only 401/403, against 24 without one.
+          # `append_to_upload` is excluded because Schemathesis cannot build a
+          # body for `application/offset+octet-stream` — "No supported
+          # serializers for media types" — and an operation it cannot construct
+          # a request for is not one it can test. The resumable upload path is
+          # covered by `tests/resumable.rs` and `tests/object_store.rs`
+          # instead, both of which do drive it end to end.
           uvx schemathesis --config-file /tmp/fuzz/run.toml \
             run http://127.0.0.1:13999/openapi.json \
             -w 4 --suppress-health-check=filter_too_much \
+            --exclude-operation-id append_to_upload \
             --report-junit-path /tmp/fuzz/report.xml
 
       # The runner is one machine that keeps running after the job ends, so a

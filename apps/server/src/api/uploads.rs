@@ -256,9 +256,13 @@ pub async fn create(
     operation_id = "upload_offset",
     tag = UPLOADS_TAG,
     params(("id" = String, Path, description = "The session")),
+    // No bodies declared: a `HEAD` response never has one, so promising an
+    // error body here would be the contract saying something the protocol
+    // forbids — and a contract test is right to call that a lie.
     responses(
         (status = 200, description = "`Upload-Offset` says how much has arrived"),
-        (status = 404, description = "No such session", body = crate::error::ErrorBody),
+        (status = 404, description = "No such session"),
+        (status = 410, description = "That session was abandoned"),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
