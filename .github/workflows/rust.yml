@@ -283,6 +283,94 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(backends)'
 
+  storage:
+    name: object store
+    runs-on: [self-hosted, Linux, X64]
+    # One runner, one slot: a job that hangs holds up everything behind it.
+    timeout-minutes: 30
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Without this job, `storage-s3` is only ever proven to *compile*. Nothing
+    # had put a byte into a bucket and read it back, so "we support S3" rested
+    # on the options being spelled right and nothing checking that.
+    #
+    # Garage rather than MinIO: MinIO's open-source repository was archived in
+    # early 2026, and Garage is what the self-hosting audience actually runs —
+    # so this doubles as a compatibility statement rather than testing a store
+    # nobody uses.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/rust
+      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+        with: { tool: cargo-nextest }
+
+      # Not a `services:` block, because Garage needs a configuration file and
+      # `services:` can only pass an image and environment variables. Only four
+      # of its settings can come from the environment; without `/etc/garage.toml`
+      # it exits with "No such file or directory".
+      #
+      # `--single-node --default-bucket` creates the key and the bucket from the
+      # variables below, which is what makes this nine lines instead of the
+      # layout/bucket/key/allow dance. Both flags need v2.3.0 or newer.
+      - name: Start Garage
+        run: |
+          mkdir -p /tmp/garage
+          cat > /tmp/garage/garage.toml <<'EOF'
+          metadata_dir = "/tmp/meta"
+          data_dir = "/tmp/data"
+          db_engine = "sqlite"
+          replication_factor = 1
+          rpc_bind_addr = "[::]:3901"
+          rpc_public_addr = "127.0.0.1:3901"
+
+          [s3_api]
+          s3_region = "garage"
+          api_bind_addr = "[::]:3900"
+          EOF
+          docker run -d --name tessera-garage -p 3900:3900 \
+            -v /tmp/garage/garage.toml:/etc/garage.toml:ro \
+            -e GARAGE_RPC_SECRET="$(openssl rand -hex 32)" \
+            -e GARAGE_DEFAULT_ACCESS_KEY=tesseratest \
+            -e GARAGE_DEFAULT_SECRET_KEY=tesseratestsecret \
+            -e GARAGE_DEFAULT_BUCKET=tessera \
+            dxflrs/garage:v2.3.0 /garage server --single-node --default-bucket
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:3900 && exit 0
+            sleep 1
+          done
+          echo "::error::Garage did not start"
+          docker logs tessera-garage || true
+          exit 1
+
+      # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
+      # demand an object store; `--run-ignored all` is what opts into them.
+      #
+      # The options go through the environment because `storage.options` is
+      # passed to `object_store::parse_url_opts` unchanged — no code in this
+      # repository knows these names, which is why they are also the answer an
+      # operator needs, and why this job doubles as the source for that
+      # documentation.
+      - name: Run the object store suite
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: garage
+          AWS_ENDPOINT: http://127.0.0.1:3900
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store)'
+
+      # The runner keeps running after the job ends, so a container started here
+      # outlives it and the next run finds the name and the port taken.
+      - name: Stop Garage
+        if: always()
+        run: docker rm -f tessera-garage 2>/dev/null || true
+
   workflows:
     name: workflow lint
     runs-on: [self-hosted, Linux, X64]
