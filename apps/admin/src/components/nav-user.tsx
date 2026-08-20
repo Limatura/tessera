@@ -1,10 +1,4 @@
-import {
-  IconDotsVertical,
-  IconUserCircle,
-  IconCreditCard,
-  IconNotification,
-  IconLogout,
-} from "@tabler/icons-react";
+import { IconDotsVertical, IconLogout } from "@tabler/icons-react";
 import {
   Avatar,
   AvatarFallback,
@@ -80,24 +74,9 @@ export function NavUser({
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <IconUserCircle />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard />
-                Billing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification />
-                Notifications
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
             <DropdownMenuItem>
               <IconLogout />
-              Log out
+              登出
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
