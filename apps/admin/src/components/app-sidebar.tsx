@@ -1,20 +1,13 @@
 import {
+  IconArrowsSort,
   IconDashboard,
-  IconListDetails,
-  IconChartBar,
-  IconFolder,
-  IconUsers,
-  IconCamera,
-  IconFileDescription,
-  IconFileAi,
-  IconSettings,
-  IconHelp,
-  IconSearch,
-  IconDatabase,
-  IconReport,
-  IconFileWord,
+  IconFiles,
   IconInnerShadowTop,
+  IconKey,
+  IconShieldLock,
+  IconUsers,
 } from "@tabler/icons-react";
+import { Link } from "@tanstack/react-router";
 import {
   Sidebar,
   SidebarContent,
@@ -24,129 +17,53 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@tessera/ui/components/sidebar";
-import * as React from "react";
+import type * as React from "react";
 
-import { NavDocuments } from "@/components/nav-documents";
 import { NavMain } from "@/components/nav-main";
-import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
 
 const data = {
-  documents: [
+  navDev: [
     {
-      icon: <IconDatabase />,
-      name: "Data Library",
-      url: "#",
-    },
-    {
-      icon: <IconReport />,
-      name: "Reports",
-      url: "#",
-    },
-    {
-      icon: <IconFileWord />,
-      name: "Word Assistant",
-      url: "#",
-    },
-  ],
-  navClouds: [
-    {
-      icon: <IconCamera />,
-      isActive: true,
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-      title: "Capture",
-      url: "#",
-    },
-    {
-      icon: <IconFileDescription />,
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-      title: "Proposal",
-      url: "#",
-    },
-    {
-      icon: <IconFileAi />,
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-      title: "Prompts",
-      url: "#",
+      icon: <IconArrowsSort />,
+      title: "拖曳排序 Demo",
+      url: "/dnd-demo",
     },
   ],
   navMain: [
     {
       icon: <IconDashboard />,
-      title: "Dashboard",
-      url: "#",
+      title: "儀表板",
+      url: "/dashboard",
     },
     {
-      icon: <IconListDetails />,
-      title: "Lifecycle",
-      url: "#",
-    },
-    {
-      icon: <IconChartBar />,
-      title: "Analytics",
-      url: "#",
-    },
-    {
-      icon: <IconFolder />,
-      title: "Projects",
-      url: "#",
+      icon: <IconFiles />,
+      title: "分享管理",
+      url: "/shares",
     },
     {
       icon: <IconUsers />,
-      title: "Team",
-      url: "#",
-    },
-  ],
-  navSecondary: [
-    {
-      icon: <IconSettings />,
-      title: "Settings",
-      url: "#",
+      title: "使用者",
+      url: "/users",
     },
     {
-      icon: <IconHelp />,
-      title: "Get Help",
-      url: "#",
+      icon: <IconKey />,
+      title: "邀請碼",
+      url: "/invites",
     },
     {
-      icon: <IconSearch />,
-      title: "Search",
-      url: "#",
+      icon: <IconShieldLock />,
+      title: "角色與權限",
+      url: "/roles",
     },
   ],
   user: {
-    avatar: "/avatars/shadcn.jpg",
-    email: "m@example.com",
-    name: "shadcn",
+    avatar: "",
+    email: "admin@localhost.invalid",
+    name: "admin",
   },
 };
+
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -155,18 +72,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<a href="/" aria-label="Acme Inc. home" />}
+              render={<Link to="/" aria-label="Tessera 首頁" />}
             >
               <IconInnerShadowTop className="size-5!" />
-              <span className="text-base font-semibold">Acme Inc.</span>
+              <span className="text-base font-semibold">Tessera Admin</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={data.navDev} label="開發工具" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
