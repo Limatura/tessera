@@ -20,6 +20,7 @@ use crate::{
         role::RoleRepository,
         session::SessionRepository,
         share::{ShareRepository, ShareTicketRepository},
+        upload::UploadRepository,
         user::UserRepository,
     },
     mail::Mailer,
@@ -87,6 +88,13 @@ pub struct AppState {
     pub throttles: Arc<Throttles>,
     /// Blob store.
     pub storage: Arc<dyn ObjectStore>,
+    /// The same store when it can hold a multipart upload open across requests.
+    ///
+    /// `None` on a local filesystem, where a resumable upload appends to a
+    /// partial file instead — see `upload::sink`.
+    pub multipart: Option<crate::storage::Multipart>,
+    /// Upload sessions.
+    pub uploads: UploadRepository,
     /// Where the frontend is read from — the compiled-in bundle, or a directory.
     pub assets: Arc<crate::assets::Source>,
     /// Current lifecycle status.
@@ -106,6 +114,7 @@ impl AppState {
         config: Arc<Config>,
         db: DatabaseConnection,
         storage: Arc<dyn ObjectStore>,
+        multipart: Option<crate::storage::Multipart>,
         assets: crate::assets::Source,
     ) -> Self {
         // A relay that will not build is reported and then treated as absent.
@@ -131,6 +140,8 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
+            uploads: UploadRepository::new(db.clone()),
+            multipart,
             assets: Arc::new(assets),
             proxies: Arc::new(config.server.proxy_trust()),
             throttles: Arc::new(Throttles::default()),

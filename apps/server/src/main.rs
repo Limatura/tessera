@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(backend = db::backend_name(&db), "migrations applied");
     }
 
-    let store = storage::build(&config.storage).context("could not open the object store")?;
+    let (store, multipart) = open_store(&config)?;
 
     // Before the listener binds, so an instance exposed to the internet never
     // spends a moment with no administrator for a passer-by to claim.
@@ -135,7 +135,7 @@ async fn main() -> anyhow::Result<()> {
     let assets = resolve_assets(&config.server.assets_dir)?;
 
     let config = Arc::new(config);
-    let state = AppState::new(Arc::clone(&config), db.clone(), store, assets);
+    let state = AppState::new(Arc::clone(&config), db.clone(), store, multipart, assets);
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
@@ -338,4 +338,13 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
         tracing::info!(directory = %root.display(), "serving the frontend from disk");
     }
     Ok(assets)
+}
+
+/// Opens the blob store, and the same store as a multipart one when it is.
+///
+/// Split out so `main` stays under the line limit; the pair is what
+/// [`AppState`] wants and what decides whether this instance can hold a
+/// resumable upload open across requests.
+fn open_store(config: &Config) -> anyhow::Result<storage::Stores> {
+    storage::build_with_multipart(&config.storage).context("could not open the object store")
 }

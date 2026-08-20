@@ -64,11 +64,25 @@ pub fn build(config: &StorageConfig) -> Result<Arc<dyn ObjectStore>, StorageErro
     Ok(build_with_multipart(config)?.0)
 }
 
+/// A [`MultipartStore`] handle that can sit in a `Debug` struct.
+///
+/// `dyn MultipartStore` does not implement `Debug`, and what it would print is
+/// the store's configuration rather than anything about the process holding it
+/// — so the wrapper prints its own name and nothing else.
+#[derive(Clone)]
+pub struct Multipart(pub Arc<dyn MultipartStore>);
+
+impl core::fmt::Debug for Multipart {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str("Multipart(..)")
+    }
+}
+
 /// A store, and the same store seen as a [`MultipartStore`] when it is one.
 ///
 /// `None` on the second means resumable uploads there append to a partial file
 /// instead — see `upload::sink`.
-pub type Stores = (Arc<dyn ObjectStore>, Option<Arc<dyn MultipartStore>>);
+pub type Stores = (Arc<dyn ObjectStore>, Option<Multipart>);
 
 /// The same store, plus a handle to it as a [`MultipartStore`] when it is one.
 ///
@@ -152,7 +166,7 @@ where
     S: ObjectStore + MultipartStore,
 {
     let same = Arc::clone(&shared);
-    (same, Some(shared))
+    (same, Some(Multipart(shared)))
 }
 
 /// Returns the local directory `location` names, or `None` if it names a remote

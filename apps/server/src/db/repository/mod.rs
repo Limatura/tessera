@@ -13,4 +13,5 @@ pub mod pending_registration;
 pub mod role;
 pub mod session;
 pub mod share;
+pub mod upload;
 pub mod user;

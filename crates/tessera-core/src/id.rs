@@ -121,6 +121,12 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one file still arriving across several requests.
+    UploadId,
+    "upload_id"
+);
+
+declare_id!(
     /// Identifies one registration waiting on its address to be confirmed.
     PendingRegistrationId,
     "pending_registration_id"
