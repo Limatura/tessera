@@ -52,7 +52,7 @@ CREATE TABLE shares (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [share_tickets](share_tickets.md) [file_shares](file_shares.md) [text_shares](text_shares.md) |  |  |
+| id | TEXT |  | false | [share_tickets](share_tickets.md) [file_shares](file_shares.md) [text_shares](text_shares.md) [uploads](uploads.md) |  |  |
 | code | TEXT |  | false |  |  |  |
 | user_id | TEXT |  | true |  | [users](users.md) |  |
 | kind | TEXT |  | false |  |  |  |
@@ -97,6 +97,7 @@ erDiagram
 "share_tickets" }o--|| "shares" : ""
 "file_shares" }o--|| "shares" : ""
 "text_shares" |o--|| "shares" : ""
+"uploads" }o--o| "shares" : ""
 "shares" }o--o| "users" : ""
 
 "shares" {
@@ -141,6 +142,21 @@ erDiagram
   TEXT share_id PK
   TEXT language
   BLOB content
+}
+"uploads" {
+  TEXT id PK
+  TEXT share_id FK
+  TEXT user_id FK
+  TEXT token_hash
+  TEXT filename
+  TEXT content_type
+  INTEGER declared_bytes
+  INTEGER offset_bytes
+  TEXT object_key
+  TEXT multipart_id
+  TEXT created_at
+  TEXT updated_at
+  TEXT expires_at
 }
 "users" {
   TEXT id PK
