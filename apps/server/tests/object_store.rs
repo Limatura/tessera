@@ -96,7 +96,7 @@ async fn upload(app: &TestApp, name: &str, bytes: Vec<u8>) -> (String, String) {
         created
             .get(key)
             .and_then(serde_json::Value::as_str)
-            .unwrap_or_else(|| panic!("no {key} in {created}"))
+            .expect("the field")
             .to_owned()
     };
     (field("code"), field("management_token"))
