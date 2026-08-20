@@ -205,16 +205,28 @@ impl UploadRepository {
     /// needs every part handed back, and the store will not list them for us in
     /// a way every backend agrees on.
     ///
+    /// # Why the update is conditional
+    ///
+    /// Two requests can read the same offset, both find it acceptable, and both
+    /// write. Checking in the handler and updating here would be read-then-act,
+    /// which is exactly the interleaving tus's `409` exists to prevent — so the
+    /// `WHERE` carries the offset the caller believed, and a row count of zero
+    /// means somebody else moved it first.
+    ///
+    /// Returns whether the update applied, so the caller can answer `409`
+    /// rather than reporting success for bytes that went nowhere.
+    ///
     /// # Errors
     ///
     /// Returns [`UploadRepositoryError`] if any statement fails.
     pub async fn advance(
         &self,
         id: UploadId,
+        expected: u64,
         offset_bytes: u64,
         parts: &[TakenPart],
         now: OffsetDateTime,
-    ) -> Result<(), UploadRepositoryError> {
+    ) -> Result<bool, UploadRepositoryError> {
         let transaction = self.connection.begin().await?;
         for part in parts {
             UploadPartEntity::insert(upload_part::ActiveModel {
@@ -225,17 +237,22 @@ impl UploadRepository {
             .exec(&transaction)
             .await?;
         }
-        UploadEntity::update_many()
+        let moved = UploadEntity::update_many()
             .col_expr(
                 upload::Column::OffsetBytes,
                 i64::try_from(offset_bytes).unwrap_or(i64::MAX).into(),
             )
             .col_expr(upload::Column::UpdatedAt, now.into())
             .filter(upload::Column::Id.eq(id.to_string()))
+            .filter(upload::Column::OffsetBytes.eq(i64::try_from(expected).unwrap_or(i64::MAX)))
             .exec(&transaction)
             .await?;
+        if moved.rows_affected == 0 {
+            transaction.rollback().await?;
+            return Ok(false);
+        }
         transaction.commit().await?;
-        Ok(())
+        Ok(true)
     }
 
     /// The parts the store has taken, in the order it wants them back.

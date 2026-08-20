@@ -285,3 +285,67 @@ async fn an_upload_can_append_to_an_existing_share() {
         "the upload did not join the share"
     );
 }
+
+/// Two requests writing the same upload must not interleave.
+///
+/// What this proves is the truncation: the local sink cuts back to the recorded
+/// offset before adding to it, so the request that loses the race leaves
+/// nothing behind. Measured with that removed — the file came out 6144 bytes
+/// long instead of 4096, holding both writes.
+///
+/// It does **not** prove the conditional update in `advance`; removing that
+/// leaves this passing, because truncation already makes the local path
+/// self-consistent. That check earns its keep on the multipart path, where
+/// there is nothing to truncate — a part that has been uploaded is at the store
+/// whatever happens next, and only the recorded list decides what `complete`
+/// assembles.
+#[tokio::test]
+async fn two_requests_at_the_same_offset_do_not_interleave() {
+    let app = TestApp::ready().await;
+    let total = 4096_usize;
+    let (id, token, _) = open(&app, "raced.bin", total).await;
+
+    let first = vec![1_u8; 2048];
+    let second = vec![2_u8; 2048];
+    let (a, b) = tokio::join!(
+        patch(&app, &id, &token, 0, first.clone()),
+        patch(&app, &id, &token, 0, second.clone()),
+    );
+
+    // Exactly one of them was accepted.
+    let accepted = [&a, &b]
+        .iter()
+        .filter(|(status, ..)| *status == StatusCode::NO_CONTENT)
+        .count();
+    let refused = [&a, &b]
+        .iter()
+        .filter(|(status, ..)| *status == StatusCode::CONFLICT)
+        .count();
+    assert_eq!((accepted, refused), (1, 1), "a={a:?} b={b:?}");
+
+    // And the file holds one of them whole, not a mixture.
+    assert_eq!(head(&app, &id, &token).await.1, Some(2048));
+    let rest = vec![3_u8; 2048];
+    let (status, _, body) = patch(&app, &id, &token, 2048, rest.clone()).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+
+    let share: serde_json::Value = serde_json::from_str(&body).expect("a share");
+    let code = share["code"].as_str().expect("a code");
+    let downloaded = expect_status(
+        app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    let got = axum::body::to_bytes(downloaded.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+
+    assert_eq!(got.len(), total, "the loser's bytes were kept as well");
+    let winner = got[0];
+    assert!(
+        got[..2048].iter().all(|byte| *byte == winner),
+        "the first half is a mixture of both requests"
+    );
+    assert!(got[2048..].iter().all(|byte| *byte == 3));
+}

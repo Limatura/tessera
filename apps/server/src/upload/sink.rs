@@ -174,6 +174,7 @@ impl Sink {
         &self,
         key: &str,
         already_taken: usize,
+        at: u64,
         parts: Vec<Bytes>,
     ) -> Result<Written> {
         let mut written = Written::default();
@@ -196,11 +197,17 @@ impl Sink {
                 }
             }
             Self::Appending { path } => {
-                use tokio::io::AsyncWriteExt as _;
-                let mut file = tokio::fs::OpenOptions::new()
-                    .append(true)
-                    .open(path)
-                    .await?;
+                use tokio::io::{AsyncSeekExt as _, AsyncWriteExt as _};
+                let file = tokio::fs::OpenOptions::new().write(true).open(path).await?;
+                // Cut back to what is recorded before adding to it. Two
+                // requests can both append before either records its offset;
+                // the one that loses the race has already put its bytes in the
+                // file, and without this the next legitimate write would land
+                // after them. Truncating makes the write idempotent about where
+                // it starts, so a loser leaves nothing behind.
+                file.set_len(at).await?;
+                let mut file = file;
+                file.seek(std::io::SeekFrom::End(0)).await?;
                 for bytes in parts {
                     written.accepted = written
                         .accepted

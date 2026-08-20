@@ -356,13 +356,28 @@ pub async fn append(
             )
         };
         if !parts.is_empty() {
-            let written = sink.write(&upload.object_key, taken, parts).await?;
+            let written = sink.write(&upload.object_key, taken, offset, parts).await?;
+            let was = offset;
             offset = offset.saturating_add(written.accepted);
             taken += written.parts.len();
-            state
+            // Conditional on the offset we believed. Somebody else moving it
+            // first means this request is writing into a file it no longer
+            // understands, and carrying on would interleave the two.
+            if !state
                 .uploads
-                .advance(upload.id, offset, &written.parts, OffsetDateTime::now_utc())
-                .await?;
+                .advance(
+                    upload.id,
+                    was,
+                    offset,
+                    &written.parts,
+                    OffsetDateTime::now_utc(),
+                )
+                .await?
+            {
+                return Err(Error::Conflict(
+                    "another request moved this upload while it was being written".to_owned(),
+                ));
+            }
         }
         pending = rest;
     }
