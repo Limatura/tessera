@@ -268,13 +268,22 @@ impl Sink {
 
     /// Throws away everything an abandoned upload left behind.
     ///
-    /// Errors are reported rather than returned: this runs from the sweep, and
-    /// one store that will not co-operate must not stop the rest of the pass.
-    pub async fn discard(&self, key: &str) {
+    /// Reports whether it worked, because the caller must not forget an upload
+    /// it failed to free. S3 does not clean up abandoned multipart uploads on
+    /// its own — AWS recommends a bucket lifecycle rule for exactly that — so
+    /// the parts stay, and stay billed, until somebody aborts them. Dropping
+    /// our row would throw away the identifier, and with it the only way to
+    /// ever try again.
+    ///
+    /// Errors are returned as `false` rather than propagated: this runs from
+    /// the sweep, and one store that will not co-operate must not stop the rest
+    /// of the pass.
+    pub async fn discard(&self, key: &str) -> bool {
         match self {
             Self::Multipart { store, id } => {
                 if let Err(error) = store.abort_multipart(&ObjectPath::from(key), id).await {
                     tracing::warn!(?error, key, "could not abort an abandoned upload");
+                    return false;
                 }
             }
             Self::Appending { path } => {
@@ -282,9 +291,11 @@ impl Sink {
                     && error.kind() != std::io::ErrorKind::NotFound
                 {
                     tracing::warn!(?error, ?path, "could not remove a partial upload");
+                    return false;
                 }
             }
         }
+        true
     }
 }
 

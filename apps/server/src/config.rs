@@ -472,6 +472,14 @@ pub struct ShareConfig {
     /// starting an upload and walking away. Long enough that a laptop closed
     /// overnight can still resume; short enough that abandoned ones do not
     /// accumulate.
+    ///
+    /// # On S3, set a lifecycle rule as well
+    ///
+    /// The sweep aborts what it finds, but an abort that fails leaves parts at
+    /// the store, and S3 never removes an abandoned multipart upload by itself
+    /// — AWS recommends an `AbortIncompleteMultipartUpload` lifecycle rule for
+    /// exactly this. Set one a few days longer than this value and the storage
+    /// cannot leak even if this instance is offline when a session expires.
     pub upload_session_ttl_hours: u64,
 }
 

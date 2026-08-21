@@ -275,12 +275,20 @@ async fn sweep_abandoned_uploads(state: &AppState, now: OffsetDateTime) {
 
 /// Frees one abandoned upload, reporting whether its row went.
 ///
-/// The row goes whether or not the store co-operated: a session whose bytes
-/// could not be reclaimed is still a session nobody will finish, and keeping it
-/// would make every later pass try the same failure again.
+/// The row stays when the store would not let go. S3 does not clean up
+/// abandoned multipart uploads by itself, so those parts remain — and remain
+/// billed — until an abort succeeds. Deleting the row would throw away the
+/// identifier the abort needs, so nothing could ever try again and the space
+/// would be lost silently.
+///
+/// Keeping it also keeps the quota honest: the bytes really are still there, so
+/// the reservation should still stand. A later pass retries; an operator sees
+/// the warning in the meantime.
 async fn abandon(state: &AppState, upload: &crate::db::repository::upload::Upload) -> bool {
-    if let Some(sink) = crate::upload::reopen(state, upload) {
-        sink.discard(&upload.object_key).await;
+    if let Some(sink) = crate::upload::reopen(state, upload)
+        && !sink.discard(&upload.object_key).await
+    {
+        return false;
     }
     match state.uploads.delete(upload.id).await {
         Ok(()) => true,
