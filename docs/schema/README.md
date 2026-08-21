@@ -19,6 +19,8 @@
 | [role_permissions](role_permissions.md) | 2 | 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。 | table |
 | [user_roles](user_roles.md) | 3 | 誰在哪些角色裡。沒有任何一列 = 登入了但什麼都不能做,那是真的狀態不是錯誤。 | table |
 | [api_token_permissions](api_token_permissions.md) | 2 | 一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。 | table |
+| [uploads](uploads.md) | 13 |  | table |
+| [upload_parts](upload_parts.md) | 3 |  | table |
 
 ## Relations
 
@@ -37,6 +39,9 @@ erDiagram
 "user_roles" |o--|| "roles" : ""
 "user_roles" |o--|| "users" : ""
 "api_token_permissions" |o--|| "api_tokens" : ""
+"uploads" }o--o| "users" : ""
+"uploads" }o--o| "shares" : ""
+"upload_parts" |o--|| "uploads" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -169,6 +174,26 @@ erDiagram
 "api_token_permissions" {
   TEXT token_id PK
   TEXT permission PK
+}
+"uploads" {
+  TEXT id PK
+  TEXT share_id FK
+  TEXT user_id FK
+  TEXT token_hash
+  TEXT filename
+  TEXT content_type
+  INTEGER declared_bytes
+  INTEGER offset_bytes
+  TEXT object_key
+  TEXT multipart_id
+  TEXT created_at
+  TEXT updated_at
+  TEXT expires_at
+}
+"upload_parts" {
+  TEXT upload_id PK
+  INTEGER part_number PK
+  TEXT content_id
 }
 ```
 

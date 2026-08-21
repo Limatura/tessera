@@ -158,6 +158,28 @@ Table text_shares {
   Note: '文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。'
 }
 
+Table upload_parts {
+  upload_id text [pk, not null]
+  part_number integer [pk, not null]
+  content_id text [not null]
+}
+
+Table uploads {
+  id text [pk, not null]
+  share_id text
+  user_id text
+  token_hash text [not null]
+  filename text
+  content_type text
+  declared_bytes integer [not null]
+  offset_bytes integer [not null]
+  object_key text [not null]
+  multipart_id text
+  created_at text [not null]
+  updated_at text [not null]
+  expires_at text [not null]
+}
+
 Table user_roles {
   user_id text [pk, not null]
   role_id text [pk, not null]
@@ -192,6 +214,9 @@ Ref: sessions.user_id > users.id [delete: cascade]
 Ref: share_tickets.share_id > shares.id [delete: cascade]
 Ref: shares.user_id > users.id
 Ref: text_shares.share_id > shares.id [delete: cascade]
+Ref: upload_parts.upload_id > uploads.id [delete: cascade]
+Ref: uploads.share_id > shares.id [delete: cascade]
+Ref: uploads.user_id > users.id [delete: cascade]
 Ref: user_roles.role_id > roles.id [delete: cascade]
 Ref: user_roles.user_id > users.id [delete: cascade]
 Ref: users.deleted_by > users.id

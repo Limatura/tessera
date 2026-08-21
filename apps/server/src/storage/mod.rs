@@ -18,7 +18,7 @@
 
 use std::{collections::BTreeMap, path::Path, sync::Arc};
 
-use object_store::{ObjectStore, local::LocalFileSystem};
+use object_store::{ObjectStore, local::LocalFileSystem, multipart::MultipartStore};
 
 use crate::config::StorageConfig;
 
@@ -61,23 +61,122 @@ pub enum StorageError {
 /// be parsed, or the backend rejects the options — including when the scheme
 /// needs a cargo feature this binary was built without.
 pub fn build(config: &StorageConfig) -> Result<Arc<dyn ObjectStore>, StorageError> {
+    Ok(build_with_multipart(config)?.0)
+}
+
+/// A [`MultipartStore`] handle that can sit in a `Debug` struct.
+///
+/// `dyn MultipartStore` does not implement `Debug`, and what it would print is
+/// the store's configuration rather than anything about the process holding it
+/// — so the wrapper prints its own name and nothing else.
+#[derive(Clone)]
+pub struct Multipart(pub Arc<dyn MultipartStore>);
+
+impl core::fmt::Debug for Multipart {
+    fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        formatter.write_str("Multipart(..)")
+    }
+}
+
+/// A store, and the same store seen as a [`MultipartStore`] when it is one.
+///
+/// `None` on the second means resumable uploads there append to a partial file
+/// instead — see `upload::sink`.
+pub type Stores = (Arc<dyn ObjectStore>, Option<Multipart>);
+
+/// The same store, plus a handle to it as a [`MultipartStore`] when it is one.
+///
+/// # Why this is separate from [`build`]
+///
+/// A resumable upload writes one object across several requests, which needs
+/// the store's own multipart identifier to outlive the call that made it. That
+/// is [`MultipartStore`], and it is a *different trait* from [`ObjectStore`]:
+/// `aws`, `azure` and `gcp` implement both, `LocalFileSystem` implements only
+/// the first, and there is no way to ask an `Arc<dyn ObjectStore>` which it is
+/// — the crate exposes no downcast.
+///
+/// So the decision has to be made where the concrete type still exists, which
+/// is here. `parse_url_opts` erases it, so the three schemes that can do
+/// multipart are built from their own builders — the same `with_url` plus
+/// `with_config` that `parse_url_opts` does internally — and everything else
+/// falls through to it unchanged.
+///
+/// # Errors
+///
+/// As [`build`].
+pub fn build_with_multipart(config: &StorageConfig) -> Result<Stores, StorageError> {
     if let Some(path) = local_path(&config.url) {
-        return build_local(&path);
+        // A local filesystem has no multipart concept to expose. Resumable
+        // uploads there append to a partial file instead — see `upload::sink`.
+        return Ok((build_local(&path)?, None));
     }
 
     let url = url::Url::parse(&config.url)
         .map_err(|e| StorageError::Location(format!("`{}`: {e}", config.url)))?;
-    let (store, prefix) = object_store::parse_url_opts(&url, backend_options(config))?;
+    let options = backend_options(config);
+
+    if let Some(pair) = build_multipart_capable(&url, &options)? {
+        return Ok(pair);
+    }
+
+    let (store, prefix) = object_store::parse_url_opts(&url, options)?;
 
     // `parse_url_opts` splits the URL into a store and the path *within* it, and
     // hands both back. Dropping the second value would silently ignore the
     // prefix — `s3://bucket/tessera` would write to the bucket root, mixed in
     // with whatever else lives there.
-    Ok(if prefix.as_ref().is_empty() {
-        Arc::from(store)
-    } else {
-        Arc::new(object_store::prefix::PrefixStore::new(store, prefix))
-    })
+    Ok((
+        if prefix.as_ref().is_empty() {
+            Arc::from(store)
+        } else {
+            Arc::new(object_store::prefix::PrefixStore::new(store, prefix))
+        },
+        None,
+    ))
+}
+
+/// Applies the prefix to a store that is both an [`ObjectStore`] and a
+/// [`MultipartStore`], keeping both views of it.
+///
+/// `PrefixStore` implements both traits, so wrapping does not cost the second
+/// one — see `apache/arrow-rs-object-store#586`.
+#[cfg(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+))]
+fn prefixed_pair<S>(store: S, prefix: object_store::path::Path) -> Stores
+where
+    S: ObjectStore + MultipartStore,
+{
+    // One `Arc`, two views of it. Not two stores: a second client would mean a
+    // second connection pool and a second chance for the two to be configured
+    // differently.
+    if prefix.as_ref().is_empty() {
+        return both_views(Arc::new(store));
+    }
+    both_views(Arc::new(object_store::prefix::PrefixStore::new(
+        store, prefix,
+    )))
+}
+
+/// Two trait objects over one `Arc`.
+///
+/// Written as its own function because the coercion has to happen at a return
+/// position: `Arc::clone` infers its parameter from the annotation, so naming
+/// the target type on the binding asks it for an `&Arc<dyn ObjectStore>` that
+/// nobody has.
+#[cfg(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+))]
+fn both_views<S>(shared: Arc<S>) -> Stores
+where
+    S: ObjectStore + MultipartStore,
+{
+    let same = Arc::clone(&shared);
+    (same, Some(Multipart(shared)))
 }
 
 /// Returns the local directory `location` names, or `None` if it names a remote
@@ -86,7 +185,7 @@ pub fn build(config: &StorageConfig) -> Result<Arc<dyn ObjectStore>, StorageErro
 /// A value with no `://` is a path. `file://` is also accepted, because it is
 /// what people write once they have seen the other schemes — and `file:///data`
 /// means the *absolute* path `/data`, so the third slash has to survive.
-fn local_path(location: &str) -> Option<String> {
+pub(crate) fn local_path(location: &str) -> Option<String> {
     let Some(rest) = location.strip_prefix("file://") else {
         return (!location.contains("://")).then(|| location.to_owned());
     };
@@ -168,6 +267,89 @@ fn is_backend_option(lowercased_key: &str) -> bool {
     }
 
     false
+}
+
+#[cfg(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+))]
+/// Builds the store for a scheme that can hold a multipart upload open.
+///
+/// `None` when the scheme is not one of those, or the feature for it was not
+/// compiled in — either way the caller falls back to `parse_url_opts`, which
+/// produces the same store without the second handle.
+///
+/// Each arm mirrors `parse_url_opts`'s own `builder_opts!`: start from the URL,
+/// then fold the options in by their string names, skipping any the backend
+/// does not recognise. Same tolerance, so a configuration that worked before
+/// this function existed still works.
+fn build_multipart_capable(
+    url: &url::Url,
+    options: &BTreeMap<String, String>,
+) -> Result<Option<Stores>, StorageError> {
+    use object_store::ObjectStoreScheme;
+
+    let Ok((scheme, prefix)) = ObjectStoreScheme::parse(url) else {
+        return Ok(None);
+    };
+
+    match scheme {
+        #[cfg(feature = "storage-s3")]
+        ObjectStoreScheme::AmazonS3 => {
+            let builder = options.iter().fold(
+                object_store::aws::AmazonS3Builder::new().with_url(url.to_string()),
+                |builder, (key, value)| match key.to_ascii_lowercase().parse() {
+                    Ok(key) => builder.with_config(key, value),
+                    Err(_) => builder,
+                },
+            );
+            Ok(Some(prefixed_pair(builder.build()?, prefix)))
+        }
+        #[cfg(feature = "storage-gcs")]
+        ObjectStoreScheme::GoogleCloudStorage => {
+            let builder = options.iter().fold(
+                object_store::gcp::GoogleCloudStorageBuilder::new().with_url(url.to_string()),
+                |builder, (key, value)| match key.to_ascii_lowercase().parse() {
+                    Ok(key) => builder.with_config(key, value),
+                    Err(_) => builder,
+                },
+            );
+            Ok(Some(prefixed_pair(builder.build()?, prefix)))
+        }
+        #[cfg(feature = "storage-azure")]
+        ObjectStoreScheme::MicrosoftAzure => {
+            let builder = options.iter().fold(
+                object_store::azure::MicrosoftAzureBuilder::new().with_url(url.to_string()),
+                |builder, (key, value)| match key.to_ascii_lowercase().parse() {
+                    Ok(key) => builder.with_config(key, value),
+                    Err(_) => builder,
+                },
+            );
+            Ok(Some(prefixed_pair(builder.build()?, prefix)))
+        }
+        // Everything else — the HTTP/WebDAV backend, memory, and any scheme a
+        // later version of `object_store` adds — has no multipart to offer, so
+        // the ordinary path builds it.
+        _ => Ok(None),
+    }
+}
+
+/// The same, for a build with no multipart-capable backend compiled in.
+///
+/// Every arm of the other one is behind a feature, so with none of them there
+/// is nothing to match on — and a store that cannot do multipart is exactly
+/// what `None` means.
+#[cfg(not(any(
+    feature = "storage-s3",
+    feature = "storage-gcs",
+    feature = "storage-azure"
+)))]
+const fn build_multipart_capable(
+    _url: &url::Url,
+    _options: &BTreeMap<String, String>,
+) -> Result<Option<Stores>, StorageError> {
+    Ok(None)
 }
 
 #[cfg(test)]

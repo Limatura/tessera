@@ -62,17 +62,6 @@ use crate::{
     state::AppState,
 };
 
-/// Bytes accumulated before a part is pushed to the blob store.
-///
-/// Most object stores require every part but the last to be at least 5 MiB, and
-/// some require them all to be the same size, so the block size is fixed rather
-/// than following whatever chunk sizes the network happened to deliver.
-///
-/// **This is the memory an in-flight upload holds** — one block per concurrent
-/// upload, not one per connection, because a block is flushed as soon as it
-/// fills.
-const PART_SIZE: usize = 8 * 1024 * 1024;
-
 /// Attempts to find an unused retrieval code before giving up.
 ///
 /// Collisions are vanishingly rare at the default length, so more than a couple
@@ -233,7 +222,11 @@ impl SharedFile {
 }
 
 impl ShareResponse {
-    fn from_share(share: &Share, content: &Content, management_token: Option<String>) -> Self {
+    pub(crate) fn from_share(
+        share: &Share,
+        content: &Content,
+        management_token: Option<String>,
+    ) -> Self {
         Self {
             id: share.id.to_string(),
             code: share.code.as_str().to_owned(),
@@ -564,6 +557,30 @@ struct Ingested {
 /// should have been kept, to make a limit whose entire job is to stop unbounded
 /// growth slightly more exact. Set the figure with the same slack you would
 /// give a disk.
+/// What is left of the instance's allowance, counting uploads still arriving.
+///
+/// An open upload session has reserved the room it declared, so it spends quota
+/// before a byte of it arrives. Without that, two callers can each be promised
+/// the same free space and the instance goes over its own limit.
+///
+/// # Errors
+///
+/// Returns [`Error`] if either total cannot be read.
+pub(crate) async fn remaining_room(state: &AppState) -> Result<u64> {
+    let free = remaining_quota(state).await?;
+    Ok(free.saturating_sub(state.uploads.reserved_bytes().await?))
+}
+
+/// A filename from a query parameter, length- and control-character-checked.
+///
+/// # Errors
+///
+/// Returns [`Error::BadRequest`] if it is too long or holds a control
+/// character.
+pub(crate) fn checked_filename(value: Option<String>) -> Result<Option<String>> {
+    checked_label(value, "filename", MAX_TEXT_FIELD)
+}
+
 async fn remaining_quota(state: &AppState) -> Result<u64> {
     let quota = state.config.storage.max_total_bytes;
     if quota == 0 {
@@ -618,6 +635,7 @@ async fn ingest_into(
     let stream_to_object = kind == ShareKind::File;
     let text_limit = state.config.share.max_text_bytes;
     let threshold = state.config.share.inline_threshold_bytes;
+    let part_size = state.config.server.part_size_bytes;
     let limit = u64::try_from(state.config.server.max_body_bytes).unwrap_or(u64::MAX);
     // What is left of the instance's allowance, checked as the body arrives
     // rather than only up front: the caller need not send a `Content-Length`,
@@ -672,7 +690,7 @@ async fn ingest_into(
             *upload = Some(started);
         }
         if let Some(upload) = upload.as_mut() {
-            flush_full_parts(upload.as_mut(), &mut buffered).await?;
+            flush_full_parts(upload.as_mut(), &mut buffered, part_size).await?;
         }
     }
 
@@ -719,6 +737,24 @@ async fn ingest_into(
     }
 }
 
+/// The next piece of a body's data, or `None` at its end.
+///
+/// Trailers carry no content, so they are skipped rather than returned. The
+/// wait is bounded the same way `next_frame` bounds it — see there.
+///
+/// # Errors
+///
+/// Returns [`Error::Timeout`] when nothing arrives for `stall`, or
+/// [`Error::BadRequest`] when the body ends part-way.
+pub(crate) async fn next_chunk(body: &mut Body, stall: Duration) -> Result<Option<Bytes>> {
+    while let Some(frame) = next_frame(body, stall).await? {
+        if let Ok(data) = frame.into_data() {
+            return Ok(Some(data));
+        }
+    }
+    Ok(None)
+}
+
 /// The next piece of the body, or `None` at its end.
 ///
 /// The wait is bounded by how long the connection may go silent, not by how
@@ -739,9 +775,21 @@ async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body
 }
 
 /// Pushes as many whole blocks as the buffer holds, leaving the remainder.
-async fn flush_full_parts(upload: &mut dyn MultipartUpload, buffered: &mut Vec<u8>) -> Result<()> {
-    while buffered.len() >= PART_SIZE {
-        let rest = buffered.split_off(PART_SIZE);
+///
+/// `part_size` is `server.part_size_bytes`. It is fixed rather than following
+/// whatever chunk sizes the network delivered, because most object stores
+/// require every part but the last to be at least 5 MiB and some require them
+/// all to be the same size.
+///
+/// **It is also the memory an in-flight upload holds** — one block per upload,
+/// not one per connection, because a block goes out as soon as it fills.
+async fn flush_full_parts(
+    upload: &mut dyn MultipartUpload,
+    buffered: &mut Vec<u8>,
+    part_size: usize,
+) -> Result<()> {
+    while buffered.len() >= part_size {
+        let rest = buffered.split_off(part_size);
         let part = std::mem::replace(buffered, rest);
         upload.put_part(PutPayload::from(Bytes::from(part))).await?;
     }
@@ -762,6 +810,76 @@ pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
         created_at.year(),
         u8::from(created_at.month())
     )
+}
+
+/// Makes a share whose one file arrived through a resumable upload.
+///
+/// Separate from [`create`] because the bytes are already in the store: this
+/// only writes the rows and picks a code. Everything a `POST /shares` decides
+/// from its query — password, expiry, use limit — is not available to an upload
+/// session, so those take their defaults and the uploader adjusts the share
+/// afterwards.
+///
+/// # Errors
+///
+/// Returns [`Error`] if no unused code can be found or the insert fails.
+pub(crate) async fn create_from_file(
+    state: &AppState,
+    user_id: Option<tessera_core::UserId>,
+    file: NewFile,
+    now: OffsetDateTime,
+) -> Result<ShareResponse> {
+    let management_secret = user_id.is_none().then(Secret::generate_session);
+    let share = Share {
+        id: ShareId::generate(),
+        code: RetrievalCode::parse("0000").unwrap_or_else(|_| unreachable!("four zeroes parse")),
+        user_id,
+        kind: ShareKind::File,
+        password_hash: None,
+        use_limit: None,
+        use_count: 0,
+        expires_at: resolve_expiry(state, None, now)?,
+        disabled_at: None,
+        title: None,
+        og_config: None,
+        management_token_hash: management_secret.as_ref().map(Secret::digest),
+        view_count: 0,
+        copy_count: 0,
+        bytes_served: 0,
+        last_accessed_at: None,
+        created_at: now,
+        updated_at: now,
+    };
+    let content = NewContent::File(file);
+    let share = insert_with_fresh_code(state, share, &content).await?;
+    let stored = state.shares.content_of(&share).await?;
+    Ok(ShareResponse::from_share(
+        &share,
+        &stored,
+        management_secret.map(|secret| secret.expose().to_owned()),
+    ))
+}
+
+/// The share as its owner sees it, for the response to a finished upload.
+///
+/// No management token: this share already existed, so its token was handed out
+/// when it was made and is not ours to show again.
+///
+/// # Errors
+///
+/// Returns [`Error::NotFound`] if the share went away, or [`Error`] if a query
+/// fails.
+pub(crate) async fn describe_for_owner(
+    state: &AppState,
+    share_id: ShareId,
+) -> Result<ShareResponse> {
+    let share = state
+        .shares
+        .find_by_id(share_id)
+        .await?
+        .ok_or(Error::NotFound)?;
+    let content = state.shares.content_of(&share).await?;
+    Ok(ShareResponse::from_share(&share, &content, None))
 }
 
 /// Inserts the share, trying another code each time one is already taken.

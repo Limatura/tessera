@@ -446,6 +446,7 @@ expression: document
           "conflict",
           "too_many_requests",
           "insufficient_storage",
+          "unsupported_media_type",
           "timeout",
           "unavailable",
           "internal"
@@ -1322,6 +1323,47 @@ expression: document
         },
         "required": [
           "is_admin"
+        ],
+        "type": "object"
+      },
+      "UploadResponse": {
+        "description": "A session that has just been opened.",
+        "properties": {
+          "id": {
+            "description": "Identifier, and the last segment of the URL to continue at.",
+            "type": "string"
+          },
+          "length": {
+            "description": "How much was declared.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "How much has arrived. Zero, here.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "part_size": {
+            "description": "How much to send per chunk, in bytes.\n\nA chunk that is not the last is accepted only up to a multiple of this;\nthe rest comes back as a lower offset and has to be re-sent. Sending\nexact multiples avoids that entirely.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "token": {
+            "description": "Proof that a later request is the same uploader, for an anonymous one.\n\n**Store this.** It is shown once, and without it the upload cannot be\nresumed after the page is closed — which is the situation resuming\nexists for. `null` when the uploader is signed in, because their own\ncredential already answers the question.",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "offset",
+          "length",
+          "part_size"
         ],
         "type": "object"
       },
@@ -4087,6 +4129,235 @@ expression: document
         "summary": "Revokes one of the caller's tokens.",
         "tags": [
           "tokens"
+        ]
+      }
+    },
+    "/api/v1/uploads": {
+      "post": {
+        "description": "# Errors\n\n`400` when `Upload-Length` is missing or unusable, `403` when the caller may\nnot upload, `404` when `code` names no share, `507` when the declared length\ndoes not fit in what is left of the instance.",
+        "operationId": "create_upload",
+        "parameters": [
+          {
+            "description": "What to call the file.",
+            "example": "holiday.mp4",
+            "in": "path",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "Retrieval code of the share to append to.\n\nOmit to make a new share when the upload finishes.",
+            "example": "4GSVV6QT",
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            },
+            "description": "The session"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`Upload-Length` missing or unusable"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not allowed to upload"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No share has that code"
+          },
+          "507": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no room for it"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Opens a session.",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/v1/uploads/{id}": {
+      "head": {
+        "description": "# Errors\n\n`404` when there is no such session, or the caller may not continue it —\nthe same answer, so that a stranger cannot tell one from the other.",
+        "operationId": "upload_offset",
+        "parameters": [
+          {
+            "description": "The session",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "`Upload-Offset` says how much has arrived"
+          },
+          "404": {
+            "description": "No such session"
+          },
+          "410": {
+            "description": "That session was abandoned"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Answers how much has arrived.",
+        "tags": [
+          "uploads"
+        ]
+      },
+      "patch": {
+        "description": "# Errors\n\n`409` when the offset does not match, `404` when there is no such session,\n`415` when the content type is not the one the specification names.",
+        "operationId": "append_to_upload",
+        "parameters": [
+          {
+            "description": "The session",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/offset+octet-stream": {
+              "schema": {
+                "items": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "description": "The next bytes",
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            },
+            "description": "That was the last of it"
+          },
+          "204": {
+            "description": "Accepted; `Upload-Offset` says the new total"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such session"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The offset does not match"
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Wrong content type"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Applies bytes at the given offset.",
+        "tags": [
+          "uploads"
         ]
       }
     },

@@ -37,6 +37,9 @@ const INTERVAL: Duration = Duration::from_hours(1);
 /// clear a year's backlog at once would hold the pool and compete with the
 /// requests the process exists to serve. A backlog drains over several passes
 /// instead, which is the right shape for work nobody is waiting on.
+/// How many abandoned uploads one pass aborts.
+const UPLOADS_PER_PASS: u64 = 100;
+
 const SHARES_PER_PASS: u64 = 500;
 
 /// Deletes what has run out until `shutdown` is cancelled.
@@ -80,6 +83,13 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         "expired download authorisations",
         state.tickets.delete_expired(now).await,
     );
+
+    // An abandoned upload is holding real bytes in the store, and they count
+    // against the quota. Aborting the multipart is what actually frees them —
+    // deleting the row alone would leave parts that nothing will ever look for
+    // and that the store will keep billing for. That is `vastsa/FileCodeBox#362`
+    // in our shape.
+    sweep_abandoned_uploads(state, now).await;
     // Spent links are left until they expire rather than removed on use: while
     // the row is there, following the same link twice can say "already used"
     // instead of "no such link", and those deserve different answers.
@@ -234,5 +244,57 @@ fn report<E: std::fmt::Debug>(what: &str, outcome: Result<u64, E>) {
         Ok(0) => {}
         Ok(removed) => tracing::info!(removed, what, "swept"),
         Err(error) => tracing::warn!(?error, what, "could not sweep"),
+    }
+}
+
+/// Aborts uploads nobody came back to finish.
+///
+/// Bounded per pass so that a thousand abandoned sessions become a thousand
+/// aborts spread over several passes, rather than one pass holding a connection
+/// for minutes.
+async fn sweep_abandoned_uploads(state: &AppState, now: OffsetDateTime) {
+    let expired = match state.uploads.expired(now, UPLOADS_PER_PASS).await {
+        Ok(expired) => expired,
+        Err(error) => {
+            tracing::warn!(?error, "could not read abandoned uploads");
+            return;
+        }
+    };
+    if expired.is_empty() {
+        return;
+    }
+
+    let mut removed = 0_usize;
+    for upload in &expired {
+        if abandon(state, upload).await {
+            removed += 1;
+        }
+    }
+    tracing::info!(removed, "abandoned uploads");
+}
+
+/// Frees one abandoned upload, reporting whether its row went.
+///
+/// The row stays when the store would not let go. S3 does not clean up
+/// abandoned multipart uploads by itself, so those parts remain — and remain
+/// billed — until an abort succeeds. Deleting the row would throw away the
+/// identifier the abort needs, so nothing could ever try again and the space
+/// would be lost silently.
+///
+/// Keeping it also keeps the quota honest: the bytes really are still there, so
+/// the reservation should still stand. A later pass retries; an operator sees
+/// the warning in the meantime.
+async fn abandon(state: &AppState, upload: &crate::db::repository::upload::Upload) -> bool {
+    if let Some(sink) = crate::upload::reopen(state, upload)
+        && !sink.discard(&upload.object_key).await
+    {
+        return false;
+    }
+    match state.uploads.delete(upload.id).await {
+        Ok(()) => true,
+        Err(error) => {
+            tracing::warn!(?error, %upload.id, "could not remove an abandoned upload");
+            false
+        }
     }
 }

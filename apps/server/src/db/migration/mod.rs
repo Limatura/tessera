@@ -45,6 +45,7 @@ mod m20260818_000007_bytes_served;
 mod m20260818_000008_drop_legacy_share_columns;
 mod m20260819_000001_guest_role;
 mod m20260819_000002_mysql_datetime;
+mod m20260820_000001_uploads;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -79,6 +80,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260818_000008_drop_legacy_share_columns::Migration),
             Box::new(m20260819_000001_guest_role::Migration),
             Box::new(m20260819_000002_mysql_datetime::Migration),
+            Box::new(m20260820_000001_uploads::Migration),
         ]
     }
 }

@@ -57,11 +57,12 @@ fn router_assembly(c: &mut Criterion) {
     let db = runtime
         .block_on(db::connect(&config.database))
         .expect("sqlite pool");
-    let store = storage::build(&config.storage).expect("local store");
+    let (store, multipart) = storage::build_with_multipart(&config.storage).expect("local store");
     let state = AppState::new(
         Arc::new(config),
         db,
         store,
+        multipart,
         tessera_server::assets::Source::Embedded,
     );
     state.set_status(ServiceStatus::Ready);

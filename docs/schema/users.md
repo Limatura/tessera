@@ -34,7 +34,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [user_roles](user_roles.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [user_roles](user_roles.md) [uploads](uploads.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | password_hash | TEXT |  | false |  |  |  |
@@ -75,6 +75,7 @@ erDiagram
 "shares" }o--o| "users" : ""
 "password_reset_tokens" }o--|| "users" : ""
 "user_roles" |o--|| "users" : ""
+"uploads" }o--o| "users" : ""
 
 "users" {
   TEXT id PK
@@ -144,6 +145,21 @@ erDiagram
   TEXT user_id PK
   TEXT role_id PK
   TEXT granted_at
+}
+"uploads" {
+  TEXT id PK
+  TEXT share_id FK
+  TEXT user_id FK
+  TEXT token_hash
+  TEXT filename
+  TEXT content_type
+  INTEGER declared_bytes
+  INTEGER offset_bytes
+  TEXT object_key
+  TEXT multipart_id
+  TEXT created_at
+  TEXT updated_at
+  TEXT expires_at
 }
 ```
 

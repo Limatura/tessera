@@ -59,7 +59,7 @@ use axum::{
     body::Body,
     http::{Method, Request, StatusCode},
 };
-use common::{Auth, TestApp, body_json, expect_status};
+use common::{Auth, TestApp, body_json, body_string, expect_status};
 use object_store::ObjectStoreExt as _;
 
 /// Overridable so the suite can point at an existing bucket instead of the
@@ -247,4 +247,143 @@ async fn deleting_a_share_removes_its_object() {
             "the object outlived its share"
         );
     }
+}
+
+/// The resumable path against a store that really does multipart.
+///
+/// The local-filesystem side is covered by `resumable`; this is the half where
+/// the offset only advances on whole parts, because S3 refuses short ones.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn a_resumable_upload_survives_being_sent_in_pieces() {
+    let app = app().await;
+    let part = app.state.config.server.part_size_bytes;
+    // Two whole parts and a short tail, so both rules are exercised: the tail
+    // may only go out as the last part.
+    let sent: Vec<u8> = (0..u32::try_from(part * 2 + 4096).unwrap_or(u32::MAX))
+        .map(|i| u8::try_from(i % 251).unwrap_or(0))
+        .collect();
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/uploads?filename=resumed.bin")
+                    .header("upload-length", sent.len().to_string()),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let id = created["id"].as_str().expect("an id").to_owned();
+    let token = created["token"].as_str().expect("a token").to_owned();
+
+    // Deliberately not aligned to the part size: the offset should come back
+    // lower than what was sent, and the client re-sends the difference.
+    let mut at = 0_usize;
+    let mut last = String::new();
+    while at < sent.len() {
+        // A whole part plus a little, so the offset comes back lower than what
+        // was sent and the difference is re-sent — the interrupted-transfer
+        // path, exercised on purpose.
+        let end = (at + part + 4096).min(sent.len());
+        let response = app
+            .send(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/api/v1/uploads/{id}"))
+                    .header("content-type", "application/offset+octet-stream")
+                    .header("upload-offset", at.to_string())
+                    .header("x-upload-token", &token),
+                Body::from(sent[at..end].to_vec()),
+            )
+            .await;
+        let status = response.status();
+        let reported = response
+            .headers()
+            .get("upload-offset")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse::<usize>().ok());
+        last = body_string(response).await;
+        assert!(
+            status == StatusCode::NO_CONTENT || status == StatusCode::CREATED,
+            "{status}: {last}"
+        );
+        let next = reported.unwrap_or(end);
+        assert!(
+            next > at || status == StatusCode::CREATED,
+            "the offset stopped moving at {at}"
+        );
+        at = next;
+    }
+
+    let share: serde_json::Value = serde_json::from_str(&last).expect("a share");
+    let code = share["code"].as_str().expect("a code");
+    let got = download(&app, code).await;
+    assert_eq!(got.len(), sent.len(), "wrong length");
+    assert_eq!(
+        got.iter().zip(&sent).position(|(a, b)| a != b),
+        None,
+        "first differing byte"
+    );
+}
+
+/// A chunk too short to fill a part is refused, not silently ignored.
+///
+/// It advances nothing, so a client that kept sending it would re-send from the
+/// same offset forever and nothing would say why. The refusal names the size it
+/// needed, which the `POST` response already carried.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn a_chunk_below_the_part_size_is_refused_rather_than_ignored() {
+    let app = app().await;
+    let part = app.state.config.server.part_size_bytes;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/uploads?filename=short.bin")
+                    .header("upload-length", (part * 2).to_string()),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        created["part_size"].as_u64(),
+        Some(u64::try_from(part).unwrap_or(0)),
+        "the client is not told what it needs to send"
+    );
+
+    let response = app
+        .send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!(
+                    "/api/v1/uploads/{}",
+                    created["id"].as_str().expect("an id")
+                ))
+                .header("content-type", "application/offset+octet-stream")
+                .header("upload-offset", "0")
+                .header(
+                    "x-upload-token",
+                    created["token"].as_str().expect("a token"),
+                ),
+            Body::from(vec![0_u8; 4096]),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(
+        body_string(response).await.contains(&part.to_string()),
+        "the refusal does not say how much was needed"
+    );
 }

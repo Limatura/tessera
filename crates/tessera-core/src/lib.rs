@@ -50,7 +50,7 @@ pub use crate::{
     error::DomainError,
     id::{
         ApiTokenId, InviteId, PasswordResetTokenId, PendingRegistrationId, RoleId, SessionId,
-        ShareId, ShareTicketId, UserId,
+        ShareId, ShareTicketId, UploadId, UserId,
     },
     password::{Password, PasswordPolicy},
     permission::{Permission, PermissionSet},

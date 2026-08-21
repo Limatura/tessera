@@ -464,6 +464,23 @@ pub struct ShareConfig {
     ///
     /// `0` removes them on the next sweep.
     pub retain_after_death_hours: u64,
+
+    /// How long an unfinished upload waits before the sweep removes it.
+    ///
+    /// It is holding real bytes in the store the whole time, and they count
+    /// against the quota — so this is how long somebody may reserve space by
+    /// starting an upload and walking away. Long enough that a laptop closed
+    /// overnight can still resume; short enough that abandoned ones do not
+    /// accumulate.
+    ///
+    /// # On S3, set a lifecycle rule as well
+    ///
+    /// The sweep aborts what it finds, but an abort that fails leaves parts at
+    /// the store, and S3 never removes an abandoned multipart upload by itself
+    /// — AWS recommends an `AbortIncompleteMultipartUpload` lifecycle rule for
+    /// exactly this. Set one a few days longer than this value and the storage
+    /// cannot leak even if this instance is offline when a session expires.
+    pub upload_session_ttl_hours: u64,
 }
 
 use crate::auth::proxy::TrustedProxies;
@@ -498,6 +515,15 @@ pub struct ServerConfig {
     pub upload_stall_secs: u64,
     /// Maximum accepted request body, in bytes.
     pub max_body_bytes: usize,
+
+    /// How much of an upload is gathered before a part goes to the store.
+    ///
+    /// Only reaches an object store that does multipart. S3 refuses every part
+    /// but the last below 5 MiB, and Cloudflare R2 additionally requires every
+    /// part but the last to be the *same* size — so an instance on R2 wants
+    /// this and the minimum to agree, which is what tusd does. Garage enforces
+    /// neither, which is why the CI job cannot catch a mistake here.
+    pub part_size_bytes: usize,
 
     /// Directory to serve the frontend from, instead of the bundle compiled in.
     ///
@@ -641,6 +667,9 @@ impl Default for ServerConfig {
             upload_stall_secs: 30,
             // 100 MiB. Generous for a courier service default, and overridable.
             max_body_bytes: 100 * 1024 * 1024,
+            // 8 MiB: above S3's 5 MiB floor with room to spare, and small
+            // enough that a part which has to be retried is not a long retry.
+            part_size_bytes: 8 * 1024 * 1024,
             assets_dir: String::new(),
             cors_allowed_origins: Vec::new(),
             trusted_proxies: Vec::new(),
@@ -734,6 +763,7 @@ impl Default for ShareConfig {
             // A week. Long enough that somebody coming back to a link they were
             // sent gets told what happened, short enough that dead payloads do
             // not become the reason the disk fills.
+            upload_session_ttl_hours: 24,
             retain_after_death_hours: 24 * 7,
         }
     }
@@ -1072,6 +1102,12 @@ impl ShareConfig {
         Duration::from_secs(self.retain_after_death_hours.saturating_mul(3600))
     }
 
+    /// How long an unfinished upload waits, as a [`Duration`].
+    #[must_use]
+    pub const fn upload_session_ttl(&self) -> Duration {
+        Duration::from_secs(self.upload_session_ttl_hours.saturating_mul(3600))
+    }
+
     /// Lifetime an unspecified share gets, or `None` when even that is
     /// unbounded.
     ///
@@ -1187,6 +1223,16 @@ impl ServerConfig {
             return Err(ConfigError::Invalid {
                 field: "server.request_timeout_secs",
                 reason: "must be at least 1 second".to_owned(),
+            });
+        }
+        // Below S3's floor every multipart upload of more than one part fails
+        // at `complete`, which is late, remote and hard to read.
+        if self.part_size_bytes < 5 * 1024 * 1024 {
+            return Err(ConfigError::Invalid {
+                field: "server.part_size_bytes",
+                reason: "must be at least 5 MiB, which is S3's minimum for every \
+                         part but the last"
+                    .to_owned(),
             });
         }
         if self.upload_stall_secs == 0 {
@@ -1429,6 +1475,7 @@ mod tests {
     #[case::zero_timeout("server.request_timeout_secs", |c: &mut Config| {
         c.server.request_timeout_secs = 0;
     })]
+    #[case::small_part("server.part_size_bytes", |c: &mut Config| c.server.part_size_bytes = 1024)]
     #[case::zero_stall("server.upload_stall_secs", |c: &mut Config| c.server.upload_stall_secs = 0)]
     #[case::zero_body("server.max_body_bytes", |c: &mut Config| c.server.max_body_bytes = 0)]
     #[case::bad_origin("server.cors_allowed_origins", |c: &mut Config| {
