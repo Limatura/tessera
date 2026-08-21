@@ -788,34 +788,6 @@ async fn stats_need_an_administrator_with_a_cookie() {
     );
 }
 
-/// The check is the role, not the column.
-///
-/// `users.is_admin` is still written so this version can be rolled back, so
-/// every other test here passes whichever one is consulted. This one makes them
-/// disagree: the column says administrator, the roles say nothing at all.
-#[tokio::test]
-async fn the_stale_is_admin_column_grants_nothing() {
-    let app = TestApp::ready().await;
-    register(&app, "first").await;
-    let (ordinary, _) = register(&app, "second").await;
-
-    let statement = sea_orm::Statement::from_string(
-        sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
-        "UPDATE users SET is_admin = 1 WHERE username = 'second'".to_owned(),
-    );
-    sea_orm::ConnectionTrait::execute_raw(&app.state.db, statement)
-        .await
-        .expect("set the old flag");
-
-    assert_eq!(
-        app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
-            .await
-            .status(),
-        StatusCode::FORBIDDEN,
-        "the column must not be what decides"
-    );
-}
-
 /// One permission at a time, which is the point of the change.
 ///
 /// Under the boolean, reaching any administrative endpoint meant reaching all

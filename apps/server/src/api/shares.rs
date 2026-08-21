@@ -407,7 +407,95 @@ pub async fn create(
     Ok((StatusCode::CREATED, Json(response)).into_response())
 }
 
+/// Which slice of a share listing to return.
+///
+/// Shared with the administrative listing, which pages the same way over a
+/// different response body.
+#[derive(Debug, Default, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+// Same reason as `CreateShareParams`: a query the handler does not understand
+// is a caller who believes something that is not true, and answering `200` to
+// it teaches them it worked.
+#[serde(deny_unknown_fields)]
+pub struct SharePageParams {
+    /// How many to return. Capped, and defaulted when omitted.
+    #[serde(default)]
+    pub limit: Option<u64>,
+    /// How many to skip.
+    #[serde(default)]
+    pub offset: Option<u64>,
+}
+
+/// The most shares one request will return.
+const MAX_SHARE_PAGE: u64 = 200;
+/// How many it returns when the caller does not say.
+const DEFAULT_SHARE_PAGE: u64 = 50;
+
+/// The largest paging figure this API accepts.
+///
+/// Two reasons, and they agree. `sea-query`'s encoders convert both the limit
+/// and the offset to `i64` and `unwrap()` the conversion, so anything above
+/// `i64::MAX` panics inside the driver — a `500` no handler can catch,
+/// reachable by anybody who can read a listing. And the document says `int64`,
+/// because that is what utoipa emits for these; a value the schema does not
+/// admit should be refused rather than quietly interpreted.
+///
+/// Found by the contract fuzzer, which is the only reader that would ever send
+/// one.
+const MAX_PAGE_FIGURE: u64 = i64::MAX.unsigned_abs();
+
+/// Resolves a page request into a limit and an offset.
+///
+/// The bounds live in one function rather than at each call site — a route
+/// that forgot one would be either the unbounded query this replaced or the
+/// panic above.
+///
+/// # Why one bound refuses and the other clamps
+///
+/// They are different kinds of wrong. Asking for more rows than
+/// [`MAX_SHARE_PAGE`] is a reasonable request the server is entitled to answer
+/// with fewer, which is what every paged API does. A figure the document does
+/// not admit at all is not a request anybody meant, and answering it with a
+/// page would report something for a question that was never asked.
+///
+/// # Errors
+///
+/// `400` when either figure is larger than [`MAX_PAGE_FIGURE`].
+pub fn page_bounds(params: &SharePageParams) -> Result<(u64, u64)> {
+    for (name, value) in [("limit", params.limit), ("offset", params.offset)] {
+        if value.is_some_and(|value| value > MAX_PAGE_FIGURE) {
+            return Err(Error::bad_request(format!(
+                "`{name}` must be at most {MAX_PAGE_FIGURE}"
+            )));
+        }
+    }
+    Ok((
+        params
+            .limit
+            .unwrap_or(DEFAULT_SHARE_PAGE)
+            .min(MAX_SHARE_PAGE),
+        params.offset.unwrap_or(0),
+    ))
+}
+
+/// A page of the caller's shares.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct SharePage {
+    /// The shares on this page.
+    pub shares: Vec<ShareResponse>,
+    /// How many the caller has in total, so a client can render pagination.
+    pub total: u64,
+}
+
 /// Lists the caller's shares, newest first.
+///
+/// # Why this is paged
+///
+/// It was not, on the reasoning that one person's shares are bounded by what
+/// one person uploaded. That holds for somebody using the web page and not for
+/// anybody driving the API from a script: an account with fifty thousand
+/// shares made every visit to the listing read fifty thousand rows and build
+/// fifty thousand responses, and nothing in the request said so.
 ///
 /// # Errors
 ///
@@ -417,8 +505,10 @@ pub async fn create(
     path = "/shares",
     operation_id = "list_shares",
     tag = SHARES_TAG,
+    params(SharePageParams),
     responses(
-        (status = 200, description = "The caller's shares", body = Vec<ShareResponse>),
+        (status = 200, description = "A page of the caller's shares", body = SharePage),
+        (status = 400, description = "`limit` or `offset` is not a number", body = crate::error::ErrorBody),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 403, description = "The credential does not carry `shares:read`", body = crate::error::ErrorBody),
     ),
@@ -427,15 +517,20 @@ pub async fn create(
 pub async fn list(
     State(state): State<AppState>,
     current: CurrentUser,
-) -> Result<Json<Vec<ShareResponse>>> {
+    ApiQuery(params): ApiQuery<SharePageParams>,
+) -> Result<Json<SharePage>> {
     current.require(Permission::SharesRead)?;
 
-    let shares = state.shares.list_for_user(current.user.id).await?;
+    let (limit, offset) = page_bounds(&params)?;
+    let shares = state
+        .shares
+        .list_for_user(current.user.id, limit, offset)
+        .await?;
     // One query for the whole page rather than one per share: see
     // `contents_for`.
     let contents = state.shares.contents_for(&shares).await?;
-    Ok(Json(
-        shares
+    Ok(Json(SharePage {
+        shares: shares
             .iter()
             .filter_map(|share| {
                 contents
@@ -443,7 +538,8 @@ pub async fn list(
                     .map(|content| ShareResponse::from_share(share, content, None))
             })
             .collect(),
-    ))
+        total: state.shares.count_for_user(current.user.id).await?,
+    }))
 }
 
 /// Deletes a share, and whatever it put in the blob store.
@@ -1020,6 +1116,49 @@ fn duration_of(value: std::time::Duration) -> time::Duration {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `sea-query` unwraps the `u64` -> `i64` conversion, so an offset above
+    /// `i64::MAX` panicked inside the driver and came back as a `500` — from a
+    /// query parameter, on a route any signed-in caller can reach. Found by the
+    /// contract fuzzer.
+    #[test]
+    fn a_figure_past_what_the_driver_can_carry_is_refused() {
+        for params in [
+            SharePageParams {
+                limit: None,
+                offset: Some(u64::MAX),
+            },
+            SharePageParams {
+                limit: Some(u64::MAX),
+                offset: None,
+            },
+        ] {
+            assert!(
+                page_bounds(&params).is_err(),
+                "the driver converts this to i64 and unwraps it: {params:?}"
+            );
+        }
+
+        let (limit, offset) = page_bounds(&SharePageParams {
+            limit: Some(MAX_PAGE_FIGURE),
+            offset: Some(MAX_PAGE_FIGURE),
+        })
+        .expect("the largest figures the driver can carry are still a page");
+        assert!(i64::try_from(offset).is_ok());
+        assert_eq!(limit, MAX_SHARE_PAGE, "still capped");
+    }
+
+    /// The cap is the whole reason the listing is bounded.
+    #[test]
+    fn a_limit_past_the_cap_comes_back_as_the_cap() {
+        let (limit, offset) = page_bounds(&SharePageParams {
+            limit: Some(100_000),
+            offset: None,
+        })
+        .expect("a large limit is answered with fewer rows, not refused");
+        assert_eq!(limit, MAX_SHARE_PAGE);
+        assert_eq!(offset, 0);
+    }
 
     #[test]
     fn object_keys_are_sharded_by_month() {

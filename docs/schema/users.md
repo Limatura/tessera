@@ -13,9 +13,6 @@ CREATE TABLE users (
     username      TEXT    NOT NULL,
     email         TEXT    NOT NULL,
     password_hash TEXT    NOT NULL,
-    is_admin      INTEGER NOT NULL DEFAULT 0,
-    -- Set when the account must change its password before doing anything else,
-    -- which is how the generated first-run administrator is handed over safely.
     must_change_password INTEGER NOT NULL DEFAULT 0,
     -- TEXT rather than INTEGER: sqlx encodes an `OffsetDateTime` as RFC 3339
     -- text for SQLite, and a column declared INTEGER would take it anyway
@@ -38,7 +35,6 @@ CREATE TABLE users (
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | password_hash | TEXT |  | false |  |  |  |
-| is_admin | INTEGER | 0 | false |  |  |  |
 | must_change_password | INTEGER | 0 | false |  |  |  |
 | email_verified_at | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
@@ -82,7 +78,6 @@ erDiagram
   TEXT username
   TEXT email
   TEXT password_hash
-  INTEGER is_admin
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at

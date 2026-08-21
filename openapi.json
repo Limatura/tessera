@@ -955,6 +955,29 @@
         ],
         "type": "object"
       },
+      "SharePage": {
+        "description": "A page of the caller's shares.",
+        "properties": {
+          "shares": {
+            "description": "The shares on this page.",
+            "items": {
+              "$ref": "#/components/schemas/ShareResponse"
+            },
+            "type": "array"
+          },
+          "total": {
+            "description": "How many the caller has in total, so a client can render pagination.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "shares",
+          "total"
+        ],
+        "type": "object"
+      },
       "ShareResponse": {
         "description": "A share as the API describes it. Never carries the content.",
         "properties": {
@@ -2112,30 +2135,24 @@
         "parameters": [
           {
             "description": "How many to return. Capped, and defaulted when omitted.",
-            "in": "path",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             }
           },
           {
             "description": "How many to skip.",
-            "in": "path",
+            "in": "query",
             "name": "offset",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             }
           }
         ],
@@ -2149,6 +2166,16 @@
               }
             },
             "description": "A page of shares"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`limit` or `offset` is not a number"
           },
           "401": {
             "content": {
@@ -3332,21 +3359,52 @@
     },
     "/api/v1/shares": {
       "get": {
-        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "description": "# Why this is paged\n\nIt was not, on the reasoning that one person's shares are bounded by what\none person uploaded. That holds for somebody using the web page and not for\nanybody driving the API from a script: an account with fifty thousand\nshares made every visit to the listing read fifty thousand rows and build\nfifty thousand responses, and nothing in the request said so.\n\n# Errors\n\n`401` when nothing was signed in.",
         "operationId": "list_shares",
+        "parameters": [
+          {
+            "description": "How many to return. Capped, and defaulted when omitted.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many to skip.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/ShareResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/SharePage"
                 }
               }
             },
-            "description": "The caller's shares"
+            "description": "A page of the caller's shares"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`limit` or `offset` is not a number"
           },
           "401": {
             "content": {

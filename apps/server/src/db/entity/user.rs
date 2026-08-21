@@ -28,8 +28,6 @@ pub struct Model {
     pub email: String,
     /// PHC-format Argon2 string. Never a plaintext password.
     pub password_hash: String,
-    /// Whether the account may reach the administrative endpoints.
-    pub is_admin: bool,
     /// Set on the generated first-run administrator, so the printed password
     /// cannot become a permanent one.
     pub must_change_password: bool,

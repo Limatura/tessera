@@ -69,7 +69,6 @@ erDiagram
   TEXT username
   TEXT email
   TEXT password_hash
-  INTEGER is_admin
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at

@@ -92,7 +92,7 @@ Table roles {
   created_at text [not null]
   updated_at text [not null]
 
-  Note: '一組權限的名字。誰能做什麼只由這裡決定,users.is_admin 已經沒有人讀了。'
+  Note: '一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。'
 }
 
 Table schema_metadata {
@@ -162,6 +162,8 @@ Table upload_parts {
   upload_id text [pk, not null]
   part_number integer [pk, not null]
   content_id text [not null]
+
+  Note: '分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。'
 }
 
 Table uploads {
@@ -178,6 +180,8 @@ Table uploads {
   created_at text [not null]
   updated_at text [not null]
   expires_at text [not null]
+
+  Note: '還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。'
 }
 
 Table user_roles {
@@ -193,7 +197,6 @@ Table users {
   username text [not null, unique]
   email text [not null, unique]
   password_hash text [not null]
-  is_admin integer [not null]
   must_change_password integer [not null]
   email_verified_at text
   created_at text [not null]

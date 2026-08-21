@@ -2,6 +2,8 @@
 
 ## Description
 
+還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 
@@ -122,7 +124,6 @@ erDiagram
   TEXT username
   TEXT email
   TEXT password_hash
-  INTEGER is_admin
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at

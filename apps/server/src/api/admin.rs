@@ -40,6 +40,7 @@ use crate::{
         ADMIN_TAG,
         auth::AccountResponse,
         extract::{ApiJson, ApiPath, ApiQuery},
+        shares::{SharePageParams, page_bounds},
         tokens::format_timestamp,
     },
     auth::extract::CurrentUser,
@@ -1221,6 +1222,7 @@ impl AdminShareResponse {
 
 /// Whether a listing should include accounts that have been removed.
 #[derive(Debug, Deserialize, IntoParams)]
+#[serde(deny_unknown_fields)]
 pub struct UserListParams {
     /// Include accounts that have been deleted.
     ///
@@ -1240,22 +1242,6 @@ pub struct AdminSharePage {
     pub total: u64,
 }
 
-/// Which slice of the listing to return.
-#[derive(Debug, Deserialize, IntoParams)]
-pub struct SharePageParams {
-    /// How many to return. Capped, and defaulted when omitted.
-    #[serde(default)]
-    pub limit: Option<u64>,
-    /// How many to skip.
-    #[serde(default)]
-    pub offset: Option<u64>,
-}
-
-/// The most shares one request will return.
-const MAX_SHARE_PAGE: u64 = 200;
-/// How many it returns when the caller does not say.
-const DEFAULT_SHARE_PAGE: u64 = 50;
-
 /// Lists every share on the instance, newest first.
 ///
 /// # Errors
@@ -1271,6 +1257,7 @@ const DEFAULT_SHARE_PAGE: u64 = 50;
     params(SharePageParams),
     responses(
         (status = 200, description = "A page of shares", body = AdminSharePage),
+        (status = 400, description = "`limit` or `offset` is not a number", body = crate::error::ErrorBody),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 403, description = "May not read every share, or authenticated with an API token", body = crate::error::ErrorBody),
         (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
@@ -1285,11 +1272,7 @@ pub async fn list_shares(
     require_admin_feature(&state)?;
     admitted(&current, Permission::SharesReadAny)?;
 
-    let limit = params
-        .limit
-        .unwrap_or(DEFAULT_SHARE_PAGE)
-        .min(MAX_SHARE_PAGE);
-    let offset = params.offset.unwrap_or(0);
+    let (limit, offset) = page_bounds(&params)?;
     let shares = state.shares.list_all(limit, offset).await?;
     let contents = state.shares.contents_for(&shares).await?;
     let now = OffsetDateTime::now_utc();

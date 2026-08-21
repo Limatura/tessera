@@ -50,10 +50,14 @@ comments:
   - table: share_tickets
     tableComment: 輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。
   - table: roles
-    tableComment: 一組權限的名字。誰能做什麼只由這裡決定,users.is_admin 已經沒有人讀了。
+    tableComment: 一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。
   - table: role_permissions
     tableComment: 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。
   - table: user_roles
     tableComment: 誰在哪些角色裡。沒有任何一列 = 登入了但什麼都不能做,那是真的狀態不是錯誤。
   - table: schema_metadata
     tableComment: 這個資料庫是哪一版寫的。降版啟動時用來擋下來。
+  - table: uploads
+    tableComment: 還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。
+  - table: upload_parts
+    tableComment: 分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。

@@ -1,0 +1,33 @@
+-- An index for the two queries that draw a list of shares.
+--
+-- # What was wrong
+--
+-- Both listings order by `created_at DESC, id DESC`. `shares` had an index on
+-- `user_id` alone, so an account's listing could find its rows quickly and
+-- then had to sort all of them; the instance-wide listing had nothing at all
+-- and sorted the whole table to render twenty rows.
+--
+-- Neither is visible on an instance with a hundred shares, which is why it
+-- lasted this long. It is the shape of slowness that arrives all at once.
+--
+-- # Why two indexes and not one
+--
+-- A composite on `(user_id, created_at)` serves the per-account listing and
+-- cannot serve the instance-wide one — the leading column is not in that
+-- query. `idx_shares_user` is replaced rather than kept alongside: a prefix of
+-- the composite is the same index, so keeping both is a second write on every
+-- insert for nothing.
+--
+-- `id` is left out of both. It only breaks ties between shares created in the
+-- same microsecond, and paying for it in every index entry to order a case
+-- that barely happens is the wrong trade.
+--
+-- # Why the drop comes last
+--
+-- `shares.user_id` is a foreign key, and InnoDB refuses to drop the only index
+-- that covers one. Creating the composite first leaves `user_id` still
+-- indexed by its leading column, so the drop is allowed. The order costs
+-- nothing on the other two dialects.
+CREATE INDEX IF NOT EXISTS idx_shares_user_created ON shares (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_shares_created ON shares (created_at);
+DROP INDEX IF EXISTS idx_shares_user;

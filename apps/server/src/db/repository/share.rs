@@ -849,13 +849,6 @@ impl ShareRepository {
 
     /// Every share on the instance, newest first, a page at a time.
     ///
-    /// # Why this is paged and `list_for_user` is not
-    ///
-    /// One person's shares are bounded by what one person uploaded. Every share
-    /// on the instance is not, and an administrator opening the page on a busy
-    /// instance would otherwise pull the whole table across the wire to render
-    /// the first twenty rows.
-    ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails or a row is not
@@ -887,13 +880,35 @@ impl ShareRepository {
         Ok(ShareEntity::find().count(&self.connection).await?)
     }
 
-    /// Lists an account's shares, newest first.
+    /// How many shares an account has, for its listing to page through.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn count_for_user(&self, user_id: UserId) -> Result<u64, ShareRepositoryError> {
+        Ok(ShareEntity::find()
+            .filter(share::Column::UserId.eq(user_id.to_string()))
+            .count(&self.connection)
+            .await?)
+    }
+
+    /// Lists an account's shares, newest first, a page at a time.
+    ///
+    /// Paged for the same reason [`ShareRepository::list_all`] is: an account
+    /// driven by a script is not bounded by what a person would upload by
+    /// hand, and an unpaged listing only becomes a problem once somebody has
+    /// enough shares to have stopped watching.
     ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails or a row is not
     /// usable.
-    pub async fn list_for_user(&self, user_id: UserId) -> Result<Vec<Share>, ShareRepositoryError> {
+    pub async fn list_for_user(
+        &self,
+        user_id: UserId,
+        limit: u64,
+        offset: u64,
+    ) -> Result<Vec<Share>, ShareRepositoryError> {
         let models = ShareEntity::find()
             .filter(share::Column::UserId.eq(user_id.to_string()))
             .order_by_desc(share::Column::CreatedAt)
@@ -902,6 +917,8 @@ impl ShareRepository {
             // come back in whatever order the database felt like, and a listing
             // that reshuffles between requests looks broken.
             .order_by_desc(share::Column::Id)
+            .limit(limit)
+            .offset(offset)
             .all(&self.connection)
             .await?;
         models

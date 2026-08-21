@@ -362,13 +362,93 @@ async fn a_listing_shows_only_the_callers_own_shares() {
         .await,
     )
     .await;
-    let titles: Vec<_> = listed
+    let titles: Vec<_> = listed["shares"]
         .as_array()
         .expect("an array")
         .iter()
         .map(|share| share["title"].as_str().unwrap_or_default().to_owned())
         .collect();
     assert_eq!(titles, vec!["mine"]);
+}
+
+/// The listing used to return everything an account had. An account driven by
+/// a script is not bounded by what somebody would upload by hand, so this pins
+/// that a page is a page and that `total` says how much is behind it.
+#[tokio::test]
+async fn the_listing_is_paged_and_says_how_much_there_is() {
+    let app = TestApp::ready().await;
+
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "prolific",
+                "email": "prolific@example.com",
+                "password": "a perfectly adequate passphrase",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let cookie = common::session_cookie(&response);
+
+    for n in 0..5 {
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/shares?title=share-{n}"))
+                    .header(header::COOKIE, &cookie),
+                Body::from(format!("body {n}")),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await;
+    }
+
+    let page = async |query: &str| {
+        body_json(
+            expect_status(
+                app.empty(
+                    Method::GET,
+                    &format!("/api/v1/shares{query}"),
+                    Auth::Cookie(&cookie),
+                )
+                .await,
+                StatusCode::OK,
+            )
+            .await,
+        )
+        .await
+    };
+
+    let first = page("?limit=2").await;
+    assert_eq!(
+        first["shares"].as_array().expect("an array").len(),
+        2,
+        "the limit is what decides the page size"
+    );
+    assert_eq!(
+        first["total"], 5,
+        "`total` counts what exists, not what came back"
+    );
+
+    // Newest first, so an offset of two skips the two most recent.
+    let second = page("?limit=2&offset=2").await;
+    let titles = |value: &serde_json::Value| -> Vec<String> {
+        value["shares"]
+            .as_array()
+            .expect("an array")
+            .iter()
+            .map(|share| share["title"].as_str().unwrap_or_default().to_owned())
+            .collect()
+    };
+    assert_eq!(titles(&first), vec!["share-4", "share-3"]);
+    assert_eq!(titles(&second), vec!["share-2", "share-1"]);
 }
 
 /// `DefaultBodyLimit` is a value extractors consult, not a limit on the
@@ -2185,7 +2265,7 @@ async fn the_uploader_sees_the_counts_on_their_own_share() {
         .await,
     )
     .await;
-    let mine = listed
+    let mine = listed["shares"]
         .as_array()
         .expect("a list")
         .first()

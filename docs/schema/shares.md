@@ -84,8 +84,9 @@ CREATE TABLE shares (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_shares_created | CREATE INDEX idx_shares_created ON shares (created_at) |
+| idx_shares_user_created | CREATE INDEX idx_shares_user_created ON shares (user_id, created_at) |
 | idx_shares_expires_at | CREATE INDEX idx_shares_expires_at ON shares (expires_at) |
-| idx_shares_user | CREATE INDEX idx_shares_user ON shares (user_id) |
 | sqlite_autoindex_shares_2 | UNIQUE (code) |
 | sqlite_autoindex_shares_1 | PRIMARY KEY (id) |
 
@@ -163,7 +164,6 @@ erDiagram
   TEXT username
   TEXT email
   TEXT password_hash
-  INTEGER is_admin
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at

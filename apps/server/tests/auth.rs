@@ -596,7 +596,15 @@ async fn a_generated_administrator_password_must_be_changed() {
         .expect("query")
         .expect("the administrator should exist");
 
-    assert!(admin.is_admin);
+    // Over the roles, not a column: `users.is_admin` is gone, and what
+    // decides whether somebody administers the instance is `roles:write`.
+    let roles = app.state.roles.of_user(admin.id).await.expect("roles");
+    assert!(
+        roles.iter().any(|role| role
+            .permissions
+            .allows(tessera_core::Permission::RolesWrite)),
+        "the bootstrapped administrator should hold the keys"
+    );
     assert!(
         admin.must_change_password,
         "a password nobody chose has been through a log file and must be replaced"
@@ -1363,7 +1371,13 @@ async fn the_link_creates_a_verified_account_and_signs_it_in() {
         .expect("query")
         .expect("the account");
     assert!(user.email_verified_at.is_some(), "it was just confirmed");
-    assert!(user.is_admin, "the first account to exist administers it");
+    let roles = app.state.roles.of_user(user.id).await.expect("roles");
+    assert!(
+        roles.iter().any(|role| role
+            .permissions
+            .allows(tessera_core::Permission::RolesWrite)),
+        "the first account to exist administers it"
+    );
 
     expect_status(
         app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))

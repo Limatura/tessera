@@ -1,0 +1,29 @@
+-- Removes `users.is_admin`.
+--
+-- # What it was
+--
+-- The whole permission model, before roles. #113 moved every decision onto
+-- `role_permissions`, and the column stayed behind as a mirror: still written
+-- by `PATCH /admin/users/{id}`, read by nobody.
+--
+-- It was kept so that version could be rolled back. Several releases later
+-- that is no longer a rollback anybody is going to perform, and the cost of
+-- keeping it is a column that can disagree with the roles table — an account
+-- granted `admin` through the role endpoints has `is_admin = 0` and
+-- administers the instance anyway. A flag that is wrong is worse than a flag
+-- that is missing.
+--
+-- # What the API does about it
+--
+-- Nothing changes. `AccountResponse.is_admin` has been computed from the
+-- roles since #113, so what a client reads is already the true answer; this
+-- only removes the copy underneath it.
+--
+-- # Going back
+--
+-- There is no down. The column can be recreated empty, but which accounts
+-- held it cannot be recovered from anything left in the database, and
+-- guessing from the roles table would be inventing history. A downgrade past
+-- this point is a restore from backup.
+
+ALTER TABLE users DROP COLUMN is_admin;

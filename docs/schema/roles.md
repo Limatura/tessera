@@ -2,7 +2,7 @@
 
 ## Description
 
-一組權限的名字。誰能做什麼只由這裡決定,users.is_admin 已經沒有人讀了。
+一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。
 
 <details>
 <summary><strong>Table Definition</strong></summary>

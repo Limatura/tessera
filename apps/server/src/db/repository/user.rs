@@ -39,8 +39,6 @@ pub struct User {
     pub email: EmailAddress,
     /// PHC-format Argon2 string.
     pub password_hash: String,
-    /// Whether the account may reach the administrative endpoints.
-    pub is_admin: bool,
     /// Whether the account must set a new password before doing anything else.
     pub must_change_password: bool,
     /// Whether the account works, is suspended, or is gone.
@@ -93,7 +91,6 @@ impl User {
             // refuses that — which is what stops anybody else taking it.
             email: EmailAddress::parse_privileged(&model.email).map_err(fail)?,
             password_hash: model.password_hash,
-            is_admin: model.is_admin,
             must_change_password: model.must_change_password,
             state: model.state.parse().map_err(fail)?,
             deleted_at: model.deleted_at,
@@ -117,7 +114,6 @@ impl User {
             username: Set(self.username.as_str().to_owned()),
             email: Set(self.email.as_str().to_owned()),
             password_hash: Set(self.password_hash.clone()),
-            is_admin: Set(self.is_admin),
             must_change_password: Set(self.must_change_password),
             state: Set(self.state.as_str().to_owned()),
             deleted_at: Set(self.deleted_at),
@@ -396,12 +392,9 @@ impl UserRepository {
     ) -> Result<bool, UserRepositoryError> {
         let transaction = self.connection.begin().await?;
         let result = UserEntity::update_many()
-            // Still written, though nothing reads it to decide anything. The
-            // migration deliberately left the column so this version can be
-            // rolled back, and a mirror that stops being updated is worse than
-            // no mirror — it would send a rolled-back instance back to whatever
-            // the flags said the day roles arrived.
-            .col_expr(user::Column::IsAdmin, is_admin.into())
+            // Only the timestamp: `users.is_admin` is gone, and the roles below
+            // are what decide anything. Touched anyway so the account's
+            // `updated_at` reflects that something about it changed.
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
             .exec(&transaction)
@@ -523,7 +516,6 @@ mod tests {
             email: EmailAddress::parse(email).unwrap(),
             // Not a real hash; hashing arrives with the endpoints that need it.
             password_hash: "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
-            is_admin: false,
             must_change_password: false,
             state: AccountState::Active,
             deleted_at: None,
@@ -653,7 +645,6 @@ mod tests {
             username: "no spaces allowed".to_owned(),
             email: "alice@example.com".to_owned(),
             password_hash: String::new(),
-            is_admin: false,
             must_change_password: false,
             state: "active".to_owned(),
             deleted_at: None,

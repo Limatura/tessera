@@ -77,10 +77,10 @@ pub struct AccountResponse {
 impl AccountResponse {
     /// Builds the response from the account and the roles it is in.
     ///
-    /// Takes the roles rather than reading `user.is_admin`: that column is a
-    /// mirror kept only so this version can be rolled back, and a response that
-    /// read it would report whatever it said rather than what the account can
-    /// actually do.
+    /// Computed from the roles, because the roles are the only place the
+    /// answer lives. `users.is_admin` was a mirror of this and has been
+    /// dropped; a response that read it would have reported whatever the
+    /// column said rather than what the account can actually do.
     #[must_use]
     pub fn build(user: &User, roles: &[Role]) -> Self {
         let permissions: PermissionSet = roles
@@ -390,7 +390,6 @@ pub async fn register(
         username,
         email,
         password_hash: password::hash(password, state.config.auth.hashing).await?,
-        is_admin: first,
         must_change_password: false,
         state: AccountState::Active,
         deleted_at: None,
@@ -1006,7 +1005,6 @@ pub async fn confirm_registration(
         // worth a transaction: an instance whose first two accounts are created
         // in the same instant is one nobody has bootstrapped, and both of those
         // people are its operator.
-        is_admin: first,
         must_change_password: false,
         state: AccountState::Active,
         deleted_at: None,

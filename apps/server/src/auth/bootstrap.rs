@@ -70,7 +70,6 @@ pub async fn ensure_admin(
         username: username.clone(),
         email,
         password_hash: password::hash(password, auth.hashing).await?,
-        is_admin: true,
         // Only when we chose the password. One the operator set is one they
         // already know, and forcing a change on it is a pointless step; one we
         // printed has been through a log file and should not stay in force.

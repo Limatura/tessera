@@ -2,6 +2,8 @@
 
 ## Description
 
+分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 
