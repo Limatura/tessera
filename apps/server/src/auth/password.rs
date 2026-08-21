@@ -10,6 +10,8 @@ use argon2::{
 };
 use tessera_core::Password;
 
+use crate::config::HashingConfig;
+
 /// Failure to hash or verify.
 #[derive(Debug, thiserror::Error)]
 pub enum PasswordError {
@@ -22,25 +24,12 @@ pub enum PasswordError {
     Cancelled,
 }
 
-/// Argon2 parameters.
-///
-/// OWASP's current recommendation for Argon2id: 19 MiB of memory, two
-/// iterations, one lane. Memory is what makes GPU cracking expensive, which is
-/// why it is the parameter that matters most.
-///
-/// **This costs 19 MiB per hash in flight.** On a Raspberry Pi serving a burst
-/// of logins that is real memory, and it is the reason [`hash`] and [`verify`]
-/// go through `spawn_blocking` — the blocking pool bounds how many can run at
-/// once, where an unbounded async task would not.
-const MEMORY_KIB: u32 = 19 * 1024;
-const ITERATIONS: u32 = 2;
-const LANES: u32 = 1;
-
 /// How many hashes may be in flight at once.
 ///
 /// # Why there is a limit at all
 ///
-/// Each hash holds [`MEMORY_KIB`] — 19 MiB — for its duration, and `spawn_blocking`
+/// Each hash holds `auth.hashing.memory_kib` — 19 MiB by default — for its
+/// duration, and `spawn_blocking`
 /// will happily run hundreds in parallel. Without a bound, an unauthenticated
 /// stranger sending sign-in attempts as fast as the network allows makes the
 /// process allocate until it is killed. Measured before this existed: a few
@@ -63,15 +52,18 @@ static IN_FLIGHT: LazyLock<tokio::sync::Semaphore> = LazyLock::new(|| {
 });
 
 /// Peak memory the hasher can hold, for the start-up log.
+///
+/// The configured cost times how many hashes may run at once — which is the
+/// number an operator sizing a small machine actually needs.
 #[must_use]
-pub fn peak_memory_bytes() -> u64 {
+pub fn peak_memory_bytes(cost: HashingConfig) -> u64 {
     let permits = u64::try_from(IN_FLIGHT.available_permits()).unwrap_or(0);
-    u64::from(MEMORY_KIB) * 1024 * permits
+    u64::from(cost.memory_kib) * 1024 * permits
 }
 
-fn hasher() -> Result<Argon2<'static>, PasswordError> {
-    let params =
-        Params::new(MEMORY_KIB, ITERATIONS, LANES, None).map_err(|_| PasswordError::Hasher)?;
+fn hasher(cost: HashingConfig) -> Result<Argon2<'static>, PasswordError> {
+    let params = Params::new(cost.memory_kib, cost.iterations, cost.lanes, None)
+        .map_err(|_| PasswordError::Hasher)?;
     Ok(Argon2::new(Algorithm::Argon2id, Version::V0x13, params))
 }
 
@@ -84,7 +76,7 @@ fn hasher() -> Result<Argon2<'static>, PasswordError> {
 /// # Errors
 ///
 /// Returns [`PasswordError`] if hashing fails or the runtime is shutting down.
-pub async fn hash(password: Password) -> Result<String, PasswordError> {
+pub async fn hash(password: Password, cost: HashingConfig) -> Result<String, PasswordError> {
     let _permit = IN_FLIGHT
         .acquire()
         .await
@@ -96,7 +88,7 @@ pub async fn hash(password: Password) -> Result<String, PasswordError> {
     // to be remembered, so it is written down.
     tokio::task::spawn_blocking(move || {
         let salt = SaltString::generate(&mut rand_core::OsRng);
-        hasher()?
+        hasher(cost)?
             .hash_password(password.expose().as_bytes(), &salt)
             .map(|hash| hash.to_string())
             .map_err(|_| PasswordError::Hasher)
@@ -149,24 +141,28 @@ mod tests {
     /// is invisible until the machine is out of memory.
     #[test]
     fn the_hasher_reserves_a_bounded_amount_of_memory() {
-        let peak = peak_memory_bytes();
+        let cost = HashingConfig::default();
+        let peak = peak_memory_bytes(cost);
         assert!(peak > 0, "a zero bound would mean nothing can hash at all");
         assert!(
-            peak <= u64::from(MEMORY_KIB) * 1024 * 8,
+            peak <= u64::from(cost.memory_kib) * 1024 * 8,
             "at most eight hashes in flight, or a large machine reserves more \
              than it will ever need: {peak} bytes"
         );
         assert!(
-            peak >= u64::from(MEMORY_KIB) * 1024 * 2,
+            peak >= u64::from(cost.memory_kib) * 1024 * 2,
             "at least two, so one slow hash cannot stall every sign-in"
         );
     }
 
     #[tokio::test]
     async fn a_password_verifies_against_its_own_hash() {
-        let stored = hash(password("correct horse battery staple"))
-            .await
-            .unwrap();
+        let stored = hash(
+            password("correct horse battery staple"),
+            HashingConfig::default(),
+        )
+        .await
+        .unwrap();
         assert!(
             verify(password("correct horse battery staple"), stored)
                 .await
@@ -176,9 +172,12 @@ mod tests {
 
     #[tokio::test]
     async fn a_different_password_does_not_verify() {
-        let stored = hash(password("correct horse battery staple"))
-            .await
-            .unwrap();
+        let stored = hash(
+            password("correct horse battery staple"),
+            HashingConfig::default(),
+        )
+        .await
+        .unwrap();
         assert!(
             !verify(password("incorrect horse battery"), stored)
                 .await
@@ -190,8 +189,12 @@ mod tests {
     /// job and identical passwords become visible in a stolen database.
     #[tokio::test]
     async fn the_same_password_hashes_differently_each_time() {
-        let first = hash(password("a shared passphrase")).await.unwrap();
-        let second = hash(password("a shared passphrase")).await.unwrap();
+        let first = hash(password("a shared passphrase"), HashingConfig::default())
+            .await
+            .unwrap();
+        let second = hash(password("a shared passphrase"), HashingConfig::default())
+            .await
+            .unwrap();
         assert_ne!(first, second);
 
         // Both must still verify.
@@ -211,7 +214,9 @@ mod tests {
     /// later without locking anybody out.
     #[tokio::test]
     async fn the_stored_hash_is_a_phc_string_naming_its_parameters() {
-        let stored = hash(password("a passphrase here")).await.unwrap();
+        let stored = hash(password("a passphrase here"), HashingConfig::default())
+            .await
+            .unwrap();
         assert!(stored.starts_with("$argon2id$"), "got: {stored}");
         assert!(
             stored.contains("m=19456"),
@@ -225,8 +230,62 @@ mod tests {
 
     #[tokio::test]
     async fn the_plaintext_never_appears_in_the_hash() {
-        let stored = hash(password("hunter2 hunter2 hunter2")).await.unwrap();
+        let stored = hash(
+            password("hunter2 hunter2 hunter2"),
+            HashingConfig::default(),
+        )
+        .await
+        .unwrap();
         assert!(!stored.contains("hunter2"));
+    }
+
+    /// The reason `auth.hashing` is safe to change on a running instance: the
+    /// parameters are written into the hash, so verification reads the cost the
+    /// hash was made with, not the one configured now. Without this, raising
+    /// the cost would lock every existing account out — which is the failure an
+    /// operator would only discover from their users.
+    #[tokio::test]
+    async fn changing_the_cost_does_not_invalidate_an_existing_hash() {
+        let cheap = HashingConfig {
+            memory_kib: 8 * 1024,
+            iterations: 1,
+            lanes: 1,
+        };
+        let stored = hash(password("correct horse battery staple"), cheap)
+            .await
+            .expect("hash");
+
+        assert!(
+            verify(password("correct horse battery staple"), stored.clone())
+                .await
+                .expect("verify"),
+            "a hash made with a different cost must still verify: {stored}"
+        );
+        assert!(
+            !verify(password("some other passphrase"), stored)
+                .await
+                .expect("verify"),
+            "and a wrong password must still be wrong"
+        );
+    }
+
+    /// The configured cost is what a new hash is actually made with. Reading it
+    /// back out of the PHC string is the only way to tell — a hash made with
+    /// the wrong parameters is indistinguishable from a correct one until
+    /// somebody counts how long it took.
+    #[tokio::test]
+    async fn the_configured_cost_is_the_one_written_into_the_hash() {
+        let cost = HashingConfig {
+            memory_kib: 9 * 1024,
+            iterations: 3,
+            lanes: 1,
+        };
+        let stored = hash(password("correct horse battery staple"), cost)
+            .await
+            .expect("hash");
+
+        assert!(stored.contains("m=9216"), "memory not applied: {stored}");
+        assert!(stored.contains("t=3"), "iterations not applied: {stored}");
     }
 
     /// A corrupted row must look exactly like a wrong password from outside, so

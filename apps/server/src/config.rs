@@ -25,7 +25,7 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use tessera_core::{PasswordPolicy, RetrievalCode};
 
-use crate::auth::cookie::SecurePolicy;
+use crate::auth::{cookie::SecurePolicy, throttle};
 
 /// Prefix for every environment variable that feeds configuration.
 pub const ENV_PREFIX: &str = "TESSERA_";
@@ -348,6 +348,14 @@ pub struct AuthConfig {
     /// Password length policy. Composition rules are deliberately absent — see
     /// [`PasswordPolicy`].
     pub password: PasswordPolicy,
+
+    /// What one password hash costs. See [`HashingConfig`].
+    #[serde(default)]
+    pub hashing: HashingConfig,
+
+    /// How hard the instance is on repeated attempts. See [`ThrottleConfig`].
+    #[serde(default)]
+    pub throttle: ThrottleConfig,
 
     /// When to mark the session cookie `Secure`.
     pub cookie_secure: SecurePolicy,
@@ -719,6 +727,237 @@ impl Default for FeatureConfig {
     }
 }
 
+/// Argon2id cost.
+///
+/// # Why this is a setting
+///
+/// The defaults are OWASP's current recommendation, and they are right for a
+/// machine with memory to spare. They are not right for every machine this runs
+/// on: 19 MiB per hash in flight is real on a four-gigabyte Pi serving a burst
+/// of sign-ins, and somebody running on hardware with room would rather raise
+/// the cost than leave it at the floor.
+///
+/// # Changing these does not invalidate anybody's password
+///
+/// The parameters are written into the hash itself, and verification reads them
+/// from there. An existing password keeps verifying against what it was made
+/// with; only new hashes use the new cost. Bringing old ones up to date means
+/// re-hashing on the next successful sign-in, which is a separate decision.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HashingConfig {
+    /// Memory each hash holds, in kibibytes.
+    ///
+    /// The parameter that matters most: memory is what makes cracking on a GPU
+    /// expensive. It is also **the memory cost of a sign-in burst**, multiplied
+    /// by how many hashes run at once.
+    pub memory_kib: u32,
+    /// How many passes over that memory.
+    pub iterations: u32,
+    /// How many lanes run in parallel.
+    pub lanes: u32,
+}
+
+impl Default for HashingConfig {
+    fn default() -> Self {
+        // OWASP's current recommendation for Argon2id.
+        Self {
+            memory_kib: 19 * 1024,
+            iterations: 2,
+            lanes: 1,
+        }
+    }
+}
+
+impl HashingConfig {
+    /// Rejects a cost this binary cannot honour.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Invalid`] for a value Argon2 refuses, or one so
+    /// low that the hash would not be worth computing.
+    fn validate(&self) -> Result<(), ConfigError> {
+        // Argon2's own floor, and below it `Params::new` fails — at the first
+        // sign-in rather than at start-up, which is the wrong moment to find
+        // out.
+        if self.memory_kib < 8 * self.lanes {
+            return Err(ConfigError::Invalid {
+                field: "auth.hashing.memory_kib",
+                reason: "must be at least eight times `lanes`, which is Argon2's own floor"
+                    .to_owned(),
+            });
+        }
+        // OWASP's minimum for Argon2id with one lane. Lower is a hash somebody
+        // can compute in bulk, which is the one thing it exists to prevent.
+        if self.memory_kib < 7 * 1024 {
+            return Err(ConfigError::Invalid {
+                field: "auth.hashing.memory_kib",
+                reason: "must be at least 7168 (7 MiB); below that the hash is cheap to \
+                         compute in bulk, which is what it exists to prevent"
+                    .to_owned(),
+            });
+        }
+        if self.iterations == 0 || self.lanes == 0 {
+            return Err(ConfigError::Invalid {
+                field: "auth.hashing",
+                reason: "`iterations` and `lanes` must be at least 1".to_owned(),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// One counter's limits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Limit {
+    /// Attempts before the key is refused.
+    pub max_attempts: u32,
+    /// How long the window lasts, and how long a refusal holds, in seconds.
+    pub window_secs: u64,
+}
+
+impl Limit {
+    const fn new(max_attempts: u32, window: Duration) -> Self {
+        Self {
+            max_attempts,
+            window_secs: window.as_secs(),
+        }
+    }
+
+    /// The window as a duration.
+    #[must_use]
+    pub const fn window(&self) -> Duration {
+        Duration::from_secs(self.window_secs)
+    }
+
+    fn validate(&self, field: &'static str) -> Result<(), ConfigError> {
+        // Zero attempts refuses everybody the moment anything is recorded
+        // against their key, which on the source counter is the whole
+        // instance. A zero window never refuses at all, which reads as "on"
+        // in the file and is off in practice — the worse of the two, because
+        // nothing says so.
+        if self.max_attempts == 0 || self.window_secs == 0 {
+            return Err(ConfigError::Invalid {
+                field,
+                reason: "`max_attempts` and `window_secs` must both be at least 1; \
+                         to run without a limit, raise `max_attempts` rather than \
+                         setting either to zero"
+                    .to_owned(),
+            });
+        }
+        Ok(())
+    }
+}
+
+/// How hard the instance is on repeated attempts.
+///
+/// Six counters because they protect different things — see [`Throttles`]. An
+/// instance on the open internet tightens them; one on a home network that
+/// keeps locking a forgetful household out loosens them.
+///
+/// [`Throttles`]: crate::auth::throttle::Throttles
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ThrottleConfig {
+    /// How many keys to track before expired ones are swept.
+    ///
+    /// A memory ceiling, not a security setting: every key is a string an
+    /// unauthenticated stranger chose, so this is how much memory they may
+    /// make the process hold. Shared by all six counters.
+    #[serde(default = "default_tracked_keys")]
+    pub max_tracked_keys: usize,
+
+    /// Failed sign-ins, keyed on the account and the source.
+    #[serde(default = "default_login_limit")]
+    pub login: Limit,
+    /// Anything expensive, keyed on the source alone. Deliberately loose —
+    /// addresses are shared, so refusing one refuses everybody behind it.
+    #[serde(default = "default_source_limit")]
+    pub source: Limit,
+    /// Retrieval codes tried and not found, keyed on the source.
+    #[serde(default = "default_lookup_limit")]
+    pub lookup: Limit,
+    /// Password reset mails, keyed on the address asked about.
+    #[serde(default = "default_mail_limit")]
+    pub reset: Limit,
+    /// Registration mails, keyed on the address asked about.
+    #[serde(default = "default_mail_limit")]
+    pub registration: Limit,
+    /// Failed share passwords, keyed on the code and the source.
+    #[serde(default = "default_login_limit")]
+    pub share: Limit,
+}
+
+/// The most keys an instance may be configured to hold.
+///
+/// Each entry is a caller-chosen string plus a counter — a few hundred bytes
+/// with the map's own overhead, so this is tens of megabytes at the ceiling.
+/// The bound exists because the setting is the one an attacker gets to fill.
+const MAX_TRACKED_KEYS_CEILING: usize = 100_000;
+
+const fn default_tracked_keys() -> usize {
+    throttle::MAX_TRACKED_KEYS
+}
+
+const fn default_login_limit() -> Limit {
+    Limit::new(throttle::MAX_ATTEMPTS, throttle::WINDOW)
+}
+
+const fn default_source_limit() -> Limit {
+    Limit::new(throttle::SOURCE_MAX_ATTEMPTS, throttle::SOURCE_WINDOW)
+}
+
+const fn default_lookup_limit() -> Limit {
+    Limit::new(throttle::LOOKUP_MAX_ATTEMPTS, throttle::SOURCE_WINDOW)
+}
+
+const fn default_mail_limit() -> Limit {
+    Limit::new(throttle::RESET_MAX_REQUESTS, throttle::RESET_WINDOW)
+}
+
+impl Default for ThrottleConfig {
+    fn default() -> Self {
+        Self {
+            max_tracked_keys: default_tracked_keys(),
+            login: default_login_limit(),
+            source: default_source_limit(),
+            lookup: default_lookup_limit(),
+            reset: default_mail_limit(),
+            registration: default_mail_limit(),
+            share: default_login_limit(),
+        }
+    }
+}
+
+impl ThrottleConfig {
+    /// Rejects limits that would not protect anything, or that would let a
+    /// stranger exhaust memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Invalid`] for a zeroed limit or a key bound
+    /// above [`MAX_TRACKED_KEYS_CEILING`].
+    fn validate(&self) -> Result<(), ConfigError> {
+        if self.max_tracked_keys == 0 || self.max_tracked_keys > MAX_TRACKED_KEYS_CEILING {
+            return Err(ConfigError::Invalid {
+                field: "auth.throttle.max_tracked_keys",
+                reason: format!(
+                    "must be between 1 and {MAX_TRACKED_KEYS_CEILING}; it is the memory an \
+                     unauthenticated stranger may make this process hold"
+                ),
+            });
+        }
+        self.login.validate("auth.throttle.login")?;
+        self.source.validate("auth.throttle.source")?;
+        self.lookup.validate("auth.throttle.lookup")?;
+        self.reset.validate("auth.throttle.reset")?;
+        self.registration.validate("auth.throttle.registration")?;
+        self.share.validate("auth.throttle.share")?;
+        Ok(())
+    }
+}
+
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
@@ -732,6 +971,8 @@ impl Default for AuthConfig {
             default_role: default_role(),
             session_ttl_hours: 24 * 30,
             login_history_days: default_login_history_days(),
+            hashing: HashingConfig::default(),
+            throttle: ThrottleConfig::default(),
             password: PasswordPolicy::default(),
             cookie_secure: SecurePolicy::default(),
             admin_username: "admin".to_owned(),
@@ -1353,6 +1594,8 @@ impl AuthConfig {
                 reason: "must be at least 1 hour".to_owned(),
             });
         }
+        self.hashing.validate()?;
+        self.throttle.validate()?;
         // The policy's own bounds live in the domain crate, so the rule is the
         // same whether it arrives from a file or from a test.
         self.password
@@ -1474,6 +1717,19 @@ mod tests {
     #[case::zero_port("server.port", |c: &mut Config| c.server.port = 0)]
     #[case::zero_timeout("server.request_timeout_secs", |c: &mut Config| {
         c.server.request_timeout_secs = 0;
+    })]
+    #[case::tiny_memory("auth.hashing.memory_kib", |c: &mut Config| c.auth.hashing.memory_kib = 1024)]
+    #[case::no_iterations("auth.hashing", |c: &mut Config| c.auth.hashing.iterations = 0)]
+    #[case::no_throttle_window("auth.throttle.login", |c: &mut Config| {
+        c.auth.throttle.login.window_secs = 0;
+    })]
+    #[case::no_throttle_attempts("auth.throttle.source", |c: &mut Config| {
+        c.auth.throttle.source.max_attempts = 0;
+    })]
+    // The bound an attacker gets to fill. Above the ceiling it stops being a
+    // limit and becomes the size of the hole.
+    #[case::unbounded_keys("auth.throttle.max_tracked_keys", |c: &mut Config| {
+        c.auth.throttle.max_tracked_keys = MAX_TRACKED_KEYS_CEILING + 1;
     })]
     #[case::small_part("server.part_size_bytes", |c: &mut Config| c.server.part_size_bytes = 1024)]
     #[case::zero_stall("server.upload_stall_secs", |c: &mut Config| c.server.upload_stall_secs = 0)]

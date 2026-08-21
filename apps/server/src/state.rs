@@ -144,7 +144,7 @@ impl AppState {
             multipart,
             assets: Arc::new(assets),
             proxies: Arc::new(config.server.proxy_trust()),
-            throttles: Arc::new(Throttles::default()),
+            throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
             config,
             db,
             storage,
