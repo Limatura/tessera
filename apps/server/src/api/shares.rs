@@ -329,7 +329,7 @@ pub async fn create(
     let now = OffsetDateTime::now_utc();
     let expires_at = resolve_expiry(&state, params.expires_in_hours, now)?;
     let password_hash = match share_password(&headers)? {
-        Some(password) => Some(password::hash(password).await?),
+        Some(password) => Some(password::hash(password, state.config.auth.hashing).await?),
         None => None,
     };
 

@@ -94,7 +94,7 @@ async fn main() -> anyhow::Result<()> {
         docs = config.features.docs,
         // The largest thing this process reserves on purpose, and the one an
         // operator sizing a container needs to know about.
-        hasher_peak_mib = auth::password::peak_memory_bytes() / (1024 * 1024),
+        hasher_peak_mib = auth::password::peak_memory_bytes(config.auth.hashing) / (1024 * 1024),
         "starting tessera"
     );
 

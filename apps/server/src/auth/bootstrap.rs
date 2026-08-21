@@ -69,7 +69,7 @@ pub async fn ensure_admin(
         id: UserId::generate(),
         username: username.clone(),
         email,
-        password_hash: password::hash(password).await?,
+        password_hash: password::hash(password, auth.hashing).await?,
         is_admin: true,
         // Only when we chose the password. One the operator set is one they
         // already know, and forcing a change on it is a pointless step; one we

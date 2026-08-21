@@ -389,7 +389,7 @@ pub async fn register(
         id: UserId::generate(),
         username,
         email,
-        password_hash: password::hash(password).await?,
+        password_hash: password::hash(password, state.config.auth.hashing).await?,
         is_admin: first,
         must_change_password: false,
         state: AccountState::Active,
@@ -634,7 +634,7 @@ pub async fn change_password(
     }
 
     let replacement = Password::parse(body.new_password, state.config.auth.password)?;
-    let hash = password::hash(replacement).await?;
+    let hash = password::hash(replacement, state.config.auth.hashing).await?;
 
     let now = OffsetDateTime::now_utc();
     // `false`: this password was chosen by the person who owns the account,
@@ -840,7 +840,7 @@ fn start_verified_registration(
             );
             crate::mail::already_registered_letter(email.as_str(), &reset)
         } else {
-            let hash = match password::hash(password).await {
+            let hash = match password::hash(password, detached.config.auth.hashing).await {
                 Ok(hash) => hash,
                 Err(error) => {
                     tracing::error!(?error, "could not hash a password during registration");
@@ -1253,7 +1253,7 @@ pub async fn confirm_password_reset(
         ));
     }
 
-    let hash = password::hash(password).await?;
+    let hash = password::hash(password, state.config.auth.hashing).await?;
     // `false`: the person just chose this one, so there is nothing to force a
     // change of.
     state

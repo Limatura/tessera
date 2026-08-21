@@ -1431,6 +1431,7 @@ async fn a_registration_link_works_once() {
                         tessera_core::PasswordPolicy::default(),
                     )
                     .expect("a password"),
+                    tessera_server::config::HashingConfig::default(),
                 )
                 .await
                 .expect("hash"),

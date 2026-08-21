@@ -18,17 +18,21 @@ use std::{
 
 use parking_lot::Mutex;
 
+use crate::config::{Limit, ThrottleConfig};
+
 /// Failures before a key is refused.
-const MAX_ATTEMPTS: u32 = 10;
+pub const MAX_ATTEMPTS: u32 = 10;
 
 /// How long the window lasts, and how long a refusal holds.
-const WINDOW: Duration = Duration::from_mins(15);
+pub const WINDOW: Duration = Duration::from_mins(15);
 
 /// How many keys to track before old ones are swept.
 ///
 /// A bound, not a target: without one, an attacker cycling usernames turns the
-/// login endpoint into unbounded memory growth.
-const MAX_TRACKED_KEYS: usize = 10_000;
+/// login endpoint into unbounded memory growth. That is why it has its own
+/// ceiling in [`ThrottleConfig::validate`] — raising it is spending memory an
+/// unauthenticated stranger gets to fill.
+pub const MAX_TRACKED_KEYS: usize = 10_000;
 
 /// What a throttle decision looks like.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,22 +67,24 @@ pub struct Throttle {
     attempts: Mutex<HashMap<String, Attempts>>,
     max_attempts: u32,
     window: Duration,
+    max_tracked_keys: usize,
 }
 
 impl Default for Throttle {
     fn default() -> Self {
-        Self::new(MAX_ATTEMPTS, WINDOW)
+        Self::new(MAX_ATTEMPTS, WINDOW, MAX_TRACKED_KEYS)
     }
 }
 
 impl Throttle {
     /// Builds a throttle with explicit limits.
     #[must_use]
-    pub fn new(max_attempts: u32, window: Duration) -> Self {
+    pub fn new(max_attempts: u32, window: Duration, max_tracked_keys: usize) -> Self {
         Self {
             attempts: Mutex::new(HashMap::new()),
             max_attempts,
             window,
+            max_tracked_keys,
         }
     }
 
@@ -122,7 +128,7 @@ impl Throttle {
     pub fn record_failure_at(&self, key: &str, now: Instant) {
         let mut attempts = self.attempts.lock();
 
-        if attempts.len() >= MAX_TRACKED_KEYS {
+        if attempts.len() >= self.max_tracked_keys {
             attempts
                 .retain(|_, entry| now.saturating_duration_since(entry.first_seen) < self.window);
         }
@@ -148,7 +154,7 @@ mod tests {
     use super::*;
 
     fn throttle() -> Throttle {
-        Throttle::new(3, Duration::from_mins(1))
+        Throttle::new(3, Duration::from_mins(1), MAX_TRACKED_KEYS)
     }
 
     #[test]
@@ -277,11 +283,54 @@ mod tests {
         );
     }
 
+    /// The counters have to come from the file, or `auth.throttle` is six
+    /// settings an operator can write and none the process reads.
+    #[test]
+    fn the_configured_limits_are_the_ones_enforced() {
+        let mut config = ThrottleConfig::default();
+        config.login.max_attempts = 2;
+        config.login.window_secs = 60;
+        let throttles = Throttles::from_config(&config);
+
+        throttles.login.record_failure("alice");
+        assert_eq!(throttles.login.check("alice"), Decision::Allow);
+        throttles.login.record_failure("alice");
+        assert!(
+            matches!(throttles.login.check("alice"), Decision::Deny { .. }),
+            "the third attempt should have been refused at max_attempts = 2"
+        );
+    }
+
+    /// Same reason, for the setting that is a memory ceiling rather than a
+    /// limit: a configured bound that the sweep ignores is not a bound.
+    #[test]
+    fn the_configured_key_bound_is_the_one_swept_at() {
+        let config = ThrottleConfig {
+            max_tracked_keys: 16,
+            ..ThrottleConfig::default()
+        };
+        let throttle = Throttles::from_config(&config).login;
+        let start = Instant::now();
+        let later = start
+            .checked_add(Duration::from_hours(2))
+            .expect("representable");
+
+        for n in 0..=16 {
+            throttle.record_failure_at(&format!("key-{n}"), start);
+        }
+        throttle.record_failure_at("trigger", later);
+
+        assert!(
+            throttle.attempts.lock().len() < 16,
+            "expired entries should have been swept at the configured bound"
+        );
+    }
+
     /// Without a bound, cycling usernames is a memory-growth attack on an
     /// unauthenticated endpoint.
     #[test]
     fn tracking_is_bounded() {
-        let throttle = Throttle::new(3, Duration::from_millis(1));
+        let throttle = Throttle::new(3, Duration::from_millis(1), MAX_TRACKED_KEYS);
         let start = Instant::now();
         let later = start
             .checked_add(Duration::from_secs(1))
@@ -363,13 +412,27 @@ pub struct Throttles {
 
 impl Default for Throttles {
     fn default() -> Self {
+        Self::from_config(&ThrottleConfig::default())
+    }
+}
+
+impl Throttles {
+    /// Builds the six counters an instance keeps from its configuration.
+    ///
+    /// The key bound is shared rather than per-counter: it is a memory ceiling,
+    /// and an operator sizing a container wants one number to reason about
+    /// rather than six that multiply.
+    #[must_use]
+    pub fn from_config(config: &ThrottleConfig) -> Self {
+        let keys = config.max_tracked_keys;
+        let build = |limit: &Limit| Throttle::new(limit.max_attempts, limit.window(), keys);
         Self {
-            login: Throttle::default(),
-            source: Throttle::new(SOURCE_MAX_ATTEMPTS, SOURCE_WINDOW),
-            lookup: Throttle::new(LOOKUP_MAX_ATTEMPTS, SOURCE_WINDOW),
-            reset: Throttle::new(RESET_MAX_REQUESTS, RESET_WINDOW),
-            registration: Throttle::new(RESET_MAX_REQUESTS, RESET_WINDOW),
-            share: Throttle::default(),
+            login: build(&config.login),
+            source: build(&config.source),
+            lookup: build(&config.lookup),
+            reset: build(&config.reset),
+            registration: build(&config.registration),
+            share: build(&config.share),
         }
     }
 }
@@ -385,22 +448,22 @@ impl Default for Throttles {
 /// shared — an office, a school, a mobile carrier — so refusing one refuses
 /// everybody behind it. A minute of that is a nuisance; fifteen would be a
 /// support ticket.
-const SOURCE_MAX_ATTEMPTS: u32 = 120;
+pub const SOURCE_MAX_ATTEMPTS: u32 = 120;
 
 /// How long a source is refused for. Deliberately much shorter than
 /// [`WINDOW`] — see [`SOURCE_MAX_ATTEMPTS`].
-const SOURCE_WINDOW: Duration = Duration::from_mins(1);
+pub const SOURCE_WINDOW: Duration = Duration::from_mins(1);
 
 /// Mails to one address before further requests are refused, counted separately
 /// for resets and registrations.
 ///
 /// Three is enough for somebody who did not receive the first one and tried
 /// again, and few enough that the inbox is not a place to hide an attack.
-const RESET_MAX_REQUESTS: u32 = 3;
+pub const RESET_MAX_REQUESTS: u32 = 3;
 
 /// How long that limit lasts. Longer than the link itself, so asking again
 /// after being refused means the earlier link has expired anyway.
-const RESET_WINDOW: Duration = Duration::from_hours(1);
+pub const RESET_WINDOW: Duration = Duration::from_hours(1);
 
 /// Codes tried and not found, from one source, before it is refused.
 ///
@@ -411,7 +474,7 @@ const RESET_WINDOW: Duration = Duration::from_hours(1);
 /// was never going to work at any rate. This matters for the instance that sets
 /// `share.code_length` to four: a million combinations fall in minutes without a
 /// limit, and in about eleven days with one.
-const LOOKUP_MAX_ATTEMPTS: u32 = 60;
+pub const LOOKUP_MAX_ATTEMPTS: u32 = 60;
 
 impl Throttles {
     /// Whether an attempt keyed on both `specific` and `source` may proceed.

@@ -292,7 +292,9 @@ pub async fn reset_password(
 
     let (password, chosen) = choose_password(source, config)?;
 
-    let hash = password::hash(password).await.context("could not hash")?;
+    let hash = password::hash(password, config.auth.hashing)
+        .await
+        .context("could not hash")?;
     let username = username.as_str();
     // `must_change` only when we chose it. One the operator supplied is one they
     // already know; one printed here has been through a terminal and a scroll
