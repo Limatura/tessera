@@ -559,16 +559,16 @@ struct Ingested {
 /// give a disk.
 /// What is left of the instance's allowance, counting uploads still arriving.
 ///
-/// An upload that has landed eight megabytes is holding eight megabytes whether
-/// or not anybody finishes it, so a session that has not completed still spends
-/// quota. Without that, opening sessions and abandoning them is free storage.
+/// An open upload session has reserved the room it declared, so it spends quota
+/// before a byte of it arrives. Without that, two callers can each be promised
+/// the same free space and the instance goes over its own limit.
 ///
 /// # Errors
 ///
 /// Returns [`Error`] if either total cannot be read.
 pub(crate) async fn remaining_room(state: &AppState) -> Result<u64> {
     let free = remaining_quota(state).await?;
-    Ok(free.saturating_sub(state.uploads.in_flight_bytes().await?))
+    Ok(free.saturating_sub(state.uploads.reserved_bytes().await?))
 }
 
 /// A filename from a query parameter, length- and control-character-checked.

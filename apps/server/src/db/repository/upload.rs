@@ -315,20 +315,25 @@ impl UploadRepository {
             .map_err(Into::into)
     }
 
-    /// Bytes that unfinished uploads have already put in the store.
+    /// Room that unfinished uploads have reserved.
     ///
-    /// Counted against the quota: an upload that has landed eight megabytes is
-    /// holding eight megabytes, whether or not anybody ever finishes it. Without
-    /// this, opening sessions and abandoning them is free storage — which is
-    /// the hole `vastsa/FileCodeBox#362` left open.
+    /// The **declared** size, not what has landed. Counting what landed lets
+    /// sessions over-commit: with ten gigabytes free, two callers can each say
+    /// they will send ten and both be accepted, because at that moment neither
+    /// has sent anything. Reserving the declaration makes the second one wait.
+    ///
+    /// The cost is that an abandoned session holds its whole declaration until
+    /// the sweep takes it, rather than only the part that arrived. That is the
+    /// honest reading of "I am going to send ten gigabytes", and
+    /// `share.upload_session_ttl_hours` is what bounds it.
     ///
     /// # Errors
     ///
     /// Returns [`UploadRepositoryError`] if the query fails.
-    pub async fn in_flight_bytes(&self) -> Result<u64, UploadRepositoryError> {
+    pub async fn reserved_bytes(&self) -> Result<u64, UploadRepositoryError> {
         let total: Option<i64> = UploadEntity::find()
             .select_only()
-            .column_as(upload::Column::OffsetBytes.sum(), "total")
+            .column_as(upload::Column::DeclaredBytes.sum(), "total")
             .into_tuple()
             .one(&self.connection)
             .await?

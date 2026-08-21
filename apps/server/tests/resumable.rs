@@ -349,3 +349,42 @@ async fn two_requests_at_the_same_offset_do_not_interleave() {
     );
     assert!(got[2048..].iter().all(|byte| *byte == 3));
 }
+
+/// A session reserves the room it declared, so two cannot be promised the same
+/// free space.
+///
+/// Counting what has landed instead lets both through: at the moment the second
+/// asks, the first has sent nothing, so the room looks free twice over and the
+/// instance goes past its own limit.
+#[tokio::test]
+async fn two_sessions_cannot_reserve_the_same_room() {
+    let quota = 8192_u64;
+    let app = TestApp::with_config(move |config| config.storage.max_total_bytes = quota).await;
+
+    let first = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/uploads?filename=first.bin")
+                .header("upload-length", quota.to_string()),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(first.status(), StatusCode::CREATED);
+
+    // Nothing has arrived yet, so the room is only spoken for — not used.
+    let second = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/uploads?filename=second.bin")
+                .header("upload-length", quota.to_string()),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(
+        second.status(),
+        StatusCode::INSUFFICIENT_STORAGE,
+        "the same free space was promised twice"
+    );
+}
