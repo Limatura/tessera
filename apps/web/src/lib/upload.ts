@@ -24,9 +24,15 @@ export interface UploadOptions {
   signal?: AbortSignal;
 }
 
+export interface FileEntry {
+  file: File;
+  /** Relative path within the dropped/selected folder, `/`-separated, no leading slash. */
+  path: string;
+}
+
 export interface FileUploadPayload {
   type: "file";
-  file: File;
+  files: FileEntry[];
 }
 
 export interface PasteUploadPayload {
@@ -70,15 +76,89 @@ export function upload(
   }
 }
 
-function uploadFile(
+async function uploadFile(
   payload: FileUploadPayload,
   options: UploadOptions
 ): Promise<UploadResultData> {
+  const { files } = payload;
+  const total = files.length;
+  // 已完成的檔案數加上目前這個檔案的位元組進度，合成成整體百分比
+  const reportProgress = (done: number, currentFilePercent: number) => {
+    options.onProgress?.(((done + currentFilePercent / 100) / total) * 100);
+  };
+
+  const [first, ...rest] = files;
+  if (!first) {
+    throw new Error("No file selected");
+  }
+
+  let share = await createShare(
+    first.file,
+    { filename: first.path || first.file.name },
+    {
+      onProgress: (percent) => reportProgress(0, percent),
+      signal: options.signal,
+    }
+  );
+  // 只有建立時才會回傳，之後每個 add_file 的回應都不會再帶，所以要記下來重複使用
+  const managementToken = share.management_token ?? undefined;
+  reportProgress(1, 0);
+
+  try {
+    for (const [index, entry] of rest.entries()) {
+      const done = index + 1;
+      // 每個檔案都要掛到同一個 share 上，且進度要照實際完成順序回報，不能平行送出
+      // oxlint-disable-next-line no-await-in-loop -- 見上一行說明
+      share = await addFileToShare(
+        share.code,
+        entry.file,
+        entry.path || entry.file.name,
+        managementToken,
+        {
+          onProgress: (percent) => reportProgress(done, percent),
+          signal: options.signal,
+        }
+      );
+      reportProgress(done + 1, 0);
+    }
+  } catch (error) {
+    await deleteShare(share.code, managementToken).catch(() => {
+      // 已經在回報原本的錯誤，刪除失敗就不再蓋過去
+    });
+    throw error;
+  }
+
+  const result = toResult({
+    ...share,
+    management_token: managementToken ?? null,
+  });
+  const folderName = deriveFolderName(files);
+  return folderName ? { ...result, fileName: folderName } : result;
+}
+
+/** For a folder upload, show the folder's own name rather than one file inside it. */
+function deriveFolderName(files: FileEntry[]): string | undefined {
+  if (files.length < 2) {
+    return;
+  }
+  const withRoot = files.find((entry) => entry.path.includes("/"));
+  return withRoot?.path.split("/")[0];
+}
+
+function addFileToShare(
+  code: string,
+  file: File,
+  filename: string,
+  managementToken: string | undefined,
+  options: UploadOptions
+): Promise<ShareResponse> {
   return createShare(
-    payload.file,
-    { filename: payload.file.name },
-    options
-  ).then(toResult);
+    file,
+    { filename },
+    options,
+    `/api/v1/shares/${encodeURIComponent(code)}/files`,
+    managementToken
+  );
 }
 
 function uploadPaste(
@@ -106,7 +186,7 @@ function toResult(share: ShareResponse): UploadResultData {
   return {
     code: share.code,
     expiresInHours: hoursUntil(share.expires_at),
-    fileName: share.filename ?? share.title ?? share.code,
+    fileName: share.files[0]?.filename ?? share.title ?? share.code,
     hasPassword: share.has_password,
     managementToken: share.management_token ?? undefined,
     maxUses:
@@ -177,7 +257,7 @@ export function updateShare(
   return Promise.resolve();
 }
 
-function buildShareUrl(query: ShareQuery): string {
+function buildShareUrl(query: ShareQuery, basePath = "/api/v1/shares"): string {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined) {
@@ -185,7 +265,7 @@ function buildShareUrl(query: ShareQuery): string {
     }
   }
   const search = params.toString();
-  return `/api/v1/shares${search ? `?${search}` : ""}`;
+  return `${basePath}${search ? `?${search}` : ""}`;
 }
 
 /**
@@ -195,7 +275,9 @@ function buildShareUrl(query: ShareQuery): string {
 function createShare(
   body: Blob | string,
   query: ShareQuery,
-  options: UploadOptions
+  options: UploadOptions,
+  basePath = "/api/v1/shares",
+  managementToken?: string
 ): Promise<ShareResponse> {
   // oxlint-disable-next-line promise/avoid-new -- XHR 的進度事件只能透過回呼取得
   return new Promise((resolve, reject) => {
@@ -207,10 +289,13 @@ function createShare(
     }
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", buildShareUrl(query));
+    xhr.open("POST", buildShareUrl(query, basePath));
     xhr.responseType = "json";
     xhr.withCredentials = true;
     xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    if (managementToken) {
+      xhr.setRequestHeader("X-Share-Management-Token", managementToken);
+    }
 
     const handleAbort = () => xhr.abort();
     options.signal?.addEventListener("abort", handleAbort);

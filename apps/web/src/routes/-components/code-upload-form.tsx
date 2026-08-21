@@ -11,6 +11,13 @@ import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
 import { sql } from "@codemirror/lang-sql";
 import { yaml } from "@codemirror/lang-yaml";
+import { Button } from "@tessera/ui/components/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@tessera/ui/components/dialog";
 import { Label } from "@tessera/ui/components/label";
 import {
   Select,
@@ -22,7 +29,10 @@ import {
 import { vscodeDark, vscodeLight } from "@uiw/codemirror-theme-vscode";
 import CodeMirror from "@uiw/react-codemirror";
 import type { Extension } from "@uiw/react-codemirror";
+import { Maximize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+
+import * as m from "@/paraglide/messages";
 
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
@@ -95,8 +105,10 @@ export function CodeUploadForm({
   onSubmit,
 }: CodeUploadFormProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dialogButtonRef = useRef<HTMLButtonElement>(null);
   const [language, setLanguage] = useState("plaintext");
   const [code, setCode] = useState("");
+  const [expanded, setExpanded] = useState(false);
   const isDark = useIsDarkMode();
 
   const handleLanguageChange = (value: string | null) => {
@@ -107,45 +119,93 @@ export function CodeUploadForm({
     ? [LANGUAGE_EXTENSIONS[language]]
     : [];
 
+  const submitFrom = (origin: HTMLButtonElement | null) => {
+    if (code.trim().length > 0) {
+      onSubmit(origin, { content: code, language });
+      setExpanded(false);
+    }
+  };
+
+  const renderLanguageSelect = (id: string) => (
+    <Select onValueChange={handleLanguageChange} value={language}>
+      <SelectTrigger id={id} size="sm">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {LANGUAGES.map((lang) => (
+          <SelectItem key={lang.value} value={lang.value}>
+            {lang.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <Label htmlFor="code-language">Language</Label>
-        <Select value={language} onValueChange={handleLanguageChange}>
-          <SelectTrigger id="code-language" size="sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {LANGUAGES.map((lang) => (
-              <SelectItem key={lang.value} value={lang.value}>
-                {lang.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-1">
+          {renderLanguageSelect("code-language")}
+          <Button
+            aria-label={m.code_editor_expand()}
+            onClick={() => setExpanded(true)}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
+            <Maximize2 />
+          </Button>
+        </div>
       </div>
       <CodeMirror
-        value={code}
-        onChange={setCode}
+        className="rounded-md border font-mono text-sm"
         extensions={extensions}
-        theme={isDark ? vscodeDark : vscodeLight}
+        height="300px"
+        onChange={setCode}
         placeholder="paste your snippet..."
-        height="200px"
-        className="font-mono text-sm rounded-md border"
+        theme={isDark ? vscodeDark : vscodeLight}
+        value={code}
       />
       <div className="flex justify-end">
         <QuickSubmitButton
           label="Send snippet"
-          onClick={() => {
-            if (code.trim().length > 0) {
-              onSubmit(buttonRef.current, { content: code, language });
-            }
-          }}
+          onClick={() => submitFrom(buttonRef.current)}
           progress={progress}
           ref={buttonRef}
           status={status}
         />
       </div>
+
+      <Dialog onOpenChange={setExpanded} open={expanded}>
+        <DialogContent className="w-[92vw] max-w-4xl sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{m.upload_tab_code()}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="code-language-expanded">Language</Label>
+            {renderLanguageSelect("code-language-expanded")}
+          </div>
+          <CodeMirror
+            className="rounded-md border font-mono text-sm"
+            extensions={extensions}
+            height="65vh"
+            onChange={setCode}
+            placeholder="paste your snippet..."
+            theme={isDark ? vscodeDark : vscodeLight}
+            value={code}
+          />
+          <div className="flex justify-end">
+            <QuickSubmitButton
+              label="Send snippet"
+              onClick={() => submitFrom(dialogButtonRef.current)}
+              progress={progress}
+              ref={dialogButtonRef}
+              status={status}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

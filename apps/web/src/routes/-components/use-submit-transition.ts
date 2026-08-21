@@ -45,7 +45,17 @@ export function useSubmitTransition() {
     el: HTMLElement | null,
     run: (onProgress: (percent: number) => void) => Promise<UploadResultData>
   ) => {
+    // biome-ignore lint: temp debug
+    console.log("[use-submit-transition] start called", {
+      hasEl: !!el,
+      status,
+    });
     if (status !== "idle" || !el) {
+      // biome-ignore lint: temp debug
+      console.log("[use-submit-transition] start bailed out early", {
+        hasEl: !!el,
+        status,
+      });
       return;
     }
     setOrigin(getExpandOrigin(el));

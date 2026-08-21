@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRef } from "react";
 
 import { GlassBackground } from "@/components/glass-background";
+import type { FileEntry } from "@/lib/upload";
 import { upload } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
@@ -30,9 +31,14 @@ export function UploadPanel() {
     useSubmitTransition();
   const fileButtonRef = useRef<HTMLButtonElement>(null);
 
-  const handleSelectFile = (file: File) => {
+  const handleSelectFiles = (files: FileEntry[]) => {
+    // biome-ignore lint: temp debug
+    console.log("[upload-panel] handleSelectFiles", {
+      count: files.length,
+      hasButtonRef: !!fileButtonRef.current,
+    });
     start(fileButtonRef.current, (onProgress) =>
-      upload({ file, type: "file" }, { onProgress })
+      upload({ files, type: "file" }, { onProgress })
     );
   };
 
@@ -89,7 +95,7 @@ export function UploadPanel() {
               <TabsContent value="file">
                 <div className="flex justify-center py-4">
                   <UploadButton
-                    onSelectFile={handleSelectFile}
+                    onSelectFiles={handleSelectFiles}
                     progress={progress}
                     ref={fileButtonRef}
                     status={status}
