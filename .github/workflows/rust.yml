@@ -86,7 +86,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: "cargo-deny,cargo-machete" }
 
       # rustfmt.toml uses import grouping, which is still nightly-gated. The
@@ -177,7 +177,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: cargo-hack }
 
       # Every backend is `#[cfg]`-gated. Checking only the empty and full sets
@@ -203,7 +203,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: cargo-nextest }
 
       - run: cargo nextest run --locked --workspace --profile ci --all-features
@@ -271,7 +271,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: cargo-nextest }
 
       # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
@@ -303,7 +303,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: cargo-nextest }
 
       # Not a `services:` block, because Garage needs a configuration file and
@@ -398,7 +398,7 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
 
-      - uses: taiki-e/install-action@7f4eb899022d8fe70b20c4f3de697aa85c309026 # v2
+      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: zizmor }
 
       # `zizmor` audits the workflow as an attack surface. The finding it exists
