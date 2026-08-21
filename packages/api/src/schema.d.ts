@@ -4,6 +4,423 @@
  */
 
 export interface paths {
+    "/api/v1/account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Removes the caller's own account.
+         * @description # Why the shares are the caller's decision and not an administrator's
+         *
+         *     They are the person's own uploads. An administrator removing somebody else
+         *     does not touch their content — that is a separate, explicit act — but
+         *     somebody removing themselves is entitled to say what happens to what they
+         *     sent.
+         *
+         *     # Errors
+         *
+         *     `401` when the password is wrong, `403` when an API token was used or the
+         *     caller is the last one able to administer the instance.
+         */
+        delete: operations["delete_account"];
+        options?: never;
+        head?: never;
+        /**
+         * Changes the caller's own name or address.
+         * @description # Errors
+         *
+         *     `400` when a value fails its rule, `401` when the password is wrong, `403`
+         *     when an API token was used, `409` when the name or address is taken.
+         */
+        patch: operations["update_account"];
+        trace?: never;
+    };
+    "/api/v1/admin/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists every invite, newest first.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller is not an
+         *     administrator or used a bearer token, `404` when this instance has no
+         *     administration.
+         */
+        get: operations["list_invites"];
+        put?: never;
+        /**
+         * Mints an invite code and returns it, once.
+         * @description # Why this exists when the CLI already does it
+         *
+         *     The command line is the rescue path — it works with the service stopped and
+         *     needs nothing but the database file. This is the ordinary path: somebody
+         *     letting a friend in should not have to reach a shell on the box.
+         *
+         *     # Errors
+         *
+         *     `400` when `uses` is below one or the lifetime is beyond a calendar, `401`
+         *     when nothing was signed in, `403` when the caller is not an administrator or
+         *     used a bearer token, `404` when this instance has no administration.
+         */
+        post: operations["create_invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invites/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revokes an invite.
+         * @description The accounts it already admitted stay: an account created through a code does
+         *     not depend on the code still existing. What this stops is the code letting
+         *     anybody else in, which is what somebody who posted one in the wrong chat
+         *     window wants.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller is not an
+         *     administrator or used a bearer token, `404` when no invite has that
+         *     identifier.
+         */
+        delete: operations["revoke_invite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists every permission this version has.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not read roles
+         *     or used a bearer token, `404` when this instance has no administration.
+         */
+        get: operations["list_permissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists every role, by name.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not read roles
+         *     or used a bearer token, `404` when this instance has no administration.
+         */
+        get: operations["list_roles"];
+        put?: never;
+        /**
+         * Creates a role.
+         * @description # Why a caller cannot grant what they do not hold
+         *
+         *     Otherwise `roles:write` is every permission: somebody holding only that
+         *     could mint a role granting `users:delete`, put themselves in it, and have
+         *     it. The check makes `roles:write` mean "may hand out what I have" rather
+         *     than "may hand out anything".
+         *
+         *     # Errors
+         *
+         *     `400` when the name or a permission is not usable, `401` when nothing was
+         *     signed in, `403` when the caller may not write roles, used a bearer token,
+         *     or asked for a permission they do not hold, `409` when the name is taken,
+         *     `404` when this instance has no administration.
+         */
+        post: operations["create_role"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/roles/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replaces what a role allows.
+         * @description # Errors
+         *
+         *     `400` when the name or a permission is not usable, `401` when nothing was
+         *     signed in, `403` when the caller may not write roles, used a bearer token,
+         *     or asked for a permission they do not hold, `404` when no role has that
+         *     identifier, `409` when the name is taken or the change would leave nobody
+         *     able to administer the instance.
+         */
+        put: operations["update_role"];
+        post?: never;
+        /**
+         * Removes a role.
+         * @description Anybody in it stops being in it, which can leave somebody in no role at all
+         *     — signed in and allowed nothing. That is a real state and not an error; the
+         *     listing shows how many people it would affect.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not write roles
+         *     or used a bearer token, `404` when no role has that identifier, `409` when
+         *     it is a seeded role or the last one able to administer the instance.
+         */
+        delete: operations["delete_role"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists every share on the instance, newest first.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not read every
+         *     share or used a bearer token, `404` when this instance has no
+         *     administration.
+         */
+        get: operations["list_all_shares"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/shares/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Removes any share, whoever uploaded it.
+         * @description # Why this exists
+         *
+         *     The ordinary delete route asks whether the caller owns the share. An upload
+         *     from an account that has since been deleted is owned by nobody, so nothing
+         *     could remove it — it kept serving its content, kept its place in the storage
+         *     quota, and was never swept if it had no expiry and no use limit. This is the
+         *     only way to reach one.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not delete every
+         *     share or used a bearer token, `404` when no share has that identifier.
+         */
+        delete: operations["delete_any_share"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reports what this instance is holding.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller is not an
+         *     administrator or used a bearer token, `404` when this instance has no
+         *     administration.
+         */
+        get: operations["instance_stats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists every account, newest first.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller is not an
+         *     administrator or used a bearer token, `404` when this instance has no
+         *     administration.
+         */
+        get: operations["list_users"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Removes an account.
+         * @description # What goes with it and what does not
+         *
+         *     Sessions and API tokens are deleted by the database. Shares are not: their
+         *     owner column is `ON DELETE SET NULL`, so what somebody uploaded becomes an
+         *     anonymous share and keeps working for whoever holds the code. Deleting an
+         *     account is about the account, and taking somebody's files off the internet in
+         *     the same motion would be a second decision made silently.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller is not an
+         *     administrator or used a bearer token, `404` when no account has that
+         *     identifier, `409` when this would leave the instance with no administrator.
+         */
+        delete: operations["delete_user"];
+        options?: never;
+        head?: never;
+        /**
+         * Grants or removes the administrator flag.
+         * @description # Why the last one cannot be removed
+         *
+         *     An instance with no administrator cannot be repaired through the API — there
+         *     is no endpoint left that would let anybody grant the flag back. The way out
+         *     is the command line against the database file, which an operator who locked
+         *     themselves out of a container may not have. So the case is refused rather
+         *     than allowed and regretted.
+         *
+         *     Removing your own flag while somebody else still has it is allowed: that is
+         *     a person stepping down, not an accident.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller is not an
+         *     administrator or used a bearer token, `404` when no account has that
+         *     identifier, `409` when this would leave the instance with none.
+         */
+        patch: operations["update_user"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Puts an account in exactly these roles.
+         * @description # Errors
+         *
+         *     `400` when a role identifier is not one, `401` when nothing was signed in,
+         *     `403` when the caller may not write roles, used a bearer token, or would be
+         *     granting a permission they do not hold, `404` when no such account or role,
+         *     `409` when it would leave nobody able to administer the instance.
+         */
+        put: operations["set_user_roles"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{id}/shares": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Ends every share one account uploaded.
+         * @description # Why this is not part of deleting the account
+         *
+         *     Removing somebody and destroying what they uploaded are different acts. An
+         *     operator clearing space wants this and not that; one removing a person who
+         *     has left wants that and not this. Welding them together would make one of
+         *     those two impossible and the other a surprise.
+         *
+         *     It works on an account in any state, including one still in use — an
+         *     operator reclaiming space from somebody who is still here should not have to
+         *     suspend them first.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not delete every
+         *     share or used a bearer token, `404` when no account has that identifier.
+         */
+        delete: operations["remove_user_shares"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/login": {
         parameters: {
             query?: never;
@@ -244,6 +661,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists the caller's sign-ins, newest first.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when a bearer token was used or the
+         *     account still owes a password change.
+         */
+        get: operations["list_sessions"];
+        put?: never;
+        post?: never;
+        /**
+         * Ends every session except the one asking.
+         * @description The button somebody presses when they think another person is signed in as
+         *     them. It spares the browser doing the asking, because being logged out by
+         *     your own attempt to log everybody else out is a poor way to find out it
+         *     worked.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when a bearer token was used.
+         */
+        delete: operations["revoke_other_sessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Ends one of the caller's sessions.
+         * @description # Why an identifier that is not yours is a `404`
+         *
+         *     The same answer as one that never existed, and as one that is not an
+         *     identifier at all. Telling them apart would make this endpoint a way to ask
+         *     which identifiers exist and who they belong to.
+         *
+         *     # Why a session that had already finished is a `204`
+         *
+         *     The caller asked for it to stop working, and it does not work. Answering
+         *     `404` for a row they can see in their own list would be a puzzle, and would
+         *     mean a list that went stale between loading and clicking reports a problem
+         *     where there is none. Nothing is written, so the time it ended does not move.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when a bearer token was used, `404`
+         *     when no session of the caller's has that identifier.
+         */
+        delete: operations["revoke_session"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/shares": {
         parameters: {
             query?: never;
@@ -307,6 +794,89 @@ export interface paths {
          *     exist.
          */
         delete: operations["delete_share"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{code}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Records something a client saw that the server could not.
+         * @description # Why retrieval is not accepted here
+         *
+         *     `use_count` is a limit. A client that could report its own retrievals would
+         *     be a client deciding whether the limit applied, and one `curl` at
+         *     `/s/{code}/raw` would walk past it. The server counts that itself, on the
+         *     transfer path, where it cannot be skipped.
+         *
+         *     These two are the opposite case: nothing reaches the server when somebody
+         *     reads a note on screen or presses a copy button, so a client is the only
+         *     thing that can see them at all. The price is that anybody who can call this
+         *     can inflate them, which is tolerable precisely because nothing depends on
+         *     them.
+         *
+         *     # Why it does not say whether the share exists
+         *
+         *     `204` whatever happens, including for a code that names nothing. Answering
+         *     `404` would make an unauthenticated endpoint into a way to ask which codes
+         *     are real — the same oracle the retrieval throttle exists to close, reached
+         *     through a door nobody was watching.
+         *
+         *     # Errors
+         *
+         *     `400` when `kind` is not one of the two, `429` when the source is asking too
+         *     often.
+         */
+        post: operations["record_share_event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shares/{code}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adds another file to a share.
+         * @description # Why files arrive one at a time
+         *
+         *     One request carrying five files is one request that loses five when it drops
+         *     at the fourth — which is the case somebody uploading a folder of photographs
+         *     on a home connection hits, not a theoretical one. A file that fails here is
+         *     retried on its own.
+         *
+         *     # Why the share exists before its second file
+         *
+         *     There is no draft state. A share is created by its first file and grown by
+         *     the rest, so nothing has to remember to finish, and an upload interrupted
+         *     half way leaves a share holding what did arrive rather than nothing at all.
+         *
+         *     The cost is that somebody who opened the link during the upload would see
+         *     part of it. The link is handed out after the upload, by the person doing it.
+         *
+         *     # Errors
+         *
+         *     `403` when the caller cannot show it is theirs, `404` when no share has that
+         *     code, `409` when the share holds text, `413` when the body is too large,
+         *     `507` when the instance is out of room.
+         */
+        post: operations["add_share_file"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -440,7 +1010,15 @@ export interface components {
              * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
              */
             id: string;
-            /** @description Whether the account may reach the administrative endpoints. */
+            /**
+             * @description Whether the account holds the seeded administrator role.
+             *
+             *     Kept because clients read it. It is now derived rather than stored, and
+             *     it answers a narrower question than `permissions` does — somebody in a
+             *     role that grants `users:read` and nothing else is not an administrator
+             *     but can still reach one administrative endpoint. New clients should read
+             *     `permissions`.
+             */
             is_admin: boolean;
             /**
              * @description Whether the account must set a new password before doing anything else.
@@ -450,11 +1028,113 @@ export interface components {
              */
             must_change_password: boolean;
             /**
+             * @description Everything this account is allowed to do.
+             *
+             *     `resource:verb` strings. The set a client should decide what to show
+             *     from — a screen that guesses from `is_admin` will be wrong for every
+             *     role between "member" and "everything".
+             * @example [
+             *       "shares:create",
+             *       "shares:read"
+             *     ]
+             */
+            permissions: string[];
+            /**
+             * @description The roles it is in, by name.
+             * @example [
+             *       "member"
+             *     ]
+             */
+            roles: string[];
+            /**
              * @description Normalised account name.
              * @example alice
              */
             username: string;
         };
+        /** @description A page of shares. */
+        AdminSharePage: {
+            /** @description The shares on this page. */
+            shares: components["schemas"]["AdminShareResponse"][];
+            /**
+             * Format: int64
+             * @description How many exist in total, so a client can render pagination.
+             */
+            total: number;
+        };
+        /**
+         * @description One share, as an administrator sees it.
+         *
+         *     Deliberately not the same shape a person sees of their own: this listing
+         *     exists to find things that need removing, so it carries who uploaded it and
+         *     how big it is, and it never carries the retrieval code. An administrator who
+         *     can read every code can open every share, and that is a different power from
+         *     being able to delete one.
+         */
+        AdminShareResponse: {
+            /** @description Whether a visitor could still open it. */
+            active: boolean;
+            /**
+             * Format: int64
+             * @description How many bytes it has sent out, over its whole life.
+             *
+             *     The instance-wide figure in `StatsResponse` answers "what is this
+             *     costing me"; this answers the question that follows it, which is which
+             *     share to do something about. One link posted somewhere busy is the way
+             *     an operator finds out their transfer is being spent, and the total
+             *     cannot say which one.
+             *
+             *     Not `size_bytes` times `use_count`: a range request, a resumed download
+             *     and an abandoned one all send some other amount.
+             */
+            bytes_served: number;
+            /** @description When it was uploaded, RFC 3339. */
+            created_at: string;
+            /** @description When it stops being served, RFC 3339, or `null` if it never does. */
+            expires_at?: string | null;
+            /**
+             * Format: int32
+             * @description How many files it holds. Zero for text.
+             */
+            file_count: number;
+            /**
+             * @description What the uploader called it, when the share holds exactly one file.
+             *
+             *     `null` for text and for a share with several — see `file_count`.
+             */
+            filename?: string | null;
+            /**
+             * @description Stable identifier, for [`delete_share`].
+             * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
+             */
+            id: string;
+            /**
+             * @description Whether it holds a file or text.
+             * @example file
+             */
+            kind: string;
+            /**
+             * @description Who uploaded it, or `null` when nobody was signed in.
+             *
+             *     An account that has since been deleted still appears here — the row it
+             *     left behind is what keeps this answerable. `null` means the upload was
+             *     anonymous, which is a different fact and worth telling apart.
+             */
+            owner_id?: string | null;
+            /**
+             * Format: int64
+             * @description How many bytes it holds.
+             */
+            size_bytes: number;
+        };
+        /**
+         * @description One account, as an administrator sees it.
+         *
+         *     The same shape a person sees of themselves. There is nothing extra to show:
+         *     this service stores no profile, and the one thing an administrator can change
+         *     is already a field.
+         */
+        AdminUserResponse: components["schemas"]["AccountResponse"];
         /**
          * @description Body of `GET /api/v1/capabilities`.
          *
@@ -593,6 +1273,29 @@ export interface components {
             /** @description The replacement. */
             new_password: string;
         };
+        /** @description Body of `POST /admin/invites`. */
+        CreateInviteRequest: {
+            /**
+             * Format: int64
+             * @description How many days it lasts, or `null` for one that never expires.
+             * @example 7
+             */
+            expires_in_days?: number | null;
+            /**
+             * @description What to call it, so a list of them means something.
+             * @example family
+             */
+            note?: string | null;
+            /**
+             * Format: int64
+             * @description How many accounts this code may create.
+             *
+             *     One code with several places is what the feature is for: something to
+             *     send to a group rather than a code per person. `1` makes it single-use.
+             * @example 3
+             */
+            uses: number;
+        };
         /** @description Body of `POST /tokens`. */
         CreateTokenRequest: {
             /**
@@ -607,6 +1310,27 @@ export interface components {
              * @example backup script
              */
             name: string;
+            /**
+             * @description What the token may do, as `resource:verb` strings.
+             *
+             *     Omitted means `shares:create` and nothing else — a token exists to
+             *     upload, and the default that is wrong in the safe direction is the one
+             *     that has to be widened on purpose. The other default would hand every
+             *     screenshot tool the ability to delete everything its owner has.
+             *
+             *     A permission the caller does not hold is refused: a token cannot be a
+             *     way to exceed the account that minted it.
+             */
+            permissions?: string[] | null;
+        };
+        /** @description A freshly minted invite, with its code. */
+        CreatedInviteResponse: components["schemas"]["InviteResponse"] & {
+            /**
+             * @description **Shown once.** Only its SHA-256 digest is stored, so this value cannot
+             *     be read back afterwards — not by an administrator, not by anybody.
+             * @example 3f9a1c…
+             */
+            code: string;
         };
         /** @description A newly issued token. The only response that ever carries the secret. */
         CreatedTokenResponse: components["schemas"]["TokenResponse"] & {
@@ -618,6 +1342,29 @@ export interface components {
              * @example tsk_a1b2c3d4e5f6...
              */
             secret: string;
+        };
+        /** @description Body of `DELETE /account`. */
+        DeleteAccountRequest: {
+            /** @description The password in force now, for the same reason as above. */
+            current_password: string;
+            /**
+             * @description Whether to end everything this account uploaded.
+             *
+             *     Defaults to ending it. For a file courier, "delete my account" usually
+             *     means "and the things I sent" — and somebody who wants the links they
+             *     handed out to keep working is the rarer case, worth one explicit `false`.
+             *
+             *     # What "delete" means here
+             *
+             *     Every link stops working the moment this returns. The bytes go later,
+             *     when the housekeeping pass reaches them — removing hundreds of objects
+             *     inside one request is a request that times out half way through with no
+             *     record of where it got to.
+             *
+             *     So the content does go, and nothing serves it in the meantime; what
+             *     arrives after the answer is the disk space.
+             */
+            delete_shares?: boolean;
         };
         /** @description The JSON body returned for every non-2xx response. */
         ErrorBody: {
@@ -632,7 +1379,7 @@ export interface components {
          *     Clients branch on this; the human-readable `message` is free to change.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "bad_request" | "payload_too_large" | "unauthorized" | "forbidden" | "password_change_required" | "gone" | "range_not_satisfiable" | "conflict" | "too_many_requests" | "insufficient_storage" | "unavailable" | "internal";
+        ErrorCode: "not_found" | "bad_request" | "payload_too_large" | "unauthorized" | "forbidden" | "password_change_required" | "gone" | "range_not_satisfiable" | "conflict" | "too_many_requests" | "insufficient_storage" | "timeout" | "unavailable" | "internal";
         /** @description Body of a successful `GET /health`. */
         HealthResponse: {
             /**
@@ -659,6 +1406,43 @@ export interface components {
              * @example 0.1.0
              */
             version: string;
+        };
+        /**
+         * @description One invite code, as an administrator sees it.
+         *
+         *     Never carries the code. Only its digest is stored, so there is nothing to
+         *     show — see [`CreatedInviteResponse`] for the one moment there is.
+         */
+        InviteResponse: {
+            /**
+             * @description Whether it would still admit somebody.
+             *
+             *     Sent rather than left to the client to work out from `used`, `max_uses`
+             *     and `expires_at` against its own clock — the same reason a session says
+             *     whether it is active.
+             */
+            active: boolean;
+            /** @description When it was made. */
+            created_at: string;
+            /** @description When it stops working, or `null` for one that does not. */
+            expires_at?: string | null;
+            /**
+             * @description Stable identifier, for revoking it.
+             * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
+             */
+            id: string;
+            /**
+             * Format: int64
+             * @description How many accounts it may create.
+             */
+            max_uses: number;
+            /** @description What the operator called it. */
+            note?: string | null;
+            /**
+             * Format: int64
+             * @description How many it has created.
+             */
+            used: number;
         };
         /** @description Body of `POST /auth/login`. */
         LoginRequest: {
@@ -693,6 +1477,27 @@ export interface components {
             email: string;
         };
         /**
+         * @description Every permission this version has, so a screen can offer them.
+         *
+         *     Sent rather than hard-coded in the client: a client listing permissions it
+         *     was built against would silently stop offering ones added since, and the
+         *     operator would have no way to grant them.
+         */
+        PermissionResponse: {
+            /**
+             * @description The `resource:verb` string.
+             * @example users:read
+             */
+            name: string;
+            /**
+             * @description Whether it reaches beyond the holder's own things.
+             *
+             *     The question an operator is actually asking of a role they are about to
+             *     grant: does this let them touch other people?
+             */
+            privileged: boolean;
+        };
+        /**
          * @description A share as a public visitor sees it.
          *
          *     Everything but `code`, `kind` and `has_password` is withheld until the share
@@ -710,8 +1515,8 @@ export interface components {
             created_at?: string | null;
             /** @description When it stops being served, RFC 3339. */
             expires_at?: string | null;
-            /** @description Original file name. */
-            filename?: string | null;
+            /** @description Every file this share holds. Empty for text and for a locked share. */
+            files: components["schemas"]["SharedFile"][];
             /** @description Whether a password must be presented before anything else is revealed. */
             has_password: boolean;
             /**
@@ -750,6 +1555,15 @@ export interface components {
              */
             email: string;
             /**
+             * @description An invite code, on an instance that asks for one.
+             *
+             *     Ignored where registration is open, so a client does not have to know
+             *     which kind of instance it is talking to before filling in the form.
+             *     `/capabilities` says which it is.
+             * @example 3f9a1c…
+             */
+            invite_code?: string | null;
+            /**
              * @description At least `password_min_length` characters — see `/capabilities`.
              * @example correct horse battery staple
              */
@@ -766,6 +1580,73 @@ export interface components {
          * @enum {string}
          */
         RegistrationPolicy: "open" | "invite" | "closed";
+        /** @description How many shares an operation ended. */
+        RemovedSharesResponse: {
+            /**
+             * Format: int64
+             * @description How many were still live and are now finished.
+             *
+             *     The bytes go as the reaper reaches them, so this number is not how much
+             *     space came back yet.
+             */
+            removed: number;
+        };
+        /** @description Body of `POST /admin/roles` and `PUT /admin/roles/{id}`. */
+        RoleRequest: {
+            /** @description What it is for. */
+            description?: string | null;
+            /** @description What to call it. */
+            name: string;
+            /**
+             * @description Everything it should allow, as `resource:verb` strings.
+             *
+             *     The whole set, not a change to it. Two operators editing the same role
+             *     from two screens cannot interleave their edits into a set neither of
+             *     them chose — the last one to press save wins, visibly.
+             */
+            permissions: string[];
+        };
+        /** @description One role, as the API describes it. */
+        RoleResponse: {
+            /** @description When it was created, RFC 3339. */
+            created_at: string;
+            /** @description What it is for, in the operator's own words. */
+            description?: string | null;
+            /**
+             * @description Stable identifier.
+             * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
+             */
+            id: string;
+            /**
+             * @description Whether it is one of the two the instance was seeded with.
+             *
+             *     Those cannot be deleted — an instance whose administrator role has been
+             *     removed has nobody who can create one. They can still be edited.
+             */
+            is_system: boolean;
+            /**
+             * Format: int64
+             * @description How many accounts are in it.
+             *
+             *     The number an operator wants before editing one: changing a role that
+             *     nobody holds is free, and changing one that forty people hold is not.
+             */
+            members: number;
+            /**
+             * @description What an operator types and reads.
+             * @example auditor
+             */
+            name: string;
+            /**
+             * @description What it allows, as `resource:verb` strings.
+             * @example [
+             *       "users:read"
+             *     ]
+             */
+            permissions: string[];
+            /** @description When its permissions last changed, RFC 3339. */
+            updated_at: string;
+        };
         /**
          * @description Where the process is in its lifecycle.
          *
@@ -774,6 +1655,66 @@ export interface components {
          * @enum {string}
          */
         ServiceStatus: "starting" | "ready" | "draining";
+        /**
+         * @description One sign-in, as the API describes it.
+         *
+         *     Covers sessions that are over as well as the ones that work. Somebody reading
+         *     this list is usually asking whether anybody else has been in, and a session
+         *     that was revoked last Tuesday is exactly what they need to see.
+         */
+        SessionResponse: {
+            /**
+             * @description Whether it still works.
+             *
+             *     Sent rather than left to the client to derive from `expires_at`: a
+             *     browser's clock can be wrong by more than a session's remaining life, and
+             *     being told "this is still live" by a machine with a fast clock is how
+             *     somebody decides not to revoke something they should have.
+             */
+            active: boolean;
+            /** @description When the sign-in happened. */
+            created_at: string;
+            /**
+             * @description Where the sign-in came from, when there was an answer worth recording.
+             *
+             *     `null` on an instance that sits behind an undeclared proxy, and on
+             *     sessions that predate this being recorded.
+             * @example 203.0.113.9
+             */
+            created_ip?: string | null;
+            /**
+             * @description The `User-Agent` the sign-in arrived with, exactly as it was sent.
+             *
+             *     Not parsed into "Chrome on macOS": doing that reliably is famously hard,
+             *     and getting it wrong tells somebody a session is theirs when it is not.
+             * @example Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15
+             */
+            created_user_agent?: string | null;
+            /**
+             * @description Whether this is the session reading the list.
+             *
+             *     The one thing a person cannot work out for themselves, and the one they
+             *     need before ending anything.
+             */
+            current: boolean;
+            /**
+             * @description Why it ended early, if somebody ended it.
+             *
+             *     `null` means it simply ran out. The values are `signed_out`, `revoked`,
+             *     `password_changed`, `password_reset` and `account_disabled`.
+             * @example revoked
+             */
+            ended_reason?: string | null;
+            /** @description When it stops, or stopped, working. */
+            expires_at: string;
+            /**
+             * @description Stable identifier, for [`revoke`].
+             * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
+             */
+            id: string;
+            /** @description When this session was last used. */
+            last_seen_at: string;
+        };
         /**
          * Format: binary
          * @description The request body of `POST /shares`: the content itself, as bytes.
@@ -790,6 +1731,16 @@ export interface components {
          *     response, and a generator reading this will believe an empty body is valid.
          */
         ShareBody: string;
+        /** @description Body of `POST /shares/{code}/events`. */
+        ShareEventRequest: {
+            /**
+             * @description What happened: `view` or `copy`.
+             *
+             *     Retrieval is deliberately not one of these — see [`record_event`].
+             * @example view
+             */
+            kind: string;
+        };
         /** @description A share as the API describes it. Never carries the content. */
         ShareResponse: {
             /**
@@ -797,12 +1748,17 @@ export interface components {
              * @example 0ZPQ4M7K
              */
             code: string;
+            /**
+             * Format: int32
+             * @description How many times a client reported it being copied.
+             */
+            copy_count: number;
             /** @description When it was created, RFC 3339. */
             created_at: string;
             /** @description When it stops being served, RFC 3339, or `null` to live until deleted. */
             expires_at?: string | null;
-            /** @description Original file name. */
-            filename?: string | null;
+            /** @description Every file this share holds. Empty for text and for a locked share. */
+            files: components["schemas"]["SharedFile"][];
             /** @description Whether a password must be presented to retrieve it. */
             has_password: boolean;
             /**
@@ -817,6 +1773,13 @@ export interface components {
             kind: string;
             /** @description Syntax-highlighting hint. */
             language?: string | null;
+            /**
+             * @description When it was last retrieved, RFC 3339.
+             *
+             *     The answer to the question somebody actually asks of their own share:
+             *     has the person I sent this to picked it up yet?
+             */
+            last_accessed_at?: string | null;
             /**
              * @description Token that lets an anonymous uploader delete this share.
              *
@@ -845,6 +1808,9 @@ export interface components {
             /**
              * Format: int32
              * @description How many times it has been retrieved.
+             *
+             *     Counted by the server on the transfer path, so it is the number to
+             *     trust — the two below are what a client told us.
              */
             use_count: number;
             /**
@@ -852,6 +1818,100 @@ export interface components {
              * @description How many retrievals remain, or `null` for unlimited.
              */
             uses_remaining?: number | null;
+            /**
+             * Format: int32
+             * @description How many times a client reported showing it.
+             */
+            view_count: number;
+        };
+        /** @description One file in a share, as the API describes it. */
+        SharedFile: {
+            /**
+             * @description What it was uploaded as.
+             * @example holiday.jpg
+             */
+            filename?: string | null;
+            /**
+             * Format: int32
+             * @description Its position in the share, from zero.
+             *
+             *     Sent rather than left to the array's order: a client that sorts or
+             *     filters the list still has the uploader's order to put it back in.
+             */
+            position: number;
+            /**
+             * Format: int64
+             * @description How many bytes it holds.
+             */
+            size_bytes: number;
+        };
+        /**
+         * @description What one instance is holding, at a glance.
+         *
+         *     # Why this is not a metrics endpoint
+         *
+         *     Four numbers an operator can act on, not a time series. "Am I near the
+         *     quota", "how many people are on here", "is the sweep keeping up" — the
+         *     questions somebody asks before deciding whether to change a setting. Anything
+         *     that wants graphs wants Prometheus, and that is a different endpoint with a
+         *     different shape.
+         */
+        StatsResponse: {
+            /**
+             * Format: int64
+             * @description How many accounts exist.
+             */
+            accounts: number;
+            /**
+             * Format: int64
+             * @description How many of those administer the instance.
+             */
+            administrators: number;
+            /**
+             * Format: int64
+             * @description How many bytes this instance has sent out.
+             *
+             *     Bytes that left the process, not bytes that reached anybody — a proxy in
+             *     front holds some, and a caching CDN answers requests this never sees.
+             *     For what crossed the network, a reverse proxy's own log is the authority.
+             *
+             *     Counted over the shares still here: a swept share takes its tally with
+             *     it, so this falls when one goes.
+             */
+            bytes_served: number;
+            /**
+             * Format: int64
+             * @description How many invites could still admit somebody.
+             */
+            live_invites: number;
+            /**
+             * Format: int64
+             * @description How many a visitor could still open.
+             *
+             *     The gap between this and `shares` is what the sweep has not reached yet,
+             *     which is worth seeing: a large one means retention is longer than
+             *     somebody expected, or the sweep is not running.
+             */
+            live_shares: number;
+            /**
+             * Format: int64
+             * @description The ceiling from `storage.max_total_bytes`, or `null` when unset.
+             *
+             *     `null` is not "unlimited" so much as "nobody said" — and on an instance
+             *     that takes anonymous uploads, that is the combination the start-up
+             *     warning is about.
+             */
+            quota_bytes?: number | null;
+            /**
+             * Format: int64
+             * @description How many shares exist, including ones nobody can open any more.
+             */
+            shares: number;
+            /**
+             * Format: int64
+             * @description Bytes of uploaded content still on the store.
+             */
+            stored_bytes: number;
         };
         /** @description What `POST /shares/{code}/unlock` hands back. */
         TicketResponse: {
@@ -892,8 +1952,63 @@ export interface components {
              * @example backup script
              */
             name: string;
+            /**
+             * @description What it may do, as `resource:verb` strings.
+             *
+             *     What it was minted with, not what it can do right now — those differ
+             *     when the owner has since been demoted, and the owner is who this list is
+             *     for. Sending the narrowed set instead would make a token look as though
+             *     it had been quietly edited.
+             * @example [
+             *       "shares:create"
+             *     ]
+             */
+            permissions: string[];
             /** @description When it was revoked, if it was. */
             revoked_at?: string | null;
+        };
+        /** @description Body of `PATCH /account`. */
+        UpdateAccountRequest: {
+            /**
+             * @description The password in force now.
+             *
+             *     Required even though the caller is signed in. An unlocked browser left
+             *     on a desk is otherwise enough to move the account's address to one the
+             *     finder controls, and from there the reset flow hands them the account.
+             */
+            current_password: string;
+            /**
+             * Format: email
+             * @description A new address, or omitted to keep the current one.
+             *
+             *     Changing it clears the verification: the new address has not been proven
+             *     reachable, and carrying the old flag over would mean an unverified
+             *     address wearing a verified one's badge.
+             * @example alice@example.com
+             */
+            email?: string | null;
+            /**
+             * @description A new name, or omitted to keep the current one.
+             * @example alice
+             */
+            username?: string | null;
+        };
+        /** @description Body of `PATCH /admin/users/{id}`. */
+        UpdateUserRequest: {
+            /** @description Whether this account administers the instance. */
+            is_admin: boolean;
+            /**
+             * @description `active` to let it in, `disabled` to suspend it.
+             *
+             *     Omitted leaves it as it is. `deleted` is refused here — removing an
+             *     account scrubs it, and that is `DELETE` rather than a field on a patch.
+             */
+            state?: string | null;
+        };
+        /** @description Body of `PUT /admin/users/{id}/roles`. */
+        UserRolesRequest: {
+            /** @description The roles this account should be in. The whole list, not a change to it. */
+            roles: string[];
         };
     };
     responses: never;
@@ -904,6 +2019,998 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    delete_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description The account is gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in, or the password is wrong */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Nobody would be left to administer the instance */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_account: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAccountRequest"];
+            };
+        };
+        responses: {
+            /** @description The account as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountResponse"];
+                };
+            };
+            /** @description A value is not usable */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in, or the password is wrong */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The name or address is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_invites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every invite on this instance */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    create_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description The invite, with its code */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedInviteResponse"];
+                };
+            };
+            /** @description A value failed its rule */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    revoke_invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which invite to revoke */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description It no longer admits anybody */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No invite has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_permissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every permission this version has */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PermissionResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read roles, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_roles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every role on this instance */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read roles, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    create_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The role as it now stands */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+            /** @description The name or a permission is not usable */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write roles, used an API token, or asked for a permission not held */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description A role already has that name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which role */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The role as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleResponse"];
+                };
+            };
+            /** @description The name or a permission is not usable */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write roles, used an API token, or asked for a permission not held */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such role */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The name is taken, or nobody would be left to administer the instance */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_role: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which role */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description It is gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write roles, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such role */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description A seeded role, or nobody would be left to administer the instance */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_all_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description How many to return. Capped, and defaulted when omitted. */
+                limit: number | null;
+                /** @description How many to skip. */
+                offset: number | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of shares */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSharePage"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read every share, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_any_share: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which share */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description It is gone */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not delete every share, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such share */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    instance_stats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What this instance is holding */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_users: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description Include accounts that have been deleted.
+                 *
+                 *     Off by default: what is left of one identifies nobody and cannot be
+                 *     acted on, so it belongs in an answer somebody asked for rather than in
+                 *     every listing.
+                 */
+                include_deleted: boolean;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every account on this instance */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    delete_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which account to remove */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No account has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description That would leave the instance with no administrator */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_user: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which account to change */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description The account as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No account has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description That would leave the instance with no administrator */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    set_user_roles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which account */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserRolesRequest"];
+            };
+        };
+        responses: {
+            /** @description The account as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write roles, used an API token, or would grant a permission not held */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such account or role */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Nobody would be left to administer the instance */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    remove_user_shares: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Whose shares to end */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many were ended */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedSharesResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not delete every share, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No account has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     login: {
         parameters: {
             query?: never;
@@ -1300,6 +3407,128 @@ export interface operations {
             };
         };
     };
+    list_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's sign-ins */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token, or a password change is due */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    revoke_other_sessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every other session is over */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token, or a password change is due */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    revoke_session: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which session to end */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description It no longer works */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token, or a password change is due */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No session of yours has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     list_shares: {
         parameters: {
             query?: never;
@@ -1320,6 +3549,15 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The credential does not carry `shares:read` */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1391,6 +3629,15 @@ export interface operations {
             };
             /** @description This instance requires an account to upload */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The credential does not carry `shares:create` */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1510,6 +3757,128 @@ export interface operations {
             };
             /** @description No share of yours has that code */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    record_share_event: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The share's retrieval code */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareEventRequest"];
+            };
+        };
+        responses: {
+            /** @description Recorded, or the code names nothing */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `kind` is not `view` or `copy` */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many events from this source */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    add_share_file: {
+        parameters: {
+            query?: {
+                /**
+                 * @description What to call this file.
+                 * @example holiday.jpg
+                 */
+                filename?: string;
+            };
+            header?: never;
+            path: {
+                /** @description The share to add to */
+                code: string;
+            };
+            cookie?: never;
+        };
+        /** @description The file */
+        requestBody: {
+            content: {
+                "application/octet-stream": number[];
+            };
+        };
+        responses: {
+            /** @description The share as it now stands */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description Not yours */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such share */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description That share holds text */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Body exceeds the configured limit */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance is out of room */
+            507: {
                 headers: {
                     [name: string]: unknown;
                 };

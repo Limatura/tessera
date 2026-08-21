@@ -59,7 +59,8 @@ function resolvePreviewPlan(data: PublicShare): PreviewPlan {
   if (data.kind === "text") {
     return { type: "text" };
   }
-  const Component = data.filename ? resolveFilePreview(data.filename) : null;
+  const filename = data.files[0]?.filename;
+  const Component = filename ? resolveFilePreview(filename) : null;
   return Component ? { Component, type: "file" } : { type: "none" };
 }
 
@@ -270,7 +271,7 @@ function RevealedShare({
       {plan.type === "file" &&
         (ticket.data ? (
           <plan.Component
-            filename={data.filename ?? ""}
+            filename={data.files[0]?.filename ?? ""}
             url={buildTransferUrl(code, "download", ticket.data.ticket)}
           />
         ) : (
@@ -420,7 +421,7 @@ export function ShareView({ code }: { code: string }) {
             )}
           </div>
           <CardTitle className="font-medium text-xl tracking-tight">
-            {data.title || data.filename || m.share_untitled()}
+            {data.title || data.files[0]?.filename || m.share_untitled()}
           </CardTitle>
           <ShareMeta
             expiresAt={data.expires_at}
