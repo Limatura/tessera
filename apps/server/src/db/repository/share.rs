@@ -59,6 +59,27 @@ impl ShareKind {
     }
 }
 
+/// What a partial update says about one column: leave it, or write this.
+///
+/// Distinct from `Option`, which here would have to mean two things at once —
+/// the value being written is itself nullable, so `None` cannot also stand for
+/// "not mentioned".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Change<T> {
+    /// The caller did not mention this field.
+    Keep,
+    /// Write this, including when it is `None`.
+    Set(Option<T>),
+}
+
+impl<T> Change<T> {
+    /// Whether anything would be written.
+    #[must_use]
+    pub const fn is_set(&self) -> bool {
+        matches!(self, Self::Set(_))
+    }
+}
+
 /// One file being added to a share.
 #[derive(Debug, Clone)]
 pub struct NewFile {
@@ -964,6 +985,46 @@ impl ShareRepository {
             .exec(&self.connection)
             .await?;
         Ok(result.rows_affected > 0)
+    }
+
+    /// Rewrites the settings a share can be changed after the fact.
+    ///
+    /// One statement, and only the columns the caller named — a read-modify-write
+    /// here would let two people editing the same share each undo the other's
+    /// field without either seeing a conflict.
+    ///
+    /// Returns whether a row matched, so a caller can tell "changed nothing"
+    /// from "no such share".
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn update_settings(
+        &self,
+        id: ShareId,
+        expires_at: Change<OffsetDateTime>,
+        use_limit: Change<u32>,
+        password_hash: Change<String>,
+        now: OffsetDateTime,
+    ) -> Result<bool, ShareRepositoryError> {
+        let mut update = ShareEntity::update_many()
+            .col_expr(share::Column::UpdatedAt, now.into())
+            .filter(share::Column::Id.eq(id.to_string()));
+        if let Change::Set(value) = expires_at {
+            update = update.col_expr(share::Column::ExpiresAt, value.into());
+        }
+        if let Change::Set(value) = use_limit {
+            update = update.col_expr(
+                share::Column::UseLimit,
+                value
+                    .map(|limit| i32::try_from(limit).unwrap_or(i32::MAX))
+                    .into(),
+            );
+        }
+        if let Change::Set(value) = password_hash {
+            update = update.col_expr(share::Column::PasswordHash, value.into());
+        }
+        Ok(update.exec(&self.connection).await?.rows_affected > 0)
     }
 
     /// How much this instance has sent out, over every share it still has.

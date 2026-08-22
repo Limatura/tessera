@@ -2408,3 +2408,242 @@ async fn a_shares_details_come_from_the_table_that_owns_them() {
     assert_eq!(files.len(), 1);
     assert_eq!(files[0].filename.as_deref(), Some("holiday.jpg"));
 }
+
+/// The point of the endpoint: the link is already out, and the reason for the
+/// original settings has changed.
+#[tokio::test]
+async fn an_anonymous_uploader_can_change_what_they_created() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?title=notes&max_uses=1", b"hello").await;
+    let token = share["management_token"]
+        .as_str()
+        .expect("a token")
+        .to_owned();
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let patched = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/api/v1/shares/{code}"))
+                    .header("content-type", "application/json")
+                    .header("x-share-management-token", &token),
+                Body::from(r#"{"max_uses": 5, "expires_in_hours": 48}"#),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(patched["uses_remaining"], 5);
+    assert!(
+        patched["expires_at"].is_string(),
+        "the new expiry should come back: {patched}"
+    );
+}
+
+/// Same answer as somebody else's share, on purpose — telling the two apart
+/// would confirm which codes exist.
+#[tokio::test]
+async fn patching_without_the_token_is_not_found() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    for token in ["", "not-the-token"] {
+        assert_eq!(
+            app.send(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/api/v1/shares/{code}"))
+                    .header("content-type", "application/json")
+                    .header("x-share-management-token", token),
+                Body::from(r#"{"max_uses": 9}"#),
+            )
+            .await
+            .status(),
+            StatusCode::NOT_FOUND,
+            "`{token}` should not be able to change somebody else's share"
+        );
+    }
+}
+
+/// The whole reason the body uses a three-state field. An omitted key and an
+/// explicit null are opposite instructions, and `Option` alone cannot tell
+/// them apart — which would silently clear settings the caller never mentioned.
+#[tokio::test]
+async fn an_omitted_field_is_left_alone_and_null_clears_it() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?max_uses=3", b"hello").await;
+    let token = share["management_token"]
+        .as_str()
+        .expect("a token")
+        .to_owned();
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let patch = async |json: &str| {
+        body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::PATCH)
+                        .uri(format!("/api/v1/shares/{code}"))
+                        .header("content-type", "application/json")
+                        .header("x-share-management-token", &token),
+                    Body::from(json.to_owned()),
+                )
+                .await,
+                StatusCode::OK,
+            )
+            .await,
+        )
+        .await
+    };
+
+    // Mentions only the expiry. The use limit must survive.
+    let after = patch(r#"{"expires_in_hours": 12}"#).await;
+    assert_eq!(
+        after["uses_remaining"], 3,
+        "an omitted field must not be cleared: {after}"
+    );
+
+    // Now say so explicitly.
+    let after = patch(r#"{"max_uses": null}"#).await;
+    assert!(
+        after["uses_remaining"].is_null(),
+        "an explicit null should clear the limit: {after}"
+    );
+}
+
+/// Rotating a password is the case this endpoint exists for that a delete and
+/// re-upload cannot serve: the code stays the same, so the link already sent
+/// keeps working for whoever is meant to have it.
+#[tokio::test]
+async fn a_password_can_be_added_then_removed() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"hello").await;
+    let token = share["management_token"]
+        .as_str()
+        .expect("a token")
+        .to_owned();
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let describe = async || {
+        body_json(
+            expect_status(
+                app.empty(Method::GET, &format!("/api/v1/shares/{code}"), Auth::None)
+                    .await,
+                StatusCode::OK,
+            )
+            .await,
+        )
+        .await
+    };
+    assert_eq!(describe().await["has_password"], false);
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/shares/{code}"))
+                .header("content-type", "application/json")
+                .header("x-share-management-token", &token)
+                .header("x-share-password", "a perfectly adequate passphrase"),
+            Body::from("{}"),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        describe().await["has_password"],
+        true,
+        "the share should now be behind a password"
+    );
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/shares/{code}"))
+                .header("content-type", "application/json")
+                .header("x-share-management-token", &token),
+            Body::from(r#"{"remove_password": true}"#),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(describe().await["has_password"], false);
+}
+
+/// Two contradictory instructions in one request. Guessing which one was meant
+/// is how a share ends up with a password nobody intended, or without one
+/// somebody was relying on.
+#[tokio::test]
+async fn setting_and_removing_a_password_at_once_is_refused() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"hello").await;
+    let token = share["management_token"]
+        .as_str()
+        .expect("a token")
+        .to_owned();
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    assert_eq!(
+        app.send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/shares/{code}"))
+                .header("content-type", "application/json")
+                .header("x-share-management-token", &token)
+                .header("x-share-password", "a perfectly adequate passphrase"),
+            Body::from(r#"{"remove_password": true}"#),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST
+    );
+}
+
+/// The instance's ceiling is not something a caller can step outside by asking
+/// for "no expiry" after the fact — that would be a way around a limit the
+/// operator set, reached through a door that was never meant to open it.
+#[tokio::test]
+async fn the_expiry_cannot_be_cleared_when_the_instance_caps_it() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"hello").await;
+    let token = share["management_token"]
+        .as_str()
+        .expect("a token")
+        .to_owned();
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let refuse = async |json: &str| {
+        app.send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/shares/{code}"))
+                .header("content-type", "application/json")
+                .header("x-share-management-token", &token),
+            Body::from(json.to_owned()),
+        )
+        .await
+        .status()
+    };
+
+    assert_eq!(
+        refuse(r#"{"expires_in_hours": null}"#).await,
+        StatusCode::BAD_REQUEST
+    );
+    // The same ceiling that applies at creation.
+    assert_eq!(
+        refuse(r#"{"expires_in_hours": 100000}"#).await,
+        StatusCode::BAD_REQUEST
+    );
+    // And zero uses is a share nobody can fetch, which is a delete spelled badly.
+    assert_eq!(refuse(r#"{"max_uses": 0}"#).await, StatusCode::BAD_REQUEST);
+}

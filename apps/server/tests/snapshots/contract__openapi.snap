@@ -598,6 +598,37 @@ expression: document
         ],
         "type": "object"
       },
+      "PatchShareRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PATCH /shares/{code}`.\n\nEvery field is optional and omitting one leaves that setting alone. Sending\n`null` clears it — see [`Patch`].\n\nThe password is deliberately not here. It travels in `X-Share-Password`, the\nsame header the rest of this API uses, because a body is not the problem —\nthe problem is every other place a value can end up, and a header is the one\nchannel that stays out of the query string, the access log and the\n`Referer`. What is here is only the instruction to remove it, which is not a\nsecret.",
+        "properties": {
+          "expires_in_hours": {
+            "description": "How long from now the share should last. `null` means it stops expiring.",
+            "example": 24,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "max_uses": {
+            "description": "How many more times it may be retrieved. `null` means unlimited.\n\nCounted against the retrievals it has already had, so lowering this\nbelow `use_count` retires the share rather than reviving it.",
+            "example": 1,
+            "format": "int32",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "remove_password": {
+            "description": "Removes the share's password.\n\nSetting one is `X-Share-Password`; this is the other direction. Sending\nboth is refused rather than guessed at.",
+            "type": "boolean"
+          }
+        },
+        "type": "object"
+      },
       "PermissionResponse": {
         "description": "Every permission this version has, so a screen can offer them.\n\nSent rather than hard-coded in the client: a client listing permissions it\nwas built against would silently stop offering ones added since, and the\noperator would have no way to grant them.",
         "properties": {
@@ -3744,6 +3775,110 @@ expression: document
           }
         },
         "summary": "Describes a share without spending one of its retrievals.",
+        "tags": [
+          "shares"
+        ]
+      },
+      "patch": {
+        "description": "# Why this exists\n\nEverything here could be decided at creation and nothing could be changed\nafterwards, which is the state this replaces. It does not survive contact\nwith how people actually share a file: the link goes out, and then the\nreason for the expiry changes — the meeting moved, the recipient asks for\nanother day, the wrong person was in the thread and the password has to\nchange now rather than by deleting and re-uploading.\n\n# Who may\n\nThe same two answers as `DELETE`: the owning account, or whoever holds the\nmanagement token an anonymous upload was given. The permission checked is\n`shares:delete` — there is no `shares:update` today, and gating a change\nbehind the right to remove the thing outright is the conservative reading\nwhile there is not.\n\n# Errors\n\n`400` for a value the instance will not accept, `404` when no share of the\ncaller's has that code — deliberately the same answer as somebody else's,\nbecause distinguishing them would confirm which codes exist.",
+        "operationId": "update_share",
+        "parameters": [
+          {
+            "description": "The retrieval code",
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The token an anonymous upload was given",
+            "in": "header",
+            "name": "X-Share-Management-Token",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "A new password for the share",
+            "in": "header",
+            "name": "X-Share-Password",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PatchShareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            },
+            "description": "The share as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A setting the instance will not accept"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No share of yours has that code"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Changes a share's settings after it exists.",
         "tags": [
           "shares"
         ]

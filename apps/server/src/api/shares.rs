@@ -56,7 +56,7 @@ use crate::{
         throttle::Decision,
     },
     db::repository::share::{
-        Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+        Change, Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
     },
     error::{Error, Result},
     state::AppState,
@@ -603,6 +603,196 @@ pub async fn delete(
     }
     state.shares.delete(share.id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// One field of a partial update: absent, explicitly `null`, or a value.
+///
+/// `Option<T>` cannot say this. serde hands back `None` both for "the caller
+/// did not mention it" and for "the caller sent `null`", and in a `PATCH` those
+/// are opposite instructions — leave it as it is, or clear it. Every field
+/// below that can be cleared carries this instead.
+type Patch<T> = Option<Option<T>>;
+
+/// Deserialises a present field into [`Patch`], so that absent stays `None`.
+///
+/// `#[serde(default)]` supplies `None` when the key is missing; this runs only
+/// when it is there, which is what makes `null` land as `Some(None)`.
+fn patched<'de, D, T>(deserializer: D) -> std::result::Result<Patch<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Option::<T>::deserialize(deserializer).map(Some)
+}
+
+/// Body of `PATCH /shares/{code}`.
+///
+/// Every field is optional and omitting one leaves that setting alone. Sending
+/// `null` clears it — see [`Patch`].
+///
+/// The password is deliberately not here. It travels in `X-Share-Password`, the
+/// same header the rest of this API uses, because a body is not the problem —
+/// the problem is every other place a value can end up, and a header is the one
+/// channel that stays out of the query string, the access log and the
+/// `Referer`. What is here is only the instruction to remove it, which is not a
+/// secret.
+#[derive(Debug, Default, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PatchShareRequest {
+    /// How long from now the share should last. `null` means it stops expiring.
+    #[serde(default, deserialize_with = "patched")]
+    #[schema(value_type = Option<u64>, example = 24)]
+    pub expires_in_hours: Patch<u64>,
+
+    /// How many more times it may be retrieved. `null` means unlimited.
+    ///
+    /// Counted against the retrievals it has already had, so lowering this
+    /// below `use_count` retires the share rather than reviving it.
+    #[serde(default, deserialize_with = "patched")]
+    #[schema(value_type = Option<u32>, example = 1)]
+    pub max_uses: Patch<u32>,
+
+    /// Removes the share's password.
+    ///
+    /// Setting one is `X-Share-Password`; this is the other direction. Sending
+    /// both is refused rather than guessed at.
+    #[serde(default)]
+    pub remove_password: bool,
+}
+
+/// Changes a share's settings after it exists.
+///
+/// # Why this exists
+///
+/// Everything here could be decided at creation and nothing could be changed
+/// afterwards, which is the state this replaces. It does not survive contact
+/// with how people actually share a file: the link goes out, and then the
+/// reason for the expiry changes — the meeting moved, the recipient asks for
+/// another day, the wrong person was in the thread and the password has to
+/// change now rather than by deleting and re-uploading.
+///
+/// # Who may
+///
+/// The same two answers as `DELETE`: the owning account, or whoever holds the
+/// management token an anonymous upload was given. The permission checked is
+/// `shares:delete` — there is no `shares:update` today, and gating a change
+/// behind the right to remove the thing outright is the conservative reading
+/// while there is not.
+///
+/// # Errors
+///
+/// `400` for a value the instance will not accept, `404` when no share of the
+/// caller's has that code — deliberately the same answer as somebody else's,
+/// because distinguishing them would confirm which codes exist.
+#[utoipa::path(
+    patch,
+    path = "/shares/{code}",
+    operation_id = "update_share",
+    tag = SHARES_TAG,
+    params(
+        ("code" = String, Path, description = "The retrieval code"),
+        ("X-Share-Management-Token" = Option<String>, Header, description = "The token an anonymous upload was given"),
+        ("X-Share-Password" = Option<String>, Header, description = "A new password for the share"),
+    ),
+    request_body = PatchShareRequest,
+    responses(
+        (status = 200, description = "The share as it now stands", body = ShareResponse),
+        (status = 400, description = "A setting the instance will not accept", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 404, description = "No share of yours has that code", body = crate::error::ErrorBody),
+    ),
+    security((), ("session" = []), ("bearer" = [])),
+)]
+pub async fn patch(
+    State(state): State<AppState>,
+    MaybeUser(current): MaybeUser,
+    ApiPath(code): ApiPath<String>,
+    headers: HeaderMap,
+    ApiJson(body): ApiJson<PatchShareRequest>,
+) -> Result<Json<ShareResponse>> {
+    let code = RetrievalCode::parse(&code).map_err(|_| Error::NotFound)?;
+    let share = state
+        .shares
+        .find_by_code(&code)
+        .await?
+        .ok_or(Error::NotFound)?;
+
+    // Byte for byte the check `delete` makes, and for the same reason: owning
+    // the share is not enough if the credential in hand does not carry the
+    // permission.
+    let owns = current.as_ref().is_some_and(|user| {
+        share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesDelete)
+    });
+    let holds_token = share.management_token_hash.as_ref().is_some_and(|stored| {
+        management_token(&headers).is_some_and(|presented| presented.digest() == *stored)
+    });
+    if !owns && !holds_token {
+        return Err(Error::NotFound);
+    }
+
+    let supplied = share_password(&headers)?;
+    if supplied.is_some() && body.remove_password {
+        return Err(Error::bad_request(
+            "send `X-Share-Password` to set a password or `remove_password` to clear it, not both",
+        ));
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let expires_at = match body.expires_in_hours {
+        None => Change::Keep,
+        // Clearing the expiry would put the share outside whatever ceiling the
+        // instance set, through a route that was never meant to grant that. An
+        // instance with no ceiling has nothing to bypass.
+        Some(None) => {
+            if state.config.share.max_expiry().is_some() {
+                return Err(Error::bad_request(format!(
+                    "this instance keeps shares for at most {} hours, so `expires_in_hours` \
+                     cannot be cleared",
+                    state.config.share.max_expiry_hours
+                )));
+            }
+            Change::Set(None)
+        }
+        Some(Some(hours)) => Change::Set(resolve_expiry(&state, Some(hours), now)?),
+    };
+
+    let use_limit = match body.max_uses {
+        None => Change::Keep,
+        Some(None) => Change::Set(None),
+        Some(Some(0)) => {
+            return Err(Error::bad_request(
+                "`max_uses` must be at least 1; send null for a share that never runs out",
+            ));
+        }
+        Some(Some(limit)) => Change::Set(Some(limit)),
+    };
+
+    let password_hash = if body.remove_password {
+        Change::Set(None)
+    } else {
+        match supplied {
+            None => Change::Keep,
+            Some(password) => Change::Set(Some(
+                password::hash(password, state.config.auth.hashing).await?,
+            )),
+        }
+    };
+
+    state
+        .shares
+        .update_settings(share.id, expires_at, use_limit, password_hash, now)
+        .await?;
+
+    // Read back rather than patching the copy in hand: the response then says
+    // what the database holds, which is the only version that matters when the
+    // caller sends the next one.
+    let share = state
+        .shares
+        .find_by_id(share.id)
+        .await?
+        .ok_or(Error::NotFound)?;
+    let content = state.shares.content_of(&share).await?;
+    Ok(Json(ShareResponse::from_share(&share, &content, None)))
 }
 
 /// Where a share's bytes ended up, and how many there were.

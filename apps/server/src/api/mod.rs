@@ -278,12 +278,21 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(sessions::list, sessions::revoke_others))
         .routes(routes!(sessions::revoke))
         .merge(admin_routes())
+        .merge(share_routes())
+        .merge(upload_routes())
+}
+
+/// The share endpoints.
+///
+/// Grouped for the same reason `admin_routes` and `upload_routes` are: five
+/// lines is five lines somebody scanning [`versioned_routes`] has to read past.
+fn share_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
         .routes(routes!(shares::list, shares::create))
-        .routes(routes!(shares::describe, shares::delete))
+        .routes(routes!(shares::describe, shares::patch, shares::delete))
         .routes(routes!(shares::unlock))
         .routes(routes!(shares::record_event))
         .routes(routes!(shares::add_file))
-        .merge(upload_routes())
 }
 
 /// Everything under `/admin`.
