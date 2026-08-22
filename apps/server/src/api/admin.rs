@@ -1290,6 +1290,102 @@ pub async fn list_shares(
     }))
 }
 
+/// One recorded retrieval, as an administrator sees it.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AccessEventResponse {
+    /// When the content was handed over, RFC 3339.
+    #[schema(example = "2026-08-22T09:41:00Z")]
+    pub occurred_at: String,
+    /// Where the request came from, or `null` when there was no honest answer.
+    ///
+    /// Behind a proxy this instance does not trust, the address it can see is
+    /// the proxy's. A null says so; the proxy's own address would be a record
+    /// of the wrong person.
+    #[schema(example = "203.0.113.9")]
+    pub ip_address: Option<String>,
+    /// What the client called itself, as presented and truncated.
+    #[schema(example = "Mozilla/5.0")]
+    pub user_agent: Option<String>,
+}
+
+/// A share's recorded retrievals.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AccessLogResponse {
+    /// Whether this instance is recording at all.
+    ///
+    /// An empty list means two different things — nobody has fetched it, or
+    /// nothing is being written down — and a screen that cannot tell them apart
+    /// will report the second as the first.
+    pub enabled: bool,
+    /// The events, most recent first.
+    pub events: Vec<AccessEventResponse>,
+}
+
+/// Reads who has fetched one share.
+///
+/// # Why this is administrative and not the uploader's
+///
+/// The switch belongs to whoever runs the instance, so the record does too.
+/// Handing visitor addresses to every uploader would be a second decision about
+/// somebody else's privacy, taken on behalf of an operator who only agreed to
+/// the first — and on a shared instance the uploader is not the operator.
+///
+/// If an instance wants uploaders to see their own, that is a deliberate change
+/// to make, not one to arrive at by leaving this open.
+///
+/// # Errors
+///
+/// `401` when nothing was signed in, `403` when the caller may not read every
+/// share or used a bearer token, `404` when there is no such share or this
+/// instance has no administration.
+#[utoipa::path(
+    get,
+    path = "/admin/shares/{id}/access-log",
+    operation_id = "read_share_access_log",
+    tag = ADMIN_TAG,
+    params(
+        ("id" = String, Path, description = "Which share"),
+        SharePageParams,
+    ),
+    responses(
+        (status = 200, description = "What has been recorded", body = AccessLogResponse),
+        (status = 400, description = "`limit` or `offset` is not a number", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not read every share, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "No such share", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn share_access_log(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(id): ApiPath<String>,
+    ApiQuery(params): ApiQuery<SharePageParams>,
+) -> Result<Json<AccessLogResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::SharesReadAny)?;
+
+    let share_id = ShareId::parse(&id).map_err(|_| Error::NotFound)?;
+    if state.shares.find_by_id(share_id).await?.is_none() {
+        return Err(Error::NotFound);
+    }
+
+    let (limit, _) = page_bounds(&params)?;
+    let events = state.events.for_share(share_id, limit).await?;
+
+    Ok(Json(AccessLogResponse {
+        enabled: state.config.share.access_log.enabled,
+        events: events
+            .into_iter()
+            .map(|event| AccessEventResponse {
+                occurred_at: format_timestamp(event.occurred_at),
+                ip_address: event.ip_address,
+                user_agent: event.user_agent,
+            })
+            .collect(),
+    }))
+}
+
 /// Removes any share, whoever uploaded it.
 ///
 /// # Why this exists

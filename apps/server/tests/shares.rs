@@ -2647,3 +2647,153 @@ async fn the_expiry_cannot_be_cleared_when_the_instance_caps_it() {
     // And zero uses is a share nobody can fetch, which is a delete spelled badly.
     assert_eq!(refuse(r#"{"max_uses": 0}"#).await, StatusCode::BAD_REQUEST);
 }
+
+/// The switch is the whole point. An instance that has not asked for a record
+/// of its visitors must not be keeping one — anonymity is a reason people run
+/// this, and a default that quietly logs would take that decision from them.
+#[tokio::test]
+async fn nothing_is_recorded_until_the_operator_asks() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert!(
+        app.state
+            .events
+            .for_share(id, 10)
+            .await
+            .expect("query")
+            .is_empty(),
+        "the log is off, so a download should leave no trace of who made it"
+    );
+}
+
+/// And when it is asked for, it has to actually answer the question the
+/// operator turned it on for: who, and when.
+#[tokio::test]
+async fn a_download_is_recorded_once_the_log_is_on() {
+    let app = TestApp::with_config(|config| {
+        config.share.access_log.enabled = true;
+    })
+    .await;
+    let share = upload(&app, "", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download"))
+                .header(header::USER_AGENT, "Tessera-Test/1.0"),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let events = app.state.events.for_share(id, 10).await.expect("query");
+    assert_eq!(events.len(), 1, "one download, one row");
+    assert_eq!(events[0].user_agent.as_deref(), Some("Tessera-Test/1.0"));
+}
+
+/// A `HEAD` is a link checker, a prefetch, or a chat client unfurling the URL.
+/// None of those is a person collecting the file, which is why `HEAD` does not
+/// spend a use either — the log follows the same line.
+#[tokio::test]
+async fn a_head_request_is_not_an_access() {
+    let app = TestApp::with_config(|config| {
+        config.share.access_log.enabled = true;
+    })
+    .await;
+    let share = upload(&app, "", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    expect_status(
+        app.empty(Method::HEAD, &format!("/s/{code}/download"), Auth::None)
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert!(
+        app.state
+            .events
+            .for_share(id, 10)
+            .await
+            .expect("query")
+            .is_empty(),
+        "a HEAD asks what a GET would answer; it is not a retrieval"
+    );
+}
+
+/// Switching the log off must not be the one action that keeps somebody's
+/// records for ever. The retention sweep runs whatever the setting says.
+#[tokio::test]
+async fn the_sweep_clears_old_events_even_after_the_log_is_switched_off() {
+    let app = TestApp::with_config(|config| {
+        config.share.access_log.enabled = true;
+        config.share.access_log.retention_days = 7;
+    })
+    .await;
+    let share = upload(&app, "", b"hello").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let long_ago = OffsetDateTime::now_utc() - time::Duration::days(30);
+    app.state
+        .events
+        .record(id, long_ago, Some("203.0.113.9"), Some("old"))
+        .await
+        .expect("record");
+    assert_eq!(
+        app.state
+            .events
+            .for_share(id, 10)
+            .await
+            .expect("query")
+            .len(),
+        1
+    );
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    assert!(
+        app.state
+            .events
+            .for_share(id, 10)
+            .await
+            .expect("query")
+            .is_empty(),
+        "an event past its retention should have been swept"
+    );
+}
+
+/// A visitor being recorded should be told, and `/capabilities` is the only
+/// place a client can find out that they are. Without this the frontend has no
+/// way to know, and the person being written down is the last to hear about it.
+#[tokio::test]
+async fn capabilities_says_whether_visitors_are_being_recorded() {
+    let quiet = TestApp::ready().await;
+    let body =
+        body_json(expect_status(quiet.get("/api/v1/capabilities").await, StatusCode::OK).await)
+            .await;
+    assert_eq!(body["access_log"], false, "off by default");
+
+    let recording = TestApp::with_config(|config| {
+        config.share.access_log.enabled = true;
+    })
+    .await;
+    let body =
+        body_json(expect_status(recording.get("/api/v1/capabilities").await, StatusCode::OK).await)
+            .await;
+    assert_eq!(body["access_log"], true);
+}

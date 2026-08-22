@@ -84,6 +84,24 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         state.tickets.delete_expired(now).await,
     );
 
+    // Unconditionally, and not only while the log is on. Switching it off has
+    // to mean the rows already written go away on schedule too — gating this
+    // on `enabled` would make "stop recording people" the one action that
+    // keeps their records for ever. The query costs nothing on an instance
+    // that has never written a row.
+    report(
+        "access events past their retention",
+        state
+            .events
+            .delete_before(
+                now.saturating_sub(
+                    time::Duration::try_from(state.config.share.access_log.retention())
+                        .unwrap_or_else(|_| time::Duration::days(30)),
+                ),
+            )
+            .await,
+    );
+
     // An abandoned upload is holding real bytes in the store, and they count
     // against the quota. Aborting the multipart is what actually frees them —
     // deleting the row alone would leave parts that nothing will ever look for

@@ -23,6 +23,7 @@ use axum::{
 use bytes::Bytes;
 use object_store::{GetOptions, GetRange, ObjectStoreExt as _, path::Path as ObjectPath};
 use serde::Deserialize;
+use time::OffsetDateTime;
 use tokio_stream::StreamExt as _;
 
 use crate::{
@@ -32,7 +33,10 @@ use crate::{
         gate,
         meter::Served,
     },
-    auth::{extract::ClientAddress, proxy::Origin},
+    auth::{
+        extract::ClientAddress,
+        proxy::{Origin, UNPLACEABLE},
+    },
     db::repository::share::{Content, FilePart, Share, ShareKind},
     error::{Error, Result},
     state::AppState,
@@ -349,11 +353,49 @@ async fn permit(
     }
 
     if held == gate::Ticket::Held {
+        record_access(state, share, headers, source).await;
         return Ok(Payload::Content);
     }
     gate::unlock(state, share, headers, source).await?;
     gate::spend(state, share).await?;
+    record_access(state, share, headers, source).await;
     Ok(Payload::Content)
+}
+
+/// Writes down who fetched this, when the operator has asked for that.
+///
+/// # Why only here
+///
+/// This is the one place both retrieval routes agree the content is being
+/// handed over. A `HEAD` does not reach it, on purpose and for the same reason
+/// it does not spend a use: a link checker, a prefetch or a chat client
+/// unfurling the URL is not a person collecting the file, and a log full of
+/// those answers nobody's question.
+///
+/// # Why a failure here is not the caller's problem
+///
+/// The share has already been authorised and paid for by this point. Refusing
+/// to serve it because a bookkeeping row would not insert would turn an
+/// operator's optional record-keeping into an outage on the one path that has
+/// to work. It is logged and the download continues.
+async fn record_access(state: &AppState, share: &Share, headers: &HeaderMap, source: &str) {
+    if !state.config.share.access_log.enabled {
+        return;
+    }
+    // `UNPLACEABLE` is the throttle's stand-in for "there was no address", and
+    // storing it would put the word `unknown` in a column a person reads as an
+    // address.
+    let address = (source != UNPLACEABLE).then_some(source);
+    let agent = headers
+        .get(header::USER_AGENT)
+        .and_then(|value| value.to_str().ok());
+    if let Err(error) = state
+        .events
+        .record(share.id, OffsetDateTime::now_utc(), address, agent)
+        .await
+    {
+        tracing::warn!(?error, share = %share.id, "could not record an access event");
+    }
 }
 
 /// Whether this request is owed the bytes or only the headers.

@@ -6,6 +6,16 @@ Project tessera {
   Note: 'The same tables on PostgreSQL and MySQL; only the types differ.'
 }
 
+Table access_events {
+  id text [pk, not null]
+  share_id text [not null]
+  occurred_at text [not null]
+  ip_address text
+  user_agent text
+
+  Note: '誰在什麼時候取走了哪一份分享。預設不寫——計數器是一個整數,不會透露誰去過哪裡;這裡的一列是位址加瀏覽器字串,關於一個拿到連結、什麼都沒答應過的人。匿名是有人選這套軟體的理由之一,所以把它關掉是操作者的決定,不是預設值幫他做的。開了要在頁面上講,被記錄的人是最後一個知道的。ip_address 可以是 NULL——前面掛著不受信任的 proxy 時,看得到的位址是 proxy 的,記下去等於記錯人。'
+}
+
 Table api_token_permissions {
   token_id text [pk, not null]
   permission text [pk, not null]
@@ -208,6 +218,7 @@ Table users {
   Note: '帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。'
 }
 
+Ref: access_events.share_id > shares.id [delete: cascade]
 Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
 Ref: api_tokens.user_id > users.id [delete: cascade]
 Ref: file_shares.share_id > shares.id [delete: cascade]

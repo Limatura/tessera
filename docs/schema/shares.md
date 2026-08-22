@@ -52,7 +52,7 @@ CREATE TABLE shares (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [share_tickets](share_tickets.md) [file_shares](file_shares.md) [text_shares](text_shares.md) [uploads](uploads.md) |  |  |
+| id | TEXT |  | false | [share_tickets](share_tickets.md) [file_shares](file_shares.md) [text_shares](text_shares.md) [uploads](uploads.md) [access_events](access_events.md) |  |  |
 | code | TEXT |  | false |  |  |  |
 | user_id | TEXT |  | true |  | [users](users.md) |  |
 | kind | TEXT |  | false |  |  |  |
@@ -99,6 +99,7 @@ erDiagram
 "file_shares" }o--|| "shares" : ""
 "text_shares" |o--|| "shares" : ""
 "uploads" }o--o| "shares" : ""
+"access_events" }o--|| "shares" : ""
 "shares" }o--o| "users" : ""
 
 "shares" {
@@ -158,6 +159,13 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+}
+"access_events" {
+  TEXT id PK
+  TEXT share_id FK
+  TEXT occurred_at
+  TEXT ip_address
+  TEXT user_agent
 }
 "users" {
   TEXT id PK

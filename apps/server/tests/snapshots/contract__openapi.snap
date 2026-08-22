@@ -5,6 +5,57 @@ expression: document
 {
   "components": {
     "schemas": {
+      "AccessEventResponse": {
+        "description": "One recorded retrieval, as an administrator sees it.",
+        "properties": {
+          "ip_address": {
+            "description": "Where the request came from, or `null` when there was no honest answer.\n\nBehind a proxy this instance does not trust, the address it can see is\nthe proxy's. A null says so; the proxy's own address would be a record\nof the wrong person.",
+            "example": "203.0.113.9",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "occurred_at": {
+            "description": "When the content was handed over, RFC 3339.",
+            "example": "2026-08-22T09:41:00Z",
+            "type": "string"
+          },
+          "user_agent": {
+            "description": "What the client called itself, as presented and truncated.",
+            "example": "Mozilla/5.0",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "occurred_at"
+        ],
+        "type": "object"
+      },
+      "AccessLogResponse": {
+        "description": "A share's recorded retrievals.",
+        "properties": {
+          "enabled": {
+            "description": "Whether this instance is recording at all.\n\nAn empty list means two different things — nobody has fetched it, or\nnothing is being written down — and a screen that cannot tell them apart\nwill report the second as the first.",
+            "type": "boolean"
+          },
+          "events": {
+            "description": "The events, most recent first.",
+            "items": {
+              "$ref": "#/components/schemas/AccessEventResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "events"
+        ],
+        "type": "object"
+      },
       "AccountResponse": {
         "description": "An account, as the API describes it. Never carries a hash.",
         "properties": {
@@ -166,6 +217,10 @@ expression: document
       "Capabilities": {
         "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact: it describes every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade. A single-page app generated from the contract therefore cannot know\nwhether to render a login button — the contract says login exists, and on\nthis deployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is deliberately unauthenticated: a client needs the answer before\nit can know whether logging in is even possible.",
         "properties": {
+          "access_log": {
+            "description": "Whether this instance writes down who fetches a share.\n\n`false` by default. When it is `true`, every retrieval records the\nvisitor's address and browser string, and the visitor is the person that\nhappens to — so a client should say so on the page where the share is\ncollected. Nobody else is going to tell them.",
+            "type": "boolean"
+          },
           "account_password_min_length": {
             "description": "Shortest *account* password this instance accepts, so a client can say so\nbefore the round trip rather than after it.\n\nNamed for what it governs because there are two minimums and they are\ndeliberately different — see\n[`share_password_min_length`](Self::share_password_min_length).",
             "example": 12,
@@ -254,6 +309,7 @@ expression: document
           "share_password_min_length",
           "registration_requires_confirmation",
           "password_reset",
+          "access_log",
           "max_upload_bytes",
           "version"
         ],
@@ -2310,6 +2366,106 @@ expression: document
           }
         ],
         "summary": "Removes any share, whoever uploaded it.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/shares/{id}/access-log": {
+      "get": {
+        "description": "# Why this is administrative and not the uploader's\n\nThe switch belongs to whoever runs the instance, so the record does too.\nHanding visitor addresses to every uploader would be a second decision about\nsomebody else's privacy, taken on behalf of an operator who only agreed to\nthe first — and on a shared instance the uploader is not the operator.\n\nIf an instance wants uploaders to see their own, that is a deliberate change\nto make, not one to arrive at by leaving this open.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read every\nshare or used a bearer token, `404` when there is no such share or this\ninstance has no administration.",
+        "operationId": "read_share_access_log",
+        "parameters": [
+          {
+            "description": "Which share",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "How many to return. Capped, and defaulted when omitted.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "How many to skip.",
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessLogResponse"
+                }
+              }
+            },
+            "description": "What has been recorded"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`limit` or `offset` is not a number"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read every share, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such share"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reads who has fetched one share.",
         "tags": [
           "admin"
         ]

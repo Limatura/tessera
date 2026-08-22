@@ -108,6 +108,14 @@ pub struct Capabilities {
     /// feature and a broken one.
     pub password_reset: bool,
 
+    /// Whether this instance writes down who fetches a share.
+    ///
+    /// `false` by default. When it is `true`, every retrieval records the
+    /// visitor's address and browser string, and the visitor is the person that
+    /// happens to — so a client should say so on the page where the share is
+    /// collected. Nobody else is going to tell them.
+    pub access_log: bool,
+
     /// Longest accepted request body, in bytes.
     #[schema(example = 104_857_600_u64)]
     pub max_upload_bytes: u64,
@@ -167,6 +175,7 @@ impl Capabilities {
             max_expiry_hours: hours(config.share.max_expiry()),
             registration_requires_confirmation: config.mail.is_configured(),
             password_reset: config.mail.is_configured(),
+            access_log: config.share.access_log.enabled,
             // `usize` is the type axum's body limit wants; `u64` is the type a
             // file size is. The conversion cannot fail on any target this runs
             // on, but saturating is still better than a cast that would wrap.

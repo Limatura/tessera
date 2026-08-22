@@ -2211,3 +2211,124 @@ async fn admin_share(app: &TestApp, admin: &str) -> u64 {
         .and_then(serde_json::Value::as_u64)
         .expect("bytes_served in the listing")
 }
+
+/// An anonymous share, for the access-log tests below.
+async fn upload(app: &TestApp) -> serde_json::Value {
+    body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=fetched.bin"),
+                Body::from(b"content".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await
+}
+
+/// The record is for whoever runs the instance, because the switch is theirs.
+/// An ordinary member seeing visitors' addresses would be a second decision
+/// about somebody else's privacy that no operator agreed to.
+#[tokio::test]
+async fn only_an_administrator_can_read_a_share_s_access_log() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let (member, _) = register(&app, "second").await;
+
+    let share = upload(&app).await;
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    assert_eq!(
+        app.empty(
+            Method::GET,
+            &format!("/api/v1/admin/shares/{id}/access-log"),
+            Auth::Cookie(&member),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// An empty list means two different things — nobody fetched it, or nothing is
+/// being written down. A screen that cannot tell them apart reports the second
+/// as the first, so the answer says which.
+#[tokio::test]
+async fn the_access_log_says_whether_it_is_even_recording() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let share = upload(&app).await;
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    let body = body_json(
+        expect_status(
+            app.empty(
+                Method::GET,
+                &format!("/api/v1/admin/shares/{id}/access-log"),
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(body["enabled"], false, "the log is off by default");
+    assert!(body["events"].as_array().expect("a list").is_empty());
+}
+
+/// And when it is on, an administrator can see what was recorded.
+#[tokio::test]
+async fn an_administrator_reads_what_was_recorded() {
+    let app = TestApp::with_config(|config| {
+        config.share.access_log.enabled = true;
+    })
+    .await;
+    let (admin, _) = register(&app, "first").await;
+
+    let share = upload(&app).await;
+    let id = share["id"].as_str().expect("an id").to_owned();
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download"))
+                .header(header::USER_AGENT, "Tessera-Test/1.0"),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let body = body_json(
+        expect_status(
+            app.empty(
+                Method::GET,
+                &format!("/api/v1/admin/shares/{id}/access-log"),
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(body["enabled"], true);
+    let events = body["events"].as_array().expect("a list");
+    assert_eq!(events.len(), 1, "one download, one row: {body}");
+    assert_eq!(events[0]["user_agent"], "Tessera-Test/1.0");
+    assert!(
+        events[0]["occurred_at"].is_string(),
+        "the time is the point: {body}"
+    );
+}

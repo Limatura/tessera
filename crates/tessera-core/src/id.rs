@@ -181,6 +181,12 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one recorded retrieval of a share.
+    AccessEventId,
+    "access_event_id"
+);
+
+declare_id!(
     /// Identifies a share.
     ///
     /// Distinct from its [`RetrievalCode`](crate::RetrievalCode): this is the

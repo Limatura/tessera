@@ -13,6 +13,7 @@ use crate::{
     auth::{proxy::TrustedProxies, throttle::Throttles},
     config::Config,
     db::repository::{
+        access_event::AccessEventRepository,
         api_token::ApiTokenRepository,
         invite::InviteRepository,
         password_reset::PasswordResetRepository,
@@ -62,6 +63,9 @@ pub struct AppState {
     pub shares: ShareRepository,
     /// Download authorisations.
     pub tickets: ShareTicketRepository,
+    /// Recorded retrievals, when the operator has asked for them. Written only
+    /// while `share.access_log.enabled` is on.
+    pub events: AccessEventRepository,
     /// Outstanding password reset links.
     pub resets: PasswordResetRepository,
     /// Invite codes, for an instance that is neither open nor closed.
@@ -140,6 +144,7 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
+            events: AccessEventRepository::new(db.clone()),
             uploads: UploadRepository::new(db.clone()),
             multipart,
             assets: Arc::new(assets),

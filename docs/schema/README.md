@@ -21,6 +21,7 @@
 | [api_token_permissions](api_token_permissions.md) | 2 | 一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。 | table |
 | [uploads](uploads.md) | 13 | 還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。 | table |
 | [upload_parts](upload_parts.md) | 3 | 分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。 | table |
+| [access_events](access_events.md) | 5 | 誰在什麼時候取走了哪一份分享。預設不寫——計數器是一個整數,不會透露誰去過哪裡;這裡的一列是位址加瀏覽器字串,關於一個拿到連結、什麼都沒答應過的人。匿名是有人選這套軟體的理由之一,所以把它關掉是操作者的決定,不是預設值幫他做的。開了要在頁面上講,被記錄的人是最後一個知道的。ip_address 可以是 NULL——前面掛著不受信任的 proxy 時,看得到的位址是 proxy 的,記下去等於記錯人。 | table |
 
 ## Relations
 
@@ -42,6 +43,7 @@ erDiagram
 "uploads" }o--o| "users" : ""
 "uploads" }o--o| "shares" : ""
 "upload_parts" |o--|| "uploads" : ""
+"access_events" }o--|| "shares" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -193,6 +195,13 @@ erDiagram
   TEXT upload_id PK
   INTEGER part_number PK
   TEXT content_id
+}
+"access_events" {
+  TEXT id PK
+  TEXT share_id FK
+  TEXT occurred_at
+  TEXT ip_address
+  TEXT user_agent
 }
 ```
 

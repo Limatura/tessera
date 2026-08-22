@@ -396,6 +396,11 @@ pub struct AuthConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ShareConfig {
+    /// Whether retrievals are written down, and for how long. See
+    /// [`AccessLogConfig`].
+    #[serde(default)]
+    pub access_log: AccessLogConfig,
+
     /// Characters in a generated retrieval code.
     ///
     /// This is the one figure an operator has a real reason to change, because
@@ -982,9 +987,72 @@ impl Default for AuthConfig {
     }
 }
 
+/// Whether, and for how long, retrievals are written down.
+///
+/// # Why this is off by default
+///
+/// The counters need no switch — `view_count` is an integer and tells nobody
+/// where a visitor was. A row per retrieval is different: it is an address and
+/// a browser string, kept in the operator's database, about somebody who was
+/// handed a link and never agreed to anything.
+///
+/// Anonymity is one of the reasons to run this software at all, so turning that
+/// off is a decision the operator makes rather than a default they inherit.
+/// Whoever switches it on should say so on the page — the visitor is the one
+/// being recorded and is the last to find out.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccessLogConfig {
+    /// Whether to write a row for each retrieval.
+    pub enabled: bool,
+    /// How many days a row is kept before the sweep removes it.
+    ///
+    /// The whole of the promise this feature makes about how long a visit is
+    /// remembered. Zero is refused rather than read as "forever": a retention
+    /// period that silently means no retention is the wrong way round for a
+    /// setting about somebody else's data.
+    pub retention_days: u64,
+}
+
+impl Default for AccessLogConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            // Long enough to answer "who fetched this last month", short enough
+            // that an instance is not carrying a year of somebody's movements.
+            retention_days: 30,
+        }
+    }
+}
+
+impl AccessLogConfig {
+    /// How long a row is kept.
+    #[must_use]
+    pub const fn retention(&self) -> Duration {
+        Duration::from_secs(self.retention_days.saturating_mul(24 * 3600))
+    }
+
+    /// Rejects a retention this binary will not honour.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Invalid`] when the log is on with no retention.
+    fn validate(&self) -> Result<(), ConfigError> {
+        if self.enabled && self.retention_days == 0 {
+            return Err(ConfigError::Invalid {
+                field: "share.access_log.retention_days",
+                reason: "must be at least 1 while the access log is on; there is no value that                          means \"keep for ever\", because a record of somebody's visits should                          have an end"
+                    .to_owned(),
+            });
+        }
+        Ok(())
+    }
+}
+
 impl Default for ShareConfig {
     fn default() -> Self {
         Self {
+            access_log: AccessLogConfig::default(),
             code_length: 8,
             inline_threshold_bytes: 64 * 1024,
             max_text_bytes: 1024 * 1024,
@@ -1379,6 +1447,7 @@ impl ShareConfig {
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
+        self.access_log.validate()?;
         if !(RetrievalCode::MIN_LENGTH..=RetrievalCode::MAX_LENGTH).contains(&self.code_length) {
             return Err(ConfigError::Invalid {
                 field: "share.code_length",
@@ -1740,6 +1809,13 @@ mod tests {
     #[case::zero_pool("database.max_connections", |c: &mut Config| c.database.max_connections = 0)]
     #[case::bad_url("database.url", |c: &mut Config| c.database.url = "mongodb://x".to_owned())]
     #[case::empty_storage("storage.url", |c: &mut Config| c.storage.url = "  ".to_owned())]
+    // A log that is on with no retention keeps nothing while reading as if it
+    // keeps something, which is the wrong way round for a setting about
+    // somebody else's data.
+    #[case::log_without_retention("share.access_log.retention_days", |c: &mut Config| {
+        c.share.access_log.enabled = true;
+        c.share.access_log.retention_days = 0;
+    })]
     #[case::short_code("share.code_length", |c: &mut Config| c.share.code_length = 2)]
     #[case::long_code("share.code_length", |c: &mut Config| c.share.code_length = 64)]
     #[case::huge_inline("share.inline_threshold_bytes", |c: &mut Config| {

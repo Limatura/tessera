@@ -9,6 +9,7 @@
 //! testable without a database, and swapping the persistence layer stays a
 //! change to one module rather than to every type in the program.
 
+pub mod access_event;
 pub mod api_token;
 pub mod api_token_permission;
 pub mod file_share;
