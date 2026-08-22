@@ -4,6 +4,7 @@ import {
   IconFiles,
   IconInnerShadowTop,
   IconKey,
+  IconSettings,
   IconShieldLock,
   IconUsers,
 } from "@tabler/icons-react";
@@ -55,6 +56,11 @@ const data = {
       icon: <IconShieldLock />,
       title: "角色與權限",
       url: "/roles",
+    },
+    {
+      icon: <IconSettings />,
+      title: "系統設定",
+      url: "/settings",
     },
   ],
   user: {
