@@ -18,7 +18,12 @@
 # ---------------------------------------------------------------------------
 # Node only exists in this stage. Nothing it installs reaches the runtime image;
 # what crosses the boundary is `dist`, which is HTML, CSS and JavaScript.
-FROM node:24-alpine AS web
+#
+# `$BUILDPLATFORM`, because what comes out of here is the same bytes whatever
+# the image is for. Without it a `--platform linux/arm64` build pulls an arm64
+# Node and tries to run it on the amd64 builder: `exec /bin/sh: exec format
+# error`, before a single line of the SPA is compiled.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
 
 RUN corepack enable
 
@@ -51,13 +56,33 @@ RUN pnpm --filter web build
 # ---------------------------------------------------------------------------
 # Stage 2 — compile
 # ---------------------------------------------------------------------------
-FROM rust:1.97-alpine AS builder
+# Cross-compiled, not emulated. The audience runs this on a NAS or a Pi, so
+# arm64 is not an afterthought — but `aws-lc-sys` and the bundled SQLite are C,
+# and building them under QEMU turns a four-minute job into a long one. These
+# images carry a real musl cross toolchain and run natively on the amd64
+# builder, so both architectures cost about the same.
+#
+# One stage per target, selected by `TARGETARCH` below. `CARGO_BUILD_TARGET` is
+# what makes the rest of the stage architecture-agnostic: every `cargo build`
+# after this point honours it without a `--target` flag, and `$CARGO_BUILD_TARGET`
+# names the output directory.
+FROM --platform=$BUILDPLATFORM messense/rust-musl-cross:x86_64-musl AS toolchain-amd64
+ENV CARGO_BUILD_TARGET=x86_64-unknown-linux-musl
 
-# musl-dev/gcc build the bundled SQLite C sources; cmake, perl and clang build
-# aws-lc-sys, which the S3/GCS/Azure backends pull in for signing.
-RUN apk add --no-cache musl-dev gcc make cmake perl clang-dev
+FROM --platform=$BUILDPLATFORM messense/rust-musl-cross:aarch64-musl AS toolchain-arm64
+ENV CARGO_BUILD_TARGET=aarch64-unknown-linux-musl
+
+ARG TARGETARCH
+FROM toolchain-${TARGETARCH} AS builder
 
 WORKDIR /build
+
+# `rust-toolchain.toml` pins the compiler, so the target rustup preinstalled for
+# the image's own default toolchain does not apply to the one that actually
+# runs. Installing it here rather than discovering it at the first build:
+# without this every crate fails with "the target may not be installed".
+COPY rust-toolchain.toml ./
+RUN rustup target add "$CARGO_BUILD_TARGET"
 
 # Dependency layer: workspace manifests only, compiled against stub crates so
 # Docker can cache the dependency graph. Editing application source no longer
@@ -65,7 +90,7 @@ WORKDIR /build
 #
 # The stubs carry `//!` headers because the workspace warns on `missing_docs`,
 # which applies to every crate root including these throwaways.
-COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
+COPY Cargo.toml Cargo.lock ./
 COPY crates/tessera-core/Cargo.toml crates/tessera-core/
 COPY apps/server/Cargo.toml apps/server/
 RUN mkdir -p crates/tessera-core/src apps/server/src/bin apps/server/benches \
@@ -98,12 +123,21 @@ ENV TESSERA_BUILD_REV=${TESSERA_BUILD_REV}
 # would never be embedded). Dropping our own fingerprints forces a real rebuild
 # of the workspace crates while leaving every dependency cached.
 #
+# Both fingerprint directories, and that is not belt-and-braces. Cross-compiling
+# splits the package in two: the build script is compiled and run for the
+# *host*, so its fingerprint lives in `target/release`, while the crate itself
+# lives under the target triple. Clearing only the triple leaves cargo certain
+# build.rs is current, it never reruns, `assets/dist` is never created, and
+# `RustEmbed` fails on a folder that does not exist — which is exactly how this
+# failed the first time.
+#
 # `--locked` keeps the image reproducible: a stale Cargo.lock fails the build
 # rather than silently resolving newer versions. The release profile already
 # strips symbols, so there is no separate strip step.
-RUN rm -rf target/release/.fingerprint/tessera-* \
+RUN rm -rf "target/release/.fingerprint/tessera-"* \
+  "target/$CARGO_BUILD_TARGET/release/.fingerprint/tessera-"* \
   && cargo build --release --locked --bin tessera-server \
-  && cp target/release/tessera-server /tessera-server
+  && cp "target/$CARGO_BUILD_TARGET/release/tessera-server" /tessera-server
 
 # ---------------------------------------------------------------------------
 # Stage 3 — runtime

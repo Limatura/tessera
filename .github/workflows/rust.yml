@@ -412,6 +412,12 @@ jobs:
   docker:
     name: docker image
     runs-on: [self-hosted, Linux, X64]
+    # `contents: read` comes from the workflow; publishing needs the package
+    # scope too, and it is granted here rather than at the top so that no other
+    # job in this file can write packages.
+    permissions:
+      contents: read
+      packages: write
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     if: >-
@@ -441,9 +447,27 @@ jobs:
           timeout 60 docker container prune -f 2>/dev/null || true
           timeout 60 docker volume prune -f 2>/dev/null || true
 
-          FREE=$(df --output=pcent / | tail -1 | tr -dc '0-9')
-          echo "root filesystem ${FREE}% full"
-          if [ "$FREE" -ge 75 ]; then
+          # A floor in gigabytes, not a percentage. A percentage says nothing
+          # without knowing the disk: 25% free is 12.5 GB on this runner's 50 GB
+          # volume and 250 GB on a bigger one, and only one of those is enough.
+          #
+          # The number is measured, not chosen by taste. The cross toolchain
+          # image is 3.5 GB per architecture and the `mode=max` buildx cache
+          # another 1.6 GB, so a pull-request build settles around 5 GB and a
+          # publish build — which pulls both toolchains — around 10 GB. Twice
+          # the worst case is the headroom, because this runs *before* the build
+          # and has to leave room for all of it.
+          #
+          # It used to trip at 75% used, which on this disk fires with 12.5 GB
+          # left. That was enough while the builder image was `rust:alpine` at
+          # 1.4 GB. It stopped being enough when the musl cross toolchain
+          # replaced it at 3.5 GB, and the runner filled up mid-build and went
+          # offline.
+          FLOOR_GB=20
+          free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+          used_pct=$(df --output=pcent / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${used_pct}% full, ${free_gb} GB free (floor ${FLOOR_GB} GB)"
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
             echo "short on room; clearing images and caches too"
             timeout 300 docker system prune -a --volumes -f || true
             rm -rf /tmp/tessera-buildx-cache
@@ -539,6 +563,28 @@ jobs:
                 echo "::error::build_rev is 'unknown' — the build arg did not reach build.rs"
                 exit 1 ;;
               esac
+
+              # The image used to ship build.rs's placeholder page, because the
+              # Dockerfile took `apps/web/dist` from the build context and CI
+              # never built it. The Dockerfile builds the SPA itself now — but
+              # nothing checked, so the same failure could return unnoticed:
+              # every other assertion here passes on a placeholder just as
+              # happily. `/health` says the API is up; this says the product is.
+              root=$(curl -fsS http://localhost:8787/)
+              case "$root" in *"no frontend bundle was embedded"*)
+                echo "::error::the image serves build.rs's placeholder, not the SPA"
+                exit 1 ;;
+              esac
+              # Vite fingerprints its entry point, so this is present only when
+              # a real bundle was embedded — and absent from any hand-written
+              # fallback that might replace the placeholder later.
+              case "$root" in *"/assets/index-"*) : ;;
+                *)
+                  echo "::error::no fingerprinted bundle in the served page"
+                  exit 1 ;;
+              esac
+              echo "the embedded SPA is real"
+
               docker rm -f tessera-smoke
               exit 0
             fi
@@ -547,6 +593,53 @@ jobs:
           echo "::error::the container never became healthy"
           docker logs tessera-smoke
           exit 1
+
+      # Everything above proves the image works. These two publish it.
+      #
+      # # Why this is behind a variable
+      #
+      # A package built from a private repository is private, so pushing today
+      # produces something nobody can pull — the "one line of docker run"
+      # promise does not start being true until the repository is public. The
+      # steps are written and reviewed now so that day is a switch rather than
+      # a piece of unwritten CI: set the `PUBLISH_IMAGES` repository variable to
+      # `true` and the next push to main publishes.
+      #
+      # # Why arm64 is only built here
+      #
+      # The audience runs this on a NAS or a Pi, so arm64 is not optional. It is
+      # also a second full compile, and the smoke test above only needs one
+      # architecture — `load: true` can only load one anyway. Paying for arm64
+      # on publish rather than on every pull request keeps the feedback loop the
+      # length it is now.
+      - name: Sign in to GHCR
+        if: >-
+          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `:main` is what a follower pulls; `:sha-<commit>` is what a bug report
+      # can name. No `:latest` — that belongs to a release tag, and there is no
+      # release workflow yet; pointing it at the tip of main would promise a
+      # stability this has not earned.
+      - name: Publish to GHCR
+        if: >-
+          github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:main
+            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+          build-args: |
+            TESSERA_BUILD_REV=${{ github.sha }}
 
       # This job builds an image and loads it into the daemon. On a hosted
       # runner the daemon went away with the machine; here it does not, and a
@@ -569,6 +662,11 @@ jobs:
           # above, the next run's opening step removes whatever is left. Both
           # exist because a cancelled job runs neither.
           docker volume prune -f 2>/dev/null || true
+          # What the job actually cost, on the way out. The opening step reports
+          # the state this job inherited; without both there is no way to tell
+          # afterwards whether a run that filled the disk was unusually hungry
+          # or whether it started with almost nothing left.
+          df -h / | tail -1
         env:
           BUILDER: ${{ steps.buildx.outputs.name }}
 
