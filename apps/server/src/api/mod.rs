@@ -332,7 +332,10 @@ fn upload_routes() -> OpenApiRouter<AppState> {
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
 /// and the middleware stack.
 pub fn build(state: AppState) -> Router {
-    let config = Arc::clone(&state.config);
+    // A snapshot, and deliberately so: everything read from it below is baked
+    // into a middleware layer or a mounted route, which is why those keys are
+    // on `settings::FIXED_AT_BOOT` and the panel does not offer them.
+    let config = Arc::clone(&state.config());
     // Cloned before the router takes ownership: the meter is a `from_fn_with_state`
     // layer applied after `with_state`, so it needs its own handle.
     let metering_state = state.clone();

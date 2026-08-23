@@ -526,7 +526,7 @@ async fn the_bootstrapped_administrator_can_sign_in() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");
@@ -573,7 +573,7 @@ async fn a_generated_administrator_password_must_be_changed() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");
@@ -582,7 +582,7 @@ async fn a_generated_administrator_password_must_be_changed() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("idempotent");
@@ -625,7 +625,7 @@ async fn an_account_owing_a_password_change_can_only_fix_itself() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");

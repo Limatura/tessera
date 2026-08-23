@@ -1,0 +1,257 @@
+//! Which settings the admin panel may change, and where a value came from.
+//!
+//! # The rule this module exists to keep
+//!
+//! **Anything stored in the database takes effect without a restart.** The
+//! panel never has to say "saved — now restart the server", because a setting
+//! that would need one is not offered at all.
+//!
+//! That is not a promise about the settings; it is a promise about this list.
+//! A setting is excluded when the running process cannot pick it up, and there
+//! are only three reasons for that:
+//!
+//! - the socket is already bound (`server.host`, `server.port`)
+//! - the pool is already built, and reading this table needs it (`database.*`)
+//! - the log subscriber is installed once, before anything else (`telemetry.*`)
+//!
+//! Those stay in the environment, which is where a deployment sets them anyway.
+//!
+//! # Why secrets are excluded too
+//!
+//! A stored secret is plaintext in a table and comes back out of whatever
+//! endpoint reads settings. Neither is worth it for values a deployment already
+//! has a better place for.
+
+use std::collections::BTreeMap;
+
+use crate::config::Config;
+
+/// Keys that cannot take effect until the process restarts.
+///
+/// Prefixes: `database` covers `database.url`, `database.max_connections` and
+/// anything added under it later. A new setting is hot unless it lands under
+/// one of these, which is the right default — everything the request path reads
+/// goes through the swapped configuration.
+const FIXED_AT_BOOT: &[&str] = &[
+    // The listener is already bound.
+    "server.host",
+    "server.port",
+    // Reading the settings table needs the pool this describes.
+    "database",
+    // The subscriber is installed before the database is even opened.
+    "telemetry",
+    // Baked into the middleware stack when the router is built. `axum` reads
+    // these when the layer is constructed, not per request, so a change would
+    // sit in the table looking applied.
+    //
+    // `max_body_bytes` is the worst of the three, because half of it *would*
+    // follow: the hand-rolled check in the upload path reads the current
+    // configuration, and `DefaultBodyLimit` does not. An operator raising it
+    // would find large uploads still refused, by a layer whose number no longer
+    // matches the one the panel shows.
+    "server.cors_allowed_origins",
+    "server.max_body_bytes",
+    // The SPA is read off disk once and embedded in the router's state.
+    "server.assets_dir",
+    // Whether the browsable docs are mounted is decided while building the
+    // router. The contract at `/openapi.json` is served either way.
+    "features.docs",
+];
+
+/// Keys that hold a credential, and so are never stored here.
+///
+/// Whole keys rather than prefixes: `mail.host` is not a secret and an operator
+/// has every reason to change it from the panel, so excluding all of `mail`
+/// would cost more than it protects.
+const SECRETS: &[&str] = &[
+    // Only read on first run, and only to create the first account. Storing it
+    // would keep a password in a table for ever to do a job already done.
+    "auth.admin_password",
+    "mail.username",
+    "mail.password",
+    // Both carry credentials in the URL — `postgres://user:pass@…`,
+    // `s3://key:secret@…`.
+    "database.url",
+    "storage.url",
+];
+
+/// Why a setting is not offered in the panel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Refusal {
+    /// It cannot take effect until the process restarts.
+    FixedAtBoot,
+    /// It holds a credential.
+    Secret,
+    /// There is no such setting.
+    Unknown,
+}
+
+/// Whether `key` may be stored, and why not when it may not.
+///
+/// # Errors
+///
+/// Returns the [`Refusal`] that applies.
+pub fn admits(key: &str) -> Result<(), Refusal> {
+    if !keys().iter().any(|known| known == key) {
+        return Err(Refusal::Unknown);
+    }
+    if SECRETS.contains(&key) {
+        return Err(Refusal::Secret);
+    }
+    if FIXED_AT_BOOT
+        .iter()
+        .any(|fixed| key == *fixed || key.starts_with(&format!("{fixed}.")))
+    {
+        return Err(Refusal::FixedAtBoot);
+    }
+    Ok(())
+}
+
+/// Every setting this binary has, as dotted keys.
+///
+/// Read off the default configuration rather than written down. A list written
+/// down is a list that goes stale the first time somebody adds a field and does
+/// not think of it — and the symptom would be a setting the panel silently
+/// cannot see.
+#[must_use]
+pub fn keys() -> Vec<String> {
+    let mut found = Vec::new();
+    // A `Config` that will not serialise is a bug in this crate, not a runtime
+    // condition — but the key list is read while deciding what an operator may
+    // change, and returning nothing is the safe way to be wrong there: the
+    // panel offers no settings rather than the wrong ones.
+    let json = serde_json::to_value(Config::default()).unwrap_or(serde_json::Value::Null);
+    walk("", &json, &mut found);
+    found
+}
+
+/// The keys the panel may change.
+#[must_use]
+pub fn changeable() -> Vec<String> {
+    keys()
+        .into_iter()
+        .filter(|key| admits(key).is_ok())
+        .collect()
+}
+
+fn walk(prefix: &str, value: &serde_json::Value, out: &mut Vec<String>) {
+    match value {
+        // A nested object is a group of settings, not a setting. A map whose
+        // own keys are data — `server.cors_allowed_origins` is a list, not a
+        // group — never reaches here, because it is not an object.
+        serde_json::Value::Object(fields) => {
+            for (name, nested) in fields {
+                let key = if prefix.is_empty() {
+                    name.clone()
+                } else {
+                    format!("{prefix}.{name}")
+                };
+                walk(&key, nested, out);
+            }
+        }
+        _ => out.push(prefix.to_owned()),
+    }
+}
+
+/// Drops anything the panel is not allowed to have changed.
+///
+/// Applied to what comes *out* of the database as well as to what goes in. A
+/// row can predate a key moving onto one of the lists above, or arrive by hand
+/// through `sqlite3` — and neither should be able to reintroduce a value this
+/// binary has decided not to honour.
+#[must_use]
+pub fn admitted_only(
+    stored: BTreeMap<String, serde_json::Value>,
+) -> BTreeMap<String, serde_json::Value> {
+    stored
+        .into_iter()
+        .filter(|(key, _)| match admits(key) {
+            Ok(()) => true,
+            Err(refusal) => {
+                tracing::warn!(setting = %key, ?refusal, "ignoring a stored setting");
+                false
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Refusal, admits, changeable, keys};
+
+    /// The list is derived, so this is really asking whether `Config` still
+    /// serialises the way the walk expects.
+    #[test]
+    fn the_keys_come_from_the_configuration_itself() {
+        let found = keys();
+        assert!(found.contains(&"share.code_length".to_owned()));
+        assert!(
+            found.contains(&"auth.hashing.memory_kib".to_owned()),
+            "nested"
+        );
+        assert!(
+            !found.iter().any(|key| key.ends_with('.')),
+            "a group should never be listed as a setting: {found:?}"
+        );
+    }
+
+    /// The whole promise of the table: if the panel offers it, changing it
+    /// works. Anything the running process cannot pick up has to be refused
+    /// here, or the panel will report a save that did nothing.
+    #[test]
+    fn what_the_process_cannot_pick_up_is_refused() {
+        for key in [
+            "server.port",
+            "server.host",
+            "database.url",
+            "database.max_connections",
+            "telemetry.format",
+            // Found by moving the configuration behind a swap and letting the
+            // compiler point at every read that happens once. Each of these is
+            // consumed while the router is built.
+            "server.cors_allowed_origins",
+            "server.max_body_bytes",
+            "server.assets_dir",
+            "features.docs",
+        ] {
+            assert!(
+                matches!(admits(key), Err(Refusal::FixedAtBoot | Refusal::Secret)),
+                "`{key}` cannot take effect without a restart and must not be offered"
+            );
+        }
+    }
+
+    #[test]
+    fn credentials_are_refused() {
+        for key in ["auth.admin_password", "mail.password", "storage.url"] {
+            assert!(
+                matches!(admits(key), Err(Refusal::Secret | Refusal::FixedAtBoot)),
+                "`{key}` holds a credential and must not be stored"
+            );
+        }
+    }
+
+    #[test]
+    fn a_key_that_does_not_exist_is_refused() {
+        assert_eq!(admits("share.nonsense"), Err(Refusal::Unknown));
+    }
+
+    /// The ordinary settings — the reason the feature exists — have to be in.
+    #[test]
+    fn the_settings_an_operator_actually_changes_are_offered() {
+        let offered = changeable();
+        for key in [
+            "share.code_length",
+            "share.max_text_bytes",
+            "share.access_log.enabled",
+            "auth.session_ttl_hours",
+            "features.anonymous_upload",
+            "mail.host",
+        ] {
+            assert!(
+                offered.contains(&key.to_owned()),
+                "`{key}` should be offered"
+            );
+        }
+    }
+}

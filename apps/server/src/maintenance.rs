@@ -73,7 +73,7 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
             .sessions
             .delete_ended_before(
                 now.saturating_sub(
-                    time::Duration::try_from(state.config.auth.login_history())
+                    time::Duration::try_from(state.config().auth.login_history())
                         .unwrap_or_else(|_| time::Duration::days(90)),
                 ),
             )
@@ -95,7 +95,7 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
             .events
             .delete_before(
                 now.saturating_sub(
-                    time::Duration::try_from(state.config.share.access_log.retention())
+                    time::Duration::try_from(state.config().share.access_log.retention())
                         .unwrap_or_else(|_| time::Duration::days(30)),
                 ),
             )
@@ -138,7 +138,7 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
             &state.shares,
             &state.storage,
             now,
-            state.config.share.retention(),
+            state.config().share.retention(),
         )
         .await,
     );

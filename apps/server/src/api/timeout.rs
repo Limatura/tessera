@@ -39,7 +39,7 @@ pub async fn enforce(State(state): State<AppState>, request: Request, next: Next
     if carries_an_upload(request.method(), request.uri().path()) {
         return next.run(request).await;
     }
-    let budget = state.config.server.request_timeout();
+    let budget = state.config().server.request_timeout();
     (tokio::time::timeout(budget, next.run(request)).await)
         .unwrap_or_else(|_| Error::Timeout.into_response())
 }

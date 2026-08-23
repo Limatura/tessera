@@ -13,6 +13,7 @@
 
 use std::{
     collections::HashMap,
+    sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
 
@@ -65,9 +66,14 @@ pub struct Throttle {
     // is never held across an await — see `check` and `record_failure`, both of
     // which are synchronous by construction.
     attempts: Mutex<HashMap<String, Attempts>>,
-    max_attempts: u32,
-    window: Duration,
-    max_tracked_keys: usize,
+    // Atomics rather than plain fields, so the limits can change while the
+    // counters keep counting. Rebuilding the throttle to apply a new limit
+    // would empty the map — which would make changing any unrelated setting a
+    // way to clear everybody's failed attempts, and hand an attacker a reset
+    // button.
+    max_attempts: AtomicU32,
+    window_secs: AtomicU64,
+    max_tracked_keys: AtomicUsize,
 }
 
 impl Default for Throttle {
@@ -82,10 +88,30 @@ impl Throttle {
     pub fn new(max_attempts: u32, window: Duration, max_tracked_keys: usize) -> Self {
         Self {
             attempts: Mutex::new(HashMap::new()),
-            max_attempts,
-            window,
-            max_tracked_keys,
+            max_attempts: AtomicU32::new(max_attempts),
+            window_secs: AtomicU64::new(window.as_secs()),
+            max_tracked_keys: AtomicUsize::new(max_tracked_keys),
         }
+    }
+
+    /// Changes the limits without touching who has failed how many times.
+    ///
+    /// `Relaxed` throughout: these are three independent numbers read on a path
+    /// that already takes a mutex, and a request that sees the old limit for
+    /// one more moment is not a defect worth ordering for.
+    pub fn apply(&self, max_attempts: u32, window: Duration, max_tracked_keys: usize) {
+        self.max_attempts.store(max_attempts, Ordering::Relaxed);
+        self.window_secs.store(window.as_secs(), Ordering::Relaxed);
+        self.max_tracked_keys
+            .store(max_tracked_keys, Ordering::Relaxed);
+    }
+
+    fn max_attempts(&self) -> u32 {
+        self.max_attempts.load(Ordering::Relaxed)
+    }
+
+    fn window(&self) -> Duration {
+        Duration::from_secs(self.window_secs.load(Ordering::Relaxed))
     }
 
     /// Whether an attempt for `key` may proceed.
@@ -115,11 +141,11 @@ impl Throttle {
         };
 
         let elapsed = now.saturating_duration_since(entry.first_seen);
-        if elapsed >= self.window || entry.count < self.max_attempts {
+        if elapsed >= self.window() || entry.count < self.max_attempts() {
             Decision::Allow
         } else {
             Decision::Deny {
-                retry_after: self.window.saturating_sub(elapsed),
+                retry_after: self.window().saturating_sub(elapsed),
             }
         }
     }
@@ -128,9 +154,9 @@ impl Throttle {
     pub fn record_failure_at(&self, key: &str, now: Instant) {
         let mut attempts = self.attempts.lock();
 
-        if attempts.len() >= self.max_tracked_keys {
+        if attempts.len() >= self.max_tracked_keys.load(Ordering::Relaxed) {
             attempts
-                .retain(|_, entry| now.saturating_duration_since(entry.first_seen) < self.window);
+                .retain(|_, entry| now.saturating_duration_since(entry.first_seen) < self.window());
         }
 
         let entry = attempts.entry(key.to_owned()).or_insert(Attempts {
@@ -141,7 +167,7 @@ impl Throttle {
         // A window that has run out starts again rather than accumulating,
         // otherwise a key would be blocked forever after enough scattered
         // mistakes.
-        if now.saturating_duration_since(entry.first_seen) >= self.window {
+        if now.saturating_duration_since(entry.first_seen) >= self.window() {
             entry.count = 0;
             entry.first_seen = now;
         }
@@ -417,6 +443,24 @@ impl Default for Throttles {
 }
 
 impl Throttles {
+    /// Applies new limits to the counters already running.
+    ///
+    /// The counters are the point: a change to any setting must not be a way to
+    /// forget who has been failing to sign in. See [`Throttle::apply`].
+    pub fn apply(&self, config: &ThrottleConfig) {
+        let keys = config.max_tracked_keys;
+        for (throttle, limit) in [
+            (&self.login, &config.login),
+            (&self.source, &config.source),
+            (&self.lookup, &config.lookup),
+            (&self.reset, &config.reset),
+            (&self.registration, &config.registration),
+            (&self.share, &config.share),
+        ] {
+            throttle.apply(limit.max_attempts, limit.window(), keys);
+        }
+    }
+
     /// Builds the six counters an instance keeps from its configuration.
     ///
     /// The key bound is shared rather than per-counter: it is a memory ceiling,
@@ -498,5 +542,64 @@ impl Throttles {
     pub fn record_failure(&self, counter: &Throttle, specific: &str, source: &str) {
         counter.record_failure(specific);
         self.source.record_failure(source);
+    }
+}
+
+#[cfg(test)]
+mod hot_change_tests {
+    use super::*;
+
+    /// Changing a limit must not be a way to forget who has been failing. If
+    /// applying a setting rebuilt the throttle, any unrelated change in the
+    /// admin panel would clear every counter — a reset button for whoever is
+    /// guessing at passwords.
+    #[test]
+    fn a_new_limit_keeps_the_counters() {
+        let throttles = Throttles::default();
+        for _ in 0..MAX_ATTEMPTS {
+            throttles.login.record_failure("alice");
+        }
+        assert!(matches!(
+            throttles.login.check("alice"),
+            Decision::Deny { .. }
+        ));
+
+        let mut config = ThrottleConfig::default();
+        config.login.max_attempts = MAX_ATTEMPTS + 5;
+        throttles.apply(&config);
+
+        assert_eq!(
+            throttles.login.check("alice"),
+            Decision::Allow,
+            "the raised limit should apply to the count that was already there"
+        );
+        assert_eq!(
+            throttles
+                .login
+                .attempts
+                .lock()
+                .get("alice")
+                .map(|e| e.count),
+            Some(MAX_ATTEMPTS),
+            "and the count itself must have survived"
+        );
+    }
+
+    /// The other direction: tightening takes effect at once, on people already
+    /// being counted.
+    #[test]
+    fn a_lowered_limit_applies_immediately() {
+        let throttles = Throttles::default();
+        throttles.login.record_failure("alice");
+        assert_eq!(throttles.login.check("alice"), Decision::Allow);
+
+        let mut config = ThrottleConfig::default();
+        config.login.max_attempts = 1;
+        throttles.apply(&config);
+
+        assert!(
+            matches!(throttles.login.check("alice"), Decision::Deny { .. }),
+            "one failure against a limit of one should now refuse"
+        );
     }
 }

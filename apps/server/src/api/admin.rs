@@ -78,7 +78,7 @@ pub struct AdminUserResponse(pub AccountResponse);
 
 /// Refuses everything when the instance has no administration.
 fn require_admin_feature(state: &AppState) -> Result<()> {
-    if state.config.features.admin {
+    if state.config().features.admin {
         Ok(())
     } else {
         Err(Error::NotFound)
@@ -625,7 +625,7 @@ pub async fn stats(
 
     let now = OffsetDateTime::now_utc();
     let (shares, live_shares) = state.shares.counts_at(now).await?;
-    let quota = state.config.storage.max_total_bytes;
+    let quota = state.config().storage.max_total_bytes;
 
     Ok(Json(StatsResponse {
         accounts: state.users.count().await?,
@@ -1374,7 +1374,7 @@ pub async fn share_access_log(
     let events = state.events.for_share(share_id, limit).await?;
 
     Ok(Json(AccessLogResponse {
-        enabled: state.config.share.access_log.enabled,
+        enabled: state.config().share.access_log.enabled,
         events: events
             .into_iter()
             .map(|event| AccessEventResponse {

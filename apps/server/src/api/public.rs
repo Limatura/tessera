@@ -379,7 +379,7 @@ async fn permit(
 /// operator's optional record-keeping into an outage on the one path that has
 /// to work. It is logged and the download continues.
 async fn record_access(state: &AppState, share: &Share, headers: &HeaderMap, source: &str) {
-    if !state.config.share.access_log.enabled {
+    if !state.config().share.access_log.enabled {
         return;
     }
     // `UNPLACEABLE` is the throttle's stand-in for "there was no address", and

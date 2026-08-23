@@ -149,7 +149,7 @@ impl Capabilities {
     /// `storage_remaining_bytes` is left `None` here and filled in by the
     /// handler, because it is the one field that depends on who is asking.
     fn from_state(state: &AppState) -> Self {
-        let config = &state.config;
+        let config = state.config();
         let FeatureConfig {
             accounts,
             admin,
@@ -211,7 +211,7 @@ pub async fn capabilities(
 ) -> Result<Json<Capabilities>> {
     let mut capabilities = Capabilities::from_state(&state);
 
-    let quota = state.config.storage.max_total_bytes;
+    let quota = state.config().storage.max_total_bytes;
     // The remaining space is an instance-wide number, so it is told to whoever
     // may read instance-wide numbers — not to whoever happens to be called an
     // administrator.

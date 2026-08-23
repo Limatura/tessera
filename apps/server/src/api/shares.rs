@@ -307,7 +307,7 @@ pub async fn create(
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response> {
-    if current.is_none() && !state.config.features.anonymous_upload {
+    if current.is_none() && !state.config().features.anonymous_upload {
         return Err(Error::Unauthorized);
     }
     // An anonymous caller has no permissions to check — the setting above is
@@ -329,7 +329,7 @@ pub async fn create(
     let now = OffsetDateTime::now_utc();
     let expires_at = resolve_expiry(&state, params.expires_in_hours, now)?;
     let password_hash = match share_password(&headers)? {
-        Some(password) => Some(password::hash(password, state.config.auth.hashing).await?),
+        Some(password) => Some(password::hash(password, state.config().auth.hashing).await?),
         None => None,
     };
 
@@ -744,11 +744,11 @@ pub async fn patch(
         // instance set, through a route that was never meant to grant that. An
         // instance with no ceiling has nothing to bypass.
         Some(None) => {
-            if state.config.share.max_expiry().is_some() {
+            if state.config().share.max_expiry().is_some() {
                 return Err(Error::bad_request(format!(
                     "this instance keeps shares for at most {} hours, so `expires_in_hours` \
                      cannot be cleared",
-                    state.config.share.max_expiry_hours
+                    state.config().share.max_expiry_hours
                 )));
             }
             Change::Set(None)
@@ -773,7 +773,7 @@ pub async fn patch(
         match supplied {
             None => Change::Keep,
             Some(password) => Change::Set(Some(
-                password::hash(password, state.config.auth.hashing).await?,
+                password::hash(password, state.config().auth.hashing).await?,
             )),
         }
     };
@@ -868,7 +868,7 @@ pub(crate) fn checked_filename(value: Option<String>) -> Result<Option<String>> 
 }
 
 async fn remaining_quota(state: &AppState) -> Result<u64> {
-    let quota = state.config.storage.max_total_bytes;
+    let quota = state.config().storage.max_total_bytes;
     if quota == 0 {
         return Ok(u64::MAX);
     }
@@ -919,10 +919,10 @@ async fn ingest_into(
     // before the multipart upload starts, which is a memory decision rather than
     // a storage one.
     let stream_to_object = kind == ShareKind::File;
-    let text_limit = state.config.share.max_text_bytes;
-    let threshold = state.config.share.inline_threshold_bytes;
-    let part_size = state.config.server.part_size_bytes;
-    let limit = u64::try_from(state.config.server.max_body_bytes).unwrap_or(u64::MAX);
+    let text_limit = state.config().share.max_text_bytes;
+    let threshold = state.config().share.inline_threshold_bytes;
+    let part_size = state.config().server.part_size_bytes;
+    let limit = u64::try_from(state.config().server.max_body_bytes).unwrap_or(u64::MAX);
     // What is left of the instance's allowance, checked as the body arrives
     // rather than only up front: the caller need not send a `Content-Length`,
     // and a chunked upload that would take us past the line should stop at the
@@ -933,7 +933,7 @@ async fn ingest_into(
     let mut size_bytes: u64 = 0;
     let mut key: Option<String> = None;
 
-    let stall = state.config.server.upload_stall();
+    let stall = state.config().server.upload_stall();
 
     while let Some(frame) = next_frame(&mut body, stall).await? {
         let Ok(chunk) = frame.into_data() else {
@@ -1175,7 +1175,7 @@ async fn insert_with_fresh_code(
     content: &NewContent,
 ) -> Result<Share> {
     for _ in 0..CODE_ATTEMPTS {
-        share.code = generate_code(state.config.share.code_length)?;
+        share.code = generate_code(state.config().share.code_length)?;
         match state.shares.insert(&share, content).await {
             Ok(()) => return Ok(share),
             Err(error) => {
@@ -1267,7 +1267,7 @@ fn resolve_expiry(
     requested_hours: Option<u64>,
     now: OffsetDateTime,
 ) -> Result<Option<OffsetDateTime>> {
-    let ceiling = state.config.share.max_expiry();
+    let ceiling = state.config().share.max_expiry();
     let Some(hours) = requested_hours else {
         // Most shares arrive without a lifetime, so this is the figure that
         // decides how much an instance holds. It used to be the ceiling itself,
@@ -1275,7 +1275,7 @@ fn resolve_expiry(
         // everyone got by default — thirty days of uploads held to serve links
         // that are almost all collected within hours.
         return Ok(state
-            .config
+            .config()
             .share
             .default_expiry()
             .map(|limit| now.saturating_add(duration_of(limit))));
@@ -1290,7 +1290,7 @@ fn resolve_expiry(
     if ceiling.is_some_and(|limit| requested > limit) {
         return Err(Error::bad_request(format!(
             "`expires_in_hours` must be at most {}",
-            state.config.share.max_expiry_hours
+            state.config().share.max_expiry_hours
         )));
     }
     Ok(Some(now.saturating_add(duration_of(requested))))
@@ -1546,7 +1546,7 @@ pub async fn unlock(
 
     let secret = gate::spend(&state, &share).await?;
     let expires_at = OffsetDateTime::now_utc().saturating_add(
-        time::Duration::try_from(state.config.share.ticket_ttl())
+        time::Duration::try_from(state.config().share.ticket_ttl())
             .unwrap_or_else(|_| time::Duration::days(1)),
     );
 

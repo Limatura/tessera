@@ -137,7 +137,7 @@ impl FromRequestParts<AppState> for MaybeUser {
         // An instance with accounts turned off has nobody to be. Answering
         // "not signed in" rather than erroring keeps every endpoint that serves
         // both cases working unchanged.
-        if !state.config.features.accounts {
+        if !state.config().features.accounts {
             return Ok(Self(None));
         }
         Ok(Self(authenticate(parts, state).await?))
@@ -197,7 +197,7 @@ impl FromRequestParts<AppState> for ClientAddress {
             .extensions
             .get::<ConnectInfo<SocketAddr>>()
             .map(|ConnectInfo(address)| address.ip());
-        Ok(Self(state.proxies.resolve(peer, &parts.headers)))
+        Ok(Self(state.proxies().resolve(peer, &parts.headers)))
     }
 }
 

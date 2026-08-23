@@ -225,7 +225,7 @@ fn invite_refused() -> Error {
 /// `400` when the instance asks for a code and the one given is unknown, spent,
 /// expired or absent.
 async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Invite>> {
-    if state.config.auth.registration != RegistrationPolicy::Invite {
+    if state.config().auth.registration != RegistrationPolicy::Invite {
         // An open instance ignores one rather than refusing it, so a client can
         // send the same body to either kind.
         return Ok(None);
@@ -254,7 +254,7 @@ async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Inv
 /// rather than one instance's configuration — `/capabilities` is what tells a
 /// client which half it is talking to.
 fn require_accounts(state: &AppState) -> Result<()> {
-    if state.config.features.accounts {
+    if state.config().features.accounts {
         Ok(())
     } else {
         Err(Error::NotFound)
@@ -285,7 +285,7 @@ async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
         // can bring anybody else in.
         return Ok(RoleId::parse(RoleId::OWNER)?);
     }
-    let wanted = &state.config.auth.default_role;
+    let wanted = &state.config().auth.default_role;
     let Some(role) = state.roles.find_by_name(wanted).await? else {
         tracing::error!(role = %wanted, "auth.default_role names a role that is not there");
         return Err(Error::Conflict(
@@ -325,13 +325,13 @@ pub async fn register(
 
     // Checked before anything is parsed, so a closed instance says so without
     // reading what was sent.
-    if state.config.auth.registration == RegistrationPolicy::Closed {
+    if state.config().auth.registration == RegistrationPolicy::Closed {
         return Err(Error::Forbidden);
     }
 
     let username = Username::parse(&body.username)?;
     let email = EmailAddress::parse(&body.email)?;
-    let password = Password::parse(body.password, state.config.auth.password)?;
+    let password = Password::parse(body.password, state.config().auth.password)?;
 
     // Checked before inserting so the caller gets "that name is taken" rather
     // than a constraint violation. The unique index is still what guarantees it
@@ -357,7 +357,7 @@ pub async fn register(
     let invite = check_invite(&state, body.invite_code.as_deref()).await?;
 
     // With a relay configured, nothing is created until the address answers.
-    if state.mailer.is_some() {
+    if state.mailer().is_some() {
         return start_verified_registration(&state, username, email, password, invite);
     }
 
@@ -389,7 +389,7 @@ pub async fn register(
         id: UserId::generate(),
         username,
         email,
-        password_hash: password::hash(password, state.config.auth.hashing).await?,
+        password_hash: password::hash(password, state.config().auth.hashing).await?,
         must_change_password: false,
         state: AccountState::Active,
         deleted_at: None,
@@ -549,7 +549,7 @@ pub async fn logout(
     }
 
     let secure = state
-        .config
+        .config()
         .auth
         .cookie_secure
         .applies(&headers, origin.via_trusted_proxy);
@@ -632,8 +632,8 @@ pub async fn change_password(
         return Err(Error::Unauthorized);
     }
 
-    let replacement = Password::parse(body.new_password, state.config.auth.password)?;
-    let hash = password::hash(replacement, state.config.auth.hashing).await?;
+    let replacement = Password::parse(body.new_password, state.config().auth.password)?;
+    let hash = password::hash(replacement, state.config().auth.hashing).await?;
 
     let now = OffsetDateTime::now_utc();
     // `false`: this password was chosen by the person who owns the account,
@@ -707,7 +707,7 @@ async fn start_session(
     // conversion is fallible only for a TTL beyond any calendar. Falling back to
     // the default rather than failing keeps an absurd configuration from
     // breaking sign-in; start-up validation already refuses zero.
-    let ttl = time::Duration::try_from(state.config.auth.session_ttl())
+    let ttl = time::Duration::try_from(state.config().auth.session_ttl())
         .unwrap_or_else(|_| time::Duration::days(30));
 
     let (_, secret) = state
@@ -723,7 +723,7 @@ async fn start_session(
     // The cookie's `Max-Age` matches the row's expiry, so a browser stops
     // sending a session at the same moment the server stops accepting it.
     let secure = state
-        .config
+        .config()
         .auth
         .cookie_secure
         .applies(headers, origin.via_trusted_proxy);
@@ -793,7 +793,7 @@ fn start_verified_registration(
     password: Password,
     invite: Option<Invite>,
 ) -> Result<Response> {
-    let Some(mailer) = state.mailer.clone() else {
+    let Some(mailer) = state.mailer().as_ref().clone() else {
         return Err(Error::NotFound);
     };
 
@@ -835,11 +835,11 @@ fn start_verified_registration(
         let letter = if taken {
             let reset = format!(
                 "{}/reset-password",
-                detached.config.mail.public_url.trim_end_matches('/')
+                detached.config().mail.public_url.trim_end_matches('/')
             );
             crate::mail::already_registered_letter(email.as_str(), &reset)
         } else {
-            let hash = match password::hash(password, detached.config.auth.hashing).await {
+            let hash = match password::hash(password, detached.config().auth.hashing).await {
                 Ok(hash) => hash,
                 Err(error) => {
                     tracing::error!(?error, "could not hash a password during registration");
@@ -847,7 +847,7 @@ fn start_verified_registration(
                 }
             };
             let now = OffsetDateTime::now_utc();
-            let ttl = time::Duration::try_from(detached.config.mail.registration_ttl())
+            let ttl = time::Duration::try_from(detached.config().mail.registration_ttl())
                 .unwrap_or_else(|_| time::Duration::hours(24));
             let secret = match detached
                 .pending
@@ -871,13 +871,13 @@ fn start_verified_registration(
             };
             let link = format!(
                 "{}/register/confirm?token={}",
-                detached.config.mail.public_url.trim_end_matches('/'),
+                detached.config().mail.public_url.trim_end_matches('/'),
                 secret.expose()
             );
             crate::mail::registration_letter(
                 email.as_str(),
                 &link,
-                detached.config.mail.registration_ttl_hours,
+                detached.config().mail.registration_ttl_hours,
             )
         };
 
@@ -925,7 +925,7 @@ pub async fn confirm_registration(
     ApiJson(body): ApiJson<RegisterConfirmRequest>,
 ) -> Result<Response> {
     require_accounts(&state)?;
-    if state.mailer.is_none() {
+    if state.mailer().is_none() {
         return Err(Error::NotFound);
     }
 
@@ -944,7 +944,7 @@ pub async fn confirm_registration(
     //
     // `Invite` still passes: the code was checked when the link was sent and is
     // charged below, so this link is one somebody was actually given.
-    if state.config.auth.registration == RegistrationPolicy::Closed {
+    if state.config().auth.registration == RegistrationPolicy::Closed {
         return Err(Error::Forbidden);
     }
 
@@ -1107,7 +1107,7 @@ pub async fn request_password_reset(
     State(state): State<AppState>,
     ApiJson(body): ApiJson<PasswordResetRequest>,
 ) -> Result<Response> {
-    let Some(mailer) = state.mailer.clone() else {
+    let Some(mailer) = state.mailer().as_ref().clone() else {
         // Unreachable in practice: the route is only mounted when a relay
         // exists. Kept so that a future caller cannot turn it into a panic.
         return Err(Error::NotFound);
@@ -1160,7 +1160,7 @@ pub async fn request_password_reset(
         };
 
         let now = OffsetDateTime::now_utc();
-        let ttl = time::Duration::try_from(detached.config.mail.reset_ttl())
+        let ttl = time::Duration::try_from(detached.config().mail.reset_ttl())
             .unwrap_or_else(|_| time::Duration::minutes(30));
         let secret = match detached
             .resets
@@ -1176,13 +1176,13 @@ pub async fn request_password_reset(
 
         let link = format!(
             "{}/reset-password?token={}",
-            detached.config.mail.public_url.trim_end_matches('/'),
+            detached.config().mail.public_url.trim_end_matches('/'),
             secret.expose()
         );
         let letter = password_reset_letter(
             user.email.as_str(),
             &link,
-            detached.config.mail.reset_ttl_minutes,
+            detached.config().mail.reset_ttl_minutes,
         );
 
         if let Err(error) = mailer.send(letter).await {
@@ -1220,7 +1220,7 @@ pub async fn confirm_password_reset(
     State(state): State<AppState>,
     ApiJson(body): ApiJson<PasswordResetConfirmRequest>,
 ) -> Result<Response> {
-    if state.mailer.is_none() {
+    if state.mailer().is_none() {
         return Err(Error::NotFound);
     }
 
@@ -1241,7 +1241,7 @@ pub async fn confirm_password_reset(
     // Parsed before the token is spent: a password that fails the policy should
     // leave the link usable, or a typo costs somebody the whole round trip
     // through their inbox.
-    let password = Password::parse(body.password, state.config.auth.password)?;
+    let password = Password::parse(body.password, state.config().auth.password)?;
 
     // The database decides who wins, so two clicks arriving together set the
     // password once.
@@ -1251,7 +1251,7 @@ pub async fn confirm_password_reset(
         ));
     }
 
-    let hash = password::hash(password, state.config.auth.hashing).await?;
+    let hash = password::hash(password, state.config().auth.hashing).await?;
     // `false`: the person just chose this one, so there is nothing to force a
     // change of.
     state
@@ -1518,7 +1518,7 @@ pub async fn delete_account(
     // finished" rather than "sign in again". `logout` clears it for the same
     // reason.
     let secure = state
-        .config
+        .config()
         .auth
         .cookie_secure
         .applies(&headers, origin.via_trusted_proxy);

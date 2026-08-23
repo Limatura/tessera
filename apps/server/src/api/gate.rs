@@ -243,7 +243,7 @@ pub async fn spend(state: &AppState, share: &Share) -> Result<Secret> {
         ));
     }
 
-    let ttl = time::Duration::try_from(state.config.share.ticket_ttl())
+    let ttl = time::Duration::try_from(state.config().share.ticket_ttl())
         .unwrap_or_else(|_| time::Duration::days(1));
     let (_, secret) = state
         .tickets

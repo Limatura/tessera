@@ -173,7 +173,7 @@ pub async fn create(
     ApiQuery(params): ApiQuery<CreateUploadParams>,
     headers: HeaderMap,
 ) -> Result<Response> {
-    if current.is_none() && !state.config.features.anonymous_upload {
+    if current.is_none() && !state.config().features.anonymous_upload {
         return Err(Error::Unauthorized);
     }
     if let Some(user) = current.as_ref() {
@@ -226,7 +226,7 @@ pub async fn create(
                 multipart_id,
             },
             now,
-            now + state.config.share.upload_session_ttl(),
+            now + state.config().share.upload_session_ttl(),
         )
         .await?;
 
@@ -237,7 +237,7 @@ pub async fn create(
             id: upload.id.to_string(),
             offset: 0,
             length: declared,
-            part_size: u64::try_from(state.config.server.part_size_bytes).unwrap_or(u64::MAX),
+            part_size: u64::try_from(state.config().server.part_size_bytes).unwrap_or(u64::MAX),
             token: current.is_none().then(|| secret.expose().to_owned()),
         }),
     )
@@ -320,8 +320,8 @@ pub async fn append(
         )));
     }
 
-    let part_size = state.config.server.part_size_bytes;
-    let stall = state.config.server.upload_stall();
+    let part_size = state.config().server.part_size_bytes;
+    let stall = state.config().server.upload_stall();
     let sink = sink_for(&state, &upload)?;
 
     let mut pending: Vec<u8> = Vec::new();
@@ -562,7 +562,7 @@ fn sink_for(state: &AppState, upload: &Upload) -> Result<Sink> {
 /// `None` when it is not one, in which case there is a multipart handle to use
 /// instead. The two are exclusive by construction — see `storage`.
 fn local_root(state: &AppState) -> Option<std::path::PathBuf> {
-    crate::storage::local_path(&state.config.storage.url).map(std::path::PathBuf::from)
+    crate::storage::local_path(&state.config().storage.url).map(std::path::PathBuf::from)
 }
 
 /// A `NewFile` for a finished upload.

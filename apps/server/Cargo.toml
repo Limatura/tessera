@@ -237,6 +237,11 @@ time = { workspace = true }
 # distroless runtime image has no shell to run. Small enough not to contradict
 # what the CLI module says about dependencies: this is two files, not `clap`.
 rpassword = "7.5.4"
+# Swapping the whole configuration behind a pointer, so a change made in the
+# admin panel reaches the next request without a restart. A `RwLock` would do
+# the same job and make every read of every setting take a lock — on the request
+# path, for a value that changes once a month.
+arc-swap = "1.9.1"
 
 [dev-dependencies]
 criterion = { version = "0.8", features = ["async_tokio"] }

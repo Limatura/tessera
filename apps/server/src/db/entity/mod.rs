@@ -19,6 +19,7 @@ pub mod pending_registration;
 pub mod role;
 pub mod role_permission;
 pub mod session;
+pub mod setting;
 pub mod share;
 pub mod share_ticket;
 pub mod text_share;

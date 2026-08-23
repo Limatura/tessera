@@ -1233,33 +1233,185 @@ impl Config {
     /// # Errors
     ///
     /// See [`Config::load`].
-    pub fn load_from(path: &Path) -> Result<Self, ConfigError> {
+    /// Defaults with the configuration file merged over them.
+    ///
+    /// The two layers a deployment brings, split out because
+    /// [`Config::load_with_overrides`] rebuilds this stack once per rejected
+    /// setting and must build the same one each time.
+    fn figment_for(path: &Path) -> Figment {
         let figment = Figment::from(Serialized::defaults(Self::default()));
 
         // Chosen by extension rather than by sniffing the contents: a file named
         // `.yaml` that fails to parse should say so, not be quietly retried as
         // TOML and produce a confusing second error.
-        let figment = if path
+        if path
             .extension()
             .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
         {
             figment.merge(Toml::file(path))
         } else {
             figment.merge(Yaml::file(path))
-        };
+        }
+    }
 
-        let config: Self = figment
-            .merge(
-                Env::prefixed(ENV_PREFIX)
-                    .split(ENV_NESTED_SEPARATOR)
-                    .ignore(NON_CONFIG_ENV_KEYS),
-            )
-            .extract()
-            .map_err(Box::new)?;
+    /// The deployment's own layers, with nothing stored on top.
+    ///
+    /// # Errors
+    ///
+    /// See [`Config::load`].
+    pub fn load_from(path: &Path) -> Result<Self, ConfigError> {
+        Self::load_with_overrides(path, &BTreeMap::new()).map(|(config, _)| config)
+    }
+
+    /// Loads with the stored overrides layered on top.
+    ///
+    /// # Why the overrides win
+    ///
+    /// They are the only layer a person edited on purpose *on this instance*.
+    /// The others arrive with the deployment — the image sets six environment
+    /// variables of its own, so "the environment" on a container is mostly
+    /// values nobody here chose. Letting those beat what somebody typed into
+    /// the panel would make the panel a screen that reports success and changes
+    /// nothing.
+    ///
+    /// # Why a bad stored value cannot stop the process
+    ///
+    /// The panel can write a value this binary refuses — a number out of range,
+    /// or a string where a number belongs, or a key that was fine in the
+    /// version that wrote it. If that stopped start-up, the panel would be able
+    /// to make the instance unbootable, and the instance has to be running to
+    /// offer the panel that could undo it. So an override that will not load is
+    /// dropped, logged, and the layer below it decides instead.
+    ///
+    /// Dropping happens one key at a time: the rest of somebody's settings
+    /// should survive one bad one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] when the *file and environment* cannot produce a
+    /// usable configuration. That is a deployment mistake, and failing loudly is
+    /// right — nothing in the panel can have caused it and nothing there can fix
+    /// it.
+    pub fn load_with_overrides(
+        path: &Path,
+        overrides: &BTreeMap<String, serde_json::Value>,
+    ) -> Result<(Self, Vec<RejectedSetting>), ConfigError> {
+        // Only what this binary would accept from the panel in the first place.
+        // A row can outlive the rule that admitted it.
+        let mut candidates = crate::settings::admitted_only(overrides.clone());
+        let mut rejected = Vec::new();
+
+        loop {
+            match Self::extract_with(path, &candidates) {
+                Ok(config) => return Ok((config, rejected)),
+                Err(error) => {
+                    // Which key the layer below would have to disown. `None`
+                    // means the failure is not attributable to an override, so
+                    // no amount of dropping will help.
+                    let Some(key) = Self::blamed_key(&error, &candidates) else {
+                        // Nothing left of ours to blame: re-run with no
+                        // overrides at all. If that still fails, the deployment
+                        // is broken and the caller should hear about it.
+                        if candidates.is_empty() {
+                            return Err(error);
+                        }
+                        for (key, value) in std::mem::take(&mut candidates) {
+                            rejected.push(RejectedSetting {
+                                key,
+                                value,
+                                reason: error.to_string(),
+                            });
+                        }
+                        continue;
+                    };
+                    let value = candidates.remove(&key).unwrap_or(serde_json::Value::Null);
+                    rejected.push(RejectedSetting {
+                        key,
+                        value,
+                        reason: error.to_string(),
+                    });
+                }
+            }
+        }
+    }
+
+    /// One pass: defaults, file, environment, then the overrides.
+    fn extract_with(
+        path: &Path,
+        overrides: &BTreeMap<String, serde_json::Value>,
+    ) -> Result<Self, ConfigError> {
+        let figment = Self::figment_for(path).merge(
+            Env::prefixed(ENV_PREFIX)
+                .split(ENV_NESTED_SEPARATOR)
+                .ignore(NON_CONFIG_ENV_KEYS),
+        );
+        // Dotted keys, one at a time, so a stored `share.code_length` lands
+        // where a nested provider would have put it without needing the rest of
+        // `share` to be present.
+        let figment = overrides.iter().fold(figment, |figment, (key, value)| {
+            figment.merge((key.clone(), value.clone()))
+        });
+
+        let config: Self = figment.extract().map_err(Box::new)?;
         config.validate()?;
         Ok(config)
     }
 
+    /// Which override, if any, this failure can be pinned on.
+    ///
+    /// Two shapes of failure. A type error comes from figment and names the
+    /// path it could not deserialise; a range error comes from
+    /// [`Config::validate`] and names the field itself. Both give a dotted key,
+    /// which is the same spelling the overrides are stored under — so the
+    /// answer is a lookup rather than a guess.
+    fn blamed_key(
+        error: &ConfigError,
+        candidates: &BTreeMap<String, serde_json::Value>,
+    ) -> Option<String> {
+        match error {
+            ConfigError::Invalid { field, .. } => candidates
+                .contains_key(*field)
+                .then(|| (*field).to_owned())
+                // `auth.hashing` names a group when the rule spans two of its
+                // fields. Anything stored under it is a candidate.
+                .or_else(|| {
+                    candidates
+                        .keys()
+                        .find(|key| key.starts_with(&format!("{field}.")))
+                        .cloned()
+                }),
+            // Names a backend that was not compiled in. Nothing an override
+            // set can be the cause, and dropping settings will not help.
+            ConfigError::MissingFeature { .. } => None,
+            ConfigError::Source(source) => source
+                .clone()
+                .into_iter()
+                // An error with no path is about the document as a whole,
+                // not about one key, so there is nothing to blame it on.
+                .filter(|one| !one.path.is_empty())
+                .map(|one| one.path)
+                .map(|path| path.join("."))
+                .find(|path| candidates.contains_key(path)),
+        }
+    }
+}
+
+/// A stored setting this binary would not honour, and why.
+///
+/// Kept rather than only logged so that whatever reads settings can show the
+/// operator which of their changes did not survive — a value that vanished with
+/// only a line in the log is one they will set again.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RejectedSetting {
+    /// The dotted key.
+    pub key: String,
+    /// What was stored.
+    pub value: serde_json::Value,
+    /// What the loader said about it.
+    pub reason: String,
+}
+
+impl Config {
     /// Writes a fully commented-out config file, if none exists yet.
     ///
     /// Returns the path written, or `None` if a file was already there.
@@ -1772,6 +1924,167 @@ mod tests {
     /// reads whatever `TESSERA_*` variables a concurrently running jail happens
     /// to have set — invisible under nextest, which forks per test, and flaky
     /// under any thread-based runner.
+    fn overrides(pairs: &[(&str, serde_json::Value)]) -> BTreeMap<String, serde_json::Value> {
+        pairs
+            .iter()
+            .map(|(key, value)| ((*key).to_owned(), value.clone()))
+            .collect()
+    }
+
+    /// The whole point of storing them: what somebody typed into the panel
+    /// beats what the deployment brought.
+    #[test]
+    fn a_stored_setting_beats_the_file_and_the_environment() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
+            jail.set_env("TESSERA_SHARE__CODE_LENGTH", "10");
+
+            let (config, rejected) = Config::load_with_overrides(
+                Path::new("tessera.yaml"),
+                &overrides(&[("share.code_length", 12.into())]),
+            )
+            .expect("must load");
+
+            assert_eq!(config.share.code_length, 12);
+            assert!(rejected.is_empty());
+            Ok(())
+        });
+    }
+
+    /// And with nothing stored, the order underneath is unchanged.
+    #[test]
+    fn without_an_override_the_environment_still_beats_the_file() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
+            jail.set_env("TESSERA_SHARE__CODE_LENGTH", "10");
+
+            let config = Config::load_from(Path::new("tessera.yaml")).expect("must load");
+            assert_eq!(config.share.code_length, 10);
+            Ok(())
+        });
+    }
+
+    /// The panel can store a value this binary refuses. If that stopped the
+    /// process, the panel could make the instance unbootable — and the instance
+    /// has to be running to offer the panel that would undo it.
+    #[test]
+    fn a_stored_value_out_of_range_is_dropped_rather_than_fatal() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "")?;
+
+            let (config, rejected) = Config::load_with_overrides(
+                Path::new("tessera.yaml"),
+                // 2 is below `RetrievalCode::MIN_LENGTH`; validate() refuses it.
+                &overrides(&[("share.code_length", 2.into())]),
+            )
+            .expect("a bad override must not stop the process");
+
+            assert_eq!(
+                config.share.code_length,
+                Config::default().share.code_length,
+                "it should have fallen back to the layer below"
+            );
+            assert_eq!(rejected.len(), 1);
+            assert_eq!(rejected[0].key, "share.code_length");
+            Ok(())
+        });
+    }
+
+    /// A value of the wrong shape entirely — figment cannot even deserialise
+    /// it. Same rule, different failure.
+    #[test]
+    fn a_stored_value_of_the_wrong_type_is_dropped_too() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "")?;
+
+            let (config, rejected) = Config::load_with_overrides(
+                Path::new("tessera.yaml"),
+                &overrides(&[("share.code_length", "not a number".into())]),
+            )
+            .expect("a bad override must not stop the process");
+
+            assert_eq!(
+                config.share.code_length,
+                Config::default().share.code_length
+            );
+            assert_eq!(rejected.len(), 1, "{rejected:?}");
+            Ok(())
+        });
+    }
+
+    /// One bad setting should cost that setting, not somebody's whole
+    /// configuration.
+    #[test]
+    fn one_bad_setting_does_not_take_the_good_ones_with_it() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "")?;
+
+            let (config, rejected) = Config::load_with_overrides(
+                Path::new("tessera.yaml"),
+                &overrides(&[
+                    ("share.code_length", 2.into()),
+                    ("share.ticket_ttl_hours", 3.into()),
+                    ("features.anonymous_upload", false.into()),
+                ]),
+            )
+            .expect("must load");
+
+            assert_eq!(rejected.len(), 1, "only the bad one: {rejected:?}");
+            assert_eq!(config.share.ticket_ttl_hours, 3);
+            assert!(!config.features.anonymous_upload);
+            Ok(())
+        });
+    }
+
+    /// A row can outlive the rule that admitted it — a key can move onto the
+    /// secret list, or somebody can write one straight into the table with
+    /// `sqlite3`. Neither should be able to set something the panel would
+    /// refuse.
+    #[test]
+    fn a_stored_setting_the_panel_would_refuse_is_ignored() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "")?;
+
+            let (config, rejected) = Config::load_with_overrides(
+                Path::new("tessera.yaml"),
+                &overrides(&[
+                    ("server.port", 9999.into()),
+                    ("auth.admin_password", "hunter2 hunter2 hunter2".into()),
+                ]),
+            )
+            .expect("must load");
+
+            assert_eq!(
+                config.server.port,
+                Config::default().server.port,
+                "a boot-time setting must not be settable from the table"
+            );
+            assert!(
+                config.auth.admin_password.is_empty(),
+                "a secret must not be"
+            );
+            assert!(
+                rejected.is_empty(),
+                "these are filtered before loading, not rejected by it"
+            );
+            Ok(())
+        });
+    }
+
+    /// A broken deployment is still a hard failure. Dropping settings cannot
+    /// fix a file the operator got wrong, and pretending otherwise would hide
+    /// the one class of error they can actually act on.
+    #[test]
+    fn a_broken_file_still_fails_loudly() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "server:\n  port: 0\n")?;
+            assert!(
+                Config::load_with_overrides(Path::new("tessera.yaml"), &BTreeMap::new()).is_err()
+            );
+            Ok(())
+        });
+    }
+
     #[test]
     fn missing_config_file_is_not_an_error() {
         figment::Jail::expect_with(|_| {

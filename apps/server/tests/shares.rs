@@ -2797,3 +2797,67 @@ async fn capabilities_says_whether_visitors_are_being_recorded() {
             .await;
     assert_eq!(body["access_log"], true);
 }
+
+/// The promise the settings table makes: what the panel stores takes effect
+/// without a restart. This is the mechanism that has to hold for that to be
+/// true — swap the configuration, and the next request sees the new value.
+#[tokio::test]
+async fn replacing_the_configuration_reaches_the_next_request() {
+    let app = TestApp::ready().await;
+
+    // Anonymous upload is on, so this succeeds.
+    upload(&app, "", b"hello").await;
+
+    let mut next: tessera_server::config::Config = (**app.state.config()).clone();
+    next.features.anonymous_upload = false;
+    app.state.replace_config(std::sync::Arc::new(next));
+
+    assert_eq!(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares"),
+            Body::from(b"again".to_vec()),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED,
+        "the change should apply to the very next request, with no restart"
+    );
+}
+
+/// Everything built from a setting has to be rebuilt with it. A swap that left
+/// the throttles on the old limits would be a change the panel reported as
+/// saved and that did nothing — the exact failure the table exists to avoid.
+#[tokio::test]
+async fn replacing_the_configuration_rebuilds_what_was_derived_from_it() {
+    let app = TestApp::ready().await;
+
+    let mut next: tessera_server::config::Config = (**app.state.config()).clone();
+    next.auth.throttle.lookup.max_attempts = 1;
+    next.server.trusted_proxies = vec!["10.0.0.0/8".to_owned()];
+    app.state.replace_config(std::sync::Arc::new(next));
+
+    // The throttle took the new limit without being rebuilt.
+    app.state.throttles.lookup.record_failure("1.2.3.4");
+    assert!(
+        matches!(
+            app.state.throttles.lookup.check("1.2.3.4"),
+            tessera_server::auth::throttle::Decision::Deny { .. }
+        ),
+        "the lookup throttle should be using the limit that was just set"
+    );
+
+    // And the proxy list was rebuilt from the new value: a request arriving
+    // from inside 10.0.0.0/8 is now believed about the address it forwards.
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("x-forwarded-for", "203.0.113.9".parse().expect("a header"));
+    let origin = app
+        .state
+        .proxies()
+        .resolve(Some("10.0.0.1".parse().expect("an address")), &headers);
+    assert_eq!(
+        origin.source, "203.0.113.9",
+        "the trusted-proxy list should have followed the swap"
+    );
+}

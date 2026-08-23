@@ -13,6 +13,7 @@ pub mod password_reset;
 pub mod pending_registration;
 pub mod role;
 pub mod session;
+pub mod setting;
 pub mod share;
 pub mod upload;
 pub mod user;

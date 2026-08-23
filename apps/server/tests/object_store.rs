@@ -257,7 +257,7 @@ async fn deleting_a_share_removes_its_object() {
 #[ignore = "needs an object store; see the module docs"]
 async fn a_resumable_upload_survives_being_sent_in_pieces() {
     let app = app().await;
-    let part = app.state.config.server.part_size_bytes;
+    let part = app.state.config().server.part_size_bytes;
     // Two whole parts and a short tail, so both rules are exercised: the tail
     // may only go out as the last part.
     let sent: Vec<u8> = (0..u32::try_from(part * 2 + 4096).unwrap_or(u32::MAX))
@@ -341,7 +341,7 @@ async fn a_resumable_upload_survives_being_sent_in_pieces() {
 #[ignore = "needs an object store; see the module docs"]
 async fn a_chunk_below_the_part_size_is_refused_rather_than_ignored() {
     let app = app().await;
-    let part = app.state.config.server.part_size_bytes;
+    let part = app.state.config().server.part_size_bytes;
 
     let created = body_json(
         expect_status(

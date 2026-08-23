@@ -2,6 +2,7 @@
 
 use std::sync::Arc;
 
+use arc_swap::ArcSwap;
 use object_store::ObjectStore;
 use parking_lot::RwLock;
 use sea_orm::DatabaseConnection;
@@ -47,8 +48,14 @@ pub enum ServiceStatus {
 /// Cheap to clone: everything inside is an `Arc` or an `Arc`-backed pool.
 #[derive(Debug, Clone)]
 pub struct AppState {
-    /// Validated configuration.
-    pub config: Arc<Config>,
+    /// Validated configuration, as it stands right now.
+    ///
+    /// Behind a swap rather than a plain `Arc`, because a change made in the
+    /// admin panel has to reach the next request without a restart — that is
+    /// the promise the `settings` table makes. Read it through
+    /// [`AppState::config`]; nothing should hold the result across an await,
+    /// or it will be acting on a configuration that has since been replaced.
+    config: Arc<ArcSwap<Config>>,
     /// Relational store. One connection type covers SQLite, Postgres and MySQL.
     pub db: DatabaseConnection,
     /// Accounts.
@@ -76,13 +83,17 @@ pub struct AppState {
     ///
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
     /// block does not mount the endpoints that would use it.
-    pub mailer: Option<Mailer>,
+    /// Swappable for the same reason the configuration is: `mail.host` and its
+    /// neighbours are settings the panel can change, and a relay that stayed
+    /// pointed at the old server would be a change that reported success and
+    /// sent nothing.
+    mailer: Arc<ArcSwap<Option<Mailer>>>,
     /// The proxies this instance will be spoken for by.
     ///
     /// Parsed once at start-up rather than per request: it is read on every
     /// request that has a throttle behind it, and the parsing is the same answer
     /// every time.
-    pub proxies: Arc<TrustedProxies>,
+    proxies: Arc<ArcSwap<TrustedProxies>>,
     /// Failed-attempt counters.
     ///
     /// Shared rather than per-request: the whole point is that attempts
@@ -111,6 +122,58 @@ pub struct AppState {
 }
 
 impl AppState {
+    /// The configuration as it stands right now.
+    ///
+    /// Cheap — a pointer read, not a lock. The guard must not be held across an
+    /// await point: a handler that does is reading a configuration that may
+    /// already have been replaced, and the compiler will not say so.
+    #[must_use]
+    pub fn config(&self) -> arc_swap::Guard<Arc<Config>> {
+        self.config.load()
+    }
+
+    /// The relay, when this instance has one.
+    ///
+    /// `None` is the ordinary case and not a fault: an instance with no `mail`
+    /// block does not mount the endpoints that would use it.
+    #[must_use]
+    pub fn mailer(&self) -> arc_swap::Guard<Arc<Option<Mailer>>> {
+        self.mailer.load()
+    }
+
+    /// The proxies this instance will be spoken for by.
+    #[must_use]
+    pub fn proxies(&self) -> arc_swap::Guard<Arc<TrustedProxies>> {
+        self.proxies.load()
+    }
+
+    /// Replaces the configuration, and everything built from it.
+    ///
+    /// # Why the derived things are rebuilt here
+    ///
+    /// Swapping the configuration alone would leave the mailer talking to the
+    /// old relay and the proxy list trusting the old addresses — a change the
+    /// panel reported as saved and that visibly did nothing. Everything derived
+    /// from a setting is rebuilt in the same call, so there is one place to
+    /// look when something turns out not to follow.
+    ///
+    /// The throttles are updated rather than rebuilt, because they hold the
+    /// count of who has been failing to sign in. See [`Throttles::apply`].
+    pub fn replace_config(&self, config: Arc<Config>) {
+        self.throttles.apply(&config.auth.throttle);
+        self.proxies.store(Arc::new(config.server.proxy_trust()));
+        match Mailer::from_config(&config.mail) {
+            Ok(mailer) => self.mailer.store(Arc::new(mailer)),
+            Err(error) => {
+                tracing::error!(
+                    ?error,
+                    "the new mail settings are unusable; keeping the old relay"
+                );
+            }
+        }
+        self.config.store(config);
+    }
+
     /// Assembles state for a process that has connected its dependencies but is
     /// not yet serving traffic.
     #[must_use]
@@ -139,7 +202,7 @@ impl AppState {
             resets: PasswordResetRepository::new(db.clone()),
             invites: InviteRepository::new(db.clone()),
             pending: PendingRegistrationRepository::new(db.clone()),
-            mailer,
+            mailer: Arc::new(ArcSwap::from_pointee(mailer)),
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
@@ -148,9 +211,9 @@ impl AppState {
             uploads: UploadRepository::new(db.clone()),
             multipart,
             assets: Arc::new(assets),
-            proxies: Arc::new(config.server.proxy_trust()),
+            proxies: Arc::new(ArcSwap::from_pointee(config.server.proxy_trust())),
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
-            config,
+            config: Arc::new(ArcSwap::from(config)),
             db,
             storage,
             status: Arc::new(RwLock::new(ServiceStatus::Starting)),

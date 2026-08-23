@@ -127,6 +127,14 @@ Table sessions {
   Note: '一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。'
 }
 
+Table settings {
+  name text [pk, not null]
+  value text [not null]
+  updated_at text [not null]
+
+  Note: '從後台改過的設定,一列一個。載入順序是 預設 → 設定檔 → 環境變數 → 這裡,這裡贏——因為它是唯一一層有人在這台機器上刻意改過的,其他都跟著部署來(image 自己就設了六個環境變數)。只放能熱改的東西:socket 已經 bind 的、pool 已經建好的(而且讀這張表需要它)、log subscriber 開機裝一次的,都不在這裡,那些走環境變數。所以後台永遠不用說「存好了請重啟」。機密也不放,會明文躺在這裡而且會被 API 回出去。欄位叫 name 不叫 key,因為 key 是 MySQL 保留字。'
+}
+
 Table share_tickets {
   id text [pk, not null]
   share_id text [not null]

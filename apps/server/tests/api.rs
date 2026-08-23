@@ -29,7 +29,7 @@ async fn admin_session(app: &TestApp) -> String {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");

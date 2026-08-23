@@ -27,7 +27,7 @@ pub fn reopen(state: &AppState, upload: &Upload) -> Option<sink::Sink> {
             id: id.clone(),
         });
     }
-    crate::storage::local_path(&state.config.storage.url).map(|root| sink::Sink::Appending {
+    crate::storage::local_path(&state.config().storage.url).map(|root| sink::Sink::Appending {
         path: std::path::PathBuf::from(root).join(format!("{}.part", upload.object_key)),
     })
 }

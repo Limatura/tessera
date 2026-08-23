@@ -27,6 +27,7 @@ pub mod db;
 pub mod error;
 pub mod mail;
 pub mod maintenance;
+pub mod settings;
 pub mod state;
 pub mod storage;
 pub mod telemetry;
