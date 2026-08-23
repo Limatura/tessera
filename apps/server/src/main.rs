@@ -77,18 +77,6 @@ async fn main() -> anyhow::Result<()> {
     // 2. Logging, so every step below is observable.
     telemetry::init(&config.telemetry).context("could not install the tracing subscriber")?;
 
-    // 3. A commented reference file, for operators who would rather edit YAML
-    // than compose environment variables. Best-effort by design: a read-only
-    // filesystem is a fine way to run this, and the environment configures it
-    // completely on its own.
-    match Config::write_template_if_absent(&Config::discover_file()) {
-        Ok(Some(path)) => tracing::info!(
-            path = %path.display(),
-            "wrote a reference configuration file; every line is commented out"
-        ),
-        Ok(None) => {}
-        Err(error) => tracing::warn!(?error, "could not render the reference configuration"),
-    }
     tracing::info!(
         version = tessera_server::VERSION,
         build_rev = tessera_server::BUILD_REV,
@@ -132,14 +120,7 @@ async fn main() -> anyhow::Result<()> {
     let assets = resolve_assets(&config.server.assets_dir)?;
 
     let config = Arc::new(config);
-    let state = AppState::new(
-        Arc::clone(&config),
-        Config::path(),
-        db.clone(),
-        store,
-        multipart,
-        assets,
-    );
+    let state = AppState::new(Arc::clone(&config), db.clone(), store, multipart, assets);
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
@@ -308,7 +289,7 @@ fn warn_about_settings_that_bite(config: &Config) {
     // The combination that turns an instance into free storage for anyone who
     // can reach it. Neither half is wrong on its own — anonymous upload is the
     // point of the product, and no quota is right when the operator is the only
-    // user — so this warns rather than refuses. `tessera.public.yaml` sets both.
+    // user — so this warns rather than refuses. `tessera.public.env.example` says to set both.
     if config.features.anonymous_upload && config.storage.max_total_bytes == 0 {
         tracing::warn!(
             "anonymous uploads are enabled and `storage.max_total_bytes` is unset: anyone who \

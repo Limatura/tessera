@@ -175,19 +175,10 @@ tracing-subscriber = { version = "0.3", features = [
   "registry",
 ] }
 
-# --- configuration ---
-# YAML support pulls `serde_yaml 0.9.34+deprecated`, which its author has
-# archived. Taken knowingly: the config file is a local, operator-owned file
-# rather than attacker-controlled input, YAML itself does not change, and every
-# serde-YAML crate in the ecosystem is comparably stale. cargo-deny reports no
-# advisory against it today; if one appears, swap to a maintained fork behind a
-# small figment Provider rather than dropping YAML — homelab operators live in
-# docker-compose and expect it.
-figment = { version = "0.10", features = ["toml", "yaml", "env"] }
-# Same crate figment already resolves, named directly so the first-run config
-# template can be generated from `Config::default()` instead of hand-written.
-# A hand-written template drifts from the struct; a generated one cannot.
-serde_yaml = "0.9"
+# Layered configuration. Environment variables only now that the panel owns
+# every setting a running instance can change — see `settings.rs` for where the
+# line is drawn and why the file layer went.
+figment = { version = "0.10", features = ["env"] }
 
 # --- authentication ---
 # Argon2id is OWASP's current recommendation for password storage. The `std`

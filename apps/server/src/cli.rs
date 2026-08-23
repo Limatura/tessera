@@ -342,8 +342,10 @@ INVITE:
     Only useful with auth.registration set to `invite`. The code is printed once
     and only its digest is stored, so there is no way to read it back.
 
-Configuration is read from tessera.yaml (or TESSERA_CONFIG_FILE), with
-TESSERA_-prefixed environment variables taking precedence.
+The settings a running server cannot pick up — the listening address, the
+database, the log format — come from TESSERA_-prefixed environment variables,
+with __ separating nesting levels. Everything else lives in the admin panel, or
+in `settings set` above when there is no panel.
 ";
 
 /// Sets an account's password, without the server running.
@@ -541,7 +543,7 @@ async fn run_settings(store: &SettingRepository, action: SettingsAction) -> anyh
     match action {
         SettingsAction::List => {
             let stored = store.all().await.context("could not read the settings")?;
-            print_settings(&settings::describe(&Config::path(), &stored));
+            print_settings(&settings::describe(&stored));
         }
         SettingsAction::Set { key, value } => {
             refuse_unless_settable(&key)?;
@@ -552,7 +554,7 @@ async fn run_settings(store: &SettingRepository, action: SettingsAction) -> anyh
             // The same proof the endpoint takes before storing: a value that
             // will not load should be refused here, not dropped silently at the
             // next start-up.
-            let (_, rejected) = Config::load_with_overrides(&Config::path(), &candidate)
+            let (_, rejected) = Config::load_with_overrides(&candidate)
                 .context("that value leaves the configuration unusable")?;
             if let Some(bad) = rejected.into_iter().find(|bad| bad.key == key) {
                 anyhow::bail!("`{key}` will not be accepted: {}", bad.reason);
@@ -655,7 +657,6 @@ fn print_settings(views: &[settings::View]) {
     for view in views {
         let source = match view.source {
             settings::Source::Default => "default",
-            settings::Source::File => "file",
             settings::Source::Environment => "environment",
             settings::Source::Panel => "stored",
         };

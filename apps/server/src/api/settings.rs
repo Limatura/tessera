@@ -94,9 +94,9 @@ const fn refusal_name(refusal: Refusal) -> &'static str {
     }
 }
 
-fn describe(state: &AppState, stored: &BTreeMap<String, serde_json::Value>) -> SettingsResponse {
+fn describe(stored: &BTreeMap<String, serde_json::Value>) -> SettingsResponse {
     SettingsResponse {
-        settings: settings::describe(&state.config_path, stored)
+        settings: settings::describe(stored)
             .into_iter()
             .map(|view| SettingResponse {
                 key: view.key,
@@ -267,7 +267,7 @@ pub async fn list(
     admitted(&current, tessera_core::Permission::SettingsRead)?;
 
     let stored = state.settings.all().await?;
-    Ok(Json(describe(&state, &stored)))
+    Ok(Json(describe(&stored)))
 }
 
 /// Applies the changes to what is stored and proves the result loads.
@@ -305,7 +305,7 @@ async fn resolve(
 
     // The proof that it works, before anything is written. A value that will
     // not load is refused here rather than dropped at the next start-up.
-    let (config, rejected) = Config::load_with_overrides(&state.config_path, &candidate)
+    let (config, rejected) = Config::load_with_overrides(&candidate)
         .map_err(|error| Error::bad_request(error.to_string()))?;
     if let Some(bad) = rejected
         .into_iter()
@@ -431,5 +431,5 @@ pub async fn update(
     );
 
     let stored = state.settings.all().await?;
-    Ok(Json(describe(&state, &stored)))
+    Ok(Json(describe(&stored)))
 }

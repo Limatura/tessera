@@ -264,8 +264,6 @@ mod tests {
 pub enum Source {
     /// Nobody set it; this is what the binary ships with.
     Default,
-    /// The configuration file.
-    File,
     /// An environment variable.
     Environment,
     /// Somebody changed it in the admin panel.
@@ -302,14 +300,9 @@ pub struct View {
 /// claiming otherwise would mean showing "from the environment" for a value the
 /// environment did not change.
 #[must_use]
-pub fn describe(
-    path: &std::path::Path,
-    overrides: &BTreeMap<String, serde_json::Value>,
-) -> Vec<View> {
-    let defaults =
-        figment::Figment::from(figment::providers::Serialized::defaults(Config::default()));
-    let with_file = Config::figment_for(path);
-    let with_env = Config::figment_for(path).merge(Config::env_provider());
+pub fn describe(overrides: &BTreeMap<String, serde_json::Value>) -> Vec<View> {
+    let defaults = Config::defaults();
+    let with_env = Config::defaults().merge(Config::env_provider());
     let stored = admitted_only(overrides.clone());
 
     keys()
@@ -321,14 +314,11 @@ pub fn describe(
             let (value, source) = stored.get(&key).map_or_else(
                 || {
                     let base = at(&defaults);
-                    let file = at(&with_file);
                     let env = at(&with_env);
-                    let source = if env != file {
-                        Source::Environment
-                    } else if file != base {
-                        Source::File
-                    } else {
+                    let source = if env == base {
                         Source::Default
+                    } else {
+                        Source::Environment
                     };
                     (
                         env.and_then(|value| serde_json::to_value(value).ok())
@@ -372,13 +362,12 @@ mod describe_tests {
     #[test]
     fn each_layer_is_named_correctly() {
         figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
             jail.set_env("TESSERA_SHARE__TICKET_TTL_HOURS", "9");
 
             let mut stored = BTreeMap::new();
             stored.insert("share.max_text_bytes".to_owned(), 4096.into());
 
-            let described = describe(std::path::Path::new("tessera.yaml"), &stored);
+            let described = describe(&stored);
             let find = |key: &str| {
                 described
                     .iter()
@@ -386,7 +375,6 @@ mod describe_tests {
                     .unwrap_or_else(|| panic!("{key} should be described"))
             };
 
-            assert_eq!(find("share.code_length").source, Source::File);
             assert_eq!(find("share.ticket_ttl_hours").source, Source::Environment);
             assert_eq!(find("share.max_text_bytes").source, Source::Panel);
             assert_eq!(find("share.inline_threshold_bytes").source, Source::Default);
@@ -398,12 +386,11 @@ mod describe_tests {
     /// an instance that does not exist.
     #[test]
     fn the_value_shown_is_the_one_in_force() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
+        figment::Jail::expect_with(|_jail| {
             let mut stored = BTreeMap::new();
             stored.insert("share.code_length".to_owned(), 11.into());
 
-            let described = describe(std::path::Path::new("tessera.yaml"), &stored);
+            let described = describe(&stored);
             let view = described
                 .iter()
                 .find(|view| view.key == "share.code_length")
@@ -417,9 +404,8 @@ mod describe_tests {
     /// what makes somebody ask where the port setting went.
     #[test]
     fn what_cannot_be_changed_is_still_listed() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "")?;
-            let described = describe(std::path::Path::new("tessera.yaml"), &BTreeMap::new());
+        figment::Jail::expect_with(|_jail| {
+            let described = describe(&BTreeMap::new());
 
             let port = described
                 .iter()
@@ -451,13 +437,12 @@ mod secrecy_tests {
     #[test]
     fn the_value_of_a_secret_is_withheld() {
         figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "")?;
             jail.set_env(
                 "TESSERA_DATABASE__URL",
                 "postgres://tessera:hunter2@localhost/tessera",
             );
 
-            let described = describe(std::path::Path::new("tessera.yaml"), &BTreeMap::new());
+            let described = describe(&BTreeMap::new());
             let url = described
                 .iter()
                 .find(|view| view.key == "database.url")
@@ -477,9 +462,8 @@ mod secrecy_tests {
     /// useless.
     #[test]
     fn an_ordinary_setting_still_shows_its_value() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "")?;
-            let described = describe(std::path::Path::new("tessera.yaml"), &BTreeMap::new());
+        figment::Jail::expect_with(|_jail| {
+            let described = describe(&BTreeMap::new());
             let code = described
                 .iter()
                 .find(|view| view.key == "share.code_length")

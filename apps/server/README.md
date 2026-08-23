@@ -55,7 +55,16 @@ src/
 
 ## Configuration
 
-Precedence, lowest to highest: built-in defaults → `tessera.toml` → environment.
+Precedence, lowest to highest: built-in defaults → environment → the `settings`
+table the admin panel writes.
+
+Only seventeen settings can come from the environment, and they are the ones a
+running process cannot pick up: the listening address (the socket is bound), the
+database (the pool is built, and reading the settings table needs it), the log
+format (the subscriber is installed first), the middleware layers baked into the
+router at build time, and the values that hold a credential. Everything else is
+in the panel, or in `tessera-server settings set`.
+
 Environment variables are prefixed `TESSERA_`, with `__` separating nesting
 levels:
 
@@ -69,8 +78,9 @@ TESSERA_TELEMETRY__FORMAT=json                     # pretty | json
 TESSERA_TELEMETRY__FILTER=info,tessera_server=debug
 ```
 
-Point at a different file with `TESSERA_CONFIG_FILE=/etc/tessera.toml`. A missing
-file is not an error.
+`tessera-server settings list` prints every setting, its value, and which layer
+supplied it. The ones the panel cannot change are marked read-only with the
+reason.
 
 Everything is validated during start-up: a bad port, an unusable log filter, an
 unknown key, or a backend the binary was not compiled with all fail the process
@@ -104,10 +114,12 @@ wins over the environment.
 
 ### Reserved environment variables
 
-`TESSERA_CONFIG_FILE` and `TESSERA_BUILD_REV` sit in the settings namespace but
-are not settings. `Config` is `deny_unknown_fields`, so they are ignored
-explicitly (see `NON_CONFIG_ENV_KEYS`); anything else prefixed `TESSERA_` that is
-not a real key still stops the process, which is how a typo gets caught.
+`TESSERA_BUILD_REV` is exported into every `cargo run` by the build script, and
+`TESSERA_CONFIG_FILE` is what an instance from before the panel still has set —
+it no longer does anything, and start-up says so. `Config` is
+`deny_unknown_fields`, so both are ignored explicitly (see
+`NON_CONFIG_ENV_KEYS`); anything else prefixed `TESSERA_` that is not a real key
+still stops the process, which is how a typo gets caught.
 
 ### Cargo features
 

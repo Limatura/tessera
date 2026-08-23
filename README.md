@@ -52,7 +52,7 @@ The docs UI is off by default because it pulls its renderer from a CDN, which ke
 
 ## Configuration
 
-Defaults, then `tessera.yaml`, then the environment. Environment variables are prefixed `TESSERA_`, with `__` separating nesting levels:
+Almost everything is changed in the admin panel and takes effect on the next request. Seventeen settings cannot be: the socket is already bound, the connection pool is already built, and the log subscriber was installed before either. Those come from the environment, prefixed `TESSERA_`, with `__` separating nesting levels:
 
 ```bash
 TESSERA_SERVER__PORT=9000
@@ -62,7 +62,17 @@ TESSERA_STORAGE__URL=data/blobs                     # or s3:// / gs:// / az:// /
 
 Every backend is compiled in by default, so pointing at S3 or Postgres needs no rebuild.
 
-On first run the server writes a `tessera.yaml` next to itself with every setting commented out, showing the values it is actually using. Two worked examples sit in the repository root — `tessera.personal.yaml` for an instance only you can reach, and `tessera.public.yaml` for one strangers upload to. They disagree on almost every line, because those two deployments want opposite things.
+That split is the whole rule: **if it is in the panel, changing it works.** The panel never says "saved — now restart", because a setting that would need one is shown read-only with the reason instead.
+
+Two worked examples sit in the repository root — `tessera.personal.env.example` for an instance only you can reach, and `tessera.public.env.example` for one strangers upload to. Each lists the environment half and then the panel settings worth changing for that deployment, because those two want opposite things. `contrib/tessera.service` is a systemd unit for running it outside a container.
+
+No panel — an instance with `features.accounts` off has no session to sign in with — leaves the command line:
+
+```bash
+tessera-server settings list
+tessera-server settings set share.default_expiry_hours 720
+tessera-server settings reset-all        # the way back from a bad change
+```
 
 `apps/server/README.md` documents the rest, including how to strip the build down for a constrained box.
 

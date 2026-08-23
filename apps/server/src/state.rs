@@ -49,14 +49,6 @@ pub enum ServiceStatus {
 /// Cheap to clone: everything inside is an `Arc` or an `Arc`-backed pool.
 #[derive(Debug, Clone)]
 pub struct AppState {
-    /// Where the configuration file was looked for.
-    ///
-    /// Kept because reloading after a change has to rebuild the same stack —
-    /// re-discovering the file could pick a different one if the working
-    /// directory moved, and the panel would then be layering onto a
-    /// configuration nobody is running.
-    pub config_path: Arc<std::path::PathBuf>,
-
     /// Validated configuration, as it stands right now.
     ///
     /// Behind a swap rather than a plain `Arc`, because a change made in the
@@ -190,7 +182,6 @@ impl AppState {
     #[must_use]
     pub fn new(
         config: Arc<Config>,
-        config_path: std::path::PathBuf,
         db: DatabaseConnection,
         storage: Arc<dyn ObjectStore>,
         multipart: Option<crate::storage::Multipart>,
@@ -226,7 +217,6 @@ impl AppState {
             assets: Arc::new(assets),
             proxies: Arc::new(ArcSwap::from_pointee(config.server.proxy_trust())),
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
-            config_path: Arc::new(config_path),
             config: Arc::new(ArcSwap::from(config)),
             db,
             storage,

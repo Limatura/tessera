@@ -11,16 +11,11 @@
 //! unsupported database URL therefore fails during start-up, not on the first
 //! request that happens to touch it.
 
-use std::{
-    collections::BTreeMap,
-    net::IpAddr,
-    path::{Path, PathBuf},
-    time::Duration,
-};
+use std::{collections::BTreeMap, net::IpAddr, time::Duration};
 
 use figment::{
     Figment,
-    providers::{Env, Format, Serialized, Toml, Yaml},
+    providers::{Env, Serialized},
 };
 use serde::{Deserialize, Serialize};
 use tessera_core::{PasswordPolicy, RetrievalCode};
@@ -33,37 +28,6 @@ pub const ENV_PREFIX: &str = "TESSERA_";
 /// Separator used to express nesting in environment variables,
 /// e.g. `TESSERA_SERVER__PORT=8080`.
 pub const ENV_NESTED_SEPARATOR: &str = "__";
-
-/// Environment variable naming the TOML file to read, if any.
-pub const ENV_CONFIG_FILE: &str = "TESSERA_CONFIG_FILE";
-
-/// Files looked for, in order, when [`ENV_CONFIG_FILE`] is unset.
-///
-/// The first that exists wins; they are not merged, because a value silently
-/// coming from the second of two files is a debugging session nobody enjoys.
-/// Absence of all of them is not an error — the environment alone is a complete
-/// way to configure the service, and is what docker-compose uses.
-pub const CONFIG_FILE_CANDIDATES: [&str; 3] = ["tessera.yaml", "tessera.yml", "tessera.toml"];
-
-/// File written on first run when none of [`CONFIG_FILE_CANDIDATES`] exists.
-pub const GENERATED_CONFIG_FILE: &str = "tessera.yaml";
-
-/// Preamble of the generated template. Explains why nothing in it is active.
-const TEMPLATE_HEADER: &str = "\
-# tessera configuration
-#
-# Every line below is commented out on purpose. These are the values the binary
-# is using right now, shown for reference — leaving them commented means you keep
-# tracking the defaults, including improvements in later releases. Uncomment a
-# line only when you want to pin it.
-#
-# Every setting can also be given as an environment variable: prefix TESSERA_ and
-# separate nesting with __, e.g. server.port -> TESSERA_SERVER__PORT=9000.
-# The environment wins over this file.
-#
-# This file is optional. Deleting it changes nothing.
-
-";
 
 /// Variables that share the [`ENV_PREFIX`] namespace without being settings.
 ///
@@ -78,6 +42,15 @@ const TEMPLATE_HEADER: &str = "\
 ///
 /// Keep it minimal: every entry is a name a user can no longer typo-check.
 const NON_CONFIG_ENV_KEYS: &[&str] = &["CONFIG_FILE", "BUILD_REV"];
+
+/// The variable that used to name a configuration file.
+///
+/// There is no file layer any more — the panel owns every setting a running
+/// instance can change, and the rest come from the environment. It stays in
+/// [`NON_CONFIG_ENV_KEYS`] so that an instance upgrading with it still set
+/// boots instead of failing `deny_unknown_fields`, and [`Config::load`] says a
+/// word, because the alternative is somebody's file being ignored in silence.
+const RETIRED_CONFIG_FILE_ENV: &str = "TESSERA_CONFIG_FILE";
 
 /// Anything that can go wrong between "process started" and "configuration is
 /// known good".
@@ -1203,74 +1176,22 @@ impl Config {
     /// unusable, or if the configuration selects a backend this binary was not
     /// compiled with.
     pub fn load() -> Result<Self, ConfigError> {
-        Self::load_from(&Self::path())
-    }
-
-    /// The file this process reads, resolved once.
-    ///
-    /// Separate from [`Config::load`] because the running server has to be able
-    /// to rebuild the same stack later, when a setting changes. Re-discovering
-    /// it then could land on a different file if the working directory moved.
-    #[must_use]
-    pub fn path() -> PathBuf {
-        match std::env::var(ENV_CONFIG_FILE) {
-            // An explicit path is a statement of intent, so it is used whether or
-            // not it exists — a typo there should surface as "no settings came
-            // from the file" rather than being papered over by the candidates.
-            Ok(path) => PathBuf::from(path),
-            Err(_) => Self::discover_file(),
+        if std::env::var_os(RETIRED_CONFIG_FILE_ENV).is_some() {
+            tracing::warn!(
+                variable = RETIRED_CONFIG_FILE_ENV,
+                "this no longer does anything: settings come from the environment and the \
+                 admin panel. Anything that file sets is being ignored."
+            );
         }
+        Self::load_with_overrides(&BTreeMap::new()).map(|(config, _)| config)
     }
 
-    /// The config file this process would read.
+    /// What this binary ships with, before anything is layered on it.
     ///
-    /// The first of [`CONFIG_FILE_CANDIDATES`] that exists, falling back to the
-    /// first candidate so callers always have a path to talk about.
-    #[must_use]
-    pub fn discover_file() -> PathBuf {
-        CONFIG_FILE_CANDIDATES
-            .iter()
-            .map(PathBuf::from)
-            .find(|candidate| candidate.is_file())
-            .unwrap_or_else(|| PathBuf::from(CONFIG_FILE_CANDIDATES[0]))
-    }
-
-    /// Same as [`Config::load`], but reads the file at `path`.
-    ///
-    /// A missing file is not an error — it simply contributes nothing, which is
-    /// what makes an environment-only deployment work.
-    ///
-    /// # Errors
-    ///
-    /// See [`Config::load`].
-    /// Defaults with the configuration file merged over them.
-    ///
-    /// The two layers a deployment brings, split out because
-    /// [`Config::load_with_overrides`] rebuilds this stack once per rejected
-    /// setting and must build the same one each time.
-    pub(crate) fn figment_for(path: &Path) -> Figment {
-        let figment = Figment::from(Serialized::defaults(Self::default()));
-
-        // Chosen by extension rather than by sniffing the contents: a file named
-        // `.yaml` that fails to parse should say so, not be quietly retried as
-        // TOML and produce a confusing second error.
-        if path
-            .extension()
-            .is_some_and(|ext| ext.eq_ignore_ascii_case("toml"))
-        {
-            figment.merge(Toml::file(path))
-        } else {
-            figment.merge(Yaml::file(path))
-        }
-    }
-
-    /// The deployment's own layers, with nothing stored on top.
-    ///
-    /// # Errors
-    ///
-    /// See [`Config::load`].
-    pub fn load_from(path: &Path) -> Result<Self, ConfigError> {
-        Self::load_with_overrides(path, &BTreeMap::new()).map(|(config, _)| config)
+    /// Split out because [`Config::load_with_overrides`] rebuilds the stack
+    /// once per rejected setting and has to build the same one each time.
+    pub(crate) fn defaults() -> Figment {
+        Figment::from(Serialized::defaults(Self::default()))
     }
 
     /// Loads with the stored overrides layered on top.
@@ -1278,11 +1199,10 @@ impl Config {
     /// # Why the overrides win
     ///
     /// They are the only layer a person edited on purpose *on this instance*.
-    /// The others arrive with the deployment — the image sets six environment
-    /// variables of its own, so "the environment" on a container is mostly
-    /// values nobody here chose. Letting those beat what somebody typed into
-    /// the panel would make the panel a screen that reports success and changes
-    /// nothing.
+    /// The environment arrives with the deployment — the image sets six
+    /// variables of its own, so on a container it is mostly values nobody here
+    /// chose. Letting those beat what somebody typed into the panel would make
+    /// the panel a screen that reports success and changes nothing.
     ///
     /// # Why a bad stored value cannot stop the process
     ///
@@ -1303,7 +1223,6 @@ impl Config {
     /// right — nothing in the panel can have caused it and nothing there can fix
     /// it.
     pub fn load_with_overrides(
-        path: &Path,
         overrides: &BTreeMap<String, serde_json::Value>,
     ) -> Result<(Self, Vec<RejectedSetting>), ConfigError> {
         // Only what this binary would accept from the panel in the first place.
@@ -1312,7 +1231,7 @@ impl Config {
         let mut rejected = Vec::new();
 
         loop {
-            match Self::extract_with(path, &candidates) {
+            match Self::extract_with(&candidates) {
                 Ok(config) => return Ok((config, rejected)),
                 Err(error) => {
                     // Which key the layer below would have to disown. `None`
@@ -1353,11 +1272,8 @@ impl Config {
     }
 
     /// One pass: defaults, file, environment, then the overrides.
-    fn extract_with(
-        path: &Path,
-        overrides: &BTreeMap<String, serde_json::Value>,
-    ) -> Result<Self, ConfigError> {
-        let figment = Self::figment_for(path).merge(Self::env_provider());
+    fn extract_with(overrides: &BTreeMap<String, serde_json::Value>) -> Result<Self, ConfigError> {
+        let figment = Self::defaults().merge(Self::env_provider());
         // Dotted keys, one at a time, so a stored `share.code_length` lands
         // where a nested provider would have put it without needing the rest of
         // `share` to be present.
@@ -1425,57 +1341,6 @@ pub struct RejectedSetting {
 }
 
 impl Config {
-    /// Writes a fully commented-out config file, if none exists yet.
-    ///
-    /// Returns the path written, or `None` if a file was already there.
-    ///
-    /// # Why every line is commented out
-    ///
-    /// The obvious version of this feature writes the current defaults as live
-    /// settings. That freezes them: an operator who never touched
-    /// `max_body_bytes` still has last year's value pinned in their file, and a
-    /// later release that improves the default silently does nothing for them.
-    ///
-    /// Commented out, the file is documentation — it shows every option and what
-    /// it is currently set to — while the values keep coming from the binary and
-    /// keep improving with it. Uncommenting a line is then an explicit decision
-    /// to stop tracking the default.
-    ///
-    /// The body is generated from [`Config::default`] rather than hand-written,
-    /// so it cannot drift from the struct.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ConfigError`] only if the defaults cannot be serialised, which
-    /// would be a bug. **Failing to write is not an error**: a read-only
-    /// container filesystem is a perfectly good way to run this service, and the
-    /// environment alone configures it completely.
-    pub fn write_template_if_absent(path: &Path) -> Result<Option<PathBuf>, ConfigError> {
-        if path.exists() {
-            return Ok(None);
-        }
-
-        let body =
-            serde_yaml::to_string(&Self::default()).map_err(|error| ConfigError::Invalid {
-                field: "config",
-                reason: format!("could not render the default configuration: {error}"),
-            })?;
-
-        let mut out = String::with_capacity(body.len() * 2);
-        out.push_str(TEMPLATE_HEADER);
-        for line in body.lines() {
-            if line.trim().is_empty() {
-                out.push('\n');
-            } else {
-                out.push_str("# ");
-                out.push_str(line);
-                out.push('\n');
-            }
-        }
-
-        Ok(std::fs::write(path, out).ok().map(|()| path.to_path_buf()))
-    }
-
     /// Rejects any configuration this binary cannot honour.
     ///
     /// # Errors
@@ -1949,14 +1814,11 @@ mod tests {
     #[test]
     fn a_stored_setting_beats_the_file_and_the_environment() {
         figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
             jail.set_env("TESSERA_SHARE__CODE_LENGTH", "10");
 
-            let (config, rejected) = Config::load_with_overrides(
-                Path::new("tessera.yaml"),
-                &overrides(&[("share.code_length", 12.into())]),
-            )
-            .expect("must load");
+            let (config, rejected) =
+                Config::load_with_overrides(&overrides(&[("share.code_length", 12.into())]))
+                    .expect("must load");
 
             assert_eq!(config.share.code_length, 12);
             assert!(rejected.is_empty());
@@ -1968,10 +1830,9 @@ mod tests {
     #[test]
     fn without_an_override_the_environment_still_beats_the_file() {
         figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
             jail.set_env("TESSERA_SHARE__CODE_LENGTH", "10");
 
-            let config = Config::load_from(Path::new("tessera.yaml")).expect("must load");
+            let config = Config::load().expect("must load");
             assert_eq!(config.share.code_length, 10);
             Ok(())
         });
@@ -1982,11 +1843,8 @@ mod tests {
     /// has to be running to offer the panel that would undo it.
     #[test]
     fn a_stored_value_out_of_range_is_dropped_rather_than_fatal() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "")?;
-
+        figment::Jail::expect_with(|_jail| {
             let (config, rejected) = Config::load_with_overrides(
-                Path::new("tessera.yaml"),
                 // 2 is below `RetrievalCode::MIN_LENGTH`; validate() refuses it.
                 &overrides(&[("share.code_length", 2.into())]),
             )
@@ -2007,13 +1865,11 @@ mod tests {
     /// it. Same rule, different failure.
     #[test]
     fn a_stored_value_of_the_wrong_type_is_dropped_too() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "")?;
-
-            let (config, rejected) = Config::load_with_overrides(
-                Path::new("tessera.yaml"),
-                &overrides(&[("share.code_length", "not a number".into())]),
-            )
+        figment::Jail::expect_with(|_jail| {
+            let (config, rejected) = Config::load_with_overrides(&overrides(&[(
+                "share.code_length",
+                "not a number".into(),
+            )]))
             .expect("a bad override must not stop the process");
 
             assert_eq!(
@@ -2029,17 +1885,12 @@ mod tests {
     /// configuration.
     #[test]
     fn one_bad_setting_does_not_take_the_good_ones_with_it() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "")?;
-
-            let (config, rejected) = Config::load_with_overrides(
-                Path::new("tessera.yaml"),
-                &overrides(&[
-                    ("share.code_length", 2.into()),
-                    ("share.ticket_ttl_hours", 3.into()),
-                    ("features.anonymous_upload", false.into()),
-                ]),
-            )
+        figment::Jail::expect_with(|_jail| {
+            let (config, rejected) = Config::load_with_overrides(&overrides(&[
+                ("share.code_length", 2.into()),
+                ("share.ticket_ttl_hours", 3.into()),
+                ("features.anonymous_upload", false.into()),
+            ]))
             .expect("must load");
 
             assert_eq!(rejected.len(), 1, "only the bad one: {rejected:?}");
@@ -2055,16 +1906,11 @@ mod tests {
     /// refuse.
     #[test]
     fn a_stored_setting_the_panel_would_refuse_is_ignored() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "")?;
-
-            let (config, rejected) = Config::load_with_overrides(
-                Path::new("tessera.yaml"),
-                &overrides(&[
-                    ("server.port", 9999.into()),
-                    ("auth.admin_password", "hunter2 hunter2 hunter2".into()),
-                ]),
-            )
+        figment::Jail::expect_with(|_jail| {
+            let (config, rejected) = Config::load_with_overrides(&overrides(&[
+                ("server.port", 9999.into()),
+                ("auth.admin_password", "hunter2 hunter2 hunter2".into()),
+            ]))
             .expect("must load");
 
             assert_eq!(
@@ -2080,30 +1926,6 @@ mod tests {
                 rejected.is_empty(),
                 "these are filtered before loading, not rejected by it"
             );
-            Ok(())
-        });
-    }
-
-    /// A broken deployment is still a hard failure. Dropping settings cannot
-    /// fix a file the operator got wrong, and pretending otherwise would hide
-    /// the one class of error they can actually act on.
-    #[test]
-    fn a_broken_file_still_fails_loudly() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "server:\n  port: 0\n")?;
-            assert!(
-                Config::load_with_overrides(Path::new("tessera.yaml"), &BTreeMap::new()).is_err()
-            );
-            Ok(())
-        });
-    }
-
-    #[test]
-    fn missing_config_file_is_not_an_error() {
-        figment::Jail::expect_with(|_| {
-            let config = Config::load_from(Path::new("/nonexistent/tessera.yaml"))
-                .expect("no file, no error");
-            assert_eq!(config, Config::default());
             Ok(())
         });
     }
@@ -2193,31 +2015,21 @@ mod tests {
     }
 
     #[test]
-    fn environment_variables_override_defaults_and_files() {
+    fn environment_variables_override_defaults() {
         figment::Jail::expect_with(|jail| {
-            jail.create_file(
-                "tessera.toml",
-                r#"
-                [server]
-                port = 9001
-                [telemetry]
-                filter = "warn"
-                "#,
-            )?;
             // Nested keys use the `__` separator; scalars and lists both parse.
             jail.set_env("TESSERA_SERVER__PORT", "9999");
             jail.set_env("TESSERA_FEATURES__DOCS", "false");
             jail.set_env("TESSERA_DATABASE__URL", "sqlite://custom.db");
+            jail.set_env("TESSERA_TELEMETRY__FILTER", "warn");
 
-            let config = Config::load_from(Path::new("tessera.toml")).expect("valid configuration");
+            let config = Config::load().expect("valid configuration");
 
-            // Environment beats file...
             assert_eq!(config.server.port, 9999);
             assert!(!config.features.docs);
             assert_eq!(config.database.url, "sqlite://custom.db");
-            // ...file beats defaults...
             assert_eq!(config.telemetry.filter, "warn");
-            // ...and untouched keys keep their defaults.
+            // Untouched keys keep their defaults.
             assert_eq!(config.server.request_timeout_secs, 30);
             Ok(())
         });
@@ -2229,7 +2041,7 @@ mod tests {
             // `EnvFilter` is permissive — it treats most junk as a bare target
             // name. This is one of the shapes it genuinely refuses.
             jail.set_env("TESSERA_TELEMETRY__FILTER", "=====");
-            let err = Config::load_from(Path::new("tessera.toml")).expect_err("must be rejected");
+            let err = Config::load().expect_err("must be rejected");
             assert!(matches!(
                 err,
                 ConfigError::Invalid {
@@ -2241,93 +2053,21 @@ mod tests {
         });
     }
 
-    /// Regression test. `TESSERA_CONFIG_FILE` is the documented way to point at
-    /// a config file, and `TESSERA_BUILD_REV` is exported into every `cargo run`
-    /// by the build script. Both sit inside the settings namespace, so
-    /// `deny_unknown_fields` rejected them and the process refused to start.
+    /// Regression test. `TESSERA_BUILD_REV` is exported into every `cargo run`
+    /// by the build script, and `TESSERA_CONFIG_FILE` is what an instance that
+    /// predates the panel still has set. Both sit inside the settings
+    /// namespace, so `deny_unknown_fields` rejected them and the process
+    /// refused to start — which for the second one would turn an upgrade into
+    /// an outage.
     #[rstest]
     #[case("TESSERA_CONFIG_FILE", "/etc/tessera.toml")]
     #[case("TESSERA_BUILD_REV", "v0.1.0-3-gabcdef")]
     fn namespace_neighbours_are_not_mistaken_for_settings(#[case] key: &str, #[case] value: &str) {
         figment::Jail::expect_with(|jail| {
             jail.set_env(key, value);
-            let config = Config::load_from(Path::new("tessera.toml"))
+            let config = Config::load()
                 .unwrap_or_else(|e| panic!("{key} must not be read as a setting: {e}"));
             assert_eq!(config, Config::default());
-            Ok(())
-        });
-    }
-
-    /// The property the whole feature rests on: the generated file must contain
-    /// no *active* settings. If it did, an operator's defaults would be frozen at
-    /// whatever version first started the service.
-    #[test]
-    fn the_generated_template_is_entirely_commented_out() {
-        let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("tessera.yaml");
-
-        let written = Config::write_template_if_absent(&path).unwrap();
-        assert_eq!(written.as_deref(), Some(path.as_path()));
-
-        let text = std::fs::read_to_string(&path).unwrap();
-        for (number, line) in text.lines().enumerate() {
-            assert!(
-                line.trim().is_empty() || line.trim_start().starts_with('#'),
-                "line {} is active: {line}",
-                number + 1
-            );
-        }
-
-        // And it must really be a config file, not an empty one.
-        assert!(
-            text.contains("port"),
-            "the template should list the settings"
-        );
-        assert!(text.contains("accounts"));
-    }
-
-    /// Loading the generated file must change nothing — it is documentation.
-    #[test]
-    fn the_generated_template_parses_and_changes_nothing() {
-        figment::Jail::expect_with(|jail| {
-            let path = jail.directory().join("tessera.yaml");
-            Config::write_template_if_absent(&path).expect("template");
-            let config = Config::load_from(&path).expect("the template must be loadable");
-            assert_eq!(config, Config::default());
-            Ok(())
-        });
-    }
-
-    #[test]
-    fn an_existing_config_file_is_never_overwritten() {
-        let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("tessera.yaml");
-        std::fs::write(&path, "server:\n  port: 9999\n").unwrap();
-
-        assert_eq!(Config::write_template_if_absent(&path).unwrap(), None);
-        assert_eq!(
-            std::fs::read_to_string(&path).unwrap(),
-            "server:\n  port: 9999\n"
-        );
-    }
-
-    /// A read-only filesystem is a legitimate way to run this service.
-    #[test]
-    fn failing_to_write_the_template_is_not_an_error() {
-        let path = Path::new("/proc/definitely/not/writable/tessera.yaml");
-        assert_eq!(Config::write_template_if_absent(path).unwrap(), None);
-    }
-
-    #[test]
-    fn yaml_and_toml_are_both_understood() {
-        figment::Jail::expect_with(|jail| {
-            jail.create_file("tessera.yaml", "server:\n  port: 9101\n")?;
-            let from_yaml = Config::load_from(Path::new("tessera.yaml")).expect("yaml");
-            assert_eq!(from_yaml.server.port, 9101);
-
-            jail.create_file("tessera.toml", "[server]\nport = 9102\n")?;
-            let from_toml = Config::load_from(Path::new("tessera.toml")).expect("toml");
-            assert_eq!(from_toml.server.port, 9102);
             Ok(())
         });
     }
@@ -2391,8 +2131,7 @@ mod tests {
     fn a_comma_separated_list_is_understood() {
         figment::Jail::expect_with(|jail| {
             jail.set_env("TESSERA_SERVER__TRUSTED_PROXIES", "127.0.0.1, ::1");
-            jail.create_file("tessera.toml", "")?;
-            let config = Config::load_from(Path::new("tessera.toml")).expect("must load");
+            let config = Config::load().expect("must load");
             assert_eq!(config.server.trusted_proxies, ["127.0.0.1", "::1"]);
             Ok(())
         });
@@ -2450,9 +2189,10 @@ mod tests {
     #[test]
     fn unknown_keys_are_rejected_rather_than_ignored() {
         figment::Jail::expect_with(|jail| {
-            // A typo in a config file must not silently do nothing.
-            jail.create_file("tessera.toml", "[server]\nprot = 9001\n")?;
-            let err = Config::load_from(Path::new("tessera.toml")).expect_err("must be rejected");
+            // A typo in an environment variable must not silently do nothing —
+            // `TESSERA_SERVER__PROT` should stop the process, not be dropped.
+            jail.set_env("TESSERA_SERVER__PROT", "9001");
+            let err = Config::load().expect_err("must be rejected");
             assert!(matches!(err, ConfigError::Source(_)), "got {err}");
             Ok(())
         });

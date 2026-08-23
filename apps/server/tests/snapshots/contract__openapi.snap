@@ -1333,7 +1333,6 @@ expression: document
         "description": "Which layer a setting's value came from.",
         "enum": [
           "default",
-          "file",
           "environment",
           "panel"
         ],
