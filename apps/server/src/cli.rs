@@ -33,8 +33,9 @@ use crate::{
     config::{Config, RegistrationPolicy},
     db::{
         self,
-        repository::{invite::InviteRepository, user::UserRepository},
+        repository::{invite::InviteRepository, setting::SettingRepository, user::UserRepository},
     },
+    settings,
 };
 
 /// Argument that turns the binary into its own health probe.
@@ -63,8 +64,42 @@ pub enum Command {
         /// What to call it, so a list of them means something.
         note: Option<String>,
     },
+    /// Read or change settings without the admin panel.
+    ///
+    /// # Why this exists alongside the panel
+    ///
+    /// Two instances cannot use the panel at all. One has `features.accounts`
+    /// off — a file drop behind a VPN, which has no accounts and so no session
+    /// to sign in with. The other has been configured into a state where the
+    /// panel does not work, which is exactly when the way to undo it must not
+    /// be the panel.
+    Settings(SettingsAction),
     /// Print usage and exit successfully.
     Help,
+}
+
+/// What `settings` was asked to do.
+#[derive(Debug, PartialEq, Eq)]
+pub enum SettingsAction {
+    /// Print every setting, its value and where that value came from.
+    List,
+    /// Store one setting.
+    Set {
+        /// Dotted key, the same spelling the file and the environment use.
+        key: String,
+        /// The new value, as JSON. A bare word is read as a string.
+        value: String,
+    },
+    /// Remove one stored setting, so it falls back to the layer below.
+    Reset {
+        /// Dotted key.
+        key: String,
+    },
+    /// Remove every stored setting.
+    ///
+    /// The way back from a panel that has been used to make the instance
+    /// unusable.
+    ResetAll,
 }
 
 /// What the command ended up setting, for the closing message.
@@ -130,6 +165,7 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Command, String>
         "-h" | "--help" | "help" => Ok(Command::Help),
         "reset-password" => parse_reset_password(args),
         "invite" => parse_invite(args),
+        "settings" => parse_settings(args),
         other => Err(format!(
             "unknown argument `{other}`\n\nRun `tessera-server --help` to see what this accepts."
         )),
@@ -211,6 +247,44 @@ fn value<I: Iterator<Item = String>>(args: &mut I, flag: &str) -> Result<String,
         .ok_or_else(|| format!("{flag} needs a value"))
 }
 
+fn parse_settings<I: Iterator<Item = String>>(mut args: I) -> Result<Command, String> {
+    let action = args
+        .next()
+        .ok_or_else(|| "settings: say what to do — list, set, reset or reset-all".to_owned())?;
+
+    let command = match action.as_str() {
+        "list" => Command::Settings(SettingsAction::List),
+        "set" => {
+            let key = args
+                .next()
+                .ok_or_else(|| "settings set: needs a key, e.g. share.code_length".to_owned())?;
+            let value = args
+                .next()
+                .ok_or_else(|| format!("settings set: `{key}` needs a value"))?;
+            Command::Settings(SettingsAction::Set { key, value })
+        }
+        "reset" => {
+            let key = args
+                .next()
+                .ok_or_else(|| "settings reset: needs a key".to_owned())?;
+            Command::Settings(SettingsAction::Reset { key })
+        }
+        "reset-all" => Command::Settings(SettingsAction::ResetAll),
+        other => {
+            return Err(format!(
+                "settings: unknown action `{other}` — expected list, set, reset or reset-all"
+            ));
+        }
+    };
+
+    // Anything after what each action takes is a mistake, and a silently
+    // ignored argument looks like the command did what was asked.
+    if let Some(extra) = args.next() {
+        return Err(format!("settings: unexpected argument `{extra}`"));
+    }
+    Ok(command)
+}
+
 /// What `--help` prints.
 pub const USAGE: &str = "\
 tessera-server — a self-hosted file courier
@@ -220,6 +294,22 @@ USAGE:
     tessera-server --health-check        Probe the configured listener, exit 0 if healthy
     tessera-server reset-password ...    Set an account's password
     tessera-server invite ...            Mint an invite code
+    tessera-server settings ...          Read or change settings without the panel
+
+SETTINGS:
+    settings list            Every setting, its value, and where that value
+                             came from. Read-only ones are marked.
+    settings set <key> <value>
+                             Store one. The value is read as JSON, so 10 is a
+                             number and true is a boolean; anything that is not
+                             JSON is taken as a string.
+    settings reset <key>     Forget one, so it falls back to the environment,
+                             the file, or the default.
+    settings reset-all       Forget all of them. The way back from a panel that
+                             has been used to make the instance unusable.
+
+    Writes the same table the admin panel does, so the two always agree. Takes
+    effect when the server next starts — a running one is not asked to reload.
 
 RESET-PASSWORD:
     -u, --username <name>    Whose password to set. Required.
@@ -414,6 +504,178 @@ fn first_line(raw: &str) -> anyhow::Result<&str> {
         bail!("nothing arrived on standard input");
     }
     Ok(line)
+}
+
+/// Mints an invite code and prints it, without the server running.
+///
+/// # Errors
+///
+/// Runs a `settings` subcommand against the database the server would use.
+///
+/// # Why this writes to the same table the panel does
+///
+/// So that the two agree. A separate file or a separate flag would be a second
+/// answer to "what is this instance configured with", and the first thing
+/// anybody would ask is which one wins.
+///
+/// # Errors
+///
+/// Returns an error if the database cannot be opened, the key is one the panel
+/// would also refuse, or the resulting configuration will not load.
+pub async fn settings(config: &Config, action: SettingsAction) -> anyhow::Result<()> {
+    let db = db::connect(&config.database)
+        .await
+        .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
+    // No migrations, for the same reason `reset-password` runs none: a tool
+    // that quietly rewrites the schema is the last thing to run against a
+    // database you are unsure about. On an instance that has never started,
+    // the table does not exist and the error says so.
+    let store = SettingRepository::new(db.clone());
+
+    let outcome = run_settings(&store, action).await;
+    db::close(db).await;
+    outcome
+}
+
+async fn run_settings(store: &SettingRepository, action: SettingsAction) -> anyhow::Result<()> {
+    match action {
+        SettingsAction::List => {
+            let stored = store.all().await.context("could not read the settings")?;
+            print_settings(&settings::describe(&Config::path(), &stored));
+        }
+        SettingsAction::Set { key, value } => {
+            refuse_unless_settable(&key)?;
+            let parsed = parse_value(&value);
+            let mut candidate = store.all().await.context("could not read the settings")?;
+            candidate.insert(key.clone(), parsed.clone());
+
+            // The same proof the endpoint takes before storing: a value that
+            // will not load should be refused here, not dropped silently at the
+            // next start-up.
+            let (_, rejected) = Config::load_with_overrides(&Config::path(), &candidate)
+                .context("that value leaves the configuration unusable")?;
+            if let Some(bad) = rejected.into_iter().find(|bad| bad.key == key) {
+                anyhow::bail!("`{key}` will not be accepted: {}", bad.reason);
+            }
+
+            store
+                .set(&key, &parsed, OffsetDateTime::now_utc())
+                .await
+                .context("could not store the setting")?;
+            report_setting_stored(&key, &parsed);
+        }
+        SettingsAction::Reset { key } => {
+            let removed = store.clear(&key).await.context("could not clear it")?;
+            report_setting_cleared(&key, removed);
+        }
+        SettingsAction::ResetAll => {
+            let removed = store.clear_all().await.context("could not clear them")?;
+            report_all_settings_cleared(removed);
+        }
+    }
+    Ok(())
+}
+
+/// Refuses a key the panel would refuse, with the same reason.
+///
+/// The two surfaces have to agree: a setting the panel calls unchangeable and
+/// the command line accepts would be a value nobody could explain afterwards.
+fn refuse_unless_settable(key: &str) -> anyhow::Result<()> {
+    match settings::admits(key) {
+        Ok(()) => Ok(()),
+        Err(settings::Refusal::Unknown) => {
+            anyhow::bail!("`{key}` is not a setting this version has")
+        }
+        Err(settings::Refusal::Secret) => anyhow::bail!(
+            "`{key}` holds a credential; set it in the environment rather than the database"
+        ),
+        Err(settings::Refusal::FixedAtBoot) => {
+            anyhow::bail!("`{key}` cannot change while the server runs; set it in the environment")
+        }
+    }
+}
+
+/// Reads a value the way an operator typed it.
+///
+/// JSON first, so `10`, `true` and `["a","b"]` arrive as what they look like.
+/// Anything that is not JSON is taken as a string, because quoting every
+/// hostname at a shell prompt is the kind of friction that makes a tool
+/// unpleasant — and `s3://…` is not valid JSON.
+fn parse_value(raw: &str) -> serde_json::Value {
+    serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::String(raw.to_owned()))
+}
+
+/// Says what was stored, and that a running server has not noticed.
+///
+/// On stdout rather than through the log, for the same reason the invite code
+/// is: this is a command-line tool's result, and `telemetry.filter` set to
+/// `warn` must not be able to swallow it.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn report_setting_stored(key: &str, value: &serde_json::Value) {
+    println!("{key} = {value}");
+    println!("\nThe running server picks this up on its next start.");
+}
+
+/// Says whether there was anything to clear.
+///
+/// Worth telling apart: "cleared" and "there was nothing here" look the same to
+/// somebody who mistyped the key.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn report_setting_cleared(key: &str, removed: bool) {
+    if removed {
+        println!("{key} cleared; it falls back to the environment, the file or the default.");
+    } else {
+        println!("{key} was not set here, so nothing changed.");
+    }
+}
+
+/// Says how much the rescue took away.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn report_all_settings_cleared(removed: u64) {
+    println!("cleared {removed} stored setting(s).");
+    println!("Everything now comes from the environment, the file, or the defaults.");
+}
+
+/// Prints the list a person reads.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn print_settings(views: &[settings::View]) {
+    let width = views.iter().map(|view| view.key.len()).max().unwrap_or(0);
+    for view in views {
+        let source = match view.source {
+            settings::Source::Default => "default",
+            settings::Source::File => "file",
+            settings::Source::Environment => "environment",
+            settings::Source::Panel => "stored",
+        };
+        // The ones that cannot be changed are marked rather than hidden, for
+        // the same reason the panel lists them: leaving them out is what makes
+        // somebody ask where the port setting went.
+        let fixed = if view.editable { "" } else { "  (read-only)" };
+        // `describe` already withheld the value of anything that holds a
+        // credential; this only spells the hole as something a person reads.
+        let value = if matches!(view.refusal, Some(settings::Refusal::Secret)) {
+            "<withheld>".to_owned()
+        } else {
+            view.value.to_string()
+        };
+        println!(
+            "{:width$}  {value}  [{source}]{fixed}",
+            view.key,
+            width = width
+        );
+    }
 }
 
 /// Mints an invite code and prints it, without the server running.
@@ -647,5 +909,69 @@ mod tests {
     fn unknown_arguments_are_refused() {
         assert!(parsed(&["--frobnicate"]).is_err());
         assert!(parsed(&["reset-password", "-u", "admin", "--force"]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod settings_tests {
+    use super::{Command, SettingsAction, parse, parse_value};
+
+    fn parsed(args: &[&str]) -> Result<Command, String> {
+        parse(args.iter().map(|arg| (*arg).to_owned()))
+    }
+
+    #[test]
+    fn the_four_actions_parse() {
+        assert_eq!(
+            parsed(&["settings", "list"]),
+            Ok(Command::Settings(SettingsAction::List))
+        );
+        assert_eq!(
+            parsed(&["settings", "set", "share.code_length", "10"]),
+            Ok(Command::Settings(SettingsAction::Set {
+                key: "share.code_length".to_owned(),
+                value: "10".to_owned(),
+            }))
+        );
+        assert_eq!(
+            parsed(&["settings", "reset", "share.code_length"]),
+            Ok(Command::Settings(SettingsAction::Reset {
+                key: "share.code_length".to_owned(),
+            }))
+        );
+        assert_eq!(
+            parsed(&["settings", "reset-all"]),
+            Ok(Command::Settings(SettingsAction::ResetAll))
+        );
+    }
+
+    /// A silently ignored argument looks like the command did what was asked.
+    #[test]
+    fn anything_unexpected_is_refused() {
+        assert!(parsed(&["settings"]).is_err(), "no action");
+        assert!(parsed(&["settings", "frobnicate"]).is_err(), "unknown");
+        assert!(parsed(&["settings", "set", "a.b"]).is_err(), "no value");
+        assert!(
+            parsed(&["settings", "reset-all", "please"]).is_err(),
+            "trailing argument"
+        );
+    }
+
+    /// JSON first, so a number arrives as a number. Falling back to a string is
+    /// what makes `settings set storage.url s3://bucket` work without the
+    /// operator quoting it for JSON as well as for the shell.
+    #[test]
+    fn values_are_read_as_json_then_as_text() {
+        assert_eq!(parse_value("10"), serde_json::json!(10));
+        assert_eq!(parse_value("true"), serde_json::json!(true));
+        assert_eq!(parse_value("[\"a\"]"), serde_json::json!(["a"]));
+        assert_eq!(
+            parse_value("s3://bucket/prefix"),
+            serde_json::json!("s3://bucket/prefix")
+        );
+        assert_eq!(
+            parse_value("smtp.example.com"),
+            serde_json::json!("smtp.example.com")
+        );
     }
 }

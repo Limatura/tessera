@@ -70,6 +70,7 @@ async fn main() -> anyhow::Result<()> {
             expires_in_days,
             note,
         } => return cli::mint_invite(&config, uses, expires_in_days, note).await,
+        cli::Command::Settings(action) => return cli::settings(&config, action).await,
         cli::Command::Serve => {}
     }
 

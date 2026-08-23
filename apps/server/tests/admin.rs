@@ -2556,3 +2556,27 @@ async fn admin_reads_settings_but_does_not_write_them() {
         StatusCode::FORBIDDEN
     );
 }
+
+/// The listing is read over HTTP and pasted into issues. `database.url` and
+/// `storage.url` carry a password inside them, so the endpoint names them and
+/// withholds what they are set to.
+#[tokio::test]
+async fn the_settings_endpoint_never_returns_a_credential() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let response = app
+        .empty(Method::GET, "/api/v1/admin/settings", Auth::Cookie(&owner))
+        .await;
+    let raw = body_string(expect_status(response, StatusCode::OK).await).await;
+
+    let body: serde_json::Value = serde_json::from_str(&raw).expect("json");
+    let url = body["settings"]
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|entry| entry["key"] == "database.url")
+        .expect("it should still be listed, so nobody asks where it went");
+    assert_eq!(url["refusal"], "secret");
+    assert!(url["value"].is_null(), "the value must not come back");
+}

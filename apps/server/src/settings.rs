@@ -339,6 +339,17 @@ pub fn describe(
                 |value| (value.clone(), Source::Panel),
             );
 
+            // A credential is named, never handed back. `database.url` and
+            // `storage.url` carry a password inside them, and this list is read
+            // by an endpoint and printed by a command — both of which end up
+            // pasted into issues. Whoever needs the value has the environment
+            // it came from.
+            let value = if refusal == Some(Refusal::Secret) {
+                serde_json::Value::Null
+            } else {
+                value
+            };
+
             View {
                 key,
                 value,
@@ -422,6 +433,58 @@ mod describe_tests {
                 .find(|view| view.key == "share.code_length")
                 .expect("described");
             assert!(ordinary.editable);
+            Ok(())
+        });
+    }
+}
+
+#[cfg(test)]
+mod secrecy_tests {
+    use std::collections::BTreeMap;
+
+    use super::{Refusal, describe};
+
+    /// A credential must not come back out of the description. Both readers of
+    /// this — the admin endpoint and the `settings list` command — produce
+    /// output that ends up pasted into issues and support threads, and
+    /// `database.url` carries the password inside it.
+    #[test]
+    fn the_value_of_a_secret_is_withheld() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "")?;
+            jail.set_env(
+                "TESSERA_DATABASE__URL",
+                "postgres://tessera:hunter2@localhost/tessera",
+            );
+
+            let described = describe(std::path::Path::new("tessera.yaml"), &BTreeMap::new());
+            let url = described
+                .iter()
+                .find(|view| view.key == "database.url")
+                .expect("listed");
+
+            assert_eq!(url.refusal, Some(Refusal::Secret));
+            assert!(url.value.is_null(), "the value must not be handed back");
+            assert!(
+                !format!("{described:?}").contains("hunter2"),
+                "the password must not appear anywhere in the description"
+            );
+            Ok(())
+        });
+    }
+
+    /// And the ordinary settings still carry their values, or the screen is
+    /// useless.
+    #[test]
+    fn an_ordinary_setting_still_shows_its_value() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "")?;
+            let described = describe(std::path::Path::new("tessera.yaml"), &BTreeMap::new());
+            let code = described
+                .iter()
+                .find(|view| view.key == "share.code_length")
+                .expect("listed");
+            assert_eq!(code.value, serde_json::json!(8));
             Ok(())
         });
     }
