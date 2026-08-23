@@ -60,6 +60,7 @@ fn router_assembly(c: &mut Criterion) {
     let (store, multipart) = storage::build_with_multipart(&config.storage).expect("local store");
     let state = AppState::new(
         Arc::new(config),
+        std::path::PathBuf::from("/nonexistent/tessera.yaml"),
         db,
         store,
         multipart,

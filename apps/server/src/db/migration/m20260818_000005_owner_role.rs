@@ -63,20 +63,6 @@ mod tests {
         }
     }
 
-    /// A permission the owner role is not granted is one nobody on a fresh
-    /// instance can hold, because `admin` is about to stop granting them.
-    #[test]
-    fn the_owner_role_is_seeded_with_every_permission() {
-        for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {
-            for permission in Permission::ALL {
-                assert!(
-                    sql.contains(&format!("'{}'", permission.as_str())),
-                    "{dialect} does not grant {permission} to the owner"
-                );
-            }
-        }
-    }
-
     /// Narrowing `admin` before moving its members into `owner` would take the
     /// instance away from whoever is running it — possibly including the only
     /// person who could put it back.

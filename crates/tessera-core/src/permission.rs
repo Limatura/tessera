@@ -61,6 +61,14 @@ pub enum Permission {
     RolesWrite,
     /// Read the instance-wide counts.
     StatsRead,
+    /// See how the instance is configured, and where each value came from.
+    ///
+    /// Separate from writing because the two are different risks: the list
+    /// names every knob this instance has, which is worth showing somebody who
+    /// answers questions about it without letting them turn anything.
+    SettingsRead,
+    /// Change how the instance is configured.
+    SettingsWrite,
 }
 
 impl Permission {
@@ -69,7 +77,7 @@ impl Permission {
     /// Used to seed the administrator role and to answer "what could a role
     /// possibly contain", so it has to stay exhaustive — adding a variant
     /// without adding it here would make a permission nobody can be granted.
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 17] = [
         Self::SharesCreate,
         Self::SharesRead,
         Self::SharesDelete,
@@ -85,6 +93,8 @@ impl Permission {
         Self::RolesRead,
         Self::RolesWrite,
         Self::StatsRead,
+        Self::SettingsRead,
+        Self::SettingsWrite,
     ];
 
     /// The spelling stored in a row and sent in a response.
@@ -106,6 +116,8 @@ impl Permission {
             Self::RolesRead => "roles:read",
             Self::RolesWrite => "roles:write",
             Self::StatsRead => "stats:read",
+            Self::SettingsRead => "settings:read",
+            Self::SettingsWrite => "settings:write",
         }
     }
 

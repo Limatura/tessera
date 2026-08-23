@@ -255,3 +255,174 @@ mod tests {
         }
     }
 }
+
+/// Which layer a setting's value came from.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum Source {
+    /// Nobody set it; this is what the binary ships with.
+    Default,
+    /// The configuration file.
+    File,
+    /// An environment variable.
+    Environment,
+    /// Somebody changed it in the admin panel.
+    Panel,
+}
+
+/// One setting, as a screen needs it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct View {
+    /// Dotted key.
+    pub key: String,
+    /// What the instance is using.
+    pub value: serde_json::Value,
+    /// Which layer supplied it.
+    pub source: Source,
+    /// Whether the panel may change it.
+    pub editable: bool,
+    /// Why not, when it may not.
+    pub refusal: Option<Refusal>,
+}
+
+/// Every setting, with its value and where that value came from.
+///
+/// # Why the source is worked out by comparison
+///
+/// figment can name the provider that supplied a key, but only as a display
+/// string — "YAML file", "`TESSERA_` environment variable(s)". Matching on
+/// those would tie this to how a dependency phrases itself. Building the stack
+/// one layer at a time and seeing where the answer changes needs no such
+/// agreement.
+///
+/// A layer that sets a value identical to the one below reports as the lower
+/// layer. That is the honest answer: nothing observable distinguishes them, and
+/// claiming otherwise would mean showing "from the environment" for a value the
+/// environment did not change.
+#[must_use]
+pub fn describe(
+    path: &std::path::Path,
+    overrides: &BTreeMap<String, serde_json::Value>,
+) -> Vec<View> {
+    let defaults =
+        figment::Figment::from(figment::providers::Serialized::defaults(Config::default()));
+    let with_file = Config::figment_for(path);
+    let with_env = Config::figment_for(path).merge(Config::env_provider());
+    let stored = admitted_only(overrides.clone());
+
+    keys()
+        .into_iter()
+        .map(|key| {
+            let refusal = admits(&key).err();
+            let at = |figment: &figment::Figment| figment.find_value(&key).ok();
+
+            let (value, source) = stored.get(&key).map_or_else(
+                || {
+                    let base = at(&defaults);
+                    let file = at(&with_file);
+                    let env = at(&with_env);
+                    let source = if env != file {
+                        Source::Environment
+                    } else if file != base {
+                        Source::File
+                    } else {
+                        Source::Default
+                    };
+                    (
+                        env.and_then(|value| serde_json::to_value(value).ok())
+                            .unwrap_or(serde_json::Value::Null),
+                        source,
+                    )
+                },
+                |value| (value.clone(), Source::Panel),
+            );
+
+            View {
+                key,
+                value,
+                source,
+                editable: refusal.is_none(),
+                refusal,
+            }
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod describe_tests {
+    use std::collections::BTreeMap;
+
+    use super::{Source, describe};
+
+    /// The panel shows where a value came from so that "I set this and it did
+    /// not change" has an answer on the screen instead of in a support thread.
+    #[test]
+    fn each_layer_is_named_correctly() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
+            jail.set_env("TESSERA_SHARE__TICKET_TTL_HOURS", "9");
+
+            let mut stored = BTreeMap::new();
+            stored.insert("share.max_text_bytes".to_owned(), 4096.into());
+
+            let described = describe(std::path::Path::new("tessera.yaml"), &stored);
+            let find = |key: &str| {
+                described
+                    .iter()
+                    .find(|view| view.key == key)
+                    .unwrap_or_else(|| panic!("{key} should be described"))
+            };
+
+            assert_eq!(find("share.code_length").source, Source::File);
+            assert_eq!(find("share.ticket_ttl_hours").source, Source::Environment);
+            assert_eq!(find("share.max_text_bytes").source, Source::Panel);
+            assert_eq!(find("share.inline_threshold_bytes").source, Source::Default);
+            Ok(())
+        });
+    }
+
+    /// The value shown has to be the one in force, or the screen is describing
+    /// an instance that does not exist.
+    #[test]
+    fn the_value_shown_is_the_one_in_force() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "share:\n  code_length: 6\n")?;
+            let mut stored = BTreeMap::new();
+            stored.insert("share.code_length".to_owned(), 11.into());
+
+            let described = describe(std::path::Path::new("tessera.yaml"), &stored);
+            let view = described
+                .iter()
+                .find(|view| view.key == "share.code_length")
+                .expect("described");
+            assert_eq!(view.value, serde_json::json!(11), "the panel's value wins");
+            Ok(())
+        });
+    }
+
+    /// Settings the panel cannot change still appear, marked. Hiding them is
+    /// what makes somebody ask where the port setting went.
+    #[test]
+    fn what_cannot_be_changed_is_still_listed() {
+        figment::Jail::expect_with(|jail| {
+            jail.create_file("tessera.yaml", "")?;
+            let described = describe(std::path::Path::new("tessera.yaml"), &BTreeMap::new());
+
+            let port = described
+                .iter()
+                .find(|view| view.key == "server.port")
+                .expect("the port should be listed even though it is fixed");
+            assert!(!port.editable);
+            assert!(port.refusal.is_some());
+
+            let ordinary = described
+                .iter()
+                .find(|view| view.key == "share.code_length")
+                .expect("described");
+            assert!(ordinary.editable);
+            Ok(())
+        });
+    }
+}

@@ -101,7 +101,17 @@ impl TestApp {
 
         let assets =
             tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets_dir");
-        let state = AppState::new(Arc::new(config), db, store, multipart, assets);
+        let state = AppState::new(
+            Arc::new(config),
+            // A path that does not exist: a test's configuration comes from the
+            // struct it built, and reading whatever `tessera.yaml` happens to be
+            // in the working directory would make results depend on the machine.
+            std::path::PathBuf::from("/nonexistent/tessera.yaml"),
+            db,
+            store,
+            multipart,
+            assets,
+        );
         state.set_status(status);
 
         Self {

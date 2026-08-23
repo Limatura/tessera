@@ -126,29 +126,24 @@ async fn main() -> anyhow::Result<()> {
     }
 
     // 5. Listener. Bound before announcing readiness so a port clash is fatal.
-    let addr = SocketAddr::new(config.server.host, config.server.port);
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .with_context(|| format!("could not bind {addr}"))?;
-    let local_addr = listener.local_addr().unwrap_or(addr);
+    let (listener, local_addr) = bind(&config).await?;
 
     let assets = resolve_assets(&config.server.assets_dir)?;
 
     let config = Arc::new(config);
-    let state = AppState::new(Arc::clone(&config), db.clone(), store, multipart, assets);
+    let state = AppState::new(
+        Arc::clone(&config),
+        Config::path(),
+        db.clone(),
+        store,
+        multipart,
+        assets,
+    );
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
     tracing::info!(address = %local_addr, "listening");
-    if config.features.docs {
-        // Worth a line of its own, because "the docs page is blank" is otherwise
-        // a confusing thing to debug — and the cause is on the *reader's* side.
-        // This server never fetches the renderer; the browser does.
-        tracing::info!(
-            url = %format_args!("http://{local_addr}{}", api::DOCS_PATH),
-            "API reference enabled; the browser opening it loads the renderer from a CDN"
-        );
-    }
+    announce_docs(&config, local_addr);
 
     let shutdown = CancellationToken::new();
     let signal_task = tokio::spawn(watch_for_shutdown(shutdown.clone()));
@@ -241,6 +236,35 @@ async fn probe_health(config: &Config) -> anyhow::Result<()> {
 
 /// Resolves when the process is asked to stop, by `Ctrl-C` or by `SIGTERM`
 /// (which is what `docker stop` and systemd send).
+/// Binds the listening socket, and reports the address it actually got.
+///
+/// Before anything announces readiness, so a port clash is fatal rather than a
+/// process that looks healthy and serves nothing.
+async fn bind(config: &Config) -> anyhow::Result<(tokio::net::TcpListener, SocketAddr)> {
+    let addr = SocketAddr::new(config.server.host, config.server.port);
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("could not bind {addr}"))?;
+    // `local_addr` and not `addr`: port 0 asks the OS to choose, and the log
+    // should name the port somebody can actually connect to.
+    let local_addr = listener.local_addr().unwrap_or(addr);
+    Ok((listener, local_addr))
+}
+
+/// Says where the browsable API reference is, when it is switched on.
+///
+/// Its own line because "the docs page is blank" is otherwise a confusing thing
+/// to debug, and the cause is on the *reader's* side: this server never fetches
+/// the renderer, the browser does.
+fn announce_docs(config: &Config, local_addr: SocketAddr) {
+    if config.features.docs {
+        tracing::info!(
+            url = %format_args!("http://{local_addr}{}", api::DOCS_PATH),
+            "API reference enabled; the browser opening it loads the renderer from a CDN"
+        );
+    }
+}
+
 async fn watch_for_shutdown(token: CancellationToken) {
     let ctrl_c = async {
         if tokio::signal::ctrl_c().await.is_err() {

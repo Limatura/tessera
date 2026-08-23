@@ -21,6 +21,7 @@ use crate::{
         pending_registration::PendingRegistrationRepository,
         role::RoleRepository,
         session::SessionRepository,
+        setting::SettingRepository,
         share::{ShareRepository, ShareTicketRepository},
         upload::UploadRepository,
         user::UserRepository,
@@ -48,6 +49,14 @@ pub enum ServiceStatus {
 /// Cheap to clone: everything inside is an `Arc` or an `Arc`-backed pool.
 #[derive(Debug, Clone)]
 pub struct AppState {
+    /// Where the configuration file was looked for.
+    ///
+    /// Kept because reloading after a change has to rebuild the same stack —
+    /// re-discovering the file could pick a different one if the working
+    /// directory moved, and the panel would then be layering onto a
+    /// configuration nobody is running.
+    pub config_path: Arc<std::path::PathBuf>,
+
     /// Validated configuration, as it stands right now.
     ///
     /// Behind a swap rather than a plain `Arc`, because a change made in the
@@ -70,6 +79,8 @@ pub struct AppState {
     pub shares: ShareRepository,
     /// Download authorisations.
     pub tickets: ShareTicketRepository,
+    /// Settings changed from the admin panel.
+    pub settings: SettingRepository,
     /// Recorded retrievals, when the operator has asked for them. Written only
     /// while `share.access_log.enabled` is on.
     pub events: AccessEventRepository,
@@ -179,6 +190,7 @@ impl AppState {
     #[must_use]
     pub fn new(
         config: Arc<Config>,
+        config_path: std::path::PathBuf,
         db: DatabaseConnection,
         storage: Arc<dyn ObjectStore>,
         multipart: Option<crate::storage::Multipart>,
@@ -207,12 +219,14 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
+            settings: SettingRepository::new(db.clone()),
             events: AccessEventRepository::new(db.clone()),
             uploads: UploadRepository::new(db.clone()),
             multipart,
             assets: Arc::new(assets),
             proxies: Arc::new(ArcSwap::from_pointee(config.server.proxy_trust())),
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
+            config_path: Arc::new(config_path),
             config: Arc::new(ArcSwap::from(config)),
             db,
             storage,

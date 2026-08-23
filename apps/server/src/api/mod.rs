@@ -42,6 +42,7 @@ pub mod meter;
 pub mod preview;
 pub mod public;
 pub mod sessions;
+pub mod settings;
 pub mod shares;
 pub mod timeout;
 pub mod tokens;
@@ -315,6 +316,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::list_shares))
         .routes(routes!(admin::delete_share))
         .routes(routes!(admin::share_access_log))
+        .routes(routes!(settings::list, settings::update))
         .routes(routes!(admin::remove_user_shares))
 }
 

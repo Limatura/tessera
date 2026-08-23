@@ -2332,3 +2332,227 @@ async fn an_administrator_reads_what_was_recorded() {
         "the time is the point: {body}"
     );
 }
+
+/// The list has to include what cannot be changed, or somebody asks where the
+/// port setting went — and it has to say why, or the greyed-out field is a
+/// mystery.
+#[tokio::test]
+async fn the_settings_list_marks_what_cannot_be_changed() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let body = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/settings", Auth::Cookie(&owner))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+
+    let settings = body["settings"].as_array().expect("a list");
+    let find = |key: &str| {
+        settings
+            .iter()
+            .find(|entry| entry["key"] == key)
+            .unwrap_or_else(|| panic!("{key} should be listed"))
+    };
+
+    assert_eq!(find("share.code_length")["editable"], true);
+    assert_eq!(find("share.code_length")["source"], "default");
+
+    let port = find("server.port");
+    assert_eq!(port["editable"], false);
+    assert_eq!(port["refusal"], "fixed_at_boot");
+
+    assert_eq!(find("mail.password")["refusal"], "secret");
+}
+
+/// The point of the whole feature: change it here, and the next request uses it
+/// — no restart.
+#[tokio::test]
+async fn a_changed_setting_applies_to_the_next_request() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "changes": { "features.anonymous_upload": false } }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert_eq!(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares"),
+            Body::from(b"anonymous".to_vec()),
+        )
+        .await
+        .status(),
+        StatusCode::UNAUTHORIZED,
+        "the change should be in force immediately"
+    );
+}
+
+/// Sending null is the way back to whatever the deployment said. Without it a
+/// setting could be changed but never un-changed.
+#[tokio::test]
+async fn null_clears_a_setting_back_to_the_layer_below() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let set = async |value: serde_json::Value| {
+        body_json(
+            expect_status(
+                app.json(
+                    Method::PUT,
+                    "/api/v1/admin/settings",
+                    Auth::Cookie(&owner),
+                    &serde_json::json!({ "changes": { "share.code_length": value } }),
+                )
+                .await,
+                StatusCode::OK,
+            )
+            .await,
+        )
+        .await
+    };
+
+    let after = set(serde_json::json!(12)).await;
+    let entry = |body: &serde_json::Value| {
+        body["settings"]
+            .as_array()
+            .expect("a list")
+            .iter()
+            .find(|entry| entry["key"] == "share.code_length")
+            .expect("listed")
+            .clone()
+    };
+    assert_eq!(entry(&after)["value"], 12);
+    assert_eq!(entry(&after)["source"], "panel");
+
+    let after = set(serde_json::Value::Null).await;
+    assert_eq!(entry(&after)["source"], "default", "back to the default");
+}
+
+/// A value the configuration refuses is refused here, naming the key. The
+/// start-up fallback that drops a bad row is a safety net, not the validation
+/// path — leaning on it would mean a save that succeeds and reverts on restart.
+#[tokio::test]
+async fn a_value_the_configuration_refuses_is_rejected_with_its_key() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let response = app
+        .json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            // Below `RetrievalCode::MIN_LENGTH`.
+            &serde_json::json!({ "changes": { "share.code_length": 2 } }),
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert!(
+        body_string(response).await.contains("code_length"),
+        "the message should name the setting"
+    );
+}
+
+/// A request naming one bad key must change none of them, or the operator has
+/// to work out which half went through.
+#[tokio::test]
+async fn one_bad_key_leaves_the_whole_request_unapplied() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "changes": {
+                "share.ticket_ttl_hours": 3,
+                "server.port": 9999,
+            }}),
+        )
+        .await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+
+    let body = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/settings", Auth::Cookie(&owner))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let ttl = body["settings"]
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|entry| entry["key"] == "share.ticket_ttl_hours")
+        .expect("listed");
+    assert_eq!(
+        ttl["source"], "default",
+        "the good half must not have been applied either"
+    );
+}
+
+/// `admin` fields questions about the instance, so it reads. Changing how the
+/// instance runs belongs with the role that can already grant itself anything.
+#[tokio::test]
+async fn admin_reads_settings_but_does_not_write_them() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+    let (helper, _) = register(&app, "second").await;
+
+    let helper_id = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account")
+        .id;
+    expect_status(
+        app.json(
+            Method::PUT,
+            &format!("/api/v1/admin/users/{helper_id}/roles"),
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "roles": [tessera_core::RoleId::ADMIN] }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    expect_status(
+        app.empty(Method::GET, "/api/v1/admin/settings", Auth::Cookie(&helper))
+            .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&helper),
+            &serde_json::json!({ "changes": { "share.code_length": 9 } }),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN
+    );
+}

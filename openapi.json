@@ -1022,6 +1022,59 @@
         ],
         "type": "object"
       },
+      "SettingResponse": {
+        "description": "One setting, as the panel draws it.",
+        "properties": {
+          "editable": {
+            "description": "Whether this endpoint will change it.",
+            "type": "boolean"
+          },
+          "key": {
+            "description": "Dotted key, the same spelling the file and the environment use.",
+            "example": "share.code_length",
+            "type": "string"
+          },
+          "refusal": {
+            "description": "Why it will not, when it will not.\n\n`fixed_at_boot` for something the running process cannot pick up,\n`secret` for something that holds a credential. Present so a screen can\nexplain rather than only grey the field out.",
+            "example": "fixed_at_boot",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source": {
+            "$ref": "#/components/schemas/Source",
+            "description": "Which layer supplied it."
+          },
+          "value": {
+            "description": "The value in force.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "source",
+          "editable"
+        ],
+        "type": "object"
+      },
+      "SettingsResponse": {
+        "description": "Everything this instance can be configured with.",
+        "properties": {
+          "settings": {
+            "description": "Every setting, editable or not.",
+            "items": {
+              "$ref": "#/components/schemas/SettingResponse"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "settings"
+        ],
+        "type": "object"
+      },
       "ShareBody": {
         "description": "The request body of `POST /shares`: the content itself, as bytes.\n\nA named type only so the contract can say `format: binary`. Declaring the\nbody as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI\nrenders as a JSON array editor and a generated client types as `number[]` —\nneither of which can carry a file.\n\nAn empty body is refused with a `400`, and that rule is *not* expressible\nhere: `min_length` is a field-level attribute, and the field's own schema is\noverridden by the `value_type` above — which has to stay, or the body stops\nbeing binary. So the constraint lives in the handler and is documented as a\nresponse, and a generator reading this will believe an empty body is valid.",
         "format": "binary",
@@ -1218,6 +1271,16 @@
         ],
         "type": "object"
       },
+      "Source": {
+        "description": "Which layer a setting's value came from.",
+        "enum": [
+          "default",
+          "file",
+          "environment",
+          "panel"
+        ],
+        "type": "string"
+      },
       "StatsResponse": {
         "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nFour numbers an operator can act on, not a time series. \"Am I near the\nquota\", \"how many people are on here\", \"is the sweep keeping up\" — the\nquestions somebody asks before deciding whether to change a setting. Anything\nthat wants graphs wants Prometheus, and that is a different endpoint with a\ndifferent shape.",
         "properties": {
@@ -1408,6 +1471,20 @@
         },
         "required": [
           "current_password"
+        ],
+        "type": "object"
+      },
+      "UpdateSettingsRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PUT /admin/settings`.",
+        "properties": {
+          "changes": {
+            "description": "The changes to apply, by dotted key.\n\n`null` clears a setting, so it falls back to the environment, the file,\nor the default — whichever comes next. That is the only way back to a\nvalue the panel did not choose, and it is why clearing is a value rather\nthan a second endpoint.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "changes"
         ],
         "type": "object"
       },
@@ -2210,6 +2287,138 @@
           }
         ],
         "summary": "Replaces what a role allows.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/settings": {
+      "get": {
+        "description": "# Why the ones that cannot be changed are here too\n\nLeaving them out is what makes somebody ask where the port setting went.\nThey come back marked `editable: false` with a reason, which is a screen\nthat explains itself rather than one with a hole in it.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read\nsettings or used a bearer token, `404` when this instance has no\nadministration.",
+        "operationId": "list_settings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            },
+            "description": "Every setting"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not read settings, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Lists every setting, with its value and where that value came from.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "put": {
+        "description": "# Why the change is tried before it is stored\n\nA value this binary will not accept is refused here, with the key named,\nrather than written and quietly dropped at the next start-up. The start-up\nfallback exists so a bad row cannot make an instance unbootable — it is a\nsafety net, not the validation path, and letting the panel lean on it would\nmean a save that reports success and reverts on restart.\n\n# Why one request can carry several\n\nSettings that only make sense together — turning the access log on and\nsetting its retention — should not have a moment where one is applied and\nthe other is not. They are validated as a set, and stored only if the set\nloads.\n\n# Errors\n\n`400` for an unknown key, one that cannot be changed, or a value the\nconfiguration will not accept. `401`, `403` and `404` as for [`list`].",
+        "operationId": "update_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            },
+            "description": "Every setting, as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A key or value this instance will not accept"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not change settings, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Changes settings, and applies them.",
         "tags": [
           "admin"
         ]

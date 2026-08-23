@@ -77,7 +77,7 @@ pub struct UpdateUserRequest {
 pub struct AdminUserResponse(pub AccountResponse);
 
 /// Refuses everything when the instance has no administration.
-fn require_admin_feature(state: &AppState) -> Result<()> {
+pub(super) fn require_admin_feature(state: &AppState) -> Result<()> {
     if state.config().features.admin {
         Ok(())
     } else {
@@ -99,7 +99,7 @@ async fn holds(state: &AppState, user: UserId, permission: Permission) -> Result
 /// The two go together everywhere here: an administrative action is one a
 /// person takes at a keyboard, and every one of them names what it needs rather
 /// than sharing a single "is an administrator" answer.
-fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
+pub(super) fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }

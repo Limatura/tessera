@@ -50,6 +50,7 @@ mod m20260821_000001_drop_is_admin;
 mod m20260821_000002_share_listing_index;
 mod m20260822_000001_access_events;
 mod m20260823_000001_settings;
+mod m20260823_000002_settings_permissions;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -89,6 +90,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260821_000002_share_listing_index::Migration),
             Box::new(m20260822_000001_access_events::Migration),
             Box::new(m20260823_000001_settings::Migration),
+            Box::new(m20260823_000002_settings_permissions::Migration),
         ]
     }
 }
@@ -175,8 +177,54 @@ fn statements(sql: &str) -> impl Iterator<Item = String> {
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
+    use tessera_core::Permission;
 
     use super::*;
+
+    /// `owner` is the role that can do everything, and a permission added later
+    /// has to reach it — otherwise the only account that can grant permissions
+    /// cannot grant the new one to anybody, including itself.
+    ///
+    /// Across the whole chain rather than one file, because a permission added
+    /// after `owner` was seeded is granted by its own migration. Checking the
+    /// seed alone would pass by editing a migration that has already run
+    /// everywhere, which changes nothing for an instance that is upgrading.
+    #[test]
+    fn owner_is_granted_every_permission_somewhere_in_the_chain() {
+        let chain = [
+            (
+                "sqlite",
+                [
+                    m20260818_000005_owner_role::SQLITE,
+                    m20260823_000002_settings_permissions::SQLITE,
+                ],
+            ),
+            (
+                "postgres",
+                [
+                    m20260818_000005_owner_role::POSTGRES,
+                    m20260823_000002_settings_permissions::POSTGRES,
+                ],
+            ),
+            (
+                "mysql",
+                [
+                    m20260818_000005_owner_role::MYSQL,
+                    m20260823_000002_settings_permissions::MYSQL,
+                ],
+            ),
+        ];
+
+        for (dialect, files) in chain {
+            let granted: String = files.concat();
+            for permission in Permission::ALL {
+                assert!(
+                    granted.contains(&format!("'{}'", permission.as_str())),
+                    "{dialect} never grants {permission} to the owner"
+                );
+            }
+        }
+    }
 
     #[rstest]
     #[case::unix("CREATE TABLE a (x INTEGER);\nCREATE INDEX i ON a(x);\n")]

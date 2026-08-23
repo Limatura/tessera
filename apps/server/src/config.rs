@@ -1203,12 +1203,22 @@ impl Config {
     /// unusable, or if the configuration selects a backend this binary was not
     /// compiled with.
     pub fn load() -> Result<Self, ConfigError> {
+        Self::load_from(&Self::path())
+    }
+
+    /// The file this process reads, resolved once.
+    ///
+    /// Separate from [`Config::load`] because the running server has to be able
+    /// to rebuild the same stack later, when a setting changes. Re-discovering
+    /// it then could land on a different file if the working directory moved.
+    #[must_use]
+    pub fn path() -> PathBuf {
         match std::env::var(ENV_CONFIG_FILE) {
             // An explicit path is a statement of intent, so it is used whether or
             // not it exists — a typo there should surface as "no settings came
             // from the file" rather than being papered over by the candidates.
-            Ok(path) => Self::load_from(Path::new(&path)),
-            Err(_) => Self::load_from(&Self::discover_file()),
+            Ok(path) => PathBuf::from(path),
+            Err(_) => Self::discover_file(),
         }
     }
 
@@ -1238,7 +1248,7 @@ impl Config {
     /// The two layers a deployment brings, split out because
     /// [`Config::load_with_overrides`] rebuilds this stack once per rejected
     /// setting and must build the same one each time.
-    fn figment_for(path: &Path) -> Figment {
+    pub(crate) fn figment_for(path: &Path) -> Figment {
         let figment = Figment::from(Serialized::defaults(Self::default()));
 
         // Chosen by extension rather than by sniffing the contents: a file named
@@ -1335,16 +1345,19 @@ impl Config {
         }
     }
 
+    /// The environment layer, on its own, so callers can build the same stack.
+    pub(crate) fn env_provider() -> Env {
+        Env::prefixed(ENV_PREFIX)
+            .split(ENV_NESTED_SEPARATOR)
+            .ignore(NON_CONFIG_ENV_KEYS)
+    }
+
     /// One pass: defaults, file, environment, then the overrides.
     fn extract_with(
         path: &Path,
         overrides: &BTreeMap<String, serde_json::Value>,
     ) -> Result<Self, ConfigError> {
-        let figment = Self::figment_for(path).merge(
-            Env::prefixed(ENV_PREFIX)
-                .split(ENV_NESTED_SEPARATOR)
-                .ignore(NON_CONFIG_ENV_KEYS),
-        );
+        let figment = Self::figment_for(path).merge(Self::env_provider());
         // Dotted keys, one at a time, so a stored `share.code_length` lands
         // where a nested provider would have put it without needing the rest of
         // `share` to be present.
