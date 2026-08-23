@@ -1,7 +1,8 @@
 //! Reading and writing browser sessions.
 
 use sea_orm::{
-    ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _, Set,
+    ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _, QueryFilter as _,
+    QueryOrder as _, Set,
 };
 use tessera_core::{SessionId, UserId};
 use time::OffsetDateTime;
@@ -449,6 +450,35 @@ impl SessionRepository {
             .exec(&self.connection)
             .await?;
         Ok(())
+    }
+
+    /// Removes sessions that ended longer ago than the history is kept for.
+    ///
+    /// The same query the expiry sweep used to be, with a different bound: rows
+    /// are the login history now, so they outlive the credential by however long
+    /// an operator wants to be able to look back.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the delete fails.
+    /// How many rows a cutoff would remove.
+    ///
+    /// The same filter [`SessionRepository::delete_ended_before`] applies. This
+    /// table is also the login history somebody reads to answer "has anybody
+    /// else been in here", so shortening it destroys the answer to that — worth
+    /// a number before it happens.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the query fails.
+    pub async fn count_ended_before(
+        &self,
+        cutoff: OffsetDateTime,
+    ) -> Result<u64, SessionRepositoryError> {
+        Ok(SessionEntity::find()
+            .filter(session::Column::ExpiresAt.lt(cutoff))
+            .count(&self.connection)
+            .await?)
     }
 
     /// Removes sessions that ended longer ago than the history is kept for.

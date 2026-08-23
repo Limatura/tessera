@@ -333,6 +333,44 @@
         ],
         "type": "object"
       },
+      "Consequence": {
+        "description": "What a setting change would destroy the next time the sweep runs.\n\n# Why this exists\n\nThree settings are retention periods, and shortening one means the next\nsweep removes things that were going to be kept. Nothing warns about it and\nnothing brings them back.\n\nAn empty \"are you sure?\" does not help — everybody clicks it. A number does:\n\"this removes 23 shares, 4.2 GB\" is a sentence somebody stops at.",
+        "properties": {
+          "bytes": {
+            "description": "How many bytes of stored content go with them, when that applies.",
+            "example": 4500000000,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "count": {
+            "description": "How many.",
+            "example": 23,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "key": {
+            "description": "Which setting causes it.",
+            "example": "share.retain_after_death_hours",
+            "type": "string"
+          },
+          "subject": {
+            "description": "What would go, as a plural noun a screen can print.",
+            "example": "shares",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "subject",
+          "count"
+        ],
+        "type": "object"
+      },
       "CreateInviteRequest": {
         "additionalProperties": false,
         "description": "Body of `POST /admin/invites`.",
@@ -697,6 +735,22 @@
         "required": [
           "name",
           "privileged"
+        ],
+        "type": "object"
+      },
+      "PreviewResponse": {
+        "description": "What `POST /admin/settings/preview` answers.",
+        "properties": {
+          "consequences": {
+            "description": "What the change would destroy. Empty when it destroys nothing.",
+            "items": {
+              "$ref": "#/components/schemas/Consequence"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "consequences"
         ],
         "type": "object"
       },
@@ -1481,6 +1535,10 @@
           "changes": {
             "description": "The changes to apply, by dotted key.\n\n`null` clears a setting, so it falls back to the environment, the file,\nor the default — whichever comes next. That is the only way back to a\nvalue the panel did not choose, and it is why clearing is a value rather\nthan a second endpoint.",
             "type": "object"
+          },
+          "confirm": {
+            "description": "Go ahead even though the change destroys something.\n\nWithout it, a change that would remove things is refused and the answer\nsays what and how many. That is deliberately two round trips: an empty\n\"are you sure?\" is a button everybody clicks, and a number is what makes\nsomebody stop.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -2411,6 +2469,16 @@
               }
             },
             "description": "This instance has no administration"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The change destroys something; the message says what, and `confirm` goes ahead"
           }
         },
         "security": [
@@ -2419,6 +2487,83 @@
           }
         ],
         "summary": "Changes settings, and applies them.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/preview": {
+      "post": {
+        "description": "# Errors\n\n`400` for a key or value this instance will not accept — the same answers\n[`update`] gives, so a client cannot get a clean preview for a change that\nwould then be refused.",
+        "operationId": "preview_settings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            },
+            "description": "What the change would destroy"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A key or value this instance will not accept"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not change settings, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Says what a change would destroy, without making it.",
         "tags": [
           "admin"
         ]

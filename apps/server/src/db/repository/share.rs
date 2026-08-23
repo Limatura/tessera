@@ -1323,11 +1323,56 @@ impl ShareRepository {
     ///
     /// Returns [`ShareRepositoryError`] if the query fails or a row is not
     /// usable.
-    pub async fn find_dead(
+    /// How many dead shares a cutoff would take, and how much they hold.
+    ///
+    /// The same condition [`ShareRepository::find_dead`] sweeps on, counted
+    /// instead of listed and with no page limit — this answers "what would
+    /// shortening the retention destroy", and a number capped at one page
+    /// would understate it exactly when the answer matters.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn count_dead_before(
         &self,
         cutoff: OffsetDateTime,
-        limit: u64,
-    ) -> Result<Vec<Share>, ShareRepositoryError> {
+    ) -> Result<(u64, u64), ShareRepositoryError> {
+        let count = ShareEntity::find()
+            .filter(Self::dead_before(cutoff))
+            .count(&self.connection)
+            .await?;
+        // Files only. Text lives in its own table and is measured by row
+        // length, which is a second query for a number that rounds to nothing
+        // beside the files — and this figure exists to answer "how much disk
+        // would this free", where a paste does not move the answer.
+        let bytes: Option<i64> = FileShareEntity::find()
+            .filter(file_share::Column::Storage.ne(StorageLocation::GONE))
+            .filter(
+                file_share::Column::ShareId.in_subquery(
+                    sea_orm::QuerySelect::query(
+                        &mut ShareEntity::find()
+                            .filter(Self::dead_before(cutoff))
+                            .select_only()
+                            .column(share::Column::Id),
+                    )
+                    .take(),
+                ),
+            )
+            .select_only()
+            .column_as(file_share::Column::SizeBytes.sum(), "total")
+            .into_tuple()
+            .one(&self.connection)
+            .await?
+            .flatten();
+        Ok((count, u64::try_from(bytes.unwrap_or(0)).unwrap_or(0)))
+    }
+
+    /// A share is dead when it has run out of time, or out of uses and has not
+    /// been touched since. Written once because the sweep and the count that
+    /// warns about the sweep must agree — two spellings of this would mean the
+    /// warning describes a different set from the one that gets removed.
+    fn dead_before(cutoff: OffsetDateTime) -> sea_orm::Condition {
+        use sea_orm::Condition;
         let expired = share::Column::ExpiresAt
             .is_not_null()
             .and(share::Column::ExpiresAt.lt(cutoff));
@@ -1336,9 +1381,33 @@ impl ShareRepository {
             .and(Expr::col(share::Column::UseCount).gte(Expr::col(share::Column::UseLimit)))
             .and(share::Column::LastAccessedAt.is_not_null())
             .and(share::Column::LastAccessedAt.lt(cutoff));
+        Condition::any().add(expired).add(exhausted)
+    }
 
+    /// Shares whose rows can go, because they have been dead long enough that
+    /// nobody is still following the link that made them.
+    ///
+    /// `cutoff` is the retention boundary rather than "now": a dead share is
+    /// kept for a while so its link can still explain itself, and only then
+    /// removed. Its *content* is not kept that long — see
+    /// [`find_reapable`](Self::find_reapable), which runs first and takes the
+    /// bytes at death.
+    ///
+    /// Returned rather than deleted here because the payload lives in the blob
+    /// store, which no database action reaches. The caller removes the object
+    /// first and the row second.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
+    /// usable.
+    pub async fn find_dead(
+        &self,
+        cutoff: OffsetDateTime,
+        limit: u64,
+    ) -> Result<Vec<Share>, ShareRepositoryError> {
         let models = ShareEntity::find()
-            .filter(expired.or(exhausted))
+            .filter(Self::dead_before(cutoff))
             .order_by_asc(share::Column::Id)
             .limit(limit)
             .all(&self.connection)

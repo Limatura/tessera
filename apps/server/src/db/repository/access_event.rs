@@ -12,8 +12,8 @@
 //! instance; neither is made here.
 
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _,
-    QueryOrder as _, QuerySelect as _,
+    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
+    QueryFilter as _, QueryOrder as _, QuerySelect as _,
 };
 use tessera_core::{AccessEventId, ShareId};
 use time::OffsetDateTime;
@@ -99,6 +99,22 @@ impl AccessEventRepository {
                 user_agent: row.user_agent,
             })
             .collect())
+    }
+
+    /// How many events a cutoff would remove.
+    ///
+    /// The same filter [`AccessEventRepository::delete_before`] uses, counted
+    /// rather than applied — so the warning describes exactly the rows the
+    /// sweep would take.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`sea_orm::DbErr`] if the query fails.
+    pub async fn count_before(&self, cutoff: OffsetDateTime) -> Result<u64, sea_orm::DbErr> {
+        AccessEventEntity::find()
+            .filter(access_event::Column::OccurredAt.lt(cutoff))
+            .count(&self.connection)
+            .await
     }
 
     /// Removes events older than `cutoff`.

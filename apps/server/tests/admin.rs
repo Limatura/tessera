@@ -8,6 +8,7 @@ use axum::{
 };
 use common::{Auth, TestApp, body_json, body_string, expect_status};
 use tessera_server::config::RegistrationPolicy;
+use time::OffsetDateTime;
 
 const PASSWORD: &str = "a perfectly adequate passphrase";
 
@@ -383,7 +384,7 @@ async fn create_invite(
     reason = "test fixture; a panic is how it reports"
 )]
 async fn register_invited(app: &TestApp, username: &str) -> (String, String) {
-    let now = time::OffsetDateTime::now_utc();
+    let now = OffsetDateTime::now_utc();
     let (_, code) = app
         .state
         .invites
@@ -604,7 +605,7 @@ async fn an_expired_code_is_listed_as_inactive() {
     let app = TestApp::ready().await;
     let (admin, _) = register(&app, "first").await;
 
-    let now = time::OffsetDateTime::now_utc();
+    let now = OffsetDateTime::now_utc();
     app.state
         .invites
         .issue(
@@ -685,7 +686,7 @@ async fn the_stats_count_what_is_there() {
     register(&app, "second").await;
     register(&app, "third").await;
 
-    let now = time::OffsetDateTime::now_utc();
+    let now = OffsetDateTime::now_utc();
     app.state
         .invites
         .issue(None, 5, now, None)
@@ -756,7 +757,7 @@ async fn a_share_that_nobody_can_open_still_counts_as_stored() {
     assert_eq!(before["shares"], 1);
     assert_eq!(before["live_shares"], 1);
 
-    let past = time::OffsetDateTime::now_utc() - time::Duration::hours(2);
+    let past = OffsetDateTime::now_utc() - time::Duration::hours(2);
     let statement = sea_orm::Statement::from_string(
         sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
         format!(
@@ -812,13 +813,13 @@ async fn a_role_can_grant_looking_without_granting_changing() {
             "auditor".to_owned(),
             Some("Can look, cannot touch.".to_owned()),
             &[tessera_core::Permission::UsersRead].into_iter().collect(),
-            time::OffsetDateTime::now_utc(),
+            OffsetDateTime::now_utc(),
         )
         .await
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[role.id], time::OffsetDateTime::now_utc())
+        .set_roles_of(user.id, &[role.id], OffsetDateTime::now_utc())
         .await
         .expect("put them in it");
 
@@ -859,7 +860,7 @@ async fn an_account_with_no_roles_may_do_nothing() {
         .expect("the account");
     app.state
         .roles
-        .set_roles_of(user.id, &[], time::OffsetDateTime::now_utc())
+        .set_roles_of(user.id, &[], OffsetDateTime::now_utc())
         .await
         .expect("take every role away");
 
@@ -940,7 +941,7 @@ async fn the_administrator_count_follows_roles_not_the_column() {
     let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::OWNER).expect("an id");
     app.state
         .roles
-        .set_roles_of(second.id, &[admin_role], time::OffsetDateTime::now_utc())
+        .set_roles_of(second.id, &[admin_role], OffsetDateTime::now_utc())
         .await
         .expect("grant it");
 
@@ -976,13 +977,13 @@ async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
             "deputy".to_owned(),
             None,
             &[tessera_core::Permission::RolesWrite].into_iter().collect(),
-            time::OffsetDateTime::now_utc(),
+            OffsetDateTime::now_utc(),
         )
         .await
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[limited.id], time::OffsetDateTime::now_utc())
+        .set_roles_of(user.id, &[limited.id], OffsetDateTime::now_utc())
         .await
         .expect("grant it");
 
@@ -1283,7 +1284,7 @@ async fn new_accounts_go_into_the_configured_role() {
             &[tessera_core::Permission::SharesCreate]
                 .into_iter()
                 .collect(),
-            time::OffsetDateTime::now_utc(),
+            OffsetDateTime::now_utc(),
         )
         .await
         .expect("create the role");
@@ -1505,13 +1506,13 @@ async fn reading_every_share_does_not_imply_removing_one() {
             &[tessera_core::Permission::SharesReadAny]
                 .into_iter()
                 .collect(),
-            time::OffsetDateTime::now_utc(),
+            OffsetDateTime::now_utc(),
         )
         .await
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[role.id], time::OffsetDateTime::now_utc())
+        .set_roles_of(user.id, &[role.id], OffsetDateTime::now_utc())
         .await
         .expect("grant it");
 
@@ -1817,11 +1818,7 @@ async fn an_admin_helps_run_the_instance_without_being_able_to_take_it() {
     let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::ADMIN).expect("an id");
     app.state
         .roles
-        .set_roles_of(
-            helper_account.id,
-            &[admin_role],
-            time::OffsetDateTime::now_utc(),
-        )
+        .set_roles_of(helper_account.id, &[admin_role], OffsetDateTime::now_utc())
         .await
         .expect("make them an admin");
 
@@ -2012,7 +2009,7 @@ async fn an_operator_can_end_everything_one_account_uploaded() {
     }
 
     // The bytes come back when the reaper reaches them, not in the request.
-    tessera_server::maintenance::sweep_once(&app.state, time::OffsetDateTime::now_utc()).await;
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
     let stored = app.state.shares.total_stored_bytes().await.expect("query");
     assert_eq!(stored, 0, "the reaper reclaims what the update marked");
 }
@@ -2579,4 +2576,143 @@ async fn the_settings_endpoint_never_returns_a_credential() {
         .expect("it should still be listed, so nobody asks where it went");
     assert_eq!(url["refusal"], "secret");
     assert!(url["value"].is_null(), "the value must not come back");
+}
+
+/// Shortening a retention means the next sweep removes things that were going
+/// to be kept, and nothing brings them back. An empty "are you sure?" is a
+/// button everybody clicks; a number is what makes somebody stop.
+#[tokio::test]
+async fn shortening_a_retention_is_refused_until_it_is_confirmed() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    // A share that died a long time ago, so any shorter retention reaches it.
+    let share = upload(&app).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+    let long_ago = OffsetDateTime::now_utc() - time::Duration::days(60);
+    app.state
+        .shares
+        .update_settings(
+            id,
+            tessera_server::db::repository::share::Change::Set(Some(long_ago)),
+            tessera_server::db::repository::share::Change::Keep,
+            tessera_server::db::repository::share::Change::Keep,
+            OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("expire it");
+
+    let change = serde_json::json!({ "changes": { "share.retain_after_death_hours": 1 } });
+
+    let refused = app
+        .json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            &change,
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::CONFLICT);
+    let message = body_string(refused).await;
+    assert!(
+        message.contains("shares"),
+        "the refusal should say what goes: {message}"
+    );
+
+    // The same change, confirmed, goes through.
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            &serde_json::json!({
+                "changes": { "share.retain_after_death_hours": 1 },
+                "confirm": true,
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// The numbers have to be available on their own, so a screen can show a table
+/// rather than parse them out of an error message.
+#[tokio::test]
+async fn preview_reports_what_a_change_would_destroy() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let share = upload(&app).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+    let long_ago = OffsetDateTime::now_utc() - time::Duration::days(60);
+    app.state
+        .shares
+        .update_settings(
+            id,
+            tessera_server::db::repository::share::Change::Set(Some(long_ago)),
+            tessera_server::db::repository::share::Change::Keep,
+            tessera_server::db::repository::share::Change::Keep,
+            OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("expire it");
+
+    let body = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/admin/settings/preview",
+                Auth::Cookie(&owner),
+                &serde_json::json!({ "changes": { "share.retain_after_death_hours": 1 } }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+
+    let consequences = body["consequences"].as_array().expect("a list");
+    assert_eq!(consequences.len(), 1, "{body}");
+    assert_eq!(consequences[0]["key"], "share.retain_after_death_hours");
+    assert_eq!(consequences[0]["count"], 1);
+
+    // And the preview changed nothing.
+    let settings = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/settings", Auth::Cookie(&owner))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let retention = settings["settings"]
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|entry| entry["key"] == "share.retain_after_death_hours")
+        .expect("listed");
+    assert_eq!(retention["source"], "default", "a preview must not apply");
+}
+
+/// Lengthening a retention keeps more, which destroys nothing. Warning about
+/// both directions would train somebody to click through the warning.
+#[tokio::test]
+async fn lengthening_a_retention_needs_no_confirmation() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "changes": { "share.retain_after_death_hours": 24 * 30 } }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
 }

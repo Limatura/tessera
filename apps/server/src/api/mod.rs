@@ -317,6 +317,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::delete_share))
         .routes(routes!(admin::share_access_log))
         .routes(routes!(settings::list, settings::update))
+        .routes(routes!(settings::preview))
         .routes(routes!(admin::remove_user_shares))
 }
 
