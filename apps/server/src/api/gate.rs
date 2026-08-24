@@ -243,11 +243,21 @@ pub async fn spend(state: &AppState, share: &Share) -> Result<Secret> {
         ));
     }
 
-    let ttl = time::Duration::try_from(state.config().share.ticket_ttl())
-        .unwrap_or_else(|_| time::Duration::days(1));
+    // Issued with the idle window, not the ceiling: the ticket is renewed by
+    // being used, so starting it at its maximum would mean the renewal never
+    // has anything to do and the whole life is the fixed one this replaced.
+    //
+    // Still capped by the ceiling, because an instance may be configured with
+    // an idle window longer than the total life — and the ticket must not be
+    // born already past the limit its renewals are checked against.
+    let config = state.config();
+    let first = Ord::min(
+        duration_of(config.share.ticket_idle()),
+        duration_of(config.share.ticket_ttl()),
+    );
     let (_, secret) = state
         .tickets
-        .issue(share.id, now, now.saturating_add(ttl))
+        .issue(share.id, now, now.saturating_add(first))
         .await?;
     Ok(secret)
 }
@@ -272,11 +282,42 @@ pub async fn holds_ticket(
     let Some(ticket) = state.tickets.find_by_secret(&secret).await? else {
         return Ok(Ticket::Absent);
     };
-    if ticket.share_id == share.id && ticket.is_valid_at(OffsetDateTime::now_utc()) {
-        Ok(Ticket::Held)
-    } else {
-        Ok(Ticket::Absent)
+    let now = OffsetDateTime::now_utc();
+    if ticket.share_id != share.id || !ticket.is_valid_at(now) {
+        return Ok(Ticket::Absent);
     }
+
+    // Presenting it keeps it alive. A transfer that is still going — a resumed
+    // download, a run of `Range` requests, a client retrying with backoff —
+    // holds its authorisation for as long as it needs, and one that finished is
+    // gone within `share.ticket_idle_hours`.
+    //
+    // That is what makes a ticket not worth passing on: the value of handing
+    // somebody the string decays while it sits in their message, rather than
+    // lasting the whole day a fixed lifetime would have to allow for.
+    //
+    // A failure here is logged and not returned. The caller has a valid ticket
+    // and is owed the content; refusing to serve it because the bookkeeping
+    // write failed would turn a slipped expiry into an outage.
+    let config = state.config();
+    if let Err(error) = state
+        .tickets
+        .touch(
+            &ticket,
+            now,
+            duration_of(config.share.ticket_idle()),
+            duration_of(config.share.ticket_ttl()),
+        )
+        .await
+    {
+        tracing::warn!(?error, "could not extend a download authorisation");
+    }
+    Ok(Ticket::Held)
+}
+
+/// A `std::time::Duration` as `time`'s, saturating rather than panicking.
+fn duration_of(value: std::time::Duration) -> time::Duration {
+    time::Duration::try_from(value).unwrap_or(time::Duration::MAX)
 }
 
 /// Reads a ticket from the header or, failing that, the `t` query parameter.

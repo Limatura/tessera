@@ -416,9 +416,37 @@ pub struct ShareConfig {
     /// download would burn a one-time share and the sender would have to upload
     /// it again.
     ///
+    /// The ceiling, not the usual life: [`ticket_idle_hours`] is what a ticket
+    /// normally dies of. A ticket cannot outlive this however busy it is, so
+    /// one that is being kept alive on purpose still ends.
+    ///
     /// Long on purpose: ten gigabytes over a slow link takes most of a day, and
     /// whoever holds the ticket already has the right to the content.
+    ///
+    /// [`ticket_idle_hours`]: Self::ticket_idle_hours
     pub ticket_ttl_hours: u64,
+
+    /// How long a download authorisation survives without being used, in hours.
+    ///
+    /// # Why idleness and not a fixed life
+    ///
+    /// A ticket is transferable — it is a string, and handing it to somebody
+    /// else is easier than handing them ten gigabytes. A fixed life has to be
+    /// long enough for the slowest link to finish the largest file, and that is
+    /// exactly long enough for the ticket to be worth passing on.
+    ///
+    /// Every presentation pushes the expiry out again, so a transfer that is
+    /// still going keeps its authorisation for as long as it needs, and one
+    /// that finished is dead within the hour. What decides is "is this download
+    /// still alive", not "how long ago did it start" — the same question
+    /// `server.upload_stall_secs` asks on the way in.
+    ///
+    /// The three-option guess this replaces — one hour flat, or scaled by file
+    /// size — could not work: the server knows how big the file is and has no
+    /// idea what the line can carry. Ten gigabytes is eighty seconds on a
+    /// gigabit link and seventy minutes on twenty megabits, and any formula has
+    /// to pick one of those to be wrong about.
+    pub ticket_idle_hours: u64,
 
     /// Lifetime a share gets when the request does not ask for one, in hours.
     ///
@@ -1030,6 +1058,11 @@ impl Default for ShareConfig {
             inline_threshold_bytes: 64 * 1024,
             max_text_bytes: 1024 * 1024,
             ticket_ttl_hours: 24,
+            // An hour of silence means the transfer is over. Long enough that a
+            // paused download or a client retrying with backoff survives;
+            // short enough that a ticket somebody passed on has usually already
+            // died.
+            ticket_idle_hours: 1,
             // A week. This is what almost every share gets, because almost no
             // caller asks for a lifetime — so it, and not the ceiling below,
             // is what decides how much disk an instance holds.
@@ -1433,6 +1466,12 @@ impl ShareConfig {
     #[must_use]
     pub const fn ticket_ttl(&self) -> Duration {
         Duration::from_secs(self.ticket_ttl_hours.saturating_mul(3600))
+    }
+
+    /// How long a ticket survives unused.
+    #[must_use]
+    pub const fn ticket_idle(&self) -> Duration {
+        Duration::from_secs(self.ticket_idle_hours.saturating_mul(3600))
     }
 
     /// How long a finished share is kept before removal.

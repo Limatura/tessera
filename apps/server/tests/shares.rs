@@ -2861,3 +2861,105 @@ async fn replacing_the_configuration_rebuilds_what_was_derived_from_it() {
         "the trusted-proxy list should have followed the swap"
     );
 }
+
+/// A ticket is a string, and handing it to somebody is easier than handing them
+/// ten gigabytes. A fixed lifetime has to be long enough for the slowest link
+/// to finish the largest file — which is exactly long enough for the ticket to
+/// be worth passing on. Using it renews it instead.
+#[tokio::test]
+async fn using_a_ticket_renews_it() {
+    let app = TestApp::with_config(|config| {
+        config.share.ticket_idle_hours = 2;
+        config.share.ticket_ttl_hours = 24;
+    })
+    .await;
+
+    let share = upload(&app, "?max_uses=1", b"content").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    // Unlock spends the single use and hands back the ticket.
+    let secret = unlock(&app, &code).await;
+    expect_status(
+        app.get(&format!("/s/{code}/download?t={secret}")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let ticket = app
+        .state
+        .tickets
+        .for_share(id)
+        .await
+        .expect("query")
+        .into_iter()
+        .next()
+        .expect("a ticket should have been issued");
+    let first = ticket.expires_at;
+
+    // It starts on the idle window, not the ceiling — otherwise renewing it
+    // would never have anything to do.
+    assert!(
+        first < OffsetDateTime::now_utc() + time::Duration::hours(3),
+        "a fresh ticket should carry the idle window, not the whole ttl: {first}"
+    );
+
+    // Presenting it again pushes the expiry out.
+    expect_status(
+        app.get(&format!("/s/{code}/download?t={secret}")).await,
+        StatusCode::OK,
+    )
+    .await;
+    let renewed = app
+        .state
+        .tickets
+        .for_share(id)
+        .await
+        .expect("query")
+        .into_iter()
+        .next()
+        .expect("still there")
+        .expires_at;
+    assert!(
+        renewed > first,
+        "using it should have renewed it: {first} -> {renewed}"
+    );
+}
+
+/// Renewal cannot go on for ever, or a ticket kept warm on purpose never dies.
+#[tokio::test]
+async fn renewal_stops_at_the_ceiling() {
+    let app = TestApp::with_config(|config| {
+        config.share.ticket_idle_hours = 24;
+        // A ceiling below the idle window, so the very first renewal is capped.
+        config.share.ticket_ttl_hours = 1;
+    })
+    .await;
+
+    let share = upload(&app, "?max_uses=1", b"content").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let secret = unlock(&app, &code).await;
+    for _ in 0..2 {
+        expect_status(
+            app.get(&format!("/s/{code}/download?t={secret}")).await,
+            StatusCode::OK,
+        )
+        .await;
+    }
+
+    let ticket = app
+        .state
+        .tickets
+        .for_share(id)
+        .await
+        .expect("query")
+        .into_iter()
+        .next()
+        .expect("a ticket");
+    assert!(
+        ticket.expires_at <= ticket.created_at + time::Duration::hours(1),
+        "the ceiling is created_at + ticket_ttl_hours, whatever the idle window says"
+    );
+}

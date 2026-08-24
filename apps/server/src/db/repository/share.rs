@@ -1512,6 +1512,50 @@ impl ShareTicketRepository {
     ///
     /// Returns [`ShareRepositoryError`] if the query fails or the row is not
     /// usable.
+    /// Pushes a ticket's expiry out, without letting it outlive its ceiling.
+    ///
+    /// # Why the arithmetic is here and not in SQL
+    ///
+    /// `created_at + ttl` is a date addition, and the three dialects store the
+    /// column differently — TEXT on SQLite, `TIMESTAMPTZ` on Postgres,
+    /// `DATETIME(6)` on MySQL. One expression that means the same thing on all
+    /// three is not worth writing for a value the caller already has in hand.
+    ///
+    /// Two range requests extending at once is not a race worth closing: both
+    /// compute nearly the same instant, and the `WHERE` keeps whichever is
+    /// later. That is unlike the use count, where two writers must not both
+    /// succeed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn touch(
+        &self,
+        ticket: &ShareTicket,
+        now: OffsetDateTime,
+        idle: time::Duration,
+        ttl: time::Duration,
+    ) -> Result<(), ShareRepositoryError> {
+        let ceiling = ticket.created_at.saturating_add(ttl);
+        let wanted = Ord::min(now.saturating_add(idle), ceiling);
+        ShareTicketEntity::update_many()
+            .col_expr(share_ticket::Column::ExpiresAt, wanted.into())
+            // Never backwards. Without this, a request that arrives late with a
+            // stale clock could shorten a ticket somebody is still using.
+            .filter(share_ticket::Column::ExpiresAt.lt(wanted))
+            .filter(share_ticket::Column::Id.eq(ticket.id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Finds the authorisation a secret refers to, whether or not it is still
+    /// valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or the row is not
+    /// usable.
     pub async fn find_by_secret(
         &self,
         secret: &Secret,
@@ -1521,6 +1565,31 @@ impl ShareTicketRepository {
             .one(&self.connection)
             .await?;
         Ok(model.as_ref().map(ShareTicket::from_model).transpose()?)
+    }
+
+    /// Every authorisation outstanding for one share.
+    ///
+    /// Only the tests ask this — the serving path looks a ticket up by its
+    /// secret, never by share. It is here rather than in a test helper because
+    /// a test that reached into the table directly would stop noticing when the
+    /// table changed shape.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
+    /// usable.
+    pub async fn for_share(
+        &self,
+        share_id: ShareId,
+    ) -> Result<Vec<ShareTicket>, ShareRepositoryError> {
+        ShareTicketEntity::find()
+            .filter(share_ticket::Column::ShareId.eq(share_id.to_string()))
+            .order_by_desc(share_ticket::Column::CreatedAt)
+            .all(&self.connection)
+            .await?
+            .iter()
+            .map(|model| ShareTicket::from_model(model).map_err(Into::into))
+            .collect()
     }
 
     /// Removes authorisations that have run out.
