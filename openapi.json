@@ -690,7 +690,7 @@
       },
       "PatchShareRequest": {
         "additionalProperties": false,
-        "description": "Body of `PATCH /shares/{code}`.\n\nEvery field is optional and omitting one leaves that setting alone. Sending\n`null` clears it — see [`Patch`].\n\nThe password is deliberately not here. It travels in `X-Share-Password`, the\nsame header the rest of this API uses, because a body is not the problem —\nthe problem is every other place a value can end up, and a header is the one\nchannel that stays out of the query string, the access log and the\n`Referer`. What is here is only the instruction to remove it, which is not a\nsecret.",
+        "description": "Body of `PATCH /shares/{code}`.\n\nEvery field is optional and omitting one leaves that setting alone. Sending\n`null` clears it — absent and null are different instructions here.\n\nThe password is deliberately not here. It travels in `X-Share-Password`, the\nsame header the rest of this API uses, because a body is not the problem —\nthe problem is every other place a value can end up, and a header is the one\nchannel that stays out of the query string, the access log and the\n`Referer`. What is here is only the instruction to remove it, which is not a\nsecret.",
         "properties": {
           "expires_in_hours": {
             "description": "How long from now the share should last. `null` means it stops expiring.",

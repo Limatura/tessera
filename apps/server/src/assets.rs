@@ -6,7 +6,7 @@
 //!
 //! `server.assets_dir` reads from a directory instead. That is a development
 //! convenience, and it is also the only mode with a filesystem to get wrong —
-//! see [`load`] for what confines it.
+//! see `load` for what confines it.
 
 use std::path::PathBuf;
 
@@ -129,7 +129,7 @@ const NO_CACHE: &str = "no-cache";
 /// Against the compiled-in bundle this is not the security boundary — there is
 /// no filesystem behind it — but a request that *tries* is a probe, and
 /// answering it with `index.html` would quietly reward the attempt. Against a
-/// directory it is the first of two checks; the second is in [`load`], because
+/// directory it is the first of two checks; the second is in `load`, because
 /// a symbolic link is a path with no `..` in it.
 ///
 /// The result never starts with `/`, never contains a `.` or `..` segment, and is

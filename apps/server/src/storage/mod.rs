@@ -214,8 +214,8 @@ fn build_local(path: &str) -> Result<Arc<dyn ObjectStore>, StorageError> {
 
 /// Merges configured options with the standard cloud credential variables.
 ///
-/// Configuration wins: an operator who wrote the key into `tessera.toml` meant
-/// it, even if the ambient environment disagrees.
+/// The configured option wins: somebody who set `storage.options` meant it,
+/// even if an ambient `AWS_ACCESS_KEY_ID` in the environment disagrees.
 fn backend_options(config: &StorageConfig) -> BTreeMap<String, String> {
     let mut options: BTreeMap<String, String> = std::env::vars()
         .map(|(key, value)| (key.to_lowercase(), value))

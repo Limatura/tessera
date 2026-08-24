@@ -1,15 +1,20 @@
 //! Configuration loading and validation.
 //!
-//! Precedence, lowest to highest: built-in defaults → optional config file →
-//! environment variables (`TESSERA_` prefix, `__` separates nesting levels).
+//! Precedence, lowest to highest: built-in defaults → environment variables
+//! (`TESSERA_` prefix, `__` separates nesting levels) → the `settings` table
+//! the admin panel writes.
 //!
-//! The file may be YAML or TOML. YAML is looked for first because operators of a
-//! self-hosted service spend their day in docker-compose, and asking them to
-//! switch formats to configure one more thing is friction for nothing.
+//! There is no configuration file. The panel owns every setting a running
+//! process can pick up, which leaves the environment holding only the ones it
+//! cannot — the listening address, the database, the log subscriber, the
+//! middleware baked into the router, and anything carrying a credential. See
+//! [`crate::settings`] for where that line is drawn and why.
 //!
 //! Every value is validated in [`Config::load`]. A bad log filter or an
 //! unsupported database URL therefore fails during start-up, not on the first
-//! request that happens to touch it.
+//! request that happens to touch it. A bad value from the *table* is dropped
+//! instead — see [`Config::load_with_overrides`], because the panel must not be
+//! able to make an instance unbootable.
 
 use std::{collections::BTreeMap, net::IpAddr, time::Duration};
 
@@ -1096,9 +1101,8 @@ impl Default for TelemetryConfig {
 
 /// Reads a list written either as a list or as one comma-separated string.
 ///
-/// YAML and TOML both have list syntax, so a config file has no need of this.
-/// An environment variable does: `TESSERA_SERVER__TRUSTED_PROXIES` has to carry
-/// its structure inside a string, and the JSON figment expects
+/// An environment variable has to carry its structure inside a string, and the
+/// JSON figment expects for `TESSERA_SERVER__TRUSTED_PROXIES`
 /// (`["127.0.0.1","::1"]`) is not what anybody writes first. Refusing the
 /// obvious spelling would be a small thing anywhere else — here it is the
 /// setting that decides whether the throttles work, and the way out of a
@@ -1200,8 +1204,11 @@ impl DatabaseConfig {
 }
 
 impl Config {
-    /// Loads and validates configuration from defaults, an optional config file
-    /// and the environment.
+    /// Loads and validates configuration from the defaults and the environment.
+    ///
+    /// Without the stored overrides: this is what the process starts from
+    /// before it has a database to read them out of. See
+    /// [`Config::load_with_overrides`] for the whole stack.
     ///
     /// # Errors
     ///

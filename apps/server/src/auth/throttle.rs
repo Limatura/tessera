@@ -31,7 +31,7 @@ pub const WINDOW: Duration = Duration::from_mins(15);
 ///
 /// A bound, not a target: without one, an attacker cycling usernames turns the
 /// login endpoint into unbounded memory growth. That is why it has its own
-/// ceiling in [`ThrottleConfig::validate`] — raising it is spending memory an
+/// ceiling in `ThrottleConfig`'s validation — raising it is spending memory an
 /// unauthenticated stranger gets to fill.
 pub const MAX_TRACKED_KEYS: usize = 10_000;
 

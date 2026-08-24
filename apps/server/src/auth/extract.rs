@@ -4,12 +4,18 @@
 //! compiler enforces it:
 //!
 //! - [`CurrentUser`] — signed in, any account.
-//! - [`AdminUser`] — signed in and an administrator.
 //! - [`MaybeUser`] — signed in or not; for endpoints that serve both.
 //!
-//! A handler that forgets to check is not possible: there is no way to reach the
-//! account except by asking for it, and asking for [`AdminUser`] is the only way
-//! to get one.
+//! There used to be a third for administrators. Roles replaced it: what a
+//! handler needs is a *permission*, and there is no extractor for "holds
+//! `users:write`" that would not be one type per permission. So the extractor
+//! answers who is asking, and the handler names what it requires —
+//! [`CurrentUser::require`], or `admitted` for the administrative surface.
+//!
+//! A handler cannot forget to ask who is calling: there is no way to reach the
+//! account except through one of these. It *can* forget to check a permission,
+//! which is why every administrative route goes through one helper rather than
+//! spelling the check itself.
 
 use std::{convert::Infallible, net::SocketAddr};
 

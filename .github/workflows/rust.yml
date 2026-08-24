@@ -103,7 +103,14 @@ jobs:
       # The module docs carry this project's architectural reasoning, so a broken
       # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
       # this is what actually runs rustdoc to find out.
+      #
+      # `RUSTDOCFLAGS` and not the job-wide `RUSTFLAGS`: rustdoc's own lints are
+      # not reached by the latter, so this step printed warnings and passed for
+      # as long as it has existed. Six had accumulated by the time somebody read
+      # a doc comment and found it describing a type that no longer exists.
       - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
 
       # The contract is generated, never hand-edited. Regenerating it here and

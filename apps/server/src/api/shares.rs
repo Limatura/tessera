@@ -452,15 +452,15 @@ const MAX_PAGE_FIGURE: u64 = i64::MAX.unsigned_abs();
 ///
 /// # Why one bound refuses and the other clamps
 ///
-/// They are different kinds of wrong. Asking for more rows than
-/// [`MAX_SHARE_PAGE`] is a reasonable request the server is entitled to answer
-/// with fewer, which is what every paged API does. A figure the document does
+/// They are different kinds of wrong. Asking for more rows than the page cap is
+/// a reasonable request the server is entitled to answer with fewer, which is
+/// what every paged API does. A figure the document does
 /// not admit at all is not a request anybody meant, and answering it with a
 /// page would report something for a question that was never asked.
 ///
 /// # Errors
 ///
-/// `400` when either figure is larger than [`MAX_PAGE_FIGURE`].
+/// `400` when either figure is larger than the largest this API accepts.
 pub fn page_bounds(params: &SharePageParams) -> Result<(u64, u64)> {
     for (name, value) in [("limit", params.limit), ("offset", params.offset)] {
         if value.is_some_and(|value| value > MAX_PAGE_FIGURE) {
@@ -628,7 +628,7 @@ where
 /// Body of `PATCH /shares/{code}`.
 ///
 /// Every field is optional and omitting one leaves that setting alone. Sending
-/// `null` clears it — see [`Patch`].
+/// `null` clears it — absent and null are different instructions here.
 ///
 /// The password is deliberately not here. It travels in `X-Share-Password`, the
 /// same header the rest of this API uses, because a body is not the problem —

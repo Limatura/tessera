@@ -290,15 +290,14 @@ pub struct View {
 /// # Why the source is worked out by comparison
 ///
 /// figment can name the provider that supplied a key, but only as a display
-/// string — "YAML file", "`TESSERA_` environment variable(s)". Matching on
-/// those would tie this to how a dependency phrases itself. Building the stack
-/// one layer at a time and seeing where the answer changes needs no such
-/// agreement.
+/// string — "`TESSERA_` environment variable(s)". Matching on that would tie
+/// this to how a dependency phrases itself. Building the stack one layer at a
+/// time and seeing where the answer changes needs no such agreement.
 ///
-/// A layer that sets a value identical to the one below reports as the lower
-/// layer. That is the honest answer: nothing observable distinguishes them, and
-/// claiming otherwise would mean showing "from the environment" for a value the
-/// environment did not change.
+/// An environment variable set to the value the default already had reports as
+/// the default. That is the honest answer: nothing observable distinguishes
+/// them, and claiming otherwise would mean showing "from the environment" for a
+/// value the environment did not change.
 #[must_use]
 pub fn describe(overrides: &BTreeMap<String, serde_json::Value>) -> Vec<View> {
     let defaults = Config::defaults();
