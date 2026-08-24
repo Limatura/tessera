@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use sea_orm::{
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait, QueryFilter as _,
-    QueryOrder as _, Set, TransactionTrait as _,
+    QueryOrder as _, QuerySelect as _, Set, TransactionTrait as _,
 };
 use tessera_core::{DomainError, Permission, PermissionSet, RoleId, UserId};
 use time::OffsetDateTime;
@@ -13,7 +13,7 @@ use crate::db::{
     entity::{
         role::{self, Entity as RoleEntity},
         role_permission::{self, Entity as RolePermissionEntity},
-        user_role::{self, Entity as UserRoleEntity},
+        user::{self, Entity as UserEntity},
     },
     repository::user::{CorruptRow, UserRepositoryError},
 };
@@ -96,20 +96,42 @@ impl RoleRepository {
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if a query fails.
-    pub async fn permissions_of(&self, user: UserId) -> Result<PermissionSet, UserRepositoryError> {
-        let role_ids: Vec<String> = UserRoleEntity::find()
-            .filter(user_role::Column::UserId.eq(user.to_string()))
-            .all(&self.connection)
+    /// The role one account is in, if any.
+    ///
+    /// One column on `users` since the join table went — the account row
+    /// carries it, so this is a lookup by primary key.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    async fn role_of(&self, user: UserId) -> Result<Option<String>, UserRepositoryError> {
+        Ok(UserEntity::find_by_id(user.to_string())
+            .one(&self.connection)
             .await?
-            .into_iter()
-            .map(|row| row.role_id)
-            .collect();
-        if role_ids.is_empty() {
+            .and_then(|model| model.role_id))
+    }
+
+    /// Everything one person is allowed to do.
+    ///
+    /// # Why an unreadable permission is skipped rather than fatal
+    ///
+    /// A row naming a permission this version does not have is what a downgrade
+    /// leaves behind. Refusing the whole set would lock every one of that
+    /// person's requests out, including the ones their role does allow — a
+    /// strictly worse outcome than ignoring the one word nobody here can act
+    /// on. It is logged, because it means somebody is running a mixed pair of
+    /// versions.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if a query fails.
+    pub async fn permissions_of(&self, user: UserId) -> Result<PermissionSet, UserRepositoryError> {
+        let Some(role_id) = self.role_of(user).await? else {
             return Ok(PermissionSet::default());
-        }
+        };
 
         let rows = RolePermissionEntity::find()
-            .filter(role_permission::Column::RoleId.is_in(role_ids))
+            .filter(role_permission::Column::RoleId.eq(role_id))
             .all(&self.connection)
             .await?;
         Ok(rows
@@ -155,19 +177,12 @@ impl RoleRepository {
     ///
     /// Returns [`UserRepositoryError`] if a query fails or a row is not usable.
     pub async fn of_user(&self, user: UserId) -> Result<Vec<Role>, UserRepositoryError> {
-        let role_ids: Vec<String> = UserRoleEntity::find()
-            .filter(user_role::Column::UserId.eq(user.to_string()))
-            .all(&self.connection)
-            .await?
-            .into_iter()
-            .map(|row| row.role_id)
-            .collect();
-        if role_ids.is_empty() {
+        let Some(role_id) = self.role_of(user).await? else {
             return Ok(Vec::new());
-        }
+        };
 
         let models = RoleEntity::find()
-            .filter(role::Column::Id.is_in(role_ids))
+            .filter(role::Column::Id.eq(role_id))
             .order_by_asc(role::Column::Name)
             .all(&self.connection)
             .await?;
@@ -195,12 +210,8 @@ impl RoleRepository {
         if users.is_empty() {
             return Ok(HashMap::new());
         }
-        let ids: Vec<String> = users.iter().map(|user| user.id.to_string()).collect();
-        let memberships = UserRoleEntity::find()
-            .filter(user_role::Column::UserId.is_in(ids))
-            .all(&self.connection)
-            .await?;
-
+        // No query for the memberships: every account carries its own role now,
+        // and the caller already has the accounts.
         let models = RoleEntity::find()
             .order_by_asc(role::Column::Name)
             .all(&self.connection)
@@ -214,18 +225,16 @@ impl RoleRepository {
 
         let mut resolved: HashMap<UserId, Vec<Role>> = HashMap::with_capacity(users.len());
         for user in users {
-            resolved.insert(user.id, Vec::new());
-        }
-        for membership in &memberships {
-            let (Ok(user), Some(role)) = (
-                UserId::parse(&membership.user_id),
-                by_id.get(&membership.role_id),
-            ) else {
-                continue;
-            };
-            if let Some(held) = resolved.get_mut(&user) {
-                held.push(role.clone());
-            }
+            // Still a list in the answer, because that is what the responses
+            // are shaped like and one role fits in a list of one. A role the
+            // account names but that no longer exists comes back as no roles,
+            // which is what it means.
+            let held = user
+                .role_id
+                .and_then(|id| by_id.get(&id.to_string()).cloned())
+                .map(|role| vec![role])
+                .unwrap_or_default();
+            resolved.insert(user.id, held);
         }
         Ok(resolved)
     }
@@ -309,8 +318,17 @@ impl RoleRepository {
     /// Returns [`UserRepositoryError`] if the query fails or a row is not usable.
     pub async fn member_counts(&self) -> Result<HashMap<RoleId, u64>, UserRepositoryError> {
         let mut counts: HashMap<RoleId, u64> = HashMap::new();
-        for row in UserRoleEntity::find().all(&self.connection).await? {
-            if let Ok(id) = RoleId::parse(&row.role_id) {
+        // Only the column, not whole accounts: this reads every row in the
+        // table, and an instance with a lot of them should not be pulling
+        // password hashes across to count.
+        let rows: Vec<Option<String>> = UserEntity::find()
+            .select_only()
+            .column(user::Column::RoleId)
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        for row in rows.into_iter().flatten() {
+            if let Ok(id) = RoleId::parse(&row) {
                 *counts.entry(id).or_insert(0) += 1;
             }
         }
@@ -324,7 +342,7 @@ impl RoleRepository {
     /// Returns [`UserRepositoryError`] if the query fails.
     pub async fn member_count(&self, id: RoleId) -> Result<u64, UserRepositoryError> {
         Ok(PaginatorTrait::count(
-            UserRoleEntity::find().filter(user_role::Column::RoleId.eq(id.to_string())),
+            UserEntity::find().filter(user::Column::RoleId.eq(id.to_string())),
             &self.connection,
         )
         .await?)
@@ -474,47 +492,39 @@ impl RoleRepository {
         Ok(RoleChange::Done)
     }
 
-    /// Puts somebody in exactly these roles.
+    /// Puts somebody in a role, or in none.
     ///
-    /// Same reasoning as [`set_permissions`](Self::set_permissions): the caller
-    /// holds the resulting list, not a diff.
+    /// `None` is signed in and allowed nothing — a real state, and the only way
+    /// to express what "no rows in the join table" used to.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if a query fails.
-    pub async fn set_roles_of(
+    pub async fn set_role_of(
         &self,
         user: UserId,
-        roles: &[RoleId],
+        role: Option<RoleId>,
         now: OffsetDateTime,
     ) -> Result<RoleChange, UserRepositoryError> {
-        // Every named role must exist before anything is written, or a typo
-        // silently removes somebody from the roles they had.
-        for id in roles {
-            if RoleEntity::find_by_id(id.to_string())
+        // The role must exist before anything is written, or a typo silently
+        // takes away the one somebody had.
+        if let Some(id) = role
+            && RoleEntity::find_by_id(id.to_string())
                 .one(&self.connection)
                 .await?
                 .is_none()
-            {
-                return Ok(RoleChange::NoSuchRole);
-            }
+        {
+            return Ok(RoleChange::NoSuchRole);
         }
 
-        let transaction = self.connection.begin().await?;
-        UserRoleEntity::delete_many()
-            .filter(user_role::Column::UserId.eq(user.to_string()))
-            .exec(&transaction)
+        // One statement, where the join table needed a transaction to replace a
+        // set without a moment of having none.
+        UserEntity::update_many()
+            .col_expr(user::Column::RoleId, role.map(|id| id.to_string()).into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(user.to_string()))
+            .exec(&self.connection)
             .await?;
-        for id in roles {
-            UserRoleEntity::insert(user_role::ActiveModel {
-                user_id: Set(user.to_string()),
-                role_id: Set(id.to_string()),
-                granted_at: Set(now),
-            })
-            .exec(&transaction)
-            .await?;
-        }
-        transaction.commit().await?;
         Ok(RoleChange::Done)
     }
 
@@ -538,15 +548,13 @@ impl RoleRepository {
             return Ok(0);
         }
 
-        let holders: std::collections::HashSet<String> = UserRoleEntity::find()
-            .filter(user_role::Column::RoleId.is_in(granting))
-            .all(&self.connection)
-            .await?
-            .into_iter()
-            .map(|row| row.user_id)
-            // A person in two roles that both grant it is one holder.
-            .collect();
-        Ok(u64::try_from(holders.len()).unwrap_or(u64::MAX))
+        // One role each, so counting accounts is counting holders — there is no
+        // longer a person in two granting roles to deduplicate.
+        Ok(PaginatorTrait::count(
+            UserEntity::find().filter(user::Column::RoleId.is_in(granting)),
+            &self.connection,
+        )
+        .await?)
     }
 }
 

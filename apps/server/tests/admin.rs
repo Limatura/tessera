@@ -819,7 +819,7 @@ async fn a_role_can_grant_looking_without_granting_changing() {
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[role.id], OffsetDateTime::now_utc())
+        .set_role_of(user.id, Some(role.id), OffsetDateTime::now_utc())
         .await
         .expect("put them in it");
 
@@ -860,7 +860,7 @@ async fn an_account_with_no_roles_may_do_nothing() {
         .expect("the account");
     app.state
         .roles
-        .set_roles_of(user.id, &[], OffsetDateTime::now_utc())
+        .set_role_of(user.id, None, OffsetDateTime::now_utc())
         .await
         .expect("take every role away");
 
@@ -941,7 +941,7 @@ async fn the_administrator_count_follows_roles_not_the_column() {
     let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::OWNER).expect("an id");
     app.state
         .roles
-        .set_roles_of(second.id, &[admin_role], OffsetDateTime::now_utc())
+        .set_role_of(second.id, Some(admin_role), OffsetDateTime::now_utc())
         .await
         .expect("grant it");
 
@@ -983,7 +983,7 @@ async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[limited.id], OffsetDateTime::now_utc())
+        .set_role_of(user.id, Some(limited.id), OffsetDateTime::now_utc())
         .await
         .expect("grant it");
 
@@ -1013,7 +1013,7 @@ async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
             Method::PUT,
             &format!("/api/v1/admin/users/{}/roles", user.id),
             Auth::Cookie(&deputy),
-            &serde_json::json!({ "roles": [existing.id.to_string()] }),
+            &serde_json::json!({ "role": existing.id.to_string() }),
         )
         .await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
@@ -1129,7 +1129,7 @@ async fn a_role_can_be_created_and_granted() {
             Method::PUT,
             &format!("/api/v1/admin/users/{}/roles", user.id),
             Auth::Cookie(&admin),
-            &serde_json::json!({ "roles": [role_id] }),
+            &serde_json::json!({ "role": role_id }),
         )
         .await,
         StatusCode::OK,
@@ -1512,7 +1512,7 @@ async fn reading_every_share_does_not_imply_removing_one() {
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[role.id], OffsetDateTime::now_utc())
+        .set_role_of(user.id, Some(role.id), OffsetDateTime::now_utc())
         .await
         .expect("grant it");
 
@@ -1818,7 +1818,11 @@ async fn an_admin_helps_run_the_instance_without_being_able_to_take_it() {
     let admin_role = tessera_core::RoleId::parse(tessera_core::RoleId::ADMIN).expect("an id");
     app.state
         .roles
-        .set_roles_of(helper_account.id, &[admin_role], OffsetDateTime::now_utc())
+        .set_role_of(
+            helper_account.id,
+            Some(admin_role),
+            OffsetDateTime::now_utc(),
+        )
         .await
         .expect("make them an admin");
 
@@ -2528,7 +2532,7 @@ async fn admin_reads_settings_but_does_not_write_them() {
             Method::PUT,
             &format!("/api/v1/admin/users/{helper_id}/roles"),
             Auth::Cookie(&owner),
-            &serde_json::json!({ "roles": [tessera_core::RoleId::ADMIN] }),
+            &serde_json::json!({ "role": tessera_core::RoleId::ADMIN }),
         )
         .await,
         StatusCode::OK,

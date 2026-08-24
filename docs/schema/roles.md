@@ -27,7 +27,7 @@ CREATE TABLE roles (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [role_permissions](role_permissions.md) [user_roles](user_roles.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [role_permissions](role_permissions.md) |  |  |
 | name | TEXT |  | false |  |  |  |
 | description | TEXT |  | true |  |  |  |
 | is_system | INTEGER | 0 | false |  |  |  |
@@ -53,8 +53,8 @@ CREATE TABLE roles (
 ```mermaid
 erDiagram
 
+"users" }o--o| "roles" : ""
 "role_permissions" |o--|| "roles" : ""
-"user_roles" |o--|| "roles" : ""
 
 "roles" {
   TEXT id PK
@@ -64,14 +64,23 @@ erDiagram
   TEXT created_at
   TEXT updated_at
 }
+"users" {
+  TEXT id PK
+  TEXT username
+  TEXT email
+  TEXT password_hash
+  INTEGER must_change_password
+  TEXT email_verified_at
+  TEXT created_at
+  TEXT updated_at
+  TEXT state
+  TEXT deleted_at
+  TEXT deleted_by FK
+  TEXT role_id FK
+}
 "role_permissions" {
   TEXT role_id PK
   TEXT permission PK
-}
-"user_roles" {
-  TEXT user_id PK
-  TEXT role_id PK
-  TEXT granted_at
 }
 ```
 

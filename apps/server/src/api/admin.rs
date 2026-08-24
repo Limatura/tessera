@@ -749,8 +749,12 @@ const ROLE_NAME_LIMIT: usize = 191;
 /// Body of `PUT /admin/users/{id}/roles`.
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct UserRolesRequest {
-    /// The roles this account should be in. The whole list, not a change to it.
-    pub roles: Vec<String>,
+    /// The role this account should be in, or `null` for none.
+    ///
+    /// `null` is signed in and allowed nothing — a real state, and what an
+    /// empty list used to mean.
+    #[serde(default)]
+    pub role: Option<String>,
 }
 
 /// Every permission this version has, so a screen can offer them.
@@ -1088,28 +1092,31 @@ pub async fn set_user_roles(
         return Err(Error::NotFound);
     };
 
-    let mut wanted = Vec::with_capacity(body.roles.len());
-    for role in &body.roles {
-        wanted.push(RoleId::parse(role).map_err(|_| Error::NotFound)?);
-    }
+    let wanted = body
+        .role
+        .as_deref()
+        .map(|role| RoleId::parse(role).map_err(|_| Error::NotFound))
+        .transpose()?;
 
     // What the account would end up holding, checked against what the caller
     // holds — otherwise `roles:write` is a way to give somebody else, and then
     // oneself, anything at all.
-    let mut resulting: Vec<Permission> = Vec::new();
-    for role in &wanted {
-        let Some(found) = state.roles.find_by_id(*role).await? else {
-            return Err(Error::NotFound);
-        };
-        resulting.extend(found.permissions.iter());
-    }
-    refuse_escalation(&current, &resulting.into_iter().collect())?;
+    let resulting = match wanted {
+        Some(role) => {
+            let Some(found) = state.roles.find_by_id(role).await? else {
+                return Err(Error::NotFound);
+            };
+            found.permissions
+        }
+        None => PermissionSet::default(),
+    };
+    refuse_escalation(&current, &resulting)?;
 
     // The same lock-out guard as everywhere else: this is the other way to take
     // the last administrator's keys away.
     let held = state.roles.permissions_of(user_id).await?;
     let losing_the_keys =
-        held.allows(Permission::RolesWrite) && !wanted_grants_keys(&state, &wanted).await?;
+        held.allows(Permission::RolesWrite) && !resulting.allows(Permission::RolesWrite);
     if losing_the_keys && state.roles.holders_of(Permission::RolesWrite).await? <= 1 {
         return Err(Error::Conflict(
             "that would leave nobody able to administer this instance".to_owned(),
@@ -1118,7 +1125,7 @@ pub async fn set_user_roles(
 
     if state
         .roles
-        .set_roles_of(user_id, &wanted, OffsetDateTime::now_utc())
+        .set_role_of(user_id, wanted, OffsetDateTime::now_utc())
         .await?
         == RoleChange::NoSuchRole
     {
@@ -1128,18 +1135,6 @@ pub async fn set_user_roles(
     Ok(Json(AdminUserResponse(AccountResponse::build(
         &user, &roles,
     ))))
-}
-
-/// Whether any of these roles carries `roles:write`.
-async fn wanted_grants_keys(state: &AppState, wanted: &[RoleId]) -> Result<bool> {
-    for role in wanted {
-        if let Some(found) = state.roles.find_by_id(*role).await?
-            && found.permissions.allows(Permission::RolesWrite)
-        {
-            return Ok(true);
-        }
-    }
-    Ok(false)
 }
 
 /// Refuses to hand out a permission the caller does not hold.

@@ -1614,17 +1614,14 @@ expression: document
       "UserRolesRequest": {
         "description": "Body of `PUT /admin/users/{id}/roles`.",
         "properties": {
-          "roles": {
-            "description": "The roles this account should be in. The whole list, not a change to it.",
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+          "role": {
+            "description": "The role this account should be in, or `null` for none.\n\n`null` is signed in and allowed nothing — a real state, and what an\nempty list used to mean.",
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
-        "required": [
-          "roles"
-        ],
         "type": "object"
       }
     },

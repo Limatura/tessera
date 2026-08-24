@@ -26,4 +26,3 @@ pub mod text_share;
 pub mod upload;
 pub mod upload_part;
 pub mod user;
-pub mod user_role;

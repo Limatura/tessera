@@ -2,7 +2,7 @@
 
 ## Description
 
-帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
+帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -22,7 +22,7 @@ CREATE TABLE users (
     email_verified_at    TEXT,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
-, state TEXT NOT NULL DEFAULT 'active', deleted_at TEXT, deleted_by TEXT REFERENCES users (id) ON DELETE SET NULL)
+, state TEXT NOT NULL DEFAULT 'active', deleted_at TEXT, deleted_by TEXT REFERENCES users (id) ON DELETE SET NULL, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
 ```
 
 </details>
@@ -31,7 +31,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [user_roles](user_roles.md) [uploads](uploads.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | password_hash | TEXT |  | false |  |  |  |
@@ -42,19 +42,22 @@ CREATE TABLE users (
 | state | TEXT | 'active' | false |  |  |  |
 | deleted_at | TEXT |  | true |  |  |  |
 | deleted_by | TEXT |  | true |  | [users](users.md) |  |
+| role_id | TEXT |  | true |  | [roles](roles.md) |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | id | PRIMARY KEY | PRIMARY KEY (id) |
-| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (deleted_by) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (role_id) REFERENCES roles (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (deleted_by) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
 | sqlite_autoindex_users_1 | PRIMARY KEY | PRIMARY KEY (id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_users_role | CREATE INDEX idx_users_role ON users (role_id) |
 | idx_users_state | CREATE INDEX idx_users_state ON users (state) |
 | idx_users_email | CREATE UNIQUE INDEX idx_users_email ON users (email) |
 | idx_users_username | CREATE UNIQUE INDEX idx_users_username ON users (username) |
@@ -70,8 +73,8 @@ erDiagram
 "api_tokens" }o--|| "users" : ""
 "shares" }o--o| "users" : ""
 "password_reset_tokens" }o--|| "users" : ""
-"user_roles" |o--|| "users" : ""
 "uploads" }o--o| "users" : ""
+"users" }o--o| "roles" : ""
 
 "users" {
   TEXT id PK
@@ -85,6 +88,7 @@ erDiagram
   TEXT state
   TEXT deleted_at
   TEXT deleted_by FK
+  TEXT role_id FK
 }
 "sessions" {
   TEXT id PK
@@ -136,11 +140,6 @@ erDiagram
   TEXT expires_at
   TEXT used_at
 }
-"user_roles" {
-  TEXT user_id PK
-  TEXT role_id PK
-  TEXT granted_at
-}
 "uploads" {
   TEXT id PK
   TEXT share_id FK
@@ -155,6 +154,14 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+}
+"roles" {
+  TEXT id PK
+  TEXT name
+  TEXT description
+  INTEGER is_system
+  TEXT created_at
+  TEXT updated_at
 }
 ```
 

@@ -18,15 +18,12 @@
 
 use sea_orm::{
     ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
-    QueryFilter as _, QueryOrder as _, TransactionTrait as _,
+    QueryFilter as _, QueryOrder as _,
 };
 use tessera_core::{AccountState, DomainError, EmailAddress, RoleId, UserId, Username};
 use time::OffsetDateTime;
 
-use crate::db::entity::{
-    user::{self, Entity as UserEntity},
-    user_role::{self, Entity as UserRoleEntity},
-};
+use crate::db::entity::user::{self, Entity as UserEntity};
 
 /// An account, in domain terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -39,6 +36,11 @@ pub struct User {
     pub email: EmailAddress,
     /// PHC-format Argon2 string.
     pub password_hash: String,
+    /// The role this account is in.
+    ///
+    /// `None` means no role: signed in and allowed nothing. That was
+    /// expressible before as "no rows in the join table" and stays expressible.
+    pub role_id: Option<RoleId>,
     /// Whether the account must set a new password before doing anything else.
     pub must_change_password: bool,
     /// Whether the account works, is suspended, or is gone.
@@ -90,6 +92,12 @@ impl User {
             // one at the reserved tombstone domain, and the ordinary parser
             // refuses that — which is what stops anybody else taking it.
             email: EmailAddress::parse_privileged(&model.email).map_err(fail)?,
+            role_id: model
+                .role_id
+                .as_deref()
+                .map(RoleId::parse)
+                .transpose()
+                .map_err(fail)?,
             password_hash: model.password_hash,
             must_change_password: model.must_change_password,
             state: model.state.parse().map_err(fail)?,
@@ -114,6 +122,7 @@ impl User {
             username: Set(self.username.as_str().to_owned()),
             email: Set(self.email.as_str().to_owned()),
             password_hash: Set(self.password_hash.clone()),
+            role_id: Set(self.role_id.map(|id| id.to_string())),
             must_change_password: Set(self.must_change_password),
             state: Set(self.state.as_str().to_owned()),
             deleted_at: Set(self.deleted_at),
@@ -156,33 +165,24 @@ impl UserRepository {
 
     /// Inserts an account, and puts it in a role.
     ///
-    /// # Why the role is not optional
+    /// # The role travels on the account
     ///
-    /// Roles are the only thing granting anything now, so an account with none
-    /// is signed in and allowed nothing — and it says so through a `403` on
-    /// every request, which reads like a bug rather than like an account that
-    /// was created wrongly. Making the role part of creating an account is what
-    /// stops a future caller producing one by forgetting a second step.
+    /// It used to be a second insert into a join table, in a transaction so the
+    /// pair could not half happen. It is a column now, so there is no pair.
     ///
-    /// One transaction, so the pair cannot half happen.
+    /// An account in no role is signed in and allowed nothing, which reads like
+    /// a bug rather than a deliberate state — so the field is there to be
+    /// filled in, and a caller who means it has to write `role_id: None`
+    /// rather than forget a second step.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the username or address is already
-    /// taken, or either insert otherwise fails.
-    pub async fn insert(&self, user: &User, role: RoleId) -> Result<(), UserRepositoryError> {
-        let transaction = self.connection.begin().await?;
+    /// taken, or the insert otherwise fails.
+    pub async fn insert(&self, user: &User) -> Result<(), UserRepositoryError> {
         UserEntity::insert(user.to_active_model())
-            .exec(&transaction)
+            .exec(&self.connection)
             .await?;
-        UserRoleEntity::insert(user_role::ActiveModel {
-            user_id: Set(user.id.to_string()),
-            role_id: Set(role.to_string()),
-            granted_at: Set(user.created_at),
-        })
-        .exec(&transaction)
-        .await?;
-        transaction.commit().await?;
         Ok(())
     }
 
@@ -390,49 +390,33 @@ impl UserRepository {
         is_admin: bool,
         now: OffsetDateTime,
     ) -> Result<bool, UserRepositoryError> {
-        let transaction = self.connection.begin().await?;
+        // `true` grants `owner` rather than the lesser `admin` because that is
+        // what this boolean has always meant — everything. Making it mean less
+        // would silently change what an existing client does, and it would
+        // break the one sequence an operator most needs: promote a successor,
+        // then step down. A successor without `roles:write` cannot be stepped
+        // down to.
+        //
+        // `false` leaves the account in **no role**. That is what the join
+        // table did — the demotion removed `owner` and `admin` and kept
+        // whatever else was there, which for an account holding only one of
+        // them was nothing. Preserved rather than improved: sending somebody to
+        // the default role instead would be a different decision, and this
+        // field is a compatibility shim for clients that predate the role
+        // endpoints.
+        //
+        // One statement, where the join table needed a transaction so the
+        // account was never briefly in neither role.
         let result = UserEntity::update_many()
-            // Only the timestamp: `users.is_admin` is gone, and the roles below
-            // are what decide anything. Touched anyway so the account's
-            // `updated_at` reflects that something about it changed.
+            .col_expr(
+                user::Column::RoleId,
+                is_admin.then(|| RoleId::OWNER.to_owned()).into(),
+            )
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
-            .exec(&transaction)
+            .exec(&self.connection)
             .await?;
-        if result.rows_affected != 1 {
-            transaction.rollback().await?;
-            return Ok(false);
-        }
-
-        // The part that decides anything.
-        //
-        // Both seeded roles come off; `owner` goes back on.
-        //
-        // `false` has to reach an owner or the field cannot demote one. `true`
-        // grants `owner` rather than the lesser `admin` because that is what
-        // this boolean has always meant — everything. Making it mean less would
-        // silently change what an existing client does, and it would break the
-        // one sequence an operator most needs: promote a successor, then step
-        // down. A successor without `roles:write` cannot be stepped down to.
-        //
-        // The narrower `admin` is reached through the role endpoints, which is
-        // where roles belong now.
-        UserRoleEntity::delete_many()
-            .filter(user_role::Column::UserId.eq(id.to_string()))
-            .filter(user_role::Column::RoleId.is_in([RoleId::OWNER, RoleId::ADMIN]))
-            .exec(&transaction)
-            .await?;
-        if is_admin {
-            UserRoleEntity::insert(user_role::ActiveModel {
-                user_id: Set(id.to_string()),
-                role_id: Set(RoleId::OWNER.to_owned()),
-                granted_at: Set(now),
-            })
-            .exec(&transaction)
-            .await?;
-        }
-        transaction.commit().await?;
-        Ok(true)
+        Ok(result.rows_affected == 1)
     }
 
     /// Removes an account.
@@ -511,6 +495,7 @@ mod tests {
     fn sample(username: &str, email: &str) -> User {
         let now = OffsetDateTime::from_unix_timestamp(1_785_000_000).unwrap();
         User {
+            role_id: Some(member()),
             id: UserId::generate(),
             username: Username::parse(username).unwrap(),
             email: EmailAddress::parse(email).unwrap(),
@@ -544,7 +529,7 @@ mod tests {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
 
-        repository.insert(&user, member()).await.unwrap();
+        repository.insert(&user).await.unwrap();
 
         // Every lookup path must return the same account, with the domain types
         // intact rather than the strings the columns hold.
@@ -590,7 +575,7 @@ mod tests {
     async fn lookup_is_insensitive_to_how_the_name_was_typed() {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
-        repository.insert(&user, member()).await.unwrap();
+        repository.insert(&user).await.unwrap();
 
         let typed = Username::parse("  ALICE ").unwrap();
         assert_eq!(
@@ -603,24 +588,24 @@ mod tests {
     async fn the_unique_index_rejects_a_duplicate_username() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "a@example.com"), member())
+            .insert(&sample("alice", "a@example.com"))
             .await
             .unwrap();
 
         let clash = sample("alice", "different@example.com");
-        assert!(repository.insert(&clash, member()).await.is_err());
+        assert!(repository.insert(&clash).await.is_err());
     }
 
     #[tokio::test]
     async fn the_unique_index_rejects_a_duplicate_email() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "shared@example.com"), member())
+            .insert(&sample("alice", "shared@example.com"))
             .await
             .unwrap();
 
         let clash = sample("bob", "shared@example.com");
-        assert!(repository.insert(&clash, member()).await.is_err());
+        assert!(repository.insert(&clash).await.is_err());
     }
 
     #[tokio::test]
@@ -628,7 +613,7 @@ mod tests {
         let repository = repository().await;
         assert!(!repository.any_exist().await.unwrap());
         repository
-            .insert(&sample("alice", "alice@example.com"), member())
+            .insert(&sample("alice", "alice@example.com"))
             .await
             .unwrap();
         assert!(repository.any_exist().await.unwrap());
@@ -641,6 +626,7 @@ mod tests {
     fn a_row_that_violates_todays_rules_is_reported_not_panicked() {
         let now = OffsetDateTime::from_unix_timestamp(1_785_000_000).unwrap();
         let model = user::Model {
+            role_id: None,
             id: UserId::generate().to_string(),
             username: "no spaces allowed".to_owned(),
             email: "alice@example.com".to_owned(),

@@ -28,7 +28,7 @@ exclude:
 
 comments:
   - table: users
-    tableComment: 帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
+    tableComment: 帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
   - table: sessions
     tableComment: 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。
   - table: api_tokens
@@ -57,8 +57,6 @@ comments:
     tableComment: 一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。
   - table: role_permissions
     tableComment: 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。
-  - table: user_roles
-    tableComment: 誰在哪些角色裡。沒有任何一列 = 登入了但什麼都不能做,那是真的狀態不是錯誤。
   - table: schema_metadata
     tableComment: 這個資料庫是哪一版寫的。降版啟動時用來擋下來。
   - table: uploads

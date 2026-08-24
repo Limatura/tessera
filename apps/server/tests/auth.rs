@@ -2788,7 +2788,7 @@ async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[narrow.id], time::OffsetDateTime::now_utc())
+        .set_role_of(user.id, Some(narrow.id), time::OffsetDateTime::now_utc())
         .await
         .expect("demote them");
 

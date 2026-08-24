@@ -70,6 +70,10 @@ pub async fn ensure_admin(
         username: username.clone(),
         email,
         password_hash: password::hash(password, auth.hashing).await?,
+        // The first account on the instance owns it: `owner` and not `admin`,
+        // because `admin` deliberately cannot grant roles, and an instance
+        // whose only account cannot bring anybody else in is stuck.
+        role_id: Some(RoleId::parse(RoleId::OWNER)?),
         // Only when we chose the password. One the operator set is one they
         // already know, and forcing a change on it is a pointless step; one we
         // printed has been through a log file and should not stay in force.
@@ -83,7 +87,7 @@ pub async fn ensure_admin(
     };
     // The first account administers the instance, which is the whole point of
     // this function — so it goes straight into the role that says so.
-    users.insert(&user, RoleId::parse(RoleId::OWNER)?).await?;
+    users.insert(&user).await?;
 
     if let Some(printed) = generated {
         // Printed once, at `warn` so it survives a default log filter, and never

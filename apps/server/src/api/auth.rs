@@ -389,6 +389,7 @@ pub async fn register(
         id: UserId::generate(),
         username,
         email,
+        role_id: Some(seed_role(&state, first).await?),
         password_hash: password::hash(password, state.config().auth.hashing).await?,
         must_change_password: false,
         state: AccountState::Active,
@@ -399,11 +400,7 @@ pub async fn register(
         updated_at: now,
     };
 
-    if let Err(error) = state
-        .users
-        .insert(&user, seed_role(&state, first).await?)
-        .await
-    {
+    if let Err(error) = state.users.insert(&user).await {
         // The check above raced with another registration, or something else
         // went wrong. Which one is decided by looking, rather than by assuming
         // every insert failure is a conflict — that would report a database
@@ -998,6 +995,7 @@ pub async fn confirm_registration(
         username: pending.username.clone(),
         email: pending.email.clone(),
         password_hash: pending.password_hash.clone(),
+        role_id: Some(seed_role(&state, first).await?),
         // Decided here rather than when the link was sent, because "first
         // account" has to mean first to *exist*. Two people confirming at once
         // both read no accounts and both claim it — which the unique index does
@@ -1014,11 +1012,7 @@ pub async fn confirm_registration(
         created_at: now,
         updated_at: now,
     };
-    if let Err(error) = state
-        .users
-        .insert(&user, seed_role(&state, first).await?)
-        .await
-    {
+    if let Err(error) = state.users.insert(&user).await {
         // The checks above raced with another confirmation. Decided by looking
         // rather than by assuming every insert failure is a conflict, which
         // would report a database outage as "that name is taken" — and the

@@ -28,6 +28,9 @@ pub struct Model {
     pub email: String,
     /// PHC-format Argon2 string. Never a plaintext password.
     pub password_hash: String,
+    /// Which role the account is in, or `None` for one in no role — signed in
+    /// and allowed nothing, which is a real state rather than a fault.
+    pub role_id: Option<String>,
     /// Set on the generated first-run administrator, so the printed password
     /// cannot become a permanent one.
     pub must_change_password: bool,
