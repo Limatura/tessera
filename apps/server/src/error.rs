@@ -31,14 +31,19 @@ pub enum Error {
     #[error("payload too large")]
     PayloadTooLarge,
 
-    /// Accepting this would take the instance past `storage.max_total_bytes`.
+    /// Accepting this would take some storage ceiling past its figure.
     ///
     /// Distinct from [`PayloadTooLarge`](Self::PayloadTooLarge) because the two
     /// call for different actions: that one says the file is too big and always
-    /// will be, this one says the *instance* is full and a smaller file, or the
+    /// will be, this one says something is *full* and a smaller file, or the
     /// same file later, may well fit.
+    ///
+    /// It carries which ceiling refused, because the answer decides who can do
+    /// anything about it: "the disk is full" is the operator's problem, "your
+    /// quota is full" is the caller's, and a bare 507 leaves them unable to tell
+    /// whether deleting their own shares would help.
     #[error("insufficient storage")]
-    InsufficientStorage,
+    InsufficientStorage(Tier),
 
     /// The caller did not prove who they are, or the proof is no longer good.
     #[error("unauthorized")]
@@ -219,7 +224,9 @@ impl ErrorCode {
             Self::Conflict => "that already exists",
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
-            Self::InsufficientStorage => "this instance has no room for more content",
+            // The generic answer for the code. A real refusal says which
+            // ceiling it was, through `Error::public_message`.
+            Self::InsufficientStorage => "there is no room for more content",
             Self::UnsupportedMediaType => "that content type is not accepted here",
             Self::Timeout => "nothing arrived for a while, so the request was dropped; try again",
             Self::Unavailable => "the service is not accepting requests right now",
@@ -252,7 +259,7 @@ impl Error {
             Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
-            Self::InsufficientStorage => ErrorCode::InsufficientStorage,
+            Self::InsufficientStorage(_) => ErrorCode::InsufficientStorage,
             Self::UnsupportedMediaType => ErrorCode::UnsupportedMediaType,
             Self::Timeout => ErrorCode::Timeout,
             Self::Unavailable => ErrorCode::Unavailable,
@@ -286,6 +293,7 @@ impl Error {
                 message.clone()
             }
             Self::Domain(error) => error.to_string(),
+            Self::InsufficientStorage(tier) => tier.message().to_owned(),
             other => other.code().message().to_owned(),
         }
     }
@@ -331,6 +339,32 @@ impl IntoResponse for Error {
             response.headers_mut().insert(name, value);
         }
         response
+    }
+}
+
+/// Which storage ceiling a [`Error::InsufficientStorage`] hit.
+///
+/// No figures: how full the instance is is not the caller's business, and how
+/// full a role is would let one member watch another's usage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tier {
+    /// The caller's own quota.
+    Account,
+    /// The quota on the role the caller is in — the guest role, for anonymous
+    /// callers.
+    Role,
+    /// `storage.max_total_bytes`.
+    Instance,
+}
+
+impl Tier {
+    /// What to tell the caller.
+    const fn message(self) -> &'static str {
+        match self {
+            Self::Account => "your storage quota is full",
+            Self::Role => "the storage quota for your role is full",
+            Self::Instance => "this instance has no room for more content",
+        }
     }
 }
 

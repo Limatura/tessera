@@ -151,7 +151,8 @@ pub struct UploadResponse {
 ///
 /// `400` when `Upload-Length` is missing or unusable, `403` when the caller may
 /// not upload, `404` when `code` names no share, `507` when the declared length
-/// does not fit in what is left of the instance.
+/// does not fit in what is left — of the caller's quota, their role's, or the
+/// instance's, whichever runs out first. The body says which.
 #[utoipa::path(
     post,
     path = "/uploads",
@@ -163,7 +164,7 @@ pub struct UploadResponse {
         (status = 400, description = "`Upload-Length` missing or unusable", body = crate::error::ErrorBody),
         (status = 403, description = "Not allowed to upload", body = crate::error::ErrorBody),
         (status = 404, description = "No share has that code", body = crate::error::ErrorBody),
-        (status = 507, description = "This instance has no room for it", body = crate::error::ErrorBody),
+        (status = 507, description = "No room for it — the body says whether that is the account's quota, its role's, or the instance's", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -184,8 +185,11 @@ pub async fn create(
     // Checked before a byte is accepted rather than as they arrive: an upload
     // that cannot possibly fit should be refused while the client can still act
     // on it, not after it has spent an hour sending.
-    if declared > crate::api::shares::remaining_room(&state).await? {
-        return Err(Error::InsufficientStorage);
+    let room =
+        crate::api::shares::remaining_room(&state, current.as_ref().map(|current| &current.user))
+            .await?;
+    if declared > room.bytes {
+        return Err(Error::InsufficientStorage(room.tier));
     }
 
     let share_id = match params.code.as_deref() {
@@ -218,6 +222,9 @@ pub async fn create(
             &NewUpload {
                 share_id,
                 user_id: current.as_ref().map(|user| user.user.id),
+                role_id: crate::api::shares::charged_role_of(
+                    current.as_ref().map(|current| &current.user),
+                ),
                 token_hash: secret.digest(),
                 filename: crate::api::shares::checked_filename(params.filename)?,
                 content_type: None,

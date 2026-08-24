@@ -388,3 +388,100 @@ async fn two_sessions_cannot_reserve_the_same_room() {
         "the same free space was promised twice"
     );
 }
+
+/// Reserved bytes belong to the scope that opened the session, or an anonymous
+/// stranger holding room could refuse a member at their first upload.
+///
+/// `uploads` carries its own `role_id` for this: until a session completes it
+/// has no share to read a role from, so summing every open one is the only
+/// other option and it charges everybody for everybody.
+#[tokio::test]
+async fn an_anonymous_session_does_not_spend_a_members_quota() {
+    let app = TestApp::with_config(|config| config.storage.max_total_bytes = 0).await;
+
+    // Both roles get the same figure, so a leak in either direction shows.
+    for name in ["guest", "member"] {
+        let role = app
+            .state
+            .roles
+            .find_by_name(name)
+            .await
+            .expect("query")
+            .expect("the role");
+        app.state
+            .roles
+            .set_quota(role.id, Some(8192), time::OffsetDateTime::now_utc())
+            .await
+            .expect("store the quota");
+    }
+
+    // An anonymous session holding the whole guest allowance.
+    let anonymous = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/uploads?filename=theirs.bin")
+                .header("upload-length", "8192"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(anonymous.status(), StatusCode::CREATED);
+
+    // A second anonymous one is refused — the room really is spoken for.
+    let again = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/uploads?filename=theirs-too.bin")
+                .header("upload-length", "8192"),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(again.status(), StatusCode::INSUFFICIENT_STORAGE);
+
+    // A member is untouched by it.
+    let owner = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "owner",
+                "email": "owner@example.com",
+                "password": "a perfectly adequate passphrase",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    drop(owner);
+    let alice = common::session_cookie(
+        &expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/auth/register",
+                Auth::None,
+                &serde_json::json!({
+                    "username": "alice",
+                    "email": "alice@example.com",
+                    "password": "a perfectly adequate passphrase",
+                }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    );
+    let mine = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/uploads?filename=mine.bin")
+                .header("upload-length", "8192")
+                .header(axum::http::header::COOKIE, &alice),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(mine.status(), StatusCode::CREATED);
+}

@@ -58,6 +58,7 @@ erDiagram
   INTEGER is_system
   TEXT created_at
   TEXT updated_at
+  INTEGER quota_bytes
 }
 ```
 

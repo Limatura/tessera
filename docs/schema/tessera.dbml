@@ -101,6 +101,7 @@ Table roles {
   is_system integer [not null]
   created_at text [not null]
   updated_at text [not null]
+  quota_bytes integer
 
   Note: '一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。'
 }
@@ -199,6 +200,7 @@ Table uploads {
   created_at text [not null]
   updated_at text [not null]
   expires_at text [not null]
+  role_id text
 
   Note: '還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。'
 }
@@ -216,6 +218,7 @@ Table users {
   deleted_at text
   deleted_by text
   role_id text
+  quota_bytes integer
 
   Note: '帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。'
 }
@@ -232,6 +235,7 @@ Ref: shares.role_id > roles.id
 Ref: shares.user_id > users.id
 Ref: text_shares.share_id > shares.id [delete: cascade]
 Ref: upload_parts.upload_id > uploads.id [delete: cascade]
+Ref: uploads.role_id > roles.id
 Ref: uploads.share_id > shares.id [delete: cascade]
 Ref: uploads.user_id > users.id [delete: cascade]
 Ref: users.deleted_by > users.id

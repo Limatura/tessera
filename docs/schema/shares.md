@@ -164,6 +164,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
 }
 "access_events" {
   TEXT id PK
@@ -185,6 +186,7 @@ erDiagram
   TEXT deleted_at
   TEXT deleted_by FK
   TEXT role_id FK
+  INTEGER quota_bytes
 }
 "roles" {
   TEXT id PK
@@ -193,6 +195,7 @@ erDiagram
   INTEGER is_system
   TEXT created_at
   TEXT updated_at
+  INTEGER quota_bytes
 }
 ```
 

@@ -2779,6 +2779,7 @@ async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
         .create(
             "narrow".to_owned(),
             None,
+            None,
             &[tessera_core::Permission::TokensManage]
                 .into_iter()
                 .collect(),

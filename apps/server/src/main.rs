@@ -71,6 +71,7 @@ async fn main() -> anyhow::Result<()> {
             note,
         } => return cli::mint_invite(&config, uses, expires_in_days, note).await,
         cli::Command::Settings(action) => return cli::settings(&config, action).await,
+        cli::Command::Quota(action) => return cli::quota(&config, action).await,
         cli::Command::Serve => {}
     }
 

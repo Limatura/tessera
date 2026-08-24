@@ -18,12 +18,15 @@
 
 use sea_orm::{
     ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
-    QueryFilter as _, QueryOrder as _,
+    QueryFilter as _, QueryOrder as _, QuerySelect as _,
 };
 use tessera_core::{AccountState, DomainError, EmailAddress, RoleId, UserId, Username};
 use time::OffsetDateTime;
 
-use crate::db::entity::user::{self, Entity as UserEntity};
+use crate::db::{
+    entity::user::{self, Entity as UserEntity},
+    repository::quota,
+};
 
 /// An account, in domain terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,6 +44,11 @@ pub struct User {
     /// `None` means no role: signed in and allowed nothing. That was
     /// expressible before as "no rows in the join table" and stays expressible.
     pub role_id: Option<RoleId>,
+    /// How much storage this one account may hold, overriding its role.
+    ///
+    /// `None` asks the role; `Some(0)` is no ceiling. The override exists so an
+    /// operator can raise one person without having to invent a role for them.
+    pub quota_bytes: Option<u64>,
     /// Whether the account must set a new password before doing anything else.
     pub must_change_password: bool,
     /// Whether the account works, is suspended, or is gone.
@@ -98,6 +106,7 @@ impl User {
                 .map(RoleId::parse)
                 .transpose()
                 .map_err(fail)?,
+            quota_bytes: quota::from_column(model.quota_bytes),
             password_hash: model.password_hash,
             must_change_password: model.must_change_password,
             state: model.state.parse().map_err(fail)?,
@@ -123,6 +132,7 @@ impl User {
             email: Set(self.email.as_str().to_owned()),
             password_hash: Set(self.password_hash.clone()),
             role_id: Set(self.role_id.map(|id| id.to_string())),
+            quota_bytes: Set(quota::to_column(self.quota_bytes)),
             must_change_password: Set(self.must_change_password),
             state: Set(self.state.as_str().to_owned()),
             deleted_at: Set(self.deleted_at),
@@ -419,6 +429,56 @@ impl UserRepository {
         Ok(result.rows_affected == 1)
     }
 
+    /// Sets or clears one account's storage quota.
+    ///
+    /// `None` clears it, which puts the account back on its role's figure;
+    /// `Some(0)` gives it no ceiling of its own. Returns whether a row changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the write fails.
+    pub async fn set_quota(
+        &self,
+        id: UserId,
+        quota_bytes: Option<u64>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::QuotaBytes, quota::to_expr(quota_bytes))
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Every live account that carries a quota of its own, by name.
+    ///
+    /// Only those with a figure: on an instance with a thousand accounts and
+    /// three overrides, listing all thousand buries the three. And only live
+    /// ones — a removed account's row keeps its columns, so its quota would
+    /// otherwise be listed under a scrubbed name that names nobody.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn with_quota(&self) -> Result<Vec<(String, Option<u64>)>, UserRepositoryError> {
+        let rows: Vec<(String, Option<i64>)> = UserEntity::find()
+            .filter(user::Column::QuotaBytes.is_not_null())
+            .filter(user::Column::State.ne(AccountState::Deleted.as_str()))
+            .order_by_asc(user::Column::Username)
+            .select_only()
+            .column(user::Column::Username)
+            .column(user::Column::QuotaBytes)
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(username, bytes)| (username, quota::from_column(bytes)))
+            .collect())
+    }
+
     /// Removes an account.
     ///
     /// Sessions and API tokens go with it — the database says so. Shares do not:
@@ -496,6 +556,7 @@ mod tests {
         let now = OffsetDateTime::from_unix_timestamp(1_785_000_000).unwrap();
         User {
             role_id: Some(member()),
+            quota_bytes: None,
             id: UserId::generate(),
             username: Username::parse(username).unwrap(),
             email: EmailAddress::parse(email).unwrap(),
@@ -627,6 +688,7 @@ mod tests {
         let now = OffsetDateTime::from_unix_timestamp(1_785_000_000).unwrap();
         let model = user::Model {
             role_id: None,
+            quota_bytes: None,
             id: UserId::generate().to_string(),
             username: "no spaces allowed".to_owned(),
             email: "alice@example.com".to_owned(),

@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use sea_orm::{
     ActiveValue::Set,
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _, QueryFilter as _,
-    QueryOrder as _, QuerySelect as _,
-    sea_query::{Expr, ExprTrait as _},
+    QueryOrder as _, QuerySelect as _, QueryTrait as _,
+    sea_query::{Expr, ExprTrait as _, Func, Iden, Query, SelectStatement},
 };
 use tessera_core::{DomainError, RetrievalCode, RoleId, ShareId, ShareTicketId, UserId};
 use time::OffsetDateTime;
@@ -24,9 +24,46 @@ use crate::{
             share_ticket::{self, Entity as ShareTicketEntity},
             text_share::{self, Entity as TextShareEntity},
         },
-        repository::user::CorruptRow,
+        repository::{quota::Scope, total, user::CorruptRow},
     },
 };
+
+/// `length()`, which every dialect here answers in bytes for a blob.
+///
+/// Written out rather than taken from `Func`, whose `char_length` renders as
+/// `CHAR_LENGTH` — a function Postgres does not have for `bytea`.
+struct Length;
+
+impl Iden for Length {
+    fn quoted(&self) -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("length")
+    }
+
+    fn unquoted(&self) -> &'static str {
+        "length"
+    }
+}
+
+/// The shares a scope owns, as a subquery on `shares.id`, or `None` for the
+/// whole instance.
+///
+/// `Scope::Role` reads `shares.role_id` rather than joining through the
+/// account: it is the role recorded when the share was made, so moving somebody
+/// to another role does not silently move their old shares' bytes with them.
+fn owned_shares(scope: Scope) -> Option<SelectStatement> {
+    let (column, owner) = match scope {
+        Scope::User(id) => (share::Column::UserId, id.to_string()),
+        Scope::Role(id) => (share::Column::RoleId, id.to_string()),
+        Scope::Instance => return None,
+    };
+    Some(
+        Query::select()
+            .column(share::Column::Id)
+            .from(ShareEntity)
+            .and_where(Expr::col(column).eq(owner))
+            .take(),
+    )
+}
 
 /// What a share carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1055,7 +1092,13 @@ impl ShareRepository {
     pub async fn total_bytes_served(&self) -> Result<u64, ShareRepositoryError> {
         let total: Option<i64> = ShareEntity::find()
             .select_only()
-            .column_as(share::Column::BytesServed.sum(), "total")
+            .column_as(
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Expr::col(share::Column::BytesServed),
+                ),
+                "total",
+            )
             .into_tuple()
             .one(&self.connection)
             .await?
@@ -1183,7 +1226,7 @@ impl ShareRepository {
             .filter(
                 share::Column::Kind.eq(ShareKind::Text.as_str()).or(
                     share::Column::Id.in_subquery(
-                        sea_orm::sea_query::Query::select()
+                        Query::select()
                             .column(file_share::Column::ShareId)
                             .from(FileShareEntity)
                             .and_where(
@@ -1258,25 +1301,59 @@ impl ShareRepository {
     ///
     /// Returns [`ShareRepositoryError`] if the query fails.
     pub async fn total_stored_bytes(&self) -> Result<u64, ShareRepositoryError> {
+        self.stored_bytes(Scope::Instance).await
+    }
+
+    /// The same, for one account, one role, or the whole instance.
+    ///
+    /// Content lives on `file_shares` and `text_shares`, which carry no owner —
+    /// the owner is on `shares`. Rather than declare a relation for one query,
+    /// the restriction goes in as a subquery on the share id, which is the
+    /// primary key on one side and an indexed foreign key on the other.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if a query fails.
+    pub async fn stored_bytes(&self, scope: Scope) -> Result<u64, ShareRepositoryError> {
         // Two tables now, because content lives on the table that owns it. A
-        // file's size is a column; text's size is the length of its row, and
-        // `length()` returns bytes for a binary column on all three dialects —
-        // checked against each of them rather than assumed.
+        // file's size is a column; text's size is the length of its row.
+        //
+        // `length()`, not `CHAR_LENGTH()`. The column is a blob on every
+        // dialect — BLOB, bytea, LONGBLOB — and `length()` is the one spelling
+        // all three answer in bytes for one. Postgres has no `char_length` for
+        // `bytea` at all: it does not return the wrong number, it refuses to
+        // plan the query, so on Postgres this whole total failed the moment an
+        // operator set `storage.max_total_bytes`. Found by running the backend
+        // suite against a real Postgres rather than reasoning about it.
         let files: Option<i64> = FileShareEntity::find()
             .filter(file_share::Column::Storage.ne(StorageLocation::GONE))
+            .apply_if(owned_shares(scope), |query, owned| {
+                query.filter(file_share::Column::ShareId.in_subquery(owned))
+            })
             .select_only()
-            .column_as(file_share::Column::SizeBytes.sum(), "total")
+            .column_as(
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Expr::col(file_share::Column::SizeBytes),
+                ),
+                "total",
+            )
             .into_tuple()
             .one(&self.connection)
             .await?
             .flatten();
         let texts: Option<i64> = TextShareEntity::find()
+            .apply_if(owned_shares(scope), |query, owned| {
+                query.filter(text_share::Column::ShareId.in_subquery(owned))
+            })
             .select_only()
             .column_as(
-                Expr::expr(sea_orm::sea_query::Func::char_length(Expr::col(
-                    text_share::Column::Content,
-                )))
-                .sum(),
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Func::cust(Length)
+                        .arg(Expr::col(text_share::Column::Content))
+                        .into(),
+                ),
                 "total",
             )
             .into_tuple()
@@ -1374,7 +1451,13 @@ impl ShareRepository {
                 ),
             )
             .select_only()
-            .column_as(file_share::Column::SizeBytes.sum(), "total")
+            .column_as(
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Expr::col(file_share::Column::SizeBytes),
+                ),
+                "total",
+            )
             .into_tuple()
             .one(&self.connection)
             .await?

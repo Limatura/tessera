@@ -68,6 +68,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
 }
 ```
 

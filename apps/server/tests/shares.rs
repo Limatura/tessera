@@ -3111,3 +3111,372 @@ async fn changing_someones_role_does_not_rewrite_their_old_shares() {
         "the share should still name the role its uploader held at the time"
     );
 }
+
+// ── Tiered quotas ────────────────────────────────────────────────────────
+//
+// Three ceilings can refuse an upload — the account's own, its role's, and the
+// instance's — and which one refused decides who can do anything about it.
+
+/// Registers an account and returns its session cookie and id.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn member(app: &TestApp, name: &str) -> (String, tessera_core::UserId) {
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": name,
+                "email": format!("{name}@example.com"),
+                "password": "a perfectly adequate passphrase",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let cookie = common::session_cookie(&response);
+    let id = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse(name).expect("a username"))
+        .await
+        .expect("query")
+        .expect("the account")
+        .id;
+    (cookie, id)
+}
+
+/// Posts a body as a signed-in account and returns the response.
+async fn upload_as(
+    app: &TestApp,
+    cookie: &str,
+    query: &str,
+    body: &[u8],
+) -> axum::http::Response<Body> {
+    app.send(
+        Request::builder()
+            .method(Method::POST)
+            .uri(format!("/api/v1/shares{query}"))
+            .header(header::COOKIE, cookie),
+        Body::from(body.to_vec()),
+    )
+    .await
+}
+
+/// Sets a role's quota by name.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn set_role_quota(app: &TestApp, name: &str, bytes: Option<u64>) {
+    let role = app
+        .state
+        .roles
+        .find_by_name(name)
+        .await
+        .expect("query")
+        .expect("the role");
+    app.state
+        .roles
+        .set_quota(role.id, bytes, OffsetDateTime::now_utc())
+        .await
+        .expect("store the quota");
+}
+
+/// The `message` of a refusal, which is what a client shows.
+#[expect(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn refusal_message(response: axum::http::Response<Body>) -> String {
+    body_json(response).await["message"]
+        .as_str()
+        .expect("a message")
+        .to_owned()
+}
+
+/// The whole point of the role layer: an instance can hold a hundred gigabytes
+/// and still tell one member they have had their share of it.
+#[tokio::test]
+async fn a_role_quota_refuses_before_the_instance_does() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1_000_000;
+    })
+    .await;
+    // The first account is the owner, so a second one is the member this is
+    // about.
+    let (_, _) = member(&app, "owner").await;
+    set_role_quota(&app, "member", Some(4096)).await;
+    let (cookie, _) = member(&app, "alice").await;
+
+    expect_status(
+        upload_as(&app, &cookie, "?filename=first.bin", &vec![1_u8; 3000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+
+    let refused = upload_as(&app, &cookie, "?filename=second.bin", &vec![2_u8; 2000]).await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+    // Naming the tier is the point: "the instance is full" would send them to
+    // the operator, and the operator has 996 kB free.
+    assert_eq!(
+        refusal_message(refused).await,
+        "the storage quota for your role is full"
+    );
+}
+
+/// The account layer exists so that raising one person does not mean inventing
+/// a role for them.
+#[tokio::test]
+async fn an_account_quota_beats_its_role() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1_000_000;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_quota(&app, "member", Some(4096)).await;
+    let (cookie, id) = member(&app, "alice").await;
+    app.state
+        .users
+        .set_quota(id, Some(20_000), OffsetDateTime::now_utc())
+        .await
+        .expect("store the quota");
+
+    // 6000 is past the role's 4096 and inside the account's 20000.
+    expect_status(
+        upload_as(&app, &cookie, "?filename=big.bin", &vec![1_u8; 6000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+}
+
+/// Nearest wins in both directions, or the account layer would only ever be a
+/// way to grant more.
+#[tokio::test]
+async fn an_account_quota_can_also_lower_one() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1_000_000;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_quota(&app, "member", Some(100_000)).await;
+    let (cookie, id) = member(&app, "alice").await;
+    app.state
+        .users
+        .set_quota(id, Some(2048), OffsetDateTime::now_utc())
+        .await
+        .expect("store the quota");
+
+    let refused = upload_as(&app, &cookie, "?filename=big.bin", &vec![1_u8; 4000]).await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+    assert_eq!(refusal_message(refused).await, "your storage quota is full");
+}
+
+/// `0` says "no ceiling here", which is not permission to fill the disk — the
+/// person who sets a role is often not the person who owns the machine.
+#[tokio::test]
+async fn no_ceiling_of_its_own_still_meets_the_instance() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 8192;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_quota(&app, "member", Some(0)).await;
+    let (cookie, _) = member(&app, "alice").await;
+
+    expect_status(
+        upload_as(&app, &cookie, "?filename=first.bin", &vec![1_u8; 6000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let refused = upload_as(&app, &cookie, "?filename=second.bin", &vec![2_u8; 4000]).await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+    assert_eq!(
+        refusal_message(refused).await,
+        "this instance has no room for more content"
+    );
+}
+
+/// Clearing an account's figure has to put it back on its role's, or `null`
+/// would be a third state nobody can get out of.
+#[tokio::test]
+async fn clearing_an_account_quota_falls_back_to_the_role() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1_000_000;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_quota(&app, "member", Some(4096)).await;
+    let (cookie, id) = member(&app, "alice").await;
+    let now = OffsetDateTime::now_utc();
+    app.state
+        .users
+        .set_quota(id, Some(100_000), now)
+        .await
+        .expect("store the quota");
+    app.state
+        .users
+        .set_quota(id, None, now)
+        .await
+        .expect("clear the quota");
+
+    let refused = upload_as(&app, &cookie, "?filename=big.bin", &vec![1_u8; 6000]).await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+    assert_eq!(
+        refusal_message(refused).await,
+        "the storage quota for your role is full"
+    );
+}
+
+/// Anonymous work is charged to the guest role, which is how "let strangers
+/// upload, but not more than this much of it" is sayable at all.
+#[tokio::test]
+async fn the_guest_role_bounds_anonymous_uploads() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 0;
+    })
+    .await;
+    set_role_quota(&app, "guest", Some(4096)).await;
+
+    upload(&app, "?filename=first.bin", &vec![1_u8; 3000]).await;
+
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=second.bin"),
+            Body::from(vec![2_u8; 2000]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+
+    // A member is untouched by it: the guest role's shares are the guest role's.
+    let (_, _) = member(&app, "owner").await;
+    let (cookie, _) = member(&app, "alice").await;
+    expect_status(
+        upload_as(&app, &cookie, "?filename=mine.bin", &vec![3_u8; 9000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+}
+
+/// The tier that supplies the ceiling has to supply the denominator too. Read
+/// against the instance's total, one member filling their allowance would
+/// refuse every other member at their first upload.
+#[tokio::test]
+async fn one_accounts_usage_does_not_spend_anothers() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1_000_000;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    let (alice, alice_id) = member(&app, "alice").await;
+    let (bob, bob_id) = member(&app, "bob").await;
+    let now = OffsetDateTime::now_utc();
+    for id in [alice_id, bob_id] {
+        app.state
+            .users
+            .set_quota(id, Some(8192), now)
+            .await
+            .expect("store the quota");
+    }
+
+    expect_status(
+        upload_as(&app, &alice, "?filename=hers.bin", &vec![1_u8; 7000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+    expect_status(
+        upload_as(&app, &bob, "?filename=his.bin", &vec![2_u8; 7000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+}
+
+/// A client that knows the figure can say so before somebody picks a file
+/// rather than after they have sent it.
+#[tokio::test]
+async fn capabilities_tells_an_account_its_own_room() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1_000_000;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_quota(&app, "member", Some(4096)).await;
+    let (cookie, _) = member(&app, "alice").await;
+
+    expect_status(
+        upload_as(&app, &cookie, "?filename=first.bin", &vec![1_u8; 3000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+
+    let capabilities = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v1/capabilities")
+                    .header(header::COOKIE, &cookie),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    // Their own remaining, not the instance's 997 kB — which they may not read.
+    assert_eq!(capabilities["storage_remaining_bytes"], 1096);
+}
+
+/// An administrator with a quota of their own would otherwise be shown the
+/// disk's free space and then refused at four kilobytes.
+#[tokio::test]
+async fn capabilities_shows_an_administrator_the_tighter_of_the_two() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.storage.max_total_bytes = 1_000_000;
+    })
+    .await;
+    // The first account is the owner, which is what carries `stats:read`.
+    let (cookie, id) = member(&app, "owner").await;
+    app.state
+        .users
+        .set_quota(id, Some(4096), OffsetDateTime::now_utc())
+        .await
+        .expect("store the quota");
+
+    let capabilities = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v1/capabilities")
+                    .header(header::COOKIE, &cookie),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        capabilities["storage_remaining_bytes"], 4096,
+        "an administrator was shown the disk rather than their own ceiling"
+    );
+}

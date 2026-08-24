@@ -31,6 +31,9 @@ pub struct Model {
     /// Which role the account is in, or `None` for one in no role — signed in
     /// and allowed nothing, which is a real state rather than a fault.
     pub role_id: Option<String>,
+    /// How much storage this account may hold, or `None` to ask its role.
+    /// `Some(0)` is no ceiling.
+    pub quota_bytes: Option<i64>,
     /// Set on the generated first-run administrator, so the printed password
     /// cannot become a permanent one.
     pub must_change_password: bool,

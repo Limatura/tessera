@@ -72,6 +72,13 @@ pub struct AccountResponse {
     /// Set on the administrator generated at first run. A client seeing this
     /// should send the user to a change-password screen and nowhere else.
     pub must_change_password: bool,
+    /// A storage quota set on this one account, overriding its role's.
+    ///
+    /// `null` means the role's applies; `0` means this account has no ceiling
+    /// of its own. What is actually left is `storage_remaining_bytes` on
+    /// `/capabilities`, which accounts for what has been used.
+    #[schema(example = 10_737_418_240_u64)]
+    pub quota_bytes: Option<u64>,
 }
 
 impl AccountResponse {
@@ -105,6 +112,7 @@ impl AccountResponse {
                 .collect(),
             roles: roles.iter().map(|role| role.name.clone()).collect(),
             must_change_password: user.must_change_password,
+            quota_bytes: user.quota_bytes,
         }
     }
 }
@@ -390,6 +398,7 @@ pub async fn register(
         username,
         email,
         role_id: Some(seed_role(&state, first).await?),
+        quota_bytes: None,
         password_hash: password::hash(password, state.config().auth.hashing).await?,
         must_change_password: false,
         state: AccountState::Active,
@@ -996,6 +1005,7 @@ pub async fn confirm_registration(
         email: pending.email.clone(),
         password_hash: pending.password_hash.clone(),
         role_id: Some(seed_role(&state, first).await?),
+        quota_bytes: None,
         // Decided here rather than when the link was sent, because "first
         // account" has to mean first to *exist*. Two people confirming at once
         // both read no accounts and both claim it — which the unique index does

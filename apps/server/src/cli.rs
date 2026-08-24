@@ -33,7 +33,12 @@ use crate::{
     config::{Config, RegistrationPolicy},
     db::{
         self,
-        repository::{invite::InviteRepository, setting::SettingRepository, user::UserRepository},
+        repository::{
+            invite::InviteRepository,
+            role::{Role, RoleRepository},
+            setting::SettingRepository,
+            user::UserRepository,
+        },
     },
     settings,
 };
@@ -74,8 +79,38 @@ pub enum Command {
     /// panel does not work, which is exactly when the way to undo it must not
     /// be the panel.
     Settings(SettingsAction),
+    /// Read or change storage quotas without the admin panel.
+    ///
+    /// The instance-wide ceiling is a setting, so it is `settings set
+    /// storage.max_total_bytes`. These are the per-role and per-account
+    /// figures, which are rows rather than settings.
+    Quota(QuotaAction),
     /// Print usage and exit successfully.
     Help,
+}
+
+/// What `quota` was asked to do.
+#[derive(Debug, PartialEq, Eq)]
+pub enum QuotaAction {
+    /// Print every role and every account that carries a figure.
+    List,
+    /// Set or clear one.
+    Set {
+        /// Which one to change.
+        subject: QuotaSubject,
+        /// Bytes, `0` for no ceiling, or `None` to clear it so the next layer
+        /// answers again.
+        bytes: Option<u64>,
+    },
+}
+
+/// Whose quota `quota set` is about.
+#[derive(Debug, PartialEq, Eq)]
+pub enum QuotaSubject {
+    /// A role, by name.
+    Role(String),
+    /// An account, by username.
+    User(String),
 }
 
 /// What `settings` was asked to do.
@@ -166,6 +201,7 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Command, String>
         "reset-password" => parse_reset_password(args),
         "invite" => parse_invite(args),
         "settings" => parse_settings(args),
+        "quota" => parse_quota(args),
         other => Err(format!(
             "unknown argument `{other}`\n\nRun `tessera-server --help` to see what this accepts."
         )),
@@ -285,6 +321,57 @@ fn parse_settings<I: Iterator<Item = String>>(mut args: I) -> Result<Command, St
     Ok(command)
 }
 
+fn parse_quota<I: Iterator<Item = String>>(mut args: I) -> Result<Command, String> {
+    let action = args
+        .next()
+        .ok_or_else(|| "quota: say what to do — list or set".to_owned())?;
+
+    let command = match action.as_str() {
+        "list" => Command::Quota(QuotaAction::List),
+        "set" => {
+            let kind = args
+                .next()
+                .ok_or_else(|| "quota set: needs `role` or `user`".to_owned())?;
+            let name = args
+                .next()
+                .ok_or_else(|| format!("quota set {kind}: needs a name"))?;
+            let subject = match kind.as_str() {
+                "role" => QuotaSubject::Role(name),
+                "user" => QuotaSubject::User(name),
+                other => {
+                    return Err(format!(
+                        "quota set: `{other}` is not a subject — expected role or user"
+                    ));
+                }
+            };
+            let value = args
+                .next()
+                .ok_or_else(|| "quota set: needs bytes, 0, or none".to_owned())?;
+            // `none` and `0` are different instructions and the difference is
+            // the whole design, so neither is spelled as the other: `none`
+            // hands the question to the next layer, `0` answers it with "no
+            // ceiling".
+            let bytes = match value.as_str() {
+                "none" | "null" => None,
+                other => Some(other.parse::<u64>().map_err(|_| {
+                    format!("quota set: `{other}` is not a number of bytes, 0, or none")
+                })?),
+            };
+            Command::Quota(QuotaAction::Set { subject, bytes })
+        }
+        other => {
+            return Err(format!(
+                "quota: unknown action `{other}` — expected list or set"
+            ));
+        }
+    };
+
+    if let Some(extra) = args.next() {
+        return Err(format!("quota: unexpected argument `{extra}`"));
+    }
+    Ok(command)
+}
+
 /// What `--help` prints.
 pub const USAGE: &str = "\
 tessera-server — a self-hosted file courier
@@ -295,6 +382,7 @@ USAGE:
     tessera-server reset-password ...    Set an account's password
     tessera-server invite ...            Mint an invite code
     tessera-server settings ...          Read or change settings without the panel
+    tessera-server quota ...             Read or change per-role and per-account quotas
 
 SETTINGS:
     settings list            Every setting, its value, and where that value
@@ -310,6 +398,23 @@ SETTINGS:
 
     Writes the same table the admin panel does, so the two always agree. Takes
     effect when the server next starts — a running one is not asked to reload.
+
+QUOTA:
+    quota list               Every role, and every account that has a figure of
+                             its own.
+    quota set role <name> <bytes|0|none>
+    quota set user <name> <bytes|0|none>
+                             `none` clears it, so the next layer answers again:
+                             an account falls back to its role, a role to
+                             storage.max_total_bytes. `0` is different — it means
+                             no ceiling at that layer.
+
+    An account's own figure beats its role's. storage.max_total_bytes still
+    applies on top of both, so neither can hand out more room than the instance
+    has; set that one with `settings set`.
+
+    Anonymous uploads are charged to the `guest` role, which is how an instance
+    that allows them can still bound them.
 
 RESET-PASSWORD:
     -u, --username <name>    Whose password to set. Required.
@@ -539,6 +644,74 @@ pub async fn settings(config: &Config, action: SettingsAction) -> anyhow::Result
     outcome
 }
 
+/// Reads or changes a per-role or per-account quota, without the server running.
+///
+/// # Errors
+///
+/// When the database cannot be opened, the name matches nothing, or the write
+/// fails.
+pub async fn quota(config: &Config, action: QuotaAction) -> anyhow::Result<()> {
+    let db = db::connect(&config.database)
+        .await
+        .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
+    let roles = RoleRepository::new(db.clone());
+    let users = UserRepository::new(db.clone());
+
+    let outcome = run_quota(&roles, &users, action).await;
+    db::close(db).await;
+    outcome
+}
+
+async fn run_quota(
+    roles: &RoleRepository,
+    users: &UserRepository,
+    action: QuotaAction,
+) -> anyhow::Result<()> {
+    match action {
+        QuotaAction::List => {
+            let listed = roles.list().await.context("could not read the roles")?;
+            let overridden = users
+                .with_quota()
+                .await
+                .context("could not read the accounts")?;
+            print_quotas(&listed, &overridden);
+        }
+        QuotaAction::Set { subject, bytes } => {
+            let now = OffsetDateTime::now_utc();
+            let name = match subject {
+                QuotaSubject::Role(name) => {
+                    let role = roles
+                        .find_by_name(&name)
+                        .await
+                        .context("could not read the roles")?
+                        .with_context(|| format!("no role is called `{name}`"))?;
+                    roles
+                        .set_quota(role.id, bytes, now)
+                        .await
+                        .context("could not store the quota")?;
+                    format!("role {name}")
+                }
+                QuotaSubject::User(name) => {
+                    let username = Username::parse(&name)
+                        .with_context(|| format!("`{name}` is not a username"))?;
+                    let user = users
+                        .find_by_username(&username)
+                        .await
+                        .context("could not read the accounts")?
+                        .with_context(|| format!("no account is called `{name}`"))?;
+                    users
+                        .set_quota(user.id, bytes, now)
+                        .await
+                        .context("could not store the quota")?;
+                    format!("user {name}")
+                }
+            };
+            report_quota_stored(&name, bytes);
+        }
+    }
+    Ok(())
+}
+
 async fn run_settings(store: &SettingRepository, action: SettingsAction) -> anyhow::Result<()> {
     match action {
         SettingsAction::List => {
@@ -645,6 +818,53 @@ fn report_setting_cleared(key: &str, removed: bool) {
 fn report_all_settings_cleared(removed: u64) {
     println!("cleared {removed} stored setting(s).");
     println!("Everything now comes from the environment, the file, or the defaults.");
+}
+
+/// Says what was set, in the same three-way language the argument takes.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn report_quota_stored(subject: &str, bytes: Option<u64>) {
+    match bytes {
+        None => println!("{subject}: cleared; the next layer applies again."),
+        Some(0) => println!("{subject}: no ceiling of its own."),
+        Some(bytes) => println!("{subject}: {bytes} bytes."),
+    }
+    println!("\nTakes effect on the next request; the server is not restarted.");
+}
+
+/// Prints every role, and every account that overrides its role.
+///
+/// Accounts without a figure are left out: on an instance with a thousand
+/// accounts and three overrides, listing all thousand buries the three.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn print_quotas(roles: &[Role], overridden: &[(String, Option<u64>)]) {
+    println!("ROLES");
+    for role in roles {
+        println!("  {:<20}{}", role.name, describe_quota(role.quota_bytes));
+    }
+    if overridden.is_empty() {
+        println!("\nNo account overrides its role.");
+    } else {
+        println!("\nACCOUNTS (overriding their role)");
+        for (username, bytes) in overridden {
+            println!("  {username:<20}{}", describe_quota(*bytes));
+        }
+    }
+    println!("\nOn top of all of these: storage.max_total_bytes, in `settings list`.");
+}
+
+/// The three answers a quota can give, in words.
+fn describe_quota(bytes: Option<u64>) -> String {
+    match bytes {
+        None => "(the next layer decides)".to_owned(),
+        Some(0) => "no ceiling".to_owned(),
+        Some(bytes) => format!("{bytes} bytes"),
+    }
 }
 
 /// Prints the list a person reads.
@@ -974,5 +1194,76 @@ mod settings_tests {
             parse_value("smtp.example.com"),
             serde_json::json!("smtp.example.com")
         );
+    }
+}
+
+#[cfg(test)]
+mod quota_tests {
+    use super::{Command, QuotaAction, QuotaSubject, parse};
+
+    fn parsed(args: &[&str]) -> Result<Command, String> {
+        parse(args.iter().map(|arg| (*arg).to_owned()))
+    }
+
+    #[test]
+    fn both_actions_parse() {
+        assert_eq!(
+            parsed(&["quota", "list"]),
+            Ok(Command::Quota(QuotaAction::List))
+        );
+        assert_eq!(
+            parsed(&["quota", "set", "role", "member", "1024"]),
+            Ok(Command::Quota(QuotaAction::Set {
+                subject: QuotaSubject::Role("member".to_owned()),
+                bytes: Some(1024),
+            }))
+        );
+        assert_eq!(
+            parsed(&["quota", "set", "user", "alice", "1024"]),
+            Ok(Command::Quota(QuotaAction::Set {
+                subject: QuotaSubject::User("alice".to_owned()),
+                bytes: Some(1024),
+            }))
+        );
+    }
+
+    /// The whole design is that these are different instructions, so the
+    /// command line has to be able to say both.
+    #[test]
+    fn none_and_zero_stay_apart() {
+        let cleared = parsed(&["quota", "set", "role", "member", "none"]);
+        let unlimited = parsed(&["quota", "set", "role", "member", "0"]);
+        assert_eq!(
+            cleared,
+            Ok(Command::Quota(QuotaAction::Set {
+                subject: QuotaSubject::Role("member".to_owned()),
+                bytes: None,
+            }))
+        );
+        assert_eq!(
+            unlimited,
+            Ok(Command::Quota(QuotaAction::Set {
+                subject: QuotaSubject::Role("member".to_owned()),
+                bytes: Some(0),
+            }))
+        );
+        assert_ne!(cleared, unlimited);
+    }
+
+    /// A negative figure or a typo must not be read as one of the two words
+    /// that mean something.
+    #[test]
+    fn a_value_that_is_neither_is_refused() {
+        assert!(parsed(&["quota", "set", "role", "member", "-1"]).is_err());
+        assert!(parsed(&["quota", "set", "role", "member", "lots"]).is_err());
+        assert!(parsed(&["quota", "set", "group", "member", "0"]).is_err());
+        assert!(parsed(&["quota", "reset", "role", "member"]).is_err());
+    }
+
+    /// A silently ignored argument looks like the command did what was asked.
+    #[test]
+    fn a_trailing_argument_is_refused() {
+        assert!(parsed(&["quota", "list", "roles"]).is_err());
+        assert!(parsed(&["quota", "set", "role", "member", "0", "please"]).is_err());
     }
 }

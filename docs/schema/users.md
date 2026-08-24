@@ -22,7 +22,7 @@ CREATE TABLE users (
     email_verified_at    TEXT,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
-, state TEXT NOT NULL DEFAULT 'active', deleted_at TEXT, deleted_by TEXT REFERENCES users (id) ON DELETE SET NULL, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
+, state TEXT NOT NULL DEFAULT 'active', deleted_at TEXT, deleted_by TEXT REFERENCES users (id) ON DELETE SET NULL, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, quota_bytes INTEGER)
 ```
 
 </details>
@@ -43,6 +43,7 @@ CREATE TABLE users (
 | deleted_at | TEXT |  | true |  |  |  |
 | deleted_by | TEXT |  | true |  | [users](users.md) |  |
 | role_id | TEXT |  | true |  | [roles](roles.md) |  |
+| quota_bytes | INTEGER |  | true |  |  |  |
 
 ## Constraints
 
@@ -89,6 +90,7 @@ erDiagram
   TEXT deleted_at
   TEXT deleted_by FK
   TEXT role_id FK
+  INTEGER quota_bytes
 }
 "sessions" {
   TEXT id PK
@@ -155,6 +157,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
 }
 "roles" {
   TEXT id PK
@@ -163,6 +166,7 @@ erDiagram
   INTEGER is_system
   TEXT created_at
   TEXT updated_at
+  INTEGER quota_bytes
 }
 ```
 

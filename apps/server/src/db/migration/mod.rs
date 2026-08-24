@@ -53,6 +53,7 @@ mod m20260823_000001_settings;
 mod m20260823_000002_settings_permissions;
 mod m20260824_000001_single_role;
 mod m20260825_000001_share_role;
+mod m20260826_000001_quotas;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -95,6 +96,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260823_000002_settings_permissions::Migration),
             Box::new(m20260824_000001_single_role::Migration),
             Box::new(m20260825_000001_share_role::Migration),
+            Box::new(m20260826_000001_quotas::Migration),
         ]
     }
 }

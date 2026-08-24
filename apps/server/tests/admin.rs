@@ -812,6 +812,7 @@ async fn a_role_can_grant_looking_without_granting_changing() {
         .create(
             "auditor".to_owned(),
             Some("Can look, cannot touch.".to_owned()),
+            None,
             &[tessera_core::Permission::UsersRead].into_iter().collect(),
             OffsetDateTime::now_utc(),
         )
@@ -975,6 +976,7 @@ async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
         .roles
         .create(
             "deputy".to_owned(),
+            None,
             None,
             &[tessera_core::Permission::RolesWrite].into_iter().collect(),
             OffsetDateTime::now_utc(),
@@ -1281,6 +1283,7 @@ async fn new_accounts_go_into_the_configured_role() {
         .create(
             "restricted".to_owned(),
             None,
+            None,
             &[tessera_core::Permission::SharesCreate]
                 .into_iter()
                 .collect(),
@@ -1502,6 +1505,7 @@ async fn reading_every_share_does_not_imply_removing_one() {
         .roles
         .create(
             "moderator".to_owned(),
+            None,
             None,
             &[tessera_core::Permission::SharesReadAny]
                 .into_iter()
@@ -2719,4 +2723,118 @@ async fn lengthening_a_retention_needs_no_confirmation() {
         StatusCode::OK,
     )
     .await;
+}
+
+// ── Quotas over HTTP ─────────────────────────────────────────────────────
+
+/// A role's quota has to travel with the rest of the role, or the panel would
+/// need a second screen for one number.
+#[tokio::test]
+async fn a_role_carries_its_quota_through_the_api() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let created = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/admin/roles",
+                Auth::Cookie(&admin),
+                &serde_json::json!({
+                    "name": "generous",
+                    "permissions": ["shares:create"],
+                    "quota_bytes": 10_737_418_240_u64,
+                }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(created["quota_bytes"], 10_737_418_240_u64);
+
+    // And an edit can take it away again, back to the instance ceiling.
+    let id = created["id"].as_str().expect("an id").to_owned();
+    let updated = body_json(
+        expect_status(
+            app.json(
+                Method::PUT,
+                &format!("/api/v1/admin/roles/{id}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({
+                    "name": "generous",
+                    "permissions": ["shares:create"],
+                    "quota_bytes": serde_json::Value::Null,
+                }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(updated["quota_bytes"], serde_json::Value::Null);
+}
+
+/// Absent and `null` are opposite instructions on this field, so a patch that
+/// does not mention it must leave it alone.
+#[tokio::test]
+async fn an_account_quota_survives_a_patch_that_does_not_mention_it() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    let set = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                &format!("/api/v1/admin/users/{id}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "is_admin": false, "quota_bytes": 4096 }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(set["quota_bytes"], 4096);
+
+    // A patch about something else entirely.
+    let untouched = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                &format!("/api/v1/admin/users/{id}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "is_admin": false, "state": "active" }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(untouched["quota_bytes"], 4096, "an absent field cleared it");
+
+    // `null` is the way to clear it, and it has to actually work.
+    let cleared = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                &format!("/api/v1/admin/users/{id}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({
+                    "is_admin": false,
+                    "quota_bytes": serde_json::Value::Null,
+                }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(cleared["quota_bytes"], serde_json::Value::Null);
 }

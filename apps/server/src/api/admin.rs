@@ -37,16 +37,17 @@ use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     api::{
-        ADMIN_TAG,
+        ADMIN_TAG, Patch,
         auth::AccountResponse,
         extract::{ApiJson, ApiPath, ApiQuery},
+        patched,
         shares::{SharePageParams, page_bounds},
         tokens::format_timestamp,
     },
     auth::extract::CurrentUser,
     db::repository::{
         invite::Invite,
-        role::{Role, RoleChange},
+        role::{Role, RoleChange, RoleFields},
         session::SessionEnding,
         share::{Availability, Content, Share},
     },
@@ -66,6 +67,18 @@ pub struct UpdateUserRequest {
     /// account scrubs it, and that is `DELETE` rather than a field on a patch.
     #[serde(default)]
     pub state: Option<String>,
+    /// A storage quota for this one account, overriding its role's.
+    ///
+    /// Absent leaves it alone, `null` clears it so the role's applies again,
+    /// and `0` gives this account no ceiling of its own. Three instructions,
+    /// which is why absent and `null` are not the same here.
+    ///
+    /// For raising or lowering one person without inventing a role for them.
+    /// `storage.max_total_bytes` still applies on top — this cannot grant
+    /// somebody more room than the instance has.
+    #[serde(default, deserialize_with = "patched")]
+    #[schema(example = 10_737_418_240_u64)]
+    pub quota_bytes: Patch<u64>,
 }
 
 /// One account, as an administrator sees it.
@@ -248,6 +261,9 @@ pub async fn update_user(
     }
 
     state.users.set_admin(user_id, body.is_admin, now).await?;
+    if let Some(quota) = body.quota_bytes {
+        state.users.set_quota(user_id, quota, now).await?;
+    }
 
     let updated = state
         .users
@@ -665,6 +681,11 @@ pub struct RoleResponse {
     /// What it allows, as `resource:verb` strings.
     #[schema(example = json!(["users:read"]))]
     pub permissions: Vec<String>,
+    /// How much storage each account in it may hold.
+    ///
+    /// `null` means the instance ceiling applies; `0` means no ceiling.
+    #[schema(example = 10_737_418_240_u64)]
+    pub quota_bytes: Option<u64>,
     /// How many accounts are in it.
     ///
     /// The number an operator wants before editing one: changing a role that
@@ -682,6 +703,7 @@ impl RoleResponse {
             id: role.id.to_string(),
             name: role.name.clone(),
             description: role.description.clone(),
+            quota_bytes: role.quota_bytes,
             is_system: role.is_system,
             permissions: role
                 .permissions
@@ -703,6 +725,14 @@ pub struct RoleRequest {
     /// What it is for.
     #[serde(default)]
     pub description: Option<String>,
+    /// How much storage each account in this role may hold.
+    ///
+    /// Omit or send `null` to fall back to the instance-wide ceiling; send `0`
+    /// for no ceiling at all. Those are different: `null` follows
+    /// `storage.max_total_bytes` as it changes, `0` ignores it.
+    #[serde(default)]
+    #[schema(example = 10_737_418_240_u64)]
+    pub quota_bytes: Option<u64>,
     /// Everything it should allow, as `resource:verb` strings.
     ///
     /// The whole set, not a change to it. Two operators editing the same role
@@ -898,6 +928,7 @@ pub async fn create_role(
         .create(
             name,
             body.description.clone(),
+            body.quota_bytes,
             &permissions,
             OffsetDateTime::now_utc(),
         )
@@ -985,7 +1016,16 @@ pub async fn update_role(
     let now = OffsetDateTime::now_utc();
     if state
         .roles
-        .update(role_id, &name, body.description.clone(), &permissions, now)
+        .update(
+            role_id,
+            RoleFields {
+                name: &name,
+                description: body.description.clone(),
+                quota_bytes: body.quota_bytes,
+                permissions: &permissions,
+            },
+            now,
+        )
         .await?
         == RoleChange::NoSuchRole
     {

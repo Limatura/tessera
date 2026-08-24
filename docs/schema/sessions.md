@@ -83,6 +83,7 @@ erDiagram
   TEXT deleted_at
   TEXT deleted_by FK
   TEXT role_id FK
+  INTEGER quota_bytes
 }
 ```
 

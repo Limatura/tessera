@@ -1,10 +1,12 @@
 //! Reading and writing upload sessions.
 
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
-    QueryFilter as _, QueryOrder as _, QuerySelect as _, TransactionTrait as _,
+    ActiveValue::Set,
+    ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _, QueryFilter,
+    QueryOrder as _, QuerySelect as _, QueryTrait as _, TransactionTrait as _,
+    sea_query::{Expr, SimpleExpr},
 };
-use tessera_core::{ShareId, UploadId, UserId};
+use tessera_core::{RoleId, ShareId, UploadId, UserId};
 use time::OffsetDateTime;
 
 use crate::{
@@ -13,7 +15,7 @@ use crate::{
             upload::{self, Entity as UploadEntity},
             upload_part::{self, Entity as UploadPartEntity},
         },
-        repository::user::CorruptRow,
+        repository::{quota::Scope, total, user::CorruptRow},
     },
     upload::sink::TakenPart,
 };
@@ -27,6 +29,8 @@ pub struct Upload {
     pub share_id: Option<ShareId>,
     /// Whose upload it is, or `None` for an anonymous one.
     pub user_id: Option<UserId>,
+    /// The role whose quota these reserved bytes are charged against.
+    pub role_id: Option<RoleId>,
     /// Digest of the secret that lets somebody continue it.
     pub token_hash: String,
     /// The name the uploader gave it.
@@ -77,6 +81,12 @@ impl Upload {
                 .map(UserId::parse)
                 .transpose()
                 .map_err(fail)?,
+            role_id: model
+                .role_id
+                .as_deref()
+                .map(RoleId::parse)
+                .transpose()
+                .map_err(fail)?,
             token_hash: model.token_hash,
             filename: model.filename,
             content_type: model.content_type,
@@ -96,6 +106,9 @@ pub struct NewUpload {
     pub share_id: Option<ShareId>,
     /// Whose upload it is.
     pub user_id: Option<UserId>,
+    /// The role to charge the reserved bytes to — the guest role for an
+    /// anonymous one, so unauthenticated sessions are still counted somewhere.
+    pub role_id: Option<RoleId>,
     /// Digest of the secret handed to the uploader.
     pub token_hash: String,
     /// The name they gave it.
@@ -108,6 +121,16 @@ pub struct NewUpload {
     pub object_key: String,
     /// The store's multipart identifier, when there is one.
     pub multipart_id: Option<String>,
+}
+
+/// The restriction that limits open sessions to one scope, or `None` for the
+/// whole instance.
+fn owner_of(scope: Scope) -> Option<SimpleExpr> {
+    match scope {
+        Scope::User(id) => Some(upload::Column::UserId.eq(id.to_string())),
+        Scope::Role(id) => Some(upload::Column::RoleId.eq(id.to_string())),
+        Scope::Instance => None,
+    }
 }
 
 /// Anything that can go wrong reading or writing an upload.
@@ -151,6 +174,7 @@ impl UploadRepository {
             id: Set(id.to_string()),
             share_id: Set(new.share_id.map(|id| id.to_string())),
             user_id: Set(new.user_id.map(|id| id.to_string())),
+            role_id: Set(new.role_id.map(|id| id.to_string())),
             token_hash: Set(new.token_hash.clone()),
             filename: Set(new.filename.clone()),
             content_type: Set(new.content_type.clone()),
@@ -169,6 +193,7 @@ impl UploadRepository {
             id,
             share_id: new.share_id,
             user_id: new.user_id,
+            role_id: new.role_id,
             token_hash: new.token_hash.clone(),
             filename: new.filename.clone(),
             content_type: new.content_type.clone(),
@@ -315,12 +340,16 @@ impl UploadRepository {
             .map_err(Into::into)
     }
 
-    /// Room that unfinished uploads have reserved.
+    /// Room that unfinished uploads have reserved, for one scope.
     ///
     /// The **declared** size, not what has landed. Counting what landed lets
     /// sessions over-commit: with ten gigabytes free, two callers can each say
     /// they will send ten and both be accepted, because at that moment neither
     /// has sent anything. Reserving the declaration makes the second one wait.
+    ///
+    /// `uploads` carries its own `role_id` for this. Summing every open session
+    /// against a member's role would charge them for room a guest is holding,
+    /// and the row has no share to read the role from until it completes.
     ///
     /// The cost is that an abandoned session holds its whole declaration until
     /// the sweep takes it, rather than only the part that arrived. That is the
@@ -330,10 +359,17 @@ impl UploadRepository {
     /// # Errors
     ///
     /// Returns [`UploadRepositoryError`] if the query fails.
-    pub async fn reserved_bytes(&self) -> Result<u64, UploadRepositoryError> {
+    pub async fn reserved_bytes(&self, scope: Scope) -> Result<u64, UploadRepositoryError> {
         let total: Option<i64> = UploadEntity::find()
+            .apply_if(owner_of(scope), QueryFilter::filter)
             .select_only()
-            .column_as(upload::Column::DeclaredBytes.sum(), "total")
+            .column_as(
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Expr::col(upload::Column::DeclaredBytes),
+                ),
+                "total",
+            )
             .into_tuple()
             .one(&self.connection)
             .await?

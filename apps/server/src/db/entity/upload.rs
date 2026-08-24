@@ -13,6 +13,10 @@ pub struct Model {
     pub share_id: Option<String>,
     /// Whose upload it is, or `None` for an anonymous one holding the token.
     pub user_id: Option<String>,
+    /// The role the uploader was in when the session opened. Mirrors
+    /// `shares.role_id`: the reserved bytes are charged to the role at the
+    /// time, not to whatever the account is in now.
+    pub role_id: Option<String>,
     /// Digest of the secret that lets somebody continue it.
     pub token_hash: String,
     /// The name the uploader gave it.

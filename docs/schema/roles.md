@@ -18,7 +18,7 @@ CREATE TABLE roles (
     is_system   INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
-)
+, quota_bytes INTEGER)
 ```
 
 </details>
@@ -27,12 +27,13 @@ CREATE TABLE roles (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [shares](shares.md) [role_permissions](role_permissions.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [shares](shares.md) [role_permissions](role_permissions.md) [uploads](uploads.md) |  |  |
 | name | TEXT |  | false |  |  |  |
 | description | TEXT |  | true |  |  |  |
 | is_system | INTEGER | 0 | false |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
+| quota_bytes | INTEGER |  | true |  |  |  |
 
 ## Constraints
 
@@ -56,6 +57,7 @@ erDiagram
 "users" }o--o| "roles" : ""
 "shares" }o--o| "roles" : ""
 "role_permissions" |o--|| "roles" : ""
+"uploads" }o--o| "roles" : ""
 
 "roles" {
   TEXT id PK
@@ -64,6 +66,7 @@ erDiagram
   INTEGER is_system
   TEXT created_at
   TEXT updated_at
+  INTEGER quota_bytes
 }
 "users" {
   TEXT id PK
@@ -78,6 +81,7 @@ erDiagram
   TEXT deleted_at
   TEXT deleted_by FK
   TEXT role_id FK
+  INTEGER quota_bytes
 }
 "shares" {
   TEXT id PK
@@ -103,6 +107,22 @@ erDiagram
 "role_permissions" {
   TEXT role_id PK
   TEXT permission PK
+}
+"uploads" {
+  TEXT id PK
+  TEXT share_id FK
+  TEXT user_id FK
+  TEXT token_hash
+  TEXT filename
+  TEXT content_type
+  INTEGER declared_bytes
+  INTEGER offset_bytes
+  TEXT object_key
+  TEXT multipart_id
+  TEXT created_at
+  TEXT updated_at
+  TEXT expires_at
+  TEXT role_id FK
 }
 ```
 

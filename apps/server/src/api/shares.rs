@@ -44,9 +44,9 @@ use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     api::{
-        SHARES_TAG,
+        Patch, SHARES_TAG,
         extract::{ApiJson, ApiPath, ApiQuery},
-        gate,
+        gate, patched,
     },
     auth::{
         extract::{ClientAddress, CurrentUser, MaybeUser},
@@ -55,10 +55,14 @@ use crate::{
         secret::Secret,
         throttle::Decision,
     },
-    db::repository::share::{
-        Change, Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+    db::repository::{
+        quota::Scope,
+        share::{
+            Change, Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+        },
+        user::User,
     },
-    error::{Error, Result},
+    error::{Error, Result, Tier},
     state::AppState,
 };
 
@@ -296,7 +300,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
         (status = 401, description = "This instance requires an account to upload", body = crate::error::ErrorBody),
         (status = 403, description = "The credential does not carry `shares:create`", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
-        (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
+        (status = 507, description = "Out of room — the body says whether that is the account's quota, its role's, or the instance's", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -344,7 +348,17 @@ pub async fn create(
         storage,
         size_bytes,
         inline,
-    } = ingest(&state, id, kind, now, body).await?;
+    } = ingest(
+        &state,
+        Ingest {
+            id,
+            kind,
+            owner: current.as_ref().map(|current| &current.user),
+            now,
+        },
+        body,
+    )
+    .await?;
 
     // A share of nothing has nothing to hand out, and the retrieval code it
     // would occupy is not free.
@@ -362,12 +376,9 @@ pub async fn create(
         // change, so a retry costs one insert rather than a re-upload.
         code: RetrievalCode::parse("0000").unwrap_or_else(|_| unreachable!("four zeroes parse")),
         user_id: current.as_ref().map(|user| user.user.id),
-        // Already in hand for a signed-in caller; a lookup only for the
-        // anonymous case, which does not touch the database for it either.
-        role_id: match current.as_ref() {
-            Some(user) => user.user.role_id,
-            None => RoleId::parse(RoleId::GUEST).ok(),
-        },
+        // Already in hand for a signed-in caller, and the guest role for an
+        // anonymous one. Neither touches the database.
+        role_id: charged_role_of(current.as_ref().map(|current| &current.user)),
         kind,
         password_hash,
         use_limit: params.max_uses,
@@ -611,26 +622,6 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// One field of a partial update: absent, explicitly `null`, or a value.
-///
-/// `Option<T>` cannot say this. serde hands back `None` both for "the caller
-/// did not mention it" and for "the caller sent `null`", and in a `PATCH` those
-/// are opposite instructions — leave it as it is, or clear it. Every field
-/// below that can be cleared carries this instead.
-type Patch<T> = Option<Option<T>>;
-
-/// Deserialises a present field into [`Patch`], so that absent stays `None`.
-///
-/// `#[serde(default)]` supplies `None` when the key is missing; this runs only
-/// when it is there, which is what makes `null` land as `Some(None)`.
-fn patched<'de, D, T>(deserializer: D) -> std::result::Result<Patch<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer).map(Some)
-}
-
 /// Body of `PATCH /shares/{code}`.
 ///
 /// Every field is optional and omitting one leaves that setting alone. Sending
@@ -817,15 +808,30 @@ pub async fn patch(
 /// Returns [`Error`] if the account cannot be read.
 async fn charged_role(state: &AppState, user_id: Option<UserId>) -> Result<Option<RoleId>> {
     let Some(user_id) = user_id else {
-        // `parse` on a constant this crate owns. A failure would mean the
-        // seeded id is malformed, which no deployment can cause.
-        return Ok(RoleId::parse(RoleId::GUEST).ok());
+        return Ok(guest_role());
     };
     Ok(state
         .users
         .find_by_id(user_id)
         .await?
         .and_then(|user| user.role_id))
+}
+
+/// The same answer for a caller that already holds the account.
+///
+/// The extractor has read the row to authenticate the request, so asking the
+/// database again for the role it just fetched would be a second query for a
+/// value already in hand.
+pub(crate) fn charged_role_of(user: Option<&User>) -> Option<RoleId> {
+    user.map_or_else(guest_role, |user| user.role_id)
+}
+
+/// The role anonymous work is charged to.
+///
+/// `parse` on a constant this crate owns. A failure would mean the seeded id is
+/// malformed, which no deployment can cause.
+fn guest_role() -> Option<RoleId> {
+    RoleId::parse(RoleId::GUEST).ok()
 }
 
 /// Where a share's bytes ended up, and how many there were.
@@ -854,8 +860,33 @@ struct Ingested {
 /// handler that takes the `Body` and reads frames itself does not. Reading the
 /// body by hand means owning the limit by hand; without this check the layer in
 /// `api::build` silently does nothing for this route.
-/// How many more bytes this instance will accept, or [`u64::MAX`] when it has
-/// no limit.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the body cannot be read or the store will not take it.
+async fn ingest(state: &AppState, request: Ingest<'_>, body: Body) -> Result<Ingested> {
+    let id = request.id;
+    let mut upload: Option<Box<dyn MultipartUpload>> = None;
+    let result = ingest_into(state, request, body, &mut upload).await;
+
+    if let Some(upload) = upload.as_mut() {
+        // Only reachable when something failed: the success path takes the
+        // upload out of the slot after completing it. Abandoning a multipart
+        // upload leaves parts behind that a store will bill for and that nothing
+        // else will ever look for, so the failure path has to say so explicitly.
+        if let Err(error) = upload.abort().await {
+            tracing::warn!(?error, %id, "could not abort an incomplete upload");
+        }
+    }
+    result
+}
+
+/// What is left before the first ceiling refuses, counting uploads still
+/// arriving.
+///
+/// An open upload session has reserved the room it declared, so it spends quota
+/// before a byte of it arrives. Without that, two callers can each be promised
+/// the same free space and the instance goes over its own limit.
 ///
 /// Read once per upload rather than held in a counter. An upload is not a hot
 /// path, and a counter would have to survive every failed ingest, every delete
@@ -876,18 +907,139 @@ struct Ingested {
 /// should have been kept, to make a limit whose entire job is to stop unbounded
 /// growth slightly more exact. Set the figure with the same slack you would
 /// give a disk.
-/// What is left of the instance's allowance, counting uploads still arriving.
-///
-/// An open upload session has reserved the room it declared, so it spends quota
-/// before a byte of it arrives. Without that, two callers can each be promised
-/// the same free space and the instance goes over its own limit.
 ///
 /// # Errors
 ///
-/// Returns [`Error`] if either total cannot be read.
-pub(crate) async fn remaining_room(state: &AppState) -> Result<u64> {
-    let free = remaining_quota(state).await?;
-    Ok(free.saturating_sub(state.uploads.reserved_bytes().await?))
+/// Returns [`Error`] if a total cannot be read.
+pub(crate) async fn remaining_room(state: &AppState, user: Option<&User>) -> Result<Room> {
+    tightest(state, ceilings(state, user).await?).await
+}
+
+/// The same, ignoring `storage.max_total_bytes`.
+///
+/// For telling a caller how much room *they* have. How full the disk is is an
+/// instance-wide figure and is told to whoever may read instance-wide figures;
+/// somebody's own quota is theirs to know, and answering it with the disk's
+/// free space would tell every signed-in account how full the machine is.
+///
+/// # Errors
+///
+/// Returns [`Error`] if a total cannot be read.
+pub(crate) async fn personal_room(state: &AppState, user: Option<&User>) -> Result<Room> {
+    let personal = ceilings(state, user)
+        .await?
+        .into_iter()
+        .filter(|ceiling| ceiling.tier != Tier::Instance)
+        .collect();
+    tightest(state, personal).await
+}
+
+/// Whichever of these ceilings has the least room left.
+///
+/// Later ceilings win a tie so the answer names the nearest one — being told
+/// "your quota is full" is actionable in a way that "the instance is full" is
+/// not, and when both are equally full both are true.
+async fn tightest(state: &AppState, ceilings: Vec<Ceiling>) -> Result<Room> {
+    let mut tightest = Room {
+        bytes: u64::MAX,
+        tier: Tier::Instance,
+    };
+    for ceiling in ceilings {
+        let used = state
+            .shares
+            .stored_bytes(ceiling.scope)
+            .await?
+            .saturating_add(state.uploads.reserved_bytes(ceiling.scope).await?);
+        let left = ceiling.bytes.saturating_sub(used);
+        if left <= tightest.bytes {
+            tightest = Room {
+                bytes: left,
+                tier: ceiling.tier,
+            };
+        }
+    }
+    Ok(tightest)
+}
+
+/// How much room is left, and which ceiling is the one running out.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Room {
+    /// Bytes before that ceiling refuses. [`u64::MAX`] when nothing limits it.
+    pub bytes: u64,
+    /// Which one it is, so a refusal can say who can do something about it.
+    pub tier: Tier,
+}
+
+/// One ceiling that applies to this caller.
+#[derive(Debug, Clone, Copy)]
+struct Ceiling {
+    scope: Scope,
+    tier: Tier,
+    bytes: u64,
+}
+
+/// Every ceiling this caller has to fit under.
+///
+/// Two at most, and they are `AND`ed rather than resolved to one winner:
+///
+/// * `storage.max_total_bytes`, which is the disk. Nothing may pass it — a role granted "no
+///   ceiling" means no ceiling *of its own*, not permission to fill the machine, because the person
+///   who set the role is often not the person who owns the disk.
+/// * The caller's own figure, taken from their account if it has one and from their role otherwise.
+///   Nearest wins, so raising one person does not need a role invented for them.
+///
+/// A tier that says `0` states there is no ceiling *there* and drops out. A tier
+/// that says nothing at all asks the next one, which is why the columns are
+/// nullable — see the migration.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the role cannot be read.
+async fn ceilings(state: &AppState, user: Option<&User>) -> Result<Vec<Ceiling>> {
+    let mut ceilings = Vec::with_capacity(2);
+
+    let instance = state.config().storage.max_total_bytes;
+    if instance > 0 {
+        ceilings.push(Ceiling {
+            scope: Scope::Instance,
+            tier: Tier::Instance,
+            bytes: instance,
+        });
+    }
+
+    if let Some(user) = user
+        && let Some(bytes) = user.quota_bytes
+    {
+        if bytes > 0 {
+            ceilings.push(Ceiling {
+                scope: Scope::User(user.id),
+                tier: Tier::Account,
+                bytes,
+            });
+        }
+        return Ok(ceilings);
+    }
+
+    // Anonymous work is charged to the guest role, so an instance that allows
+    // it can still bound it — otherwise the only figure reaching a caller with
+    // no account would be the instance's, and "let strangers upload, but not
+    // more than twenty gigabytes of it" would be unsayable.
+    let role = charged_role_of(user);
+    if let Some(role) = role
+        && let Some(bytes) = state
+            .roles
+            .find_by_id(role)
+            .await?
+            .and_then(|role| role.quota_bytes)
+        && bytes > 0
+    {
+        ceilings.push(Ceiling {
+            scope: Scope::Role(role),
+            tier: Tier::Role,
+            bytes,
+        });
+    }
+    Ok(ceilings)
 }
 
 /// A filename from a query parameter, length- and control-character-checked.
@@ -900,49 +1052,35 @@ pub(crate) fn checked_filename(value: Option<String>) -> Result<Option<String>> 
     checked_label(value, "filename", MAX_TEXT_FIELD)
 }
 
-async fn remaining_quota(state: &AppState) -> Result<u64> {
-    let quota = state.config().storage.max_total_bytes;
-    if quota == 0 {
-        return Ok(u64::MAX);
-    }
-    let used = state.shares.total_stored_bytes().await?;
-    Ok(quota.saturating_sub(used))
-}
-
-async fn ingest(
-    state: &AppState,
+/// What one ingest is: where the bytes go, what they are, and whose ceiling
+/// has to allow them.
+struct Ingest<'a> {
+    /// Names the object, not the share. A share holds several files and each
+    /// needs its own key — deriving it from the share meant the second upload
+    /// wrote over the first, silently, and the download sent one file's bytes
+    /// three times. Measured before it was fixed: two rows, one object.
     id: ShareId,
+    /// Decides whether the bytes become an object or a row.
     kind: ShareKind,
+    /// Whose ceilings apply. Not always the caller: a management token lets
+    /// somebody with no account append to a member's share.
+    owner: Option<&'a User>,
+    /// One reading of the clock for the whole request.
     now: OffsetDateTime,
-    body: Body,
-) -> Result<Ingested> {
-    // `id` names the object, not the share. A share holds several files and each
-    // needs its own key — deriving it from the share meant the second upload
-    // wrote over the first, silently, and the download sent one file's bytes
-    // three times. Measured before it was fixed: two rows, one object.
-    let mut upload: Option<Box<dyn MultipartUpload>> = None;
-    let result = ingest_into(state, id, kind, now, body, &mut upload).await;
-
-    if let Some(upload) = upload.as_mut() {
-        // Only reachable when something failed: the success path takes the
-        // upload out of the slot after completing it. Abandoning a multipart
-        // upload leaves parts behind that a store will bill for and that nothing
-        // else will ever look for, so the failure path has to say so explicitly.
-        if let Err(error) = upload.abort().await {
-            tracing::warn!(?error, %id, "could not abort an incomplete upload");
-        }
-    }
-    result
 }
 
 async fn ingest_into(
     state: &AppState,
-    id: ShareId,
-    kind: ShareKind,
-    now: OffsetDateTime,
+    request: Ingest<'_>,
     body: Body,
     upload: &mut Option<Box<dyn MultipartUpload>>,
 ) -> Result<Ingested> {
+    let Ingest {
+        id,
+        kind,
+        owner,
+        now,
+    } = request;
     // Where the bytes end up is decided by what they are, not by how many of
     // them there are. A file is an object whatever its size, so an operator
     // looking for an upload finds it in one place; text is a row, so reading a
@@ -960,7 +1098,7 @@ async fn ingest_into(
     // rather than only up front: the caller need not send a `Content-Length`,
     // and a chunked upload that would take us past the line should stop at the
     // line instead of after it.
-    let budget = remaining_quota(state).await?;
+    let room = remaining_room(state, owner).await?;
     let mut body = body;
     let mut buffered: Vec<u8> = Vec::new();
     let mut size_bytes: u64 = 0;
@@ -984,8 +1122,8 @@ async fn ingest_into(
                 "that is larger than this instance keeps as text; send it as a file instead",
             ));
         }
-        if size_bytes > budget {
-            return Err(Error::InsufficientStorage);
+        if size_bytes > room.bytes {
+            return Err(Error::InsufficientStorage(room.tier));
         }
         buffered.extend_from_slice(&chunk);
 
@@ -1706,7 +1844,8 @@ pub async fn record_event(
 ///
 /// `403` when the caller cannot show it is theirs, `404` when no share has that
 /// code, `409` when the share holds text, `413` when the body is too large,
-/// `507` when the instance is out of room.
+/// `507` when something is out of room — the share owner's quota, their role's,
+/// or the instance's. The body says which.
 #[utoipa::path(
     post,
     path = "/shares/{code}/files",
@@ -1720,7 +1859,7 @@ pub async fn record_event(
         (status = 404, description = "No such share", body = crate::error::ErrorBody),
         (status = 409, description = "That share holds text", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
-        (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
+        (status = 507, description = "Out of room — the body says whether that is the account's quota, its role's, or the instance's", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -1762,11 +1901,28 @@ pub async fn add_file(
 
     let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;
     let now = OffsetDateTime::now_utc();
+    // The share's owner, not the caller: a management token lets somebody with
+    // no account append to a member's share, and the bytes land on that share,
+    // so it is the owner's ceiling that has to allow them.
+    let owner = match share.user_id {
+        Some(id) => state.users.find_by_id(id).await?,
+        None => None,
+    };
     let Ingested {
         storage,
         size_bytes,
         inline: _,
-    } = ingest(&state, ShareId::generate(), ShareKind::File, now, body).await?;
+    } = ingest(
+        &state,
+        Ingest {
+            id: ShareId::generate(),
+            kind: ShareKind::File,
+            owner: owner.as_ref(),
+            now,
+        },
+        body,
+    )
+    .await?;
 
     state
         .shares

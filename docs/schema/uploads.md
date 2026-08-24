@@ -31,7 +31,7 @@ CREATE TABLE uploads (
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL,
     expires_at     TEXT NOT NULL
-)
+, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
 ```
 
 </details>
@@ -53,20 +53,23 @@ CREATE TABLE uploads (
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
 | expires_at | TEXT |  | false |  |  |  |
+| role_id | TEXT |  | true |  | [roles](roles.md) |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | id | PRIMARY KEY | PRIMARY KEY (id) |
-| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
-| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (share_id) REFERENCES shares (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (role_id) REFERENCES roles (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 2) | FOREIGN KEY | FOREIGN KEY (share_id) REFERENCES shares (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
 | sqlite_autoindex_uploads_1 | PRIMARY KEY | PRIMARY KEY (id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_uploads_role | CREATE INDEX idx_uploads_role ON uploads (role_id) |
 | idx_uploads_expires | CREATE INDEX idx_uploads_expires ON uploads (expires_at) |
 | sqlite_autoindex_uploads_1 | PRIMARY KEY (id) |
 
@@ -78,6 +81,7 @@ erDiagram
 "upload_parts" |o--|| "uploads" : ""
 "uploads" }o--o| "shares" : ""
 "uploads" }o--o| "users" : ""
+"uploads" }o--o| "roles" : ""
 
 "uploads" {
   TEXT id PK
@@ -93,6 +97,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
 }
 "upload_parts" {
   TEXT upload_id PK
@@ -133,6 +138,16 @@ erDiagram
   TEXT deleted_at
   TEXT deleted_by FK
   TEXT role_id FK
+  INTEGER quota_bytes
+}
+"roles" {
+  TEXT id PK
+  TEXT name
+  TEXT description
+  INTEGER is_system
+  TEXT created_at
+  TEXT updated_at
+  INTEGER quota_bytes
 }
 ```
 

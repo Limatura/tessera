@@ -88,6 +88,16 @@ expression: document
             },
             "type": "array"
           },
+          "quota_bytes": {
+            "description": "A storage quota set on this one account, overriding its role's.\n\n`null` means the role's applies; `0` means this account has no ceiling\nof its own. What is actually left is `storage_remaining_bytes` on\n`/capabilities`, which accounts for what has been used.",
+            "example": 10737418240,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "roles": {
             "description": "The roles it is in, by name.",
             "example": [
@@ -285,7 +295,7 @@ expression: document
             "type": "integer"
           },
           "storage_remaining_bytes": {
-            "description": "How much of the instance's storage quota is left, in bytes.\n\n`null` for everyone but an administrator, and also for an administrator\nwhen the instance has no quota set.\n\nOnly an administrator, because on a public instance this is the\noperator's capacity planning and not the visitor's business: telling\nevery anonymous uploader how close the disk is to full invites somebody\nto close the gap. An uploader who exceeds it gets a `507` naming the\nlimit, which is the moment they actually need to know.",
+            "description": "How much room the caller has left, in bytes.\n\nWhichever ceiling would refuse them first: their own quota, their role's,\nand — for somebody who may read instance statistics — the instance's.\n`null` when none of those applies to them.\n\n`storage.max_total_bytes` is not in everybody's answer because on a\npublic instance it is the operator's capacity planning and not the\nvisitor's business: telling every anonymous uploader how close the disk\nis to full invites somebody to close the gap. Their own quota is theirs\nto know, and a client that has it can say so before they pick a file\nrather than after they have sent it.",
             "example": 53687091200,
             "format": "int64",
             "minimum": 0,
@@ -658,6 +668,18 @@ expression: document
         ],
         "type": "object"
       },
+      "Option_u64": {
+        "oneOf": [
+          {
+            "type": "null"
+          },
+          {
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        ]
+      },
       "PasswordResetConfirmRequest": {
         "additionalProperties": false,
         "description": "Body of `POST /auth/password-reset/confirm`.",
@@ -940,6 +962,16 @@ expression: document
               "type": "string"
             },
             "type": "array"
+          },
+          "quota_bytes": {
+            "description": "How much storage each account in this role may hold.\n\nOmit or send `null` to fall back to the instance-wide ceiling; send `0`\nfor no ceiling at all. Those are different: `null` follows\n`storage.max_total_bytes` as it changes, `0` ignores it.",
+            "example": 10737418240,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
           }
         },
         "required": [
@@ -991,6 +1023,16 @@ expression: document
               "type": "string"
             },
             "type": "array"
+          },
+          "quota_bytes": {
+            "description": "How much storage each account in it may hold.\n\n`null` means the instance ceiling applies; `0` means no ceiling.",
+            "example": 10737418240,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "updated_at": {
             "description": "When its permissions last changed, RFC 3339.",
@@ -1556,6 +1598,10 @@ expression: document
           "is_admin": {
             "description": "Whether this account administers the instance.",
             "type": "boolean"
+          },
+          "quota_bytes": {
+            "$ref": "#/components/schemas/Option_u64",
+            "description": "A storage quota for this one account, overriding its role's.\n\nAbsent leaves it alone, `null` clears it so the role's applies again,\nand `0` gives this account no ceiling of its own. Three instructions,\nwhich is why absent and `null` are not the same here.\n\nFor raising or lowering one person without inventing a role for them.\n`storage.max_total_bytes` still applies on top — this cannot grant\nsomebody more room than the instance has."
           },
           "state": {
             "description": "`active` to let it in, `disabled` to suspend it.\n\nOmitted leaves it as it is. `deleted` is refused here — removing an\naccount scrubs it, and that is `DELETE` rather than a field on a patch.",
@@ -4130,7 +4176,7 @@ expression: document
                 }
               }
             },
-            "description": "This instance is out of room"
+            "description": "Out of room — the body says whether that is the account's quota, its role's, or the instance's"
           }
         },
         "security": [
@@ -4451,7 +4497,7 @@ expression: document
     },
     "/api/v1/shares/{code}/files": {
       "post": {
-        "description": "# Why files arrive one at a time\n\nOne request carrying five files is one request that loses five when it drops\nat the fourth — which is the case somebody uploading a folder of photographs\non a home connection hits, not a theoretical one. A file that fails here is\nretried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an upload interrupted\nhalf way leaves a share holding what did arrive rather than nothing at all.\n\nThe cost is that somebody who opened the link during the upload would see\npart of it. The link is handed out after the upload, by the person doing it.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when the instance is out of room.",
+        "description": "# Why files arrive one at a time\n\nOne request carrying five files is one request that loses five when it drops\nat the fourth — which is the case somebody uploading a folder of photographs\non a home connection hits, not a theoretical one. A file that fails here is\nretried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an upload interrupted\nhalf way leaves a share holding what did arrive rather than nothing at all.\n\nThe cost is that somebody who opened the link during the upload would see\npart of it. The link is handed out after the upload, by the person doing it.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room — the share owner's quota, their role's,\nor the instance's. The body says which.",
         "operationId": "add_share_file",
         "parameters": [
           {
@@ -4549,7 +4595,7 @@ expression: document
                 }
               }
             },
-            "description": "This instance is out of room"
+            "description": "Out of room — the body says whether that is the account's quota, its role's, or the instance's"
           }
         },
         "security": [
@@ -4833,7 +4879,7 @@ expression: document
     },
     "/api/v1/uploads": {
       "post": {
-        "description": "# Errors\n\n`400` when `Upload-Length` is missing or unusable, `403` when the caller may\nnot upload, `404` when `code` names no share, `507` when the declared length\ndoes not fit in what is left of the instance.",
+        "description": "# Errors\n\n`400` when `Upload-Length` is missing or unusable, `403` when the caller may\nnot upload, `404` when `code` names no share, `507` when the declared length\ndoes not fit in what is left — of the caller's quota, their role's, or the\ninstance's, whichever runs out first. The body says which.",
         "operationId": "create_upload",
         "parameters": [
           {
@@ -4912,7 +4958,7 @@ expression: document
                 }
               }
             },
-            "description": "This instance has no room for it"
+            "description": "No room for it — the body says whether that is the account's quota, its role's, or the instance's"
           }
         },
         "security": [

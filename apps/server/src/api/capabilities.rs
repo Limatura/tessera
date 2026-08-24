@@ -6,7 +6,10 @@ use tessera_core::Permission;
 use utoipa::ToSchema;
 
 use crate::{
-    api::{SYSTEM_TAG, gate},
+    api::{
+        SYSTEM_TAG, gate,
+        shares::{personal_room, remaining_room},
+    },
     auth::extract::MaybeUser,
     config::{FeatureConfig, RegistrationPolicy},
     error::Result,
@@ -120,16 +123,18 @@ pub struct Capabilities {
     #[schema(example = 104_857_600_u64)]
     pub max_upload_bytes: u64,
 
-    /// How much of the instance's storage quota is left, in bytes.
+    /// How much room the caller has left, in bytes.
     ///
-    /// `null` for everyone but an administrator, and also for an administrator
-    /// when the instance has no quota set.
+    /// Whichever ceiling would refuse them first: their own quota, their role's,
+    /// and — for somebody who may read instance statistics — the instance's.
+    /// `null` when none of those applies to them.
     ///
-    /// Only an administrator, because on a public instance this is the
-    /// operator's capacity planning and not the visitor's business: telling
-    /// every anonymous uploader how close the disk is to full invites somebody
-    /// to close the gap. An uploader who exceeds it gets a `507` naming the
-    /// limit, which is the moment they actually need to know.
+    /// `storage.max_total_bytes` is not in everybody's answer because on a
+    /// public instance it is the operator's capacity planning and not the
+    /// visitor's business: telling every anonymous uploader how close the disk
+    /// is to full invites somebody to close the gap. Their own quota is theirs
+    /// to know, and a client that has it can say so before they pick a file
+    /// rather than after they have sent it.
     #[schema(example = 53_687_091_200_u64)]
     pub storage_remaining_bytes: Option<u64>,
 
@@ -211,15 +216,28 @@ pub async fn capabilities(
 ) -> Result<Json<Capabilities>> {
     let mut capabilities = Capabilities::from_state(&state);
 
-    let quota = state.config().storage.max_total_bytes;
-    // The remaining space is an instance-wide number, so it is told to whoever
-    // may read instance-wide numbers — not to whoever happens to be called an
-    // administrator.
-    let may_see_totals =
-        current.is_some_and(|current| current.permissions.allows(Permission::StatsRead));
-    if may_see_totals && quota != 0 {
-        let used = state.shares.total_stored_bytes().await?;
-        capabilities.storage_remaining_bytes = Some(quota.saturating_sub(used));
+    // Whichever ceiling would actually refuse this caller first. Somebody who
+    // may read instance-wide figures is told about the disk as well as their
+    // own quota, because `storage.max_total_bytes` *is* an instance-wide figure
+    // and telling every anonymous uploader how close the disk is to full
+    // invites somebody to close the gap. Everybody else is told only about
+    // theirs.
+    //
+    // Tightest rather than instance-only even for an administrator: one with a
+    // quota of their own would otherwise be shown 900 GB free and refused at
+    // four kilobytes.
+    let user = current.as_ref().map(|current| &current.user);
+    let may_see_totals = current
+        .as_ref()
+        .is_some_and(|current| current.permissions.allows(Permission::StatsRead));
+    let room = if may_see_totals {
+        remaining_room(&state, user).await?
+    } else {
+        personal_room(&state, user).await?
+    };
+    // `u64::MAX` means nothing limits them, which is not a figure to send.
+    if room.bytes != u64::MAX {
+        capabilities.storage_remaining_bytes = Some(room.bytes);
     }
 
     Ok(Json(capabilities))

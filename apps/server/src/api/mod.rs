@@ -73,6 +73,29 @@ use utoipa_scalar::{Scalar, Servable as _};
 use crate::{assets, config::Config, state::AppState};
 
 /// Tag grouping infrastructure endpoints in the generated document.
+/// One field of a partial update: absent, explicitly `null`, or a value.
+///
+/// `Option<T>` cannot say this. serde hands back `None` both for "the caller
+/// did not mention it" and for "the caller sent `null`", and in a `PATCH` those
+/// are opposite instructions — leave it as it is, or clear it. Every field that
+/// can be cleared carries this instead.
+pub(crate) type Patch<T> = Option<Option<T>>;
+
+/// Deserialises a present field into [`Patch`], so that absent stays `None`.
+///
+/// `#[serde(default)]` supplies `None` when the key is missing; this runs only
+/// when it is there, which is what makes `null` land as `Some(None)`.
+pub(crate) fn patched<'de, D, T>(deserializer: D) -> Result<Patch<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    use serde::Deserialize as _;
+
+    Option::<T>::deserialize(deserializer).map(Some)
+}
+
+/// Tag grouping infrastructure endpoints in the generated document.
 pub const SYSTEM_TAG: &str = "system";
 
 /// Tag grouping registration, sign-in and password endpoints.

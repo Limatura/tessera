@@ -176,3 +176,172 @@ async fn a_share_can_be_created_authorised_and_retrieved() {
     let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
     share_retrieval_lifecycle(&app).await;
 }
+
+/// The quota columns, against a real dialect.
+///
+/// `quota_bytes` is a nullable `BIGINT` whose NULL and whose zero are opposite
+/// instructions — ask the next layer, or no ceiling at all — so a dialect that
+/// coerced one into the other would quietly widen or narrow everybody's
+/// allowance with nothing to say it had.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn quotas_round_trip() {
+    use tessera_core::PermissionSet;
+    use tessera_server::db::repository::role::{RoleFields, RoleRepository};
+
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    let now = time::OffsetDateTime::now_utc();
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs());
+    let roles = RoleRepository::new(app.state.db.clone());
+    let permissions = PermissionSet::default();
+
+    let role = roles
+        .create(
+            format!("quota{suffix}"),
+            None,
+            Some(4096),
+            &permissions,
+            now,
+        )
+        .await
+        .expect("create the role");
+    assert_eq!(role.quota_bytes, Some(4096));
+
+    // Zero survives as zero rather than arriving back as "not set".
+    roles
+        .set_quota(role.id, Some(0), now)
+        .await
+        .expect("store zero");
+    assert_eq!(
+        roles
+            .find_by_id(role.id)
+            .await
+            .expect("query")
+            .expect("the role")
+            .quota_bytes,
+        Some(0),
+        "zero came back as something else"
+    );
+
+    // And NULL survives as NULL.
+    roles.set_quota(role.id, None, now).await.expect("clear it");
+    assert_eq!(
+        roles
+            .find_by_id(role.id)
+            .await
+            .expect("query")
+            .expect("the role")
+            .quota_bytes,
+        None,
+        "a cleared quota came back as a figure"
+    );
+
+    // An edit through the whole-record path keeps it too, which is the path the
+    // panel takes.
+    roles
+        .update(
+            role.id,
+            RoleFields {
+                name: &format!("quota{suffix}"),
+                description: None,
+                quota_bytes: Some(8192),
+                permissions: &permissions,
+            },
+            now,
+        )
+        .await
+        .expect("edit the role");
+    assert_eq!(
+        roles
+            .find_by_id(role.id)
+            .await
+            .expect("query")
+            .expect("the role")
+            .quota_bytes,
+        Some(8192)
+    );
+}
+
+/// The scoped totals, against a real dialect.
+///
+/// Two ways this query only fails away from SQLite. It restricts through
+/// `share_id IN (SELECT id FROM shares WHERE ...)` rather than a join, and it
+/// reads a blob's length — which used to be `CHAR_LENGTH`, a function Postgres
+/// does not have for `bytea`. And Postgres widens `SUM(bigint)` to `NUMERIC`,
+/// so the result would not decode as an `i64` even once the sum ran. Both were
+/// found by running this suite rather than by reasoning about it, and both made
+/// every upload a 500 on a Postgres instance with a ceiling set.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn the_scoped_totals_run_on_this_dialect() {
+    use tessera_core::PermissionSet;
+    use tessera_server::db::repository::{quota::Scope, role::RoleRepository};
+
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    let now = time::OffsetDateTime::now_utc();
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs());
+    let role = RoleRepository::new(app.state.db.clone())
+        .create(
+            format!("scope{suffix}"),
+            None,
+            Some(4096),
+            &PermissionSet::default(),
+            now,
+        )
+        .await
+        .expect("create the role");
+    // Nothing is charged to a role nobody is in, so zero is the honest answer
+    // — what is being tested is that the subquery runs at all.
+    assert_eq!(
+        app.state
+            .shares
+            .stored_bytes(Scope::Role(role.id))
+            .await
+            .expect("the scoped total"),
+        0
+    );
+    assert_eq!(
+        app.state
+            .uploads
+            .reserved_bytes(Scope::Role(role.id))
+            .await
+            .expect("the reserved total"),
+        0
+    );
+
+    // And the instance total with a text share in it, which is the half that
+    // reads the blob's length.
+    let text = "quota accounting\n";
+    let before = app
+        .state
+        .shares
+        .stored_bytes(Scope::Instance)
+        .await
+        .expect("the instance total");
+    expect_status(
+        app.send(
+            axum::http::Request::builder()
+                .method(axum::http::Method::POST)
+                .uri("/api/v1/shares?language=text"),
+            axum::body::Body::from(text),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let after = app
+        .state
+        .shares
+        .stored_bytes(Scope::Instance)
+        .await
+        .expect("the instance total");
+    assert_eq!(
+        after - before,
+        u64::try_from(text.len()).expect("a length"),
+        "the text share's bytes were not counted"
+    );
+}

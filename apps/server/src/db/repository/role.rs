@@ -15,8 +15,27 @@ use crate::db::{
         role_permission::{self, Entity as RolePermissionEntity},
         user::{self, Entity as UserEntity},
     },
-    repository::user::{CorruptRow, UserRepositoryError},
+    repository::{
+        quota,
+        user::{CorruptRow, UserRepositoryError},
+    },
 };
+
+/// Everything an edit replaces.
+///
+/// The whole set, not a change to it — see [`RoleRepository::update`].
+#[derive(Debug)]
+pub struct RoleFields<'a> {
+    /// What an operator types and reads.
+    pub name: &'a str,
+    /// What it is for.
+    pub description: Option<String>,
+    /// How much storage each account in it may hold, or `None` for the
+    /// instance ceiling.
+    pub quota_bytes: Option<u64>,
+    /// Everything it allows.
+    pub permissions: &'a PermissionSet,
+}
 
 /// One role, with everything it allows.
 #[derive(Debug, Clone)]
@@ -29,6 +48,11 @@ pub struct Role {
     pub description: Option<String>,
     /// Whether removing it would leave the instance unadministrable.
     pub is_system: bool,
+    /// How much storage each account in this role may hold.
+    ///
+    /// `None` asks the instance ceiling; `Some(0)` is no ceiling at all. They
+    /// are not the same answer, so this cannot collapse to a plain number.
+    pub quota_bytes: Option<u64>,
     /// What it allows.
     pub permissions: PermissionSet,
     /// When it was created.
@@ -46,6 +70,7 @@ impl Role {
             })?,
             name: model.name.clone(),
             description: model.description.clone(),
+            quota_bytes: quota::from_column(model.quota_bytes),
             is_system: model.is_system,
             permissions,
             created_at: model.created_at,
@@ -356,11 +381,15 @@ impl RoleRepository {
     pub async fn update(
         &self,
         id: RoleId,
-        name: &str,
-        description: Option<String>,
-        permissions: &PermissionSet,
+        fields: RoleFields<'_>,
         now: OffsetDateTime,
     ) -> Result<RoleChange, UserRepositoryError> {
+        let RoleFields {
+            name,
+            description,
+            quota_bytes,
+            permissions,
+        } = fields;
         if RoleEntity::find_by_id(id.to_string())
             .one(&self.connection)
             .await?
@@ -378,12 +407,36 @@ impl RoleRepository {
         RoleEntity::update_many()
             .col_expr(role::Column::Name, name.into())
             .col_expr(role::Column::Description, description.into())
+            .col_expr(role::Column::QuotaBytes, quota::to_expr(quota_bytes))
             .col_expr(role::Column::UpdatedAt, now.into())
             .filter(role::Column::Id.eq(id.to_string()))
             .exec(&transaction)
             .await?;
         transaction.commit().await?;
         Ok(RoleChange::Done)
+    }
+
+    /// Sets or clears one role's storage quota.
+    ///
+    /// `None` clears it, which puts the role back on the instance ceiling;
+    /// `Some(0)` gives it no ceiling of its own. Returns whether a row changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the write fails.
+    pub async fn set_quota(
+        &self,
+        id: RoleId,
+        quota_bytes: Option<u64>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = RoleEntity::update_many()
+            .col_expr(role::Column::QuotaBytes, quota::to_expr(quota_bytes))
+            .col_expr(role::Column::UpdatedAt, now.into())
+            .filter(role::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
     }
 
     /// Creates a role.
@@ -396,6 +449,7 @@ impl RoleRepository {
         &self,
         name: String,
         description: Option<String>,
+        quota_bytes: Option<u64>,
         permissions: &PermissionSet,
         now: OffsetDateTime,
     ) -> Result<Role, UserRepositoryError> {
@@ -406,6 +460,7 @@ impl RoleRepository {
             id: Set(id.to_string()),
             name: Set(name.clone()),
             description: Set(description.clone()),
+            quota_bytes: Set(quota::to_column(quota_bytes)),
             is_system: Set(false),
             created_at: Set(now),
             updated_at: Set(now),
@@ -419,6 +474,7 @@ impl RoleRepository {
             id,
             name,
             description,
+            quota_bytes,
             is_system: false,
             permissions: permissions.clone(),
             created_at: now,

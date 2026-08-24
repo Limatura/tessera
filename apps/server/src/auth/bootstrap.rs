@@ -74,6 +74,7 @@ pub async fn ensure_admin(
         // because `admin` deliberately cannot grant roles, and an instance
         // whose only account cannot bring anybody else in is stuck.
         role_id: Some(RoleId::parse(RoleId::OWNER)?),
+        quota_bytes: None,
         // Only when we chose the password. One the operator set is one they
         // already know, and forcing a change on it is a pointless step; one we
         // printed has been through a log file and should not stay in force.

@@ -13,6 +13,9 @@ pub struct Model {
     pub name: String,
     /// What it is for, in the operator's own words.
     pub description: Option<String>,
+    /// How much storage accounts in this role may hold, or `None` to ask the
+    /// instance ceiling. `Some(0)` is no ceiling.
+    pub quota_bytes: Option<i64>,
     /// Whether removing it would leave the instance unadministrable.
     pub is_system: bool,
     /// When it was created.
