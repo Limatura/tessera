@@ -246,6 +246,13 @@ pub async fn create(
 
 /// Answers how much has arrived.
 ///
+/// # The answer must not be cached
+///
+/// It carries `Cache-Control: no-store`, and a client that caches it anyway
+/// will corrupt the upload: a stale offset sends the next chunk to the wrong
+/// place, and the bytes land somewhere nobody asked for. This is the one header
+/// on this endpoint that is not politeness.
+///
 /// # Errors
 ///
 /// `404` when there is no such session, or the caller may not continue it —
@@ -278,10 +285,24 @@ pub async fn offset(
 
 /// Applies bytes at the given offset.
 ///
+/// # Every chunk but the last must be a whole part
+///
+/// `part_size` from the `POST` is a floor, not a suggestion: a chunk that is
+/// not the last and carries fewer bytes than that is refused with `400`. The
+/// object stores this streams to will not take a part below their own minimum
+/// — five mebibytes on S3 — so a short chunk cannot be written anywhere, and
+/// the offset does not move. A client that kept sending one would re-send from
+/// the same place for ever.
+///
+/// The last chunk is exempt, because there is nothing after it to make it whole.
+///
+/// A client that sends `declared_bytes` in one request never meets this at all.
+///
 /// # Errors
 ///
-/// `409` when the offset does not match, `404` when there is no such session,
-/// `415` when the content type is not the one the specification names.
+/// `400` when a chunk that is not the last is shorter than `part_size`, `409`
+/// when the offset does not match, `404` when there is no such session, `415`
+/// when the content type is not the one the specification names.
 #[utoipa::path(
     patch,
     path = "/uploads/{id}",

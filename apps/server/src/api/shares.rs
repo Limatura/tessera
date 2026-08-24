@@ -557,7 +557,7 @@ pub async fn list(
     path = "/shares/{code}",
     operation_id = "delete_share",
     tag = SHARES_TAG,
-    params(("code" = String, Path, description = "The retrieval code")),
+    params(("code" = String, Path, description = "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.")),
     responses(
         (status = 204, description = "Deleted"),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
@@ -690,7 +690,7 @@ pub struct PatchShareRequest {
     operation_id = "update_share",
     tag = SHARES_TAG,
     params(
-        ("code" = String, Path, description = "The retrieval code"),
+        ("code" = String, Path, description = "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share."),
         ("X-Share-Management-Token" = Option<String>, Header, description = "The token an anonymous upload was given"),
         ("X-Share-Password" = Option<String>, Header, description = "A new password for the share"),
     ),
@@ -1467,7 +1467,7 @@ pub struct TicketResponse {
     operation_id = "describe_share",
     tag = SHARES_TAG,
     params(
-        ("code" = String, Path, description = "The retrieval code"),
+        ("code" = String, Path, description = "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share."),
         ("X-Share-Password" = Option<String>, Header, description = "The share's password, if it has one"),
     ),
     responses(
@@ -1523,7 +1523,7 @@ pub async fn describe(
     operation_id = "unlock_share",
     tag = SHARES_TAG,
     params(
-        ("code" = String, Path, description = "The retrieval code"),
+        ("code" = String, Path, description = "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share."),
         ("X-Share-Password" = Option<String>, Header, description = "The share's password, if it has one"),
     ),
     responses(

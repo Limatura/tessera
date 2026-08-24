@@ -4153,7 +4153,7 @@
         "operationId": "delete_share",
         "parameters": [
           {
-            "description": "The retrieval code",
+            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -4206,7 +4206,7 @@
         "operationId": "describe_share",
         "parameters": [
           {
-            "description": "The retrieval code",
+            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -4289,7 +4289,7 @@
         "operationId": "update_share",
         "parameters": [
           {
-            "description": "The retrieval code",
+            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -4572,7 +4572,7 @@
         "operationId": "unlock_share",
         "parameters": [
           {
-            "description": "The retrieval code",
+            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -4931,7 +4931,7 @@
     },
     "/api/v1/uploads/{id}": {
       "head": {
-        "description": "# Errors\n\n`404` when there is no such session, or the caller may not continue it —\nthe same answer, so that a stranger cannot tell one from the other.",
+        "description": "# The answer must not be cached\n\nIt carries `Cache-Control: no-store`, and a client that caches it anyway\nwill corrupt the upload: a stale offset sends the next chunk to the wrong\nplace, and the bytes land somewhere nobody asked for. This is the one header\non this endpoint that is not politeness.\n\n# Errors\n\n`404` when there is no such session, or the caller may not continue it —\nthe same answer, so that a stranger cannot tell one from the other.",
         "operationId": "upload_offset",
         "parameters": [
           {
@@ -4970,7 +4970,7 @@
         ]
       },
       "patch": {
-        "description": "# Errors\n\n`409` when the offset does not match, `404` when there is no such session,\n`415` when the content type is not the one the specification names.",
+        "description": "# Every chunk but the last must be a whole part\n\n`part_size` from the `POST` is a floor, not a suggestion: a chunk that is\nnot the last and carries fewer bytes than that is refused with `400`. The\nobject stores this streams to will not take a part below their own minimum\n— five mebibytes on S3 — so a short chunk cannot be written anywhere, and\nthe offset does not move. A client that kept sending one would re-send from\nthe same place for ever.\n\nThe last chunk is exempt, because there is nothing after it to make it whole.\n\nA client that sends `declared_bytes` in one request never meets this at all.\n\n# Errors\n\n`400` when a chunk that is not the last is shorter than `part_size`, `409`\nwhen the offset does not match, `404` when there is no such session, `415`\nwhen the content type is not the one the specification names.",
         "operationId": "append_to_upload",
         "parameters": [
           {
