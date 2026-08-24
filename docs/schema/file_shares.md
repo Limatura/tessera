@@ -93,6 +93,7 @@ erDiagram
   TEXT updated_at
   INTEGER copy_count
   INTEGER bytes_served
+  TEXT role_id FK
 }
 ```
 

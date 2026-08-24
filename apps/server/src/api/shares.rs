@@ -38,7 +38,7 @@ use bytes::Bytes;
 use http_body_util::BodyExt as _;
 use object_store::{MultipartUpload, ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{Password, Permission, RetrievalCode, ShareId};
+use tessera_core::{Password, Permission, RetrievalCode, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 
@@ -362,6 +362,12 @@ pub async fn create(
         // change, so a retry costs one insert rather than a re-upload.
         code: RetrievalCode::parse("0000").unwrap_or_else(|_| unreachable!("four zeroes parse")),
         user_id: current.as_ref().map(|user| user.user.id),
+        // Already in hand for a signed-in caller; a lookup only for the
+        // anonymous case, which does not touch the database for it either.
+        role_id: match current.as_ref() {
+            Some(user) => user.user.role_id,
+            None => RoleId::parse(RoleId::GUEST).ok(),
+        },
         kind,
         password_hash,
         use_limit: params.max_uses,
@@ -795,6 +801,33 @@ pub async fn patch(
     Ok(Json(ShareResponse::from_share(&share, &content, None)))
 }
 
+/// Which role a share should be charged to.
+///
+/// The uploader's role, or `guest` when nobody was signed in. Anonymous
+/// uploads carry a role rather than NULL because `user_id IS NULL` already
+/// means two things — nobody signed in, and the account was deleted since —
+/// so it cannot answer "was this anonymous".
+///
+/// Read at upload time and stored, not looked up when the quota is checked:
+/// moving somebody to another role later must not rewrite which quota their
+/// old shares counted against.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the account cannot be read.
+async fn charged_role(state: &AppState, user_id: Option<UserId>) -> Result<Option<RoleId>> {
+    let Some(user_id) = user_id else {
+        // `parse` on a constant this crate owns. A failure would mean the
+        // seeded id is malformed, which no deployment can cause.
+        return Ok(RoleId::parse(RoleId::GUEST).ok());
+    };
+    Ok(state
+        .users
+        .find_by_id(user_id)
+        .await?
+        .and_then(|user| user.role_id))
+}
+
 /// Where a share's bytes ended up, and how many there were.
 struct Ingested {
     storage: StorageLocation,
@@ -1111,15 +1144,17 @@ pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
 /// Returns [`Error`] if no unused code can be found or the insert fails.
 pub(crate) async fn create_from_file(
     state: &AppState,
-    user_id: Option<tessera_core::UserId>,
+    user_id: Option<UserId>,
     file: NewFile,
     now: OffsetDateTime,
 ) -> Result<ShareResponse> {
     let management_secret = user_id.is_none().then(Secret::generate_session);
+    let role_id = charged_role(state, user_id).await?;
     let share = Share {
         id: ShareId::generate(),
         code: RetrievalCode::parse("0000").unwrap_or_else(|_| unreachable!("four zeroes parse")),
         user_id,
+        role_id,
         kind: ShareKind::File,
         password_hash: None,
         use_limit: None,

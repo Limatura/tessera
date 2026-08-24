@@ -648,6 +648,7 @@ impl<'a> Shares<'a> {
     /// cares about.
     fn blank(&self, n: u8) -> Share {
         Share {
+            role_id: None,
             id: ShareId::generate(),
             code: self.code(n),
             user_id: None,

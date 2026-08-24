@@ -18,6 +18,11 @@ pub struct Model {
     pub code: String,
     /// Owning account, or `None` for an anonymous upload.
     pub user_id: Option<String>,
+    /// Which role uploaded it, as it stood at the time.
+    ///
+    /// `None` on a share that predates the column, or one whose role has since
+    /// been removed. Both mean "the instance-wide ceiling decides".
+    pub role_id: Option<String>,
     /// `text` or `file`.
     pub kind: String,
 

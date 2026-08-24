@@ -232,6 +232,7 @@ mod tests {
 
     fn share(kind: ShareKind) -> Share {
         Share {
+            role_id: None,
             id: ShareId::generate(),
             code: RetrievalCode::parse("ABCD1234").expect("a valid code"),
             user_id: None,

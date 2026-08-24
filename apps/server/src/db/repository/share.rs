@@ -12,7 +12,7 @@ use sea_orm::{
     QueryOrder as _, QuerySelect as _,
     sea_query::{Expr, ExprTrait as _},
 };
-use tessera_core::{DomainError, RetrievalCode, ShareId, ShareTicketId, UserId};
+use tessera_core::{DomainError, RetrievalCode, RoleId, ShareId, ShareTicketId, UserId};
 use time::OffsetDateTime;
 
 use crate::{
@@ -347,8 +347,16 @@ pub struct Share {
     pub id: ShareId,
     /// How a person refers to it.
     pub code: RetrievalCode,
-    /// Owner, or `None` for an anonymous upload.
+    /// Owner, or `None` for an anonymous upload — **or** for one whose account
+    /// has since been deleted. [`role_id`](Self::role_id) tells those apart.
     pub user_id: Option<UserId>,
+    /// The role the uploader was in when they uploaded it.
+    ///
+    /// A snapshot: moving somebody to another role later does not change which
+    /// quota their old shares count against. Anonymous uploads carry `guest`.
+    /// `None` on a share that predates the column or whose role was removed,
+    /// and both mean the instance-wide ceiling decides.
+    pub role_id: Option<RoleId>,
     /// What it carries.
     pub kind: ShareKind,
 
@@ -441,6 +449,12 @@ impl Share {
         Ok(Self {
             id: ShareId::parse(&model.id).map_err(fail.clone())?,
             code: RetrievalCode::parse(&model.code).map_err(fail.clone())?,
+            role_id: model
+                .role_id
+                .as_deref()
+                .map(RoleId::parse)
+                .transpose()
+                .map_err(fail.clone())?,
             user_id: model
                 .user_id
                 .as_deref()
@@ -474,6 +488,7 @@ impl Share {
             id: Set(self.id.to_string()),
             code: Set(self.code.as_str().to_owned()),
             user_id: Set(self.user_id.map(|id| id.to_string())),
+            role_id: Set(self.role_id.map(|id| id.to_string())),
             kind: Set(self.kind.as_str().to_owned()),
 
             password_hash: Set(self.password_hash.clone()),

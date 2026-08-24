@@ -2963,3 +2963,151 @@ async fn renewal_stops_at_the_ceiling() {
         "the ceiling is created_at + ticket_ttl_hours, whatever the idle window says"
     );
 }
+
+/// `user_id IS NULL` means two things — nobody was signed in, and the account
+/// that uploaded it has since been deleted. So it cannot answer "was this
+/// anonymous". The role can.
+#[tokio::test]
+async fn an_anonymous_upload_is_charged_to_guest() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"nobody").await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    assert!(stored.user_id.is_none());
+    assert_eq!(
+        stored.role_id.map(|role| role.to_string()),
+        Some(tessera_core::RoleId::GUEST.to_owned()),
+        "an anonymous upload should carry the guest role, not nothing"
+    );
+}
+
+/// The role is the uploader's, so a signed-in upload counts against theirs.
+#[tokio::test]
+async fn a_signed_in_upload_is_charged_to_their_role() {
+    let app = TestApp::ready().await;
+
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "uploader",
+                "email": "uploader@example.com",
+                "password": "a perfectly adequate passphrase",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let cookie = common::session_cookie(&response);
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares")
+                    .header(header::COOKIE, &cookie),
+                Body::from(b"mine".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    // The first account on an instance owns it.
+    assert_eq!(
+        stored.role_id.map(|role| role.to_string()),
+        Some(tessera_core::RoleId::OWNER.to_owned())
+    );
+}
+
+/// A snapshot, not a pointer. Moving somebody to another role must not rewrite
+/// which quota their old shares counted against — one change to one account
+/// would otherwise silently redistribute storage already accounted for.
+#[tokio::test]
+async fn changing_someones_role_does_not_rewrite_their_old_shares() {
+    let app = TestApp::ready().await;
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "mover",
+                "email": "mover@example.com",
+                "password": "a perfectly adequate passphrase",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let cookie = common::session_cookie(&response);
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares")
+                    .header(header::COOKIE, &cookie),
+                Body::from(b"before".to_vec()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let id = tessera_core::ShareId::parse(created["id"].as_str().expect("an id")).expect("an id");
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("mover").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    app.state
+        .roles
+        .set_role_of(
+            user.id,
+            Some(tessera_core::RoleId::parse(tessera_core::RoleId::MEMBER).expect("a role")),
+            OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("move them");
+
+    let stored = app
+        .state
+        .shares
+        .find_by_id(id)
+        .await
+        .expect("query")
+        .expect("the share");
+    assert_eq!(
+        stored.role_id.map(|role| role.to_string()),
+        Some(tessera_core::RoleId::OWNER.to_owned()),
+        "the share should still name the role its uploader held at the time"
+    );
+}

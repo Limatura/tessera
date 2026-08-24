@@ -27,7 +27,7 @@ CREATE TABLE roles (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [role_permissions](role_permissions.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [shares](shares.md) [role_permissions](role_permissions.md) |  |  |
 | name | TEXT |  | false |  |  |  |
 | description | TEXT |  | true |  |  |  |
 | is_system | INTEGER | 0 | false |  |  |  |
@@ -54,6 +54,7 @@ CREATE TABLE roles (
 erDiagram
 
 "users" }o--o| "roles" : ""
+"shares" }o--o| "roles" : ""
 "role_permissions" |o--|| "roles" : ""
 
 "roles" {
@@ -76,6 +77,27 @@ erDiagram
   TEXT state
   TEXT deleted_at
   TEXT deleted_by FK
+  TEXT role_id FK
+}
+"shares" {
+  TEXT id PK
+  TEXT code
+  TEXT user_id FK
+  TEXT kind
+  TEXT password_hash
+  INTEGER use_limit
+  INTEGER use_count
+  TEXT expires_at
+  TEXT disabled_at
+  TEXT title
+  TEXT og_config
+  TEXT management_token_hash
+  INTEGER view_count
+  TEXT last_accessed_at
+  TEXT created_at
+  TEXT updated_at
+  INTEGER copy_count
+  INTEGER bytes_served
   TEXT role_id FK
 }
 "role_permissions" {
