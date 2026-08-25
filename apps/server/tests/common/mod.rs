@@ -31,6 +31,7 @@ use tessera_server::{
     db,
     state::{AppState, ServiceStatus},
     storage,
+    storage::DEFAULT_BACKEND,
 };
 use tower::ServiceExt as _;
 
@@ -748,6 +749,7 @@ impl<'a> Shares<'a> {
                     content_type: Some("application/zip".to_owned()),
                     size_bytes: 1_048_576,
                     storage: StorageLocation::Object {
+                        backend: DEFAULT_BACKEND.to_owned(),
                         key: format!("2026/08/{}", self.suffix),
                     },
                 }),

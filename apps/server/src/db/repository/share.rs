@@ -19,6 +19,7 @@ use crate::{
     auth::secret::Secret,
     db::{
         entity::{
+            file_segment::{self, Entity as FileSegmentEntity},
             file_share::{self, Entity as FileShareEntity},
             share::{self, Entity as ShareEntity},
             share_ticket::{self, Entity as ShareTicketEntity},
@@ -42,6 +43,34 @@ impl Iden for Length {
     fn unquoted(&self) -> &'static str {
         "length"
     }
+}
+
+/// Records where a file's bytes are.
+///
+/// One segment per file today, so this writes `seq` 0 and nothing else. Content
+/// that is inline or already gone has no object and gets no segment — a file
+/// with no segments is exactly what "the bytes are not in a store" looks like.
+async fn insert_segment(
+    connection: &DatabaseConnection,
+    file_id: &str,
+    file: &NewFile,
+    now: OffsetDateTime,
+) -> Result<(), ShareRepositoryError> {
+    let (Some(backend), Some(key)) = (file.storage.backend(), file.storage.object_key()) else {
+        return Ok(());
+    };
+    FileSegmentEntity::insert(file_segment::ActiveModel {
+        file_id: Set(file_id.to_owned()),
+        seq: Set(0),
+        backend: Set(backend.to_owned()),
+        object_key: Set(key.to_owned()),
+        offset_bytes: Set(0),
+        length_bytes: Set(i64::try_from(file.size_bytes).unwrap_or(i64::MAX)),
+        created_at: Set(now),
+    })
+    .exec(connection)
+    .await?;
+    Ok(())
 }
 
 /// The shares a scope owns, as a subquery on `shares.id`, or `None` for the
@@ -235,7 +264,16 @@ impl Content {
         }
     }
 
-    fn from_files(models: &[file_share::Model]) -> Result<Self, ShareRepositoryError> {
+    /// Builds the content from the files and the segments that locate them.
+    ///
+    /// `backends` maps a file's id to the backend its first segment names.
+    /// Files whose bytes are gone have no segment, and a row from before this
+    /// table existed falls back to the seeded backend — see
+    /// [`StorageLocation::parse`].
+    fn from_files(
+        models: &[file_share::Model],
+        backends: &HashMap<String, String>,
+    ) -> Result<Self, ShareRepositoryError> {
         if models.is_empty() {
             return Ok(Self::Gone);
         }
@@ -255,8 +293,12 @@ impl Content {
                             reason: "must not be negative",
                         })
                     })?,
-                    storage: StorageLocation::parse(&model.storage, model.object_key.clone())
-                        .map_err(fail)?,
+                    storage: StorageLocation::parse(
+                        &model.storage,
+                        model.object_key.clone(),
+                        backends.get(&model.id).cloned(),
+                    )
+                    .map_err(fail)?,
                 })
             })
             .collect::<Result<Vec<_>, ShareRepositoryError>>()?;
@@ -302,8 +344,15 @@ pub enum ShareEvent {
 pub enum StorageLocation {
     /// Small enough to keep in the database.
     Inline,
-    /// In the blob store, under this key.
+    /// In a blob store, under this key.
     Object {
+        /// Which configured backend holds it.
+        ///
+        /// Recorded per file rather than taken from the configuration, because
+        /// the configuration can change: without this, pointing `storage.url`
+        /// somewhere else leaves every existing share reading as present and
+        /// failing to deliver, with nothing saying where the bytes went.
+        backend: String,
         /// Key as it was written. Stored rather than recomputed, so the layout
         /// can change later without moving existing objects.
         key: String,
@@ -337,7 +386,16 @@ impl StorageLocation {
     pub fn object_key(&self) -> Option<&str> {
         match self {
             Self::Gone | Self::Inline => None,
-            Self::Object { key } => Some(key),
+            Self::Object { key, .. } => Some(key),
+        }
+    }
+
+    /// Which configured backend holds the bytes, when they are in one.
+    #[must_use]
+    pub fn backend(&self) -> Option<&str> {
+        match self {
+            Self::Gone | Self::Inline => None,
+            Self::Object { backend, .. } => Some(backend),
         }
     }
 
@@ -357,14 +415,24 @@ impl StorageLocation {
         }
     }
 
-    fn parse(storage: &str, object_key: Option<String>) -> Result<Self, DomainError> {
+    fn parse(
+        storage: &str,
+        object_key: Option<String>,
+        backend: Option<String>,
+    ) -> Result<Self, DomainError> {
         match (storage, object_key) {
             // `object_key` is kept rather than cleared, so a row still records
             // which object was removed — the one thing worth having if a
             // deletion ever turns out to have been wrong.
             (Self::GONE, _) => Ok(Self::Gone),
             (Self::INLINE, _) => Ok(Self::Inline),
-            (Self::OBJECT, Some(key)) => Ok(Self::Object { key }),
+            // A row written before backends were recorded, or one whose
+            // segment is missing, reads as the seeded backend — which is the
+            // store those bytes were written to, because there was only one.
+            (Self::OBJECT, Some(key)) => Ok(Self::Object {
+                backend: backend.unwrap_or_else(|| crate::storage::DEFAULT_BACKEND.to_owned()),
+                key,
+            }),
             (Self::OBJECT, None) => Err(DomainError::Malformed {
                 field: "object_key",
                 reason: "must be present when storage is `object`",
@@ -643,6 +711,13 @@ impl ShareRepository {
                 })
                 .exec(&self.connection)
                 .await?;
+                insert_segment(
+                    &self.connection,
+                    &share.id.to_string(),
+                    file,
+                    share.created_at,
+                )
+                .await?;
             }
             NewContent::Text { language, body } => {
                 TextShareEntity::insert(text_share::ActiveModel {
@@ -714,10 +789,11 @@ impl ShareRepository {
             .filter(file_share::Column::ShareId.eq(share_id.to_string()))
             .count(&self.connection)
             .await?;
+        let id = ShareId::generate().to_string();
         FileShareEntity::insert(file_share::ActiveModel {
             // Its own identifier, unlike the first file's — that one borrows the
             // share's so a single-file share stays followable.
-            id: Set(ShareId::generate().to_string()),
+            id: Set(id.clone()),
             share_id: Set(share_id.to_string()),
             position: Set(i64::try_from(position).unwrap_or(i64::MAX)),
             filename: Set(file.filename.clone()),
@@ -729,6 +805,7 @@ impl ShareRepository {
         })
         .exec(&self.connection)
         .await?;
+        insert_segment(&self.connection, &id, file, now).await?;
         Ok(u32::try_from(position).unwrap_or(u32::MAX))
     }
 
@@ -806,7 +883,11 @@ impl ShareRepository {
     /// Returns [`ShareRepositoryError`] if a query fails or a row is not usable.
     pub async fn content_of(&self, share: &Share) -> Result<Content, ShareRepositoryError> {
         match share.kind {
-            ShareKind::File => Content::from_files(&self.files_of(share.id).await?),
+            ShareKind::File => {
+                let files = self.files_of(share.id).await?;
+                let ids: Vec<String> = files.iter().map(|file| file.id.clone()).collect();
+                Content::from_files(&files, &self.backends_of(&ids).await?)
+            }
             ShareKind::Text => Ok(self
                 .text_of(share.id)
                 .await?
@@ -856,18 +937,52 @@ impl ShareRepository {
                 .push(file);
         }
 
+        let all_files: Vec<String> = files_by_share
+            .values()
+            .flatten()
+            .map(|file| file.id.clone())
+            .collect();
+        let backends = self.backends_of(&all_files).await?;
+
         let mut resolved = HashMap::with_capacity(shares.len());
         for share in shares {
             let key = share.id.to_string();
             let content = match share.kind {
-                ShareKind::File => {
-                    Content::from_files(files_by_share.get(&key).map_or(&[][..], Vec::as_slice))?
-                }
+                ShareKind::File => Content::from_files(
+                    files_by_share.get(&key).map_or(&[][..], Vec::as_slice),
+                    &backends,
+                )?,
                 ShareKind::Text => texts_by_share.remove(&key).unwrap_or(Content::Gone),
             };
             resolved.insert(share.id, content);
         }
         Ok(resolved)
+    }
+
+    /// Which backend holds each of these files, by file id.
+    ///
+    /// Only the first segment, because a file has exactly one until #184. A
+    /// file with no segment is absent from the map, and reads as the seeded
+    /// backend — see [`StorageLocation::parse`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    async fn backends_of(
+        &self,
+        file_ids: &[String],
+    ) -> Result<HashMap<String, String>, ShareRepositoryError> {
+        if file_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        Ok(FileSegmentEntity::find()
+            .filter(file_segment::Column::FileId.is_in(file_ids.iter().cloned()))
+            .filter(file_segment::Column::Seq.eq(0))
+            .all(&self.connection)
+            .await?
+            .into_iter()
+            .map(|segment| (segment.file_id, segment.backend))
+            .collect())
     }
 
     /// Finds a share by the code a person typed.

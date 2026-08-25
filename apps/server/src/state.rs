@@ -1,6 +1,6 @@
 //! Shared application state.
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use arc_swap::ArcSwap;
 use object_store::ObjectStore;
@@ -104,8 +104,17 @@ pub struct AppState {
     /// and loses on restart — see [`Throttles`] for why that is the right trade,
     /// and why there is more than one counter.
     pub throttles: Arc<Throttles>,
-    /// Blob store.
+    /// Blob store — the one new content is written to.
+    ///
+    /// Reading goes through [`AppState::backend`] instead, because a file
+    /// records which backend holds it and that may not be this one any more.
     pub storage: Arc<dyn ObjectStore>,
+    /// Every configured backend, by name.
+    ///
+    /// An `ArcSwap` because the set is meant to be changeable while the process
+    /// runs — the same shape as `mailer`, and for the same reason. Today it is
+    /// built once from `storage.url` and holds a single entry.
+    pub backends: Arc<ArcSwap<HashMap<String, Arc<dyn ObjectStore>>>>,
     /// The same store when it can hold a multipart upload open across requests.
     ///
     /// `None` on a local filesystem, where a resumable upload appends to a
@@ -148,6 +157,29 @@ impl AppState {
     #[must_use]
     pub fn proxies(&self) -> arc_swap::Guard<Arc<TrustedProxies>> {
         self.proxies.load()
+    }
+
+    /// Replaces the configuration, and everything built from it.
+    ///
+    /// # Why the derived things are rebuilt here
+    ///
+    /// Swapping the configuration alone would leave the mailer talking to the
+    /// old relay and the proxy list trusting the old addresses — a change the
+    /// panel reported as saved and that visibly did nothing. Everything derived
+    /// from a setting is rebuilt in the same call, so there is one place to
+    /// look when something turns out not to follow.
+    ///
+    /// The throttles are updated rather than rebuilt, because they hold the
+    /// count of who has been failing to sign in. See [`Throttles::apply`].
+    /// The store holding a named backend's objects.
+    ///
+    /// `None` when the name is not configured — a share whose backend was
+    /// removed from the configuration. That has to be answerable rather than
+    /// fatal: the operator needs to be told which shares they have orphaned,
+    /// not have the process refuse to start.
+    #[must_use]
+    pub fn backend(&self, name: &str) -> Option<Arc<dyn ObjectStore>> {
+        self.backends.load().get(name).map(Arc::clone)
     }
 
     /// Replaces the configuration, and everything built from it.
@@ -219,6 +251,12 @@ impl AppState {
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
             config: Arc::new(ArcSwap::from(config)),
             db,
+            // The one backend there is, under the name every row written
+            // before backends were recorded resolves to.
+            backends: Arc::new(ArcSwap::from_pointee(HashMap::from([(
+                crate::storage::DEFAULT_BACKEND.to_owned(),
+                Arc::clone(&storage),
+            )]))),
             storage,
             status: Arc::new(RwLock::new(ServiceStatus::Starting)),
             started_at: OffsetDateTime::now_utc(),

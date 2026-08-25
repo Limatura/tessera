@@ -1208,7 +1208,11 @@ async fn ingest_into(
             }
             started.complete().await?;
             Ok(Ingested {
-                storage: StorageLocation::Object { key },
+                storage: StorageLocation::Object {
+                    // One backend today; the writer picks it in #183's next step.
+                    backend: crate::storage::DEFAULT_BACKEND.to_owned(),
+                    key,
+                },
                 size_bytes,
                 inline: None,
             })
@@ -1226,7 +1230,10 @@ async fn ingest_into(
                 )
                 .await?;
             Ok(Ingested {
-                storage: StorageLocation::Object { key: object_key },
+                storage: StorageLocation::Object {
+                    backend: crate::storage::DEFAULT_BACKEND.to_owned(),
+                    key: object_key,
+                },
                 size_bytes,
                 inline: None,
             })

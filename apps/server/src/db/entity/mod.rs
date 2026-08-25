@@ -12,6 +12,7 @@
 pub mod access_event;
 pub mod api_token;
 pub mod api_token_permission;
+pub mod file_segment;
 pub mod file_share;
 pub mod invite;
 pub mod password_reset_token;

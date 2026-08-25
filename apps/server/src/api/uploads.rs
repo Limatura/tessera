@@ -610,6 +610,7 @@ pub(crate) fn finished_file(upload: &Upload) -> NewFile {
         content_type: upload.content_type.clone(),
         size_bytes: upload.offset_bytes,
         storage: StorageLocation::Object {
+            backend: crate::storage::DEFAULT_BACKEND.to_owned(),
             key: upload.object_key.clone(),
         },
     }

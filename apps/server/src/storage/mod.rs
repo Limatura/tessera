@@ -84,6 +84,13 @@ impl core::fmt::Debug for Multipart {
 /// instead — see `upload::sink`.
 pub type Stores = (Arc<dyn ObjectStore>, Option<Multipart>);
 
+/// The name given to the backend built from `storage.url`.
+///
+/// Every instance has this one, and until an operator configures another it is
+/// the only one. Rows written before backends were recorded read as this,
+/// because there was nowhere else the bytes could have been.
+pub const DEFAULT_BACKEND: &str = "default";
+
 /// The same store, plus a handle to it as a [`MultipartStore`] when it is one.
 ///
 /// # Why this is separate from [`build`]

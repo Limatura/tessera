@@ -3788,3 +3788,77 @@ async fn capabilities_reports_the_callers_own_file_limit() {
     .await;
     assert_eq!(capabilities["max_upload_bytes"], 4096);
 }
+
+// ── 每個檔案記自己在哪個 backend ──────────────────────────────────────────
+
+/// The point of the whole change: without this, pointing the configuration at
+/// another store leaves every existing share reading as present and failing to
+/// deliver, with nothing recording where the bytes went.
+#[tokio::test]
+async fn a_file_records_which_backend_holds_it() {
+    let app = TestApp::with_config(|config| config.share.inline_threshold_bytes = 8).await;
+    let share = upload(&app, "?filename=kept.bin", &vec![3_u8; 4096]).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("parses");
+
+    let content = content_of(&app, id).await;
+    let file = content.files().first().expect("a file");
+    assert_eq!(
+        file.storage.backend(),
+        Some(tessera_server::storage::DEFAULT_BACKEND),
+    );
+}
+
+/// Reads have to follow the name the file recorded, not whichever store new
+/// uploads go to — otherwise recording it bought nothing.
+///
+/// Asserting on the status alone is not enough: the lookup can happen, its
+/// result be thrown away, and the response still look right. So the recorded
+/// name is pointed at an *empty* store — if the bytes still arrive, they came
+/// from somewhere this file never named.
+#[tokio::test]
+async fn a_download_reads_from_the_backend_the_file_named() {
+    let app = TestApp::with_config(|config| config.share.inline_threshold_bytes = 8).await;
+    let share = upload(&app, "?filename=kept.bin", &vec![5_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // Same name, nothing behind it.
+    let empty: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::new(object_store::memory::InMemory::new());
+    app.state
+        .backends
+        .store(std::sync::Arc::new(std::collections::HashMap::from([(
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            empty,
+        )])));
+
+    assert_ne!(
+        app.get(&format!("/s/{code}/download")).await.status(),
+        StatusCode::OK,
+        "served bytes from a store this file does not name"
+    );
+}
+
+/// A backend dropped from the configuration is a recoverable operator mistake:
+/// the row is fine and the bytes are probably fine, what is missing is the
+/// credentials. `404` would say the share never existed.
+#[tokio::test]
+async fn an_unconfigured_backend_is_unavailable_not_missing() {
+    let app = TestApp::with_config(|config| config.share.inline_threshold_bytes = 8).await;
+    let share = upload(&app, "?filename=kept.bin", &vec![9_u8; 4096]).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    app.state
+        .backends
+        .store(std::sync::Arc::new(std::collections::HashMap::new()));
+
+    assert_eq!(
+        app.get(&format!("/s/{code}/download")).await.status(),
+        StatusCode::SERVICE_UNAVAILABLE,
+    );
+}

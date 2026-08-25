@@ -21,7 +21,9 @@ use axum::{
     routing::get,
 };
 use bytes::Bytes;
-use object_store::{GetOptions, GetRange, ObjectStoreExt as _, path::Path as ObjectPath};
+use object_store::{
+    GetOptions, GetRange, ObjectStore, ObjectStoreExt as _, path::Path as ObjectPath,
+};
 use serde::Deserialize;
 use time::OffsetDateTime;
 use tokio_stream::StreamExt as _;
@@ -549,20 +551,48 @@ async fn read_range(
     }
 }
 
+/// One archive entry: its name, its size, and where to read it from.
+///
+/// The location is optional because a file whose bytes are gone still takes a
+/// place in the archive — as an empty entry, so the listing matches the share.
+type PlannedEntry = (String, u64, Option<(Arc<dyn ObjectStore>, String)>);
+
+/// The store holding this file's bytes.
+///
+/// # Errors
+///
+/// [`Error::Unavailable`] when the file names a backend this process has no
+/// configuration for. That is not "no such share" — the row is fine and the
+/// bytes are probably fine; what is missing is the credentials to reach them,
+/// which an operator can put back.
+fn backend_of(state: &AppState, file: &FilePart) -> Result<Arc<dyn ObjectStore>> {
+    let name = file.storage.backend().ok_or(Error::NotFound)?;
+    state.backend(name).ok_or_else(|| {
+        tracing::error!(
+            backend = name,
+            "a share names a backend that is not configured"
+        );
+        Error::Unavailable
+    })
+}
+
 /// Streams one file, honouring a range.
 async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>) -> Result<Body> {
     let Some(key) = file.storage.object_key() else {
         return Err(Error::NotFound);
     };
+    // The backend this file recorded, not whichever one new uploads go to. A
+    // name that is no longer configured is a share the operator has orphaned by
+    // changing the configuration, and `503` says "this instance cannot serve it
+    // right now" — which is true and recoverable — where `404` would say it
+    // never existed.
+    let store = backend_of(state, file)?;
     let options = GetOptions {
         // HTTP ranges are inclusive at both ends; `GetRange::Bounded` is not.
         range: range.map(|(start, end)| GetRange::Bounded(start..end.saturating_add(1))),
         ..GetOptions::default()
     };
-    let result = state
-        .storage
-        .get_opts(&ObjectPath::from(key), options)
-        .await?;
+    let result = store.get_opts(&ObjectPath::from(key), options).await?;
     // The store hands back a stream of chunks; passing it straight through means
     // the process never holds more than one chunk of the object.
     Ok(Body::from_stream(result.into_stream()))
@@ -587,21 +617,22 @@ async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>
 /// seek to. `serve` does not offer ranges for one, and a client asking for one
 /// gets the whole thing.
 async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) -> Result<Body> {
-    let storage = Arc::clone(&state.storage);
     // The same names `archived` predicted the size from. Two files can share a
     // name, and an archive with two identical entries unpacks to one file — so
     // the names are decided for the set, not one at a time, and both places have
     // to decide them the same way.
     let raw: Vec<Option<&str>> = files.iter().map(|f| f.filename.as_deref()).collect();
-    let planned: Vec<(String, u64, Option<String>)> = archive::safe_names(&raw)
+    // Each entry carries its own store, because the files in one archive need
+    // not all live in the same backend.
+    let planned: Vec<PlannedEntry> = archive::safe_names(&raw)
         .into_iter()
         .zip(files.iter())
         .map(|(name, file)| {
-            (
-                name,
-                file.size_bytes,
-                file.storage.object_key().map(str::to_owned),
-            )
+            let located = file
+                .storage
+                .object_key()
+                .and_then(|key| Some((backend_of(state, file).ok()?, key.to_owned())));
+            (name, file.size_bytes, located)
         })
         .collect();
 
@@ -618,8 +649,8 @@ async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) ->
 
                     let mut crc = archive::zip::Crc32::default();
                     let mut size: u64 = 0;
-                    if let Some(key) = key {
-                        let mut chunks = storage.get(&ObjectPath::from(key.as_str())).await?.into_stream();
+                    if let Some((store, key)) = key {
+                        let mut chunks = store.get(&ObjectPath::from(key.as_str())).await?.into_stream();
                         while let Some(chunk) = chunks.next().await {
                             let chunk = chunk?;
                             crc.update(&chunk);
@@ -641,8 +672,8 @@ async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) ->
                 for (name, size, key) in &planned {
                     let header: Bytes = archive::tar::header(name, *size);
                     yield header;
-                    if let Some(key) = key {
-                        let mut chunks = storage.get(&ObjectPath::from(key.as_str())).await?.into_stream();
+                    if let Some((store, key)) = key {
+                        let mut chunks = store.get(&ObjectPath::from(key.as_str())).await?.into_stream();
                         while let Some(chunk) = chunks.next().await {
                             yield chunk?;
                         }
@@ -669,8 +700,8 @@ async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) ->
                 yield signature;
 
                 for (_, _, key) in &planned {
-                    if let Some(key) = key {
-                        let mut chunks = storage.get(&ObjectPath::from(key.as_str())).await?.into_stream();
+                    if let Some((store, key)) = key {
+                        let mut chunks = store.get(&ObjectPath::from(key.as_str())).await?.into_stream();
                         while let Some(chunk) = chunks.next().await {
                             yield chunk?;
                         }
