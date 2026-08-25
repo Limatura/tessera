@@ -633,6 +633,31 @@ pub struct StorageConfig {
     /// steady state without ever refusing anybody.
     pub max_total_bytes: u64,
 
+    /// How often to reconcile the store against the database, in hours. `0`
+    /// turns it off.
+    ///
+    /// Separate from the hourly sweep because it costs a full listing of the
+    /// store rather than a `DELETE` over an indexed column. Daily is chosen so
+    /// that a leak is bounded by a day rather than by for ever, without paying
+    /// for a listing every hour on an instance that never leaks.
+    ///
+    /// A listing is billed as API calls on most object stores, and free tiers
+    /// meter those separately from storage — so an operator whose transactions
+    /// are tighter than their bytes has a reason to lengthen this, and one on a
+    /// local disk has a reason to shorten it.
+    pub reconcile_interval_hours: u64,
+
+    /// How old an unreferenced object must be before the reconciliation
+    /// removes it, in hours.
+    ///
+    /// An object is written to the store before the row naming it is written to
+    /// the database, so for a moment every upload looks like an orphan. This is
+    /// the margin around that moment. It is generously wide on purpose: the
+    /// cost of waiting an extra day to reclaim leaked bytes is nothing, and the
+    /// cost of deleting somebody's file the instant before its row lands is
+    /// their file.
+    pub reconcile_grace_hours: u64,
+
     /// Where blobs live.
     ///
     /// A bare path is a local directory, created if missing — the homelab
@@ -720,7 +745,28 @@ impl Default for StorageConfig {
             // anybody falls into by accident — but `Config::load` warns when it
             // sees the combination, so it is not a silent trap either.
             max_total_bytes: 0,
+            reconcile_interval_hours: 24,
+            reconcile_grace_hours: 24,
         }
+    }
+}
+
+impl StorageConfig {
+    /// How often to reconcile, or `None` when it is switched off.
+    #[must_use]
+    pub const fn reconcile_interval(&self) -> Option<Duration> {
+        if self.reconcile_interval_hours == 0 {
+            return None;
+        }
+        Some(Duration::from_secs(
+            self.reconcile_interval_hours.saturating_mul(3600),
+        ))
+    }
+
+    /// How old an unreferenced object must be before it is removed.
+    #[must_use]
+    pub const fn reconcile_grace(&self) -> Duration {
+        Duration::from_secs(self.reconcile_grace_hours.saturating_mul(3600))
     }
 }
 

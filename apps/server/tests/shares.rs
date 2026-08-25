@@ -3480,3 +3480,159 @@ async fn capabilities_shows_an_administrator_the_tighter_of_the_two() {
         "an administrator was shown the disk rather than their own ceiling"
     );
 }
+
+// ── 孤兒物件對帳 ──────────────────────────────────────────────────────────
+//
+// Everything else the sweep does deletes what the database knows about. This
+// walks the store instead, so the tests that matter are the ones about what it
+// must *not* touch.
+
+/// Writes an object straight into the store, the way a crashed upload leaves one.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn put_object(app: &TestApp, key: &str, bytes: &[u8]) {
+    app.state
+        .storage
+        .put(
+            &object_store::path::Path::from(key),
+            object_store::PutPayload::from(bytes.to_vec()),
+        )
+        .await
+        .expect("write the object");
+}
+
+/// Whether the store still holds a key.
+async fn object_exists(app: &TestApp, key: &str) -> bool {
+    app.state
+        .storage
+        .head(&object_store::path::Path::from(key))
+        .await
+        .is_ok()
+}
+
+/// The whole point: bytes nothing points at are invisible to every total and
+/// occupy real space for ever.
+#[tokio::test]
+async fn an_object_no_row_names_is_removed() {
+    let app = TestApp::with_config(|config| config.storage.reconcile_grace_hours = 1).await;
+    put_object(&app, "shares/2026/01/orphan", b"leaked").await;
+
+    // An hour on, it is past the grace period.
+    tessera_server::maintenance::reconcile_once(
+        &app.state,
+        OffsetDateTime::now_utc() + time::Duration::hours(2),
+    )
+    .await;
+
+    assert!(!object_exists(&app, "shares/2026/01/orphan").await);
+}
+
+/// The bytes are written before the row, so for a moment every upload looks
+/// like an orphan. Deleting inside that window deletes somebody's file.
+#[tokio::test]
+async fn a_freshly_written_object_is_left_alone() {
+    let app = TestApp::with_config(|config| config.storage.reconcile_grace_hours = 24).await;
+    put_object(&app, "shares/2026/01/just-arrived", b"mine").await;
+
+    tessera_server::maintenance::reconcile_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    assert!(
+        object_exists(&app, "shares/2026/01/just-arrived").await,
+        "deleted an object inside the grace period"
+    );
+}
+
+/// A real share's object is spoken for, however old it is.
+#[tokio::test]
+async fn a_live_shares_object_survives() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 8;
+        config.storage.reconcile_grace_hours = 0;
+    })
+    .await;
+    let share = upload(&app, "?filename=kept.bin", &vec![7_u8; 4096]).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("parses");
+    let key = first_key(&content_of(&app, id).await)
+        .expect("an object key")
+        .to_owned();
+
+    tessera_server::maintenance::reconcile_once(
+        &app.state,
+        OffsetDateTime::now_utc() + time::Duration::days(30),
+    )
+    .await;
+
+    assert!(
+        object_exists(&app, &key).await,
+        "deleted a live share's bytes"
+    );
+}
+
+/// A bucket is often shared with something else. Listing from the root and
+/// deleting what our database does not recognise would be a different feature.
+#[tokio::test]
+async fn objects_outside_our_prefix_are_never_touched() {
+    let app = TestApp::with_config(|config| config.storage.reconcile_grace_hours = 0).await;
+    put_object(&app, "somebody-elses/backup.tar", b"not ours").await;
+    put_object(&app, "shares/2026/01/ours", b"ours").await;
+
+    tessera_server::maintenance::reconcile_once(
+        &app.state,
+        OffsetDateTime::now_utc() + time::Duration::days(1),
+    )
+    .await;
+
+    assert!(
+        object_exists(&app, "somebody-elses/backup.tar").await,
+        "deleted something outside the prefix this instance owns"
+    );
+    assert!(!object_exists(&app, "shares/2026/01/ours").await);
+}
+
+/// An open upload has an object but no share yet, so it looks exactly like an
+/// orphan. Deleting it takes the bytes out from under somebody mid-upload.
+#[tokio::test]
+async fn an_in_flight_uploads_object_survives() {
+    let app = TestApp::with_config(|config| config.storage.reconcile_grace_hours = 0).await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/uploads?filename=half.bin")
+                    .header("upload-length", "4096"),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let id = tessera_core::UploadId::parse(created["id"].as_str().expect("an id")).expect("parses");
+    let key = app
+        .state
+        .uploads
+        .find(id)
+        .await
+        .expect("query")
+        .expect("the session")
+        .object_key;
+
+    // The local sink writes beside the key while the upload is open.
+    put_object(&app, &key, b"partial").await;
+
+    tessera_server::maintenance::reconcile_once(
+        &app.state,
+        OffsetDateTime::now_utc() + time::Duration::days(7),
+    )
+    .await;
+
+    assert!(
+        object_exists(&app, &key).await,
+        "deleted the bytes of an upload still in progress"
+    );
+}

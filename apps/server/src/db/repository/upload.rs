@@ -377,6 +377,23 @@ impl UploadRepository {
         Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
     }
 
+    /// Every object key an unfinished upload is writing to.
+    ///
+    /// These have no share yet, so the reconciliation would take them for
+    /// orphans and delete the bytes out from under somebody mid-upload.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UploadRepositoryError`] if the query fails.
+    pub async fn all_object_keys(&self) -> Result<Vec<String>, UploadRepositoryError> {
+        Ok(UploadEntity::find()
+            .select_only()
+            .column(upload::Column::ObjectKey)
+            .into_tuple()
+            .all(&self.connection)
+            .await?)
+    }
+
     /// How many sessions are open, for the instance statistics.
     ///
     /// # Errors

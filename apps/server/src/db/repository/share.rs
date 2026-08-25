@@ -760,6 +760,34 @@ impl ShareRepository {
             .collect())
     }
 
+    /// Every object key any share still names.
+    ///
+    /// # Why the whole set rather than a batched `IN`
+    ///
+    /// The reconciliation walks the store and asks "is this one still spoken
+    /// for". Asking per batch would be one query per batch against a column
+    /// with no index — and indexing `object_key` to serve a job that runs once
+    /// a day would cost a write on every upload for ever. One query and a set
+    /// in memory is the cheaper trade: a courier holds roughly its upload rate
+    /// times its retention, so the set is tens of megabytes at instance sizes
+    /// this software is aimed at.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn all_object_keys(&self) -> Result<Vec<String>, ShareRepositoryError> {
+        Ok(FileShareEntity::find()
+            .filter(file_share::Column::ObjectKey.is_not_null())
+            .select_only()
+            .column(file_share::Column::ObjectKey)
+            .into_tuple::<Option<String>>()
+            .all(&self.connection)
+            .await?
+            .into_iter()
+            .flatten()
+            .collect())
+    }
+
     /// Reads what a share holds, from the table that owns it.
     ///
     /// # Why this exists rather than more columns on [`Share`]

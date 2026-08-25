@@ -12,10 +12,13 @@
 //! bytes. A row is a couple of hundred of them; the payload can be gigabytes,
 //! and no database action reaches the blob store to remove it.
 
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use object_store::{ObjectStore, ObjectStoreExt as _, path::Path as ObjectPath};
 use time::OffsetDateTime;
+// `futures-util` is deliberately not a dependency of the server — see the note
+// in `Cargo.toml`. This is the same `next` and is already in the tree.
+use tokio_stream::StreamExt as _;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -42,19 +45,171 @@ const UPLOADS_PER_PASS: u64 = 100;
 
 const SHARES_PER_PASS: u64 = 500;
 
+/// Objects removed by one reconciliation pass.
+///
+/// Bounded like the others, and for a stronger reason: this deletes objects no
+/// row names, so a bug here destroys data nothing can point at afterwards. A
+/// cap means a bug takes many passes to do its damage, and the log says what
+/// went on each one.
+const ORPHANS_PER_PASS: usize = 200;
+
+/// The only prefix this instance writes under, and so the only one it will
+/// delete from.
+///
+/// A bucket is often shared with something else. Listing from the root and
+/// deleting what our database does not recognise would make this feature
+/// "delete everything that is not ours", which is a very different feature.
+const OWNED_PREFIX: &str = "shares";
+
 /// Deletes what has run out until `shutdown` is cancelled.
 ///
 /// Runs once at start-up rather than waiting out the first interval, so a
 /// process that is restarted more often than the interval still sweeps.
 pub async fn sweep_expired(state: AppState, shutdown: CancellationToken) {
+    let mut since_reconcile = Duration::ZERO;
     loop {
-        sweep_once(&state, OffsetDateTime::now_utc()).await;
+        let now = OffsetDateTime::now_utc();
+        sweep_once(&state, now).await;
+
+        // On its own cadence, and read fresh each pass so changing the setting
+        // takes effect without a restart. Counted rather than timed so a
+        // process restarted more often than the interval does not skip it for
+        // ever, and does not run it every time either.
+        if let Some(interval) = state.config().storage.reconcile_interval() {
+            if since_reconcile >= interval {
+                since_reconcile = Duration::ZERO;
+                reconcile_once(&state, now).await;
+            } else {
+                since_reconcile = since_reconcile.saturating_add(INTERVAL);
+            }
+        }
 
         tokio::select! {
             () = shutdown.cancelled() => return,
             () = tokio::time::sleep(INTERVAL) => {}
         }
     }
+}
+
+/// Removes objects in the store that no row names.
+///
+/// # Why this is needed at all
+///
+/// Every other sweep here deletes things the database knows about. Nothing
+/// walks the *store*, so an object that lost its row is invisible: it is not in
+/// any listing, not in any total, and no query will ever mention it again. It
+/// still occupies real space, and on a ten-gigabyte free tier one leaked
+/// upload is a percent of everything the operator has.
+///
+/// Two ways a row goes missing. The bytes are written before the row, so a
+/// crash in between leaves the object; and a delete that fails permanently —
+/// credentials rotated, bucket turned read-only — leaves one behind after the
+/// row is gone. Neither is exotic and neither is currently recoverable.
+///
+/// # Why it deletes rather than reports
+///
+/// A report nobody acts on is the same as no report, and the action is always
+/// the same. What makes deleting safe is the two bounds around it: only under
+/// the `shares/` prefix this instance writes to, and only objects older than
+/// `storage.reconcile_grace_hours`.
+pub async fn reconcile_once(state: &AppState, now: OffsetDateTime) {
+    // Both tables, because an unfinished upload names an object that has no
+    // share yet. Read before the listing rather than after, and that ordering
+    // is what makes the race safe: a row written while this runs is not in the
+    // set, but its object is younger than the grace period, so it is skipped
+    // on age instead.
+    let Some(live) = live_keys(state).await else {
+        return;
+    };
+    let removed = remove_orphans(state, live, cutoff(state, now)).await;
+    if removed.count > 0 {
+        tracing::info!(
+            removed = removed.count,
+            freed_bytes = removed.bytes,
+            "removed orphaned objects"
+        );
+    }
+}
+
+/// How old an object has to be before this pass will touch it, in unix seconds.
+///
+/// Compared as unix seconds because the store speaks `chrono` and the rest of
+/// this crate speaks `time`. Converting between the two types to answer "is
+/// this older than that" would be more code for the same answer.
+fn cutoff(state: &AppState, now: OffsetDateTime) -> i64 {
+    let grace = time::Duration::try_from(state.config().storage.reconcile_grace())
+        .unwrap_or_else(|_| time::Duration::days(1));
+    now.saturating_sub(grace).unix_timestamp()
+}
+
+/// What one pass reclaimed.
+struct Reclaimed {
+    count: usize,
+    bytes: u64,
+}
+
+/// Walks the owned prefix and removes what is both unreferenced and old.
+async fn remove_orphans(state: &AppState, live: HashSet<String>, cutoff: i64) -> Reclaimed {
+    let mut listing = state.storage.list(Some(&ObjectPath::from(OWNED_PREFIX)));
+    let mut reclaimed = Reclaimed { count: 0, bytes: 0 };
+
+    while let Some(entry) = listing.next().await {
+        let entry = match entry {
+            Ok(entry) => entry,
+            Err(error) => {
+                tracing::warn!(%error, "could not list the store; stopping this pass");
+                break;
+            }
+        };
+        if entry.last_modified.timestamp() > cutoff || live.contains(entry.location.as_ref()) {
+            continue;
+        }
+        if !remove_object(&state.storage, entry.location.as_ref()).await {
+            continue;
+        }
+        reclaimed.count += 1;
+        reclaimed.bytes = reclaimed.bytes.saturating_add(entry.size);
+        if reclaimed.count >= ORPHANS_PER_PASS {
+            tracing::info!(
+                cap = ORPHANS_PER_PASS,
+                "reconciliation hit its per-pass cap; the rest goes next pass"
+            );
+            break;
+        }
+    }
+    reclaimed
+}
+
+/// Every object key still spoken for, from both tables that can name one.
+///
+/// An in-flight upload's partial file sits beside its object under a suffix, so
+/// the key it will become has to protect the key it is now — otherwise the
+/// reconciliation deletes the bytes out from under somebody mid-upload.
+async fn live_keys(state: &AppState) -> Option<HashSet<String>> {
+    let shares = match state.shares.all_object_keys().await {
+        Ok(keys) => keys,
+        Err(error) => {
+            tracing::warn!(%error, "could not read share object keys; skipping reconciliation");
+            return None;
+        }
+    };
+    let uploads = match state.uploads.all_object_keys().await {
+        Ok(keys) => keys,
+        Err(error) => {
+            // Either query failing has to abandon the pass rather than proceed
+            // with a partial set: an object missing from `live` is an object
+            // this deletes.
+            tracing::warn!(%error, "could not read in-flight upload keys; skipping reconciliation");
+            return None;
+        }
+    };
+
+    let mut live: HashSet<String> = shares.into_iter().collect();
+    for key in uploads {
+        live.insert(format!("{key}{}", crate::upload::sink::REMAINDER_SUFFIX));
+        live.insert(key);
+    }
+    Some(live)
 }
 
 /// One pass of everything the sweep does, at a time the caller chooses.

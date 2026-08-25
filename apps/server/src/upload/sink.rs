@@ -44,7 +44,7 @@ use crate::error::{Error, Result};
 const FIRST_PART: i32 = 1;
 
 /// Suffix of the object holding bytes too few to be a part.
-const REMAINDER_SUFFIX: &str = ".part";
+pub(crate) const REMAINDER_SUFFIX: &str = ".part";
 
 /// One part the store has taken, as it needs handing back at completion.
 #[derive(Debug, Clone, PartialEq, Eq)]
