@@ -8,7 +8,7 @@ use utoipa::ToSchema;
 use crate::{
     api::{
         SYSTEM_TAG, gate,
-        shares::{personal_room, remaining_room},
+        shares::{max_file_bytes, personal_room, remaining_room},
     },
     auth::extract::MaybeUser,
     config::{FeatureConfig, RegistrationPolicy},
@@ -119,7 +119,12 @@ pub struct Capabilities {
     /// collected. Nobody else is going to tell them.
     pub access_log: bool,
 
-    /// Longest accepted request body, in bytes.
+    /// Largest single file *this caller* may send, in bytes.
+    ///
+    /// Their own limit, then their role's, then `server.max_body_bytes` —
+    /// whichever is narrowest. So an operator who raised the instance figure
+    /// for themselves does not have to see it reported to every stranger, and a
+    /// client is never shown a number bigger than what it may actually send.
     #[schema(example = 104_857_600_u64)]
     pub max_upload_bytes: u64,
 
@@ -184,6 +189,9 @@ impl Capabilities {
             // `usize` is the type axum's body limit wants; `u64` is the type a
             // file size is. The conversion cannot fail on any target this runs
             // on, but saturating is still better than a cast that would wrap.
+            // The instance figure. `capabilities` narrows it to the caller's
+            // own before answering — a client shown a number bigger than what
+            // it may send lets somebody pick a file and then fail.
             max_upload_bytes: u64::try_from(config.server.max_body_bytes).unwrap_or(u64::MAX),
             storage_remaining_bytes: None,
             version: crate::VERSION.to_owned(),
@@ -227,6 +235,7 @@ pub async fn capabilities(
     // quota of their own would otherwise be shown 900 GB free and refused at
     // four kilobytes.
     let user = current.as_ref().map(|current| &current.user);
+    capabilities.max_upload_bytes = max_file_bytes(&state, user).await?;
     let may_see_totals = current
         .as_ref()
         .is_some_and(|current| current.permissions.allows(Permission::StatsRead));

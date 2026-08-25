@@ -16,7 +16,7 @@ use common::{
     Auth, TestApp, account_lifecycle, body_json, expect_status, force_password_change,
     session_cookie,
 };
-use tessera_server::config::RegistrationPolicy;
+use tessera_server::{config::RegistrationPolicy, db::repository::role::RoleFields};
 
 /// Password used wherever the value itself does not matter.
 const PASSWORD: &str = "a perfectly adequate passphrase";
@@ -2777,12 +2777,15 @@ async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
         .state
         .roles
         .create(
-            "narrow".to_owned(),
-            None,
-            None,
-            &[tessera_core::Permission::TokensManage]
-                .into_iter()
-                .collect(),
+            RoleFields {
+                name: "narrow",
+                description: None,
+                quota_bytes: None,
+                max_file_bytes: None,
+                permissions: &[tessera_core::Permission::TokensManage]
+                    .into_iter()
+                    .collect(),
+            },
             time::OffsetDateTime::now_utc(),
         )
         .await

@@ -34,6 +34,9 @@ pub struct Model {
     /// How much storage this account may hold, or `None` to ask its role.
     /// `Some(0)` is no ceiling.
     pub quota_bytes: Option<i64>,
+    /// Largest single file this account may send, or `None` to ask its role.
+    /// `Some(0)` is no limit of its own.
+    pub max_file_bytes: Option<i64>,
     /// Set on the generated first-run administrator, so the printed password
     /// cannot become a permanent one.
     pub must_change_password: bool,

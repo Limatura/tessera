@@ -102,6 +102,7 @@ Table roles {
   created_at text [not null]
   updated_at text [not null]
   quota_bytes integer
+  max_file_bytes integer
 
   Note: '一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。'
 }
@@ -219,6 +220,7 @@ Table users {
   deleted_by text
   role_id text
   quota_bytes integer
+  max_file_bytes integer
 
   Note: '帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。'
 }

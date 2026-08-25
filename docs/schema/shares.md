@@ -187,6 +187,7 @@ erDiagram
   TEXT deleted_by FK
   TEXT role_id FK
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 "roles" {
   TEXT id PK
@@ -196,6 +197,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 ```
 

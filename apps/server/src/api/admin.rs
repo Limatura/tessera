@@ -79,6 +79,15 @@ pub struct UpdateUserRequest {
     #[serde(default, deserialize_with = "patched")]
     #[schema(example = 10_737_418_240_u64)]
     pub quota_bytes: Patch<u64>,
+    /// Largest single file this one account may send, overriding its role's.
+    ///
+    /// Absent leaves it alone, `null` clears it so the role's applies again,
+    /// and `0` gives this account no limit of its own.
+    ///
+    /// `server.max_body_bytes` still applies on top; this cannot raise it.
+    #[serde(default, deserialize_with = "patched")]
+    #[schema(example = 5_368_709_120_u64)]
+    pub max_file_bytes: Patch<u64>,
 }
 
 /// One account, as an administrator sees it.
@@ -263,6 +272,9 @@ pub async fn update_user(
     state.users.set_admin(user_id, body.is_admin, now).await?;
     if let Some(quota) = body.quota_bytes {
         state.users.set_quota(user_id, quota, now).await?;
+    }
+    if let Some(limit) = body.max_file_bytes {
+        state.users.set_max_file_bytes(user_id, limit, now).await?;
     }
 
     let updated = state
@@ -686,6 +698,11 @@ pub struct RoleResponse {
     /// `null` means the instance ceiling applies; `0` means no ceiling.
     #[schema(example = 10_737_418_240_u64)]
     pub quota_bytes: Option<u64>,
+    /// Largest single file each account in it may send.
+    ///
+    /// `null` means `server.max_body_bytes` applies; `0` means no limit here.
+    #[schema(example = 5_368_709_120_u64)]
+    pub max_file_bytes: Option<u64>,
     /// How many accounts are in it.
     ///
     /// The number an operator wants before editing one: changing a role that
@@ -704,6 +721,7 @@ impl RoleResponse {
             name: role.name.clone(),
             description: role.description.clone(),
             quota_bytes: role.quota_bytes,
+            max_file_bytes: role.max_file_bytes,
             is_system: role.is_system,
             permissions: role
                 .permissions
@@ -733,6 +751,14 @@ pub struct RoleRequest {
     #[serde(default)]
     #[schema(example = 10_737_418_240_u64)]
     pub quota_bytes: Option<u64>,
+    /// Largest single file accounts in this role may send.
+    ///
+    /// Omit or send `null` to fall back to `server.max_body_bytes`; send `0`
+    /// for no limit of its own. `server.max_body_bytes` still applies on top —
+    /// this cannot raise it, only lower it.
+    #[serde(default)]
+    #[schema(example = 5_368_709_120_u64)]
+    pub max_file_bytes: Option<u64>,
     /// Everything it should allow, as `resource:verb` strings.
     ///
     /// The whole set, not a change to it. Two operators editing the same role
@@ -926,10 +952,13 @@ pub async fn create_role(
     let role = state
         .roles
         .create(
-            name,
-            body.description.clone(),
-            body.quota_bytes,
-            &permissions,
+            RoleFields {
+                name: &name,
+                description: body.description.clone(),
+                quota_bytes: body.quota_bytes,
+                max_file_bytes: body.max_file_bytes,
+                permissions: &permissions,
+            },
             OffsetDateTime::now_utc(),
         )
         .await?;
@@ -1022,6 +1051,7 @@ pub async fn update_role(
                 name: &name,
                 description: body.description.clone(),
                 quota_bytes: body.quota_bytes,
+                max_file_bytes: body.max_file_bytes,
                 permissions: &permissions,
             },
             now,

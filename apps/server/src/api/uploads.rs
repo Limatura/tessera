@@ -182,6 +182,16 @@ pub async fn create(
     }
 
     let declared = declared_length(&headers)?;
+    // Their own limit, not the instance's: an operator who raised
+    // `server.max_body_bytes` for themselves has not raised it for strangers.
+    // Refused here rather than at the first `PATCH` so the client learns before
+    // it starts sending.
+    if declared
+        > crate::api::shares::max_file_bytes(&state, current.as_ref().map(|current| &current.user))
+            .await?
+    {
+        return Err(Error::PayloadTooLarge);
+    }
     // Checked before a byte is accepted rather than as they arrive: an upload
     // that cannot possibly fit should be refused while the client can still act
     // on it, not after it has spent an hour sending.

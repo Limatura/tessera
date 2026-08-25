@@ -199,10 +199,13 @@ async fn quotas_round_trip() {
 
     let role = roles
         .create(
-            format!("quota{suffix}"),
-            None,
-            Some(4096),
-            &permissions,
+            RoleFields {
+                name: &format!("quota{suffix}"),
+                description: None,
+                quota_bytes: Some(4096),
+                max_file_bytes: None,
+                permissions: &permissions,
+            },
             now,
         )
         .await
@@ -247,6 +250,7 @@ async fn quotas_round_trip() {
                 name: &format!("quota{suffix}"),
                 description: None,
                 quota_bytes: Some(8192),
+                max_file_bytes: None,
                 permissions: &permissions,
             },
             now,
@@ -277,7 +281,10 @@ async fn quotas_round_trip() {
 #[ignore = "needs a live database; see the module docs"]
 async fn the_scoped_totals_run_on_this_dialect() {
     use tessera_core::PermissionSet;
-    use tessera_server::db::repository::{quota::Scope, role::RoleRepository};
+    use tessera_server::db::repository::{
+        quota::Scope,
+        role::{RoleFields, RoleRepository},
+    };
 
     let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
     let now = time::OffsetDateTime::now_utc();
@@ -286,10 +293,13 @@ async fn the_scoped_totals_run_on_this_dialect() {
         .map_or(0, |elapsed| elapsed.as_secs());
     let role = RoleRepository::new(app.state.db.clone())
         .create(
-            format!("scope{suffix}"),
-            None,
-            Some(4096),
-            &PermissionSet::default(),
+            RoleFields {
+                name: &format!("scope{suffix}"),
+                description: None,
+                quota_bytes: Some(4096),
+                max_file_bytes: None,
+                permissions: &PermissionSet::default(),
+            },
             now,
         )
         .await

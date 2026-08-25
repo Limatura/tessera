@@ -5,7 +5,7 @@
 | Name | Columns | Comment | Type |
 | ---- | ------- | ------- | ---- |
 | [schema_metadata](schema_metadata.md) | 3 | 這個資料庫是哪一版寫的。降版啟動時用來擋下來。 | table |
-| [users](users.md) | 13 | 帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。 | table |
+| [users](users.md) | 14 | 帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。 | table |
 | [sessions](sessions.md) | 9 | 一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。 | table |
 | [api_tokens](api_tokens.md) | 9 | 給程式用的憑證。只存摘要,原始值發出去之後就不再存在。 | table |
 | [shares](shares.md) | 19 | 一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。role_id 是上傳當下的角色快照,匿名上傳是 guest——事後改一個人的角色不會回溯改變舊分享算在誰頭上,而 user_id 是空同時代表「匿名」和「上傳者帳號被刪了」,分不出來。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。 | table |
@@ -15,7 +15,7 @@
 | [invites](invites.md) | 7 | 邀請碼。同樣只存摘要。 | table |
 | [file_shares](file_shares.md) | 9 | 檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。 | table |
 | [text_shares](text_shares.md) | 3 | 文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。 | table |
-| [roles](roles.md) | 7 | 一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。 | table |
+| [roles](roles.md) | 8 | 一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。 | table |
 | [role_permissions](role_permissions.md) | 2 | 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。 | table |
 | [api_token_permissions](api_token_permissions.md) | 2 | 一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。 | table |
 | [uploads](uploads.md) | 14 | 還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。 | table |
@@ -65,6 +65,7 @@ erDiagram
   TEXT deleted_by FK
   TEXT role_id FK
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 "sessions" {
   TEXT id PK
@@ -167,6 +168,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 "role_permissions" {
   TEXT role_id PK

@@ -270,7 +270,7 @@ expression: document
             ]
           },
           "max_upload_bytes": {
-            "description": "Longest accepted request body, in bytes.",
+            "description": "Largest single file *this caller* may send, in bytes.\n\nTheir own limit, then their role's, then `server.max_body_bytes` —\nwhichever is narrowest. So an operator who raised the instance figure\nfor themselves does not have to see it reported to every stranger, and a\nclient is never shown a number bigger than what it may actually send.",
             "example": 104857600,
             "format": "int64",
             "minimum": 0,
@@ -952,6 +952,16 @@ expression: document
               "null"
             ]
           },
+          "max_file_bytes": {
+            "description": "Largest single file accounts in this role may send.\n\nOmit or send `null` to fall back to `server.max_body_bytes`; send `0`\nfor no limit of its own. `server.max_body_bytes` still applies on top —\nthis cannot raise it, only lower it.",
+            "example": 5368709120,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
           "name": {
             "description": "What to call it.",
             "type": "string"
@@ -1002,6 +1012,16 @@ expression: document
           "is_system": {
             "description": "Whether it is one of the two the instance was seeded with.\n\nThose cannot be deleted — an instance whose administrator role has been\nremoved has nobody who can create one. They can still be edited.",
             "type": "boolean"
+          },
+          "max_file_bytes": {
+            "description": "Largest single file each account in it may send.\n\n`null` means `server.max_body_bytes` applies; `0` means no limit here.",
+            "example": 5368709120,
+            "format": "int64",
+            "minimum": 0,
+            "type": [
+              "integer",
+              "null"
+            ]
           },
           "members": {
             "description": "How many accounts are in it.\n\nThe number an operator wants before editing one: changing a role that\nnobody holds is free, and changing one that forty people hold is not.",
@@ -1598,6 +1618,10 @@ expression: document
           "is_admin": {
             "description": "Whether this account administers the instance.",
             "type": "boolean"
+          },
+          "max_file_bytes": {
+            "$ref": "#/components/schemas/Option_u64",
+            "description": "Largest single file this one account may send, overriding its role's.\n\nAbsent leaves it alone, `null` clears it so the role's applies again,\nand `0` gives this account no limit of its own.\n\n`server.max_body_bytes` still applies on top; this cannot raise it."
           },
           "quota_bytes": {
             "$ref": "#/components/schemas/Option_u64",

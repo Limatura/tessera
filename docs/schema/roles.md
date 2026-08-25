@@ -18,7 +18,7 @@ CREATE TABLE roles (
     is_system   INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
-, quota_bytes INTEGER)
+, quota_bytes INTEGER, max_file_bytes INTEGER)
 ```
 
 </details>
@@ -34,6 +34,7 @@ CREATE TABLE roles (
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
 | quota_bytes | INTEGER |  | true |  |  |  |
+| max_file_bytes | INTEGER |  | true |  |  |  |
 
 ## Constraints
 
@@ -67,6 +68,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 "users" {
   TEXT id PK
@@ -82,6 +84,7 @@ erDiagram
   TEXT deleted_by FK
   TEXT role_id FK
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 "shares" {
   TEXT id PK

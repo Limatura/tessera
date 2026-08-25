@@ -96,12 +96,23 @@ pub enum QuotaAction {
     List,
     /// Set or clear one.
     Set {
+        /// Which figure.
+        limit: QuotaLimit,
         /// Which one to change.
         subject: QuotaSubject,
         /// Bytes, `0` for no ceiling, or `None` to clear it so the next layer
         /// answers again.
         bytes: Option<u64>,
     },
+}
+
+/// Which of the two figures a role or account carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuotaLimit {
+    /// Total storage held.
+    Total,
+    /// Largest single file.
+    PerFile,
 }
 
 /// Whose quota `quota set` is about.
@@ -324,14 +335,19 @@ fn parse_settings<I: Iterator<Item = String>>(mut args: I) -> Result<Command, St
 fn parse_quota<I: Iterator<Item = String>>(mut args: I) -> Result<Command, String> {
     let action = args
         .next()
-        .ok_or_else(|| "quota: say what to do — list or set".to_owned())?;
+        .ok_or_else(|| "quota: say what to do — list, set or set-file".to_owned())?;
 
     let command = match action.as_str() {
         "list" => Command::Quota(QuotaAction::List),
-        "set" => {
+        "set" | "set-file" => {
+            let limit = if action == "set-file" {
+                QuotaLimit::PerFile
+            } else {
+                QuotaLimit::Total
+            };
             let kind = args
                 .next()
-                .ok_or_else(|| "quota set: needs `role` or `user`".to_owned())?;
+                .ok_or_else(|| format!("quota {action}: needs `role` or `user`"))?;
             let name = args
                 .next()
                 .ok_or_else(|| format!("quota set {kind}: needs a name"))?;
@@ -357,11 +373,15 @@ fn parse_quota<I: Iterator<Item = String>>(mut args: I) -> Result<Command, Strin
                     format!("quota set: `{other}` is not a number of bytes, 0, or none")
                 })?),
             };
-            Command::Quota(QuotaAction::Set { subject, bytes })
+            Command::Quota(QuotaAction::Set {
+                limit,
+                subject,
+                bytes,
+            })
         }
         other => {
             return Err(format!(
-                "quota: unknown action `{other}` — expected list or set"
+                "quota: unknown action `{other}` — expected list, set or set-file"
             ));
         }
     };
@@ -402,16 +422,19 @@ SETTINGS:
 QUOTA:
     quota list               Every role, and every account that has a figure of
                              its own.
-    quota set role <name> <bytes|0|none>
-    quota set user <name> <bytes|0|none>
-                             `none` clears it, so the next layer answers again:
-                             an account falls back to its role, a role to
-                             storage.max_total_bytes. `0` is different — it means
-                             no ceiling at that layer.
+    quota set <role|user> <name> <bytes|0|none>
+                             How much that role or account may hold in total.
+    quota set-file <role|user> <name> <bytes|0|none>
+                             Largest single file it may send.
 
-    An account's own figure beats its role's. storage.max_total_bytes still
-    applies on top of both, so neither can hand out more room than the instance
-    has; set that one with `settings set`.
+    `none` clears the figure, so the next layer answers again: an account falls
+    back to its role, a role to the instance. `0` is different — it means no
+    limit at that layer.
+
+    An account's own figure beats its role's. The instance figure still applies
+    on top of both, so neither can hand out more than the instance allows:
+    storage.max_total_bytes for the total, server.max_body_bytes for a single
+    file. Set those with `settings set` and the environment respectively.
 
     Anonymous uploads are charged to the `guest` role, which is how an instance
     that allows them can still bound them.
@@ -676,7 +699,11 @@ async fn run_quota(
                 .context("could not read the accounts")?;
             print_quotas(&listed, &overridden);
         }
-        QuotaAction::Set { subject, bytes } => {
+        QuotaAction::Set {
+            limit,
+            subject,
+            bytes,
+        } => {
             let now = OffsetDateTime::now_utc();
             let name = match subject {
                 QuotaSubject::Role(name) => {
@@ -685,10 +712,11 @@ async fn run_quota(
                         .await
                         .context("could not read the roles")?
                         .with_context(|| format!("no role is called `{name}`"))?;
-                    roles
-                        .set_quota(role.id, bytes, now)
-                        .await
-                        .context("could not store the quota")?;
+                    match limit {
+                        QuotaLimit::Total => roles.set_quota(role.id, bytes, now).await,
+                        QuotaLimit::PerFile => roles.set_max_file_bytes(role.id, bytes, now).await,
+                    }
+                    .context("could not store the figure")?;
                     format!("role {name}")
                 }
                 QuotaSubject::User(name) => {
@@ -699,14 +727,15 @@ async fn run_quota(
                         .await
                         .context("could not read the accounts")?
                         .with_context(|| format!("no account is called `{name}`"))?;
-                    users
-                        .set_quota(user.id, bytes, now)
-                        .await
-                        .context("could not store the quota")?;
+                    match limit {
+                        QuotaLimit::Total => users.set_quota(user.id, bytes, now).await,
+                        QuotaLimit::PerFile => users.set_max_file_bytes(user.id, bytes, now).await,
+                    }
+                    .context("could not store the figure")?;
                     format!("user {name}")
                 }
             };
-            report_quota_stored(&name, bytes);
+            report_quota_stored(&name, limit, bytes);
         }
     }
     Ok(())
@@ -825,11 +854,15 @@ fn report_all_settings_cleared(removed: u64) {
     clippy::print_stdout,
     reason = "a command-line tool's result belongs on stdout, not in the log"
 )]
-fn report_quota_stored(subject: &str, bytes: Option<u64>) {
+fn report_quota_stored(subject: &str, limit: QuotaLimit, bytes: Option<u64>) {
+    let what = match limit {
+        QuotaLimit::Total => "total",
+        QuotaLimit::PerFile => "per file",
+    };
     match bytes {
-        None => println!("{subject}: cleared; the next layer applies again."),
-        Some(0) => println!("{subject}: no ceiling of its own."),
-        Some(bytes) => println!("{subject}: {bytes} bytes."),
+        None => println!("{subject} ({what}): cleared; the next layer applies again."),
+        Some(0) => println!("{subject} ({what}): no limit of its own."),
+        Some(bytes) => println!("{subject} ({what}): {bytes} bytes."),
     }
     println!("\nTakes effect on the next request; the server is not restarted.");
 }
@@ -843,9 +876,14 @@ fn report_quota_stored(subject: &str, bytes: Option<u64>) {
     reason = "a command-line tool's result belongs on stdout, not in the log"
 )]
 fn print_quotas(roles: &[Role], overridden: &[(String, Option<u64>)]) {
-    println!("ROLES");
+    println!("ROLES{:>17}{:>28}", "TOTAL", "PER FILE");
     for role in roles {
-        println!("  {:<20}{}", role.name, describe_quota(role.quota_bytes));
+        println!(
+            "  {:<20}{:<28}{}",
+            role.name,
+            describe_quota(role.quota_bytes),
+            describe_quota(role.max_file_bytes),
+        );
     }
     if overridden.is_empty() {
         println!("\nNo account overrides its role.");
@@ -1199,7 +1237,7 @@ mod settings_tests {
 
 #[cfg(test)]
 mod quota_tests {
-    use super::{Command, QuotaAction, QuotaSubject, parse};
+    use super::{Command, QuotaAction, QuotaLimit, QuotaSubject, parse};
 
     fn parsed(args: &[&str]) -> Result<Command, String> {
         parse(args.iter().map(|arg| (*arg).to_owned()))
@@ -1214,6 +1252,7 @@ mod quota_tests {
         assert_eq!(
             parsed(&["quota", "set", "role", "member", "1024"]),
             Ok(Command::Quota(QuotaAction::Set {
+                limit: QuotaLimit::Total,
                 subject: QuotaSubject::Role("member".to_owned()),
                 bytes: Some(1024),
             }))
@@ -1221,6 +1260,7 @@ mod quota_tests {
         assert_eq!(
             parsed(&["quota", "set", "user", "alice", "1024"]),
             Ok(Command::Quota(QuotaAction::Set {
+                limit: QuotaLimit::Total,
                 subject: QuotaSubject::User("alice".to_owned()),
                 bytes: Some(1024),
             }))
@@ -1236,6 +1276,7 @@ mod quota_tests {
         assert_eq!(
             cleared,
             Ok(Command::Quota(QuotaAction::Set {
+                limit: QuotaLimit::Total,
                 subject: QuotaSubject::Role("member".to_owned()),
                 bytes: None,
             }))
@@ -1243,6 +1284,7 @@ mod quota_tests {
         assert_eq!(
             unlimited,
             Ok(Command::Quota(QuotaAction::Set {
+                limit: QuotaLimit::Total,
                 subject: QuotaSubject::Role("member".to_owned()),
                 bytes: Some(0),
             }))
@@ -1258,6 +1300,22 @@ mod quota_tests {
         assert!(parsed(&["quota", "set", "role", "member", "lots"]).is_err());
         assert!(parsed(&["quota", "set", "group", "member", "0"]).is_err());
         assert!(parsed(&["quota", "reset", "role", "member"]).is_err());
+    }
+
+    /// The two figures are different things, so the command line has to be able
+    /// to say which one — and `set` has to keep meaning what it meant.
+    #[test]
+    fn set_file_is_the_other_figure() {
+        assert_eq!(
+            parsed(&["quota", "set-file", "role", "guest", "104857600"]),
+            Ok(Command::Quota(QuotaAction::Set {
+                limit: QuotaLimit::PerFile,
+                subject: QuotaSubject::Role("guest".to_owned()),
+                bytes: Some(104_857_600),
+            }))
+        );
+        assert!(parsed(&["quota", "set-file", "role", "guest", "none"]).is_ok());
+        assert!(parsed(&["quota", "set-files", "role", "guest", "0"]).is_err());
     }
 
     /// A silently ignored argument looks like the command did what was asked.

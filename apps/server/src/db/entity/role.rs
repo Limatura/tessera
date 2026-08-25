@@ -16,6 +16,9 @@ pub struct Model {
     /// How much storage accounts in this role may hold, or `None` to ask the
     /// instance ceiling. `Some(0)` is no ceiling.
     pub quota_bytes: Option<i64>,
+    /// Largest single file accounts in this role may send, or `None` to ask
+    /// `server.max_body_bytes`. `Some(0)` is no limit of its own.
+    pub max_file_bytes: Option<i64>,
     /// Whether removing it would leave the instance unadministrable.
     pub is_system: bool,
     /// When it was created.

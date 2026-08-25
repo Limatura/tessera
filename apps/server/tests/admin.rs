@@ -7,7 +7,7 @@ use axum::{
     http::{Method, Request, StatusCode, header},
 };
 use common::{Auth, TestApp, body_json, body_string, expect_status};
-use tessera_server::config::RegistrationPolicy;
+use tessera_server::{config::RegistrationPolicy, db::repository::role::RoleFields};
 use time::OffsetDateTime;
 
 const PASSWORD: &str = "a perfectly adequate passphrase";
@@ -810,10 +810,13 @@ async fn a_role_can_grant_looking_without_granting_changing() {
         .state
         .roles
         .create(
-            "auditor".to_owned(),
-            Some("Can look, cannot touch.".to_owned()),
-            None,
-            &[tessera_core::Permission::UsersRead].into_iter().collect(),
+            RoleFields {
+                name: "auditor",
+                description: Some("Can look, cannot touch.".to_owned()),
+                quota_bytes: None,
+                max_file_bytes: None,
+                permissions: &[tessera_core::Permission::UsersRead].into_iter().collect(),
+            },
             OffsetDateTime::now_utc(),
         )
         .await
@@ -975,10 +978,13 @@ async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
         .state
         .roles
         .create(
-            "deputy".to_owned(),
-            None,
-            None,
-            &[tessera_core::Permission::RolesWrite].into_iter().collect(),
+            RoleFields {
+                name: "deputy",
+                description: None,
+                quota_bytes: None,
+                max_file_bytes: None,
+                permissions: &[tessera_core::Permission::RolesWrite].into_iter().collect(),
+            },
             OffsetDateTime::now_utc(),
         )
         .await
@@ -1281,12 +1287,15 @@ async fn new_accounts_go_into_the_configured_role() {
     app.state
         .roles
         .create(
-            "restricted".to_owned(),
-            None,
-            None,
-            &[tessera_core::Permission::SharesCreate]
-                .into_iter()
-                .collect(),
+            RoleFields {
+                name: "restricted",
+                description: None,
+                quota_bytes: None,
+                max_file_bytes: None,
+                permissions: &[tessera_core::Permission::SharesCreate]
+                    .into_iter()
+                    .collect(),
+            },
             OffsetDateTime::now_utc(),
         )
         .await
@@ -1504,12 +1513,15 @@ async fn reading_every_share_does_not_imply_removing_one() {
         .state
         .roles
         .create(
-            "moderator".to_owned(),
-            None,
-            None,
-            &[tessera_core::Permission::SharesReadAny]
-                .into_iter()
-                .collect(),
+            RoleFields {
+                name: "moderator",
+                description: None,
+                quota_bytes: None,
+                max_file_bytes: None,
+                permissions: &[tessera_core::Permission::SharesReadAny]
+                    .into_iter()
+                    .collect(),
+            },
             OffsetDateTime::now_utc(),
         )
         .await

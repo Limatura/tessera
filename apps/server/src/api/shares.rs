@@ -978,6 +978,48 @@ struct Ceiling {
     bytes: u64,
 }
 
+/// The largest single file this caller may send.
+///
+/// Nearest wins, same as the storage quota: the account's own figure, then its
+/// role's, then `server.max_body_bytes`. `0` at a layer means no limit *there*
+/// and hands the question on to the instance, which always applies —
+/// `DefaultBodyLimit` is baked into the router and never sees these.
+///
+/// Not a [`Tier`], because a refusal here is a `413` and there is nothing the
+/// caller can do about which layer said so: the file is too big and will stay
+/// too big. That is the difference from a `507`, where knowing whose quota is
+/// full tells them whether deleting their own shares would help.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the role cannot be read.
+pub(crate) async fn max_file_bytes(state: &AppState, user: Option<&User>) -> Result<u64> {
+    let instance = u64::try_from(state.config().server.max_body_bytes).unwrap_or(u64::MAX);
+
+    if let Some(user) = user
+        && let Some(bytes) = user.max_file_bytes
+    {
+        return Ok(narrower(bytes, instance));
+    }
+    let Some(role) = charged_role_of(user) else {
+        return Ok(instance);
+    };
+    let role = state
+        .roles
+        .find_by_id(role)
+        .await?
+        .and_then(|role| role.max_file_bytes);
+    Ok(role.map_or(instance, |bytes| narrower(bytes, instance)))
+}
+
+/// A layer's figure against the instance's, where `0` means "no limit here".
+fn narrower(layer: u64, instance: u64) -> u64 {
+    if layer == 0 {
+        return instance;
+    }
+    layer.min(instance)
+}
+
 /// Every ceiling this caller has to fit under.
 ///
 /// Two at most, and they are `AND`ed rather than resolved to one winner:
@@ -1093,7 +1135,10 @@ async fn ingest_into(
     let text_limit = state.config().share.max_text_bytes;
     let threshold = state.config().share.inline_threshold_bytes;
     let part_size = state.config().server.part_size_bytes;
-    let limit = u64::try_from(state.config().server.max_body_bytes).unwrap_or(u64::MAX);
+    // The caller's own limit, which is `server.max_body_bytes` or something
+    // narrower. Read here rather than in the handler so both the direct and the
+    // resumable paths go through one definition of "too big for you".
+    let limit = max_file_bytes(state, owner).await?;
     // What is left of the instance's allowance, checked as the body arrives
     // rather than only up front: the caller need not send a `Content-Length`,
     // and a chunked upload that would take us past the line should stop at the

@@ -399,6 +399,7 @@ pub async fn register(
         email,
         role_id: Some(seed_role(&state, first).await?),
         quota_bytes: None,
+        max_file_bytes: None,
         password_hash: password::hash(password, state.config().auth.hashing).await?,
         must_change_password: false,
         state: AccountState::Active,
@@ -1006,6 +1007,7 @@ pub async fn confirm_registration(
         password_hash: pending.password_hash.clone(),
         role_id: Some(seed_role(&state, first).await?),
         quota_bytes: None,
+        max_file_bytes: None,
         // Decided here rather than when the link was sent, because "first
         // account" has to mean first to *exist*. Two people confirming at once
         // both read no accounts and both claim it — which the unique index does

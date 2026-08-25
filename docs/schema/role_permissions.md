@@ -59,6 +59,7 @@ erDiagram
   TEXT created_at
   TEXT updated_at
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 ```
 

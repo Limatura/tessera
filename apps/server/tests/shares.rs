@@ -3636,3 +3636,155 @@ async fn an_in_flight_uploads_object_survives() {
         "deleted the bytes of an upload still in progress"
     );
 }
+
+// ── 單檔上限的分層 ────────────────────────────────────────────────────────
+
+/// Sets a role's single-file limit by name.
+#[expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+async fn set_role_file_limit(app: &TestApp, name: &str, bytes: Option<u64>) {
+    let role = app
+        .state
+        .roles
+        .find_by_name(name)
+        .await
+        .expect("query")
+        .expect("the role");
+    app.state
+        .roles
+        .set_max_file_bytes(role.id, bytes, OffsetDateTime::now_utc())
+        .await
+        .expect("store the limit");
+}
+
+/// The whole point: an operator raises the instance figure so *they* can send a
+/// large file, and every stranger who can reach the instance is raised with them.
+#[tokio::test]
+async fn a_role_can_be_held_below_the_instance_limit() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.server.max_body_bytes = 1_000_000;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_file_limit(&app, "member", Some(4096)).await;
+    let (cookie, _) = member(&app, "alice").await;
+
+    expect_status(
+        upload_as(&app, &cookie, "?filename=small.bin", &vec![1_u8; 3000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+    assert_eq!(
+        upload_as(&app, &cookie, "?filename=big.bin", &vec![2_u8; 8000])
+            .await
+            .status(),
+        StatusCode::PAYLOAD_TOO_LARGE,
+    );
+}
+
+/// Nearest wins in both directions, so one person can be raised without
+/// inventing a role for them.
+#[tokio::test]
+async fn an_account_limit_beats_its_role() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.server.max_body_bytes = 1_000_000;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_file_limit(&app, "member", Some(4096)).await;
+    let (cookie, id) = member(&app, "alice").await;
+    app.state
+        .users
+        .set_max_file_bytes(id, Some(500_000), OffsetDateTime::now_utc())
+        .await
+        .expect("store the limit");
+
+    expect_status(
+        upload_as(&app, &cookie, "?filename=big.bin", &vec![1_u8; 8000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+}
+
+/// `0` says "no limit here", which is not permission to exceed the body limit —
+/// the layer that enforces that never sees these figures.
+#[tokio::test]
+async fn no_limit_of_its_own_still_meets_the_instance() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.server.max_body_bytes = 4096;
+    })
+    .await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_file_limit(&app, "member", Some(0)).await;
+    let (cookie, _) = member(&app, "alice").await;
+
+    assert_eq!(
+        upload_as(&app, &cookie, "?filename=big.bin", &vec![1_u8; 8000])
+            .await
+            .status(),
+        StatusCode::PAYLOAD_TOO_LARGE,
+    );
+}
+
+/// Anonymous uploads are charged to the guest role, which is how "let strangers
+/// upload, but nothing enormous" becomes sayable.
+#[tokio::test]
+async fn the_guest_role_bounds_anonymous_file_size() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 16;
+        config.server.max_body_bytes = 1_000_000;
+    })
+    .await;
+    set_role_file_limit(&app, "guest", Some(4096)).await;
+
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=big.bin"),
+            Body::from(vec![1_u8; 8000]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::PAYLOAD_TOO_LARGE);
+
+    // A member still gets the instance figure.
+    let (_, _) = member(&app, "owner").await;
+    let (cookie, _) = member(&app, "alice").await;
+    expect_status(
+        upload_as(&app, &cookie, "?filename=mine.bin", &vec![2_u8; 8000]).await,
+        StatusCode::CREATED,
+    )
+    .await;
+}
+
+/// A client shown a number bigger than what it may send lets somebody pick a
+/// file and then fail.
+#[tokio::test]
+async fn capabilities_reports_the_callers_own_file_limit() {
+    let app = TestApp::with_config(|config| config.server.max_body_bytes = 1_000_000).await;
+    let (_, _) = member(&app, "owner").await;
+    set_role_file_limit(&app, "member", Some(4096)).await;
+    let (cookie, _) = member(&app, "alice").await;
+
+    let capabilities = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri("/api/v1/capabilities")
+                    .header(header::COOKIE, &cookie),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(capabilities["max_upload_bytes"], 4096);
+}

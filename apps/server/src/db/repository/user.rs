@@ -49,6 +49,10 @@ pub struct User {
     /// `None` asks the role; `Some(0)` is no ceiling. The override exists so an
     /// operator can raise one person without having to invent a role for them.
     pub quota_bytes: Option<u64>,
+    /// Largest single file this one account may send, overriding its role.
+    ///
+    /// `None` asks the role; `Some(0)` is no limit of its own.
+    pub max_file_bytes: Option<u64>,
     /// Whether the account must set a new password before doing anything else.
     pub must_change_password: bool,
     /// Whether the account works, is suspended, or is gone.
@@ -107,6 +111,7 @@ impl User {
                 .transpose()
                 .map_err(fail)?,
             quota_bytes: quota::from_column(model.quota_bytes),
+            max_file_bytes: quota::from_column(model.max_file_bytes),
             password_hash: model.password_hash,
             must_change_password: model.must_change_password,
             state: model.state.parse().map_err(fail)?,
@@ -133,6 +138,7 @@ impl User {
             password_hash: Set(self.password_hash.clone()),
             role_id: Set(self.role_id.map(|id| id.to_string())),
             quota_bytes: Set(quota::to_column(self.quota_bytes)),
+            max_file_bytes: Set(quota::to_column(self.max_file_bytes)),
             must_change_password: Set(self.must_change_password),
             state: Set(self.state.as_str().to_owned()),
             deleted_at: Set(self.deleted_at),
@@ -452,6 +458,29 @@ impl UserRepository {
         Ok(result.rows_affected == 1)
     }
 
+    /// Sets or clears one account's single-file limit.
+    ///
+    /// `None` clears it, which puts the account back on its role's figure;
+    /// `Some(0)` gives it no limit of its own. Returns whether a row changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the write fails.
+    pub async fn set_max_file_bytes(
+        &self,
+        id: UserId,
+        max_file_bytes: Option<u64>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::MaxFileBytes, quota::to_expr(max_file_bytes))
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
     /// Every live account that carries a quota of its own, by name.
     ///
     /// Only those with a figure: on an instance with a thousand accounts and
@@ -557,6 +586,7 @@ mod tests {
         User {
             role_id: Some(member()),
             quota_bytes: None,
+            max_file_bytes: None,
             id: UserId::generate(),
             username: Username::parse(username).unwrap(),
             email: EmailAddress::parse(email).unwrap(),
@@ -689,6 +719,7 @@ mod tests {
         let model = user::Model {
             role_id: None,
             quota_bytes: None,
+            max_file_bytes: None,
             id: UserId::generate().to_string(),
             username: "no spaces allowed".to_owned(),
             email: "alice@example.com".to_owned(),

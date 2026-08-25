@@ -78,6 +78,7 @@ erDiagram
   TEXT deleted_by FK
   TEXT role_id FK
   INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 ```
 

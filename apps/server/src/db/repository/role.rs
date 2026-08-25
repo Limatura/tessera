@@ -33,6 +33,9 @@ pub struct RoleFields<'a> {
     /// How much storage each account in it may hold, or `None` for the
     /// instance ceiling.
     pub quota_bytes: Option<u64>,
+    /// Largest single file each account in it may send, or `None` for
+    /// `server.max_body_bytes`.
+    pub max_file_bytes: Option<u64>,
     /// Everything it allows.
     pub permissions: &'a PermissionSet,
 }
@@ -53,6 +56,10 @@ pub struct Role {
     /// `None` asks the instance ceiling; `Some(0)` is no ceiling at all. They
     /// are not the same answer, so this cannot collapse to a plain number.
     pub quota_bytes: Option<u64>,
+    /// Largest single file each account in this role may send.
+    ///
+    /// `None` asks `server.max_body_bytes`; `Some(0)` is no limit of its own.
+    pub max_file_bytes: Option<u64>,
     /// What it allows.
     pub permissions: PermissionSet,
     /// When it was created.
@@ -71,6 +78,7 @@ impl Role {
             name: model.name.clone(),
             description: model.description.clone(),
             quota_bytes: quota::from_column(model.quota_bytes),
+            max_file_bytes: quota::from_column(model.max_file_bytes),
             is_system: model.is_system,
             permissions,
             created_at: model.created_at,
@@ -388,6 +396,7 @@ impl RoleRepository {
             name,
             description,
             quota_bytes,
+            max_file_bytes,
             permissions,
         } = fields;
         if RoleEntity::find_by_id(id.to_string())
@@ -408,6 +417,7 @@ impl RoleRepository {
             .col_expr(role::Column::Name, name.into())
             .col_expr(role::Column::Description, description.into())
             .col_expr(role::Column::QuotaBytes, quota::to_expr(quota_bytes))
+            .col_expr(role::Column::MaxFileBytes, quota::to_expr(max_file_bytes))
             .col_expr(role::Column::UpdatedAt, now.into())
             .filter(role::Column::Id.eq(id.to_string()))
             .exec(&transaction)
@@ -439,6 +449,29 @@ impl RoleRepository {
         Ok(result.rows_affected == 1)
     }
 
+    /// Sets or clears one role's single-file limit.
+    ///
+    /// `None` clears it, which puts the role back on `server.max_body_bytes`;
+    /// `Some(0)` gives it no limit of its own. Returns whether a row changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the write fails.
+    pub async fn set_max_file_bytes(
+        &self,
+        id: RoleId,
+        max_file_bytes: Option<u64>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = RoleEntity::update_many()
+            .col_expr(role::Column::MaxFileBytes, quota::to_expr(max_file_bytes))
+            .col_expr(role::Column::UpdatedAt, now.into())
+            .filter(role::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
     /// Creates a role.
     ///
     /// # Errors
@@ -447,20 +480,27 @@ impl RoleRepository {
     /// name is taken, which the unique index refuses.
     pub async fn create(
         &self,
-        name: String,
-        description: Option<String>,
-        quota_bytes: Option<u64>,
-        permissions: &PermissionSet,
+        fields: RoleFields<'_>,
         now: OffsetDateTime,
     ) -> Result<Role, UserRepositoryError> {
+        // The same bundle `update` takes: one shape for "everything a role is",
+        // so a field added to one path cannot be forgotten on the other.
+        let RoleFields {
+            name,
+            description,
+            quota_bytes,
+            max_file_bytes,
+            permissions,
+        } = fields;
         let id = RoleId::generate();
         let transaction = self.connection.begin().await?;
 
         RoleEntity::insert(role::ActiveModel {
             id: Set(id.to_string()),
-            name: Set(name.clone()),
+            name: Set(name.to_owned()),
             description: Set(description.clone()),
             quota_bytes: Set(quota::to_column(quota_bytes)),
+            max_file_bytes: Set(quota::to_column(max_file_bytes)),
             is_system: Set(false),
             created_at: Set(now),
             updated_at: Set(now),
@@ -472,9 +512,10 @@ impl RoleRepository {
 
         Ok(Role {
             id,
-            name,
+            name: name.to_owned(),
             description,
             quota_bytes,
+            max_file_bytes,
             is_system: false,
             permissions: permissions.clone(),
             created_at: now,
