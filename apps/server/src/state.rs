@@ -1,6 +1,6 @@
 //! Shared application state.
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use object_store::ObjectStore;
@@ -114,7 +114,7 @@ pub struct AppState {
     /// An `ArcSwap` because the set is meant to be changeable while the process
     /// runs — the same shape as `mailer`, and for the same reason. Today it is
     /// built once from `storage.url` and holds a single entry.
-    pub backends: Arc<ArcSwap<HashMap<String, Arc<dyn ObjectStore>>>>,
+    pub backends: Arc<ArcSwap<crate::storage::Backends>>,
     /// The same store when it can hold a multipart upload open across requests.
     ///
     /// `None` on a local filesystem, where a resumable upload appends to a
@@ -182,6 +182,16 @@ impl AppState {
         self.backends.load().get(name).map(Arc::clone)
     }
 
+    /// Replaces the set of backends, so one added from the panel or the command
+    /// line is reachable without a restart.
+    ///
+    /// The map is swapped whole rather than mutated: a request that is already
+    /// reading holds its own `Arc` and finishes against the set it started
+    /// with, which is what makes this safe to do under load.
+    pub fn replace_backends(&self, backends: crate::storage::Backends) {
+        self.backends.store(Arc::new(backends));
+    }
+
     /// Replaces the configuration, and everything built from it.
     ///
     /// # Why the derived things are rebuilt here
@@ -217,6 +227,7 @@ impl AppState {
         db: DatabaseConnection,
         storage: Arc<dyn ObjectStore>,
         multipart: Option<crate::storage::Multipart>,
+        backends: crate::storage::Backends,
         assets: crate::assets::Source,
     ) -> Self {
         // A relay that will not build is reported and then treated as absent.
@@ -251,12 +262,7 @@ impl AppState {
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
             config: Arc::new(ArcSwap::from(config)),
             db,
-            // The one backend there is, under the name every row written
-            // before backends were recorded resolves to.
-            backends: Arc::new(ArcSwap::from_pointee(HashMap::from([(
-                crate::storage::DEFAULT_BACKEND.to_owned(),
-                Arc::clone(&storage),
-            )]))),
+            backends: Arc::new(ArcSwap::from_pointee(backends)),
             storage,
             status: Arc::new(RwLock::new(ServiceStatus::Starting)),
             started_at: OffsetDateTime::now_utc(),

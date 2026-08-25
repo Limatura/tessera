@@ -37,6 +37,7 @@ use crate::{
             invite::InviteRepository,
             role::{Role, RoleRepository},
             setting::SettingRepository,
+            storage_backend::{StorageBackend, StorageBackendRepository},
             user::UserRepository,
         },
     },
@@ -85,8 +86,37 @@ pub enum Command {
     /// storage.max_total_bytes`. These are the per-role and per-account
     /// figures, which are rows rather than settings.
     Quota(QuotaAction),
+    /// Add, list or remove storage backends.
+    ///
+    /// The one from `storage.url` is always there and is not in this list — it
+    /// comes from the environment and cannot be removed from here.
+    Backends(BackendAction),
     /// Print usage and exit successfully.
     Help,
+}
+
+/// What `backends` was asked to do.
+#[derive(Debug, PartialEq, Eq)]
+pub enum BackendAction {
+    /// Print every configured backend. Never the credentials.
+    List,
+    /// Add one, or replace one of the same name.
+    Add {
+        /// What `file_segments.backend` will record.
+        name: String,
+        /// Where it is, credentials and all.
+        url: String,
+    },
+    /// Remove one.
+    Remove {
+        /// Which.
+        name: String,
+    },
+    /// Send new uploads to one.
+    Default {
+        /// Which.
+        name: String,
+    },
 }
 
 /// What `quota` was asked to do.
@@ -213,6 +243,7 @@ pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Command, String>
         "invite" => parse_invite(args),
         "settings" => parse_settings(args),
         "quota" => parse_quota(args),
+        "backends" => parse_backends(args),
         other => Err(format!(
             "unknown argument `{other}`\n\nRun `tessera-server --help` to see what this accepts."
         )),
@@ -392,6 +423,43 @@ fn parse_quota<I: Iterator<Item = String>>(mut args: I) -> Result<Command, Strin
     Ok(command)
 }
 
+fn parse_backends<I: Iterator<Item = String>>(mut args: I) -> Result<Command, String> {
+    let action = args
+        .next()
+        .ok_or_else(|| "backends: say what to do — list, add, remove or default".to_owned())?;
+    let mut named = |verb: &str| {
+        args.next()
+            .ok_or_else(|| format!("backends {verb}: needs a name"))
+    };
+
+    let command = match action.as_str() {
+        "list" => Command::Backends(BackendAction::List),
+        "add" => {
+            let name = named("add")?;
+            let url = args
+                .next()
+                .ok_or_else(|| format!("backends add {name}: needs a URL"))?;
+            Command::Backends(BackendAction::Add { name, url })
+        }
+        "remove" => Command::Backends(BackendAction::Remove {
+            name: named("remove")?,
+        }),
+        "default" => Command::Backends(BackendAction::Default {
+            name: named("default")?,
+        }),
+        other => {
+            return Err(format!(
+                "backends: unknown action `{other}` — expected list, add, remove or default"
+            ));
+        }
+    };
+
+    if let Some(extra) = args.next() {
+        return Err(format!("backends: unexpected argument `{extra}`"));
+    }
+    Ok(command)
+}
+
 /// What `--help` prints.
 pub const USAGE: &str = "\
 tessera-server — a self-hosted file courier
@@ -403,6 +471,7 @@ USAGE:
     tessera-server invite ...            Mint an invite code
     tessera-server settings ...          Read or change settings without the panel
     tessera-server quota ...             Read or change per-role and per-account quotas
+    tessera-server backends ...          Add or remove storage backends
 
 SETTINGS:
     settings list            Every setting, its value, and where that value
@@ -438,6 +507,28 @@ QUOTA:
 
     Anonymous uploads are charged to the `guest` role, which is how an instance
     that allows them can still bound them.
+
+BACKENDS:
+    backends list            Every configured backend. Never the credentials.
+    backends add <name> <url>
+                             Add one, or replace one of the same name. The URL
+                             usually carries a key, so it is sealed before it is
+                             stored — which needs TESSERA_STORAGE__SECRET_KEY set
+                             (`openssl rand -hex 32`). Without one this refuses
+                             rather than storing a recoverable credential in a
+                             table.
+    backends remove <name>   Remove one. Shares whose files are held there stop
+                             being deliverable and answer 503, so drain first.
+    backends default <name>  Send new uploads there. Existing files stay where
+                             they are — each one records its own backend.
+
+    The backend from TESSERA_STORAGE__URL is always present under the name
+    `default` and is not in this list: it comes from the environment, and it is
+    where everything written before backends existed lives.
+
+    ⚠ Losing TESSERA_STORAGE__SECRET_KEY means the stored backends cannot be
+      opened and have to be entered again. Keep it out of the backup that holds
+      the rows it protects.
 
 RESET-PASSWORD:
     -u, --username <name>    Whose password to set. Required.
@@ -683,6 +774,108 @@ pub async fn quota(config: &Config, action: QuotaAction) -> anyhow::Result<()> {
     let outcome = run_quota(&roles, &users, action).await;
     db::close(db).await;
     outcome
+}
+
+/// Adds, lists or removes storage backends, without the server running.
+///
+/// # Errors
+///
+/// When the database cannot be opened, the key is missing or unusable, or the
+/// name matches nothing.
+pub async fn backends(config: &Config, action: BackendAction) -> anyhow::Result<()> {
+    let sealer = crate::storage::secret::Sealer::new(&config.storage.secret_key)
+        .context("storage.secret_key is not usable")?;
+    let db = db::connect(&config.database)
+        .await
+        .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
+    let store = StorageBackendRepository::new(db.clone(), sealer);
+
+    let outcome = run_backends(&store, action).await;
+    db::close(db).await;
+    outcome
+}
+
+async fn run_backends(
+    store: &StorageBackendRepository,
+    action: BackendAction,
+) -> anyhow::Result<()> {
+    let now = OffsetDateTime::now_utc();
+    match action {
+        BackendAction::List => {
+            let listed = store.all().await.context("could not read the backends")?;
+            print_backends(&listed);
+        }
+        BackendAction::Add { name, url } => {
+            // Options are not settable from here on purpose: they are a map,
+            // and a command line that takes one turns into a parser. The panel
+            // takes them; this exists for the instance that has no panel and
+            // needs one backend added by hand.
+            store
+                .put(
+                    &StorageBackend {
+                        name: name.clone(),
+                        url,
+                        options: std::collections::BTreeMap::new(),
+                        is_default: false,
+                    },
+                    now,
+                )
+                .await
+                .context("could not store the backend")?;
+            report_backend("added", &name);
+        }
+        BackendAction::Remove { name } => {
+            let removed = store
+                .remove(&name)
+                .await
+                .context("could not remove the backend")?;
+            anyhow::ensure!(removed, "no backend is called `{name}`");
+            report_backend("removed", &name);
+        }
+        BackendAction::Default { name } => {
+            let chosen = store
+                .set_default(&name, now)
+                .await
+                .context("could not set the default")?;
+            anyhow::ensure!(chosen, "no backend is called `{name}`");
+            report_backend("now takes new uploads", &name);
+        }
+    }
+    Ok(())
+}
+
+/// Prints what is configured, never a credential.
+///
+/// The URL is what carries the key, so it is not shown even to somebody who
+/// already has shell access — a listing is the sort of thing that ends up in a
+/// support thread.
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn print_backends(backends: &[StorageBackend]) {
+    println!("{:<24}NEW UPLOADS", "NAME");
+    println!("{}", crate::storage::DEFAULT_BACKEND);
+    for backend in backends {
+        println!(
+            "{:<24}{}",
+            backend.name,
+            if backend.is_default { "yes" } else { "" }
+        );
+    }
+    println!(
+        "\n`{}` comes from the environment and is not stored here.",
+        crate::storage::DEFAULT_BACKEND
+    );
+}
+
+#[expect(
+    clippy::print_stdout,
+    reason = "a command-line tool's result belongs on stdout, not in the log"
+)]
+fn report_backend(what: &str, name: &str) {
+    println!("{name}: {what}.");
+    println!("The running server picks this up on its next start.");
 }
 
 async fn run_quota(
@@ -1323,5 +1516,60 @@ mod quota_tests {
     fn a_trailing_argument_is_refused() {
         assert!(parsed(&["quota", "list", "roles"]).is_err());
         assert!(parsed(&["quota", "set", "role", "member", "0", "please"]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod backend_tests {
+    use super::{BackendAction, Command, parse};
+
+    fn parsed(args: &[&str]) -> Result<Command, String> {
+        parse(args.iter().map(|arg| (*arg).to_owned()))
+    }
+
+    #[test]
+    fn the_four_actions_parse() {
+        assert_eq!(
+            parsed(&["backends", "list"]),
+            Ok(Command::Backends(BackendAction::List))
+        );
+        assert_eq!(
+            parsed(&["backends", "add", "cold", "s3://bucket-b"]),
+            Ok(Command::Backends(BackendAction::Add {
+                name: "cold".to_owned(),
+                url: "s3://bucket-b".to_owned(),
+            }))
+        );
+        assert_eq!(
+            parsed(&["backends", "remove", "cold"]),
+            Ok(Command::Backends(BackendAction::Remove {
+                name: "cold".to_owned(),
+            }))
+        );
+        assert_eq!(
+            parsed(&["backends", "default", "cold"]),
+            Ok(Command::Backends(BackendAction::Default {
+                name: "cold".to_owned(),
+            }))
+        );
+    }
+
+    /// A backend added without a URL would be a name pointing at nothing, and
+    /// the failure would land on whoever uploads next rather than on whoever
+    /// typed it.
+    #[test]
+    fn a_missing_argument_is_refused() {
+        assert!(parsed(&["backends", "add", "cold"]).is_err());
+        assert!(parsed(&["backends", "add"]).is_err());
+        assert!(parsed(&["backends", "remove"]).is_err());
+        assert!(parsed(&["backends"]).is_err());
+        assert!(parsed(&["backends", "rename", "cold", "hot"]).is_err());
+    }
+
+    /// A silently ignored argument looks like the command did what was asked.
+    #[test]
+    fn a_trailing_argument_is_refused() {
+        assert!(parsed(&["backends", "list", "all"]).is_err());
+        assert!(parsed(&["backends", "add", "cold", "s3://b", "extra"]).is_err());
     }
 }

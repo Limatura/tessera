@@ -138,6 +138,10 @@ sqlx = { version = "0.9", default-features = false, features = [
 ], optional = true }
 
 # --- storage ---
+# AES-256-GCM for the backend credentials at rest. Already compiled into this
+# binary — it is the TLS provider the whole tree pins (see the note above) — so
+# naming it here costs a line, not a dependency.
+aws-lc-rs = "1.18"
 object_store = { version = "0.14", features = ["fs"] }
 # `object_store::parse_url_opts` takes a `Url`; this is the same crate it already
 # depends on, so naming it here costs nothing beyond the import.

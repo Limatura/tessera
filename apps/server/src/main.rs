@@ -18,7 +18,9 @@ use tessera_server::{
     api, auth, cli,
     config::Config,
     db,
-    db::repository::{role::RoleRepository, user::UserRepository},
+    db::repository::{
+        role::RoleRepository, storage_backend::StorageBackendRepository, user::UserRepository,
+    },
     maintenance,
     state::{AppState, ServiceStatus},
     storage, telemetry,
@@ -72,6 +74,7 @@ async fn main() -> anyhow::Result<()> {
         } => return cli::mint_invite(&config, uses, expires_in_days, note).await,
         cli::Command::Settings(action) => return cli::settings(&config, action).await,
         cli::Command::Quota(action) => return cli::quota(&config, action).await,
+        cli::Command::Backends(action) => return cli::backends(&config, action).await,
         cli::Command::Serve => {}
     }
 
@@ -101,7 +104,8 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(backend = db::backend_name(&db), "migrations applied");
     }
 
-    let (store, multipart) = open_store(&config)?;
+    let (backends, (store, multipart)) = open_stores(&config, &db).await?;
+    tracing::info!(backends = backends.len(), "storage backends open");
 
     // Before the listener binds, so an instance exposed to the internet never
     // spends a moment with no administrator for a passer-by to claim.
@@ -121,7 +125,14 @@ async fn main() -> anyhow::Result<()> {
     let assets = resolve_assets(&config.server.assets_dir)?;
 
     let config = Arc::new(config);
-    let state = AppState::new(Arc::clone(&config), db.clone(), store, multipart, assets);
+    let state = AppState::new(
+        Arc::clone(&config),
+        db.clone(),
+        store,
+        multipart,
+        backends,
+        assets,
+    );
     let app = api::build(state.clone());
 
     state.set_status(ServiceStatus::Ready);
@@ -347,11 +358,25 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
     Ok(assets)
 }
 
-/// Opens the blob store, and the same store as a multipart one when it is.
+/// Opens every configured backend, and the one new uploads go to.
 ///
-/// Split out so `main` stays under the line limit; the pair is what
-/// [`AppState`] wants and what decides whether this instance can hold a
-/// resumable upload open across requests.
-fn open_store(config: &Config) -> anyhow::Result<storage::Stores> {
-    storage::build_with_multipart(&config.storage).context("could not open the object store")
+/// Split out so `main` stays under the line limit. Reading the stored backends
+/// needs the key, and a key that will not parse is fatal here: every stored
+/// backend is unreadable without it, and starting anyway would present them as
+/// gone rather than as locked.
+async fn open_stores(
+    config: &Config,
+    db: &sea_orm::DatabaseConnection,
+) -> anyhow::Result<(storage::Backends, storage::Stores)> {
+    let sealer = storage::secret::Sealer::new(&config.storage.secret_key)
+        .context("storage.secret_key is not usable")?;
+    let stored = if sealer.is_set() {
+        StorageBackendRepository::new(db.clone(), sealer)
+            .all()
+            .await
+            .context("could not read the configured storage backends")?
+    } else {
+        Vec::new()
+    };
+    storage::build_all(&config.storage, &stored).context("could not open the object store")
 }

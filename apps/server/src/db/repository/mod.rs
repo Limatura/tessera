@@ -16,6 +16,7 @@ pub mod role;
 pub mod session;
 pub mod setting;
 pub mod share;
+pub mod storage_backend;
 pub(crate) mod total;
 pub mod upload;
 pub mod user;

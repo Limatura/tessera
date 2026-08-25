@@ -3862,3 +3862,169 @@ async fn an_unconfigured_backend_is_unavailable_not_missing() {
         StatusCode::SERVICE_UNAVAILABLE,
     );
 }
+
+// ── 存在 DB 裡的 backend ──────────────────────────────────────────────────
+
+/// The credentials are the reason this is not a settings row. A dump that hands
+/// over the buckets is the failure an operator can do nothing about afterwards.
+#[tokio::test]
+async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
+    use tessera_server::{
+        db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
+        storage::secret::Sealer,
+    };
+
+    let app = TestApp::ready().await;
+    let key = Sealer::new(&"ab".repeat(32)).expect("a key");
+    let store = StorageBackendRepository::new(app.state.db.clone(), key);
+
+    store
+        .put(
+            &StorageBackend {
+                name: "cold".to_owned(),
+                url: "s3://bucket-b?aws_secret_access_key=hunter2".to_owned(),
+                options: std::collections::BTreeMap::from([(
+                    "aws_region".to_owned(),
+                    "garage".to_owned(),
+                )]),
+                is_default: false,
+            },
+            OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("store the backend");
+
+    // What actually landed in the table.
+    let row = app
+        .state
+        .db
+        .query_one_raw(sea_orm::Statement::from_string(
+            app.state.db.get_database_backend(),
+            "SELECT url, options FROM storage_backends",
+        ))
+        .await
+        .expect("query")
+        .expect("a row");
+    let url: String = row.try_get("", "url").expect("url");
+    let options: String = row.try_get("", "options").expect("options");
+    assert!(
+        !url.contains("hunter2"),
+        "the key is in the table in the clear"
+    );
+    assert!(!url.contains("bucket-b"));
+    assert!(!options.contains("garage"));
+
+    // And it comes back whole for the process that has the key.
+    let opened = store.all().await.expect("read back");
+    let cold = opened.first().expect("the backend");
+    assert_eq!(cold.url, "s3://bucket-b?aws_secret_access_key=hunter2");
+    assert_eq!(
+        cold.options.get("aws_region").map(String::as_str),
+        Some("garage")
+    );
+}
+
+/// A key that changed has to say so. Read as corruption it sends an operator to
+/// look at the rows, which are fine.
+#[tokio::test]
+async fn another_key_cannot_open_a_stored_backend() {
+    use tessera_server::{
+        db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
+        storage::secret::Sealer,
+    };
+
+    let app = TestApp::ready().await;
+    StorageBackendRepository::new(
+        app.state.db.clone(),
+        Sealer::new(&"ab".repeat(32)).expect("a key"),
+    )
+    .put(
+        &StorageBackend {
+            name: "cold".to_owned(),
+            url: "s3://bucket-b".to_owned(),
+            options: std::collections::BTreeMap::new(),
+            is_default: false,
+        },
+        OffsetDateTime::now_utc(),
+    )
+    .await
+    .expect("store the backend");
+
+    let wrong = StorageBackendRepository::new(
+        app.state.db.clone(),
+        Sealer::new(&"cd".repeat(32)).expect("a key"),
+    );
+    assert!(wrong.all().await.is_err());
+}
+
+/// Without a key, storing a recoverable credential would do the one thing the
+/// sealing exists to prevent — and nobody would find out until the dump leaked.
+#[tokio::test]
+async fn without_a_key_a_backend_cannot_be_stored() {
+    use tessera_server::{
+        db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
+        storage::secret::Sealer,
+    };
+
+    let app = TestApp::ready().await;
+    let store =
+        StorageBackendRepository::new(app.state.db.clone(), Sealer::new("").expect("no key"));
+
+    assert!(
+        store
+            .put(
+                &StorageBackend {
+                    name: "cold".to_owned(),
+                    url: "s3://bucket-b?aws_secret_access_key=hunter2".to_owned(),
+                    options: std::collections::BTreeMap::new(),
+                    is_default: false,
+                },
+                OffsetDateTime::now_utc(),
+            )
+            .await
+            .is_err()
+    );
+}
+
+/// Two defaults is a state nothing downstream knows how to read, and it is
+/// reachable by two operators pressing the same button.
+#[tokio::test]
+async fn only_one_backend_takes_new_uploads() {
+    use tessera_server::{
+        db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
+        storage::secret::Sealer,
+    };
+
+    let app = TestApp::ready().await;
+    let store = StorageBackendRepository::new(
+        app.state.db.clone(),
+        Sealer::new(&"ab".repeat(32)).expect("a key"),
+    );
+    let now = OffsetDateTime::now_utc();
+    for name in ["hot", "cold"] {
+        store
+            .put(
+                &StorageBackend {
+                    name: name.to_owned(),
+                    url: format!("s3://{name}"),
+                    options: std::collections::BTreeMap::new(),
+                    is_default: true,
+                },
+                now,
+            )
+            .await
+            .expect("store");
+    }
+
+    assert!(store.set_default("cold", now).await.expect("set default"));
+
+    let defaults: Vec<String> = store
+        .all()
+        .await
+        .expect("read back")
+        .into_iter()
+        .filter(|backend| backend.is_default)
+        .map(|backend| backend.name)
+        .collect();
+    assert_eq!(defaults, vec!["cold".to_owned()]);
+}

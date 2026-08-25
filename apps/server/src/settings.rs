@@ -53,6 +53,10 @@ const FIXED_AT_BOOT: &[&str] = &[
     "server.max_body_bytes",
     // The SPA is read off disk once and embedded in the router's state.
     "server.assets_dir",
+    // Read once to build the sealer every stored backend is opened with.
+    // Changing it at runtime would leave the process holding backends it can no
+    // longer re-seal, and the panel reporting a key that opens nothing.
+    "storage.secret_key",
     // Whether the browsable docs are mounted is decided while building the
     // router. The contract at `/openapi.json` is served either way.
     "features.docs",
@@ -73,6 +77,9 @@ const SECRETS: &[&str] = &[
     // `s3://key:secret@…`.
     "database.url",
     "storage.url",
+    // Opens every stored backend credential. A panel that could read it back
+    // would make the encryption decorative.
+    "storage.secret_key",
 ];
 
 /// Why a setting is not offered in the panel.

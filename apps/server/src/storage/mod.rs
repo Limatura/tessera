@@ -82,6 +82,66 @@ impl core::fmt::Debug for Multipart {
 ///
 /// `None` on the second means resumable uploads there append to a partial file
 /// instead — see `upload::sink`.
+pub mod secret;
+
+/// Every open backend, by the name `file_segments.backend` records.
+pub type Backends = std::collections::HashMap<String, Arc<dyn ObjectStore>>;
+
+/// Builds the store for every configured backend.
+///
+/// The one from `storage.url` is always present under [`DEFAULT_BACKEND`],
+/// whatever the table says: it is where everything written before backends
+/// existed lives, and an instance that could not open it would be unable to
+/// serve its own history.
+///
+/// A stored backend that will not build — a bucket that has gone, options this
+/// binary was compiled without — is logged and left out rather than fatal. The
+/// alternative is a process that refuses to start because one of five buckets
+/// is unreachable, which takes the other four down with it.
+///
+/// # Errors
+///
+/// Only when the default itself cannot be built, which is the same failure the
+/// single-store version had.
+pub fn build_all(
+    config: &StorageConfig,
+    stored: &[crate::db::repository::storage_backend::StorageBackend],
+) -> Result<(Backends, Stores), StorageError> {
+    let default = build_with_multipart(config)?;
+    let mut all = Backends::with_capacity(stored.len() + 1);
+    all.insert(DEFAULT_BACKEND.to_owned(), Arc::clone(&default.0));
+
+    for backend in stored {
+        if backend.name == DEFAULT_BACKEND {
+            tracing::warn!(
+                name = DEFAULT_BACKEND,
+                "a stored backend shadows the one from storage.url; the configured one wins"
+            );
+            continue;
+        }
+        let described = StorageConfig {
+            url: backend.url.clone(),
+            options: backend.options.clone(),
+            ..StorageConfig::default()
+        };
+        match build(&described) {
+            Ok(store) => {
+                all.insert(backend.name.clone(), store);
+            }
+            Err(error) => tracing::error!(
+                name = backend.name,
+                %error,
+                "could not open a stored backend; shares held there will answer 503"
+            ),
+        }
+    }
+    Ok((all, default))
+}
+
+/// A store, and the same store seen as a [`MultipartStore`] when it is one.
+///
+/// `None` on the second means resumable uploads there append to a partial file
+/// instead — see `upload::sink`.
 pub type Stores = (Arc<dyn ObjectStore>, Option<Multipart>);
 
 /// The name given to the backend built from `storage.url`.

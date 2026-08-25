@@ -31,7 +31,7 @@ use tessera_server::{
     db,
     state::{AppState, ServiceStatus},
     storage,
-    storage::DEFAULT_BACKEND,
+    storage::{Backends, DEFAULT_BACKEND},
 };
 use tower::ServiceExt as _;
 
@@ -102,7 +102,9 @@ impl TestApp {
 
         let assets =
             tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets_dir");
-        let state = AppState::new(Arc::new(config), db, store, multipart, assets);
+        // The one backend the fixture has, under the name every file records.
+        let backends = Backends::from([(DEFAULT_BACKEND.to_owned(), Arc::clone(&store))]);
+        let state = AppState::new(Arc::new(config), db, store, multipart, backends, assets);
         state.set_status(status);
 
         Self {

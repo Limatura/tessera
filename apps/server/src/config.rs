@@ -666,6 +666,18 @@ pub struct StorageConfig {
     /// `https://host/dav`, `memory://`.
     pub url: String,
 
+    /// Key that seals stored backend credentials, as 64 hexadecimal characters.
+    ///
+    /// Empty, the default, means this instance cannot store a backend — adding
+    /// one is refused rather than written in plaintext. See
+    /// [`storage::secret`](crate::storage::secret) for why refusing is the
+    /// right answer.
+    ///
+    /// Generate one with `openssl rand -hex 32`. It belongs in the environment
+    /// and nowhere near a backup of the rows it protects; losing it means the
+    /// stored backends cannot be opened and have to be entered again.
+    pub secret_key: String,
+
     /// Backend-specific options, passed through verbatim.
     ///
     /// Keys are whatever the chosen backend understands (`aws_region`,
@@ -745,6 +757,7 @@ impl Default for StorageConfig {
             // anybody falls into by accident — but `Config::load` warns when it
             // sees the combination, so it is not a silent trap either.
             max_total_bytes: 0,
+            secret_key: String::new(),
             reconcile_interval_hours: 24,
             reconcile_grace_hours: 24,
         }

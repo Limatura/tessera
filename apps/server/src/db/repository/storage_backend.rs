@@ -1,0 +1,175 @@
+//! Storage backends, and the sealing that keeps their credentials out of a dump.
+
+use sea_orm::{
+    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _,
+    sea_query::OnConflict,
+};
+use time::OffsetDateTime;
+
+use crate::{
+    db::entity::storage_backend::{self, Entity as StorageBackendEntity},
+    storage::secret::{Sealer, SecretError},
+};
+
+/// A configured backend, opened.
+#[derive(Debug, Clone)]
+pub struct StorageBackend {
+    /// What `file_segments.backend` names.
+    pub name: String,
+    /// Where it is, credentials and all.
+    pub url: String,
+    /// Backend-specific options, as `object_store` takes them.
+    pub options: std::collections::BTreeMap<String, String>,
+    /// Whether new uploads go here.
+    pub is_default: bool,
+}
+
+/// Anything that can go wrong reading or writing a backend.
+#[derive(Debug, thiserror::Error)]
+pub enum StorageBackendError {
+    /// The database refused the operation.
+    #[error(transparent)]
+    Database(#[from] sea_orm::DbErr),
+
+    /// The credential could not be sealed or opened.
+    #[error(transparent)]
+    Secret(#[from] SecretError),
+
+    /// A stored row's options are not a JSON object of strings.
+    #[error("`{name}` has options this version cannot read")]
+    Malformed {
+        /// Which backend.
+        name: String,
+    },
+}
+
+/// Reads and writes `storage_backends`.
+#[derive(Debug, Clone)]
+pub struct StorageBackendRepository {
+    connection: DatabaseConnection,
+    sealer: Sealer,
+}
+
+impl StorageBackendRepository {
+    /// Binds the repository to a connection and the key that opens its rows.
+    #[must_use]
+    pub const fn new(connection: DatabaseConnection, sealer: Sealer) -> Self {
+        Self { connection, sealer }
+    }
+
+    /// Every configured backend, opened.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StorageBackendError`] if the query fails, or if a row will not
+    /// open with this process's key — which is worth failing on rather than
+    /// skipping, because a backend silently missing is a set of shares that
+    /// silently stop working.
+    pub async fn all(&self) -> Result<Vec<StorageBackend>, StorageBackendError> {
+        StorageBackendEntity::find()
+            .all(&self.connection)
+            .await?
+            .into_iter()
+            .map(|model| self.open(model))
+            .collect()
+    }
+
+    /// Adds a backend, or replaces one of the same name.
+    ///
+    /// # Errors
+    ///
+    /// [`SecretError::NoKey`] when this process has no key — refused rather
+    /// than stored in plaintext.
+    pub async fn put(
+        &self,
+        backend: &StorageBackend,
+        now: OffsetDateTime,
+    ) -> Result<(), StorageBackendError> {
+        let options = serde_json::to_string(&backend.options).map_err(|_| {
+            StorageBackendError::Malformed {
+                name: backend.name.clone(),
+            }
+        })?;
+        let row = storage_backend::ActiveModel {
+            name: Set(backend.name.clone()),
+            url: Set(self.sealer.seal(&backend.url)?),
+            options: Set(self.sealer.seal(&options)?),
+            is_default: Set(backend.is_default),
+            created_at: Set(now),
+            updated_at: Set(now),
+        };
+        StorageBackendEntity::insert(row)
+            .on_conflict(
+                OnConflict::column(storage_backend::Column::Name)
+                    .update_columns([
+                        storage_backend::Column::Url,
+                        storage_backend::Column::Options,
+                        storage_backend::Column::IsDefault,
+                        storage_backend::Column::UpdatedAt,
+                    ])
+                    .to_owned(),
+            )
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Removes a backend by name. Returns whether there was one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StorageBackendError`] if the delete fails.
+    pub async fn remove(&self, name: &str) -> Result<bool, StorageBackendError> {
+        Ok(StorageBackendEntity::delete_by_id(name.to_owned())
+            .exec(&self.connection)
+            .await?
+            .rows_affected
+            == 1)
+    }
+
+    /// Makes one backend the destination for new uploads.
+    ///
+    /// Clears the flag everywhere first, in one transaction with setting it:
+    /// two defaults is a state nothing downstream knows how to read, and it is
+    /// reachable by two operators pressing the same button.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StorageBackendError`] if a write fails.
+    pub async fn set_default(
+        &self,
+        name: &str,
+        now: OffsetDateTime,
+    ) -> Result<bool, StorageBackendError> {
+        use sea_orm::TransactionTrait as _;
+
+        let transaction = self.connection.begin().await?;
+        StorageBackendEntity::update_many()
+            .col_expr(storage_backend::Column::IsDefault, false.into())
+            .exec(&transaction)
+            .await?;
+        let chosen = StorageBackendEntity::update_many()
+            .col_expr(storage_backend::Column::IsDefault, true.into())
+            .col_expr(storage_backend::Column::UpdatedAt, now.into())
+            .filter(storage_backend::Column::Name.eq(name.to_owned()))
+            .exec(&transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(chosen.rows_affected == 1)
+    }
+
+    fn open(&self, model: storage_backend::Model) -> Result<StorageBackend, StorageBackendError> {
+        let url = self.sealer.open(&model.url)?;
+        let options = serde_json::from_str(&self.sealer.open(&model.options)?).map_err(|_| {
+            StorageBackendError::Malformed {
+                name: model.name.clone(),
+            }
+        })?;
+        Ok(StorageBackend {
+            name: model.name,
+            url,
+            options,
+            is_default: model.is_default,
+        })
+    }
+}
