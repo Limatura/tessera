@@ -351,6 +351,25 @@ jobs:
           docker logs tessera-garage || true
           exit 1
 
+      # A second bucket, because a file records which backend holds it and
+      # nothing but two real ones proves the reader opens the recorded name.
+      # Against a single bucket, "used the name" and "used whichever store it
+      # had" are indistinguishable — and the second is what shipped before
+      # backends existed.
+      #
+      # `--default-bucket` only makes the first, so this one goes through
+      # Garage's own CLI. It is in the image already, which is why this needs no
+      # S3 client on the runner.
+      - name: Create the second bucket
+        run: |
+          for _ in $(seq 1 60); do
+            docker exec tessera-garage /garage status >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec tessera-garage /garage bucket create tessera-cold
+          docker exec tessera-garage /garage bucket allow \
+            --read --write --owner tessera-cold --key tesseratest
+
       # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
       # demand an object store; `--run-ignored all` is what opts into them.
       #
@@ -362,6 +381,7 @@ jobs:
       - name: Run the object store suite
         env:
           TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
           AWS_ACCESS_KEY_ID: tesseratest
           AWS_SECRET_ACCESS_KEY: tesseratestsecret
           AWS_REGION: garage

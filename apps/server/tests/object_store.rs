@@ -24,6 +24,14 @@
 //! api_bind_addr = "[::]:3900"
 //! EOF
 //!
+//! # A second bucket, for the test that a file is read from the backend it
+//! # names — see `a_file_is_read_from_the_bucket_it_names`. Garage's CLI is in
+//! # the image, so this needs no S3 client:
+//! #
+//! #   docker exec garage /garage bucket create tessera-cold
+//! #   docker exec garage /garage bucket allow --read --write --owner \
+//! #     tessera-cold --key tesseratest
+//!
 //! docker run -d --name garage -p 3900:3900 \
 //!   -v /tmp/garage.toml:/etc/garage.toml:ro \
 //!   -e GARAGE_RPC_SECRET=$(openssl rand -hex 32) \
@@ -36,6 +44,7 @@
 //! AWS_REGION=garage AWS_ENDPOINT=http://127.0.0.1:3900 \
 //! AWS_ALLOW_HTTP=true AWS_VIRTUAL_HOSTED_STYLE_REQUEST=false \
 //! TESSERA_TEST_STORAGE_URL=s3://tessera \
+//! TESSERA_TEST_STORAGE_URL_SECOND=s3://tessera-cold \
 //!   cargo nextest run --run-ignored all -E 'binary(object_store)'
 //! ```
 //!
@@ -385,5 +394,57 @@ async fn a_chunk_below_the_part_size_is_refused_rather_than_ignored() {
     assert!(
         body_string(response).await.contains(&part.to_string()),
         "the refusal does not say how much was needed"
+    );
+}
+
+/// A second bucket, when the suite is pointed at a store that has one.
+///
+/// The multi-backend work is the reason this matters: a file records which
+/// backend holds it, and nothing but a real store proves that the recorded name
+/// is what the reader actually opens. Against one bucket the wrong answer and
+/// the right answer look identical.
+fn second_url() -> Option<String> {
+    std::env::var("TESSERA_TEST_STORAGE_URL_SECOND").ok()
+}
+
+/// The name a file records decides which bucket its bytes come from.
+///
+/// Written against two real buckets because the failure this guards is
+/// "the reader ignored the name and used whichever store it had": with one
+/// bucket that bug passes every test, and it is exactly what shipped before
+/// backends were recorded.
+#[tokio::test]
+#[ignore = "needs a live object store; see the module docs"]
+async fn a_file_is_read_from_the_bucket_it_names() {
+    let Some(second) = second_url() else {
+        panic!("TESSERA_TEST_STORAGE_URL_SECOND is not set; see the module docs");
+    };
+
+    let app = app().await;
+    let (code, _) = upload(&app, "kept.bin", vec![4_u8; 32 * 1024]).await;
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // The name every file in this test recorded, pointed at the *other*
+    // bucket. Nothing was copied there, so the bytes cannot be found — unless
+    // the reader is ignoring the name.
+    let elsewhere = tessera_server::storage::build(&tessera_server::config::StorageConfig {
+        url: second,
+        ..tessera_server::config::StorageConfig::default()
+    })
+    .expect("open the second bucket");
+    app.state
+        .replace_backends(tessera_server::storage::Backends::from([(
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            elsewhere,
+        )]));
+
+    assert_ne!(
+        app.get(&format!("/s/{code}/download")).await.status(),
+        StatusCode::OK,
+        "served bytes from a bucket this file does not name"
     );
 }

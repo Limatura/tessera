@@ -367,3 +367,102 @@ mod tests {
         assert_eq!(next_part_number(3), 4);
     }
 }
+
+/// The rules the stores impose on a multipart upload, as our own invariant.
+///
+/// # Why these are tested here and not against a store
+///
+/// `config.rs` already records that S3 refuses every part but the last below
+/// 5 MiB and that Cloudflare R2 additionally requires every part but the last
+/// to be the *same* size — and that **Garage enforces neither, so the CI job
+/// cannot catch a mistake here**. Waiting for a store to reject us means the
+/// first report comes from an operator on a backend we do not test, halfway
+/// through a large upload.
+///
+/// They are ours to satisfy, so they are asserted where they are produced.
+#[cfg(test)]
+mod part_rules {
+    use proptest::prelude::*;
+
+    use super::split_into_parts;
+
+    /// S3's floor. A part below this is refused unless it is the last one.
+    const S3_MINIMUM_PART: usize = 5 * 1024 * 1024;
+
+    proptest! {
+        /// Every part but the last is exactly `part_size`.
+        ///
+        /// That satisfies both rules at once: equal to each other, which is
+        /// what R2 wants, and at or above the floor whenever `part_size` is —
+        /// which is what S3 wants.
+        #[test]
+        fn non_final_parts_are_all_one_size(
+            len in 0_usize..70_000,
+            part_size in 1_usize..9_000,
+            is_final in any::<bool>(),
+        ) {
+            let pending = vec![7_u8; len];
+            let (parts, remainder) = split_into_parts(&pending, part_size, is_final);
+
+            let last_may_be_short = usize::from(is_final);
+            for (index, part) in parts.iter().enumerate() {
+                if index + last_may_be_short < parts.len() {
+                    prop_assert_eq!(
+                        part.len(),
+                        part_size,
+                        "part {} of {} is not the agreed size",
+                        index,
+                        parts.len()
+                    );
+                }
+            }
+            prop_assert!(remainder.len() < part_size);
+        }
+
+        /// Nothing is dropped and nothing is duplicated: the parts and whatever
+        /// is parked add up to what came in.
+        #[test]
+        fn everything_that_came_in_comes_out(
+            len in 0_usize..70_000,
+            part_size in 1_usize..9_000,
+            is_final in any::<bool>(),
+        ) {
+            let pending = vec![7_u8; len];
+            let (parts, remainder) = split_into_parts(&pending, part_size, is_final);
+            let total: usize = parts.iter().map(bytes::Bytes::len).sum::<usize>() + remainder.len();
+            prop_assert_eq!(total, len);
+        }
+
+        /// A finished upload parks nothing: whatever is left has to become the
+        /// last part, or those bytes are never written.
+        #[test]
+        fn a_final_write_leaves_nothing_parked(
+            len in 0_usize..70_000,
+            part_size in 1_usize..9_000,
+        ) {
+            let (_, remainder) = split_into_parts(&vec![7_u8; len], part_size, true);
+            prop_assert!(remainder.is_empty());
+        }
+
+        /// With a part size at or above S3's floor, every part this produces is
+        /// one a store will take — except the last, which is allowed to be
+        /// short and only exists on the final write.
+        #[test]
+        fn a_conforming_part_size_produces_conforming_parts(
+            len in 0_usize..(24 * 1024 * 1024),
+            extra in 0_usize..(3 * 1024 * 1024),
+        ) {
+            let part_size = S3_MINIMUM_PART + extra;
+            let (parts, _) = split_into_parts(&vec![7_u8; len], part_size, true);
+            for (index, part) in parts.iter().enumerate() {
+                if index + 1 < parts.len() {
+                    prop_assert!(
+                        part.len() >= S3_MINIMUM_PART,
+                        "S3 refuses a non-final part of {} bytes",
+                        part.len()
+                    );
+                }
+            }
+        }
+    }
+}
