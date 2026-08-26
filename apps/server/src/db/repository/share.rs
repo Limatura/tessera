@@ -959,6 +959,57 @@ impl ShareRepository {
         Ok(resolved)
     }
 
+    /// How many bytes each backend is holding, by name.
+    ///
+    /// Summed from the segments this instance wrote, not asked of the store:
+    /// `object_store` has no capacity API, and for the free tiers this is aimed
+    /// at the limit is a property of the *account's plan* that no API reports.
+    /// What the operator has to supply is the ceiling; what they must not have
+    /// to supply is the usage.
+    ///
+    /// Only content that still exists — a share kept past its death to say
+    /// "this expired" had its bytes removed at death and its segments with
+    /// them, so it occupies nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn bytes_per_backend(&self) -> Result<HashMap<String, u64>, ShareRepositoryError> {
+        let rows: Vec<(String, Option<i64>)> = FileSegmentEntity::find()
+            .select_only()
+            .column(file_segment::Column::Backend)
+            .column_as(
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Expr::col(file_segment::Column::LengthBytes),
+                ),
+                "total",
+            )
+            .group_by(file_segment::Column::Backend)
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(backend, bytes)| (backend, u64::try_from(bytes.unwrap_or(0)).unwrap_or(0)))
+            .collect())
+    }
+
+    /// How many files still name this backend.
+    ///
+    /// Removing a backend that any segment names would make those shares
+    /// undeliverable, so the count is what an operator is told instead.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn segments_on_backend(&self, backend: &str) -> Result<u64, ShareRepositoryError> {
+        Ok(FileSegmentEntity::find()
+            .filter(file_segment::Column::Backend.eq(backend.to_owned()))
+            .count(&self.connection)
+            .await?)
+    }
+
     /// Which backend holds each of these files, by file id.
     ///
     /// Only the first segment, because a file has exactly one until #184. A

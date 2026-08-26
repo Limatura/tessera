@@ -3830,12 +3830,13 @@ async fn a_download_reads_from_the_backend_the_file_named() {
     // Same name, nothing behind it.
     let empty: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::new(object_store::memory::InMemory::new());
-    app.state
-        .backends
-        .store(std::sync::Arc::new(std::collections::HashMap::from([(
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([(
             tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            empty,
-        )])));
+            (empty, None),
+        )]),
+        configured: Vec::new(),
+    });
 
     assert_ne!(
         app.get(&format!("/s/{code}/download")).await.status(),
@@ -3854,8 +3855,7 @@ async fn an_unconfigured_backend_is_unavailable_not_missing() {
     let code = share["code"].as_str().expect("a code").to_owned();
 
     app.state
-        .backends
-        .store(std::sync::Arc::new(std::collections::HashMap::new()));
+        .replace_backends(tessera_server::storage::Pool::default());
 
     assert_eq!(
         app.get(&format!("/s/{code}/download")).await.status(),
@@ -3888,6 +3888,8 @@ async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
                     "garage".to_owned(),
                 )]),
                 is_default: false,
+                capacity_bytes: None,
+                read_only: false,
             },
             OffsetDateTime::now_utc(),
         )
@@ -3944,6 +3946,8 @@ async fn another_key_cannot_open_a_stored_backend() {
             url: "s3://bucket-b".to_owned(),
             options: std::collections::BTreeMap::new(),
             is_default: false,
+            capacity_bytes: None,
+            read_only: false,
         },
         OffsetDateTime::now_utc(),
     )
@@ -3978,6 +3982,8 @@ async fn without_a_key_a_backend_cannot_be_stored() {
                     url: "s3://bucket-b?aws_secret_access_key=hunter2".to_owned(),
                     options: std::collections::BTreeMap::new(),
                     is_default: false,
+                    capacity_bytes: None,
+                    read_only: false,
                 },
                 OffsetDateTime::now_utc(),
             )
@@ -4009,6 +4015,8 @@ async fn only_one_backend_takes_new_uploads() {
                     url: format!("s3://{name}"),
                     options: std::collections::BTreeMap::new(),
                     is_default: true,
+                    capacity_bytes: None,
+                    read_only: false,
                 },
                 now,
             )
@@ -4027,4 +4035,165 @@ async fn only_one_backend_takes_new_uploads() {
         .map(|backend| backend.name)
         .collect();
     assert_eq!(defaults, vec!["cold".to_owned()]);
+}
+
+// ── 容量與放置 ────────────────────────────────────────────────────────────
+
+/// Registers a second, empty backend and returns the pool holding both.
+fn pool_with_second(
+    app: &TestApp,
+    name: &str,
+    capacity: Option<u64>,
+) -> tessera_server::storage::Pool {
+    use tessera_server::db::repository::storage_backend::StorageBackend;
+
+    let second: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::new(object_store::memory::InMemory::new());
+    tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([
+            (
+                tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                (std::sync::Arc::clone(&app.state.storage), None),
+            ),
+            (name.to_owned(), (second, None)),
+        ]),
+        configured: vec![StorageBackend {
+            name: name.to_owned(),
+            url: "memory://".to_owned(),
+            options: std::collections::BTreeMap::new(),
+            is_default: false,
+            capacity_bytes: capacity,
+            read_only: false,
+        }],
+    }
+}
+
+/// The point of a capacity figure: the instance refuses before the provider
+/// does. Hitting B2's cap is an upload that fails halfway with no explanation;
+/// stopping short of it is a clean answer.
+#[tokio::test]
+async fn a_full_backend_hands_the_upload_to_another() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 8;
+        // The default holds almost nothing, so the second backend has to take it.
+        config.storage.capacity_bytes = 1024;
+    })
+    .await;
+    app.state
+        .replace_backends(pool_with_second(&app, "cold", None));
+
+    let share = upload(&app, "?filename=big.bin", &vec![1_u8; 8192]).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("parses");
+    let content = content_of(&app, id).await;
+    assert_eq!(
+        content.files().first().expect("a file").storage.backend(),
+        Some("cold"),
+        "wrote to a backend that had no room for it"
+    );
+}
+
+/// An operator who names a default meant it. Spreading away from it to balance
+/// bytes would quietly undo a choice they made.
+#[tokio::test]
+async fn the_default_backend_keeps_taking_uploads_while_it_fits() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 8;
+        config.storage.capacity_bytes = 1_000_000;
+    })
+    .await;
+    app.state
+        .replace_backends(pool_with_second(&app, "cold", None));
+
+    let share = upload(&app, "?filename=small.bin", &vec![1_u8; 4096]).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("parses");
+    assert_eq!(
+        content_of(&app, id)
+            .await
+            .files()
+            .first()
+            .expect("a file")
+            .storage
+            .backend(),
+        Some(tessera_server::storage::DEFAULT_BACKEND),
+    );
+}
+
+/// Nothing is split, so a pool with room spread thin still has to refuse — and
+/// the refusal is a 507, not a 413: the file is not too big in itself.
+#[tokio::test]
+async fn a_file_bigger_than_every_backend_is_refused() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 8;
+        config.storage.capacity_bytes = 2048;
+    })
+    .await;
+    app.state
+        .replace_backends(pool_with_second(&app, "cold", Some(2048)));
+
+    // 4 KiB does not fit in either 2 KiB backend, though 4 KiB is free overall.
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=too-wide.bin"),
+            Body::from(vec![1_u8; 4096]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+}
+
+/// Reporting the sum would tell a client it has 4 KiB when no single file over
+/// 2 KiB can be accepted — a number that explains nothing when the upload is
+/// refused.
+#[tokio::test]
+async fn capabilities_reports_the_largest_placeable_file_not_the_sum() {
+    let app = TestApp::with_config(|config| config.storage.capacity_bytes = 2048).await;
+    app.state
+        .replace_backends(pool_with_second(&app, "cold", Some(2048)));
+
+    let capabilities =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert_eq!(capabilities["storage_remaining_bytes"], 2048);
+}
+
+/// Removing a backend that still holds content would make those shares
+/// undeliverable, and there is no foreign key to stop it — `file_segments`
+/// stores a name on purpose.
+#[tokio::test]
+async fn a_backend_holding_files_cannot_be_removed() {
+    use tessera_server::{
+        db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
+        storage::secret::Sealer,
+    };
+
+    let app = TestApp::with_config(|config| config.share.inline_threshold_bytes = 8).await;
+    let store = StorageBackendRepository::new(
+        app.state.db.clone(),
+        Sealer::new(&"ab".repeat(32)).expect("a key"),
+    );
+    store
+        .put(
+            &StorageBackend {
+                name: tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                url: "memory://".to_owned(),
+                options: std::collections::BTreeMap::new(),
+                is_default: false,
+                capacity_bytes: None,
+                read_only: false,
+            },
+            OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("store");
+
+    // A share whose file records that backend.
+    upload(&app, "?filename=kept.bin", &vec![1_u8; 4096]).await;
+
+    assert!(
+        store
+            .remove(tessera_server::storage::DEFAULT_BACKEND)
+            .await
+            .is_err(),
+        "removed a backend that still holds somebody's files"
+    );
 }

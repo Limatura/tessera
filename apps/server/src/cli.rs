@@ -117,6 +117,18 @@ pub enum BackendAction {
         /// Which.
         name: String,
     },
+    /// Say how much one may hold. `0` is no limit.
+    Capacity {
+        /// Which.
+        name: String,
+        /// Bytes.
+        bytes: u64,
+    },
+    /// Stop sending new content to one. Reads are unaffected.
+    Retire {
+        /// Which.
+        name: String,
+    },
 }
 
 /// What `quota` was asked to do.
@@ -424,9 +436,9 @@ fn parse_quota<I: Iterator<Item = String>>(mut args: I) -> Result<Command, Strin
 }
 
 fn parse_backends<I: Iterator<Item = String>>(mut args: I) -> Result<Command, String> {
-    let action = args
-        .next()
-        .ok_or_else(|| "backends: say what to do — list, add, remove or default".to_owned())?;
+    let action = args.next().ok_or_else(|| {
+        "backends: say what to do — list, add, remove, default, capacity or retire".to_owned()
+    })?;
     let mut named = |verb: &str| {
         args.next()
             .ok_or_else(|| format!("backends {verb}: needs a name"))
@@ -447,9 +459,22 @@ fn parse_backends<I: Iterator<Item = String>>(mut args: I) -> Result<Command, St
         "default" => Command::Backends(BackendAction::Default {
             name: named("default")?,
         }),
+        "capacity" => {
+            let name = named("capacity")?;
+            let raw = args
+                .next()
+                .ok_or_else(|| format!("backends capacity {name}: needs a number of bytes"))?;
+            let bytes = raw
+                .parse::<u64>()
+                .map_err(|_| format!("backends capacity: `{raw}` is not a number of bytes"))?;
+            Command::Backends(BackendAction::Capacity { name, bytes })
+        }
+        "retire" => Command::Backends(BackendAction::Retire {
+            name: named("retire")?,
+        }),
         other => {
             return Err(format!(
-                "backends: unknown action `{other}` — expected list, add, remove or default"
+                "backends: unknown action `{other}` — expected list, add, remove, default, capacity or retire"
             ));
         }
     };
@@ -521,6 +546,16 @@ BACKENDS:
                              being deliverable and answer 503, so drain first.
     backends default <name>  Send new uploads there. Existing files stay where
                              they are — each one records its own backend.
+    backends capacity <name> <bytes>
+                             How much it may hold. `0` is no limit. Typed in
+                             rather than queried: object stores have no capacity
+                             API, and on a free tier the limit belongs to the
+                             account's plan, which no API reports. How much is
+                             *used* is not typed in — this instance wrote every
+                             byte and can add them up.
+    backends retire <name>   Stop sending new content there. What it already
+                             holds is still served, so this is the step before
+                             removing one.
 
     The backend from TESSERA_STORAGE__URL is always present under the name
     `default` and is not in this list: it comes from the environment, and it is
@@ -817,6 +852,8 @@ async fn run_backends(
                         url,
                         options: std::collections::BTreeMap::new(),
                         is_default: false,
+                        capacity_bytes: None,
+                        read_only: false,
                     },
                     now,
                 )
@@ -840,7 +877,52 @@ async fn run_backends(
             anyhow::ensure!(chosen, "no backend is called `{name}`");
             report_backend("now takes new uploads", &name);
         }
+        BackendAction::Capacity { name, bytes } => {
+            amend(store, &name, now, |backend| {
+                backend.capacity_bytes = (bytes > 0).then_some(bytes);
+            })
+            .await?;
+            report_backend(
+                &if bytes > 0 {
+                    format!("may hold {bytes} bytes")
+                } else {
+                    "has no limit".to_owned()
+                },
+                &name,
+            );
+        }
+        BackendAction::Retire { name } => {
+            amend(store, &name, now, |backend| backend.read_only = true).await?;
+            report_backend("takes no new content; what it holds is still served", &name);
+        }
     }
+    Ok(())
+}
+
+/// Changes one field of a stored backend, leaving the rest as they were.
+///
+/// Read-modify-write rather than a targeted `UPDATE`: the row's credentials are
+/// sealed, so writing it back means re-sealing them, and doing that from the
+/// values already in hand is what keeps this one code path instead of one per
+/// field.
+async fn amend(
+    store: &StorageBackendRepository,
+    name: &str,
+    now: OffsetDateTime,
+    change: impl FnOnce(&mut StorageBackend),
+) -> anyhow::Result<()> {
+    let mut backend = store
+        .all()
+        .await
+        .context("could not read the backends")?
+        .into_iter()
+        .find(|backend| backend.name == name)
+        .with_context(|| format!("no backend is called `{name}`"))?;
+    change(&mut backend);
+    store
+        .put(&backend, now)
+        .await
+        .context("could not store the change")?;
     Ok(())
 }
 
@@ -854,13 +936,23 @@ async fn run_backends(
     reason = "a command-line tool's result belongs on stdout, not in the log"
 )]
 fn print_backends(backends: &[StorageBackend]) {
-    println!("{:<24}NEW UPLOADS", "NAME");
-    println!("{}", crate::storage::DEFAULT_BACKEND);
+    println!("{:<20}{:<14}{:<12}STATE", "NAME", "NEW UPLOADS", "CAPACITY");
+    println!(
+        "{:<20}{:<14}{:<12}settings",
+        crate::storage::DEFAULT_BACKEND,
+        "",
+        ""
+    );
     for backend in backends {
         println!(
-            "{:<24}{}",
+            "{:<20}{:<14}{:<12}{}",
             backend.name,
-            if backend.is_default { "yes" } else { "" }
+            if backend.is_default { "yes" } else { "" },
+            backend
+                .capacity_bytes
+                .filter(|bytes| *bytes > 0)
+                .map_or_else(|| "no limit".to_owned(), |bytes| bytes.to_string()),
+            if backend.read_only { "retired" } else { "" },
         );
     }
     println!(
@@ -1564,6 +1656,35 @@ mod backend_tests {
         assert!(parsed(&["backends", "remove"]).is_err());
         assert!(parsed(&["backends"]).is_err());
         assert!(parsed(&["backends", "rename", "cold", "hot"]).is_err());
+    }
+
+    /// `0` is how "no limit" is spelled, so it has to parse rather than be
+    /// mistaken for a missing argument.
+    #[test]
+    fn capacity_and_retire_parse() {
+        assert_eq!(
+            parsed(&["backends", "capacity", "cold", "10737418240"]),
+            Ok(Command::Backends(BackendAction::Capacity {
+                name: "cold".to_owned(),
+                bytes: 10_737_418_240,
+            }))
+        );
+        assert_eq!(
+            parsed(&["backends", "capacity", "cold", "0"]),
+            Ok(Command::Backends(BackendAction::Capacity {
+                name: "cold".to_owned(),
+                bytes: 0,
+            }))
+        );
+        assert_eq!(
+            parsed(&["backends", "retire", "cold"]),
+            Ok(Command::Backends(BackendAction::Retire {
+                name: "cold".to_owned(),
+            }))
+        );
+        assert!(parsed(&["backends", "capacity", "cold"]).is_err());
+        assert!(parsed(&["backends", "capacity", "cold", "lots"]).is_err());
+        assert!(parsed(&["backends", "capacity", "cold", "-1"]).is_err());
     }
 
     /// A silently ignored argument looks like the command did what was asked.

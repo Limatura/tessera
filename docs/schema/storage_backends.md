@@ -16,7 +16,7 @@ CREATE TABLE storage_backends (
     is_default  INTEGER    NOT NULL DEFAULT FALSE,
     created_at  TEXT   NOT NULL,
     updated_at  TEXT   NOT NULL
-)
+, capacity_bytes INTEGER, read_only INTEGER NOT NULL DEFAULT FALSE)
 ```
 
 </details>
@@ -31,6 +31,8 @@ CREATE TABLE storage_backends (
 | is_default | INTEGER | FALSE | false |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
+| capacity_bytes | INTEGER |  | true |  |  |  |
+| read_only | INTEGER | FALSE | false |  |  |  |
 
 ## Constraints
 
@@ -58,6 +60,8 @@ erDiagram
   INTEGER is_default
   TEXT created_at
   TEXT updated_at
+  INTEGER capacity_bytes
+  INTEGER read_only
 }
 ```
 

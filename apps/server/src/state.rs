@@ -114,7 +114,7 @@ pub struct AppState {
     /// An `ArcSwap` because the set is meant to be changeable while the process
     /// runs — the same shape as `mailer`, and for the same reason. Today it is
     /// built once from `storage.url` and holds a single entry.
-    pub backends: Arc<ArcSwap<crate::storage::Backends>>,
+    pub backends: Arc<ArcSwap<crate::storage::Pool>>,
     /// The same store when it can hold a multipart upload open across requests.
     ///
     /// `None` on a local filesystem, where a resumable upload appends to a
@@ -179,7 +179,25 @@ impl AppState {
     /// not have the process refuse to start.
     #[must_use]
     pub fn backend(&self, name: &str) -> Option<Arc<dyn ObjectStore>> {
-        self.backends.load().get(name).map(Arc::clone)
+        self.backends
+            .load()
+            .open
+            .get(name)
+            .map(|stores| Arc::clone(&stores.0))
+    }
+
+    /// The same, as a multipart store when that backend is one.
+    ///
+    /// `None` for a name that is not configured *and* for one that cannot hold
+    /// a multipart open — a local directory, or a plain HTTP store. The caller
+    /// tells them apart by asking [`AppState::backend`] first.
+    #[must_use]
+    pub fn backend_multipart(&self, name: &str) -> Option<crate::storage::Multipart> {
+        self.backends
+            .load()
+            .open
+            .get(name)
+            .and_then(|stores| stores.1.clone())
     }
 
     /// Replaces the set of backends, so one added from the panel or the command
@@ -188,8 +206,8 @@ impl AppState {
     /// The map is swapped whole rather than mutated: a request that is already
     /// reading holds its own `Arc` and finishes against the set it started
     /// with, which is what makes this safe to do under load.
-    pub fn replace_backends(&self, backends: crate::storage::Backends) {
-        self.backends.store(Arc::new(backends));
+    pub fn replace_backends(&self, pool: crate::storage::Pool) {
+        self.backends.store(Arc::new(pool));
     }
 
     /// Replaces the configuration, and everything built from it.
@@ -227,7 +245,7 @@ impl AppState {
         db: DatabaseConnection,
         storage: Arc<dyn ObjectStore>,
         multipart: Option<crate::storage::Multipart>,
-        backends: crate::storage::Backends,
+        backends: crate::storage::Pool,
         assets: crate::assets::Source,
     ) -> Self {
         // A relay that will not build is reported and then treated as absent.

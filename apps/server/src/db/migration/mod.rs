@@ -57,6 +57,7 @@ mod m20260826_000001_quotas;
 mod m20260828_000001_file_size_limits;
 mod m20260829_000001_file_segments;
 mod m20260830_000001_storage_backends;
+mod m20260901_000001_backend_capacity;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -103,6 +104,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260828_000001_file_size_limits::Migration),
             Box::new(m20260829_000001_file_segments::Migration),
             Box::new(m20260830_000001_storage_backends::Migration),
+            Box::new(m20260901_000001_backend_capacity::Migration),
         ]
     }
 }

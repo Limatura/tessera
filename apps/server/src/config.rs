@@ -666,6 +666,17 @@ pub struct StorageConfig {
     /// `https://host/dav`, `memory://`.
     pub url: String,
 
+    /// How much the backend from `url` may hold, in bytes. `0` is no limit.
+    ///
+    /// The stored backends carry their own figure in the table; this one is
+    /// configured where its URL is, because it has no row.
+    ///
+    /// Distinct from `max_total_bytes`, which is the whole instance across
+    /// every backend. This is what one bucket will take before uploads are
+    /// placed elsewhere — the number an operator on a free tier types so the
+    /// provider never gets to say no for them.
+    pub capacity_bytes: u64,
+
     /// Key that seals stored backend credentials, as 64 hexadecimal characters.
     ///
     /// Empty, the default, means this instance cannot store a backend — adding
@@ -757,6 +768,7 @@ impl Default for StorageConfig {
             // anybody falls into by accident — but `Config::load` warns when it
             // sees the combination, so it is not a silent trap either.
             max_total_bytes: 0,
+            capacity_bytes: 0,
             secret_key: String::new(),
             reconcile_interval_hours: 24,
             reconcile_grace_hours: 24,

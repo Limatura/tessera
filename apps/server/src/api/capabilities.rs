@@ -8,7 +8,7 @@ use utoipa::ToSchema;
 use crate::{
     api::{
         SYSTEM_TAG, gate,
-        shares::{max_file_bytes, personal_room, remaining_room},
+        shares::{largest_placeable, max_file_bytes, personal_room, remaining_room},
     },
     auth::extract::MaybeUser,
     config::{FeatureConfig, RegistrationPolicy},
@@ -247,6 +247,19 @@ pub async fn capabilities(
     // `u64::MAX` means nothing limits them, which is not a figure to send.
     if room.bytes != u64::MAX {
         capabilities.storage_remaining_bytes = Some(room.bytes);
+    }
+
+    // A quota can say there is room that no single backend can actually take:
+    // nothing is split, so a pool of five holding 100 MB each refuses a 200 MB
+    // file however much quota is left. Whichever answer is smaller is the one a
+    // client can act on.
+    if let Some(placeable) = largest_placeable(&state).await? {
+        capabilities.max_upload_bytes = capabilities.max_upload_bytes.min(placeable);
+        capabilities.storage_remaining_bytes = Some(
+            capabilities
+                .storage_remaining_bytes
+                .map_or(placeable, |left| left.min(placeable)),
+        );
     }
 
     Ok(Json(capabilities))

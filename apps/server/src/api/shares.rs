@@ -866,8 +866,14 @@ struct Ingested {
 /// Returns [`Error`] if the body cannot be read or the store will not take it.
 async fn ingest(state: &AppState, request: Ingest<'_>, body: Body) -> Result<Ingested> {
     let id = request.id;
+    // Read before the body is consumed. `Content-Length` is what usually
+    // supplies it, but taking the hint rather than the header means an
+    // in-memory body reports its size too — and a chunked one reports nothing,
+    // which is the honest answer to "I will not tell you how much I am
+    // sending".
+    let expected_bytes = <Body as http_body::Body>::size_hint(&body).exact();
     let mut upload: Option<Box<dyn MultipartUpload>> = None;
-    let result = ingest_into(state, request, body, &mut upload).await;
+    let result = ingest_into(state, request, expected_bytes, body, &mut upload).await;
 
     if let Some(upload) = upload.as_mut() {
         // Only reachable when something failed: the success path takes the
@@ -976,6 +982,82 @@ struct Ceiling {
     scope: Scope,
     tier: Tier,
     bytes: u64,
+}
+
+/// Which backend a file of `size` should be written to.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`] when nothing has room for the whole file.
+/// Deliberately not a `413`: the file is not too big in itself, the pool is too
+/// full to take it, and a smaller one — or the same one later — may well fit.
+pub(crate) async fn place(state: &AppState, size: u64) -> Result<String> {
+    let pool = state.backends.load();
+    let used = state.shares.bytes_per_backend().await?;
+    let candidates =
+        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used);
+    crate::storage::placement::choose(&candidates, size)
+        .map(|chosen| chosen.name.clone())
+        .ok_or(Error::InsufficientStorage(Tier::Instance))
+}
+
+/// Places the file and opens a multipart upload on the backend chosen.
+///
+/// Placed before the first byte goes anywhere. Choosing after the upload
+/// started would mean recording a name the bytes are not at — which is the
+/// failure this whole change exists to prevent.
+///
+/// # Errors
+///
+/// Returns [`Error`] if nothing has room, or the chosen backend will not open.
+async fn start_object(
+    state: &AppState,
+    id: ShareId,
+    now: OffsetDateTime,
+    expected_bytes: Option<u64>,
+) -> Result<(String, String, Box<dyn MultipartUpload>)> {
+    let object_key = object_key(id, now);
+    let chosen = place(state, expected_bytes.unwrap_or(0)).await?;
+    let store = state.backend(&chosen).ok_or(Error::Unavailable)?;
+    let started = store
+        .put_multipart(&ObjectPath::from(object_key.as_str()))
+        .await?;
+    Ok((chosen, object_key, started))
+}
+
+/// How much room one named backend has, or [`u64::MAX`] when nothing limits it.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the usage cannot be read.
+async fn backend_free(state: &AppState, name: &str) -> Result<u64> {
+    let pool = state.backends.load();
+    let used = state.shares.bytes_per_backend().await?;
+    Ok(
+        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used)
+            .into_iter()
+            .find(|candidate| candidate.name == name)
+            .and_then(|candidate| candidate.free_bytes())
+            .unwrap_or(u64::MAX),
+    )
+}
+
+/// The largest single file any backend can currently take, or `None` when one
+/// of them is unlimited.
+///
+/// Not the sum of what is free: nothing is split across backends, so a pool of
+/// five holding 100 MB each cannot take 200 MB — and reporting 500 MB would be
+/// a figure that explains nothing when the upload is refused.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the usage cannot be read.
+pub(crate) async fn largest_placeable(state: &AppState) -> Result<Option<u64>> {
+    let pool = state.backends.load();
+    let used = state.shares.bytes_per_backend().await?;
+    Ok(crate::storage::placement::largest_acceptable(
+        &crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used),
+    ))
 }
 
 /// The largest single file this caller may send.
@@ -1114,6 +1196,11 @@ struct Ingest<'a> {
 async fn ingest_into(
     state: &AppState,
     request: Ingest<'_>,
+    // What the body says it will be, when it says. Chooses the backend before
+    // the first byte is written — without it the placer can only be asked for
+    // "somewhere with any room", which will happily pick one the file then does
+    // not fit in, and by then parts have already been written there.
+    expected_bytes: Option<u64>,
     body: Body,
     upload: &mut Option<Box<dyn MultipartUpload>>,
 ) -> Result<Ingested> {
@@ -1147,7 +1234,9 @@ async fn ingest_into(
     let mut body = body;
     let mut buffered: Vec<u8> = Vec::new();
     let mut size_bytes: u64 = 0;
-    let mut key: Option<String> = None;
+    let mut key: Option<(String, String)> = None;
+    // Until a backend is chosen there is nothing to exceed.
+    let mut backend_limit = u64::MAX;
 
     let stall = state.config().server.upload_stall();
 
@@ -1183,13 +1272,18 @@ async fn ingest_into(
         // Past the threshold: start the upload the first time, then keep the
         // buffer drained in whole blocks.
         if upload.is_none() {
-            let object_key = object_key(id, now);
-            let started = state
-                .storage
-                .put_multipart(&ObjectPath::from(object_key.as_str()))
-                .await?;
-            key = Some(object_key);
+            let (chosen, object_key, started) =
+                start_object(state, id, now, expected_bytes).await?;
+            backend_limit = backend_free(state, &chosen).await?;
+            key = Some((chosen, object_key));
             *upload = Some(started);
+        }
+        // The chosen backend's own ceiling, checked as the bytes arrive for the
+        // same reason the quota is: a body that would take it past the line
+        // should stop at the line rather than after it — and past the line here
+        // is the provider refusing mid-upload, which is worse than a 507.
+        if size_bytes > backend_limit {
+            return Err(Error::InsufficientStorage(Tier::Instance));
         }
         if let Some(upload) = upload.as_mut() {
             flush_full_parts(upload.as_mut(), &mut buffered, part_size).await?;
@@ -1197,7 +1291,7 @@ async fn ingest_into(
     }
 
     match key {
-        Some(key) => {
+        Some((backend, key)) => {
             let mut started = upload.take().ok_or_else(|| {
                 Error::bad_request("upload state was lost part-way through the body")
             })?;
@@ -1208,11 +1302,7 @@ async fn ingest_into(
             }
             started.complete().await?;
             Ok(Ingested {
-                storage: StorageLocation::Object {
-                    // One backend today; the writer picks it in #183's next step.
-                    backend: crate::storage::DEFAULT_BACKEND.to_owned(),
-                    key,
-                },
+                storage: StorageLocation::Object { backend, key },
                 size_bytes,
                 inline: None,
             })
@@ -1222,8 +1312,13 @@ async fn ingest_into(
         // multipart upload of nine bytes is three round trips to say one thing.
         None if stream_to_object => {
             let object_key = object_key(id, now);
-            state
-                .storage
+            // The whole file is in hand, so the size is known before a byte is
+            // written and the placer can be asked. The streaming path above
+            // cannot do this — it has already started writing by the time it
+            // knows how much there is.
+            let backend = place(state, size_bytes).await?;
+            let store = state.backend(&backend).ok_or(Error::Unavailable)?;
+            store
                 .put(
                     &ObjectPath::from(object_key.as_str()),
                     PutPayload::from(buffered),
@@ -1231,7 +1326,7 @@ async fn ingest_into(
                 .await?;
             Ok(Ingested {
                 storage: StorageLocation::Object {
-                    backend: crate::storage::DEFAULT_BACKEND.to_owned(),
+                    backend,
                     key: object_key,
                 },
                 size_bytes,

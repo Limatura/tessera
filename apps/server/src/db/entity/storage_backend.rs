@@ -16,6 +16,11 @@ pub struct Model {
     pub options: String,
     /// Whether new uploads go here.
     pub is_default: bool,
+    /// How much it may hold, or `None` for no limit. Typed in — see the
+    /// migration for why it cannot be queried.
+    pub capacity_bytes: Option<i64>,
+    /// Whether it still takes new content. Reads are unaffected.
+    pub read_only: bool,
     /// When it was added.
     pub created_at: TimeDateTimeWithTimeZone,
     /// When it last changed.

@@ -104,8 +104,8 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(backend = db::backend_name(&db), "migrations applied");
     }
 
-    let (backends, (store, multipart)) = open_stores(&config, &db).await?;
-    tracing::info!(backends = backends.len(), "storage backends open");
+    let (pool, (store, multipart)) = open_stores(&config, &db).await?;
+    tracing::info!(backends = pool.open.len(), "storage backends open");
 
     // Before the listener binds, so an instance exposed to the internet never
     // spends a moment with no administrator for a passer-by to claim.
@@ -130,7 +130,7 @@ async fn main() -> anyhow::Result<()> {
         db.clone(),
         store,
         multipart,
-        backends,
+        pool,
         assets,
     );
     let app = api::build(state.clone());
@@ -367,7 +367,7 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
 async fn open_stores(
     config: &Config,
     db: &sea_orm::DatabaseConnection,
-) -> anyhow::Result<(storage::Backends, storage::Stores)> {
+) -> anyhow::Result<(storage::Pool, storage::Stores)> {
     let sealer = storage::secret::Sealer::new(&config.storage.secret_key)
         .context("storage.secret_key is not usable")?;
     let stored = if sealer.is_set() {
@@ -378,5 +378,13 @@ async fn open_stores(
     } else {
         Vec::new()
     };
-    storage::build_all(&config.storage, &stored).context("could not open the object store")
+    let (open, default) =
+        storage::build_all(&config.storage, &stored).context("could not open the object store")?;
+    Ok((
+        storage::Pool {
+            open,
+            configured: stored,
+        },
+        default,
+    ))
 }

@@ -436,11 +436,13 @@ async fn a_file_is_read_from_the_bucket_it_names() {
         ..tessera_server::config::StorageConfig::default()
     })
     .expect("open the second bucket");
-    app.state
-        .replace_backends(tessera_server::storage::Backends::from([(
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([(
             tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            elsewhere,
-        )]));
+            (elsewhere, None),
+        )]),
+        configured: Vec::new(),
+    });
 
     assert_ne!(
         app.get(&format!("/s/{code}/download")).await.status(),

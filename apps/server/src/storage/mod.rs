@@ -82,10 +82,32 @@ impl core::fmt::Debug for Multipart {
 ///
 /// `None` on the second means resumable uploads there append to a partial file
 /// instead — see `upload::sink`.
+pub mod placement;
 pub mod secret;
 
 /// Every open backend, by the name `file_segments.backend` records.
-pub type Backends = std::collections::HashMap<String, Arc<dyn ObjectStore>>;
+///
+/// Both views of each, because a resumable upload has to hold a multipart open
+/// against the backend it was *placed* on — keeping only the plain store would
+/// force every resumable upload to the default one, and a file recorded
+/// somewhere its bytes are not is the exact failure this whole change exists to
+/// prevent.
+pub type Backends = std::collections::HashMap<String, Stores>;
+
+/// The open stores and the settings they were opened from.
+///
+/// One value rather than two, because they have to agree: a store without its
+/// capacity would be placed against the wrong ceiling, and a setting without
+/// its store would be placed against a backend that cannot take anything. They
+/// are built together and swapped together.
+#[derive(Debug, Clone, Default)]
+pub struct Pool {
+    /// Stores that opened, by name.
+    pub open: Backends,
+    /// What the stored ones were configured with. The one from `storage.url`
+    /// is not here — it has no row.
+    pub configured: Vec<crate::db::repository::storage_backend::StorageBackend>,
+}
 
 /// Builds the store for every configured backend.
 ///
@@ -109,7 +131,7 @@ pub fn build_all(
 ) -> Result<(Backends, Stores), StorageError> {
     let default = build_with_multipart(config)?;
     let mut all = Backends::with_capacity(stored.len() + 1);
-    all.insert(DEFAULT_BACKEND.to_owned(), Arc::clone(&default.0));
+    all.insert(DEFAULT_BACKEND.to_owned(), default.clone());
 
     for backend in stored {
         if backend.name == DEFAULT_BACKEND {
@@ -124,9 +146,9 @@ pub fn build_all(
             options: backend.options.clone(),
             ..StorageConfig::default()
         };
-        match build(&described) {
-            Ok(store) => {
-                all.insert(backend.name.clone(), store);
+        match build_with_multipart(&described) {
+            Ok(opened) => {
+                all.insert(backend.name.clone(), opened);
             }
             Err(error) => tracing::error!(
                 name = backend.name,
@@ -417,6 +439,57 @@ const fn build_multipart_capable(
     _options: &BTreeMap<String, String>,
 ) -> Result<Option<Stores>, StorageError> {
     Ok(None)
+}
+
+/// How much each backend is holding, by name.
+pub type Usage = std::collections::HashMap<String, u64>;
+
+/// Every backend as the placer sees it: its ceiling, what it holds, and whether
+/// it still takes new content.
+///
+/// The stored ones carry their own figures; the one from `storage.url` has no
+/// row, so its figures come from the configuration. Usage is summed from the
+/// segments this instance wrote — see
+/// [`ShareRepository::bytes_per_backend`](crate::db::repository::share::ShareRepository::bytes_per_backend).
+///
+/// A backend that is configured but did not open is left out: it can serve
+/// nothing, so placing an upload there would only move the failure later.
+#[must_use]
+pub fn candidates(
+    config: &StorageConfig,
+    stored: &[crate::db::repository::storage_backend::StorageBackend],
+    open: &Backends,
+    used: &Usage,
+) -> Vec<placement::Candidate> {
+    let mut all = Vec::with_capacity(stored.len() + 1);
+    let taken = |name: &str| used.get(name).copied().unwrap_or(0);
+    let any_default = stored.iter().any(|backend| backend.is_default);
+
+    if open.contains_key(DEFAULT_BACKEND) {
+        all.push(placement::Candidate {
+            name: DEFAULT_BACKEND.to_owned(),
+            capacity_bytes: Some(config.capacity_bytes),
+            used_bytes: taken(DEFAULT_BACKEND),
+            read_only: false,
+            // Only when nothing else claims it. An instance that has never
+            // configured a second backend still has a preference, and it is
+            // this one.
+            is_default: !any_default,
+        });
+    }
+    for backend in stored {
+        if backend.name == DEFAULT_BACKEND || !open.contains_key(&backend.name) {
+            continue;
+        }
+        all.push(placement::Candidate {
+            name: backend.name.clone(),
+            capacity_bytes: backend.capacity_bytes,
+            used_bytes: taken(&backend.name),
+            read_only: backend.read_only,
+            is_default: backend.is_default,
+        });
+    }
+    all
 }
 
 #[cfg(test)]

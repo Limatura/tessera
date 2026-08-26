@@ -188,6 +188,8 @@ Table storage_backends {
   is_default integer [not null]
   created_at text [not null]
   updated_at text [not null]
+  capacity_bytes integer
+  read_only integer [not null]
 }
 
 Table text_shares {
