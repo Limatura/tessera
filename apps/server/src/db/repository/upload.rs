@@ -14,11 +14,48 @@ use crate::{
         entity::{
             upload::{self, Entity as UploadEntity},
             upload_part::{self, Entity as UploadPartEntity},
+            upload_segment::{self, Entity as UploadSegmentEntity},
         },
         repository::{quota::Scope, total, user::CorruptRow},
     },
     upload::sink::TakenPart,
 };
+
+/// What a segment is doing.
+///
+/// Named rather than inferred from which columns are null. "Has a multipart id"
+/// is not "has been started": a local filesystem never has one, so reading the
+/// state off that column would file every local segment as unopened for ever.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SegmentState {
+    /// The space is spoken for and nothing has been written.
+    ///
+    /// No writer yet, and deliberately so: this is the reservation, and nothing
+    /// reserves until the planner spreads a file over more than one backend.
+    /// Two large uploads arriving together must not both be planned onto the
+    /// same backend's last free gigabyte, and a row that exists before the first
+    /// byte is what will stop that.
+    Planned,
+    /// The destination is committed and bytes may go in.
+    Open,
+    /// Every byte of this segment is in the store.
+    ///
+    /// Holding real space in a real bucket while the share does not exist yet,
+    /// which is why the sweep has to be able to see it.
+    Complete,
+}
+
+impl SegmentState {
+    /// The spelling stored in the column.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::Open => "open",
+            Self::Complete => "complete",
+        }
+    }
+}
 
 /// A file still arriving, in domain terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +79,13 @@ pub struct Upload {
     /// How much has landed. The answer to a `HEAD`.
     pub offset_bytes: u64,
     /// Decided at creation and never recomputed.
+    ///
+    /// This and the two below are the session's one segment, flattened. The
+    /// database holds a list — `upload_segments` — because a file too large for
+    /// any single backend has to be written to several. Every session has
+    /// exactly one segment today, so the projection loses nothing; when the
+    /// planner starts spreading a file, these three become the list itself and
+    /// this comment is the reminder that they were always a view of it.
     pub object_key: String,
     /// Which backend the parts are going to.
     ///
@@ -69,7 +113,23 @@ impl Upload {
         self.declared_bytes.saturating_sub(self.offset_bytes)
     }
 
-    fn from_model(model: upload::Model) -> Result<Self, CorruptRow> {
+    /// Builds the domain type from the session row and the one segment it has.
+    ///
+    /// A session with no segment is a corrupt row, not an empty upload: the
+    /// segment is where the bytes are going, and a session that has forgotten
+    /// that can neither be continued nor cleaned up.
+    fn from_model(
+        model: upload::Model,
+        segment: Option<upload_segment::Model>,
+    ) -> Result<Self, CorruptRow> {
+        let Some(segment) = segment else {
+            return Err(CorruptRow {
+                id: model.id,
+                source: tessera_core::DomainError::Empty {
+                    field: "upload_segments",
+                },
+            });
+        };
         let fail = |source| CorruptRow {
             id: model.id.clone(),
             source,
@@ -99,13 +159,9 @@ impl Upload {
             content_type: model.content_type,
             declared_bytes: u64::try_from(model.declared_bytes).unwrap_or(0),
             offset_bytes: u64::try_from(model.offset_bytes).unwrap_or(0),
-            object_key: model.object_key,
-            // A session from before this column existed is writing to the one
-            // backend there was.
-            backend: model
-                .backend
-                .unwrap_or_else(|| crate::storage::DEFAULT_BACKEND.to_owned()),
-            multipart_id: model.multipart_id,
+            object_key: segment.object_key,
+            backend: segment.backend,
+            multipart_id: segment.multipart_id,
             expires_at: model.expires_at,
         })
     }
@@ -184,6 +240,7 @@ impl UploadRepository {
         expires_at: OffsetDateTime,
     ) -> Result<Upload, UploadRepositoryError> {
         let id = UploadId::generate();
+        let transaction = self.connection.begin().await?;
         UploadEntity::insert(upload::ActiveModel {
             id: Set(id.to_string()),
             share_id: Set(new.share_id.map(|id| id.to_string())),
@@ -194,15 +251,34 @@ impl UploadRepository {
             content_type: Set(new.content_type.clone()),
             declared_bytes: Set(i64::try_from(new.declared_bytes).unwrap_or(i64::MAX)),
             offset_bytes: Set(0),
-            object_key: Set(new.object_key.clone()),
-            backend: Set(Some(new.backend.clone())),
-            multipart_id: Set(new.multipart_id.clone()),
             created_at: Set(now),
             updated_at: Set(now),
             expires_at: Set(expires_at),
         })
-        .exec(&self.connection)
+        .exec(&transaction)
         .await?;
+
+        // One statement apart from the session, one transaction with it. A
+        // session whose segment did not land could neither be continued nor
+        // swept: nothing would record where its bytes were going.
+        UploadSegmentEntity::insert(upload_segment::ActiveModel {
+            upload_id: Set(id.to_string()),
+            seq: Set(0),
+            backend: Set(new.backend.clone()),
+            object_key: Set(new.object_key.clone()),
+            offset_bytes: Set(0),
+            length_bytes: Set(i64::try_from(new.declared_bytes).unwrap_or(i64::MAX)),
+            multipart_id: Set(new.multipart_id.clone()),
+            // `open`, not `planned`: the destination is committed the moment the
+            // session exists. `planned` is the reservation the planner will make
+            // when it spreads a file, and nothing makes one yet.
+            state: Set(SegmentState::Open.as_str().to_owned()),
+            created_at: Set(now),
+            updated_at: Set(now),
+        })
+        .exec(&transaction)
+        .await?;
+        transaction.commit().await?;
 
         Ok(Upload {
             id,
@@ -231,12 +307,16 @@ impl UploadRepository {
     /// Returns [`UploadRepositoryError`] if the query fails or the row is not
     /// usable.
     pub async fn find(&self, id: UploadId) -> Result<Option<Upload>, UploadRepositoryError> {
-        UploadEntity::find_by_id(id.to_string())
+        let Some(model) = UploadEntity::find_by_id(id.to_string())
             .one(&self.connection)
             .await?
-            .map(Upload::from_model)
-            .transpose()
-            .map_err(Into::into)
+        else {
+            return Ok(None);
+        };
+        let segment = UploadSegmentEntity::find_by_id((model.id.clone(), 0))
+            .one(&self.connection)
+            .await?;
+        Ok(Some(Upload::from_model(model, segment)?))
     }
 
     /// Records bytes that landed, and the parts the store took for them.
@@ -344,14 +424,32 @@ impl UploadRepository {
         now: OffsetDateTime,
         limit: u64,
     ) -> Result<Vec<Upload>, UploadRepositoryError> {
-        UploadEntity::find()
+        let models = UploadEntity::find()
             .filter(upload::Column::ExpiresAt.lte(now))
             .order_by_asc(upload::Column::ExpiresAt)
             .limit(limit)
             .all(&self.connection)
-            .await?
+            .await?;
+        // One query for the whole batch rather than one per session: the sweep
+        // runs on a timer over everything that expired, and a query each would
+        // make its cost the number of abandoned uploads.
+        let ids: Vec<String> = models.iter().map(|model| model.id.clone()).collect();
+        let mut segments: std::collections::HashMap<String, upload_segment::Model> =
+            UploadSegmentEntity::find()
+                .filter(upload_segment::Column::UploadId.is_in(ids))
+                .filter(upload_segment::Column::Seq.eq(0))
+                .all(&self.connection)
+                .await?
+                .into_iter()
+                .map(|segment| (segment.upload_id.clone(), segment))
+                .collect();
+
+        models
             .into_iter()
-            .map(Upload::from_model)
+            .map(|model| {
+                let segment = segments.remove(&model.id);
+                Upload::from_model(model, segment)
+            })
             .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)
     }
@@ -402,9 +500,9 @@ impl UploadRepository {
     ///
     /// Returns [`UploadRepositoryError`] if the query fails.
     pub async fn all_object_keys(&self) -> Result<Vec<String>, UploadRepositoryError> {
-        Ok(UploadEntity::find()
+        Ok(UploadSegmentEntity::find()
             .select_only()
-            .column(upload::Column::ObjectKey)
+            .column(upload_segment::Column::ObjectKey)
             .into_tuple()
             .all(&self.connection)
             .await?)

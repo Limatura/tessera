@@ -24,14 +24,10 @@ CREATE TABLE uploads (
     -- How much has landed. The answer to a `HEAD`.
     offset_bytes   INTEGER NOT NULL DEFAULT 0,
     -- Decided once, at creation. See above.
-    object_key     TEXT NOT NULL,
-    -- The store's own multipart identifier, for the backends that have one.
-    -- NULL on a local filesystem, which appends to a file instead.
-    multipart_id   TEXT,
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL,
     expires_at     TEXT NOT NULL
-, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, backend TEXT)
+, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
 ```
 
 </details>
@@ -40,7 +36,7 @@ CREATE TABLE uploads (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [upload_parts](upload_parts.md) |  |  |
+| id | TEXT |  | false | [upload_parts](upload_parts.md) [upload_segments](upload_segments.md) |  |  |
 | share_id | TEXT |  | true |  | [shares](shares.md) |  |
 | user_id | TEXT |  | true |  | [users](users.md) |  |
 | token_hash | TEXT |  | false |  |  |  |
@@ -48,13 +44,10 @@ CREATE TABLE uploads (
 | content_type | TEXT |  | true |  |  |  |
 | declared_bytes | INTEGER |  | false |  |  |  |
 | offset_bytes | INTEGER | 0 | false |  |  |  |
-| object_key | TEXT |  | false |  |  |  |
-| multipart_id | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
 | expires_at | TEXT |  | false |  |  |  |
 | role_id | TEXT |  | true |  | [roles](roles.md) |  |
-| backend | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -80,6 +73,7 @@ CREATE TABLE uploads (
 erDiagram
 
 "upload_parts" |o--|| "uploads" : ""
+"upload_segments" |o--|| "uploads" : ""
 "uploads" }o--o| "shares" : ""
 "uploads" }o--o| "users" : ""
 "uploads" }o--o| "roles" : ""
@@ -93,18 +87,27 @@ erDiagram
   TEXT content_type
   INTEGER declared_bytes
   INTEGER offset_bytes
-  TEXT object_key
-  TEXT multipart_id
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
-  TEXT backend
 }
 "upload_parts" {
   TEXT upload_id PK
   INTEGER part_number PK
   TEXT content_id
+}
+"upload_segments" {
+  TEXT upload_id PK
+  INTEGER seq PK
+  TEXT backend
+  TEXT object_key
+  INTEGER offset_bytes
+  INTEGER length_bytes
+  TEXT multipart_id
+  TEXT state
+  TEXT created_at
+  TEXT updated_at
 }
 "shares" {
   TEXT id PK

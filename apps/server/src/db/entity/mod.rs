@@ -27,4 +27,5 @@ pub mod storage_backend;
 pub mod text_share;
 pub mod upload;
 pub mod upload_part;
+pub mod upload_segment;
 pub mod user;

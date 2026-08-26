@@ -18,12 +18,13 @@
 | [roles](roles.md) | 8 | 一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。 | table |
 | [role_permissions](role_permissions.md) | 2 | 角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。 | table |
 | [api_token_permissions](api_token_permissions.md) | 2 | 一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。 | table |
-| [uploads](uploads.md) | 15 | 還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。 | table |
+| [uploads](uploads.md) | 12 | 還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。 | table |
 | [upload_parts](upload_parts.md) | 3 | 分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。 | table |
 | [access_events](access_events.md) | 5 | 誰在什麼時候取走了哪一份分享。預設不寫——計數器是一個整數,不會透露誰去過哪裡;這裡的一列是位址加瀏覽器字串,關於一個拿到連結、什麼都沒答應過的人。匿名是有人選這套軟體的理由之一,所以把它關掉是操作者的決定,不是預設值幫他做的。開了要在頁面上講,被記錄的人是最後一個知道的。ip_address 可以是 NULL——前面掛著不受信任的 proxy 時,看得到的位址是 proxy 的,記下去等於記錯人。 | table |
 | [settings](settings.md) | 3 | 從後台改過的設定,一列一個。載入順序是 預設 → 設定檔 → 環境變數 → 這裡,這裡贏——因為它是唯一一層有人在這台機器上刻意改過的,其他都跟著部署來(image 自己就設了六個環境變數)。只放能熱改的東西:socket 已經 bind 的、pool 已經建好的(而且讀這張表需要它)、log subscriber 開機裝一次的,都不在這裡,那些走環境變數。所以後台永遠不用說「存好了請重啟」。機密也不放,會明文躺在這裡而且會被 API 回出去。欄位叫 name 不叫 key,因為 key 是 MySQL 保留字。 | table |
 | [file_segments](file_segments.md) | 7 |  | table |
 | [storage_backends](storage_backends.md) | 8 |  | table |
+| [upload_segments](upload_segments.md) | 10 |  | table |
 
 ## Relations
 
@@ -48,6 +49,7 @@ erDiagram
 "upload_parts" |o--|| "uploads" : ""
 "access_events" }o--|| "shares" : ""
 "file_segments" |o--|| "file_shares" : ""
+"upload_segments" |o--|| "uploads" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -190,13 +192,10 @@ erDiagram
   TEXT content_type
   INTEGER declared_bytes
   INTEGER offset_bytes
-  TEXT object_key
-  TEXT multipart_id
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
-  TEXT backend
 }
 "upload_parts" {
   TEXT upload_id PK
@@ -233,6 +232,18 @@ erDiagram
   TEXT updated_at
   INTEGER capacity_bytes
   INTEGER read_only
+}
+"upload_segments" {
+  TEXT upload_id PK
+  INTEGER seq PK
+  TEXT backend
+  TEXT object_key
+  INTEGER offset_bytes
+  INTEGER length_bytes
+  TEXT multipart_id
+  TEXT state
+  TEXT created_at
+  TEXT updated_at
 }
 ```
 

@@ -59,6 +59,7 @@ mod m20260829_000001_file_segments;
 mod m20260830_000001_storage_backends;
 mod m20260901_000001_backend_capacity;
 mod m20260902_000001_upload_backend;
+mod m20260903_000001_upload_segments;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -107,6 +108,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260830_000001_storage_backends::Migration),
             Box::new(m20260901_000001_backend_capacity::Migration),
             Box::new(m20260902_000001_upload_backend::Migration),
+            Box::new(m20260903_000001_upload_segments::Migration),
         ]
     }
 }
@@ -282,7 +284,7 @@ mod tests {
     /// Every migration, with its three dialect files. Adding a migration means
     /// adding a line here — deliberately manual, so that forgetting shows up as
     /// a missing entry rather than as silently reduced coverage.
-    const DIALECT_FILES: [(&str, &str, &str, &str); 6] = [
+    const DIALECT_FILES: [(&str, &str, &str, &str); 7] = [
         (
             "m20260808_000001_initial",
             m20260808_000001_initial::SQLITE,
@@ -319,7 +321,46 @@ mod tests {
             m20260810_000002_share_tickets::POSTGRES,
             m20260810_000002_share_tickets::MYSQL,
         ),
+        (
+            "m20260903_000001_upload_segments",
+            m20260903_000001_upload_segments::SQLITE,
+            m20260903_000001_upload_segments::POSTGRES,
+            m20260903_000001_upload_segments::MYSQL,
+        ),
     ];
+
+    /// `scripts/schema-docs.py` builds the database it documents by replaying
+    /// every `sql/*.sqlite.sql` in name order. A rollback left in that directory
+    /// sorts *after* the migration it undoes — `.` before `_` — so the generated
+    /// schema comes out rolled back, and the `checks` job is happy because the
+    /// files match what the script produced. Nothing else would catch it.
+    ///
+    /// Rollbacks therefore live in `sql/down/`, and this is what says so.
+    #[test]
+    fn no_rollback_sits_where_the_schema_docs_replay_from() {
+        let directory =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/db/migration/sql");
+        let mut misplaced = Vec::new();
+        for entry in std::fs::read_dir(&directory).expect("the migration sql directory") {
+            let path = entry.expect("a directory entry").path();
+            if !path.is_file() {
+                continue;
+            }
+            let name = path
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .unwrap_or_default()
+                .to_owned();
+            if name.contains("down") {
+                misplaced.push(name);
+            }
+        }
+        assert!(
+            misplaced.is_empty(),
+            "rollbacks belong in sql/down/, or the generated schema documents the \
+             rolled-back database: {misplaced:?}"
+        );
+    }
 
     /// Hand-writing one file per dialect buys readable SQL and risks updating one
     /// and forgetting the rest. This is the cheap half of the guard against that;

@@ -154,13 +154,10 @@ erDiagram
   TEXT content_type
   INTEGER declared_bytes
   INTEGER offset_bytes
-  TEXT object_key
-  TEXT multipart_id
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
-  TEXT backend
 }
 "roles" {
   TEXT id PK
