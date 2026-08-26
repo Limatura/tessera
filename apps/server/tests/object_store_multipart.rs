@@ -247,3 +247,40 @@ async fn a_chunk_below_the_part_size_is_refused_rather_than_ignored() {
         "the refusal does not say how much was needed"
     );
 }
+
+/// A range out of the middle of an object that was written in parts.
+///
+/// Moved here from the other binary, where it did not belong: 20 MiB takes the
+/// multipart path, so a store without multipart fails this on the upload and
+/// never reaches the range at all. The small-object half of this check stays
+/// over there, where every backend can run it.
+#[tokio::test]
+#[ignore = "needs an object store that can hold a multipart upload open; see the module docs"]
+async fn a_range_request_reads_across_a_part_boundary() {
+    let app = app().await;
+    let sent: Vec<u8> = (0..20 * 1024 * 1024_u32)
+        .map(|i| u8::try_from(i % 251).unwrap_or(0))
+        .collect();
+    let (code, _) = upload(&app, "ranged.bin", sent.clone()).await;
+
+    // Well past the first part boundary, so this cannot be served by whatever
+    // the first `put_part` happened to leave behind.
+    let (from, to) = (9_000_000_usize, 9_000_255_usize);
+    let response = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download"))
+                .header("range", format!("bytes={from}-{to}")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::PARTIAL_CONTENT,
+    )
+    .await;
+
+    let got = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert_eq!(got.as_ref(), &sent[from..=to]);
+}

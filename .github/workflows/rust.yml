@@ -337,7 +337,7 @@ jobs:
           # High and unusual on purpose: 9000 and 10000 are the defaults these
           # images ship with, and they are exactly the ports something else on a
           # shared machine is likely to already hold.
-          for port in 3900 39002 31000; do
+          for port in 3900 39002 31000 38080; do
             if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
               echo "::error::port $port is already in use on this runner"
               exit 1
@@ -468,6 +468,33 @@ jobs:
             [ "$code" = 201 ] || { echo "::error::could not create container $name"; exit 1; }
           done
 
+      # WebDAV, the one backend here that is not object storage at all. It has
+      # no multipart, which is the whole reason `object_store_multipart` is its
+      # own binary — this is the first store that proves the split does
+      # something rather than just tidying tests into two files.
+      #
+      # `rclone serve webdav` with no `--user`, because a URL cannot carry
+      # credentials: `reqwest` rejects `http://user:pass@host` outright with
+      # `BadScheme`. Basic auth would have to arrive as options, which is a
+      # separate thing to build and not what this job is checking.
+      - name: Start a WebDAV server
+        run: |
+          docker run -d --name tessera-webdav -p 38080:8080 \
+            rclone/rclone:1.75.0 serve webdav /data --addr :8080
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38080/ && break
+            sleep 1
+          done
+          # WebDAV does not create parent collections on PUT, so the two the
+          # suite writes into have to exist first. MKCOL is the whole protocol
+          # here — no client needed.
+          for name in tessera tessera-cold; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X MKCOL \
+              "http://127.0.0.1:38080/$name")
+            echo "collection $name: $code"
+            [ "$code" = 201 ] || { echo "::error::could not create $name"; exit 1; }
+          done
+
       - name: Run the object store suite
         env:
           TESSERA_TEST_STORAGE_URL: s3://tessera
@@ -516,6 +543,35 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
 
+      # Only the first binary: WebDAV has no multipart, and the other binary is
+      # exactly the tests that need one.
+      #
+      # `allow_http` has to come through the config rather than the environment.
+      # `is_backend_option` asks the S3, GCS and Azure key sets whether a name is
+      # a real option, and the HTTP store's keys are in none of them — so a
+      # WebDAV backend is configurable through the config file and the admin API
+      # and nowhere else.
+      - name: Run the object store suite against WebDAV
+        env:
+          TESSERA_TEST_STORAGE_URL: http://127.0.0.1:38080/tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: http://127.0.0.1:38080/tessera-cold
+          TESSERA_TEST_STORAGE_OPTIONS: allow_http=true
+        run: |
+          # One at a time, and not to be tidy. WebDAV has no "create the parents
+          # for me" on `PUT`: `object_store` reacts to the `409` by walking up
+          # with MKCOL and retrying the write exactly once. Concurrent first
+          # writes into a fresh backend therefore race — several uploads each
+          # try to create `shares/YYYY/MM`, and the one whose retry lands while
+          # a sibling's MKCOL is still in flight has no second retry left and
+          # fails. Measured: run in parallel this suite is reliably flaky, and
+          # the runner saw three of four tests fail then pass.
+          #
+          # This is worth writing down rather than papering over, because it is
+          # not a property of the tests: a real WebDAV backend, on its first
+          # burst of uploads, can return 500 for the same reason.
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all --test-threads 1 -E 'binary(object_store)'
+
       # The one thing no emulator can check: whether the rules we encode about
       # real providers are the rules they actually have. `config.rs` says
       # Cloudflare R2 requires every part but the last to be the same size —
@@ -550,7 +606,7 @@ jobs:
       # outlives it and the next run finds the name and the port taken.
       - name: Stop the stores
         if: always()
-        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite 2>/dev/null || true
+        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav 2>/dev/null || true
 
   workflows:
     name: workflow lint

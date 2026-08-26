@@ -70,17 +70,51 @@
 //!   cargo nextest run --run-ignored all -E 'binary(object_store)'
 //! ```
 //!
+//! WebDAV runs without credentials, because a URL cannot carry them: `reqwest`
+//! rejects `http://user:pass@host` outright with `BadScheme`. Basic auth would
+//! have to arrive as options, which nothing here builds yet.
+//!
+//! Two things are easy to lose an afternoon to. Plain HTTP needs
+//! `allow_http=true`, the same thing `AWS_ALLOW_HTTP` says for S3, and it cannot
+//! come from the environment: `is_backend_option` asks the S3, GCS and Azure key
+//! sets whether a name is a real option, and the HTTP store's keys are in none
+//! of them — so a WebDAV backend is configurable through the config file and the
+//! admin API and nowhere else. And WebDAV does not create parent collections on
+//! `PUT`, so the collections the suite writes into have to exist first or every
+//! upload comes back `409`.
+//!
+//! For the same reason this suite runs `--test-threads 1` against WebDAV.
+//! `object_store` answers a `409` by walking up with MKCOL and retrying the
+//! write once; concurrent first writes into a fresh backend race to create
+//! `shares/YYYY/MM`, and an upload whose single retry lands while a sibling's
+//! MKCOL is still in flight has nothing left to try. That is a property of the
+//! backend rather than of these tests — a real WebDAV store can return `500` on
+//! its first burst of uploads for exactly this reason.
+//!
+//! ```text
+//! docker run -d --name webdav -p 38080:8080 \
+//!   rclone/rclone:1.75.0 serve webdav /data --addr :8080
+//! curl -X MKCOL http://127.0.0.1:38080/tessera
+//! curl -X MKCOL http://127.0.0.1:38080/tessera-cold
+//!
+//! TESSERA_TEST_STORAGE_URL=http://127.0.0.1:38080/tessera \
+//! TESSERA_TEST_STORAGE_URL_SECOND=http://127.0.0.1:38080/tessera-cold \
+//! TESSERA_TEST_STORAGE_OPTIONS=allow_http=true \
+//!   cargo nextest run --run-ignored all -E 'binary(object_store)'
+//! ```
+//!
 //! # Which stores this runs against
 //!
-//! Garage, `RustFS` and Azurite in CI. Two S3 implementations, because Garage is
-//! deliberately permissive — see below — and a single implementation is a single
-//! opinion about what S3 means. `RustFS` is stricter, and it is what the
-//! self-hosting audience moved to after MinIO's repository was archived. Azurite
-//! is there because Azure is a different wire format, not a stricter reading of
-//! the same one.
+//! Garage, `RustFS`, Azurite and a WebDAV server in CI. Two S3 implementations,
+//! because Garage is deliberately permissive — see below — and a single
+//! implementation is a single opinion about what S3 means. `RustFS` is stricter,
+//! and it is what the self-hosting audience moved to after MinIO's repository
+//! was archived. Azurite is there because Azure is a different wire format, not
+//! a stricter reading of the same one. WebDAV is not object storage at all: it
+//! has no multipart, so it runs this binary only, which is what
+//! `object_store_multipart` being separate is for.
 //!
-//! Two others were tried and are not here, each for a measured reason rather
-//! than a guess:
+//! One was tried and is not here:
 //!
 //! - **fake-gcs-server** does not implement the GCS *XML* API for writes, which is the one
 //!   `object_store` uses — its `put` goes to `{base}/{bucket}/{path}` with the object's name in the
@@ -90,10 +124,6 @@
 //!   `name is required for simple uploads`. The two disagree about where an object's name goes, so
 //!   nothing configurable brings them together. `fsouza/fake-gcs-server#852` records the multipart
 //!   half of the same gap.
-//! - **WebDAV** has no multipart, which is what `object_store_multipart` being its own binary now
-//!   solves — but it also needs credentials that are not in the URL, because `reqwest` refuses a
-//!   `http://user:pass@` address outright (`BadScheme`). Joining takes an unauthenticated server or
-//!   an options path for basic auth.
 //!
 //! # Real providers
 //!
@@ -135,9 +165,36 @@ fn storage_url() -> String {
     std::env::var("TESSERA_TEST_STORAGE_URL").unwrap_or_else(|_| DEFAULT_URL.to_owned())
 }
 
+/// Options for the store under test, as `key=value` pairs separated by commas.
+///
+/// Plain HTTP needs `allow_http=true` — the same thing `AWS_ALLOW_HTTP` says for
+/// S3 — and no environment variable can carry it, because `is_backend_option`
+/// asks only the S3, GCS and Azure key sets whether a name is a real option. So
+/// a WebDAV backend is configurable through the config file and the admin API
+/// and nowhere else, and this is how the suite reaches the same place.
+fn storage_options() -> std::collections::BTreeMap<String, String> {
+    let Ok(raw) = std::env::var("TESSERA_TEST_STORAGE_OPTIONS") else {
+        return std::collections::BTreeMap::new();
+    };
+    raw.split(',')
+        .filter(|pair| !pair.is_empty())
+        .map(|pair| {
+            let (key, value) = pair
+                .split_once('=')
+                .expect("TESSERA_TEST_STORAGE_OPTIONS wants key=value pairs");
+            (key.to_owned(), value.to_owned())
+        })
+        .collect()
+}
+
 async fn app() -> TestApp {
     let url = storage_url();
-    TestApp::with_config(move |config| config.storage.url = url).await
+    let options = storage_options();
+    TestApp::with_config(move |config| {
+        config.storage.url = url;
+        config.storage.options = options;
+    })
+    .await
 }
 
 /// Uploads `bytes` and returns the retrieval code and its management token.
@@ -198,21 +255,21 @@ async fn a_small_file_survives_the_round_trip() {
 
 /// Range requests come from the store, not from a buffer we filled.
 ///
-/// The resume path reads a window out of the middle of an object. Against the
-/// local filesystem that is a seek; against S3 it is a `Range` header the store
-/// has to honour, which is a different thing to get wrong.
+/// Small on purpose: under `share.inline_threshold_bytes` the object goes up in
+/// one `put`, so this stays inside what every backend can do — a store without
+/// multipart still has to honour a `Range`. The multipart binary carries the
+/// same check across a part boundary, which is the harder half and needs a
+/// store that can write one.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn a_range_request_reads_from_the_middle_of_an_object() {
     let app = app().await;
-    let sent: Vec<u8> = (0..20 * 1024 * 1024_u32)
+    let sent: Vec<u8> = (0..32 * 1024_u32)
         .map(|i| u8::try_from(i % 251).unwrap_or(0))
         .collect();
     let (code, _) = upload(&app, "ranged.bin", sent.clone()).await;
 
-    // Well past the first part boundary, so this cannot be served by whatever
-    // the first `put_part` happened to leave behind.
-    let (from, to) = (9_000_000_usize, 9_000_255_usize);
+    let (from, to) = (20_000_usize, 20_255_usize);
     let response = expect_status(
         app.send(
             Request::builder()
@@ -328,6 +385,9 @@ async fn a_file_is_read_from_the_bucket_it_names() {
     // the reader is ignoring the name.
     let elsewhere = tessera_server::storage::build(&tessera_server::config::StorageConfig {
         url: second,
+        // The same options as the first, for the same reason: a store that
+        // cannot be opened would fail this test's assertion by accident.
+        options: storage_options(),
         ..tessera_server::config::StorageConfig::default()
     })
     .expect("open the second bucket");
