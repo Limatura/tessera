@@ -43,6 +43,13 @@ pub struct Upload {
     pub offset_bytes: u64,
     /// Decided at creation and never recomputed.
     pub object_key: String,
+    /// Which backend the parts are going to.
+    ///
+    /// Decided when the session opens and never changed: it is where the bytes
+    /// are going, not a pointer to whatever the configuration says now. Moving
+    /// the default elsewhere mid-upload must not strand the parts already
+    /// written.
+    pub backend: String,
     /// The store's own multipart identifier, or `None` on a local filesystem.
     pub multipart_id: Option<String>,
     /// When the sweep may remove it.
@@ -93,6 +100,11 @@ impl Upload {
             declared_bytes: u64::try_from(model.declared_bytes).unwrap_or(0),
             offset_bytes: u64::try_from(model.offset_bytes).unwrap_or(0),
             object_key: model.object_key,
+            // A session from before this column existed is writing to the one
+            // backend there was.
+            backend: model
+                .backend
+                .unwrap_or_else(|| crate::storage::DEFAULT_BACKEND.to_owned()),
             multipart_id: model.multipart_id,
             expires_at: model.expires_at,
         })
@@ -119,6 +131,8 @@ pub struct NewUpload {
     pub declared_bytes: u64,
     /// Where the bytes go. Decided once — see the migration.
     pub object_key: String,
+    /// Which backend they go to. Decided once, for the same reason.
+    pub backend: String,
     /// The store's multipart identifier, when there is one.
     pub multipart_id: Option<String>,
 }
@@ -181,6 +195,7 @@ impl UploadRepository {
             declared_bytes: Set(i64::try_from(new.declared_bytes).unwrap_or(i64::MAX)),
             offset_bytes: Set(0),
             object_key: Set(new.object_key.clone()),
+            backend: Set(Some(new.backend.clone())),
             multipart_id: Set(new.multipart_id.clone()),
             created_at: Set(now),
             updated_at: Set(now),
@@ -200,6 +215,7 @@ impl UploadRepository {
             declared_bytes: new.declared_bytes,
             offset_bytes: 0,
             object_key: new.object_key.clone(),
+            backend: new.backend.clone(),
             multipart_id: new.multipart_id.clone(),
             expires_at,
         })

@@ -160,6 +160,7 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+  TEXT backend
 }
 "roles" {
   TEXT id PK

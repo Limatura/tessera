@@ -29,6 +29,10 @@ pub struct Model {
     pub offset_bytes: i64,
     /// Decided at creation and never recomputed — see the migration.
     pub object_key: String,
+    /// Which configured backend the parts are going to, or `None` for a
+    /// session opened before backends were recorded — which means the one from
+    /// `storage.url`.
+    pub backend: Option<String>,
     /// The store's own multipart identifier, or `None` on a local filesystem.
     pub multipart_id: Option<String>,
     /// When the session was opened.

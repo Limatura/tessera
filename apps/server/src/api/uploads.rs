@@ -213,10 +213,25 @@ pub async fn create(
     // next day wrote somewhere else, and the merge could not find yesterday.
     let key = object_key(ShareId::generate(), now);
 
+    // Placed on the declared length, which a resumable upload always has —
+    // unlike a direct one, where the body may be chunked. So this is the path
+    // that can always choose well.
+    let backend = crate::api::shares::place_resumable(&state, declared).await?;
+    let store = state.backend(&backend).ok_or(Error::Unavailable)?;
     let sink = Sink::open(
-        &state.storage,
-        state.multipart.as_ref().map(|handle| &handle.0),
-        local_root(&state).as_ref(),
+        &store,
+        state
+            .backend_multipart(&backend)
+            .as_ref()
+            .map(|handle| &handle.0),
+        // The local directory only exists for the backend built from
+        // `storage.url`; anywhere else is a remote store, and a remote store
+        // that cannot hold a multipart open cannot hold a resumable upload
+        // either — `Sink::open` says so.
+        (backend == crate::storage::DEFAULT_BACKEND)
+            .then(|| local_root(&state))
+            .flatten()
+            .as_ref(),
         &key,
     )
     .await?;
@@ -240,6 +255,7 @@ pub async fn create(
                 content_type: None,
                 declared_bytes: declared,
                 object_key: key,
+                backend,
                 multipart_id,
             },
             now,
@@ -590,9 +606,19 @@ async fn resolve_target(
 }
 
 /// The sink for a session, or the error a caller should answer with.
+///
+/// `503` rather than `400`: the session is fine and its parts are probably
+/// fine, what is missing is the backend it named — an operator changed the
+/// configuration under an upload that was already open, and they can change it
+/// back. A `400` would tell the client it had done something wrong.
 fn sink_for(state: &AppState, upload: &Upload) -> Result<Sink> {
-    crate::upload::reopen(state, upload)
-        .ok_or_else(|| Error::bad_request("this instance's store cannot continue that upload"))
+    crate::upload::reopen(state, upload).ok_or_else(|| {
+        tracing::error!(
+            backend = upload.backend,
+            "an open upload names a backend that is not configured"
+        );
+        Error::Unavailable
+    })
 }
 
 /// Where partial files live when the store is a local filesystem.
@@ -610,7 +636,11 @@ pub(crate) fn finished_file(upload: &Upload) -> NewFile {
         content_type: upload.content_type.clone(),
         size_bytes: upload.offset_bytes,
         storage: StorageLocation::Object {
-            backend: crate::storage::DEFAULT_BACKEND.to_owned(),
+            // Where the session actually wrote. Reading the configuration here
+            // instead would record the *current* default for a file that went
+            // somewhere else, and the share would stop being deliverable the
+            // moment an operator moved the default.
+            backend: upload.backend.clone(),
             key: upload.object_key.clone(),
         },
     }

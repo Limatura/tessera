@@ -485,3 +485,149 @@ async fn an_anonymous_session_does_not_spend_a_members_quota() {
         .await;
     assert_eq!(mine.status(), StatusCode::CREATED);
 }
+
+/// A resumable upload goes to a backend with room for it, not always the one
+/// from `storage.url`.
+///
+/// Direct uploads were placed and resumable ones were not, so an instance whose
+/// default had filled up refused every resumable upload while other backends
+/// sat empty.
+#[tokio::test]
+async fn a_resumable_upload_is_placed_like_any_other() {
+    use tessera_server::db::repository::storage_backend::StorageBackend;
+
+    let app = TestApp::with_config(|config| config.storage.capacity_bytes = 1024).await;
+    // A multipart view too, the way a real S3-shaped backend has one — without
+    // it this backend could not hold a resumable upload and the placer would be
+    // right to pass it over.
+    // One store behind both views, the way a real backend has one.
+    let memory = std::sync::Arc::new(object_store::memory::InMemory::new());
+    let second: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::<object_store::memory::InMemory>::clone(&memory);
+    let second_multipart = tessera_server::storage::Multipart(memory);
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([
+            (
+                tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                (std::sync::Arc::clone(&app.state.storage), None),
+            ),
+            ("cold".to_owned(), (second, Some(second_multipart))),
+        ]),
+        configured: vec![StorageBackend {
+            name: "cold".to_owned(),
+            url: "memory://".to_owned(),
+            options: std::collections::BTreeMap::new(),
+            is_default: false,
+            capacity_bytes: None,
+            read_only: false,
+        }],
+    });
+
+    // Bigger than the default's 1 KiB, so it has to land on `cold`.
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/uploads?filename=big.bin")
+                    .header("upload-length", "8192"),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+
+    let id = tessera_core::UploadId::parse(created["id"].as_str().expect("an id")).expect("parses");
+    let session = app
+        .state
+        .uploads
+        .find(id)
+        .await
+        .expect("query")
+        .expect("the session");
+    assert_eq!(
+        session.backend, "cold",
+        "opened the session on a backend with no room for it"
+    );
+}
+
+/// A session records where it is writing, so a later request must not send the
+/// next part to whichever backend is current.
+///
+/// The session is opened on a *non-default* backend on purpose: with a local
+/// default, "used the recorded name" and "used whatever was in hand" both end
+/// at the same appending sink, and the test proves nothing. Here the recorded
+/// backend is a remote one, so the two answers differ.
+#[tokio::test]
+async fn a_resumed_session_keeps_writing_where_it_started() {
+    use tessera_server::db::repository::storage_backend::StorageBackend;
+
+    // The default has room for nothing, so the session is placed on `cold`.
+    let app = TestApp::with_config(|config| config.storage.capacity_bytes = 1).await;
+    // One store behind both views, the way a real backend has one.
+    let memory = std::sync::Arc::new(object_store::memory::InMemory::new());
+    let cold: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::<object_store::memory::InMemory>::clone(&memory);
+    let cold_multipart = tessera_server::storage::Multipart(memory);
+    let configured = vec![StorageBackend {
+        name: "cold".to_owned(),
+        url: "memory://".to_owned(),
+        options: std::collections::BTreeMap::new(),
+        is_default: false,
+        capacity_bytes: None,
+        read_only: false,
+    }];
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([
+            (
+                tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                (std::sync::Arc::clone(&app.state.storage), None),
+            ),
+            ("cold".to_owned(), (cold, Some(cold_multipart))),
+        ]),
+        configured: configured.clone(),
+    });
+
+    let (id, token, _) = open(&app, "kept.bin", 4096).await;
+    let session = app
+        .state
+        .uploads
+        .find(tessera_core::UploadId::parse(&id).expect("parses"))
+        .await
+        .expect("query")
+        .expect("the session");
+    assert_eq!(
+        session.backend, "cold",
+        "the fixture did not place it remotely"
+    );
+
+    // `cold` is dropped from the pool. The session still names it, so the write
+    // has to fail rather than land in whatever is current.
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([(
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            (std::sync::Arc::clone(&app.state.storage), None),
+        )]),
+        configured: Vec::new(),
+    });
+
+    let patched = app
+        .send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/uploads/{id}"))
+                .header("upload-offset", "0")
+                .header("content-type", "application/offset+octet-stream")
+                .header("x-upload-token", &token),
+            Body::from(vec![1_u8; 4096]),
+        )
+        .await;
+    assert_eq!(
+        patched.status(),
+        StatusCode::SERVICE_UNAVAILABLE,
+        "wrote a part into a store this session never opened"
+    );
+}

@@ -21,11 +21,22 @@ use crate::{db::repository::upload::Upload, state::AppState};
 /// abort nothing while reporting that it had.
 #[must_use]
 pub fn reopen(state: &AppState, upload: &Upload) -> Option<sink::Sink> {
-    if let (Some(handle), Some(id)) = (&state.multipart, &upload.multipart_id) {
+    // The backend the session recorded, not whichever one new uploads go to.
+    // Reopening against the wrong store aborts nothing while reporting that it
+    // did, and writes the next part where the earlier ones are not.
+    if let (Some(handle), Some(id)) = (
+        state.backend_multipart(&upload.backend),
+        &upload.multipart_id,
+    ) {
         return Some(sink::Sink::Multipart {
             store: std::sync::Arc::clone(&handle.0),
             id: id.clone(),
         });
+    }
+    // The partial file only exists for the backend built from `storage.url` —
+    // that is the only one that can be a local directory.
+    if upload.backend != crate::storage::DEFAULT_BACKEND {
+        return None;
     }
     crate::storage::local_path(&state.config().storage.url).map(|root| sink::Sink::Appending {
         path: std::path::PathBuf::from(root).join(format!("{}.part", upload.object_key)),

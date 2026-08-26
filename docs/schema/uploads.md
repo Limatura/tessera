@@ -31,7 +31,7 @@ CREATE TABLE uploads (
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL,
     expires_at     TEXT NOT NULL
-, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
+, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, backend TEXT)
 ```
 
 </details>
@@ -54,6 +54,7 @@ CREATE TABLE uploads (
 | updated_at | TEXT |  | false |  |  |  |
 | expires_at | TEXT |  | false |  |  |  |
 | role_id | TEXT |  | true |  | [roles](roles.md) |  |
+| backend | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -98,6 +99,7 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+  TEXT backend
 }
 "upload_parts" {
   TEXT upload_id PK

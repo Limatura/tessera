@@ -992,10 +992,40 @@ struct Ceiling {
 /// Deliberately not a `413`: the file is not too big in itself, the pool is too
 /// full to take it, and a smaller one — or the same one later — may well fit.
 pub(crate) async fn place(state: &AppState, size: u64) -> Result<String> {
+    place_where(state, size, |_| true).await
+}
+
+/// The same, restricted to backends that can hold a resumable upload open.
+///
+/// A backend with no multipart view cannot, and neither can one that is not the
+/// default — the partial file the appending sink writes only exists beside the
+/// directory `storage.url` names. Placing a resumable upload on one anyway
+/// answers `400 this instance's store cannot hold a resumable upload` while
+/// another backend was sitting there able to take it.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`] when nothing suitable has room.
+pub(crate) async fn place_resumable(state: &AppState, size: u64) -> Result<String> {
+    place_where(state, size, |name| {
+        state.backend_multipart(name).is_some() || name == crate::storage::DEFAULT_BACKEND
+    })
+    .await
+}
+
+async fn place_where(
+    state: &AppState,
+    size: u64,
+    suitable: impl Fn(&str) -> bool,
+) -> Result<String> {
     let pool = state.backends.load();
     let used = state.shares.bytes_per_backend().await?;
-    let candidates =
-        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used);
+    let candidates: Vec<crate::storage::placement::Candidate> =
+        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used)
+            .into_iter()
+            .filter(|candidate| suitable(&candidate.name))
+            .collect();
+
     crate::storage::placement::choose(&candidates, size)
         .map(|chosen| chosen.name.clone())
         .ok_or(Error::InsufficientStorage(Tier::Instance))
