@@ -438,7 +438,7 @@ jobs:
           AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
         run: |
           cargo nextest run --profile ci --all-features \
-            --run-ignored all -E 'binary(object_store)'
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
 
       # The same suite against the stricter implementation. Separate step so a
       # failure names which store disagreed with us rather than "the object
@@ -455,7 +455,37 @@ jobs:
           AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
         run: |
           cargo nextest run --profile ci --all-features \
-            --run-ignored all -E 'binary(object_store)'
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # The one thing no emulator can check: whether the rules we encode about
+      # real providers are the rules they actually have. `config.rs` says
+      # Cloudflare R2 requires every part but the last to be the same size —
+      # nothing here can confirm that, because no emulator enforces it.
+      #
+      # Gated on a secret so it costs nothing until somebody adds credentials,
+      # and skips rather than fails when they have not. `continue-on-error`
+      # because a provider being down is their outage, not our regression — the
+      # step still goes red in the log, it just does not block a merge.
+      - name: Run the object store suite against a real provider
+        if: vars.STORAGE_PROVIDER_URL != ''
+        continue-on-error: true
+        env:
+          TESSERA_TEST_STORAGE_URL: ${{ vars.STORAGE_PROVIDER_URL }}
+          TESSERA_TEST_STORAGE_URL_SECOND: ${{ vars.STORAGE_PROVIDER_URL_SECOND }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.STORAGE_PROVIDER_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.STORAGE_PROVIDER_SECRET }}
+          AWS_REGION: ${{ vars.STORAGE_PROVIDER_REGION }}
+          AWS_ENDPOINT: ${{ vars.STORAGE_PROVIDER_ENDPOINT }}
+        run: |
+          # Only the first binary unless a second bucket is configured: the
+          # cross-bucket test needs somewhere to point at that is not the first.
+          filter='binary(object_store) + binary(object_store_multipart)'
+          if [ -z "${TESSERA_TEST_STORAGE_URL_SECOND}" ]; then
+            echo "no second bucket configured; skipping the cross-bucket test"
+            filter="${filter} - test(a_file_is_read_from_the_bucket_it_names)"
+          fi
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E "$filter"
 
       # The runner keeps running after the job ends, so a container started here
       # outlives it and the next run finds the name and the port taken.
