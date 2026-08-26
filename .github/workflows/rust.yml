@@ -321,6 +321,29 @@ jobs:
       # `--single-node --default-bucket` creates the key and the bucket from the
       # variables below, which is what makes this nine lines instead of the
       # layout/bucket/key/allow dance. Both flags need v2.3.0 or newer.
+      # Two things this job can check for itself rather than fail mysteriously
+      # on. The disk floor is the same one the image job carries — the runner
+      # went offline once because a PR of ours grew the base image, and this
+      # adds another store's worth of images to the same machine.
+      - name: Check the runner has room and free ports
+        run: |
+          FLOOR_GB=20
+          free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${free_gb} GB free (floor ${FLOOR_GB} GB)"
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "short on room; clearing unused images"
+            timeout 300 docker system prune -a -f || true
+          fi
+          # High and unusual on purpose: 9000 and 10000 are the defaults these
+          # images ship with, and they are exactly the ports something else on a
+          # shared machine is likely to already hold.
+          for port in 3900 39002; do
+            if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
+              echo "::error::port $port is already in use on this runner"
+              exit 1
+            fi
+          done
+
       - name: Start Garage
         run: |
           mkdir -p /tmp/garage
@@ -370,6 +393,31 @@ jobs:
           docker exec tessera-garage /garage bucket allow \
             --read --write --owner tessera-cold --key tesseratest
 
+      # A second S3 implementation, because Garage is deliberately permissive:
+      # `config.rs` records that it enforces neither S3's 5 MiB floor nor R2's
+      # equal-part rule, "which is why the CI job cannot catch a mistake here".
+      # RustFS is stricter, and it is also what the self-hosting audience moved
+      # to after MinIO's repository was archived — so this doubles as a
+      # compatibility statement, the same reason Garage was chosen over MinIO.
+      #
+      # `mc` rather than a hand-rolled signature: RustFS has no `--default-bucket`
+      # equivalent, creating one takes sigv4, and the client that does it is a
+      # 30 MB one-shot container rather than thirty lines of `openssl` in YAML.
+      - name: Start RustFS
+        run: |
+          docker run -d --name tessera-rustfs -p 39002:9000 \
+            -e RUSTFS_ACCESS_KEY=tesseratest \
+            -e RUSTFS_SECRET_KEY=tesseratestsecret \
+            rustfs/rustfs:latest
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:39002 && break
+            sleep 1
+          done
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+            mc alias set t http://127.0.0.1:39002 tesseratest tesseratestsecret &&
+            mc mb --ignore-existing t/tessera &&
+            mc mb --ignore-existing t/tessera-cold'
+
       # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
       # demand an object store; `--run-ignored all` is what opts into them.
       #
@@ -392,11 +440,28 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store)'
 
+      # The same suite against the stricter implementation. Separate step so a
+      # failure names which store disagreed with us rather than "the object
+      # store job".
+      - name: Run the object store suite against RustFS
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:39002
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store)'
+
       # The runner keeps running after the job ends, so a container started here
       # outlives it and the next run finds the name and the port taken.
-      - name: Stop Garage
+      - name: Stop the stores
         if: always()
-        run: docker rm -f tessera-garage 2>/dev/null || true
+        run: docker rm -f tessera-garage tessera-rustfs 2>/dev/null || true
 
   workflows:
     name: workflow lint

@@ -48,6 +48,25 @@
 //!   cargo nextest run --run-ignored all -E 'binary(object_store)'
 //! ```
 //!
+//! # Which stores this runs against
+//!
+//! Garage and `RustFS` in CI. Two, because Garage is deliberately permissive —
+//! see below — and a single implementation is a single opinion about what S3
+//! means. `RustFS` is stricter, and it is what the self-hosting audience moved to
+//! after MinIO's repository was archived.
+//!
+//! Three others were tried and are not here, each for a measured reason rather
+//! than a guess:
+//!
+//! - **fake-gcs-server** does not implement the XML multipart API, so the resumable path cannot run
+//!   against it. `object_store`'s own suite skips the same tests there — see
+//!   `fsouza/fake-gcs-server#852`.
+//! - **Azurite** needs its container created first, and creating one takes an Azure shared-key
+//!   signature. The path that would work is a one-shot `azure-cli` container, which is ~700 MB on a
+//!   runner that has run out of disk before.
+//! - **WebDAV** has no multipart at all — `object_store`'s http store returns `NotImplemented` — so
+//!   the resumable tests would have to be split out by capability before it could join.
+//!
 //! # What this cannot catch
 //!
 //! Garage accepts multipart parts below S3's 5 MiB floor, and does not require
