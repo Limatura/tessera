@@ -3833,7 +3833,7 @@ async fn a_download_reads_from_the_backend_the_file_named() {
     app.state.replace_backends(tessera_server::storage::Pool {
         open: tessera_server::storage::Backends::from([(
             tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            (empty, None),
+            tessera_server::storage::Stores::plain(empty),
         )]),
         configured: Vec::new(),
     });
@@ -4053,9 +4053,12 @@ fn pool_with_second(
         open: tessera_server::storage::Backends::from([
             (
                 tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-                (std::sync::Arc::clone(&app.state.storage), None),
+                tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
             ),
-            (name.to_owned(), (second, None)),
+            (
+                name.to_owned(),
+                tessera_server::storage::Stores::plain(second),
+            ),
         ]),
         configured: vec![StorageBackend {
             name: name.to_owned(),
@@ -4196,4 +4199,53 @@ async fn a_backend_holding_files_cannot_be_removed() {
             .is_err(),
         "removed a backend that still holds somebody's files"
     );
+}
+
+/// A file too large to write in one piece, on a backend that can only be
+/// written in one piece.
+///
+/// The WebDAV backend is the real case: its only upload verb is a whole-body
+/// `PUT`, so `put_multipart` is not implemented and a file past
+/// `share.inline_threshold_bytes` used to reach the store, fail there, and
+/// answer `500` with the body already half read. The placer has to decline
+/// first, and say which of the two things went wrong — this is not "no room",
+/// and adding room would not help.
+#[tokio::test]
+async fn a_streamed_file_is_refused_by_a_backend_that_cannot_take_one() {
+    let app = TestApp::with_config(|config| config.share.inline_threshold_bytes = 8).await;
+
+    // Room to spare, and no way to use it for a file this size.
+    let store: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::new(object_store::memory::InMemory::new());
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([(
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            tessera_server::storage::Stores::whole_body_only(store),
+        )]),
+        configured: Vec::new(),
+    });
+
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=big.bin"),
+            Body::from(vec![7_u8; 4096]),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::PAYLOAD_TOO_LARGE);
+
+    // The same backend still takes what it can write in one go, so this is a
+    // refusal about shape rather than the backend being switched off.
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=small.bin"),
+            Body::from(vec![7_u8; 4]),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
 }

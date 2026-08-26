@@ -61,7 +61,7 @@ pub enum StorageError {
 /// be parsed, or the backend rejects the options — including when the scheme
 /// needs a cargo feature this binary was built without.
 pub fn build(config: &StorageConfig) -> Result<Arc<dyn ObjectStore>, StorageError> {
-    Ok(build_with_multipart(config)?.0)
+    Ok(build_with_multipart(config)?.store)
 }
 
 /// A [`MultipartStore`] handle that can sit in a `Debug` struct.
@@ -71,6 +71,19 @@ pub fn build(config: &StorageConfig) -> Result<Arc<dyn ObjectStore>, StorageErro
 /// — so the wrapper prints its own name and nothing else.
 #[derive(Clone)]
 pub struct Multipart(pub Arc<dyn MultipartStore>);
+
+impl core::fmt::Debug for Stores {
+    /// Names what the store can do rather than what it is: neither trait object
+    /// has anything printable, and the capabilities are the part anyone reading
+    /// a log wants.
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("Stores")
+            .field("multipart", &self.multipart.is_some())
+            .field("put_multipart", &self.put_multipart)
+            // `store` is a trait object with nothing printable behind it.
+            .finish_non_exhaustive()
+    }
+}
 
 impl core::fmt::Debug for Multipart {
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -160,11 +173,54 @@ pub fn build_all(
     Ok((all, default))
 }
 
-/// A store, and the same store seen as a [`MultipartStore`] when it is one.
+/// A store, the same store seen as a [`MultipartStore`] when it is one, and
+/// whether it can be written to a piece at a time.
 ///
-/// `None` on the second means resumable uploads there append to a partial file
+/// `multipart: None` means resumable uploads there append to a partial file
 /// instead — see `upload::sink`.
-pub type Stores = (Arc<dyn ObjectStore>, Option<Multipart>);
+///
+/// The two flags are not the same question, which is why both are here.
+/// `multipart` is about [`MultipartStore`], the *part-level* trait that lets an
+/// upload's identifier outlive the request that opened it. `put_multipart` is
+/// about [`ObjectStoreExt::put_multipart`](object_store::ObjectStoreExt::put_multipart), which
+/// every store here implements except the HTTP/WebDAV one: WebDAV's only upload verb is a
+/// whole-body `PUT`, so a file too large to hold in memory has nowhere to go. `LocalFileSystem`
+/// is the case that shows they differ — no part-level view, but
+/// `put_multipart` works fine.
+#[derive(Clone)]
+pub struct Stores {
+    /// The store itself.
+    pub store: Arc<dyn ObjectStore>,
+    /// Its part-level view, when the scheme has one.
+    pub multipart: Option<Multipart>,
+    /// Whether [`ObjectStoreExt::put_multipart`](object_store::ObjectStoreExt::put_multipart)
+    /// works here. False only for the HTTP/WebDAV store — see the type's own documentation.
+    pub put_multipart: bool,
+}
+
+impl Stores {
+    /// A store with no part-level view whose `put_multipart` works — a local
+    /// directory, and what tests want when they only need somewhere to put
+    /// bytes.
+    #[must_use]
+    pub fn plain(store: Arc<dyn ObjectStore>) -> Self {
+        Self {
+            store,
+            multipart: None,
+            put_multipart: true,
+        }
+    }
+
+    /// A store whose only upload verb is a whole-body write.
+    #[must_use]
+    pub fn whole_body_only(store: Arc<dyn ObjectStore>) -> Self {
+        Self {
+            store,
+            multipart: None,
+            put_multipart: false,
+        }
+    }
+}
 
 /// The name given to the backend built from `storage.url`.
 ///
@@ -197,7 +253,7 @@ pub fn build_with_multipart(config: &StorageConfig) -> Result<Stores, StorageErr
     if let Some(path) = local_path(&config.url) {
         // A local filesystem has no multipart concept to expose. Resumable
         // uploads there append to a partial file instead — see `upload::sink`.
-        return Ok((build_local(&path)?, None));
+        return Ok(Stores::plain(build_local(&path)?));
     }
 
     let url = url::Url::parse(&config.url)
@@ -214,14 +270,36 @@ pub fn build_with_multipart(config: &StorageConfig) -> Result<Stores, StorageErr
     // hands both back. Dropping the second value would silently ignore the
     // prefix — `s3://bucket/tessera` would write to the bucket root, mixed in
     // with whatever else lives there.
-    Ok((
-        if prefix.as_ref().is_empty() {
-            Arc::from(store)
-        } else {
-            Arc::new(object_store::prefix::PrefixStore::new(store, prefix))
-        },
-        None,
-    ))
+    let shared: Arc<dyn ObjectStore> = if prefix.as_ref().is_empty() {
+        Arc::from(store)
+    } else {
+        Arc::new(object_store::prefix::PrefixStore::new(store, prefix))
+    };
+
+    // The one scheme here whose only upload verb is a whole-body `PUT`. Asked
+    // by scheme rather than by trying, because `put_multipart` fails at the
+    // point of use — by then an upload is already half-read and the placer has
+    // already committed to a backend that cannot finish it.
+    //
+    // This is not a limitation of WebDAV, which takes a chunked `PUT` of any
+    // size perfectly happily. `object_store`'s `PutPayload` is an array of
+    // `Bytes` and cannot express a stream, so there is no way to hand it one:
+    // `apache/arrow-rs-object-store#281`, with the work in progress in #817.
+    // When that lands and reaches the HTTP store, this becomes `true` and the
+    // placer stops caring.
+    Ok(if whole_body_only(&url) {
+        Stores::whole_body_only(shared)
+    } else {
+        Stores::plain(shared)
+    })
+}
+
+/// Whether the store for `url` can only be written a whole object at a time.
+///
+/// Separate and pure so the answer is testable without opening anything.
+fn whole_body_only(url: &url::Url) -> bool {
+    object_store::ObjectStoreScheme::parse(url)
+        .is_ok_and(|(scheme, _)| matches!(scheme, object_store::ObjectStoreScheme::Http))
 }
 
 /// Applies the prefix to a store that is both an [`ObjectStore`] and a
@@ -265,7 +343,11 @@ where
     S: ObjectStore + MultipartStore,
 {
     let same = Arc::clone(&shared);
-    (same, Some(Multipart(shared)))
+    Stores {
+        store: same,
+        multipart: Some(Multipart(shared)),
+        put_multipart: true,
+    }
 }
 
 /// Returns the local directory `location` names, or `None` if it names a remote
@@ -495,6 +577,26 @@ pub fn candidates(
 #[cfg(test)]
 mod tests {
     use object_store::{ObjectStoreExt as _, path::Path as ObjectPath};
+
+    /// Which schemes can only be written a whole object at a time.
+    ///
+    /// Pinned here because the answer decides where the placer will send a large
+    /// file, and getting it wrong is not visible until an upload is already
+    /// half read.
+    #[rstest::rstest]
+    #[case::webdav("http://dav.example/share", true)]
+    #[case::webdav_tls("https://dav.example/share", true)]
+    #[case::s3("s3://bucket", false)]
+    #[case::azure("azure://container", false)]
+    #[case::gcs("gs://bucket", false)]
+    #[case::memory("memory://", false)]
+    fn a_scheme_says_whether_it_takes_only_whole_objects(
+        #[case] url: &str,
+        #[case] expected: bool,
+    ) {
+        let parsed = url::Url::parse(url).expect("a url");
+        assert_eq!(whole_body_only(&parsed), expected);
+    }
     use rstest::rstest;
 
     use super::*;

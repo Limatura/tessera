@@ -509,9 +509,16 @@ async fn a_resumable_upload_is_placed_like_any_other() {
         open: tessera_server::storage::Backends::from([
             (
                 tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-                (std::sync::Arc::clone(&app.state.storage), None),
+                tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
             ),
-            ("cold".to_owned(), (second, Some(second_multipart))),
+            (
+                "cold".to_owned(),
+                tessera_server::storage::Stores {
+                    store: second,
+                    multipart: Some(second_multipart),
+                    put_multipart: true,
+                },
+            ),
         ]),
         configured: vec![StorageBackend {
             name: "cold".to_owned(),
@@ -584,9 +591,16 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
         open: tessera_server::storage::Backends::from([
             (
                 tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-                (std::sync::Arc::clone(&app.state.storage), None),
+                tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
             ),
-            ("cold".to_owned(), (cold, Some(cold_multipart))),
+            (
+                "cold".to_owned(),
+                tessera_server::storage::Stores {
+                    store: cold,
+                    multipart: Some(cold_multipart),
+                    put_multipart: true,
+                },
+            ),
         ]),
         configured: configured.clone(),
     });
@@ -609,7 +623,7 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
     app.state.replace_backends(tessera_server::storage::Pool {
         open: tessera_server::storage::Backends::from([(
             tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            (std::sync::Arc::clone(&app.state.storage), None),
+            tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
         )]),
         configured: Vec::new(),
     });

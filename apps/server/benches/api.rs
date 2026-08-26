@@ -57,19 +57,16 @@ fn router_assembly(c: &mut Criterion) {
     let db = runtime
         .block_on(db::connect(&config.database))
         .expect("sqlite pool");
-    let (store, multipart) = storage::build_with_multipart(&config.storage).expect("local store");
+    let default = storage::build_with_multipart(&config.storage).expect("local store");
     let pool = storage::Pool {
-        open: storage::Backends::from([(
-            storage::DEFAULT_BACKEND.to_owned(),
-            (Arc::clone(&store), multipart.clone()),
-        )]),
+        open: storage::Backends::from([(storage::DEFAULT_BACKEND.to_owned(), default.clone())]),
         configured: Vec::new(),
     };
     let state = AppState::new(
         Arc::new(config),
         db,
         tessera_server::state::Storage {
-            default: (store, multipart),
+            default,
             pool,
             sealer: storage::secret::Sealer::new("").expect("no key"),
         },

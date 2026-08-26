@@ -74,6 +74,15 @@
 //! rejects `http://user:pass@host` outright with `BadScheme`. Basic auth would
 //! have to arrive as options, which nothing here builds yet.
 //!
+//! It also only takes files small enough to write in one go. WebDAV's only
+//! upload verb is a whole-body `PUT`, and `object_store`'s `PutPayload` is an
+//! array of `Bytes` that cannot express a stream — so anything past
+//! `share.inline_threshold_bytes` is declined with `413` rather than started and
+//! failed halfway. This is not WebDAV's limit: a chunked `PUT` of any size works
+//! fine against a real server. It is
+//! `apache/arrow-rs-object-store#281`, with the work in progress in #817; when
+//! that lands and reaches the HTTP store, the placer stops declining.
+//!
 //! Two things are easy to lose an afternoon to. Plain HTTP needs
 //! `allow_http=true`, the same thing `AWS_ALLOW_HTTP` says for S3, and it cannot
 //! come from the environment: `is_backend_option` asks the S3, GCS and Azure key
@@ -394,7 +403,7 @@ async fn a_file_is_read_from_the_bucket_it_names() {
     app.state.replace_backends(tessera_server::storage::Pool {
         open: tessera_server::storage::Backends::from([(
             tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            (elsewhere, None),
+            tessera_server::storage::Stores::plain(elsewhere),
         )]),
         configured: Vec::new(),
     });
@@ -404,4 +413,44 @@ async fn a_file_is_read_from_the_bucket_it_names() {
         StatusCode::OK,
         "served bytes from a bucket this file does not name"
     );
+}
+
+/// A file past the inline threshold, against whatever store this run points at.
+///
+/// Two outcomes, and which one is correct is decided by the scheme rather than
+/// by whatever happens: a store that can be written a piece at a time takes it,
+/// and one that cannot has to decline before the body is read. The second is
+/// the case that used to answer `500` from inside the store, halfway through
+/// the upload — see `place_streamed`.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn a_streamed_file_is_taken_or_declined_by_scheme() {
+    let app = app().await;
+    // Past `share.inline_threshold_bytes`, which is 64 KiB by default, so this
+    // takes the streaming path rather than a single buffered `put`.
+    let sent = vec![9_u8; 128 * 1024];
+
+    let response = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=streamed.bin"),
+            Body::from(sent.clone()),
+        )
+        .await;
+
+    // WebDAV's only upload verb is a whole-body `PUT`. Every other scheme here
+    // can be written a piece at a time.
+    if storage_url().starts_with("http") {
+        assert_eq!(
+            response.status(),
+            StatusCode::PAYLOAD_TOO_LARGE,
+            "a store that cannot take a streamed write has to decline it"
+        );
+        return;
+    }
+
+    let created = body_json(expect_status(response, StatusCode::CREATED).await).await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+    assert_eq!(download(&app, &code).await.len(), sent.len());
 }

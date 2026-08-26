@@ -203,7 +203,7 @@ impl AppState {
             .load()
             .open
             .get(name)
-            .map(|stores| Arc::clone(&stores.0))
+            .map(|stores| Arc::clone(&stores.store))
     }
 
     /// The same, as a multipart store when that backend is one.
@@ -217,7 +217,7 @@ impl AppState {
             .load()
             .open
             .get(name)
-            .and_then(|stores| stores.1.clone())
+            .and_then(|stores| stores.multipart.clone())
     }
 
     /// Replaces the set of backends, so one added from the panel or the command
@@ -267,7 +267,12 @@ impl AppState {
         assets: crate::assets::Source,
     ) -> Self {
         let Storage {
-            default: (storage, multipart),
+            default:
+                crate::storage::Stores {
+                    store: storage,
+                    multipart,
+                    ..
+                },
             pool: backends,
             sealer,
         } = storage;

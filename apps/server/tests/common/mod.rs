@@ -97,17 +97,13 @@ impl TestApp {
 
         let db = db::connect(&config.database).await.expect("database pool");
         db::migrate(&db).await.expect("migrations");
-        let (store, multipart) =
-            storage::build_with_multipart(&config.storage).expect("local store");
+        let default = storage::build_with_multipart(&config.storage).expect("local store");
 
         let assets =
             tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets_dir");
         // The one backend the fixture has, under the name every file records.
         let pool = Pool {
-            open: Backends::from([(
-                DEFAULT_BACKEND.to_owned(),
-                (Arc::clone(&store), multipart.clone()),
-            )]),
+            open: Backends::from([(DEFAULT_BACKEND.to_owned(), default.clone())]),
             configured: Vec::new(),
         };
         // Built before the configuration is moved, from the same value `main`
@@ -118,7 +114,7 @@ impl TestApp {
             Arc::new(config),
             db,
             Storage {
-                default: (store, multipart),
+                default,
                 pool,
                 sealer,
             },

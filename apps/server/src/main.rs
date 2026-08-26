@@ -111,7 +111,7 @@ async fn main() -> anyhow::Result<()> {
     // locked.
     let sealer = storage::secret::Sealer::new(&config.storage.secret_key)
         .context("storage.secret_key is not usable")?;
-    let (pool, (store, multipart)) = open_stores(&config, &db, &sealer).await?;
+    let (pool, default) = open_stores(&config, &db, &sealer).await?;
     tracing::info!(backends = pool.open.len(), "storage backends open");
 
     // Before the listener binds, so an instance exposed to the internet never
@@ -136,7 +136,7 @@ async fn main() -> anyhow::Result<()> {
         Arc::clone(&config),
         db.clone(),
         Storage {
-            default: (store, multipart),
+            default,
             pool,
             sealer,
         },

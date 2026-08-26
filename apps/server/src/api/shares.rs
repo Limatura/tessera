@@ -1013,6 +1013,32 @@ pub(crate) async fn place_resumable(state: &AppState, size: u64) -> Result<Strin
     .await
 }
 
+/// The same, restricted to backends that can be written a piece at a time.
+///
+/// A file past `share.inline_threshold_bytes` is streamed out with
+/// `put_multipart` while it is still arriving, so a backend without it cannot
+/// take one however much room it has. Filtering here rather than failing at the
+/// write is the difference between "this file is too large for anywhere we can
+/// put it" and a `500` raised halfway through the body — see
+/// [`Stores::put_multipart`](crate::storage::Stores::put_multipart).
+///
+/// # Errors
+///
+/// [`Error::PayloadTooLarge`] when the only backends with room cannot take a
+/// streamed write, [`Error::InsufficientStorage`] when none had room anyway.
+async fn place_streamed(state: &AppState, size: u64) -> Result<String> {
+    // Loaded once, outside the predicate: asking the `ArcSwap` per candidate
+    // would let a reload land mid-decision and judge two candidates against
+    // two different sets of backends.
+    let pool = state.backends.load();
+    place_where(state, size, |name| {
+        pool.open
+            .get(name)
+            .is_some_and(|stores| stores.put_multipart)
+    })
+    .await
+}
+
 async fn place_where(
     state: &AppState,
     size: u64,
@@ -1020,15 +1046,27 @@ async fn place_where(
 ) -> Result<String> {
     let pool = state.backends.load();
     let used = state.shares.bytes_per_backend().await?;
-    let candidates: Vec<crate::storage::placement::Candidate> =
-        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used)
-            .into_iter()
-            .filter(|candidate| suitable(&candidate.name))
-            .collect();
+    let all =
+        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used);
+    let candidates: Vec<crate::storage::placement::Candidate> = all
+        .iter()
+        .filter(|candidate| suitable(&candidate.name))
+        .cloned()
+        .collect();
 
-    crate::storage::placement::choose(&candidates, size)
-        .map(|chosen| chosen.name.clone())
-        .ok_or(Error::InsufficientStorage(Tier::Instance))
+    if let Some(chosen) = crate::storage::placement::choose(&candidates, size) {
+        return Ok(chosen.name.clone());
+    }
+
+    // Two different failures wear the same shape here, and telling them apart is
+    // the whole point: "every backend is full" is something an operator fixes by
+    // adding room, while "the backends with room cannot take a file written this
+    // way" is not about room at all and adding more of it changes nothing.
+    Err(if crate::storage::placement::choose(&all, size).is_some() {
+        Error::PayloadTooLarge
+    } else {
+        Error::InsufficientStorage(Tier::Instance)
+    })
 }
 
 /// Places the file and opens a multipart upload on the backend chosen.
@@ -1047,7 +1085,7 @@ async fn start_object(
     expected_bytes: Option<u64>,
 ) -> Result<(String, String, Box<dyn MultipartUpload>)> {
     let object_key = object_key(id, now);
-    let chosen = place(state, expected_bytes.unwrap_or(0)).await?;
+    let chosen = place_streamed(state, expected_bytes.unwrap_or(0)).await?;
     let store = state.backend(&chosen).ok_or(Error::Unavailable)?;
     let started = store
         .put_multipart(&ObjectPath::from(object_key.as_str()))
