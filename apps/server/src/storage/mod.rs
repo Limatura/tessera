@@ -98,6 +98,7 @@ impl core::fmt::Debug for Multipart {
 pub mod first_write;
 pub mod placement;
 pub mod secret;
+pub mod split;
 
 /// Every open backend, by the name `file_segments.backend` records.
 ///

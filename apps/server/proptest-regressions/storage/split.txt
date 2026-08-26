@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 112a0fa94fb25a001a71ab5867748b25714c4b0189dc6033763864f8eb9e93f3 # shrinks to pool = [Candidate { name: "a", capacity_bytes: Some(193873371), used_bytes: 0, read_only: false, is_default: false }, Candidate { name: "a", capacity_bytes: Some(50331648), used_bytes: 0, read_only: false, is_default: false }, Candidate { name: "a", capacity_bytes: Some(75497472), used_bytes: 0, read_only: false, is_default: false }], size = 318767105
+cc c1b0c8ac6ef08bd8c7699471e0464eb2bc78daef8190a9f987baf118ca9531b0 # shrinks to pool = [Candidate { name: "a", capacity_bytes: Some(41943040), used_bytes: 0, read_only: false, is_default: false }, Candidate { name: "f", capacity_bytes: Some(251658240), used_bytes: 0, read_only: false, is_default: false }, Candidate { name: "f", capacity_bytes: Some(328386290), used_bytes: 0, read_only: false, is_default: false }], size = 251658241
