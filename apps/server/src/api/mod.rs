@@ -34,6 +34,7 @@
 pub mod admin;
 pub mod archive;
 pub mod auth;
+pub mod backends;
 pub mod capabilities;
 pub mod extract;
 pub mod gate;
@@ -339,6 +340,9 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::list_shares))
         .routes(routes!(admin::delete_share))
         .routes(routes!(admin::share_access_log))
+        .routes(routes!(backends::list, backends::add))
+        .routes(routes!(backends::remove))
+        .routes(routes!(backends::set_default))
         .routes(routes!(settings::list, settings::update))
         .routes(routes!(settings::preview))
         .routes(routes!(admin::remove_user_shares))

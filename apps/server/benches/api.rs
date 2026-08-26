@@ -68,9 +68,11 @@ fn router_assembly(c: &mut Criterion) {
     let state = AppState::new(
         Arc::new(config),
         db,
-        store,
-        multipart,
-        pool,
+        tessera_server::state::Storage {
+            default: (store, multipart),
+            pool,
+            sealer: storage::secret::Sealer::new("").expect("no key"),
+        },
         tessera_server::assets::Source::Embedded,
     );
     state.set_status(ServiceStatus::Ready);

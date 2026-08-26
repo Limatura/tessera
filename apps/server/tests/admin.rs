@@ -2850,3 +2850,224 @@ async fn an_account_quota_survives_a_patch_that_does_not_mention_it() {
     .await;
     assert_eq!(cleared["quota_bytes"], serde_json::Value::Null);
 }
+
+// ── 儲存 backend ──────────────────────────────────────────────────────────
+
+/// Builds an app whose panel can store credentials.
+async fn app_with_key() -> TestApp {
+    TestApp::with_config(|config| config.storage.secret_key = "ab".repeat(32)).await
+}
+
+/// The credentials are the reason this is a table and not a settings row, and
+/// a surface that echoed them back would leave the sealing protecting the
+/// database against everybody except the one request that asks nicely.
+#[tokio::test]
+async fn the_listing_never_sends_a_credential() {
+    let app = app_with_key().await;
+    let (admin, _) = register(&app, "first").await;
+
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&admin),
+            &serde_json::json!({
+                "name": "cold",
+                "url": "memory://",
+                "options": { "aws_region": "garage" },
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let listed = body_string(
+        expect_status(
+            app.empty(
+                Method::GET,
+                "/api/v1/admin/storage/backends",
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert!(listed.contains("cold"), "the backend is not listed at all");
+    assert!(!listed.contains("memory://"), "sent the URL back");
+    assert!(!listed.contains("garage"), "sent the options back");
+}
+
+/// Storing a recoverable credential without a key would do the one thing the
+/// sealing exists to prevent.
+#[tokio::test]
+async fn without_a_key_the_panel_refuses_to_store_one() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let refused = app
+        .json(
+            Method::POST,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "cold", "url": "memory://" }),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::CONFLICT);
+}
+
+/// A typo is something the operator can fix while the form is still in front of
+/// them. Storing it first would surface the failure as somebody's upload going
+/// wrong later.
+#[tokio::test]
+async fn a_backend_that_will_not_open_is_refused_before_it_is_stored() {
+    let app = app_with_key().await;
+    let (admin, _) = register(&app, "first").await;
+
+    let refused = app
+        .json(
+            Method::POST,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "broken", "url": "nonsense://what" }),
+        )
+        .await;
+    assert_eq!(refused.status(), StatusCode::BAD_REQUEST);
+
+    let listed = body_string(
+        expect_status(
+            app.empty(
+                Method::GET,
+                "/api/v1/admin/storage/backends",
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert!(
+        !listed.contains("broken"),
+        "stored a backend that will not open"
+    );
+}
+
+/// The one from `storage.url` has no row, so a stored backend under its name
+/// would be a second definition that the configured one silently wins over.
+#[tokio::test]
+async fn the_environments_backend_cannot_be_written_or_removed() {
+    let app = app_with_key().await;
+    let (admin, _) = register(&app, "first").await;
+
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "default", "url": "memory://" }),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST,
+    );
+    assert_eq!(
+        app.empty(
+            Method::DELETE,
+            "/api/v1/admin/storage/backends/default",
+            Auth::Cookie(&admin),
+        )
+        .await
+        .status(),
+        StatusCode::BAD_REQUEST,
+    );
+}
+
+/// Adding a bucket that needs a restart is the thing this whole feature exists
+/// to stop, so the new one has to be reachable to the next request.
+#[tokio::test]
+async fn a_new_backend_is_usable_without_a_restart() {
+    let app = app_with_key().await;
+    let (admin, _) = register(&app, "first").await;
+    assert!(app.state.backend("cold").is_none());
+
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "cold", "url": "memory://" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    assert!(
+        app.state.backend("cold").is_some(),
+        "the backend was stored but the process cannot reach it"
+    );
+}
+
+/// Reading settings is not writing them, and a backend is a credential.
+#[tokio::test]
+async fn writing_a_backend_needs_more_than_reading_one() {
+    let app = app_with_key().await;
+    let (owner, _) = register(&app, "first").await;
+    let (watcher, _) = register(&app, "second").await;
+
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("second").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let role = app
+        .state
+        .roles
+        .create(
+            RoleFields {
+                name: "reader",
+                description: None,
+                quota_bytes: None,
+                max_file_bytes: None,
+                permissions: &[tessera_core::Permission::SettingsRead]
+                    .into_iter()
+                    .collect(),
+            },
+            OffsetDateTime::now_utc(),
+        )
+        .await
+        .expect("create the role");
+    app.state
+        .roles
+        .set_role_of(user.id, Some(role.id), OffsetDateTime::now_utc())
+        .await
+        .expect("grant it");
+
+    expect_status(
+        app.empty(
+            Method::GET,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&watcher),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&watcher),
+            &serde_json::json!({ "name": "cold", "url": "memory://" }),
+        )
+        .await
+        .status(),
+        StatusCode::FORBIDDEN,
+    );
+    drop(owner);
+}

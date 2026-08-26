@@ -29,9 +29,9 @@ use tessera_server::{
     api,
     config::{Config, DatabaseConfig, StorageConfig},
     db,
-    state::{AppState, ServiceStatus},
+    state::{AppState, ServiceStatus, Storage},
     storage,
-    storage::{Backends, DEFAULT_BACKEND, Pool},
+    storage::{Backends, DEFAULT_BACKEND, Pool, secret::Sealer},
 };
 use tower::ServiceExt as _;
 
@@ -110,7 +110,20 @@ impl TestApp {
             )]),
             configured: Vec::new(),
         };
-        let state = AppState::new(Arc::new(config), db, store, multipart, pool, assets);
+        // Built before the configuration is moved, from the same value `main`
+        // reads — otherwise a test that sets a key gets a fixture that ignores
+        // it.
+        let sealer = Sealer::new(&config.storage.secret_key).expect("a usable key");
+        let state = AppState::new(
+            Arc::new(config),
+            db,
+            Storage {
+                default: (store, multipart),
+                pool,
+                sealer,
+            },
+            assets,
+        );
         state.set_status(status);
 
         Self {

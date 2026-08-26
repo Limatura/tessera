@@ -44,6 +44,21 @@ pub enum ServiceStatus {
     Draining,
 }
 
+/// Everything about where blobs go, as one argument.
+///
+/// The store, its multipart view, the pool and the key that opens the pool's
+/// rows are one subject: a state built with three of them and the fourth from
+/// somewhere else would be a state whose backends and whose key disagree.
+#[derive(Debug, Clone)]
+pub struct Storage {
+    /// Where new content goes when nothing else claims it.
+    pub default: crate::storage::Stores,
+    /// Every backend that opened, and what they were opened from.
+    pub pool: crate::storage::Pool,
+    /// What seals and opens a stored backend's credentials.
+    pub sealer: crate::storage::secret::Sealer,
+}
+
 /// State cloned into every request handler.
 ///
 /// Cheap to clone: everything inside is an `Arc` or an `Arc`-backed pool.
@@ -109,6 +124,11 @@ pub struct AppState {
     /// Reading goes through [`AppState::backend`] instead, because a file
     /// records which backend holds it and that may not be this one any more.
     pub storage: Arc<dyn ObjectStore>,
+    /// The stored backends, and the key that opens them.
+    ///
+    /// Holds the sealer, so the one place that can read a credential is the one
+    /// place that needs to. Nothing above this layer sees the key.
+    pub storage_backends: crate::db::repository::storage_backend::StorageBackendRepository,
     /// Every configured backend, by name.
     ///
     /// An `ArcSwap` because the set is meant to be changeable while the process
@@ -243,11 +263,19 @@ impl AppState {
     pub fn new(
         config: Arc<Config>,
         db: DatabaseConnection,
-        storage: Arc<dyn ObjectStore>,
-        multipart: Option<crate::storage::Multipart>,
-        backends: crate::storage::Pool,
+        storage: Storage,
         assets: crate::assets::Source,
     ) -> Self {
+        let Storage {
+            default: (storage, multipart),
+            pool: backends,
+            sealer,
+        } = storage;
+        let storage_backends =
+            crate::db::repository::storage_backend::StorageBackendRepository::new(
+                db.clone(),
+                sealer,
+            );
         // A relay that will not build is reported and then treated as absent.
         // Refusing to start would take the whole service down over the one
         // feature that exists to be used when something else has already gone
@@ -280,6 +308,7 @@ impl AppState {
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
             config: Arc::new(ArcSwap::from(config)),
             db,
+            storage_backends,
             backends: Arc::new(ArcSwap::from_pointee(backends)),
             storage,
             status: Arc::new(RwLock::new(ServiceStatus::Starting)),

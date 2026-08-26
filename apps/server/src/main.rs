@@ -22,7 +22,7 @@ use tessera_server::{
         role::RoleRepository, storage_backend::StorageBackendRepository, user::UserRepository,
     },
     maintenance,
-    state::{AppState, ServiceStatus},
+    state::{AppState, ServiceStatus, Storage},
     storage, telemetry,
 };
 use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
@@ -104,7 +104,14 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(backend = db::backend_name(&db), "migrations applied");
     }
 
-    let (pool, (store, multipart)) = open_stores(&config, &db).await?;
+    // Built here rather than inside `open_stores` because the state needs it
+    // too: the panel writes backends, and writing one means sealing it.
+    // A key that will not parse is fatal — every stored backend is unreadable
+    // without it, and starting anyway would present them as gone rather than as
+    // locked.
+    let sealer = storage::secret::Sealer::new(&config.storage.secret_key)
+        .context("storage.secret_key is not usable")?;
+    let (pool, (store, multipart)) = open_stores(&config, &db, &sealer).await?;
     tracing::info!(backends = pool.open.len(), "storage backends open");
 
     // Before the listener binds, so an instance exposed to the internet never
@@ -128,9 +135,11 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(
         Arc::clone(&config),
         db.clone(),
-        store,
-        multipart,
-        pool,
+        Storage {
+            default: (store, multipart),
+            pool,
+            sealer,
+        },
         assets,
     );
     let app = api::build(state.clone());
@@ -367,11 +376,10 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
 async fn open_stores(
     config: &Config,
     db: &sea_orm::DatabaseConnection,
+    sealer: &storage::secret::Sealer,
 ) -> anyhow::Result<(storage::Pool, storage::Stores)> {
-    let sealer = storage::secret::Sealer::new(&config.storage.secret_key)
-        .context("storage.secret_key is not usable")?;
     let stored = if sealer.is_set() {
-        StorageBackendRepository::new(db.clone(), sealer)
+        StorageBackendRepository::new(db.clone(), sealer.clone())
             .all()
             .await
             .context("could not read the configured storage backends")?
