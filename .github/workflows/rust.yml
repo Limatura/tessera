@@ -337,7 +337,7 @@ jobs:
           # High and unusual on purpose: 9000 and 10000 are the defaults these
           # images ship with, and they are exactly the ports something else on a
           # shared machine is likely to already hold.
-          for port in 3900 39002; do
+          for port in 3900 39002 31000; do
             if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
               echo "::error::port $port is already in use on this runner"
               exit 1
@@ -426,6 +426,48 @@ jobs:
       # repository knows these names, which is why they are also the answer an
       # operator needs, and why this job doubles as the source for that
       # documentation.
+      # Azure, because it is the second backend people actually name and
+      # nothing here had ever spoken its protocol. Azurite is the only emulator
+      # for it, and it needs its containers created first — which is a Shared
+      # Key signature, not a request you can just curl. Signing it here rather
+      # than pulling `azure-cli` keeps a ~700 MB image off a runner that has run
+      # out of disk before; the whole thing is `openssl dgst`.
+      #
+      # `LC_ALL=C` is not decoration. `date` obeys the runner's locale, and a
+      # localised day name goes into the string that gets signed — the signature
+      # then fails to match and the store answers 403 with no hint why.
+      - name: Start Azurite
+        run: |
+          docker run -d --name tessera-azurite -p 31000:10000 \
+            mcr.microsoft.com/azure-storage/azurite:3.36.0 \
+            azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:31000/devstoreaccount1 && break
+            sleep 1
+          done
+          # The account and key every Azurite ships with; they are in its README,
+          # not a secret.
+          acc=devstoreaccount1
+          key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='
+          ver=2021-08-06
+          # `od` rather than `xxd`: the runner has no `xxd`, and an empty hex key
+          # does not fail here — it reaches the store and comes back as a bare
+          # `403`, which says nothing about where it went wrong.
+          hexkey=$(printf '%s' "$key" | openssl base64 -d -A | od -An -v -tx1 | tr -d ' \n')
+          [ -n "$hexkey" ] || { echo "::error::could not decode the Azurite key"; exit 1; }
+          for name in tessera tessera-cold; do
+            d=$(LC_ALL=C TZ=GMT date '+%a, %d %b %Y %H:%M:%S GMT')
+            sts="PUT\n\n\n\n\n\n\n\n\n\n\n\nx-ms-date:$d\nx-ms-version:$ver\n/$acc/$acc/$name\nrestype:container"
+            sig=$(printf '%b' "$sts" | openssl dgst -sha256 -mac HMAC \
+              -macopt "hexkey:$hexkey" -binary | openssl base64 -A)
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+              "http://127.0.0.1:31000/$acc/$name?restype=container" \
+              -H "x-ms-date: $d" -H "x-ms-version: $ver" \
+              -H "Authorization: SharedKey $acc:$sig")
+            echo "container $name: $code"
+            [ "$code" = 201 ] || { echo "::error::could not create container $name"; exit 1; }
+          done
+
       - name: Run the object store suite
         env:
           TESSERA_TEST_STORAGE_URL: s3://tessera
@@ -453,6 +495,23 @@ jobs:
           AWS_ENDPOINT: http://127.0.0.1:39002
           AWS_ALLOW_HTTP: "true"
           AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # The same suite again over Azure's protocol rather than S3's. Same
+      # reason as RustFS: one implementation is one opinion, and this one is a
+      # different wire format entirely.
+      - name: Run the object store suite against Azurite
+        env:
+          TESSERA_TEST_STORAGE_URL: azure://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: azure://tessera-cold
+          AZURE_STORAGE_ACCOUNT_NAME: devstoreaccount1
+          AZURE_STORAGE_ACCOUNT_KEY: Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+          # The account goes in the path: Azurite serves one account off one
+          # port, where the real service gives each its own host name.
+          AZURE_STORAGE_ENDPOINT: http://127.0.0.1:31000/devstoreaccount1
+          AZURE_ALLOW_HTTP: "true"
         run: |
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
@@ -491,7 +550,7 @@ jobs:
       # outlives it and the next run finds the name and the port taken.
       - name: Stop the stores
         if: always()
-        run: docker rm -f tessera-garage tessera-rustfs 2>/dev/null || true
+        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite 2>/dev/null || true
 
   workflows:
     name: workflow lint

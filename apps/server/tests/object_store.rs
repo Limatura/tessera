@@ -48,14 +48,38 @@
 //!   cargo nextest run --run-ignored all -E 'binary(object_store)'
 //! ```
 //!
+//! Azure goes through Azurite, whose account and key are fixed and published.
+//! Its containers have to exist first, and creating one is a Shared Key
+//! signature rather than a plain request — `.github/workflows/rust.yml` signs it
+//! with `openssl` so no Azure client has to be installed. One trap worth
+//! knowing: `date` obeys the locale, and a localised day name inside the signed
+//! string produces a `403` with nothing in the body saying why, so that command
+//! runs under `LC_ALL=C`.
+//!
+//! ```text
+//! docker run -d --name azurite -p 31000:10000 \
+//!   mcr.microsoft.com/azure-storage/azurite:3.36.0 \
+//!   azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+//!
+//! AZURE_STORAGE_ACCOUNT_NAME=devstoreaccount1 \
+//! AZURE_STORAGE_ACCOUNT_KEY=Eby8vdM0...soGMGw== \
+//! AZURE_STORAGE_ENDPOINT=http://127.0.0.1:31000/devstoreaccount1 \
+//! AZURE_ALLOW_HTTP=true \
+//! TESSERA_TEST_STORAGE_URL=azure://tessera \
+//! TESSERA_TEST_STORAGE_URL_SECOND=azure://tessera-cold \
+//!   cargo nextest run --run-ignored all -E 'binary(object_store)'
+//! ```
+//!
 //! # Which stores this runs against
 //!
-//! Garage and `RustFS` in CI. Two, because Garage is deliberately permissive —
-//! see below — and a single implementation is a single opinion about what S3
-//! means. `RustFS` is stricter, and it is what the self-hosting audience moved to
-//! after MinIO's repository was archived.
+//! Garage, `RustFS` and Azurite in CI. Two S3 implementations, because Garage is
+//! deliberately permissive — see below — and a single implementation is a single
+//! opinion about what S3 means. `RustFS` is stricter, and it is what the
+//! self-hosting audience moved to after MinIO's repository was archived. Azurite
+//! is there because Azure is a different wire format, not a stricter reading of
+//! the same one.
 //!
-//! Three others were tried and are not here, each for a measured reason rather
+//! Two others were tried and are not here, each for a measured reason rather
 //! than a guess:
 //!
 //! - **fake-gcs-server** does not implement the GCS *XML* API for writes, which is the one
@@ -66,9 +90,6 @@
 //!   `name is required for simple uploads`. The two disagree about where an object's name goes, so
 //!   nothing configurable brings them together. `fsouza/fake-gcs-server#852` records the multipart
 //!   half of the same gap.
-//! - **Azurite** needs its container created first, and creating one takes an Azure shared-key
-//!   signature. The path that would work is a one-shot `azure-cli` container, which is ~700 MB on a
-//!   runner that has run out of disk before.
 //! - **WebDAV** has no multipart, which is what `object_store_multipart` being its own binary now
 //!   solves — but it also needs credentials that are not in the URL, because `reqwest` refuses a
 //!   `http://user:pass@` address outright (`BadScheme`). Joining takes an unauthenticated server or
