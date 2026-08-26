@@ -1386,12 +1386,7 @@ async fn ingest_into(
             // knows how much there is.
             let backend = place(state, size_bytes).await?;
             let store = state.backend(&backend).ok_or(Error::Unavailable)?;
-            store
-                .put(
-                    &ObjectPath::from(object_key.as_str()),
-                    PutPayload::from(buffered),
-                )
-                .await?;
+            put_whole(state, &store, &backend, &object_key, buffered).await?;
             Ok(Ingested {
                 storage: StorageLocation::Object {
                     backend,
@@ -1476,6 +1471,40 @@ async fn flush_full_parts(
 /// a ULID starts with a timestamp, so those characters are almost the same for
 /// everything written in the same era. Dates are also what an operator wants to
 /// see when deciding what to back up or what is old.
+/// Writes a whole object, holding back the write that creates its location.
+///
+/// WebDAV answers a write into a directory that does not exist with `409`, and
+/// `object_store` retries after MKCOL exactly once — not enough when several
+/// uploads are creating the same month at the same moment. Everything after the
+/// first takes no lock, so this costs one serialised write per backend per
+/// month and nothing else. See
+/// [`FirstWrites`](crate::storage::first_write::FirstWrites).
+///
+/// The streamed path needs no equivalent: it opens a multipart upload, and the
+/// only store here with directories cannot do that at all — `place_streamed`
+/// keeps it away from that path entirely.
+///
+/// # Errors
+///
+/// Whatever the store answers.
+async fn put_whole(
+    state: &AppState,
+    store: &std::sync::Arc<dyn object_store::ObjectStore>,
+    backend: &str,
+    object_key: &str,
+    bytes: Vec<u8>,
+) -> Result<()> {
+    state
+        .first_writes
+        .once(
+            backend,
+            crate::storage::first_write::location_of(object_key),
+            store.put(&ObjectPath::from(object_key), PutPayload::from(bytes)),
+        )
+        .await?;
+    Ok(())
+}
+
 pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
     format!(
         "shares/{:04}/{:02}/{id}",

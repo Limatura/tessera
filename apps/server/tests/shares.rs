@@ -4249,3 +4249,43 @@ async fn a_streamed_file_is_refused_by_a_backend_that_cannot_take_one() {
     )
     .await;
 }
+
+/// Uploads arriving together go through the gate that keeps the first write
+/// into a new location alone.
+///
+/// The failure this guards is not visible on an object store, which has no
+/// directories: it is WebDAV, where a write into a directory that does not
+/// exist answers `409` and `object_store` retries after MKCOL exactly once —
+/// not enough when several uploads are creating the same month at the same
+/// moment. Measured as reliably flaky against `rclone serve webdav`.
+///
+/// What this checks is the wiring: that the write goes through
+/// `FirstWrites::once` at all. That `once` serialises is its own unit test, and
+/// the two together are the whole claim — an end-to-end version cannot be
+/// written here because `nextest` gives every test its own process, so the
+/// in-process gate never sees the sibling it exists to wait for.
+#[tokio::test]
+async fn concurrent_uploads_go_through_the_first_write_gate() {
+    let app = TestApp::ready().await;
+
+    let sending = (0..4).map(|i| {
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/shares?filename=together{i}.bin")),
+            Body::from(vec![3_u8; 4096]),
+        )
+    });
+    for response in futures_util::future::join_all(sending).await {
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let location = format!("shares/{:04}/{:02}", now.year(), u8::from(now.month()));
+    assert!(
+        app.state
+            .first_writes
+            .knows(tessera_server::storage::DEFAULT_BACKEND, &location),
+        "the upload path did not write through the first-write gate"
+    );
+}

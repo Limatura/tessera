@@ -135,6 +135,10 @@ pub struct AppState {
     /// runs — the same shape as `mailer`, and for the same reason. Today it is
     /// built once from `storage.url` and holds a single entry.
     pub backends: Arc<ArcSwap<crate::storage::Pool>>,
+    /// Keeps the first upload into a location that does not exist yet from
+    /// racing its siblings — see
+    /// [`FirstWrites`](crate::storage::first_write::FirstWrites).
+    pub first_writes: Arc<crate::storage::first_write::FirstWrites>,
     /// The same store when it can hold a multipart upload open across requests.
     ///
     /// `None` on a local filesystem, where a resumable upload appends to a
@@ -294,6 +298,7 @@ impl AppState {
         };
 
         Self {
+            first_writes: Arc::default(),
             users: UserRepository::new(db.clone()),
             roles: RoleRepository::new(db.clone()),
             resets: PasswordResetRepository::new(db.clone()),

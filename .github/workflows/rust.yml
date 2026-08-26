@@ -557,18 +557,15 @@ jobs:
           TESSERA_TEST_STORAGE_URL_SECOND: http://127.0.0.1:38080/tessera-cold
           TESSERA_TEST_STORAGE_OPTIONS: allow_http=true
         run: |
-          # One at a time, and not to be tidy. WebDAV has no "create the parents
-          # for me" on `PUT`: `object_store` reacts to the `409` by walking up
-          # with MKCOL and retrying the write exactly once. Concurrent first
-          # writes into a fresh backend therefore race — several uploads each
-          # try to create `shares/YYYY/MM`, and the one whose retry lands while
-          # a sibling's MKCOL is still in flight has no second retry left and
-          # fails. Measured: run in parallel this suite is reliably flaky, and
-          # the runner saw three of four tests fail then pass.
-          #
-          # This is worth writing down rather than papering over, because it is
-          # not a property of the tests: a real WebDAV backend, on its first
-          # burst of uploads, can return 500 for the same reason.
+          # One at a time, because of how the suite runs rather than because of
+          # anything the server does. WebDAV answers a write into a directory
+          # that does not exist with `409`, and `object_store` retries after
+          # MKCOL exactly once — not enough when several uploads are creating
+          # `shares/YYYY/MM` at the same moment. The server holds the first
+          # write into a location alone so that cannot happen, but that gate
+          # lives in one process, and `nextest` gives every test its own: each
+          # of these is a first write with no sibling to wait for. Measured —
+          # in parallel this suite is flaky here even with the gate in place.
           cargo nextest run --profile ci --all-features \
             --run-ignored all --test-threads 1 -E 'binary(object_store)'
 
