@@ -74,6 +74,7 @@ Each of these has the test suite run against it on every change, so the list is 
 | MinIO | `s3://bucket` |  |
 | SeaweedFS | `s3://bucket` | Needs an `-s3.config` identities file, or it refuses every write. |
 | VersityGW | `s3://bucket` |  |
+| s3proxy | `s3://bucket` | Needs a build newer than 2.6.0 — that release has no bulk delete. |
 | Azure Blob | `azure://container` | Checked against Azurite. |
 | WebDAV | `https://host/path` | **Small files only** — see below. |
 

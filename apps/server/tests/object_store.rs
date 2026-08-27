@@ -164,17 +164,29 @@
 //!
 //! # Why there are more stores than there are opinions
 //!
-//! `MinIO`, `SeaweedFS` and `VersityGW` also run here, and none of them
+//! `MinIO`, `SeaweedFS`, `VersityGW` and s3proxy also run here, and none of them
 //! disagrees with `RustFS` about anything measured above. They are not here to
 //! catch a bug the others would miss.
 //!
 //! They are here because the README names them. A compatibility table is a
 //! promise about somebody else's afternoon — they will point their instance at
 //! one of these and expect it to work — and the only honest way to make that
-//! promise is to run against it. `SeaweedFS` is the one that shows why: it
-//! refuses every write without an `-s3.config` identities file, which reads as
-//! "incompatible" until somebody tries it, and would have stayed off the list
-//! for no good reason.
+//! promise is to run against it. Two of them show why. `SeaweedFS` refuses every
+//! write without an `-s3.config` identities file, which reads as "incompatible"
+//! until somebody tries it. s3proxy looked worse — nothing worked at all — and
+//! was twice waved off as "a testing tool, not something anybody stores things
+//! in", which was a reason not to look rather than a reason. Both were setup:
+//! `mc` will not take an access key shorter than three characters and says so
+//! while still reporting the bucket created, and `aws_skip_signature` is
+//! honoured on the plain path but not the multipart one, so the second half of
+//! the suite fell through to the EC2 metadata service and timed out. With
+//! credentials and a bucket that exists, s3proxy passes all nine.
+//!
+//! What it *does* have is a real limitation, and it is the sort a table is for:
+//! its newest release, 2.6.0, answers `POST ?delete` with `501`. That is S3's
+//! bulk delete, which is how `object_store` deletes anything, so on 2.6.0 a
+//! share can be created and never removed. Master implements it, which is why
+//! the job pins a digest rather than a tag.
 #![cfg(feature = "storage-s3")]
 // The helpers below sit outside a `#[test]` body, which is as far as
 // clippy.toml's test exemptions reach. A fixture that cannot resolve its target

@@ -337,7 +337,7 @@ jobs:
           # High and unusual on purpose: 9000 and 10000 are the defaults these
           # images ship with, and they are exactly the ports something else on a
           # shared machine is likely to already hold.
-          for port in 3900 39002 31000 38080 39100 38333 38111; do
+          for port in 3900 39002 31000 38080 39100 38333 38111 38090; do
             if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
               echo "::error::port $port is already in use on this runner"
               exit 1
@@ -615,12 +615,33 @@ jobs:
             sleep 1
           done
 
-      # One client for all three, because none of them has a `--default-bucket`
+      # An S3 face over something that is not S3 — a filesystem here, but the
+      # point of it is fronting a provider that speaks something else. Pinned by
+      # digest rather than tag because the newest *release*, 2.6.0, answers
+      # `POST ?delete` with `501`: it has no bulk delete, which is how
+      # `object_store` deletes anything. Master implements it, and this is that
+      # build. Measured, not assumed — 2.6.0 fails one test and this passes nine.
+      - name: Start s3proxy
+        run: |
+          docker run -d --name tessera-s3proxy -p 38090:80 \
+            -e S3PROXY_AUTHORIZATION=none -e S3PROXY_ENDPOINT=http://0.0.0.0:80 \
+            -e JCLOUDS_PROVIDER=filesystem -e JCLOUDS_FILESYSTEM_BASEDIR=/data \
+            andrewgaul/s3proxy@sha256:22e177554702ce8f60278f1f327b5267cbdb63bf058e7846b2c8795161af8f39
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38090 && break
+            sleep 1
+          done
+
+      # One client for all four, because none of them has a `--default-bucket`
       # and creating one takes sigv4 either way.
+      #
+      # The credentials are not decorative even where the store ignores them:
+      # `mc` refuses an access key shorter than three characters, and it says so
+      # on stderr while still reporting the bucket as created.
       - name: Create their buckets
         run: |
           docker run --rm --network host --entrypoint sh minio/mc:latest -c '
-            for host in 39100 38333 38111; do
+            for host in 39100 38333 38111 38090; do
               mc alias set "s$host" "http://127.0.0.1:$host" tesseratest tesseratestsecret &&
               mc mb --ignore-existing "s$host/tessera" &&
               mc mb --ignore-existing "s$host/tessera-cold"
@@ -662,6 +683,25 @@ jobs:
           AWS_SECRET_ACCESS_KEY: tesseratestsecret
           AWS_REGION: us-east-1
           AWS_ENDPOINT: http://127.0.0.1:38111
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # Credentials rather than `aws_skip_signature`, even though s3proxy is
+      # configured to ignore them. `skip_signature` is honoured on the plain
+      # path and *not* on the multipart one, which then falls through to the EC2
+      # metadata service and spends twelve seconds timing out per test. Same
+      # shape as the GCS gap recorded in `object_store.rs`.
+      - name: Run the object store suite against s3proxy
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38090
           AWS_ALLOW_HTTP: "true"
           AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
         run: |
