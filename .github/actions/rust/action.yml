@@ -5,6 +5,32 @@ description: >-
 runs:
   using: composite
   steps:
+    # Before anything else, because the thing this is clearing is memory and the
+    # step after it starts a compiler.
+    #
+    # A `rustc` whose parent is gone was reparented to PID 1: the job that
+    # started it is not coming back for it, and on a self-hosted runner nothing
+    # else will. Enough of them and the machine runs out of memory — which is
+    # what a runner being `SIGTERM`ed mid-job looks like from the outside.
+    #
+    # Orphans only. A live build's compiler has the shell that spawned it as its
+    # parent, so this cannot reach one; the age floor is a second guard against a
+    # process the kernel has only just reparented.
+    - name: Reap compilers nobody is waiting for
+      shell: bash
+      run: |
+        reaped=0
+        while read -r pid ppid age comm; do
+          [ "$ppid" = "1" ] || continue
+          [ "$age" -gt 60 ] || continue
+          case "$comm" in
+            rustc|cargo) ;;
+            *) continue ;;
+          esac
+          kill -9 "$pid" 2>/dev/null && reaped=$((reaped + 1))
+        done <<< "$(ps -eo pid=,ppid=,etimes=,comm=)"
+        [ "$reaped" -eq 0 ] || echo "reaped ${reaped} orphaned compilers"
+
     # GitHub's hosted images ship with rustup, so this never had to be said. A
     # self-hosted runner is whatever somebody installed on it, and a job that
     # fails with `rustup: command not found` sends the reader to look at the

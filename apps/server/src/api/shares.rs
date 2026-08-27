@@ -344,11 +344,18 @@ pub async fn create(
         ShareKind::Text
     };
 
-    let Ingested {
-        storage,
-        size_bytes,
-        inline,
-    } = ingest(
+    // The ledger entry is held until the row exists. Between the last byte and
+    // the insert the bytes are in the store and in no table, and dropping the
+    // guard there would leave a window in which another upload sees room that is
+    // already spent — which is exactly the `[201, 201]` this fixed.
+    let (
+        Ingested {
+            storage,
+            size_bytes,
+            inline,
+        },
+        _arriving,
+    ) = ingest(
         &state,
         Ingest {
             id,
@@ -864,7 +871,11 @@ struct Ingested {
 /// # Errors
 ///
 /// Returns [`Error`] if the body cannot be read or the store will not take it.
-async fn ingest(state: &AppState, request: Ingest<'_>, body: Body) -> Result<Ingested> {
+async fn ingest(
+    state: &AppState,
+    request: Ingest<'_>,
+    body: Body,
+) -> Result<(Ingested, crate::storage::in_flight::Arrival)> {
     let id = request.id;
     // Read before the body is consumed. `Content-Length` is what usually
     // supplies it, but taking the hint rather than the header means an
@@ -873,7 +884,19 @@ async fn ingest(state: &AppState, request: Ingest<'_>, body: Body) -> Result<Ing
     // sending".
     let expected_bytes = <Body as http_body::Body>::size_hint(&body).exact();
     let mut upload: Option<Box<dyn MultipartUpload>> = None;
-    let result = ingest_into(state, request, expected_bytes, body, &mut upload).await;
+    // Opened here so it outlives the read loop: the caller holds it until the
+    // row is written, and the keys are added once the scope and backend are
+    // known.
+    let mut arriving = state.in_flight.begin(Vec::new());
+    let result = ingest_into(
+        state,
+        request,
+        expected_bytes,
+        body,
+        &mut upload,
+        &mut arriving,
+    )
+    .await;
 
     if let Some(upload) = upload.as_mut() {
         // Only reachable when something failed: the success path takes the
@@ -884,7 +907,7 @@ async fn ingest(state: &AppState, request: Ingest<'_>, body: Body) -> Result<Ing
             tracing::warn!(?error, %id, "could not abort an incomplete upload");
         }
     }
-    result
+    result.map(|ingested| (ingested, arriving))
 }
 
 /// What is left before the first ceiling refuses, counting uploads still
@@ -949,6 +972,7 @@ async fn tightest(state: &AppState, ceilings: Vec<Ceiling>) -> Result<Room> {
     let mut tightest = Room {
         bytes: u64::MAX,
         tier: Tier::Instance,
+        scope: Scope::Instance,
     };
     for ceiling in ceilings {
         let used = state
@@ -961,6 +985,7 @@ async fn tightest(state: &AppState, ceilings: Vec<Ceiling>) -> Result<Room> {
             tightest = Room {
                 bytes: left,
                 tier: ceiling.tier,
+                scope: ceiling.scope,
             };
         }
     }
@@ -974,6 +999,73 @@ pub(crate) struct Room {
     pub bytes: u64,
     /// Which one it is, so a refusal can say who can do something about it.
     pub tier: Tier,
+    /// What the ceiling is counted over.
+    ///
+    /// Carried so the in-flight ledger can be asked the same question the
+    /// database was — "how much is spoken for under this scope" — for the bytes
+    /// no table has seen yet.
+    pub scope: Scope,
+}
+
+/// One opened object, and everything the loop learned by opening it.
+struct Opened {
+    backend: String,
+    object_key: String,
+    upload: Box<dyn MultipartUpload>,
+    /// What that backend has room for.
+    limit: u64,
+    /// What to count these bytes under while they arrive.
+    ledger_key: String,
+}
+
+/// Chooses a backend, opens the object on it, and starts counting the bytes
+/// against it.
+///
+/// The three go together: from the moment a backend is chosen, everything read
+/// so far is spoken for there as much as what follows.
+///
+/// # Errors
+///
+/// As [`start_object`].
+async fn open_object(
+    state: &AppState,
+    id: ShareId,
+    now: OffsetDateTime,
+    expected_bytes: Option<u64>,
+    arriving: &mut crate::storage::in_flight::Arrival,
+) -> Result<Opened> {
+    let (backend, object_key, upload) = start_object(state, id, now, expected_bytes).await?;
+    let limit = backend_free(state, &backend).await?;
+    let ledger_key = format!("backend:{backend}");
+    arriving.also_count_under(ledger_key.clone());
+    Ok(Opened {
+        backend,
+        object_key,
+        upload,
+        limit,
+        ledger_key,
+    })
+}
+
+/// Whether these bytes, plus everything else arriving under `key`, are past
+/// `ceiling`.
+///
+/// The upload's own bytes are excluded from the ledger figure and added back
+/// here, so an upload is never refused for competing with itself.
+fn would_pass(state: &AppState, key: &str, mine: u64, ceiling: u64) -> bool {
+    mine.saturating_add(state.in_flight.elsewhere(key, mine)) > ceiling
+}
+
+/// The ledger key for a quota scope.
+///
+/// Spelled out rather than derived from `Debug`, because it is compared across
+/// requests and a formatting change would silently split one scope into two.
+fn scope_key(scope: Scope) -> String {
+    match scope {
+        Scope::User(id) => format!("user:{id}"),
+        Scope::Role(id) => format!("role:{id}"),
+        Scope::Instance => "instance".to_owned(),
+    }
 }
 
 /// One ceiling that applies to this caller.
@@ -992,7 +1084,7 @@ struct Ceiling {
 /// Deliberately not a `413`: the file is not too big in itself, the pool is too
 /// full to take it, and a smaller one — or the same one later — may well fit.
 pub(crate) async fn place(state: &AppState, size: u64) -> Result<String> {
-    place_where(state, size, |_| true).await
+    place_where(state, Some(size), |_| true).await
 }
 
 /// The same, restricted to backends that can hold a resumable upload open.
@@ -1007,7 +1099,7 @@ pub(crate) async fn place(state: &AppState, size: u64) -> Result<String> {
 ///
 /// [`Error::InsufficientStorage`] when nothing suitable has room.
 pub(crate) async fn place_resumable(state: &AppState, size: u64) -> Result<String> {
-    place_where(state, size, |name| {
+    place_where(state, Some(size), |name| {
         state.backend_multipart(name).is_some() || name == crate::storage::DEFAULT_BACKEND
     })
     .await
@@ -1026,7 +1118,7 @@ pub(crate) async fn place_resumable(state: &AppState, size: u64) -> Result<Strin
 ///
 /// [`Error::PayloadTooLarge`] when the only backends with room cannot take a
 /// streamed write, [`Error::InsufficientStorage`] when none had room anyway.
-async fn place_streamed(state: &AppState, size: u64) -> Result<String> {
+async fn place_streamed(state: &AppState, size: Option<u64>) -> Result<String> {
     // Loaded once, outside the predicate: asking the `ArcSwap` per candidate
     // would let a reload land mid-decision and judge two candidates against
     // two different sets of backends.
@@ -1039,9 +1131,25 @@ async fn place_streamed(state: &AppState, size: u64) -> Result<String> {
     .await
 }
 
+/// The placer to use for a size that may or may not be known.
+///
+/// `None` is not "zero bytes": everything fits zero, so asking
+/// [`choose`](crate::storage::placement::choose) that question hands back the
+/// fullest backend. See
+/// [`choose_unsized`](crate::storage::placement::choose_unsized).
+fn pick(
+    pool: &[crate::storage::placement::Candidate],
+    size: Option<u64>,
+) -> Option<&crate::storage::placement::Candidate> {
+    match size {
+        Some(size) => crate::storage::placement::choose(pool, size),
+        None => crate::storage::placement::choose_unsized(pool),
+    }
+}
+
 async fn place_where(
     state: &AppState,
-    size: u64,
+    size: Option<u64>,
     suitable: impl Fn(&str) -> bool,
 ) -> Result<String> {
     let pool = state.backends.load();
@@ -1054,7 +1162,7 @@ async fn place_where(
         .cloned()
         .collect();
 
-    if let Some(chosen) = crate::storage::placement::choose(&candidates, size) {
+    if let Some(chosen) = pick(&candidates, size) {
         return Ok(chosen.name.clone());
     }
 
@@ -1062,7 +1170,7 @@ async fn place_where(
     // the whole point: "every backend is full" is something an operator fixes by
     // adding room, while "the backends with room cannot take a file written this
     // way" is not about room at all and adding more of it changes nothing.
-    Err(if crate::storage::placement::choose(&all, size).is_some() {
+    Err(if pick(&all, size).is_some() {
         Error::PayloadTooLarge
     } else {
         Error::InsufficientStorage(Tier::Instance)
@@ -1085,7 +1193,7 @@ async fn start_object(
     expected_bytes: Option<u64>,
 ) -> Result<(String, String, Box<dyn MultipartUpload>)> {
     let object_key = object_key(id, now);
-    let chosen = place_streamed(state, expected_bytes.unwrap_or(0)).await?;
+    let chosen = place_streamed(state, expected_bytes).await?;
     let store = state.backend(&chosen).ok_or(Error::Unavailable)?;
     let started = store
         .put_multipart(&ObjectPath::from(object_key.as_str()))
@@ -1271,6 +1379,7 @@ async fn ingest_into(
     expected_bytes: Option<u64>,
     body: Body,
     upload: &mut Option<Box<dyn MultipartUpload>>,
+    arriving: &mut crate::storage::in_flight::Arrival,
 ) -> Result<Ingested> {
     let Ingest {
         id,
@@ -1299,12 +1408,18 @@ async fn ingest_into(
     // and a chunked upload that would take us past the line should stop at the
     // line instead of after it.
     let room = remaining_room(state, owner).await?;
+    // What the database said, plus what is arriving right now and is not in it
+    // yet. Two uploads that both read `room` before either had written anything
+    // would otherwise both be told the whole remainder was theirs — measured at
+    // 80 KiB stored against a 50 KiB ceiling, from two requests.
+    arriving.also_count_under(scope_key(room.scope));
     let mut body = body;
     let mut buffered: Vec<u8> = Vec::new();
     let mut size_bytes: u64 = 0;
     let mut key: Option<(String, String)> = None;
     // Until a backend is chosen there is nothing to exceed.
     let mut backend_limit = u64::MAX;
+    let mut backend_key: Option<String> = None;
 
     let stall = state.config().server.upload_stall();
 
@@ -1324,7 +1439,8 @@ async fn ingest_into(
                 "that is larger than this instance keeps as text; send it as a file instead",
             ));
         }
-        if size_bytes > room.bytes {
+        arriving.reached(size_bytes);
+        if would_pass(state, &scope_key(room.scope), size_bytes, room.bytes) {
             return Err(Error::InsufficientStorage(room.tier));
         }
         buffered.extend_from_slice(&chunk);
@@ -1340,17 +1456,19 @@ async fn ingest_into(
         // Past the threshold: start the upload the first time, then keep the
         // buffer drained in whole blocks.
         if upload.is_none() {
-            let (chosen, object_key, started) =
-                start_object(state, id, now, expected_bytes).await?;
-            backend_limit = backend_free(state, &chosen).await?;
-            key = Some((chosen, object_key));
-            *upload = Some(started);
+            let started = open_object(state, id, now, expected_bytes, arriving).await?;
+            backend_limit = started.limit;
+            backend_key = Some(started.ledger_key);
+            key = Some((started.backend, started.object_key));
+            *upload = Some(started.upload);
         }
         // The chosen backend's own ceiling, checked as the bytes arrive for the
         // same reason the quota is: a body that would take it past the line
         // should stop at the line rather than after it — and past the line here
         // is the provider refusing mid-upload, which is worse than a 507.
-        if size_bytes > backend_limit {
+        if let Some(backend_key) = backend_key.as_deref()
+            && would_pass(state, backend_key, size_bytes, backend_limit)
+        {
             return Err(Error::InsufficientStorage(Tier::Instance));
         }
         if let Some(upload) = upload.as_mut() {
@@ -2152,11 +2270,14 @@ pub async fn add_file(
         Some(id) => state.users.find_by_id(id).await?,
         None => None,
     };
-    let Ingested {
-        storage,
-        size_bytes,
-        inline: _,
-    } = ingest(
+    let (
+        Ingested {
+            storage,
+            size_bytes,
+            inline: _,
+        },
+        _arriving,
+    ) = ingest(
         &state,
         Ingest {
             id: ShareId::generate(),

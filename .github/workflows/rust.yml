@@ -334,9 +334,19 @@ jobs:
             echo "short on room; clearing unused images"
             timeout 300 docker system prune -a -f || true
           fi
+          # Our own leftovers first. A cancelled job does not reach its cleanup
+          # step — cancellation skips what has not started — so a run that was
+          # superseded by a new push leaves its containers holding these ports,
+          # and the next run fails the check below on a port that is ours.
+          # Removing them by name is safe: nothing else on the machine is called
+          # this, and a container from a finished job has nothing left to say.
+          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+            tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
+
           # High and unusual on purpose: 9000 and 10000 are the defaults these
           # images ship with, and they are exactly the ports something else on a
-          # shared machine is likely to already hold.
+          # shared machine is likely to already hold. What is left holding one
+          # after the line above is genuinely somebody else's.
           for port in 3900 39002 31000 38080 39100 38333 38111 38090; do
             if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
               echo "::error::port $port is already in use on this runner"

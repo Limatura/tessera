@@ -64,6 +64,27 @@ pub fn choose(candidates: &[Candidate], size: u64) -> Option<&Candidate> {
     usable().min_by_key(|candidate| candidate.free_bytes().unwrap_or(u64::MAX))
 }
 
+/// The backend for a file whose size nobody has said.
+///
+/// A chunked body declares nothing, and asking [`choose`] for zero bytes is not
+/// a neutral question: everything fits zero, so the tightest-fit rule picks the
+/// *fullest* backend every time. An upload that could not say how large it is
+/// would be steered into the one place least able to take it, and then refused
+/// part-way by the running check.
+///
+/// So the rule inverts when the size is unknown: the operator's default first,
+/// because they said so, and otherwise the most room — the choice that is
+/// wrong in the fewest cases when there is nothing to fit against.
+#[must_use]
+pub fn choose_unsized(candidates: &[Candidate]) -> Option<&Candidate> {
+    let usable = || candidates.iter().filter(|candidate| candidate.fits(0));
+
+    if let Some(preferred) = usable().find(|candidate| candidate.is_default) {
+        return Some(preferred);
+    }
+    usable().max_by_key(|candidate| candidate.free_bytes().unwrap_or(u64::MAX))
+}
+
 /// The largest single file the pool can accept right now.
 ///
 /// What a client is told, and what a refusal is measured against. Deliberately
@@ -86,6 +107,62 @@ pub fn largest_acceptable(candidates: &[Candidate]) -> Option<u64> {
         .iter()
         .filter_map(|candidate| candidate.free_bytes())
         .max()
+}
+
+#[cfg(test)]
+mod unsized_tests {
+    use super::*;
+
+    fn backend(name: &str, free: u64) -> Candidate {
+        Candidate {
+            name: name.to_owned(),
+            capacity_bytes: Some(free),
+            used_bytes: 0,
+            read_only: false,
+            is_default: false,
+        }
+    }
+
+    /// The bug this exists for: asking `choose` for zero bytes is not a neutral
+    /// question. Everything fits zero, so the tightest-fit rule hands back the
+    /// fullest backend — the one least able to take a body of unknown size.
+    #[test]
+    fn asking_for_zero_bytes_picks_the_fullest_backend() {
+        let pool = [backend("nearly-full", 1024), backend("roomy", 1024 * 1024)];
+        assert_eq!(choose(&pool, 0).expect("a backend").name, "nearly-full");
+    }
+
+    #[test]
+    fn an_unknown_size_picks_the_roomiest_instead() {
+        let pool = [backend("nearly-full", 1024), backend("roomy", 1024 * 1024)];
+        assert_eq!(choose_unsized(&pool).expect("a backend").name, "roomy");
+    }
+
+    /// The operator's choice still wins. They said which one they wanted, and
+    /// not knowing the size is no reason to overrule them.
+    #[test]
+    fn the_default_is_still_preferred() {
+        let pool = [
+            Candidate {
+                is_default: true,
+                ..backend("theirs", 1024)
+            },
+            backend("roomy", 1024 * 1024),
+        ];
+        assert_eq!(choose_unsized(&pool).expect("a backend").name, "theirs");
+    }
+
+    #[test]
+    fn a_read_only_backend_is_not_offered() {
+        let pool = [
+            Candidate {
+                read_only: true,
+                ..backend("archive", 1024 * 1024)
+            },
+            backend("live", 1024),
+        ];
+        assert_eq!(choose_unsized(&pool).expect("a backend").name, "live");
+    }
 }
 
 #[cfg(test)]

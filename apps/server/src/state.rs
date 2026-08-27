@@ -139,6 +139,9 @@ pub struct AppState {
     /// racing its siblings — see
     /// [`FirstWrites`](crate::storage::first_write::FirstWrites).
     pub first_writes: Arc<crate::storage::first_write::FirstWrites>,
+    /// Bytes arriving right now, which no table knows about yet — see
+    /// [`InFlight`](crate::storage::in_flight::InFlight).
+    pub in_flight: Arc<crate::storage::in_flight::InFlight>,
     /// The same store when it can hold a multipart upload open across requests.
     ///
     /// `None` on a local filesystem, where a resumable upload appends to a
@@ -299,6 +302,7 @@ impl AppState {
 
         Self {
             first_writes: Arc::default(),
+            in_flight: Arc::default(),
             users: UserRepository::new(db.clone()),
             roles: RoleRepository::new(db.clone()),
             resets: PasswordResetRepository::new(db.clone()),

@@ -96,6 +96,7 @@ impl core::fmt::Debug for Multipart {
 /// `None` on the second means resumable uploads there append to a partial file
 /// instead — see `upload::sink`.
 pub mod first_write;
+pub mod in_flight;
 pub mod placement;
 pub mod secret;
 pub mod split;

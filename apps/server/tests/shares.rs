@@ -4366,3 +4366,81 @@ async fn a_backend_that_fills_up_mid_upload_does_not_leave_a_share_behind() {
     )
     .await;
 }
+
+/// Two uploads arriving together do not both spend the same last kilobyte.
+///
+/// Both ceilings an upload is checked against are read from the database once,
+/// before the body, and nothing had written a row yet — so two requests read the
+/// same figure and both believed the whole remainder was theirs. Measured before
+/// the fix: an instance capped at 50 KiB took two 40 KiB uploads and answered
+/// `201` to both.
+///
+/// Resumable uploads were already safe, because a `tus` session writes a row
+/// carrying what it intends to send. A plain `POST` has nothing to declare when
+/// the body is chunked, so the count has to come from the bytes themselves.
+///
+/// `accepted <= 1` rather than `== 1`, and the difference is the honest one.
+/// Counting bytes as they arrive is symmetric: two uploads that reach thirty
+/// kilobytes each, into fifty kilobytes of room, are both past the line at the
+/// same moment and both stop. Nobody wins and the room goes unused until
+/// somebody retries. That is a worse outcome than a queue and a better one than
+/// a breached ceiling, and it is what this guarantees — never two.
+///
+/// Several rounds because one is not reliable, and even six are not: whether the
+/// bodies interleave at all is the scheduler's business. Measured by putting the
+/// bug back — a single round caught it in one run out of six, six rounds in
+/// three. So this is a net that sometimes catches, not a guarantee; the
+/// guarantee is `storage::in_flight`'s own tests, which are deterministic. What
+/// this adds is that the ledger is actually *wired in*, which no unit test of
+/// the ledger can say.
+#[tokio::test]
+async fn two_uploads_at_once_cannot_both_spend_the_last_of_the_room() {
+    for round in 0..6 {
+        let app = TestApp::with_config(|config| {
+            config.share.inline_threshold_bytes = 8;
+            config.storage.max_total_bytes = 50 * 1024;
+        })
+        .await;
+
+        // Several frames with a yield between them, so the two bodies genuinely
+        // interleave. One `Body::from(vec![..])` is a single frame, and two of
+        // those run to completion one after the other — which tests nothing
+        // about concurrency.
+        let body = || {
+            Body::from_stream(futures_util::stream::unfold(0_usize, |sent| async move {
+                if sent >= 8 {
+                    return None;
+                }
+                tokio::task::yield_now().await;
+                Some((
+                    Ok::<_, std::io::Error>(bytes::Bytes::from(vec![7_u8; 5 * 1024])),
+                    sent + 1,
+                ))
+            }))
+        };
+
+        let sending = (0..2).map(|i| {
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/shares?filename=big{i}.bin")),
+                body(),
+            )
+        });
+        let statuses: Vec<u16> = futures_util::future::join_all(sending)
+            .await
+            .into_iter()
+            .map(|response| response.status().as_u16())
+            .collect();
+
+        let accepted = statuses.iter().filter(|status| **status == 201).count();
+        assert!(
+            accepted <= 1,
+            "round {round}: 50 KiB of room took two 40 KiB uploads: {statuses:?}"
+        );
+        assert!(
+            statuses.contains(&507),
+            "round {round}: whoever lost should say there is no room: {statuses:?}"
+        );
+    }
+}
