@@ -24,6 +24,32 @@ const DOWN: &str = "CREATE TABLE IF NOT EXISTS user_roles (\n\
                     SELECT id, role_id, '1970-01-01T00:00:00Z' FROM users WHERE role_id IS NOT NULL;\n\
                     ALTER TABLE users DROP COLUMN role_id;\n";
 
+/// The same, restoring the table the way MySQL had it.
+///
+/// Three differences, all of them things MySQL refuses rather than ignores:
+/// `TEXT` cannot be part of a key without a prefix length, so the identifiers
+/// come back as `CHAR(26)` — the width `m20260818_000001_roles` gave them;
+/// `InnoDB` silently drops a `REFERENCES` written on a column, so the keys are
+/// declared at table level; and `users.role_id` is named by a foreign key, which
+/// has to go before the column can.
+///
+/// Checked against a real MySQL rather than reasoned about — see
+/// `a_full_rollback_runs_on_this_dialect`.
+const DOWN_MYSQL: &str = "CREATE TABLE IF NOT EXISTS user_roles (\n\
+                          \x20   user_id    CHAR(26)    NOT NULL,\n\
+                          \x20   role_id    CHAR(26)    NOT NULL,\n\
+                          \x20   granted_at DATETIME(6) NOT NULL,\n\
+                          \x20   PRIMARY KEY (user_id, role_id),\n\
+                          \x20   CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id)\n\
+                          \x20       REFERENCES users (id) ON DELETE CASCADE,\n\
+                          \x20   CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id)\n\
+                          \x20       REFERENCES roles (id) ON DELETE CASCADE\n\
+                          );\n\
+                          INSERT INTO user_roles (user_id, role_id, granted_at)\n\
+                          SELECT id, role_id, '1970-01-01 00:00:00' FROM users WHERE role_id IS NOT NULL;\n\
+                          ALTER TABLE users DROP FOREIGN KEY fk_users_role;\n\
+                          ALTER TABLE users DROP COLUMN role_id;\n";
+
 #[derive(Debug, DeriveMigrationName)]
 pub(super) struct Migration;
 
@@ -41,7 +67,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        super::execute_portable(manager, DOWN).await
+        super::execute_for_backend(manager, DOWN, DOWN, DOWN_MYSQL).await
     }
 }
 

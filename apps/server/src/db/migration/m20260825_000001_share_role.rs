@@ -15,6 +15,13 @@ pub(super) const MYSQL: &str = include_str!("sql/m20260825_000001_share_role.mys
 const DOWN: &str = "DROP INDEX IF EXISTS idx_shares_role;\n\
                     ALTER TABLE shares DROP COLUMN role_id;\n";
 
+/// The same, in the two ways MySQL differs — the same pair the quota rollback
+/// hit. `DROP INDEX IF EXISTS` is not syntax it has, and a column a foreign key
+/// still names cannot be dropped. So the key goes first and the index is left to
+/// go with the column, which MySQL does on its own.
+const DOWN_MYSQL: &str = "ALTER TABLE shares DROP FOREIGN KEY fk_shares_role;\n\
+                          ALTER TABLE shares DROP COLUMN role_id;\n";
+
 #[derive(Debug, DeriveMigrationName)]
 pub(super) struct Migration;
 
@@ -32,7 +39,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        super::execute_portable(manager, DOWN).await
+        super::execute_for_backend(manager, DOWN, DOWN, DOWN_MYSQL).await
     }
 }
 

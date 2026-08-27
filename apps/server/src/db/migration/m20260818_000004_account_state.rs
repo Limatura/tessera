@@ -20,6 +20,14 @@ const DOWN: &str = "DROP INDEX IF EXISTS idx_users_state;\n\
                     ALTER TABLE users DROP COLUMN deleted_at;\n\
                     ALTER TABLE users DROP COLUMN state;\n";
 
+/// The same, in the two ways MySQL differs. `DROP INDEX IF EXISTS` is not syntax
+/// it has, and `deleted_by` is named by a foreign key, which has to go first —
+/// the index then goes with its column on its own.
+const DOWN_MYSQL: &str = "ALTER TABLE users DROP FOREIGN KEY fk_users_deleted_by;\n\
+                          ALTER TABLE users DROP COLUMN deleted_by;\n\
+                          ALTER TABLE users DROP COLUMN deleted_at;\n\
+                          ALTER TABLE users DROP COLUMN state;\n";
+
 #[derive(Debug, DeriveMigrationName)]
 pub(super) struct Migration;
 
@@ -37,6 +45,6 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        super::execute_portable(manager, DOWN).await
+        super::execute_for_backend(manager, DOWN, DOWN, DOWN_MYSQL).await
     }
 }

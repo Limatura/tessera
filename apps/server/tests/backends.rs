@@ -355,3 +355,51 @@ async fn the_scoped_totals_run_on_this_dialect() {
         "the text share's bytes were not counted"
     );
 }
+
+/// Every migration rolls back, on this dialect, all the way to an empty
+/// database — and then forward again.
+///
+/// Nothing ran `down` before this test existed, on any dialect, ever. The `up`
+/// path is exercised by every other test here; the rollbacks were written,
+/// reviewed and never executed. Four of them did not work on MySQL: two used
+/// `DROP INDEX IF EXISTS`, which is not syntax it has; one rebuilt a table with
+/// `TEXT` in its primary key, which `InnoDB` cannot index without a prefix
+/// length; and one dropped the last index a foreign key depended on. All four
+/// were found by running this, not by reading them.
+///
+/// Rolling forward again afterwards is half the point: a `down` that leaves the
+/// schema subtly different from where it started is a rollback that works once.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn a_full_rollback_runs_on_this_dialect() {
+    use sea_orm_migration::MigratorTrait as _;
+
+    let conn = db::connect(&database_config()).await.expect("pool");
+    db::migrate(&conn).await.expect("up");
+
+    let applied = db::migration::Migrator::get_applied_migrations(&conn)
+        .await
+        .expect("what is applied");
+    assert!(
+        applied.len() > 1,
+        "nothing to roll back, so this test proves nothing"
+    );
+
+    db::migration::Migrator::down(&conn, None)
+        .await
+        .expect("every rollback");
+    let left = db::migration::Migrator::get_applied_migrations(&conn)
+        .await
+        .expect("what is applied");
+    assert!(
+        left.is_empty(),
+        "{} migrations would not roll back",
+        left.len()
+    );
+
+    // Straight back up on the schema the rollback left behind. A `down` that
+    // restores a column as the wrong type, or forgets an index, passes the
+    // rollback and fails here.
+    db::migrate(&conn).await.expect("up again");
+    db::close(conn).await;
+}

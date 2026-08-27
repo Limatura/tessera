@@ -281,53 +281,44 @@ mod tests {
         assert_eq!(found, ["CREATE TABLE a (x INTEGER)"]);
     }
 
-    /// Every migration, with its three dialect files. Adding a migration means
-    /// adding a line here — deliberately manual, so that forgetting shows up as
-    /// a missing entry rather than as silently reduced coverage.
-    const DIALECT_FILES: [(&str, &str, &str, &str); 7] = [
-        (
-            "m20260808_000001_initial",
-            m20260808_000001_initial::SQLITE,
-            m20260808_000001_initial::POSTGRES,
-            m20260808_000001_initial::MYSQL,
-        ),
-        (
-            "m20260809_000001_users",
-            m20260809_000001_users::SQLITE,
-            m20260809_000001_users::POSTGRES,
-            m20260809_000001_users::MYSQL,
-        ),
-        (
-            "m20260809_000002_sessions",
-            m20260809_000002_sessions::SQLITE,
-            m20260809_000002_sessions::POSTGRES,
-            m20260809_000002_sessions::MYSQL,
-        ),
-        (
-            "m20260809_000003_api_tokens",
-            m20260809_000003_api_tokens::SQLITE,
-            m20260809_000003_api_tokens::POSTGRES,
-            m20260809_000003_api_tokens::MYSQL,
-        ),
-        (
-            "m20260810_000001_shares",
-            m20260810_000001_shares::SQLITE,
-            m20260810_000001_shares::POSTGRES,
-            m20260810_000001_shares::MYSQL,
-        ),
-        (
-            "m20260810_000002_share_tickets",
-            m20260810_000002_share_tickets::SQLITE,
-            m20260810_000002_share_tickets::POSTGRES,
-            m20260810_000002_share_tickets::MYSQL,
-        ),
-        (
-            "m20260903_000001_upload_segments",
-            m20260903_000001_upload_segments::SQLITE,
-            m20260903_000001_upload_segments::POSTGRES,
-            m20260903_000001_upload_segments::MYSQL,
-        ),
-    ];
+    /// Every migration's three dialect files, read from disk rather than listed.
+    ///
+    /// It used to be a hand-written array with a comment saying that forgetting
+    /// to add a line would show up as a missing entry. Nothing checked, so it
+    /// did not: the list had seven of thirty-eight migrations, and the other
+    /// thirty-one had never been compared at all. A list that has to be
+    /// remembered is not a guard, it is a second thing to forget.
+    fn dialect_files() -> Vec<(String, String, String, String)> {
+        let directory =
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/db/migration/sql");
+        let mut found = Vec::new();
+        for entry in std::fs::read_dir(&directory).expect("the migration sql directory") {
+            let path = entry.expect("a directory entry").path();
+            let Some(name) = path.file_name().and_then(std::ffi::OsStr::to_str) else {
+                continue;
+            };
+            let Some(migration) = name.strip_suffix(".sqlite.sql") else {
+                continue;
+            };
+            let read = |dialect: &str| {
+                std::fs::read_to_string(directory.join(format!("{migration}.{dialect}.sql")))
+                    .unwrap_or_else(|_| panic!("{migration} has no {dialect} file"))
+            };
+            found.push((
+                migration.to_owned(),
+                read("sqlite"),
+                read("postgres"),
+                read("mysql"),
+            ));
+        }
+        assert!(
+            found.len() > 30,
+            "found {} migrations, which is too few to be the whole set",
+            found.len()
+        );
+        found.sort_by(|a, b| a.0.cmp(&b.0));
+        found
+    }
 
     /// `scripts/schema-docs.py` builds the database it documents by replaying
     /// every `sql/*.sqlite.sql` in name order. A rollback left in that directory
@@ -362,23 +353,36 @@ mod tests {
         );
     }
 
-    /// Hand-writing one file per dialect buys readable SQL and risks updating one
-    /// and forgetting the rest. This is the cheap half of the guard against that;
-    /// CI applies all three against real servers for the other half.
+    /// Every dialect file is non-empty, or deliberately empty.
+    ///
+    /// This used to compare statement *counts* across the three files, over a
+    /// hand-written list of seven migrations. Widening it to all thirty-eight
+    /// showed the rule was never true: MySQL needs a separate
+    /// `ALTER TABLE ADD CONSTRAINT` where SQLite inlines `REFERENCES`, SQLite
+    /// rebuilds a table where MySQL drops a column, and one migration is MySQL's
+    /// alone. The seven the list happened to cover were the seven where the
+    /// counts coincided.
+    ///
+    /// What is left is the part that is actually invariant. The real guard
+    /// against "sqlite was updated and the others were forgotten" is the
+    /// `backends` job, which applies all three against real servers, and the
+    /// table comparison below.
     #[test]
-    fn every_dialect_file_has_the_same_statement_count() {
-        for (migration, sqlite, postgres, mysql) in DIALECT_FILES {
-            let expected = statements(sqlite).count();
-            assert!(expected > 0, "{migration} (sqlite) does nothing");
-
-            for (dialect, sql) in [("postgres", postgres), ("mysql", mysql)] {
-                let actual = statements(sql).count();
-                assert_eq!(
-                    actual, expected,
-                    "{migration}: {dialect} has {actual} statements but sqlite has {expected} \
-                     — a dialect was missed"
+    fn every_migration_has_all_three_dialects() {
+        for (migration, sqlite, postgres, mysql) in dialect_files() {
+            // `m20260819_000002_mysql_datetime` fixes a column type only MySQL
+            // ever had, so the other two are empty on purpose.
+            let deliberately_empty = migration.contains("mysql_datetime");
+            for (dialect, sql) in [("sqlite", &sqlite), ("postgres", &postgres)] {
+                assert!(
+                    deliberately_empty || statements(sql).count() > 0,
+                    "{migration}: {dialect} does nothing"
                 );
             }
+            assert!(
+                statements(&mysql).count() > 0,
+                "{migration}: mysql does nothing"
+            );
         }
     }
 
@@ -400,9 +404,9 @@ mod tests {
                 .collect()
         }
 
-        for (migration, sqlite, postgres, mysql) in DIALECT_FILES {
-            let expected = tables(sqlite);
-            for (dialect, sql) in [("postgres", postgres), ("mysql", mysql)] {
+        for (migration, sqlite, postgres, mysql) in dialect_files() {
+            let expected = tables(&sqlite);
+            for (dialect, sql) in [("postgres", &postgres), ("mysql", &mysql)] {
                 assert_eq!(
                     tables(sql),
                     expected,
