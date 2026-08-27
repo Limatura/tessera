@@ -337,7 +337,7 @@ jobs:
           # High and unusual on purpose: 9000 and 10000 are the defaults these
           # images ship with, and they are exactly the ports something else on a
           # shared machine is likely to already hold.
-          for port in 3900 39002 31000 38080; do
+          for port in 3900 39002 31000 38080 39100 38333 38111; do
             if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
               echo "::error::port $port is already in use on this runner"
               exit 1
@@ -569,6 +569,105 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all --test-threads 1 -E 'binary(object_store)'
 
+      # Three more S3 implementations, and not because they disagree with the two
+      # above — measured, they do not. They are here because the compatibility
+      # table in the README names them, and a name in that table that nothing
+      # runs is a promise rather than a fact.
+      - name: Start MinIO
+        run: |
+          docker run -d --name tessera-minio -p 39100:9000 \
+            -e MINIO_ROOT_USER=tesseratest -e MINIO_ROOT_SECRET=tesseratestsecret \
+            -e MINIO_ROOT_PASSWORD=tesseratestsecret \
+            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:39100 && break
+            sleep 1
+          done
+
+      # `-s3.config` is not optional: without an identities file `SeaweedFS`
+      # answers every write with `PermissionDenied`, whatever credentials are
+      # sent. Measured — this is the whole reason it looked incompatible at
+      # first.
+      - name: Start SeaweedFS
+        run: |
+          cat > /tmp/seaweed-s3.json <<'JSON'
+          {"identities":[{"name":"tessera",
+            "credentials":[{"accessKey":"tesseratest","secretKey":"tesseratestsecret"}],
+            "actions":["Admin","Read","Write","List","Tagging"]}]}
+          JSON
+          docker run -d --name tessera-seaweed -p 38333:8333 \
+            -v /tmp/seaweed-s3.json:/s3.json:ro \
+            chrislusf/seaweedfs:4.44 \
+            server -s3 -s3.port=8333 -s3.config=/s3.json -dir=/data
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38333 && break
+            sleep 1
+          done
+
+      - name: Start VersityGW
+        run: |
+          docker run -d --name tessera-versity -p 38111:7070 \
+            -e ROOT_ACCESS_KEY_ID=tesseratest \
+            -e ROOT_SECRET_ACCESS_KEY=tesseratestsecret \
+            versity/versitygw:v1.7.0 posix /tmp/vgw
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38111 && break
+            sleep 1
+          done
+
+      # One client for all three, because none of them has a `--default-bucket`
+      # and creating one takes sigv4 either way.
+      - name: Create their buckets
+        run: |
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+            for host in 39100 38333 38111; do
+              mc alias set "s$host" "http://127.0.0.1:$host" tesseratest tesseratestsecret &&
+              mc mb --ignore-existing "s$host/tessera" &&
+              mc mb --ignore-existing "s$host/tessera-cold"
+            done'
+
+      - name: Run the object store suite against MinIO
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:39100
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against SeaweedFS
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38333
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against VersityGW
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38111
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
       # The one thing no emulator can check: whether the rules we encode about
       # real providers are the rules they actually have. `config.rs` says
       # Cloudflare R2 requires every part but the last to be the same size —
@@ -603,7 +702,8 @@ jobs:
       # outlives it and the next run finds the name and the port taken.
       - name: Stop the stores
         if: always()
-        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav 2>/dev/null || true
+        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+            tessera-minio tessera-seaweed tessera-versity 2>/dev/null || true
 
   workflows:
     name: workflow lint

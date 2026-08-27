@@ -145,12 +145,36 @@
 //!
 //! # What this cannot catch
 //!
-//! Garage accepts multipart parts below S3's 5 MiB floor, and does not require
-//! every part but the last to be the same size — both measured against
-//! `dxflrs/garage:v2.3.0`. AWS S3 requires the first and Cloudflare R2 requires
-//! both. So a part-size mistake passes here and fails on the store somebody
-//! actually pays for; the rules have to be pinned by a unit test, not by this
-//! one. See #148.
+//! One of the two part-size rules, not both. Measured by handing each store a
+//! deliberately illegal multipart upload:
+//!
+//! | | a non-final part below S3's 5 MiB floor | non-final parts of unequal size |
+//! |---|---|---|
+//! | Garage `v2.3.0` | accepts | accepts |
+//! | `RustFS` | **refuses** | accepts |
+//! | `MinIO` | **refuses** | accepts |
+//!
+//! So the floor *is* covered here, by `RustFS` — this section used to say
+//! neither rule was, which stopped being true when `RustFS` joined. What is
+//! still uncovered is Cloudflare R2's requirement that every part but the last
+//! be the *same* size: it is R2's own rule rather than S3's, and nothing
+//! self-hostable enforces it. `config.rs` records it, the opt-in real-provider
+//! step is the only thing that can confirm it, and until somebody points that at
+//! an R2 bucket it rests on Cloudflare's documentation. See #148.
+//!
+//! # Why there are more stores than there are opinions
+//!
+//! `MinIO`, `SeaweedFS` and `VersityGW` also run here, and none of them
+//! disagrees with `RustFS` about anything measured above. They are not here to
+//! catch a bug the others would miss.
+//!
+//! They are here because the README names them. A compatibility table is a
+//! promise about somebody else's afternoon — they will point their instance at
+//! one of these and expect it to work — and the only honest way to make that
+//! promise is to run against it. `SeaweedFS` is the one that shows why: it
+//! refuses every write without an `-s3.config` identities file, which reads as
+//! "incompatible" until somebody tries it, and would have stayed off the list
+//! for no good reason.
 #![cfg(feature = "storage-s3")]
 // The helpers below sit outside a `#[test]` body, which is as far as
 // clippy.toml's test exemptions reach. A fixture that cannot resolve its target
