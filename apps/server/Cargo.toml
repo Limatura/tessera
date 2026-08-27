@@ -239,6 +239,9 @@ rpassword = "7.5.4"
 arc-swap = "1.9.1"
 
 [dev-dependencies]
+# The test double in `tests/common/brimming.rs` implements `ObjectStore`, which
+# `object_store` declares with `#[async_trait]`.
+async-trait = "0.1"
 criterion = { version = "0.8", features = ["async_tokio"] }
 # `Jail` lets the environment-override tests set variables in a scoped, restored
 # way instead of calling `std::env::set_var`, which is unsound under a threaded

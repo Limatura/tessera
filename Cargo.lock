@@ -3966,6 +3966,7 @@ dependencies = [
  "arc-swap",
  "argon2",
  "async-stream",
+ "async-trait",
  "aws-lc-rs",
  "axum",
  "axum-extra",

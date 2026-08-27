@@ -16,6 +16,8 @@
 // everything, which is a warning of its own.
 #![allow(dead_code, reason = "each test binary uses a different subset")]
 
+pub(crate) mod brimming;
+
 use std::sync::Arc;
 
 use axum::{

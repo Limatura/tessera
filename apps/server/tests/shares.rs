@@ -4289,3 +4289,80 @@ async fn concurrent_uploads_go_through_the_first_write_gate() {
         "the upload path did not write through the first-write gate"
     );
 }
+
+/// A backend that fills up while the bytes are still arriving.
+///
+/// Every store the suite runs against has more room than any test uses, so this
+/// path — the one where a partial object is left behind and the session has
+/// recorded bytes that are not there — had never been exercised. `Brimming`
+/// stops at a byte count the test chooses, which is what a bucket hitting its
+/// quota does; a store that refused from the first byte would prove only that a
+/// refusal is handled.
+///
+/// The share must not be created. A row saying "here is your file" whose bytes
+/// stop halfway is worse than a refusal: the link works, the download is short,
+/// and nothing says why.
+#[tokio::test]
+async fn a_backend_that_fills_up_mid_upload_does_not_leave_a_share_behind() {
+    let app = TestApp::with_config(|config| config.share.inline_threshold_bytes = 8).await;
+
+    // Room for a quarter of what is about to be sent.
+    let brimming: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::new(common::brimming::Brimming::with_room_for(16 * 1024));
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([(
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            tessera_server::storage::Stores::plain(std::sync::Arc::clone(&brimming)),
+        )]),
+        configured: Vec::new(),
+    });
+
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=too-big.bin"),
+            Body::from(vec![1_u8; 64 * 1024]),
+        )
+        .await;
+    assert_ne!(
+        refused.status(),
+        StatusCode::CREATED,
+        "a share was created for bytes the store never took"
+    );
+
+    // The instance is still usable afterwards, given somewhere to put things. A
+    // backend running out is an ordinary condition, not something that wedges
+    // the next upload — so this swaps in a store with room rather than reusing
+    // the one whose budget the failed upload has already spent.
+    let roomy: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::new(object_store::memory::InMemory::new());
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([(
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            tessera_server::storage::Stores::plain(roomy),
+        )]),
+        configured: Vec::new(),
+    });
+
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=fits.bin"),
+            Body::from(vec![2_u8; 1024]),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+}
