@@ -702,8 +702,8 @@ jobs:
       # outlives it and the next run finds the name and the port taken.
       - name: Stop the stores
         if: always()
-        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
-            tessera-minio tessera-seaweed tessera-versity 2>/dev/null || true
+        run:
+          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \ tessera-minio tessera-seaweed tessera-versity 2>/dev/null || true
 
   workflows:
     name: workflow lint

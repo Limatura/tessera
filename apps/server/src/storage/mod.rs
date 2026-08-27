@@ -99,6 +99,7 @@ pub mod first_write;
 pub mod placement;
 pub mod secret;
 pub mod split;
+pub mod stitch;
 
 /// Every open backend, by the name `file_segments.backend` records.
 ///

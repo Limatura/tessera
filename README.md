@@ -64,32 +64,25 @@ Every backend is compiled in by default, so pointing at S3 or Postgres needs no 
 
 ### What the storage URL can point at
 
-Each of these has the test suite run against it on every change, so the list is
-what is currently true rather than what ought to work:
+Each of these has the test suite run against it on every change, so the list is what is currently true rather than what ought to work:
 
 | Store | URL | Notes |
-|---|---|---|
+| --- | --- | --- |
 | A local directory | `data/blobs` | The default. No object store needed. |
-| Garage | `s3://bucket` | |
-| RustFS | `s3://bucket` | |
-| MinIO | `s3://bucket` | |
+| Garage | `s3://bucket` |  |
+| RustFS | `s3://bucket` |  |
+| MinIO | `s3://bucket` |  |
 | SeaweedFS | `s3://bucket` | Needs an `-s3.config` identities file, or it refuses every write. |
-| VersityGW | `s3://bucket` | |
+| VersityGW | `s3://bucket` |  |
 | Azure Blob | `azure://container` | Checked against Azurite. |
 | WebDAV | `https://host/path` | **Small files only** — see below. |
 
-AWS S3, Cloudflare R2 and Backblaze B2 speak the same S3 API as the first group
-and no emulator can stand in for them, so they are checked by an opt-in job that
-runs only when an operator adds credentials.
+AWS S3, Cloudflare R2 and Backblaze B2 speak the same S3 API as the first group and no emulator can stand in for them, so they are checked by an opt-in job that runs only when an operator adds credentials.
 
 Two limits worth knowing before choosing:
 
-- **WebDAV** takes only files below `share.inline_threshold_bytes` (64 KiB by
-  default). Anything larger is written a piece at a time, WebDAV's only upload
-  verb is a whole-body `PUT`, and the library underneath cannot stream one. A
-  file too large is refused with `413` rather than failing halfway.
-- **Google Cloud Storage** is compiled in and untested. No emulator implements
-  the API the library uses for writes, so nothing here can prove it works.
+- **WebDAV** takes only files below `share.inline_threshold_bytes` (64 KiB by default). Anything larger is written a piece at a time, WebDAV's only upload verb is a whole-body `PUT`, and the library underneath cannot stream one. A file too large is refused with `413` rather than failing halfway.
+- **Google Cloud Storage** is compiled in and untested. No emulator implements the API the library uses for writes, so nothing here can prove it works.
 
 That split is the whole rule: **if it is in the panel, changing it works.** The panel never says "saved — now restart", because a setting that would need one is shown read-only with the reason instead.
 
