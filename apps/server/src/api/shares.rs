@@ -36,7 +36,7 @@ use axum::{
 };
 use bytes::Bytes;
 use http_body_util::BodyExt as _;
-use object_store::{MultipartUpload, ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
+use object_store::{ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
 use tessera_core::{Password, Permission, RetrievalCode, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
@@ -881,14 +881,13 @@ async fn ingest(
     request: Ingest<'_>,
     body: Body,
 ) -> Result<(Ingested, crate::storage::in_flight::Arrival)> {
-    let id = request.id;
     // Read before the body is consumed. `Content-Length` is what usually
     // supplies it, but taking the hint rather than the header means an
     // in-memory body reports its size too — and a chunked one reports nothing,
     // which is the honest answer to "I will not tell you how much I am
     // sending".
     let expected_bytes = <Body as http_body::Body>::size_hint(&body).exact();
-    let mut upload: Option<Box<dyn MultipartUpload>> = None;
+    let mut upload: Option<crate::upload::segments::Writer<'_>> = None;
     // Opened here so it outlives the read loop: the caller holds it until the
     // row is written, and the keys are added once the scope and backend are
     // known.
@@ -903,14 +902,13 @@ async fn ingest(
     )
     .await;
 
-    if let Some(upload) = upload.as_mut() {
+    if let Some(writer) = upload.take() {
         // Only reachable when something failed: the success path takes the
-        // upload out of the slot after completing it. Abandoning a multipart
-        // upload leaves parts behind that a store will bill for and that nothing
-        // else will ever look for, so the failure path has to say so explicitly.
-        if let Err(error) = upload.abort().await {
-            tracing::warn!(?error, %id, "could not abort an incomplete upload");
-        }
+        // writer out of the slot after finishing it. A direct `POST /shares` has
+        // no rows recording these segments — there is nothing to record against
+        // until the share exists — so if this does not free them, nothing will
+        // and the store bills for the parts for ever.
+        writer.abandon().await;
     }
     result.map(|ingested| (ingested, arriving))
 }
@@ -1012,41 +1010,62 @@ pub(crate) struct Room {
     pub scope: Scope,
 }
 
-/// One opened object, and everything the loop learned by opening it.
-struct Opened {
-    backend: String,
-    object_key: String,
-    upload: Box<dyn MultipartUpload>,
-    /// What that backend has room for.
+/// One planned file, and everything the loop learned by planning it.
+struct Opened<'a> {
+    /// The writer that routes the body into the plan's segments.
+    writer: crate::upload::segments::Writer<'a>,
+    /// What the first backend has room for.
     limit: u64,
     /// What to count these bytes under while they arrive.
     ledger_key: String,
 }
 
-/// Chooses a backend, opens the object on it, and starts counting the bytes
-/// against it.
+/// Plans where the file goes, and starts counting the bytes against the first
+/// backend it named.
 ///
-/// The three go together: from the moment a backend is chosen, everything read
-/// so far is spoken for there as much as what follows.
+/// The two go together: from the moment a backend is chosen, everything read so
+/// far is spoken for there as much as what follows.
+///
+/// The ledger and the running limit follow the *first* segment. That is the one
+/// the bytes are going into right now, and the planner has already checked that
+/// every other segment has room — checking them again per chunk would be three
+/// queries a chunk for a figure that cannot have moved in this upload's favour.
 ///
 /// # Errors
 ///
-/// As [`start_object`].
-async fn open_object(
-    state: &AppState,
+/// As [`plan_object`].
+async fn open_object<'a>(
+    state: &'a AppState,
     id: ShareId,
     now: OffsetDateTime,
     expected_bytes: Option<u64>,
     arriving: &mut crate::storage::in_flight::Arrival,
-) -> Result<Opened> {
-    let (backend, object_key, upload) = start_object(state, id, now, expected_bytes).await?;
-    let limit = backend_free(state, &backend).await?;
-    let ledger_key = format!("backend:{backend}");
+) -> Result<Opened<'a>> {
+    let plan = plan_object(state, id, now, expected_bytes).await?;
+    let first = plan
+        .first()
+        .ok_or(Error::Unavailable)?
+        .segment
+        .backend
+        .clone();
+    // One segment: the running check below is the only thing standing between a
+    // body and a backend that cannot hold it, so it is that backend's room.
+    //
+    // Several: the planner has already found room for every piece, and comparing
+    // the whole file against the *first* backend's share of it would refuse
+    // exactly the uploads splitting exists to accept. The limit is then the plan
+    // itself — a body longer than it said it would be, which the writer also
+    // refuses when it runs off the end.
+    let limit = if plan.len() > 1 {
+        plan.iter().map(|p| p.segment.length).sum()
+    } else {
+        backend_free(state, &first).await?
+    };
+    let ledger_key = format!("backend:{first}");
     arriving.also_count_under(ledger_key.clone());
+    let part_size = state.config().server.part_size_bytes;
     Ok(Opened {
-        backend,
-        object_key,
-        upload,
+        writer: crate::upload::segments::Writer::new(state, plan, part_size),
         limit,
         ledger_key,
     })
@@ -1309,19 +1328,56 @@ async fn place_where(
 /// # Errors
 ///
 /// Returns [`Error`] if nothing has room, or the chosen backend will not open.
-async fn start_object(
+async fn plan_object(
     state: &AppState,
     id: ShareId,
     now: OffsetDateTime,
     expected_bytes: Option<u64>,
-) -> Result<(String, String, Box<dyn MultipartUpload>)> {
-    let object_key = object_key(id, now);
+) -> Result<Vec<crate::upload::segments::Planned>> {
+    let base = object_key(id, now);
+    let config = state.config();
+
+    // Splitting needs a size to cut against, and a chunked body declares none.
+    // Finding out halfway that the pool is short would leave pieces written to
+    // several backends with no way to finish — so without a length the file is
+    // placed whole, which is what happens with the switch off too.
+    if let (true, Some(size)) = (config.storage.split_across_backends, expected_bytes) {
+        let pool = state.backends.load();
+        let used = backend_usage(state).await?;
+        let candidates =
+            crate::storage::candidates(&config.storage, &pool.configured, &pool.open, &used);
+        let rules = crate::storage::split::Rules {
+            part_size: u64::try_from(config.server.part_size_bytes).unwrap_or(u64::MAX),
+            split: true,
+        };
+        let plan = crate::storage::split::plan(&candidates, size, rules)
+            .ok_or(Error::InsufficientStorage(Tier::Instance))?;
+        return Ok(plan
+            .into_iter()
+            .enumerate()
+            .map(|(seq, segment)| crate::upload::segments::Planned {
+                // One object per piece, named by its position. A file's pieces
+                // share a prefix so an operator looking at a bucket can see they
+                // belong together.
+                object_key: if seq == 0 {
+                    base.clone()
+                } else {
+                    format!("{base}.{seq}")
+                },
+                segment,
+            })
+            .collect());
+    }
+
     let chosen = place_streamed(state, expected_bytes).await?;
-    let store = state.backend(&chosen).ok_or(Error::Unavailable)?;
-    let started = store
-        .put_multipart(&ObjectPath::from(object_key.as_str()))
-        .await?;
-    Ok((chosen, object_key, started))
+    Ok(vec![crate::upload::segments::Planned {
+        segment: crate::storage::split::Segment {
+            backend: chosen,
+            offset: 0,
+            length: expected_bytes.unwrap_or(u64::MAX),
+        },
+        object_key: base,
+    }])
 }
 
 /// How much room one named backend has, or [`u64::MAX`] when nothing limits it.
@@ -1492,8 +1548,8 @@ struct Ingest<'a> {
     now: OffsetDateTime,
 }
 
-async fn ingest_into(
-    state: &AppState,
+async fn ingest_into<'a>(
+    state: &'a AppState,
     request: Ingest<'_>,
     // What the body says it will be, when it says. Chooses the backend before
     // the first byte is written — without it the placer can only be asked for
@@ -1501,7 +1557,7 @@ async fn ingest_into(
     // not fit in, and by then parts have already been written there.
     expected_bytes: Option<u64>,
     body: Body,
-    upload: &mut Option<Box<dyn MultipartUpload>>,
+    upload: &mut Option<crate::upload::segments::Writer<'a>>,
     arriving: &mut crate::storage::in_flight::Arrival,
 ) -> Result<Ingested> {
     let Ingest {
@@ -1543,7 +1599,6 @@ async fn ingest_into(
     let mut body = body;
     let mut buffered: Vec<u8> = Vec::new();
     let mut size_bytes: u64 = 0;
-    let mut key: Option<(String, String)> = None;
     // Until a backend is chosen there is nothing to exceed.
     let mut backend_limit = u64::MAX;
     let mut backend_key: Option<String> = None;
@@ -1592,8 +1647,7 @@ async fn ingest_into(
             let started = open_object(state, id, now, expected_bytes, arriving).await?;
             backend_limit = started.limit;
             backend_key = Some(started.ledger_key);
-            key = Some((started.backend, started.object_key));
-            *upload = Some(started.upload);
+            *upload = Some(started.writer);
         }
         // The chosen backend's own ceiling, checked as the bytes arrive for the
         // same reason the quota is: a body that would take it past the line
@@ -1604,8 +1658,8 @@ async fn ingest_into(
         {
             return Err(Error::InsufficientStorage(Tier::Instance));
         }
-        if let Some(upload) = upload.as_mut() {
-            flush_full_parts(upload.as_mut(), &mut buffered, part_size).await?;
+        if let Some(writer) = upload.as_mut() {
+            writer.write(&std::mem::take(&mut buffered)).await?;
         }
     }
 
@@ -1617,7 +1671,6 @@ async fn ingest_into(
             stream_to_object,
             size_bytes,
         },
-        key,
         buffered,
         upload,
     )
@@ -1647,9 +1700,8 @@ struct Finish {
 async fn finish(
     state: &AppState,
     request: Finish,
-    key: Option<(String, String)>,
     buffered: Vec<u8>,
-    upload: &mut Option<Box<dyn MultipartUpload>>,
+    upload: &mut Option<crate::upload::segments::Writer<'_>>,
 ) -> Result<Ingested> {
     let Finish {
         id,
@@ -1658,22 +1710,41 @@ async fn finish(
         size_bytes,
     } = request;
     let mut buffered = buffered;
-    match key {
-        Some((backend, key)) => {
-            let mut started = upload.take().ok_or_else(|| {
+    match upload.take() {
+        Some(mut writer) => {
+            if !buffered.is_empty() {
+                writer.write(&std::mem::take(&mut buffered)).await?;
+            }
+            let pieces = writer.finish().await?;
+            let first = pieces.first().ok_or_else(|| {
                 Error::bad_request("upload state was lost part-way through the body")
             })?;
-            if !buffered.is_empty() {
-                started
-                    .put_part(PutPayload::from(std::mem::take(&mut buffered)))
-                    .await?;
-            }
-            started.complete().await?;
             Ok(Ingested {
-                storage: StorageLocation::Object { backend, key },
+                // The legacy column keeps the first piece, which is all one
+                // column can hold; `segments` is what every read uses.
+                storage: StorageLocation::Object {
+                    backend: first.backend.clone(),
+                    key: first.object_key.clone(),
+                },
                 size_bytes,
                 inline: None,
-                segments: Vec::new(),
+                // Only recorded when there is more than one: a single-object
+                // file is exactly what it was before splitting existed, and
+                // writing a one-row list for it would change every existing
+                // upload's shape for nothing.
+                segments: if pieces.len() > 1 {
+                    pieces
+                        .iter()
+                        .map(|piece| crate::db::repository::share::NewSegment {
+                            backend: piece.backend.clone(),
+                            object_key: piece.object_key.clone(),
+                            offset_bytes: piece.offset,
+                            length_bytes: piece.length,
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                },
             })
         }
         // A file small enough that the multipart upload never started. It still
@@ -1742,28 +1813,6 @@ async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body
         Ok(None) => Ok(None),
         Err(_) => Err(Error::Timeout),
     }
-}
-
-/// Pushes as many whole blocks as the buffer holds, leaving the remainder.
-///
-/// `part_size` is `server.part_size_bytes`. It is fixed rather than following
-/// whatever chunk sizes the network delivered, because most object stores
-/// require every part but the last to be at least 5 MiB and some require them
-/// all to be the same size.
-///
-/// **It is also the memory an in-flight upload holds** — one block per upload,
-/// not one per connection, because a block goes out as soon as it fills.
-async fn flush_full_parts(
-    upload: &mut dyn MultipartUpload,
-    buffered: &mut Vec<u8>,
-    part_size: usize,
-) -> Result<()> {
-    while buffered.len() >= part_size {
-        let rest = buffered.split_off(part_size);
-        let part = std::mem::replace(buffered, rest);
-        upload.put_part(PutPayload::from(Bytes::from(part))).await?;
-    }
-    Ok(())
 }
 
 /// `{yyyy}/{mm}/{id}`.

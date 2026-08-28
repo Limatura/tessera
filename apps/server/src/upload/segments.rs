@@ -15,12 +15,19 @@
 //! - Parts within a segment are whole `part_size` blocks apart from the last, which is what S3
 //!   requires and what the plan's alignment exists to make possible.
 //!
-//! # What it does not do
+//! # Who cleans up after a failure
 //!
-//! It does not clean up after itself. A failure leaves whatever was opened
-//! open, deliberately: the rows recording those segments are what the sweep
-//! needs, and throwing the identifiers away here would leave parts that nothing
-//! can ever abort. See `maintenance::abandon`.
+//! Both answers are right, for different callers, which is why [`Writer::abandon`]
+//! exists rather than a `Drop`.
+//!
+//! A **resumable** session has rows: the segments are in `upload_segments`, and
+//! the sweep walks them. Aborting here would be a second cleaner racing the
+//! first, and throwing the identifiers away would leave parts nothing can ever
+//! abort.
+//!
+//! A **direct** `POST /shares` has no rows at all — there is nothing to record
+//! against until the share exists. If this does not clean up, nothing does, and
+//! S3 bills for the parts for ever. So that caller calls `abandon`.
 
 use bytes::Bytes;
 use object_store::{MultipartUpload, PutPayload};
@@ -151,6 +158,35 @@ impl<'a> Writer<'a> {
             self.close_current(&planned).await?;
         }
         Ok(self.done)
+    }
+
+    /// Gives back everything this writer put in a store.
+    ///
+    /// The open segment is aborted and the finished ones are deleted. For a
+    /// caller with no rows to record the segments against — a direct
+    /// `POST /shares` — this is the only thing that will ever free them.
+    ///
+    /// Failures are logged rather than returned: this runs on the way out of an
+    /// error, and one store refusing must not hide the error that got here.
+    pub async fn abandon(mut self) {
+        if let Some(mut upload) = self.open.take()
+            && let Err(error) = upload.abort().await
+        {
+            tracing::warn!(?error, "could not abort a segment's upload");
+        }
+        for piece in &self.done {
+            let Some(store) = self.state.backend(&piece.backend) else {
+                continue;
+            };
+            if let Err(error) = object_store::ObjectStoreExt::delete(
+                store.as_ref(),
+                &object_store::path::Path::from(piece.object_key.as_str()),
+            )
+            .await
+            {
+                tracing::warn!(?error, key = piece.object_key, "could not remove a segment");
+            }
+        }
     }
 
     async fn open_if_needed(&mut self, planned: &Planned) -> Result<()> {

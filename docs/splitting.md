@@ -6,20 +6,25 @@ The reasoning lives next to the code, in the module docs of `storage/split.rs`, 
 
 ## What exists today
 
-Everything below is built **except the wiring**. The planner, the range mapping, the segment tables and the sweep are in and tested; nothing calls the planner yet, so every file is still one segment and the switch does not exist.
+All of it, with the switch off by default. Turning
+`storage.split_across_backends` on makes a file larger than any single backend
+go up in pieces and come back whole — there is an end-to-end test that does
+exactly that against two buckets neither of which could hold it.
 
-| Piece | Where | State |
-| --- | --- | --- |
-| Planner | `storage::split::plan` | Built, no callers |
-| Range mapping | `storage::stitch::reads_for` | Built, no callers |
-| `upload_segments` | migration `m20260903` | Built, one row per session |
-| Parts keyed by segment | migration `m20260904` | Built, `seq` always 0 |
-| Sweep over every segment | `maintenance::abandon` | Built |
-| A store that stops mid-upload | `tests/common/brimming.rs` | Built |
-| `storage.split_across_backends` | — | **Not built** |
-| Upload path asking the planner | — | **Not built** |
-| Read path stitching | — | **Not built** |
-| Frontend delivery | — | **Not built** — see [#184] |
+What is *not* built is the frontend delivery in [#184]: a split file has no
+direct link, so its bytes come back through the server rather than being
+stitched in the browser.
+
+| Piece | Where |
+|---|---|
+| Planner | `storage::split::plan` |
+| Range mapping | `storage::stitch::reads_for` |
+| Writing across segments | `upload::segments::Writer` |
+| Reading across segments | `api::public::stream_stitched` |
+| `upload_segments` / `file_segments` | migrations `m20260903`, `m20260904` |
+| Sweep over every segment | `maintenance::abandon` |
+| A store that stops mid-upload | `tests/common/brimming.rs` |
+| The switch | `storage.split_across_backends` |
 
 ## Upload
 
@@ -33,8 +38,8 @@ flowchart TD
     E --> F{how many segments?}
     F -->|nowhere fits| G[507 InsufficientStorage]
     F -->|1| C
-    F -->|N| H[write N upload_segments rows<br/>state=planned<br/>this is the reservation]
-    C --> I[one segment: today's path]
+    F -->|N| H[Writer over the plan<br/>in_flight ledger holds the bytes]
+    C --> I[one segment: the same Writer,<br/>a plan of one]
     H --> J[fill segment k, in order]
     J --> K[open multipart<br/>state=open]
     K --> L[write until length_bytes]
@@ -49,9 +54,29 @@ flowchart TD
 
 A chunked body declares nothing. The planner needs a size to cut against, and finding out halfway that the pool is short leaves segments already written to several backends with no way to finish. Without a length the upload is placed whole, which is what happens today.
 
-### Why `planned` rows are written before any bytes
+### Where the reservation actually lives
 
-They are the reservation. Two 5 GB uploads arriving together must not both be planned onto the same backend's last 6 GB, and a row that exists before the first byte is what stops that — `bytes_per_backend` counts `upload_segments`, so the second planner sees what the first spoke for.
+The design said `upload_segments` rows in state `planned`, written before any
+bytes. The implementation does not, and the reason is structural rather than a
+shortcut: a direct `POST /shares` has no `uploads` row at all — there is nothing
+to record against until the share exists — and `upload_segments.upload_id` is a
+foreign key to one. There is nowhere to put the row.
+
+What holds the space instead is `storage::in_flight`, which counts bytes as they
+arrive and is added to the database's figures. Two uploads planning against the
+same backend at the same moment see each other through it.
+
+`planned` is therefore still unwritten. It is the right shape for the resumable
+path, which *does* have rows — and which does not split yet either. Both are the
+same piece of work, and neither is done.
+
+### What does not split yet
+
+- **Resumable (`tus`) uploads.** They go through `place_resumable`, which picks
+  one backend. A session declares its size up front, so the planner would fit
+  well; what is missing is the `planned` rows above and a writer that survives
+  across requests.
+- **Anything without a `Content-Length`.** Deliberate, and above.
 
 ## Download
 

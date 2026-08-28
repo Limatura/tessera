@@ -4785,3 +4785,121 @@ async fn a_file_in_two_objects_reads_back_whole() {
         "the range came back wrong"
     );
 }
+
+/// A configured backend with a ceiling, for a test that needs the placer to see
+/// one.
+fn backend_row(
+    name: &str,
+    capacity: u64,
+    is_default: bool,
+) -> tessera_server::db::repository::storage_backend::StorageBackend {
+    tessera_server::db::repository::storage_backend::StorageBackend {
+        name: name.to_owned(),
+        url: format!("memory:///{name}"),
+        options: std::collections::BTreeMap::new(),
+        is_default,
+        capacity_bytes: Some(capacity),
+        read_only: false,
+    }
+}
+
+/// A file no single backend can hold, with the switch on.
+///
+/// This is the whole of #184 in one test: two buckets, neither big enough, and a
+/// file that goes up, comes back byte for byte, and answers a range across the
+/// seam between them.
+///
+/// With the switch off the same upload is a `507`, which is the other half of
+/// the promise — an operator who did not ask for splitting does not get it.
+#[tokio::test]
+async fn a_file_too_large_for_any_one_backend_is_split_and_read_back() {
+    let part = 5 * 1024 * 1024_usize;
+    let content: Vec<u8> = (0..part * 3 / 2)
+        .map(|i| u8::try_from(i % 251).unwrap_or(0))
+        .collect();
+
+    for (split, expected) in [
+        (false, StatusCode::INSUFFICIENT_STORAGE),
+        (true, StatusCode::CREATED),
+    ] {
+        let app = TestApp::with_config(move |config| {
+            config.share.inline_threshold_bytes = 8;
+            config.server.part_size_bytes = 5 * 1024 * 1024;
+            config.storage.split_across_backends = split;
+            // The backend from `storage.url` has no row, so its ceiling is
+            // configured where its URL is.
+            config.storage.capacity_bytes = 5 * 1024 * 1024;
+        })
+        .await;
+
+        // Two backends, each with room for one part and no more.
+        let capacity = u64::try_from(part).expect("a part size");
+        let mut open = tessera_server::storage::Backends::new();
+        for name in [tessera_server::storage::DEFAULT_BACKEND, "cold"] {
+            let store: std::sync::Arc<dyn object_store::ObjectStore> =
+                std::sync::Arc::new(object_store::memory::InMemory::new());
+            open.insert(
+                name.to_owned(),
+                tessera_server::storage::Stores::plain(store),
+            );
+        }
+        let configured = vec![backend_row("cold", capacity, false)];
+        app.state
+            .replace_backends(tessera_server::storage::Pool { open, configured });
+
+        let response = app
+            .send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=big.bin")
+                    .header("content-length", content.len().to_string()),
+                Body::from(content.clone()),
+            )
+            .await;
+        assert_eq!(response.status(), expected, "split={split}");
+
+        if !split {
+            continue;
+        }
+
+        let code = body_json(response).await["code"]
+            .as_str()
+            .expect("a code")
+            .to_owned();
+        let got = to_bytes(
+            expect_status(
+                app.get(&format!("/s/{code}/download")).await,
+                StatusCode::OK,
+            )
+            .await
+            .into_body(),
+            usize::MAX,
+        )
+        .await
+        .expect("the body");
+        assert_eq!(got.as_ref(), content.as_slice(), "the file came back wrong");
+
+        // Across the seam, which is where the two backends meet.
+        let seam = part - 100;
+        let ranged = expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/s/{code}/download"))
+                    .header("range", format!("bytes={seam}-{}", seam + 200)),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::PARTIAL_CONTENT,
+        )
+        .await;
+        let part_bytes = to_bytes(ranged.into_body(), usize::MAX)
+            .await
+            .expect("the body");
+        assert_eq!(
+            part_bytes.as_ref(),
+            &content[seam..=seam + 200],
+            "the range across the seam came back wrong"
+        );
+    }
+}
