@@ -4,6 +4,10 @@
 //! file to move. Without splitting that is not slow or wasteful, it is
 //! impossible — see #184. Every competitor surveyed refuses it.
 //!
+//! The order the pieces run in, and what turning this on costs, are drawn out in
+//! `docs/splitting.md` — `rustdoc` cannot draw a diagram and that is the half
+//! this note cannot carry.
+//!
 //! Off by default. An operator turns it on, and until they do this module only
 //! ever produces plans of one segment, which is exactly what
 //! [`placement::choose`](super::placement::choose) already did.

@@ -4,6 +4,8 @@
 //! bytes 9 000 000 to 9 000 255 of it. This works out which segments that range
 //! falls in and where inside each one to start — see #184.
 //!
+//! The read path this belongs to is drawn in `docs/splitting.md`.
+//!
 //! With one segment it is the identity: one read, starting where the caller
 //! asked. That is the case every file is in today, and it is why this can be
 //! written and pinned before anything splits.
