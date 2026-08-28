@@ -1131,6 +1131,35 @@ async fn place_streamed(state: &AppState, size: Option<u64>) -> Result<String> {
     .await
 }
 
+/// What each backend is holding, counting what has not become a share yet.
+///
+/// Two sources, because there are two: `file_segments` for content that made it,
+/// and `upload_segments` for sessions still in flight. Leaving the second out is
+/// how a bucket fills with half-finished uploads while the placer goes on
+/// offering it — the space is spent and no query the placer reads can see it.
+///
+/// # Errors
+///
+/// Returns [`Error`] if either query fails.
+async fn backend_usage(state: &AppState) -> Result<crate::storage::Usage> {
+    let mut used = state.shares.bytes_per_backend().await?;
+    // Sorted before merging: the order two maps are walked in is not stable, and
+    // a figure that depends on it is a figure that differs between two runs of
+    // the same query.
+    let mut in_flight: Vec<(String, u64)> = state
+        .uploads
+        .bytes_per_backend()
+        .await?
+        .into_iter()
+        .collect();
+    in_flight.sort_unstable();
+    for (backend, bytes) in in_flight {
+        let entry = used.entry(backend).or_insert(0);
+        *entry = entry.saturating_add(bytes);
+    }
+    Ok(used)
+}
+
 /// The placer to use for a size that may or may not be known.
 ///
 /// `None` is not "zero bytes": everything fits zero, so asking
@@ -1153,7 +1182,7 @@ async fn place_where(
     suitable: impl Fn(&str) -> bool,
 ) -> Result<String> {
     let pool = state.backends.load();
-    let used = state.shares.bytes_per_backend().await?;
+    let used = backend_usage(state).await?;
     let all =
         crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used);
     let candidates: Vec<crate::storage::placement::Candidate> = all
@@ -1208,7 +1237,7 @@ async fn start_object(
 /// Returns [`Error`] if the usage cannot be read.
 async fn backend_free(state: &AppState, name: &str) -> Result<u64> {
     let pool = state.backends.load();
-    let used = state.shares.bytes_per_backend().await?;
+    let used = backend_usage(state).await?;
     Ok(
         crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used)
             .into_iter()
@@ -1230,7 +1259,7 @@ async fn backend_free(state: &AppState, name: &str) -> Result<u64> {
 /// Returns [`Error`] if the usage cannot be read.
 pub(crate) async fn largest_placeable(state: &AppState) -> Result<Option<u64>> {
     let pool = state.backends.load();
-    let used = state.shares.bytes_per_backend().await?;
+    let used = backend_usage(state).await?;
     Ok(crate::storage::placement::largest_acceptable(
         &crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used),
     ))

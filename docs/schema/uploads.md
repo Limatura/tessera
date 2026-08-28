@@ -36,7 +36,7 @@ CREATE TABLE uploads (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [upload_parts](upload_parts.md) [upload_segments](upload_segments.md) |  |  |
+| id | TEXT |  | false | [upload_segments](upload_segments.md) [upload_parts](upload_parts.md) |  |  |
 | share_id | TEXT |  | true |  | [shares](shares.md) |  |
 | user_id | TEXT |  | true |  | [users](users.md) |  |
 | token_hash | TEXT |  | false |  |  |  |
@@ -72,8 +72,8 @@ CREATE TABLE uploads (
 ```mermaid
 erDiagram
 
-"upload_parts" |o--|| "uploads" : ""
 "upload_segments" |o--|| "uploads" : ""
+"upload_parts" |o--|| "uploads" : ""
 "uploads" }o--o| "shares" : ""
 "uploads" }o--o| "users" : ""
 "uploads" }o--o| "roles" : ""
@@ -92,11 +92,6 @@ erDiagram
   TEXT expires_at
   TEXT role_id FK
 }
-"upload_parts" {
-  TEXT upload_id PK
-  INTEGER part_number PK
-  TEXT content_id
-}
 "upload_segments" {
   TEXT upload_id PK
   INTEGER seq PK
@@ -108,6 +103,12 @@ erDiagram
   TEXT state
   TEXT created_at
   TEXT updated_at
+}
+"upload_parts" {
+  TEXT upload_id PK
+  INTEGER seq PK
+  INTEGER part_number PK
+  TEXT content_id
 }
 "shares" {
   TEXT id PK

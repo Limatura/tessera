@@ -4444,3 +4444,51 @@ async fn two_uploads_at_once_cannot_both_spend_the_last_of_the_room() {
         );
     }
 }
+
+/// A session still in flight counts against the backend it is writing to.
+///
+/// Its bytes are in the bucket and in no figure the placer used to read:
+/// `file_segments` only holds content that became a share. So a backend could
+/// fill with half-finished uploads while the placer went on offering it, which
+/// on a free tier is how an account locks up — the space is gone and nothing can
+/// say where.
+#[tokio::test]
+async fn an_upload_in_flight_counts_against_its_backend() {
+    let app = TestApp::with_config(|config| {
+        config.share.inline_threshold_bytes = 8;
+        // Room for one of the two uploads below and not both.
+        config.storage.capacity_bytes = 60 * 1024;
+    })
+    .await;
+
+    // A resumable session declares what it will send, and that declaration is
+    // what should be spoken for — before a byte of it arrives.
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/uploads?filename=held.bin")
+                .header("upload-length", (50 * 1024).to_string()),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+
+    // Nothing has been written yet, so only the reservation stands between this
+    // upload and the backend's ceiling.
+    let refused = app
+        .send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=second.bin"),
+            Body::from(vec![3_u8; 40 * 1024]),
+        )
+        .await;
+    assert_eq!(
+        refused.status(),
+        StatusCode::INSUFFICIENT_STORAGE,
+        "the backend was offered room a session in flight had already taken"
+    );
+}

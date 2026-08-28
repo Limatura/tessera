@@ -1,5 +1,7 @@
 //! Reading and writing upload sessions.
 
+use std::collections::HashMap;
+
 use sea_orm::{
     ActiveValue::Set,
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _, QueryFilter,
@@ -352,6 +354,10 @@ impl UploadRepository {
         for part in parts {
             UploadPartEntity::insert(upload_part::ActiveModel {
                 upload_id: Set(id.to_string()),
+                // Zero until a file is spread over more than one backend. The
+                // column exists now so that the day it is not zero is a value
+                // change rather than a schema change on live rows.
+                seq: Set(0),
                 part_number: Set(part.number),
                 content_id: Set(part.content_id.clone()),
             })
@@ -384,6 +390,9 @@ impl UploadRepository {
     pub async fn parts_of(&self, id: UploadId) -> Result<Vec<TakenPart>, UploadRepositoryError> {
         Ok(UploadPartEntity::find()
             .filter(upload_part::Column::UploadId.eq(id.to_string()))
+            // Segment first: `complete_multipart` is called once per segment and
+            // wants that segment's parts, in its own order.
+            .order_by_asc(upload_part::Column::Seq)
             .order_by_asc(upload_part::Column::PartNumber)
             .all(&self.connection)
             .await?
@@ -434,15 +443,14 @@ impl UploadRepository {
         // runs on a timer over everything that expired, and a query each would
         // make its cost the number of abandoned uploads.
         let ids: Vec<String> = models.iter().map(|model| model.id.clone()).collect();
-        let mut segments: std::collections::HashMap<String, upload_segment::Model> =
-            UploadSegmentEntity::find()
-                .filter(upload_segment::Column::UploadId.is_in(ids))
-                .filter(upload_segment::Column::Seq.eq(0))
-                .all(&self.connection)
-                .await?
-                .into_iter()
-                .map(|segment| (segment.upload_id.clone(), segment))
-                .collect();
+        let mut segments: HashMap<String, upload_segment::Model> = UploadSegmentEntity::find()
+            .filter(upload_segment::Column::UploadId.is_in(ids))
+            .filter(upload_segment::Column::Seq.eq(0))
+            .all(&self.connection)
+            .await?
+            .into_iter()
+            .map(|segment| (segment.upload_id.clone(), segment))
+            .collect();
 
         models
             .into_iter()
@@ -489,6 +497,43 @@ impl UploadRepository {
             .await?
             .flatten();
         Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
+    }
+
+    /// What sessions still in flight have spoken for, by backend.
+    ///
+    /// The bytes of an upload that has not become a share yet are in the bucket
+    /// and in no figure the placer reads: `file_segments` only holds content
+    /// that made it. So a backend could be full of half-finished uploads while
+    /// the placer went on offering it, which on a free tier is how an account
+    /// locks up — the space is gone and nothing can explain where.
+    ///
+    /// The *planned* length rather than what has landed, for the same reason
+    /// [`reserved_bytes`](Self::reserved_bytes) counts the declaration: a
+    /// segment that has written a tenth of itself is still going to want the
+    /// rest, and a placer told otherwise would hand the room to somebody else.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UploadRepositoryError`] if the query fails.
+    pub async fn bytes_per_backend(&self) -> Result<HashMap<String, u64>, UploadRepositoryError> {
+        let rows: Vec<(String, Option<i64>)> = UploadSegmentEntity::find()
+            .select_only()
+            .column(upload_segment::Column::Backend)
+            .column_as(
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Expr::col(upload_segment::Column::LengthBytes),
+                ),
+                "total",
+            )
+            .group_by(upload_segment::Column::Backend)
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|(backend, bytes)| (backend, u64::try_from(bytes.unwrap_or(0)).unwrap_or(0)))
+            .collect())
     }
 
     /// Every object key an unfinished upload is writing to.
