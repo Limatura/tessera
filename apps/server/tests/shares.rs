@@ -4630,3 +4630,60 @@ async fn a_segment_that_cannot_be_finished_is_not_reported_as_written() {
         "the store had room for everything; nothing was tested"
     );
 }
+
+/// A file spread over more than one object keeps all of them.
+///
+/// The reconciliation deletes objects no share names, and it used to ask
+/// `file_shares.object_key` — one column, one key. A split file has a
+/// `file_segments` row per piece, and every piece but the first would have been
+/// missing from that answer: a real object that no share appeared to name, and
+/// so deleted. That is data loss, and it would have arrived with the first split
+/// file rather than with any change to this query.
+///
+/// Nothing splits yet, so the second segment is written by hand. The point is
+/// that the guard is in place before the write path can produce one.
+#[tokio::test]
+async fn every_segment_of_a_split_file_survives_reconciliation() {
+    use sea_orm::{ActiveValue::Set, EntityTrait as _};
+
+    let app = TestApp::with_config(|config| config.storage.reconcile_grace_hours = 0).await;
+    upload(&app, "?filename=split.bin", &vec![1_u8; 4096]).await;
+
+    // The one segment the upload wrote, straight from the table the sweep reads.
+    let existing = tessera_server::db::entity::file_segment::Entity::find()
+        .all(&app.state.db)
+        .await
+        .expect("query")
+        .into_iter()
+        .next()
+        .expect("the file has a segment");
+
+    // A second piece, as the planner would produce.
+    let second = format!("{}-second", existing.object_key);
+    put_object(&app, &second, b"the rest").await;
+    tessera_server::db::entity::file_segment::Entity::insert(
+        tessera_server::db::entity::file_segment::ActiveModel {
+            file_id: Set(existing.file_id.clone()),
+            seq: Set(1),
+            backend: Set(tessera_server::storage::DEFAULT_BACKEND.to_owned()),
+            object_key: Set(second.clone()),
+            offset_bytes: Set(4096),
+            length_bytes: Set(8),
+            created_at: Set(OffsetDateTime::now_utc()),
+        },
+    )
+    .exec(&app.state.db)
+    .await
+    .expect("the second segment");
+
+    tessera_server::maintenance::reconcile_once(
+        &app.state,
+        OffsetDateTime::now_utc() + time::Duration::days(7),
+    )
+    .await;
+
+    assert!(
+        object_exists(&app, &second).await,
+        "deleted a segment the share still names"
+    );
+}

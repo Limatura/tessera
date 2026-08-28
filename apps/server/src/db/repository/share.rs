@@ -849,20 +849,25 @@ impl ShareRepository {
     /// times its retention, so the set is tens of megabytes at instance sizes
     /// this software is aimed at.
     ///
+    /// Read from `file_segments`, not from `file_shares.object_key`.
+    ///
+    /// That column holds one key, and it is the column the reconciliation used
+    /// to ask. A file spread over several backends has one row here per piece,
+    /// and every piece but the first would be missing from the answer — so the
+    /// sweep would see a real object that no share appeared to name and delete
+    /// it. Data loss, not an error message, and it would have arrived with the
+    /// first split file rather than with this query.
+    ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails.
     pub async fn all_object_keys(&self) -> Result<Vec<String>, ShareRepositoryError> {
-        Ok(FileShareEntity::find()
-            .filter(file_share::Column::ObjectKey.is_not_null())
+        Ok(FileSegmentEntity::find()
             .select_only()
-            .column(file_share::Column::ObjectKey)
-            .into_tuple::<Option<String>>()
+            .column(file_segment::Column::ObjectKey)
+            .into_tuple()
             .all(&self.connection)
-            .await?
-            .into_iter()
-            .flatten()
-            .collect())
+            .await?)
     }
 
     /// Reads what a share holds, from the table that owns it.
