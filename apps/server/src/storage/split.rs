@@ -12,27 +12,28 @@
 //! ever produces plans of one segment, which is exactly what
 //! [`placement::choose`](super::placement::choose) already did.
 //!
-//! # Why the cuts are aligned, and what that is not
+//! # Why the cuts are not aligned to a part
 //!
-//! Every cut but the last lands on a multiple of `server.part_size_bytes`.
+//! Every cut but the last used to land on a multiple of
+//! `server.part_size_bytes`. It does not any more, and the reason it did was
+//! wrong: it was written down as an S3 requirement, and S3 does not require it.
 //!
-//! This is **not** an S3 requirement, and an earlier version of this comment
-//! said it was. S3's rule — no part below 5 MiB except the last — is scoped to
-//! one multipart upload, and each segment is an upload of its own with its part
-//! numbering starting again at one. A segment of any length at all therefore
-//! ends in a short final part that S3 accepts; the suite already proves it, by
-//! storing 20 MiB in 8 MiB parts on every store in CI.
+//! S3's rule — no part below 5 MiB except the last — is scoped to one multipart
+//! upload, and each segment is an upload of its own with its part numbering
+//! starting again at one. A segment of any length ends in a short final part
+//! that S3 accepts. The suite proves it on every store in CI, by storing 20 MiB
+//! in 8 MiB parts: 8, 8, and 4.
 //!
-//! What alignment actually buys is that a segment is a whole number of parts, so
-//! nothing downstream has to carry a partial part from one segment into the
-//! next. [`Writer`](crate::upload::segments::Writer) does not need that today —
-//! it flushes its buffer when it closes a segment — but a resumable upload,
-//! which must stop between requests, does.
+//! Alignment cost the remainder of every backend it touched — up to a part each,
+//! and those bytes were reachable by nothing. On the free tiers this feature
+//! exists for, unreachable space is the thing being economised.
 //!
-//! What it costs is the remainder: a backend with 12 MiB free and 5 MiB parts
-//! contributes 10, and the other 2 are not used by anything. On the free tiers
-//! this feature is aimed at, that is a real if small price, and it is the reason
-//! [`capacity`] is an upper bound rather than a sum.
+//! It will have to come back for **resumable** splitting, which is not built.
+//! A `tus` session's chunks are already forced to whole parts, so with aligned
+//! segments a chunk boundary always lands on a part boundary and a request can
+//! end with nothing buffered. Unaligned, a chunk can end in the middle of a
+//! part, and those bytes would have to survive until the next request. That is
+//! the work, and it belongs with the work that needs it.
 //!
 //! # Why a backend with a little room left is skipped entirely
 //!
@@ -131,17 +132,16 @@ pub fn plan(candidates: &[Candidate], size: u64, rules: Rules) -> Option<Vec<Seg
         let remaining = size - placed;
         let free = candidate.free_bytes().unwrap_or(u64::MAX);
 
-        // The piece that ends the file may be any length; every other piece has
-        // to be a whole number of parts, so that no segment's parts have to know
-        // about the segment after it.
+        // A backend that is not finishing the file gives everything it has.
+        // Rounding down to a whole part used to happen here; see the module
+        // docs for why it does not any more.
         let length = if remaining <= free {
             remaining
         } else {
-            let aligned = (free / rules.part_size) * rules.part_size;
-            if aligned < floor {
+            if free < floor {
                 continue;
             }
-            aligned
+            free
         };
 
         segments.push(Segment {
@@ -165,14 +165,11 @@ pub fn plan(candidates: &[Candidate], size: u64, rules: Rules) -> Option<Vec<Seg
 /// With splitting off this is the largest single backend, which is what
 /// [`largest_acceptable`](super::placement::largest_acceptable) already says.
 ///
-/// With it on, it is an **upper bound** rather than a promise. Everything
-/// [`plan`] accepts is within it, which is the direction that matters — a figure
-/// that accepted a file the planner then refused would be a `507` after the
-/// upload had started. It can be a little generous in an awkward pool, because
-/// the one segment allowed to be ragged is whichever backend the planner
-/// happens to fill last, and no pool-wide figure knows which that will be. The
-/// bound assumes the best case: every backend contributes its whole parts, and
-/// the roomiest leftover is spent on the file's tail.
+/// With it on, it is the sum of what every backend worth involving has free.
+/// That is exact rather than a bound: a segment takes everything its backend
+/// holds, so a file of exactly this many bytes plans, and one byte more does
+/// not. It was a generous upper bound while cuts were aligned to a part, which
+/// they no longer are.
 ///
 /// It is still nothing like the naive sum. A backend below [`min_segment`]
 /// contributes nothing at all, so five backends with a megabyte each hold no
@@ -191,21 +188,18 @@ pub fn capacity(candidates: &[Candidate], rules: Rules) -> Option<u64> {
     let whole = whole?;
 
     let floor = min_segment(rules.part_size);
-    let mut aligned_total = 0_u64;
-    let mut best_tail = 0_u64;
+    let mut total = 0_u64;
     for candidate in candidates.iter().filter(|c| !c.read_only) {
         let free = candidate.free_bytes()?;
         if free < floor {
             continue;
         }
-        let aligned = (free / rules.part_size) * rules.part_size;
-        aligned_total = aligned_total.saturating_add(aligned);
-        best_tail = best_tail.max(free - aligned);
+        total = total.saturating_add(free);
     }
 
     // A pool whose every backend is below the floor can still take a file small
     // enough to sit whole in one of them, which is what `whole` is doing here.
-    Some(aligned_total.saturating_add(best_tail).max(whole))
+    Some(total.max(whole))
 }
 
 /// The backends worth filling, in the order they should be filled.
@@ -302,6 +296,19 @@ mod tests {
         assert_eq!(capacity(&pool, RULES), Some(10 * PART + 1234));
     }
 
+    /// Every backend's ragged tail counts, not just the roomiest one's.
+    ///
+    /// Three backends a part and a bit each used to report three parts, because
+    /// only one tail could be spent. The bytes were there the whole time.
+    #[test]
+    fn capacity_counts_every_ragged_tail() {
+        let pool: Vec<Candidate> = (0..3)
+            .map(|i| backend(&i.to_string(), 2 * PART + 4096))
+            .collect();
+        assert_eq!(capacity(&pool, RULES), Some(3 * (2 * PART + 4096)));
+        assert!(plan(&pool, 3 * (2 * PART + 4096), RULES).is_some());
+    }
+
     /// A pool where at least one backend has no ceiling can take anything.
     #[test]
     fn an_unlimited_backend_makes_the_pool_unlimited() {
@@ -388,10 +395,14 @@ mod tests {
             prop_assert_eq!(at, size, "the plan does not cover the file: {:?}", segments);
         }
 
-        /// Every piece but the last is a whole number of parts and worth having.
-        /// The last is the one S3 lets be short.
+        /// Every piece is worth having.
+        ///
+        /// Only the floor is asserted now. Cuts used to have to be a whole
+        /// number of parts as well; the module docs say why that went away.
+        /// The last segment is exempt: it is whatever the file has left, and a
+        /// file may end anywhere.
         #[test]
-        fn every_segment_but_the_last_is_aligned_and_worth_having(
+        fn every_segment_but_the_last_is_worth_having(
             pool in a_pool(),
             size in 1_u64..600 * 1024 * 1024,
         ) {
@@ -399,10 +410,6 @@ mod tests {
 
             let floor = min_segment(PART);
             for segment in segments.iter().take(segments.len().saturating_sub(1)) {
-                prop_assert_eq!(
-                    segment.length % PART, 0,
-                    "an unaligned cut: {:?}", segments
-                );
                 prop_assert!(
                     segment.length >= floor,
                     "a segment below the floor: {:?}", segments
@@ -439,19 +446,29 @@ mod tests {
             }
         }
 
-        /// A plan is never produced for a file the pool said it could not take,
-        /// and the figure is not so conservative that it refuses what it could
-        /// have held.
+        /// The figure and the planner agree, in both directions.
+        ///
+        /// The first half was all that could be asserted while cuts were
+        /// aligned: the figure was an upper bound, so a file inside it might
+        /// still be refused. Now that a segment takes its whole backend the
+        /// figure is exact, and the second half — everything inside it really
+        /// does plan — is the half that makes it a promise rather than a hint.
         #[test]
         fn capacity_agrees_with_what_can_be_planned(
             pool in a_pool(),
             size in 1_u64..600 * 1024 * 1024,
         ) {
             let room = capacity(&pool, RULES).unwrap_or(u64::MAX);
-            if plan(&pool, size, RULES).is_some() {
+            let planned = plan(&pool, size, RULES).is_some();
+            if planned {
                 prop_assert!(
                     size <= room,
                     "planned {size} bytes into a pool that claims {room}"
+                );
+            } else {
+                prop_assert!(
+                    size > room,
+                    "refused {size} bytes from a pool that claims {room}"
                 );
             }
         }

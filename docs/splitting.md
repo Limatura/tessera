@@ -22,6 +22,7 @@ stitched in the browser.
 | Writing across segments | `upload::segments::Writer` |
 | Reading across segments | `api::public::stream_stitched` |
 | `upload_segments` / `file_segments` | migrations `m20260903`, `m20260904` |
+| How much the pool holds | `storage::split::capacity` |
 | Sweep over every segment | `maintenance::abandon` |
 | A store that stops mid-upload | `tests/common/brimming.rs` |
 | The switch | `storage.split_across_backends` |
@@ -102,7 +103,7 @@ flowchart TD
 These are the ones with a test each, because each of them is a corrupt download rather than an error message when it breaks.
 
 - **The plan tiles the file exactly.** No gap, no overlap, offsets ascending from zero. A gap loses bytes; an overlap writes them twice.
-- **Every segment but the last is a whole number of parts.** Not because S3 demands it — each segment is a multipart upload of its own, so its last part may be short, and the suite proves that on every store. It is so that nothing has to carry a partial part from one segment into the next, which the resumable path will need. It costs the remainder of each backend: 12 MiB free with 5 MiB parts contributes 10.
+- **A segment takes everything its backend has free.** Cuts used to be rounded down to a whole part, on the belief that S3 required it. It does not: each segment is a multipart upload of its own, so its last part may be short, and the suite proves that on every store by storing 20 MiB in 8 MiB parts. Rounding down made the remainder of every backend unreachable, so it went. Resumable splitting will want it back — a `tus` chunk is already a whole number of parts, and aligned segments are what let a request end with nothing buffered.
 - **A backend below `min_segment` is not involved at all.** Taking 6 MB from a backend with 6 MB free costs a segment, a row, a multipart upload and a place for the reader to stall.
 - **The reads answer exactly the range asked for.** One byte short is a truncated download, one byte long is a corrupt one.
 - **Cleanup walks every segment.** A session over two backends is two multipart uploads, and S3 bills for an abandoned one's parts until somebody aborts it.
