@@ -677,6 +677,23 @@ pub struct StorageConfig {
     /// provider never gets to say no for them.
     pub capacity_bytes: u64,
 
+    /// Whether one file may be spread across several backends.
+    ///
+    /// Off, and it stays off until an operator says otherwise. What it buys is
+    /// the only thing that cannot be had any other way: a file larger than any
+    /// single account will hold. Five free 10 GB buckets take a 40 GB file with
+    /// this on and refuse it with `507` without.
+    ///
+    /// What it costs is real, which is why it is a switch rather than a default.
+    /// A split file has no direct link — a presigned URL names one object — so
+    /// its bytes come back through this server or are stitched in the browser.
+    /// On the free tiers this is aimed at, that is upload bandwidth *and*
+    /// download bandwidth, billed separately.
+    ///
+    /// A file is only split when nothing can take it whole; turning this on does
+    /// not spread ordinary uploads around. See `docs/splitting.md`.
+    pub split_across_backends: bool,
+
     /// Key that seals stored backend credentials, as 64 hexadecimal characters.
     ///
     /// Empty, the default, means this instance cannot store a backend — adding
@@ -769,6 +786,7 @@ impl Default for StorageConfig {
             // sees the combination, so it is not a silent trap either.
             max_total_bytes: 0,
             capacity_bytes: 0,
+            split_across_backends: false,
             secret_key: String::new(),
             reconcile_interval_hours: 24,
             reconcile_grace_hours: 24,

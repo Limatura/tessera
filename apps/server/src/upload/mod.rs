@@ -5,6 +5,7 @@
 //! offset model — see `api::uploads` — and where the bytes go while the upload
 //! is unfinished is [`sink`].
 
+pub mod segments;
 pub mod sink;
 
 use crate::{db::repository::upload::Segment, state::AppState};

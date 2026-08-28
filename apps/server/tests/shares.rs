@@ -4492,3 +4492,141 @@ async fn an_upload_in_flight_counts_against_its_backend() {
         "the backend was offered room a session in flight had already taken"
     );
 }
+
+/// The writer puts each segment's bytes where the plan said, across a boundary.
+///
+/// The case it exists for: a chunk that ends inside one segment and continues in
+/// the next. One byte too few and the file reassembles short; one too many and
+/// the next segment's first byte is overwritten — neither is an error anybody
+/// sees until a download is wrong.
+#[tokio::test]
+async fn the_writer_fills_each_segment_to_the_length_the_plan_gave_it() {
+    use tessera_server::{
+        storage::split::Segment,
+        upload::segments::{Planned, Writer},
+    };
+
+    let app = TestApp::ready().await;
+    let part = app.state.config().server.part_size_bytes;
+    let part_u64 = u64::try_from(part).expect("a part size");
+
+    // Two segments, the first a whole number of parts, the second short — which
+    // is what the planner produces.
+    let plan = vec![
+        Planned {
+            segment: Segment {
+                backend: tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                offset: 0,
+                length: part_u64,
+            },
+            object_key: "probe/first".to_owned(),
+        },
+        Planned {
+            segment: Segment {
+                backend: tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                offset: part_u64,
+                length: 1024,
+            },
+            object_key: "probe/second".to_owned(),
+        },
+    ];
+
+    let mut writer = Writer::new(&app.state, plan, part);
+    // Chunks that deliberately straddle the boundary rather than land on it.
+    let total = part + 1024;
+    let chunk = 100_000;
+    let mut sent = 0;
+    while sent < total {
+        let take = chunk.min(total - sent);
+        let byte = u8::try_from(sent / chunk % 251).unwrap_or(0);
+        writer.write(&vec![byte; take]).await.expect("the write");
+        sent += take;
+    }
+    let written = writer.finish().await.expect("the finish");
+
+    assert_eq!(written.len(), 2, "{written:?}");
+    assert_eq!(written[0].length, part_u64, "the first segment is short");
+    assert_eq!(written[1].length, 1024, "the second segment is wrong");
+    assert_eq!(written[1].offset, part_u64);
+
+    // And the objects really hold that many bytes.
+    for piece in &written {
+        let store = app.state.backend(&piece.backend).expect("the backend");
+        let got = object_store::ObjectStoreExt::get(
+            store.as_ref(),
+            &object_store::path::Path::from(piece.object_key.as_str()),
+        )
+        .await
+        .expect("the object")
+        .bytes()
+        .await
+        .expect("the bytes");
+        assert_eq!(
+            u64::try_from(got.len()).expect("a length"),
+            piece.length,
+            "{} holds the wrong number of bytes",
+            piece.object_key
+        );
+    }
+}
+
+/// A store that fills up part-way through the second segment.
+///
+/// The first segment is already complete and its object is real: those bytes are
+/// spent whatever happens next. What must not happen is the writer reporting
+/// them as written — the caller records what it is told, and a row naming a
+/// segment that failed is a share that cannot be assembled.
+#[tokio::test]
+async fn a_segment_that_cannot_be_finished_is_not_reported_as_written() {
+    use tessera_server::{
+        storage::split::Segment,
+        upload::segments::{Planned, Writer},
+    };
+
+    let app = TestApp::ready().await;
+    let part = app.state.config().server.part_size_bytes;
+    let part_u64 = u64::try_from(part).expect("a part size");
+
+    // Room for the first segment and a little of the second.
+    let brimming: std::sync::Arc<dyn object_store::ObjectStore> =
+        std::sync::Arc::new(common::brimming::Brimming::with_room_for(part_u64 + 1024));
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open: tessera_server::storage::Backends::from([(
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            tessera_server::storage::Stores::plain(brimming),
+        )]),
+        configured: Vec::new(),
+    });
+
+    let plan = vec![
+        Planned {
+            segment: Segment {
+                backend: tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                offset: 0,
+                length: part_u64,
+            },
+            object_key: "probe/one".to_owned(),
+        },
+        Planned {
+            segment: Segment {
+                backend: tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                offset: part_u64,
+                length: part_u64,
+            },
+            object_key: "probe/two".to_owned(),
+        },
+    ];
+
+    let mut writer = Writer::new(&app.state, plan, part);
+    let mut failed = false;
+    for _ in 0..(2 * part / 100_000 + 2) {
+        if writer.write(&vec![9_u8; 100_000]).await.is_err() {
+            failed = true;
+            break;
+        }
+    }
+    assert!(
+        failed,
+        "the store had room for everything; nothing was tested"
+    );
+}
