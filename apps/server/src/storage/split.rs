@@ -12,17 +12,27 @@
 //! ever produces plans of one segment, which is exactly what
 //! [`placement::choose`](super::placement::choose) already did.
 //!
-//! # Why the cut points are not free
+//! # Why the cuts are aligned, and what that is not
 //!
-//! A segment is written as a multipart upload, and S3 refuses a part below
-//! 5 MiB unless it is the last one in *its own* upload. Cutting a file at an
-//! arbitrary byte therefore produces a segment whose final part is short — legal
-//! — and, if the cut is not aligned, forces every following part to straddle the
-//! boundary. Aligning every cut to `server.part_size_bytes` keeps each segment a
-//! whole number of parts, so no segment has to think about its neighbours.
+//! Every cut but the last lands on a multiple of `server.part_size_bytes`.
 //!
-//! The last segment is the one exception, and it is the same exception S3 makes:
-//! it may be short, because nothing follows it.
+//! This is **not** an S3 requirement, and an earlier version of this comment
+//! said it was. S3's rule — no part below 5 MiB except the last — is scoped to
+//! one multipart upload, and each segment is an upload of its own with its part
+//! numbering starting again at one. A segment of any length at all therefore
+//! ends in a short final part that S3 accepts; the suite already proves it, by
+//! storing 20 MiB in 8 MiB parts on every store in CI.
+//!
+//! What alignment actually buys is that a segment is a whole number of parts, so
+//! nothing downstream has to carry a partial part from one segment into the
+//! next. [`Writer`](crate::upload::segments::Writer) does not need that today —
+//! it flushes its buffer when it closes a segment — but a resumable upload,
+//! which must stop between requests, does.
+//!
+//! What it costs is the remainder: a backend with 12 MiB free and 5 MiB parts
+//! contributes 10, and the other 2 are not used by anything. On the free tiers
+//! this feature is aimed at, that is a real if small price, and it is the reason
+//! [`capacity`] is an upper bound rather than a sum.
 //!
 //! # Why a backend with a little room left is skipped entirely
 //!

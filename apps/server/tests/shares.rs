@@ -4903,3 +4903,345 @@ async fn a_file_too_large_for_any_one_backend_is_split_and_read_back() {
         );
     }
 }
+
+/// The same round trip as above, over the sizes that fall on an awkward number.
+///
+/// One size proves the mechanism works; it does not prove the arithmetic. The
+/// cases that break a splitter are the ones a single example never lands on: a
+/// file one byte over a backend, one byte under, one that fills the pool
+/// exactly, and one whose last segment holds a single byte. Each of those is an
+/// off-by-one in a different place — the planner's remainder, the writer's
+/// boundary split, the reader's intersection — and each returns a file that is
+/// subtly wrong rather than an error.
+///
+/// The sizes are as small as they can be: `min_segment` is `max(part_size,
+/// 5 MiB)`, so a backend below five mebibytes is never involved at all and a
+/// cheaper part size would simply produce a pool that can hold nothing. What is
+/// under test here is our own arithmetic; that a real store accepts the layout
+/// is covered against real buckets in the object-store suite.
+#[tokio::test]
+async fn splitting_holds_at_every_awkward_size() {
+    const PART: usize = 5 * 1024 * 1024;
+    const PER_BACKEND: usize = PART;
+    const BACKENDS: usize = 4;
+
+    let per_backend = u64::try_from(PER_BACKEND).expect("a capacity");
+    let pool = u64::try_from(PER_BACKEND * BACKENDS).expect("a pool size");
+
+    for size in [
+        PER_BACKEND + 1,            // two segments, the second holding one byte
+        PER_BACKEND * 2 - 1,        // one byte short of two full backends
+        PER_BACKEND * 2,            // two backends, exactly, with no short tail
+        PER_BACKEND * 2 + PART,     // three segments, the last a whole part
+        PER_BACKEND * BACKENDS - 1, // one byte short of the whole pool
+        PER_BACKEND * BACKENDS,     // the pool, exactly
+    ] {
+        let content: Vec<u8> = (0..size)
+            .map(|i| u8::try_from(i % 251).unwrap_or(0))
+            .collect();
+
+        let app = TestApp::with_config(|config| {
+            config.share.inline_threshold_bytes = 8;
+            config.server.part_size_bytes = PART;
+            config.storage.split_across_backends = true;
+            config.storage.capacity_bytes = per_backend;
+            // Otherwise the instance ceiling refuses what the backends could take.
+            config.storage.max_total_bytes = pool;
+        })
+        .await;
+
+        app.state
+            .replace_backends(equal_backends(BACKENDS, per_backend));
+
+        let created = app
+            .send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=awkward.bin")
+                    .header("content-length", content.len().to_string()),
+                Body::from(content.clone()),
+            )
+            .await;
+        assert_eq!(created.status(), StatusCode::CREATED, "size={size}");
+        let code = body_json(created).await["code"]
+            .as_str()
+            .expect("a code")
+            .to_owned();
+
+        let whole = to_bytes(
+            expect_status(
+                app.get(&format!("/s/{code}/download")).await,
+                StatusCode::OK,
+            )
+            .await
+            .into_body(),
+            usize::MAX,
+        )
+        .await
+        .expect("the body");
+        assert_eq!(whole.len(), size, "wrong length at size={size}");
+        assert_eq!(
+            whole.iter().zip(&content).position(|(a, b)| a != b),
+            None,
+            "first differing byte at size={size}"
+        );
+
+        // Every seam, plus the two ends. A seam falls on each multiple of a
+        // backend's capacity, because that is where the planner cuts.
+        let mut probes = vec![(0_usize, 0_usize), (size - 1, size - 1)];
+        let mut seam = PER_BACKEND;
+        while seam < size {
+            // Just before, exactly on, and straddling: the byte before a seam
+            // and the byte after it live in different backends.
+            probes.push((seam - 1, seam - 1));
+            probes.push((seam, seam));
+            probes.push((seam - 1, (seam).min(size - 1)));
+            probes.push((
+                seam.saturating_sub(PART / 2),
+                (seam + PART / 2).min(size - 1),
+            ));
+            seam += PER_BACKEND;
+        }
+
+        for (from, to) in probes {
+            let got = ranged_download(&app, &code, from, to).await;
+            assert_eq!(
+                got,
+                &content[from..=to],
+                "bytes {from}-{to} came back wrong at size={size}"
+            );
+        }
+    }
+}
+
+/// `abandon` gives back everything the writer put in a store.
+///
+/// A direct `POST /shares` has no rows: if the writer does not clean up after a
+/// failure, nothing ever will. The finished segments become objects no share
+/// names, and the open one becomes a multipart upload S3 bills for until
+/// somebody aborts it.
+///
+/// The finished segment is the half this really proves: remove the deletion and
+/// this goes red. The open one is weaker — an `InMemory` upload that was never
+/// completed reads as missing whether it was aborted or merely dropped — so it
+/// is here to pin the shape, not to prove the abort.
+#[tokio::test]
+async fn abandoning_a_writer_leaves_nothing_behind() {
+    use tessera_server::{
+        storage::split::Segment,
+        upload::segments::{Planned, Writer},
+    };
+
+    let app = TestApp::ready().await;
+    let part = app.state.config().server.part_size_bytes;
+    let part_u64 = u64::try_from(part).expect("a part size");
+
+    let plan = vec![
+        Planned {
+            segment: Segment {
+                backend: tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                offset: 0,
+                length: part_u64,
+            },
+            object_key: "probe/finished".to_owned(),
+        },
+        Planned {
+            segment: Segment {
+                backend: tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+                offset: part_u64,
+                length: part_u64,
+            },
+            object_key: "probe/still-open".to_owned(),
+        },
+    ];
+
+    let store = app
+        .state
+        .backend(tessera_server::storage::DEFAULT_BACKEND)
+        .expect("the default backend");
+
+    let mut writer = Writer::new(&app.state, plan, part);
+    // Enough to close the first segment and open the second, and not enough to
+    // close it: the state the whole method exists for.
+    writer
+        .write(&vec![7_u8; part + 1024])
+        .await
+        .expect("the write");
+
+    // The first segment really is there, or what follows proves nothing.
+    let before = object_store::ObjectStoreExt::head(
+        store.as_ref(),
+        &object_store::path::Path::from("probe/finished"),
+    )
+    .await;
+    assert!(before.is_ok(), "the first segment was never written");
+
+    writer.abandon().await;
+
+    for key in ["probe/finished", "probe/still-open"] {
+        let after = object_store::ObjectStoreExt::head(
+            store.as_ref(),
+            &object_store::path::Path::from(key),
+        )
+        .await;
+        assert!(
+            matches!(after, Err(object_store::Error::NotFound { .. })),
+            "{key} survived abandon: {after:?}"
+        );
+    }
+}
+
+/// `count` empty in-memory backends, each with the same ceiling.
+///
+/// The first is the one built from `storage.url`, whose ceiling lives in the
+/// configuration because it has no row; the rest carry theirs in the table.
+fn equal_backends(count: usize, each: u64) -> tessera_server::storage::Pool {
+    let mut open = tessera_server::storage::Backends::new();
+    let mut configured = Vec::new();
+    for index in 0..count {
+        let name = if index == 0 {
+            tessera_server::storage::DEFAULT_BACKEND.to_owned()
+        } else {
+            format!("cold{index}")
+        };
+        let store: std::sync::Arc<dyn object_store::ObjectStore> =
+            std::sync::Arc::new(object_store::memory::InMemory::new());
+        open.insert(name.clone(), tessera_server::storage::Stores::plain(store));
+        if index > 0 {
+            configured.push(backend_row(&name, each, false));
+        }
+    }
+    tessera_server::storage::Pool { open, configured }
+}
+
+/// Bytes `from` to `to` inclusive, as an HTTP `Range` asks for them.
+///
+/// `clippy.toml` exempts test bodies from `expect_used`, and a helper is not
+/// one. A panic here is the reporting mechanism, same as inside a test.
+#[expect(clippy::expect_used, reason = "a fixture reports by panicking")]
+async fn ranged_download(app: &TestApp, code: &str, from: usize, to: usize) -> Vec<u8> {
+    let response = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download"))
+                .header("range", format!("bytes={from}-{to}")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::PARTIAL_CONTENT,
+    )
+    .await;
+    to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("the body")
+        .to_vec()
+}
+
+/// A body that arrives in frames and still declares how long it is.
+///
+/// Both halves are needed at once. Without a declared length nothing splits —
+/// the planner has no size to cut against. Without separate frames the two
+/// bodies run one after the other and nothing about concurrency is exercised.
+/// `Body::from(vec)` gives the first and not the second; `Body::from_stream`
+/// gives the second and not the first.
+struct FramedBody {
+    remaining: usize,
+    frame: usize,
+    total: u64,
+    parked: bool,
+}
+
+impl http_body::Body for FramedBody {
+    type Data = bytes::Bytes;
+    type Error = std::io::Error;
+
+    fn poll_frame(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Result<http_body::Frame<Self::Data>, Self::Error>>> {
+        if self.remaining == 0 {
+            return std::task::Poll::Ready(None);
+        }
+        // Park once before every frame, so the other upload genuinely gets to
+        // run in between rather than after.
+        if !self.parked {
+            self.parked = true;
+            cx.waker().wake_by_ref();
+            return std::task::Poll::Pending;
+        }
+        self.parked = false;
+        let take = self.frame.min(self.remaining);
+        self.remaining -= take;
+        std::task::Poll::Ready(Some(Ok(http_body::Frame::data(bytes::Bytes::from(vec![
+            7_u8;
+            take
+        ])))))
+    }
+
+    fn size_hint(&self) -> http_body::SizeHint {
+        http_body::SizeHint::with_exact(self.total)
+    }
+}
+
+/// Two uploads that each need to be split cannot both spend the same pool.
+///
+/// This is the concurrency question one layer up from
+/// `two_uploads_at_once_cannot_both_spend_the_last_of_the_room`. There, two
+/// uploads competed for one backend's room. Here each upload is planned across
+/// *several* backends before a byte arrives, and both planners read the same
+/// figures — so if nothing counts the bytes in flight, both plans succeed and
+/// the pool ends up holding twice what it has.
+///
+/// Unlike the test it is modelled on, this one does not depend on luck. Measured
+/// by taking the ledger out: every round goes `[201, 201]` — fifteen mebibytes
+/// of pool holding twenty — so a few rounds are enough.
+#[tokio::test]
+async fn two_uploads_that_both_need_splitting_cannot_both_have_the_pool() {
+    const PART: usize = 5 * 1024 * 1024;
+    const BACKENDS: usize = 3;
+    // Two segments each, so both really are split, and two of them do not fit.
+    const EACH: usize = 2 * PART;
+
+    let per_backend = u64::try_from(PART).expect("a part size");
+    let pool = u64::try_from(PART * BACKENDS).expect("a pool size");
+
+    for round in 0..3 {
+        let app = TestApp::with_config(|config| {
+            config.share.inline_threshold_bytes = 8;
+            config.server.part_size_bytes = PART;
+            config.storage.split_across_backends = true;
+            config.storage.capacity_bytes = per_backend;
+            config.storage.max_total_bytes = pool;
+        })
+        .await;
+        app.state
+            .replace_backends(equal_backends(BACKENDS, per_backend));
+
+        let sending = (0..2).map(|i| {
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/shares?filename=split{i}.bin"))
+                    .header("content-length", EACH.to_string()),
+                Body::new(FramedBody {
+                    remaining: EACH,
+                    frame: 1024 * 1024,
+                    total: u64::try_from(EACH).expect("a size"),
+                    parked: false,
+                }),
+            )
+        });
+        let statuses: Vec<u16> = futures_util::future::join_all(sending)
+            .await
+            .into_iter()
+            .map(|response| response.status().as_u16())
+            .collect();
+
+        let accepted = statuses.iter().filter(|status| **status == 201).count();
+        assert!(
+            accepted <= 1,
+            "round {round}: a {pool}-byte pool took two {EACH}-byte uploads: {statuses:?}"
+        );
+    }
+}
