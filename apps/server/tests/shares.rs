@@ -4687,3 +4687,101 @@ async fn every_segment_of_a_split_file_survives_reconciliation() {
         "deleted a segment the share still names"
     );
 }
+
+/// A file whose bytes are in two objects reads back as one file.
+///
+/// The write path cannot produce this yet, so it is assembled by hand: the
+/// content is split in two, written as two objects, and the segment rows point
+/// at both. What is being tested is the reader — that it walks the list rather
+/// than serving the first piece and calling it the file, and that a range
+/// straddling the boundary comes back whole.
+#[tokio::test]
+async fn a_file_in_two_objects_reads_back_whole() {
+    use sea_orm::{ActiveValue::Set, EntityTrait as _};
+
+    let app = TestApp::ready().await;
+    let content: Vec<u8> = (0..4096_u32)
+        .map(|i| u8::try_from(i % 251).unwrap_or(0))
+        .collect();
+    let share = upload(&app, "?filename=two.bin", &content).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    let existing = tessera_server::db::entity::file_segment::Entity::find()
+        .all(&app.state.db)
+        .await
+        .expect("query")
+        .into_iter()
+        .next()
+        .expect("a segment");
+
+    // Rewrite the same bytes as two objects, and point the rows at them.
+    let (head, tail) = content.split_at(1500);
+    let first = format!("{}-a", existing.object_key);
+    let second = format!("{}-b", existing.object_key);
+    put_object(&app, &first, head).await;
+    put_object(&app, &second, tail).await;
+
+    tessera_server::db::entity::file_segment::Entity::delete_many()
+        .exec(&app.state.db)
+        .await
+        .expect("clear the old segment");
+    // The object the single-segment path would read, removed: without this the
+    // test passes through the old path and proves nothing about stitching.
+    app.state
+        .storage
+        .delete(&object_store::path::Path::from(
+            existing.object_key.as_str(),
+        ))
+        .await
+        .expect("remove the original object");
+    for (seq, (key, piece)) in [(&first, head), (&second, tail)].into_iter().enumerate() {
+        tessera_server::db::entity::file_segment::Entity::insert(
+            tessera_server::db::entity::file_segment::ActiveModel {
+                file_id: Set(existing.file_id.clone()),
+                seq: Set(i64::try_from(seq).expect("a seq")),
+                backend: Set(tessera_server::storage::DEFAULT_BACKEND.to_owned()),
+                object_key: Set(key.clone()),
+                offset_bytes: Set(if seq == 0 { 0 } else { 1500 }),
+                length_bytes: Set(i64::try_from(piece.len()).expect("a length")),
+                created_at: Set(OffsetDateTime::now_utc()),
+            },
+        )
+        .exec(&app.state.db)
+        .await
+        .expect("the segment");
+    }
+
+    // The whole file.
+    let whole = expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+    let got = to_bytes(whole.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert_eq!(got.as_ref(), content.as_slice(), "the file came back wrong");
+
+    // And a range that straddles the boundary, which is the case the stitching
+    // exists for.
+    let ranged = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/s/{code}/download"))
+                .header("range", "bytes=1400-1600"),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::PARTIAL_CONTENT,
+    )
+    .await;
+    let part = to_bytes(ranged.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert_eq!(
+        part.as_ref(),
+        &content[1400..=1600],
+        "the range came back wrong"
+    );
+}

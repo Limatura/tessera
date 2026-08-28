@@ -639,6 +639,9 @@ fn local_root(state: &AppState) -> Option<std::path::PathBuf> {
 /// A `NewFile` for a finished upload.
 pub(crate) fn finished_file(upload: &Upload) -> NewFile {
     NewFile {
+        // A resumable session writes one object; the split planner is only asked
+        // on the direct path so far.
+        segments: Vec::new(),
         filename: upload.filename.clone(),
         content_type: upload.content_type.clone(),
         size_bytes: upload.offset_bytes,

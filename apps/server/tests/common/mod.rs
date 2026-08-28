@@ -764,6 +764,7 @@ impl<'a> Shares<'a> {
             .insert(
                 &share,
                 &NewContent::File(NewFile {
+                    segments: Vec::new(),
                     filename: Some("專案.zip".to_owned()),
                     content_type: Some("application/zip".to_owned()),
                     size_bytes: 1_048_576,

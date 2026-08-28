@@ -353,6 +353,7 @@ pub async fn create(
             storage,
             size_bytes,
             inline,
+            segments,
         },
         _arriving,
     ) = ingest(
@@ -405,6 +406,7 @@ pub async fn create(
 
     let content = match kind {
         ShareKind::File => NewContent::File(NewFile {
+            segments,
             filename,
             // What the uploader claimed, recorded so a future feature can use it
             // — and never echoed, because serving an attacker-chosen media type
@@ -846,6 +848,9 @@ struct Ingested {
     storage: StorageLocation,
     size_bytes: u64,
     inline: Option<Vec<u8>>,
+    /// Every piece, when the file was spread. Empty for the one-object case,
+    /// which is every upload with the switch off.
+    segments: Vec<crate::db::repository::share::NewSegment>,
 }
 
 /// Reads the body, keeping it in the database if it is small and streaming it to
@@ -1668,6 +1673,7 @@ async fn finish(
                 storage: StorageLocation::Object { backend, key },
                 size_bytes,
                 inline: None,
+                segments: Vec::new(),
             })
         }
         // A file small enough that the multipart upload never started. It still
@@ -1689,12 +1695,14 @@ async fn finish(
                 },
                 size_bytes,
                 inline: None,
+                segments: Vec::new(),
             })
         }
         None => Ok(Ingested {
             storage: StorageLocation::Inline,
             size_bytes,
             inline: Some(buffered),
+            segments: Vec::new(),
         }),
     }
 }
@@ -2452,6 +2460,7 @@ pub async fn add_file(
             storage,
             size_bytes,
             inline: _,
+            segments,
         },
         _arriving,
     ) = ingest(
@@ -2471,6 +2480,7 @@ pub async fn add_file(
         .append_file(
             share.id,
             &NewFile {
+                segments,
                 filename,
                 content_type: claimed_content_type(&headers),
                 size_bytes,

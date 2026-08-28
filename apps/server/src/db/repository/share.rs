@@ -56,6 +56,23 @@ async fn insert_segment(
     file: &NewFile,
     now: OffsetDateTime,
 ) -> Result<(), ShareRepositoryError> {
+    if !file.segments.is_empty() {
+        for (seq, piece) in file.segments.iter().enumerate() {
+            FileSegmentEntity::insert(file_segment::ActiveModel {
+                file_id: Set(file_id.to_owned()),
+                seq: Set(i64::try_from(seq).unwrap_or(i64::MAX)),
+                backend: Set(piece.backend.clone()),
+                object_key: Set(piece.object_key.clone()),
+                offset_bytes: Set(i64::try_from(piece.offset_bytes).unwrap_or(i64::MAX)),
+                length_bytes: Set(i64::try_from(piece.length_bytes).unwrap_or(i64::MAX)),
+                created_at: Set(now),
+            })
+            .exec(connection)
+            .await?;
+        }
+        return Ok(());
+    }
+
     let (Some(backend), Some(key)) = (file.storage.backend(), file.storage.object_key()) else {
         return Ok(());
     };
@@ -156,7 +173,30 @@ pub struct NewFile {
     /// How many bytes.
     pub size_bytes: u64,
     /// Where those bytes are.
+    ///
+    /// For a file spread over several backends this is the *first* piece, which
+    /// is what the legacy `file_shares.object_key` column can hold. The whole
+    /// list is `segments`, and that is what every read and every sweep asks.
     pub storage: StorageLocation,
+    /// Every piece, when the file was spread over more than one backend.
+    ///
+    /// Empty means "one piece, the one `storage` names" — which is every file
+    /// written before splitting was switched on, and every file written with it
+    /// off.
+    pub segments: Vec<NewSegment>,
+}
+
+/// One piece of a file, as the writer finished it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NewSegment {
+    /// Which backend holds it.
+    pub backend: String,
+    /// The object it was written as.
+    pub object_key: String,
+    /// Where it starts within the file.
+    pub offset_bytes: u64,
+    /// How many bytes it holds.
+    pub length_bytes: u64,
 }
 
 /// What a share is being created with.
@@ -188,6 +228,19 @@ pub enum NewContent {
     },
 }
 
+/// One piece of a file, as the tables record it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileSegment {
+    /// Which backend holds it.
+    pub backend: String,
+    /// The object it is written as.
+    pub object_key: String,
+    /// Where it starts within the file.
+    pub offset_bytes: u64,
+    /// How many bytes it holds.
+    pub length_bytes: u64,
+}
+
 /// One file in a share.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FilePart {
@@ -197,8 +250,10 @@ pub struct FilePart {
     pub content_type: Option<String>,
     /// How many bytes.
     pub size_bytes: u64,
-    /// Where those bytes are.
+    /// Where those bytes are — the first piece, for the legacy column.
     pub storage: StorageLocation,
+    /// Every piece, in order. One entry for a file that was not split.
+    pub segments: Vec<FileSegment>,
 }
 
 /// The text of a share.
@@ -272,7 +327,7 @@ impl Content {
     /// [`StorageLocation::parse`].
     fn from_files(
         models: &[file_share::Model],
-        backends: &HashMap<String, String>,
+        segments: &HashMap<String, Vec<FileSegment>>,
     ) -> Result<Self, ShareRepositoryError> {
         if models.is_empty() {
             return Ok(Self::Gone);
@@ -296,9 +351,15 @@ impl Content {
                     storage: StorageLocation::parse(
                         &model.storage,
                         model.object_key.clone(),
-                        backends.get(&model.id).cloned(),
+                        // The first piece's backend, which is what the legacy
+                        // single-object shape can hold.
+                        segments
+                            .get(&model.id)
+                            .and_then(|pieces| pieces.first())
+                            .map(|piece| piece.backend.clone()),
                     )
                     .map_err(fail)?,
+                    segments: segments.get(&model.id).cloned().unwrap_or_default(),
                 })
             })
             .collect::<Result<Vec<_>, ShareRepositoryError>>()?;
@@ -891,7 +952,7 @@ impl ShareRepository {
             ShareKind::File => {
                 let files = self.files_of(share.id).await?;
                 let ids: Vec<String> = files.iter().map(|file| file.id.clone()).collect();
-                Content::from_files(&files, &self.backends_of(&ids).await?)
+                Content::from_files(&files, &self.segments_of(&ids).await?)
             }
             ShareKind::Text => Ok(self
                 .text_of(share.id)
@@ -947,7 +1008,7 @@ impl ShareRepository {
             .flatten()
             .map(|file| file.id.clone())
             .collect();
-        let backends = self.backends_of(&all_files).await?;
+        let backends = self.segments_of(&all_files).await?;
 
         let mut resolved = HashMap::with_capacity(shares.len());
         for share in shares {
@@ -1024,21 +1085,33 @@ impl ShareRepository {
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails.
-    async fn backends_of(
+    /// Every file's pieces, in order.
+    ///
+    /// All of them, not `seq = 0`. A file spread over several backends is read
+    /// by walking the list, and asking only for the first would serve the first
+    /// piece and call it the file.
+    async fn segments_of(
         &self,
         file_ids: &[String],
-    ) -> Result<HashMap<String, String>, ShareRepositoryError> {
+    ) -> Result<HashMap<String, Vec<FileSegment>>, ShareRepositoryError> {
         if file_ids.is_empty() {
             return Ok(HashMap::new());
         }
-        Ok(FileSegmentEntity::find()
+        let mut by_file: HashMap<String, Vec<FileSegment>> = HashMap::new();
+        for row in FileSegmentEntity::find()
             .filter(file_segment::Column::FileId.is_in(file_ids.iter().cloned()))
-            .filter(file_segment::Column::Seq.eq(0))
+            .order_by_asc(file_segment::Column::Seq)
             .all(&self.connection)
             .await?
-            .into_iter()
-            .map(|segment| (segment.file_id, segment.backend))
-            .collect())
+        {
+            by_file.entry(row.file_id).or_default().push(FileSegment {
+                backend: row.backend,
+                object_key: row.object_key,
+                offset_bytes: u64::try_from(row.offset_bytes).unwrap_or(0),
+                length_bytes: u64::try_from(row.length_bytes).unwrap_or(0),
+            });
+        }
+        Ok(by_file)
     }
 
     /// Finds a share by the code a person typed.

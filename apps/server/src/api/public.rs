@@ -576,8 +576,83 @@ fn backend_of(state: &AppState, file: &FilePart) -> Result<Arc<dyn ObjectStore>>
     })
 }
 
+/// Streams a file that was written across several backends.
+///
+/// The segments are read in order and their bodies laid end to end. Each one is
+/// asked for the slice of itself the range covers, which for the segments in the
+/// middle is all of them — see
+/// [`stitch::reads_for`](crate::storage::stitch::reads_for).
+///
+/// The stream is built lazily, one segment at a time, so a fifty-gigabyte file
+/// costs one segment's chunk of memory rather than fifty gigabytes of it. That
+/// laziness is also why this is not `async`: nothing is fetched until the body
+/// is read.
+///
+/// # Errors
+///
+/// Returns [`Error`] if a backend the file names is not configured.
+fn stream_stitched(state: &AppState, file: &FilePart, range: Option<(u64, u64)>) -> Result<Body> {
+    let extent: Vec<(u64, u64)> = file
+        .segments
+        .iter()
+        .map(|piece| (piece.offset_bytes, piece.length_bytes))
+        .collect();
+    let whole = (0, file.size_bytes.saturating_sub(1));
+    let reads = crate::storage::stitch::reads_for(&extent, range.unwrap_or(whole));
+
+    // Resolved before any of it is streamed: a backend that is not configured is
+    // a `503`, and answering that after the first segment has already gone out
+    // would be a truncated download reported as a success.
+    let mut opened = Vec::with_capacity(reads.len());
+    for read in reads {
+        let piece = file.segments.get(read.segment).ok_or(Error::NotFound)?;
+        let store = state.backend(&piece.backend).ok_or_else(|| {
+            tracing::error!(
+                backend = piece.backend,
+                "a share names a backend that is not configured"
+            );
+            Error::Unavailable
+        })?;
+        opened.push((store, piece.object_key.clone(), read.start, read.length));
+    }
+
+    // Lazily, one segment at a time: the next is not asked for until the one
+    // before it has been handed over, so the process holds a chunk rather than
+    // the file.
+    //
+    // `async_stream` rather than a combinator — `futures-util` is deliberately
+    // not a dependency of the server, only of its tests.
+    let chunks = async_stream::stream! {
+        for (store, key, start, length) in opened {
+            let options = GetOptions {
+                range: Some(GetRange::Bounded(start..start.saturating_add(length))),
+                ..GetOptions::default()
+            };
+            match store.get_opts(&ObjectPath::from(key.as_str()), options).await {
+                Ok(result) => {
+                    let mut piece = result.into_stream();
+                    while let Some(chunk) = piece.next().await {
+                        yield chunk;
+                    }
+                }
+                Err(error) => {
+                    yield Err(error);
+                    return;
+                }
+            }
+        }
+    };
+    Ok(Body::from_stream(chunks))
+}
+
 /// Streams one file, honouring a range.
 async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>) -> Result<Body> {
+    // More than one piece means the file was spread, and reading it is a walk
+    // rather than a request. One piece is every file written with splitting off,
+    // and it takes the path below unchanged.
+    if file.segments.len() > 1 {
+        return stream_stitched(state, file, range);
+    }
     let Some(key) = file.storage.object_key() else {
         return Err(Error::NotFound);
     };
@@ -782,6 +857,7 @@ mod tests {
     /// Only the name matters here, and it now comes from the content.
     fn named(filename: Option<&str>) -> Content {
         Content::Files(vec![FilePart {
+            segments: Vec::new(),
             filename: filename.map(str::to_owned),
             content_type: None,
             size_bytes: 0,
@@ -794,12 +870,14 @@ mod tests {
     fn a_share_with_several_files_is_offered_as_an_archive() {
         let two = Content::Files(vec![
             FilePart {
+                segments: Vec::new(),
                 filename: Some("one.txt".to_owned()),
                 content_type: None,
                 size_bytes: 5,
                 storage: crate::db::repository::share::StorageLocation::Inline,
             },
             FilePart {
+                segments: Vec::new(),
                 filename: Some("two.txt".to_owned()),
                 content_type: None,
                 size_bytes: 7,

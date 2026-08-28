@@ -213,6 +213,7 @@ mod tests {
     /// now reads the name and the size from.
     fn content() -> Content {
         Content::Files(vec![FilePart {
+            segments: Vec::new(),
             filename: None,
             content_type: None,
             size_bytes: 2048,
@@ -223,6 +224,7 @@ mod tests {
     /// The same, with a name on the one file.
     fn named(filename: &str) -> Content {
         Content::Files(vec![FilePart {
+            segments: Vec::new(),
             filename: Some(filename.to_owned()),
             content_type: None,
             size_bytes: 2048,
