@@ -59,6 +59,24 @@ impl SegmentState {
     }
 }
 
+/// One backend's share of a file still arriving.
+///
+/// A session has exactly one today. The list exists because cleaning up is the
+/// operation that cannot wait for splitting to arrive: a sweep that reopens the
+/// first segment and stops leaves every other one's multipart upload open, and
+/// S3 bills for those until somebody aborts them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Segment {
+    /// Position in the file, from zero.
+    pub seq: i32,
+    /// Which configured backend holds it.
+    pub backend: String,
+    /// The object it is written as.
+    pub object_key: String,
+    /// The store's own multipart identifier, or `None` on a local filesystem.
+    pub multipart_id: Option<String>,
+}
+
 /// A file still arriving, in domain terms.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Upload {
@@ -98,6 +116,12 @@ pub struct Upload {
     pub backend: String,
     /// The store's own multipart identifier, or `None` on a local filesystem.
     pub multipart_id: Option<String>,
+    /// Every backend this file is being written to, in order.
+    ///
+    /// The three fields above are the first of these, flattened — see their
+    /// note. This is the list the sweep walks, because it is the one operation
+    /// that must not stop at the first.
+    pub segments: Vec<Segment>,
     /// When the sweep may remove it.
     pub expires_at: OffsetDateTime,
 }
@@ -122,9 +146,18 @@ impl Upload {
     /// that can neither be continued nor cleaned up.
     fn from_model(
         model: upload::Model,
-        segment: Option<upload_segment::Model>,
+        rows: Vec<upload_segment::Model>,
     ) -> Result<Self, CorruptRow> {
-        let Some(segment) = segment else {
+        let segments: Vec<Segment> = rows
+            .into_iter()
+            .map(|row| Segment {
+                seq: row.seq,
+                backend: row.backend,
+                object_key: row.object_key,
+                multipart_id: row.multipart_id,
+            })
+            .collect();
+        let Some(segment) = segments.first().cloned() else {
             return Err(CorruptRow {
                 id: model.id,
                 source: tessera_core::DomainError::Empty {
@@ -164,6 +197,7 @@ impl Upload {
             object_key: segment.object_key,
             backend: segment.backend,
             multipart_id: segment.multipart_id,
+            segments,
             expires_at: model.expires_at,
         })
     }
@@ -295,6 +329,12 @@ impl UploadRepository {
             object_key: new.object_key.clone(),
             backend: new.backend.clone(),
             multipart_id: new.multipart_id.clone(),
+            segments: vec![Segment {
+                seq: 0,
+                backend: new.backend.clone(),
+                object_key: new.object_key.clone(),
+                multipart_id: new.multipart_id.clone(),
+            }],
             expires_at,
         })
     }
@@ -315,10 +355,12 @@ impl UploadRepository {
         else {
             return Ok(None);
         };
-        let segment = UploadSegmentEntity::find_by_id((model.id.clone(), 0))
-            .one(&self.connection)
+        let segments = UploadSegmentEntity::find()
+            .filter(upload_segment::Column::UploadId.eq(model.id.clone()))
+            .order_by_asc(upload_segment::Column::Seq)
+            .all(&self.connection)
             .await?;
-        Ok(Some(Upload::from_model(model, segment)?))
+        Ok(Some(Upload::from_model(model, segments)?))
     }
 
     /// Records bytes that landed, and the parts the store took for them.
@@ -443,20 +485,21 @@ impl UploadRepository {
         // runs on a timer over everything that expired, and a query each would
         // make its cost the number of abandoned uploads.
         let ids: Vec<String> = models.iter().map(|model| model.id.clone()).collect();
-        let mut segments: HashMap<String, upload_segment::Model> = UploadSegmentEntity::find()
+        let mut segments: HashMap<String, Vec<upload_segment::Model>> = HashMap::new();
+        for row in UploadSegmentEntity::find()
             .filter(upload_segment::Column::UploadId.is_in(ids))
-            .filter(upload_segment::Column::Seq.eq(0))
+            .order_by_asc(upload_segment::Column::Seq)
             .all(&self.connection)
             .await?
-            .into_iter()
-            .map(|segment| (segment.upload_id.clone(), segment))
-            .collect();
+        {
+            segments.entry(row.upload_id.clone()).or_default().push(row);
+        }
 
         models
             .into_iter()
             .map(|model| {
-                let segment = segments.remove(&model.id);
-                Upload::from_model(model, segment)
+                let rows = segments.remove(&model.id).unwrap_or_default();
+                Upload::from_model(model, rows)
             })
             .collect::<Result<Vec<_>, _>>()
             .map_err(Into::into)

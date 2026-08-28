@@ -458,10 +458,20 @@ async fn sweep_abandoned_uploads(state: &AppState, now: OffsetDateTime) {
 /// the reservation should still stand. A later pass retries; an operator sees
 /// the warning in the meantime.
 async fn abandon(state: &AppState, upload: &crate::db::repository::upload::Upload) -> bool {
-    if let Some(sink) = crate::upload::reopen(state, upload)
-        && !sink.discard(&upload.object_key).await
-    {
-        return false;
+    // Every segment, not the first. A session spread over two backends has two
+    // multipart uploads, and S3 bills for the parts of an abandoned one until
+    // somebody aborts it — so stopping at the first would leave the second
+    // costing money with nothing left that knows its identifier.
+    //
+    // One failure keeps the whole row, for the reason below: the row is the only
+    // place the remaining identifiers live, and a later pass has to be able to
+    // try again.
+    for segment in &upload.segments {
+        if let Some(sink) = crate::upload::reopen(state, segment)
+            && !sink.discard(&segment.object_key).await
+        {
+            return false;
+        }
     }
     match state.uploads.delete(upload.id).await {
         Ok(()) => true,

@@ -1047,6 +1047,44 @@ async fn open_object(
     })
 }
 
+/// Reads the ceiling again if it is time to, then stops the body if these bytes
+/// are past it.
+///
+/// `room` and `next_read` are carried by the caller across the loop, which is
+/// what makes the re-read periodic rather than per chunk.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`] naming the tier that refused, or whatever the
+/// query fails with.
+async fn enforce_ceiling(
+    state: &AppState,
+    owner: Option<&User>,
+    so_far: u64,
+    part_size: usize,
+    room: &mut Room,
+    next_read: &mut u64,
+) -> Result<()> {
+    if so_far >= *next_read {
+        *room = remaining_room(state, owner).await?;
+        *next_read = so_far.saturating_add(re_read_interval(room.bytes, part_size));
+    }
+    refuse_if_past(state, &scope_key(room.scope), so_far, *room)
+}
+
+/// Stops the body when these bytes, plus everything else arriving under `key`,
+/// are past the ceiling.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`], naming the tier that refused.
+fn refuse_if_past(state: &AppState, key: &str, mine: u64, room: Room) -> Result<()> {
+    if would_pass(state, key, mine, room.bytes) {
+        return Err(Error::InsufficientStorage(room.tier));
+    }
+    Ok(())
+}
+
 /// Whether these bytes, plus everything else arriving under `key`, are past
 /// `ceiling`.
 ///
@@ -1158,6 +1196,57 @@ async fn backend_usage(state: &AppState) -> Result<crate::storage::Usage> {
         *entry = entry.saturating_add(bytes);
     }
     Ok(used)
+}
+
+/// The three sizes the read loop needs, read once.
+///
+/// Together rather than one at a time because each `state.config()` is a load
+/// from the swap, and three of them in a row can straddle a change an operator
+/// makes mid-upload — leaving the loop enforcing one configuration's limit with
+/// another's part size.
+struct Sizes {
+    /// `share.max_text_bytes`.
+    text_limit: usize,
+    /// `share.inline_threshold_bytes`.
+    threshold: usize,
+    /// `server.part_size_bytes`.
+    part_size: usize,
+}
+
+impl From<&crate::config::Config> for Sizes {
+    fn from(config: &crate::config::Config) -> Self {
+        Self {
+            text_limit: config.share.max_text_bytes,
+            threshold: config.share.inline_threshold_bytes,
+            part_size: config.server.part_size_bytes,
+        }
+    }
+}
+
+/// How many bytes to take before asking the database for the ceiling again.
+///
+/// # Why the ceiling is read more than once
+///
+/// `in_flight` covers two uploads that overlap in time. It does not cover an
+/// upload that *finishes* between another's snapshot and its writes: the first
+/// one's row appears at the same moment its ledger entry goes, and the second is
+/// still comparing against a figure taken before either existed. Measured as
+/// `[201, 201]` about one full-suite run in three, and it is what
+/// `two_uploads_at_once_cannot_both_spend_the_last_of_the_room` was still
+/// catching after the ledger landed.
+///
+/// # Why not every chunk
+///
+/// That would be right and would cost a query per chunk — thousands on a large
+/// upload. A quarter of what is left, capped at a part, instead: an instance
+/// with room to spare pays almost nothing, and one that is nearly full checks
+/// often enough that the most two uploads can overshoot by is a fraction of what
+/// remained. Never zero, or the loop is back to querying on every chunk.
+fn re_read_interval(room: u64, part_size: usize) -> u64 {
+    let cap = u64::try_from(part_size).unwrap_or(u64::MAX);
+    let quarter = room / 4;
+    let every = if quarter < cap { quarter } else { cap };
+    if every == 0 { 1 } else { every }
 }
 
 /// The placer to use for a size that may or may not be known.
@@ -1425,9 +1514,11 @@ async fn ingest_into(
     // before the multipart upload starts, which is a memory decision rather than
     // a storage one.
     let stream_to_object = kind == ShareKind::File;
-    let text_limit = state.config().share.max_text_bytes;
-    let threshold = state.config().share.inline_threshold_bytes;
-    let part_size = state.config().server.part_size_bytes;
+    let Sizes {
+        text_limit,
+        threshold,
+        part_size,
+    } = Sizes::from(state.config().as_ref());
     // The caller's own limit, which is `server.max_body_bytes` or something
     // narrower. Read here rather than in the handler so both the direct and the
     // resumable paths go through one definition of "too big for you".
@@ -1436,7 +1527,9 @@ async fn ingest_into(
     // rather than only up front: the caller need not send a `Content-Length`,
     // and a chunked upload that would take us past the line should stop at the
     // line instead of after it.
-    let room = remaining_room(state, owner).await?;
+    let mut room = remaining_room(state, owner).await?;
+    // Re-read as the body arrives — see `re_read_interval`.
+    let mut re_read_at = re_read_interval(room.bytes, part_size);
     // What the database said, plus what is arriving right now and is not in it
     // yet. Two uploads that both read `room` before either had written anything
     // would otherwise both be told the whole remainder was theirs — measured at
@@ -1469,9 +1562,15 @@ async fn ingest_into(
             ));
         }
         arriving.reached(size_bytes);
-        if would_pass(state, &scope_key(room.scope), size_bytes, room.bytes) {
-            return Err(Error::InsufficientStorage(room.tier));
-        }
+        enforce_ceiling(
+            state,
+            owner,
+            size_bytes,
+            part_size,
+            &mut room,
+            &mut re_read_at,
+        )
+        .await?;
         buffered.extend_from_slice(&chunk);
 
         if !stream_to_object {
@@ -1505,6 +1604,55 @@ async fn ingest_into(
         }
     }
 
+    finish(
+        state,
+        Finish {
+            id,
+            now,
+            stream_to_object,
+            size_bytes,
+        },
+        key,
+        buffered,
+        upload,
+    )
+    .await
+}
+
+/// What `finish` needs that is not the buffer or the upload handle.
+struct Finish {
+    id: ShareId,
+    now: OffsetDateTime,
+    /// Whether the content is a file, which is what decides between an object
+    /// and a row.
+    stream_to_object: bool,
+    /// How much arrived.
+    size_bytes: u64,
+}
+
+/// Turns what the read loop ended with into the record of where the bytes went.
+///
+/// Three endings, and they are three because the loop can stop in three places:
+/// past the threshold with a multipart upload open, under it with a file in
+/// hand, and under it with text.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the store will not take what is left.
+async fn finish(
+    state: &AppState,
+    request: Finish,
+    key: Option<(String, String)>,
+    buffered: Vec<u8>,
+    upload: &mut Option<Box<dyn MultipartUpload>>,
+) -> Result<Ingested> {
+    let Finish {
+        id,
+        now,
+        stream_to_object,
+        size_bytes,
+    } = request;
+    let mut buffered = buffered;
     match key {
         Some((backend, key)) => {
             let mut started = upload.take().ok_or_else(|| {

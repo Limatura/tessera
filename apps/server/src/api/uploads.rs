@@ -612,7 +612,14 @@ async fn resolve_target(
 /// configuration under an upload that was already open, and they can change it
 /// back. A `400` would tell the client it had done something wrong.
 fn sink_for(state: &AppState, upload: &Upload) -> Result<Sink> {
-    crate::upload::reopen(state, upload).ok_or_else(|| {
+    // The segment the next bytes belong in. One today, and the write path is
+    // what will have to choose between several — the sweep already walks them
+    // all, because cleaning up is the half that cannot wait.
+    let segment = upload.segments.first().ok_or_else(|| {
+        tracing::error!(%upload.id, "an open upload has no segment");
+        Error::Unavailable
+    })?;
+    crate::upload::reopen(state, segment).ok_or_else(|| {
         tracing::error!(
             backend = upload.backend,
             "an open upload names a backend that is not configured"

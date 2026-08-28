@@ -645,3 +645,73 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
         "wrote a part into a store this session never opened"
     );
 }
+
+/// A session spread over two backends has both of its pieces cleaned up.
+///
+/// The sweep used to reopen the session's *first* segment and stop. A file
+/// written across two backends is two multipart uploads, and S3 bills for an
+/// abandoned one's parts until somebody aborts it — so the second would sit
+/// there costing money with nothing left that knew its identifier. Nothing
+/// splits yet, so this builds the two-segment session by hand; the point is that
+/// the sweep is ready before the write path can produce one.
+#[tokio::test]
+async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
+    use sea_orm::{ActiveValue::Set, EntityTrait as _};
+
+    let app = TestApp::ready().await;
+    let (id, _token, _) = open(&app, "two-parts.bin", 64).await;
+
+    // The partial file the appending sink writes for the segment that exists.
+    let root = app.state.config().storage.url.clone();
+    let first = app
+        .state
+        .uploads
+        .find(id.parse().expect("an id"))
+        .await
+        .expect("the session")
+        .expect("it exists");
+    let second_key = format!("{}-second", first.object_key);
+
+    tessera_server::db::entity::upload_segment::Entity::insert(
+        tessera_server::db::entity::upload_segment::ActiveModel {
+            upload_id: Set(id.clone()),
+            seq: Set(1),
+            backend: Set(tessera_server::storage::DEFAULT_BACKEND.to_owned()),
+            object_key: Set(second_key.clone()),
+            offset_bytes: Set(32),
+            length_bytes: Set(32),
+            multipart_id: Set(None),
+            state: Set("open".to_owned()),
+            created_at: Set(time::OffsetDateTime::now_utc()),
+            updated_at: Set(time::OffsetDateTime::now_utc()),
+        },
+    )
+    .exec(&app.state.db)
+    .await
+    .expect("the second segment");
+
+    // A partial file for each, which is what the appending sink leaves behind.
+    for key in [&first.object_key, &second_key] {
+        let path = std::path::Path::new(&root).join(format!("{key}.part"));
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent).expect("the directory");
+        }
+        std::fs::write(&path, b"partial").expect("a partial file");
+    }
+
+    // Long past its expiry, so the sweep takes it.
+    tessera_server::maintenance::sweep_once(
+        &app.state,
+        time::OffsetDateTime::now_utc() + time::Duration::days(365),
+    )
+    .await;
+
+    for key in [&first.object_key, &second_key] {
+        let path = std::path::Path::new(&root).join(format!("{key}.part"));
+        assert!(
+            !path.exists(),
+            "a segment's partial file survived the sweep: {}",
+            path.display()
+        );
+    }
+}
