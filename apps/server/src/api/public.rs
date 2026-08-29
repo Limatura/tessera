@@ -112,10 +112,12 @@ async fn og_image(
         let body = String::from_utf8_lossy(&text.content);
         preview = preview.with_snippet(&body, text.language.as_deref());
     }
-    let png = cards.draw(&preview, &code).map_err(|error| {
-        tracing::error!(%error, "could not draw a link-preview card");
-        Error::Unavailable
-    })?;
+    let png = cards
+        .draw_with(&preview, &code, &state.config().og.layout)
+        .map_err(|error| {
+            tracing::error!(%error, "could not draw a link-preview card");
+            Error::Unavailable
+        })?;
 
     Ok((
         [

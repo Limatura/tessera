@@ -541,6 +541,11 @@ pub struct Share {
     pub title: Option<String>,
 
     /// JSON describing how to draw the OG image.
+    /// Unused. The card design is one setting for the instance — `og.layout` —
+    /// not one per share, because a knob on every upload form for something
+    /// almost nobody wants is a worse trade than a column nothing writes. Kept
+    /// rather than dropped so that #12's editor has somewhere to go if it ever
+    /// wants per-share designs; nothing reads it today.
     pub og_config: Option<String>,
     /// SHA-256 of the token that lets an anonymous uploader manage this share.
     pub management_token_hash: Option<String>,

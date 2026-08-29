@@ -5403,3 +5403,91 @@ async fn a_notes_card_draws_its_code_unless_the_note_is_locked() {
     let (with_code, without) = (drawn[0], drawn[1]);
     assert!(with_code > 0 && without > 0);
 }
+
+/// A configured card layout cannot talk a locked share into describing itself.
+///
+/// This is the whole reason the placeholder values are read off the same
+/// decision the built-in card reads. A layout is written once, by the operator,
+/// and then drawn for every share — including the ones whose whole point is
+/// that a channel should not learn what is in them.
+#[tokio::test]
+async fn a_configured_layout_still_cannot_describe_a_locked_share() {
+    // A layout that asks for everything it is allowed to ask for.
+    let greedy = "<div><span>{{label}}</span><span>{{title}}</span><span>{{size}}</span><span>{{footer}}</span><span>{{code}}</span></div>";
+
+    let app = TestApp::with_config(move |config| {
+        config.og.layout = greedy.to_owned();
+    })
+    .await;
+
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=payroll.xlsx&title=Salaries")
+                    .header("x-share-password", "hunter2hunter2"),
+                Body::from("secret"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    // It draws — the layout is legal — and the size it asked for is not there
+    // to be had. Checked on the values rather than on pixels: what a locked
+    // share may say is a fact about the data, and reading it out of a PNG would
+    // be a test of the renderer.
+    expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+
+    let (share, content) = tessera_server::api::preview::lookup(&app.state, &code)
+        .await
+        .expect("the share");
+    let preview =
+        tessera_server::api::preview::Preview::of(&share, &content, OffsetDateTime::now_utc());
+    let filled = tessera_server::og::layout::fill(
+        greedy,
+        &tessera_server::og::placeholder_values_for_test(&preview, &code),
+    );
+
+    assert!(
+        !filled.contains("payroll"),
+        "the file name leaked: {filled}"
+    );
+    assert!(!filled.contains("2 B"), "the size leaked: {filled}");
+    assert!(!filled.contains("KiB"), "the size leaked: {filled}");
+    assert!(filled.contains(&code), "the code should be there: {filled}");
+}
+
+/// A layout the rules no longer allow does not take the card down with it.
+#[tokio::test]
+async fn a_layout_that_is_no_longer_allowed_falls_back() {
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=note.txt"),
+                Body::from("hello"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    // Set past the validator, the way a stored layout written under older rules
+    // would be. `Config::validate` is what stops this arriving through the panel
+    // or the file; nothing stops it having been stored before a rule existed.
+    let mut config = tessera_server::Config::clone(&app.state.config());
+    config.og.layout = "<script>alert(1)</script>".to_owned();
+    app.state.replace_config(std::sync::Arc::new(config));
+
+    expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+}

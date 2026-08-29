@@ -111,6 +111,32 @@ pub struct Config {
     pub telemetry: TelemetryConfig,
     /// Outgoing mail. Empty `host` means this instance sends nothing.
     pub mail: MailConfig,
+    /// The picture a chat client shows for a share link.
+    #[serde(default)]
+    pub og: OgConfig,
+}
+
+/// The link-preview card, as the operator wants it.
+///
+/// One design for the instance rather than one per share: see
+/// [`og::layout`](crate::og::layout) for why, and for what a layout may
+/// contain.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct OgConfig {
+    /// The operator's own card, as HTML.
+    ///
+    /// Empty, the default, draws the built-in card — the one that knows about
+    /// locked shares, notes with code in them, and shares that are gone. A
+    /// layout set here replaces it for every share, and what it may say about
+    /// each is still decided where it always was: a `{{size}}` in a locked
+    /// share's card comes out empty, because the value does, not because the
+    /// layout was careful.
+    ///
+    /// Refused at the door if it uses anything but `div`, `span` and `style`,
+    /// or names a resource outside this server. Those rules and their reasons
+    /// are in `og::layout`.
+    pub layout: String,
 }
 
 /// Which parts of the service this instance exposes.
@@ -1487,6 +1513,30 @@ pub struct RejectedSetting {
     pub reason: String,
 }
 
+impl OgConfig {
+    /// Rejects a card layout this binary will not draw.
+    ///
+    /// Here rather than at the settings endpoint so that the file, the
+    /// environment and the admin panel are held to one rule — a layout that the
+    /// panel refuses should not be settable by editing a file and restarting.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] describing what about the layout is not allowed.
+    fn validate(&self) -> Result<(), ConfigError> {
+        #[cfg(feature = "og-images")]
+        if !self.layout.trim().is_empty()
+            && let Err(refused) = crate::og::layout::check(&self.layout)
+        {
+            return Err(ConfigError::Invalid {
+                field: "og.layout",
+                reason: refused.to_string(),
+            });
+        }
+        Ok(())
+    }
+}
+
 impl Config {
     /// Rejects any configuration this binary cannot honour.
     ///
@@ -1502,6 +1552,7 @@ impl Config {
         self.auth.validate()?;
         self.share.validate()?;
         self.telemetry.validate()?;
+        self.og.validate()?;
         self.mail.validate()
     }
 }

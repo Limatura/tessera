@@ -42,6 +42,7 @@
 //! [#12]: https://github.com/Limatura/tessera/issues/12
 
 pub mod code;
+pub mod layout;
 
 use std::result::Result;
 
@@ -136,7 +137,34 @@ impl Cards {
     /// encode. Neither depends on the share, so both mean this module is broken
     /// rather than the request.
     pub fn draw(&self, preview: &Preview, code: &str) -> Result<Vec<u8>, CardError> {
-        let markup = layout(preview, code);
+        self.draw_with(preview, code, "")
+    }
+
+    /// The same, with the operator's own layout if they have set one.
+    ///
+    /// A layout that no longer passes its own rules falls back to the built-in
+    /// card and says so in the log. The rules can tighten after a layout was
+    /// stored, and a card that is not the operator's design still tells the
+    /// reader what the share is — an error tells them nothing, on somebody
+    /// else's screen.
+    ///
+    /// # Errors
+    ///
+    /// As [`Cards::draw`].
+    pub fn draw_with(
+        &self,
+        preview: &Preview,
+        code: &str,
+        custom: &str,
+    ) -> Result<Vec<u8>, CardError> {
+        let markup = if custom.trim().is_empty() {
+            layout(preview, code)
+        } else if let Err(refused) = layout::check(custom) {
+            tracing::warn!(%refused, "the configured card layout is no longer allowed; drawing the built-in one");
+            layout(preview, code)
+        } else {
+            layout::fill(custom, &placeholder_values(preview, code))
+        };
         let node = from_html(&markup, FromHtmlOptions::default())
             .map_err(|error| CardError::Layout(error.to_string()))?;
         let options = RenderOptions::builder()
@@ -151,6 +179,68 @@ impl Cards {
             .map_err(|error| CardError::Render(error.to_string()))?;
         Ok(out)
     }
+}
+
+/// What each placeholder is worth for this share.
+///
+/// Read off [`Card`], which is the same thing the built-in layout reads. A
+/// locked share therefore has no `size` and no `label` to give, so a layout
+/// asking for them gets nothing — the discretion is in the value, not in the
+/// layout's manners.
+fn placeholder_values<'a>(
+    preview: &'a Preview,
+    code: &'a str,
+) -> std::collections::BTreeMap<&'static str, String> {
+    let mut values = std::collections::BTreeMap::new();
+    values.insert("code", code.to_owned());
+    values.insert("title", preview.title().to_owned());
+
+    match &preview.card {
+        Card::Open {
+            label,
+            chips,
+            footer,
+            snippet,
+        } => {
+            values.insert("label", (*label).to_owned());
+            values.insert("size", chips.join(" · "));
+            values.insert("footer", footer.clone());
+            if let Some(when) = footer.split(" · ").find(|part| part.contains("expires")) {
+                values.insert("expires", when.to_owned());
+            }
+            if let Some(snippet) = snippet {
+                values.insert("language", snippet.language.clone());
+            }
+        }
+        Card::Locked { .. } => {
+            values.insert("label", "PASSWORD PROTECTED".to_owned());
+            values.insert(
+                "footer",
+                "Enter the password to see what this is".to_owned(),
+            );
+        }
+        Card::Gone => {
+            values.insert("label", "NO LONGER AVAILABLE".to_owned());
+            values.insert(
+                "footer",
+                "It expired, or it has already been collected".to_owned(),
+            );
+        }
+    }
+    values
+}
+
+/// What each placeholder is worth, reachable from the integration tests.
+///
+/// The rule it carries — that a locked share has no size to give — is worth
+/// testing from outside this crate, where a test cannot reach a private
+/// function and asserting on the drawn pixels would be a test of the renderer.
+#[must_use]
+pub fn placeholder_values_for_test(
+    preview: &Preview,
+    code: &str,
+) -> std::collections::BTreeMap<&'static str, String> {
+    placeholder_values(preview, code)
 }
 
 /// The card's palette, kept together so the three states cannot drift apart.
