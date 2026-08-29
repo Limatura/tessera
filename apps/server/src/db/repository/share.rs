@@ -208,8 +208,8 @@ pub struct NewSegment {
 /// no honest value for a share with three files — so they live on the tables
 /// that own them, and creating a share says what goes in those tables.
 ///
-/// #42 turns the file case into a list. The enum is the shape that survives
-/// that; a set of optional columns is not.
+/// Multi-file shares will turn the file case into a list. The enum is the shape
+/// that survives that; a set of optional columns is not.
 #[derive(Debug, Clone)]
 pub enum NewContent {
     /// One file, wherever its bytes ended up.
@@ -544,8 +544,8 @@ pub struct Share {
     /// Unused. The card design is one setting for the instance — `og.layout` —
     /// not one per share, because a knob on every upload form for something
     /// almost nobody wants is a worse trade than a column nothing writes. Kept
-    /// rather than dropped so that #12's editor has somewhere to go if it ever
-    /// wants per-share designs; nothing reads it today.
+    /// rather than dropped so that a future layout editor has somewhere to go
+    /// if it ever wants per-share designs; nothing reads it today.
     pub og_config: Option<String>,
     /// SHA-256 of the token that lets an anonymous uploader manage this share.
     pub management_token_hash: Option<String>,
@@ -879,8 +879,9 @@ impl ShareRepository {
     ///
     /// # Why a list
     ///
-    /// One today, because a share holds one file. #42 makes it several, and a
-    /// sweep that removed the first and stopped would leave the rest paid for
+    /// One today, because a share holds one file. Multi-file shares will make it
+    /// several, and a sweep that removed the first and stopped would leave the
+    /// rest paid for
     /// and unreachable — a leak nothing would ever find, because the row that
     /// named them is gone.
     ///
@@ -1083,7 +1084,8 @@ impl ShareRepository {
 
     /// Which backend holds each of these files, by file id.
     ///
-    /// Only the first segment, because a file has exactly one until #184. A
+    /// Only the first segment, because a file has exactly one unless it was
+    /// split across backends. A
     /// file with no segment is absent from the map, and reads as the seeded
     /// backend — see [`StorageLocation::parse`].
     ///

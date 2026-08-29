@@ -57,6 +57,23 @@ pub enum Card {
     Gone,
 }
 
+/// Which sample card to draw.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SampleCard {
+    /// A file share with everything shown.
+    #[default]
+    Open,
+    /// Password-protected, with a title the uploader typed.
+    ///
+    /// Worth being able to look at: it is the state where a layout can go
+    /// wrong in a way nobody notices, because it looks fine on every share the
+    /// operator tested with.
+    Locked,
+    /// Expired or already collected.
+    Gone,
+}
+
 /// The tags to insert, already escaped.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Preview {
@@ -132,6 +149,41 @@ impl Preview {
             *snippet = Some(crate::og::code::highlight(body, language));
         }
         self
+    }
+
+    /// A preview with plausible values, for showing an operator what a card
+    /// layout does before they save it.
+    ///
+    /// Built here rather than in the endpoint so that the sample goes through
+    /// the same [`Card`] the real thing does. A sample assembled by hand would
+    /// be the one place a locked card could be shown describing itself — in the
+    /// screen whose whole job is to tell the operator what their layout looks
+    /// like.
+    #[must_use]
+    pub fn sample(card: SampleCard) -> Self {
+        match card {
+            SampleCard::Open => Self {
+                title: "Q3-2026-finance-and-operations-review.pdf".to_owned(),
+                description: "24.8 MiB · expires in 3 days · 5 retrievals left".to_owned(),
+                card: Card::Open {
+                    label: "SHARED FILE",
+                    chips: vec!["24.8 MiB".to_owned()],
+                    footer: "24.8 MiB · expires in 3 days · 5 retrievals left".to_owned(),
+                    #[cfg(feature = "og-images")]
+                    snippet: None,
+                },
+            },
+            SampleCard::Locked => Self {
+                title: "Board pack, October".to_owned(),
+                description: "Open the link and enter the password to see what this is.".to_owned(),
+                card: Card::Locked { named: true },
+            },
+            SampleCard::Gone => Self {
+                title: "Share unavailable".to_owned(),
+                description: "This share has expired or has already been collected.".to_owned(),
+                card: Card::Gone,
+            },
+        }
     }
 
     /// The headline: a title the uploader typed, or what stands in for one.

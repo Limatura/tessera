@@ -13,8 +13,8 @@
 //! # What this deliberately does not do
 //!
 //! It never splits a file across backends. If nothing has room for the whole
-//! thing, that is a refusal, not a plan — see #184 for the other answer and why
-//! it is not free.
+//! thing, that is a refusal, not a plan. `storage::split` is the other
+//! answer, and `docs/splitting.md` is what it costs.
 
 /// One backend, as the placer sees it.
 #[derive(Debug, Clone, PartialEq, Eq)]

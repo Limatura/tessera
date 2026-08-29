@@ -22,7 +22,7 @@
 //!
 //! `TimeoutLayer` is built once, from the configured value, and holds it. This
 //! reads the setting per request, which is what lets an operator change it
-//! without a restart (#110), and is also the only place that can see which
+//! without a restart, and is also the only place that can see which
 //! route a request is for before deciding whether to apply a budget at all.
 
 use axum::{

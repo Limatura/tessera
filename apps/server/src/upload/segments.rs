@@ -1,9 +1,10 @@
 //! Writing one body across the backends a plan named.
 //!
 //! [`split::plan`](crate::storage::split::plan) says where the bytes go;
-//! this puts them there. It is the state machine #184 warns about — the place
-//! where "the first backend is finished and the second has not been opened yet"
-//! has to be true of something rather than implied — so it is a unit that can be
+//! this puts them there. It is the easiest part of splitting to get wrong: the
+//! state where "the first backend is finished and the second has not been opened
+//! yet" has to be true of something rather than implied — so it is a unit that
+//! can be
 //! tested on its own, against a store that runs out part-way.
 //!
 //! # What it guarantees

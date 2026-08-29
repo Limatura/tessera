@@ -19,10 +19,17 @@
 //! # The minimum part size, and the remainder
 //!
 //! S3 refuses every part but the last below 5 MiB. A client that sends 2 MiB
-//! and pauses leaves us holding bytes that cannot become a part yet, so they
-//! are parked in a sibling object and prepended when the upload resumes. tusd
-//! does the same thing with a `.part` file, and its documentation is where the
-//! shape came from.
+//! and pauses leaves us holding bytes that cannot become a part yet.
+//!
+//! tusd parks those in a sibling `.part` object and prepends them on resume.
+//! This does not: only whole parts are written, and the offset reported back is
+//! the end of the last whole part. The client re-sends the tail, which the
+//! protocol already expects of it — the offset a server reports is what the
+//! server accepted. At most one part is re-sent, and only after an interruption.
+//!
+//! (`REMAINDER_SUFFIX` below is `.part` too, which is confusing and worth
+//! saying: it names the file the *local-disk* sink appends to, which is a
+//! different mechanism with the same conventional extension.)
 //!
 //! Garage enforces neither the floor nor equal sizes — measured against
 //! `dxflrs/garage:v2.3.0` — so the CI job cannot catch a mistake here. That is

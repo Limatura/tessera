@@ -1,0 +1,182 @@
+# Link previews
+
+When a share link is pasted into Discord or Slack, the client fetches the URL and reads the HTML. It does not run JavaScript. So the `<meta>` tags must be in the bytes the server sends, and the preview image must be a real URL.
+
+Code: `api/preview.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag: `og-images`, on by default.
+
+## Where things are
+
+| Piece                           | Where                                 |
+| ------------------------------- | ------------------------------------- |
+| What a share may reveal         | `api::preview::Card`                  |
+| The meta tags                   | `api::preview::Preview::to_head_tags` |
+| Tag injection into `index.html` | `assets::serve_share_page`            |
+| Drawing the card                | `og::Cards::draw_with`                |
+| Syntax colouring                | `og::code::highlight`                 |
+| Layout rules                    | `og::layout::check`                   |
+| Card route                      | `GET /s/{code}/og.png`                |
+| Preview-without-saving          | `POST /api/v1/admin/og/preview`       |
+| Operator's layout               | the `og.layout` setting               |
+| Fonts                           | `apps/server/assets/fonts/`           |
+
+## Request flow
+
+```mermaid
+flowchart TD
+    A[crawler GETs /s/CODE] --> B[preview::lookup]
+    B --> C{availability}
+    C -->|expired or exhausted| D[Card::Gone]
+    C -->|has a password| E[Card::Locked]
+    C -->|available| F[Card::Open]
+    D --> G[to_head_tags]
+    E --> G
+    F --> G
+    G --> H[injected into index.html]
+    H --> I[crawler GETs /s/CODE/og.png]
+    I --> J[preview::lookup]
+    J --> K{og.layout set}
+    K -->|no| L[built-in card]
+    K -->|yes| M{layout::check}
+    M -->|fails| N[log warning, built-in card]
+    M -->|passes| O[fill placeholders]
+    L --> P[takumi renders PNG]
+    N --> P
+    O --> P
+```
+
+Both routes go through `preview::lookup`, not `gate::open`.
+
+## Two hard rules
+
+**Previews never consume a retrieval.** Unfurlers fetch the link when it is pasted, before anyone clicks. If that counted, a one-time share would be destroyed before its reader saw it. `preview::lookup` does not touch counters; `gate::open` does.
+
+**Locked shares reveal nothing but their title.** The preview is visible to everyone in the channel. Filename, size and file count are all withheld.
+
+The title is the exception: the uploader typed it as a label for others, whereas the filename came off their disk. This has a real cost. A share titled "Q3 salaries" broadcasts that to the channel. With no title, nothing is shown.
+
+## Why `Card` exists
+
+`Preview::of` computes a `Card` (`Open` / `Locked` / `Gone`). Both the meta tags and the image render from it.
+
+If the tags and the image each decided what was safe to show, one of them would eventually get it wrong. Two implementations of one rule is how that happens.
+
+## Operator layouts
+
+`og.layout` holds one HTML layout for the whole instance. It is not per-share, which would mean a knob on every upload form. `shares.og_config` exists in the schema but nothing writes it.
+
+```mermaid
+flowchart TD
+    A[operator edits layout] --> B[POST /admin/og/preview]
+    B --> C{layout::check}
+    C -->|fails| D[400 with reason]
+    C -->|passes| E[render with Preview::sample]
+    E --> F[PNG]
+    F --> A
+    A --> G[PUT /admin/settings og.layout]
+    G --> H{Config::validate runs layout::check}
+    H -->|fails| I[400, nothing stored]
+    H -->|passes| J[live, no restart]
+    J --> K[used for every card]
+    K --> L{layout::check again at render}
+    L -->|fails| M[warn, fall back to built-in]
+    L -->|passes| N[render]
+```
+
+### Allowed
+
+`div`, `span`, and the `style` attribute. Max 8 KB, max 12 levels deep.
+
+Rejected: `img`, `svg`, `class`, `tw`, `url()`, `@import`, anything referencing an external resource.
+
+### This is not a security boundary
+
+Whoever can set a layout already runs the process. They could do more by editing the config file, which sets the same value.
+
+The check exists so mistakes surface at save time. takumi has no HTTP client. It collects referenced URLs and hands them to the caller, which never fetches them, so an external image silently renders as nothing and unknown elements are silently dropped. Without validation, the first symptom is a broken card on someone else's screen.
+
+### Checked twice
+
+At save (`Config::validate`) and at render. Rules can tighten after a layout is stored. A layout that no longer passes falls back to the built-in card and logs a warning, rather than returning 500.
+
+### Placeholders
+
+`{{title}}` `{{label}}` `{{size}}` `{{code}}` `{{expires}}` `{{footer}}` `{{language}}`
+
+Values come from the same `Card`. A locked share has no size, so `{{size}}` fills as empty string. The layout cannot opt out of this. The value simply isn't there.
+
+## Why the preview endpoint is server-side
+
+The original plan was a browser-side preview using takumi's wasm build, so the editor and the server would share an engine.
+
+|           | wasm in browser                      | server endpoint         |
+| --------- | ------------------------------------ | ----------------------- |
+| Download  | 3.41 MB wasm + 3.43 MB fonts         | 0                       |
+| Code path | same renderer, different HTML parser | identical to production |
+| Fonts     | must ship to browser                 | already embedded        |
+| Latency   | instant after load                   | round trip + ~3 ms      |
+
+### The parser drift risk was tested, not assumed
+
+Rust parses with `html5ever`. The JS side (`@takumi-rs/helpers/html`) uses a hand-written regex tokenizer, and `takumi-html`'s description says it mirrors the JS helper rather than sharing code. That looked like a drift risk.
+
+Tested at matching pinned versions, comparing rendered PNGs pixel by pixel across 25 cases: unclosed tags, mis-nesting, stray close tags, uppercase, duplicate attributes, entities, `<style>` blocks, unquoted attributes, `<table>` foster parenting, `<p>` and `<li>` auto-close, nested `<form>`, adoption agency, `<script>` raw text, unclosed comment, namespaced tags.
+
+All 25 identical.
+
+They agree because takumi's node tree is coarse: boxes, text, style. Parser differences are mostly about error recovery, and those either collapse to the same tree or land somewhere the renderer ignores.
+
+So sharing an engine would have worked. But 25 hand-picked cases is evidence, not proof, and it depends on both packages staying at matching versions. The server endpoint needs neither.
+
+## Tested invariants
+
+- Drawing a card consumes no retrieval (drawn twice, then downloaded successfully).
+- A locked card carries no filename, size, or code, including through a custom layout requesting everything.
+- A note's snippet attaches only to `Card::Open`.
+- `og:image` is an absolute URL.
+- Configured `server.public_url` overrides the `Host` header.
+- The preview endpoint and the save path run the same `layout::check`.
+
+## Measurements
+
+|                            |                     |
+| -------------------------- | ------------------- |
+| Render one card            | 2.6 ms              |
+| Card as PNG                | 18–24 KB            |
+| First card per language    | 405 ms, then 1.3 ms |
+| takumi                     | 5.02 MB             |
+| syntect + two-face         | 2.39 MB             |
+| Six fonts                  | 3.43 MB             |
+| Binary without `og-images` | 19.8 MB             |
+| Binary with                | 30.5 MB (budget 40) |
+
+### No cache
+
+Caching cards in the object store was considered, keyed by layout version, font config and share fields. At 2.6 ms per render that is not worth the invalidation logic, and the route already loads the share row for the tags.
+
+It also keeps `{{expires}}` and retrieval counts accurate, since there is no stale copy.
+
+### two-face, not plain syntect
+
+syntect's bundled syntaxes cover 75 languages and do not include TypeScript, TOML, Kotlin, Swift, Zig, Dockerfile or Nix. two-face covers 199, for 0.57 MB more.
+
+### Six fonts
+
+Full coverage rationale is in `assets/fonts/README.md`. Two traps:
+
+- `DroidSansFallback` claims Hangul support but only covers Compatibility Jamo (individual letters, 97.9%). Hangul Syllables, which is actual written Korean, is 3 of 11,172. Korean needs its own file.
+- Noto Color Emoji is 9.2 MB as woff2, over budget. Monochrome is 0.45 MB and suits the dark card.
+
+## Gotchas
+
+Both found by rendering and looking, not by reading code.
+
+**`<pre>` renders as one line.** takumi uses flexbox layout, where newlines inside `<pre>` are just whitespace. Nine lines of code became one line running off the card. `og::code` builds markup from syntect's styled ranges instead, one `div` per line.
+
+**Indentation cannot be spaces.** Layout engines collapse whitespace runs. Indent width is measured, stripped from the text, and applied as `padding-left`. This is why a monospace font is embedded: padding measured in character widths only works when characters are equal width.
+
+## Not built
+
+- sao's icons. The padlock is currently two rounded boxes.
+- The admin editor UI. This repo provides `POST /admin/og/preview`.
+- Per-share layouts. `shares.og_config` is unwritten.
+- Colour emoji. Over budget. The intended answer is letting operators add their own fonts, which needs an admin API that does not exist yet.

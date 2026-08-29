@@ -2,7 +2,7 @@
 //!
 //! A file spread over several backends is still one file to whoever asked for
 //! bytes 9 000 000 to 9 000 255 of it. This works out which segments that range
-//! falls in and where inside each one to start — see #184.
+//! falls in and where inside each one to start.
 //!
 //! The read path this belongs to is drawn in `docs/splitting.md`.
 //!

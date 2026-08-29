@@ -341,7 +341,8 @@ async fn reap_dead_content(
     let mut reaped: u64 = 0;
     for share in shares.find_reapable(now, SHARES_PER_PASS).await? {
         // Every object, not the first: a share holds one file today and several
-        // once #42 lands, and stopping after one would leave the rest paid for
+        // several once multi-file shares land, and stopping after one would
+        // leave the rest paid for
         // and unreachable once the rows naming them are gone.
         let keys = shares.object_keys_of(share.id).await?;
         if !remove_every_object(storage, &keys).await {

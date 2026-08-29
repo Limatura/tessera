@@ -1,103 +1,112 @@
 # Splitting a file across backends
 
-One free Backblaze account holds 10 GB. Five of them hold 50 GB, and no single one of them holds a 15 GB file — so moving one takes cutting it up. That is [#184], and this is the shape of it.
+A free Backblaze account holds 10 GB. Five of them hold 50 GB, but none of them holds a 15 GB file. Storing one means cutting it up.
 
-The reasoning lives next to the code, in the module docs of `storage/split.rs`, `storage/stitch.rs` and `storage/in_flight.rs`. What is here is the part those cannot carry: `rustdoc` does not draw diagrams, and the order these pieces run in is the half that is easy to get wrong.
+Off by default. Turning on `storage.split_across_backends` lets a file larger than any single backend go up in pieces and come back whole.
 
-## What exists today
+Code: `storage/split.rs`, `storage/stitch.rs`, `storage/in_flight.rs`, `upload/segments.rs`. Those module docs carry the reasoning; this file carries the order things happen in.
 
-All of it, with the switch off by default. Turning `storage.split_across_backends` on makes a file larger than any single backend go up in pieces and come back whole — there is an end-to-end test that does exactly that against two buckets neither of which could hold it.
+## Where things are
 
-What is _not_ built is the frontend delivery in [#184]: a split file has no direct link, so its bytes come back through the server rather than being stitched in the browser.
-
-| Piece                               | Where                               |
-| ----------------------------------- | ----------------------------------- |
-| Planner                             | `storage::split::plan`              |
-| Range mapping                       | `storage::stitch::reads_for`        |
-| Writing across segments             | `upload::segments::Writer`          |
-| Reading across segments             | `api::public::stream_stitched`      |
-| `upload_segments` / `file_segments` | migrations `m20260903`, `m20260904` |
-| How much the pool holds             | `storage::split::capacity`          |
-| Sweep over every segment            | `maintenance::abandon`              |
-| A store that stops mid-upload       | `tests/common/brimming.rs`          |
-| The switch                          | `storage.split_across_backends`     |
+| Piece                            | Where                               |
+| -------------------------------- | ----------------------------------- |
+| Planner                          | `storage::split::plan`              |
+| Pool capacity                    | `storage::split::capacity`          |
+| Range mapping                    | `storage::stitch::reads_for`        |
+| Writing across segments          | `upload::segments::Writer`          |
+| Reading across segments          | `api::public::stream_stitched`      |
+| In-flight byte ledger            | `storage::in_flight`                |
+| Tables                           | migrations `m20260903`, `m20260904` |
+| Sweep                            | `maintenance::abandon`              |
+| A store that fills up mid-upload | `tests/common/brimming.rs`          |
+| The switch                       | `storage.split_across_backends`     |
 
 ## Upload
 
 ```mermaid
 flowchart TD
-    A[POST /shares] --> B{storage.split_across_backends?}
-    B -->|off| C[placement::choose<br/>one backend]
-    B -->|on| D{Content-Length?}
+    A[POST /shares] --> B{split_across_backends}
+    B -->|off| C[placement::choose one backend]
+    B -->|on| D{Content-Length known}
     D -->|no| C
-    D -->|yes| E[split::plan<br/>candidates + size + part_size]
-    E --> F{how many segments?}
-    F -->|nowhere fits| G[507 InsufficientStorage]
+    D -->|yes| E[split::plan]
+    E --> F{segments}
+    F -->|none fit| G[507]
     F -->|1| C
-    F -->|N| H[Writer over the plan<br/>in_flight ledger holds the bytes]
-    C --> I[one segment: the same Writer,<br/>a plan of one]
-    H --> J[fill segment k, in order]
-    J --> K[open multipart<br/>state=open]
-    K --> L[write until length_bytes]
-    L --> M[complete_multipart<br/>state=complete]
-    M --> N{another segment?}
+    F -->|N| H[Writer over the plan]
+    C --> I[Writer with a plan of one]
+    H --> J[fill segment k]
+    J --> K[open multipart]
+    K --> L[write length_bytes]
+    L --> M[complete multipart]
+    M --> N{more segments}
     N -->|yes| J
-    N -->|no| O[write file_segments<br/>create the share]
-    L -.failure.-> P[sweep: abort every open<br/>delete every complete object]
+    N -->|no| O[write file_segments, create share]
+    L -.failure.-> P[abort open, delete completed]
 ```
 
-### Why a `Content-Length` is required to split
+### Content-Length is required to split
 
-A chunked body declares nothing. The planner needs a size to cut against, and finding out halfway that the pool is short leaves segments already written to several backends with no way to finish. Without a length the upload is placed whole, which is what happens today.
+A chunked body declares no size. The planner needs one to cut against, and discovering halfway through that the pool is too small leaves segments written across several backends with no way to finish.
 
-### Where the reservation actually lives
+Without a length the upload is placed whole on one backend, same as with the switch off.
 
-The design said `upload_segments` rows in state `planned`, written before any bytes. The implementation does not, and the reason is structural rather than a shortcut: a direct `POST /shares` has no `uploads` row at all — there is nothing to record against until the share exists — and `upload_segments.upload_id` is a foreign key to one. There is nowhere to put the row.
+### Where the reservation lives
 
-What holds the space instead is `storage::in_flight`, which counts bytes as they arrive and is added to the database's figures. Two uploads planning against the same backend at the same moment see each other through it.
+The original design put `upload_segments` rows in state `planned` before any bytes arrived. That does not work for direct uploads, and the reason is structural: `POST /shares` has no `uploads` row, because there is nothing to record against until the share exists, and `upload_segments.upload_id` is a foreign key to one.
 
-`planned` is therefore still unwritten. It is the right shape for the resumable path, which _does_ have rows — and which does not split yet either. Both are the same piece of work, and neither is done.
+`storage::in_flight` holds the space instead. It counts bytes as they arrive and adds them to the database's figures, so two uploads planning against the same backend at the same moment see each other.
 
-### What does not split yet
+`planned` is still unwritten. It is the right shape for resumable uploads, which do have rows, and which do not split yet either.
 
-- **Resumable (`tus`) uploads.** They go through `place_resumable`, which picks one backend. A session declares its size up front, so the planner would fit well; what is missing is the `planned` rows above and a writer that survives across requests.
-- **Anything without a `Content-Length`.** Deliberate, and above.
+### What does not split
+
+- **Resumable (`tus`) uploads.** They go through `place_resumable`, which picks one backend. The session declares its size up front, so the planner would fit, but it needs `planned` rows and a writer that survives across requests.
+- **Anything without a `Content-Length`.** Deliberate, see above.
 
 ## Download
 
 ```mermaid
 flowchart TD
-    A[GET /s/code/download<br/>Range: bytes=x-y] --> B[read file_segments]
-    B --> C[stitch::reads_for<br/>intersect the range]
-    C --> D{how many reads?}
-    D -->|1| E[today's path<br/>one get_opts]
-    D -->|N| F[read each segment's<br/>start..start+length, in order]
-    F --> G[concatenate into one body]
-    E --> H[206 Partial Content]
+    A[GET /s/code/download with Range] --> B[read file_segments]
+    B --> C[stitch::reads_for]
+    C --> D{reads}
+    D -->|1| E[single get_opts]
+    D -->|N| F[read each segment in order]
+    F --> G[concatenate]
+    E --> H[206]
     G --> H
-    I[ETag = share.id-size] -.always ours, never a store's.-> H
 ```
 
-### Why the `ETag` was never a problem
+The `ETag` is `"{share.id}-{size}"` and always has been. If it were any single store's `ETag`, a split file would advertise a tag describing one segment, and `If-Range` resume would fetch the wrong thing.
 
-`etag_for` has always been `"{share.id}-{size}"`, derived from our own identifiers. Had it been any single store's `ETag`, a split file would hand out a tag describing one segment and `If-Range` would resume against the wrong thing.
+## Invariants
 
-## Invariants worth restating
+Each has a test. Each produces a corrupt download rather than an error when it breaks.
 
-These are the ones with a test each, because each of them is a corrupt download rather than an error message when it breaks.
+- **The plan tiles the file exactly.** No gaps, no overlaps, offsets ascending from zero. A gap loses bytes; an overlap writes them twice.
+- **A segment takes everything its backend has free.** See below.
+- **A backend below `min_segment` is skipped.** Taking 6 MB from a backend with 6 MB free costs a segment, a row, a multipart upload and another place for the reader to stall.
+- **Reads answer exactly the range requested.** One byte short is a truncated download; one byte long is a corrupt one.
+- **Cleanup walks every segment.** A session across two backends is two multipart uploads, and S3 bills for abandoned parts until someone aborts them.
 
-- **The plan tiles the file exactly.** No gap, no overlap, offsets ascending from zero. A gap loses bytes; an overlap writes them twice.
-- **A segment takes everything its backend has free.** Cuts used to be rounded down to a whole part, on the belief that S3 required it. It does not: each segment is a multipart upload of its own, so its last part may be short, and the suite proves that on every store by storing 20 MiB in 8 MiB parts. Rounding down made the remainder of every backend unreachable, so it went. Resumable splitting will want it back — a `tus` chunk is already a whole number of parts, and aligned segments are what let a request end with nothing buffered.
-- **A backend below `min_segment` is not involved at all.** Taking 6 MB from a backend with 6 MB free costs a segment, a row, a multipart upload and a place for the reader to stall.
-- **The reads answer exactly the range asked for.** One byte short is a truncated download, one byte long is a corrupt one.
-- **Cleanup walks every segment.** A session over two backends is two multipart uploads, and S3 bills for an abandoned one's parts until somebody aborts it.
+### Segments are not part-aligned
 
-## What splitting costs
+Cuts used to round down to a whole `part_size`, on the belief that S3 required it. It does not. Each segment is its own multipart upload, so its last part may be short. The suite proves this on every CI store by storing 20 MiB in 8 MiB parts (8, 8, 4).
 
-Worth knowing before turning it on, which is why it is off by default.
+Rounding down made the remainder of every backend unreachable, so it was removed.
 
-- **No direct links.** A presigned URL names one object; a split file is several. The download comes back through the server, or the browser stitches it — see [#184] for the measurements behind that choice.
-- **Two multipart uploads, not one.** More round trips, more to clean up, more places to fail.
-- **Bandwidth is billed twice on some free tiers**, which count upload and download separately. That is the operator's call, and the switch is how they make it.
+Resumable splitting will need it back: a `tus` chunk is already a whole number of parts, and aligned segments are what let a request end with nothing buffered.
 
-[#184]: https://github.com/Limatura/tessera/issues/184
+## Costs
+
+Worth knowing before turning it on.
+
+- **No direct links.** A presigned URL names one object; a split file is several. Bytes come back through the server, or the browser stitches them.
+- **Two multipart uploads instead of one.** More round trips, more to clean up, more ways to fail.
+- **Bandwidth billed twice on some free tiers**, which meter upload and download separately.
+
+## Not built
+
+- **Browser-side stitching.** A split file currently streams through the server, which costs the bandwidth splitting was meant to save. Doing better needs per-segment presigned URLs, which needs the direct-download work, which has its own tradeoffs around download counting and password checks.
+- **Resumable splitting.** See above.

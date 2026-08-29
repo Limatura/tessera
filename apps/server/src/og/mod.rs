@@ -9,7 +9,7 @@
 //!
 //! # Why it is drawn per request and not cached
 //!
-//! [#12] planned to render each card once and keep it in the object store,
+//! Caching each card in the object store was the original plan,
 //! keyed by the layout version, the font configuration and the share's own
 //! fields. Measured, a card costs about **three milliseconds** — so the cache
 //! would be a store to write, a key to get right and an invalidation to get
@@ -34,12 +34,10 @@
 //!
 //! # Why the layouts are HTML
 //!
-//! [#12] wants an editor eventually, and an editor that edits the same source
-//! the server renders cannot drift from it. A node tree built in Rust would
+//! There will be a layout editor eventually, and an editor that edits the same
+//! source the server renders cannot drift from it. A node tree built in Rust would
 //! have meant inventing a format later and maintaining two implementations of
 //! it — the preview in the browser and the real thing here.
-//!
-//! [#12]: https://github.com/Limatura/tessera/issues/12
 
 pub mod code;
 pub mod layout;

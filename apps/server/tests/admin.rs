@@ -3071,3 +3071,103 @@ async fn writing_a_backend_needs_more_than_reading_one() {
     );
     drop(owner);
 }
+
+/// The card preview draws the operator's layout without storing it, and refuses
+/// the same layouts the save would.
+#[tokio::test]
+async fn the_card_preview_draws_a_layout_and_refuses_a_bad_one() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let ask = async |layout: &str, card: &str| {
+        app.json(
+            Method::POST,
+            "/api/v1/admin/og/preview",
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "layout": layout, "card": card }),
+        )
+        .await
+    };
+
+    // A layout it will draw comes back as a PNG.
+    let drawn = expect_status(
+        ask(
+            "<div style=\"width:1200px;height:630px;background:#0a0605;color:#fff;display:flex;padding:60px;font-size:48px\"><span>{{title}}</span></div>",
+            "open",
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert_eq!(
+        drawn
+            .headers()
+            .get("content-type")
+            .and_then(|value| value.to_str().ok()),
+        Some("image/png")
+    );
+    let bytes = axum::body::to_bytes(drawn.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert_eq!(bytes.get(..8), Some(b"\x89PNG\r\n\x1a\n".as_slice()));
+
+    // A layout the save would refuse is refused here too, with the reason —
+    // otherwise the editor shows a clean preview of something that will not
+    // store.
+    let refused = expect_status(
+        ask("<div><script>alert(1)</script></div>", "open").await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    let body = body_json(refused).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("script"),
+        "the reason should name what was wrong: {body}"
+    );
+}
+
+/// The locked sample is the one worth being able to look at, so it must be
+/// drawable — and it must not describe anything.
+#[tokio::test]
+async fn the_locked_sample_card_says_nothing_about_a_file() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let response = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/og/preview",
+            Auth::Cookie(&owner),
+            &serde_json::json!({
+                "layout": "<div style=\"width:1200px;height:630px;background:#0a0605;color:#fff;display:flex;padding:60px;font-size:40px\"><span>{{size}}</span></div>",
+                "card": "locked"
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert_eq!(bytes.get(..8), Some(b"\x89PNG\r\n\x1a\n".as_slice()));
+
+    // The sample goes through the same `Card` a real share does, so the value
+    // is simply not there. Asserted on the values rather than the pixels.
+    let filled = tessera_server::og::layout::fill(
+        "{{size}}|{{label}}",
+        &tessera_server::og::placeholder_values_for_test(
+            &tessera_server::api::preview::Preview::sample(
+                tessera_server::api::preview::SampleCard::Locked,
+            ),
+            "K3P9XQ2M",
+        ),
+    );
+    assert_eq!(
+        filled, "|PASSWORD PROTECTED",
+        "a locked sample offered a size"
+    );
+}

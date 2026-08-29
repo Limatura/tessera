@@ -2,7 +2,7 @@
 //!
 //! The case this exists for: five free accounts of 10 GB each, and one 50 GB
 //! file to move. Without splitting that is not slow or wasteful, it is
-//! impossible — see #184. Every competitor surveyed refuses it.
+//! impossible. Every competitor surveyed refuses it.
 //!
 //! The order the pieces run in, and what turning this on costs, are drawn out in
 //! `docs/splitting.md` — `rustdoc` cannot draw a diagram and that is the half
@@ -66,7 +66,7 @@ pub const fn min_segment(part_size: u64) -> u64 {
 /// One backend's share of a file.
 ///
 /// `offset` is where this piece starts within the whole file, which is what the
-/// reader needs to answer a `Range` — see #184.
+/// reader needs to answer a `Range`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Segment {
     /// The backend that holds it.
