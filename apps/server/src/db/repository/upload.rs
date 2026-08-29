@@ -25,25 +25,25 @@ use crate::{
 
 /// What a segment is doing.
 ///
-/// Named rather than inferred from which columns are null. "Has a multipart id"
-/// is not "has been started": a local filesystem never has one, so reading the
-/// state off that column would file every local segment as unopened for ever.
+/// Named, not inferred from which columns are null. "Has a multipart
+/// id" is not "has been started": a local filesystem never has one, so reading
+/// the state off that column files every local segment as unopened for ever.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SegmentState {
     /// The space is spoken for and nothing has been written.
     ///
-    /// No writer yet, and deliberately so: this is the reservation, and nothing
-    /// reserves until the planner spreads a file over more than one backend.
-    /// Two large uploads arriving together must not both be planned onto the
-    /// same backend's last free gigabyte, and a row that exists before the first
-    /// byte is what will stop that.
+    /// No writer yet. This is the reservation, and nothing reserves until the
+    /// planner spreads a file over more than one backend. Two large
+    /// uploads arriving together must not both be planned onto the same
+    /// backend's last free gigabyte, and a row that exists before the first
+    /// byte is what stops that.
     Planned,
     /// The destination is committed and bytes may go in.
     Open,
     /// Every byte of this segment is in the store.
     ///
     /// Holding real space in a real bucket while the share does not exist yet,
-    /// which is why the sweep has to be able to see it.
+    /// so the sweep has to be able to see it.
     Complete,
 }
 
@@ -61,10 +61,10 @@ impl SegmentState {
 
 /// One backend's share of a file still arriving.
 ///
-/// A session has exactly one today. The list exists because cleaning up is the
-/// operation that cannot wait for splitting to arrive: a sweep that reopens the
-/// first segment and stops leaves every other one's multipart upload open, and
-/// S3 bills for those until somebody aborts them.
+/// A session has exactly one today. The list exists because cleaning up cannot
+/// wait for splitting to arrive: a sweep that reopens the first segment and
+/// stops leaves every other one's multipart upload open, and S3 bills for those
+/// until they are aborted.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Segment {
     /// Position in the file, from zero.
@@ -88,7 +88,7 @@ pub struct Upload {
     pub user_id: Option<UserId>,
     /// The role whose quota these reserved bytes are charged against.
     pub role_id: Option<RoleId>,
-    /// Digest of the secret that lets somebody continue it.
+    /// Digest of the secret that lets a caller continue it.
     pub token_hash: String,
     /// The name the uploader gave it.
     pub filename: Option<String>,
@@ -101,26 +101,24 @@ pub struct Upload {
     /// Decided at creation and never recomputed.
     ///
     /// This and the two below are the session's one segment, flattened. The
-    /// database holds a list — `upload_segments` — because a file too large for
-    /// any single backend has to be written to several. Every session has
-    /// exactly one segment today, so the projection loses nothing; when the
-    /// planner starts spreading a file, these three become the list itself and
-    /// this comment is the reminder that they were always a view of it.
+    /// database holds a list, `upload_segments`, because a file too large for
+    /// any single backend has to be written to several. Every session has one
+    /// segment today, so the projection loses nothing; once the planner starts
+    /// spreading a file, these three become the list itself.
     pub object_key: String,
     /// Which backend the parts are going to.
     ///
-    /// Decided when the session opens and never changed: it is where the bytes
-    /// are going, not a pointer to whatever the configuration says now. Moving
-    /// the default elsewhere mid-upload must not strand the parts already
-    /// written.
+    /// Decided when the session opens and never changed: where the bytes are
+    /// going, not a pointer to whatever the configuration says now. Moving the
+    /// default mid-upload must not strand the parts already written.
     pub backend: String,
     /// The store's own multipart identifier, or `None` on a local filesystem.
     pub multipart_id: Option<String>,
     /// Every backend this file is being written to, in order.
     ///
-    /// The three fields above are the first of these, flattened — see their
-    /// note. This is the list the sweep walks, because it is the one operation
-    /// that must not stop at the first.
+    /// The three fields above are the first of these, flattened. This is the
+    /// list the sweep walks, since it is the operation that must not stop at
+    /// the first.
     pub segments: Vec<Segment>,
     /// When the sweep may remove it.
     pub expires_at: OffsetDateTime,
@@ -142,8 +140,8 @@ impl Upload {
     /// Builds the domain type from the session row and the one segment it has.
     ///
     /// A session with no segment is a corrupt row, not an empty upload: the
-    /// segment is where the bytes are going, and a session that has forgotten
-    /// that can neither be continued nor cleaned up.
+    /// segment says where the bytes are going, and a session that forgot it can
+    /// neither be continued nor cleaned up.
     fn from_model(
         model: upload::Model,
         rows: Vec<upload_segment::Model>,
@@ -210,7 +208,7 @@ pub struct NewUpload {
     pub share_id: Option<ShareId>,
     /// Whose upload it is.
     pub user_id: Option<UserId>,
-    /// The role to charge the reserved bytes to — the guest role for an
+    /// The role to charge the reserved bytes to: the guest role for an
     /// anonymous one, so unauthenticated sessions are still counted somewhere.
     pub role_id: Option<RoleId>,
     /// Digest of the secret handed to the uploader.
@@ -221,7 +219,7 @@ pub struct NewUpload {
     pub content_type: Option<String>,
     /// How much they said they will send.
     pub declared_bytes: u64,
-    /// Where the bytes go. Decided once — see the migration.
+    /// Where the bytes go. Decided once; see the migration.
     pub object_key: String,
     /// Which backend they go to. Decided once, for the same reason.
     pub backend: String,
@@ -341,8 +339,8 @@ impl UploadRepository {
 
     /// Finds a session, whether or not it has expired.
     ///
-    /// Expiry is the caller's decision, kept separate so that "gone" and "never
-    /// existed" can be told apart in a log while looking identical to a client.
+    /// Expiry is the caller's decision, kept separate so "gone" and "never
+    /// existed" can be told apart in a log while looking alike to a client.
     ///
     /// # Errors
     ///
@@ -366,20 +364,19 @@ impl UploadRepository {
     /// Records bytes that landed, and the parts the store took for them.
     ///
     /// One transaction, because an offset that moved without its parts being
-    /// recorded is an upload that can never complete — `complete_multipart`
-    /// needs every part handed back, and the store will not list them for us in
-    /// a way every backend agrees on.
+    /// recorded can never complete: `complete_multipart` needs every part
+    /// handed back, and no store lists them in a way every backend agrees on.
     ///
     /// # Why the update is conditional
     ///
     /// Two requests can read the same offset, both find it acceptable, and both
-    /// write. Checking in the handler and updating here would be read-then-act,
-    /// which is exactly the interleaving tus's `409` exists to prevent — so the
-    /// `WHERE` carries the offset the caller believed, and a row count of zero
-    /// means somebody else moved it first.
+    /// write. Checking in the handler and updating here is read-then-act, the
+    /// interleaving tus's `409` exists to prevent, so the `WHERE` carries the
+    /// offset the caller believed and a row count of zero means another request
+    /// moved it first.
     ///
     /// Returns whether the update applied, so the caller can answer `409`
-    /// rather than reporting success for bytes that went nowhere.
+    /// instead of reporting success for bytes that went nowhere.
     ///
     /// # Errors
     ///
@@ -398,7 +395,7 @@ impl UploadRepository {
                 upload_id: Set(id.to_string()),
                 // Zero until a file is spread over more than one backend. The
                 // column exists now so that the day it is not zero is a value
-                // change rather than a schema change on live rows.
+                // change and not a schema change on live rows.
                 seq: Set(0),
                 part_number: Set(part.number),
                 content_id: Set(part.content_id.clone()),
@@ -463,8 +460,8 @@ impl UploadRepository {
     /// Sessions the sweep may remove, oldest first.
     ///
     /// Bounded, because the sweep runs on a timer and a thousand abandoned
-    /// uploads should take a thousand aborts spread over several passes rather
-    /// than one pass that holds a connection for minutes.
+    /// uploads should be aborted over several passes, not one that holds a
+    /// connection for minutes.
     ///
     /// # Errors
     ///
@@ -481,7 +478,7 @@ impl UploadRepository {
             .limit(limit)
             .all(&self.connection)
             .await?;
-        // One query for the whole batch rather than one per session: the sweep
+        // One query for the whole batch, not one per session. The sweep
         // runs on a timer over everything that expired, and a query each would
         // make its cost the number of abandoned uploads.
         let ids: Vec<String> = models.iter().map(|model| model.id.clone()).collect();
@@ -509,17 +506,16 @@ impl UploadRepository {
     ///
     /// The **declared** size, not what has landed. Counting what landed lets
     /// sessions over-commit: with ten gigabytes free, two callers can each say
-    /// they will send ten and both be accepted, because at that moment neither
-    /// has sent anything. Reserving the declaration makes the second one wait.
+    /// they will send ten and both be accepted, since neither has sent
+    /// anything yet. Reserving the declaration makes the second wait.
     ///
     /// `uploads` carries its own `role_id` for this. Summing every open session
     /// against a member's role would charge them for room a guest is holding,
     /// and the row has no share to read the role from until it completes.
     ///
     /// The cost is that an abandoned session holds its whole declaration until
-    /// the sweep takes it, rather than only the part that arrived. That is the
-    /// honest reading of "I am going to send ten gigabytes", and
-    /// `share.upload_session_ttl_hours` is what bounds it.
+    /// the sweep takes it. That is the honest reading of "I am going to send
+    /// ten gigabytes", and `share.upload_session_ttl_hours` bounds it.
     ///
     /// # Errors
     ///
@@ -544,16 +540,15 @@ impl UploadRepository {
 
     /// What sessions still in flight have spoken for, by backend.
     ///
-    /// The bytes of an upload that has not become a share yet are in the bucket
-    /// and in no figure the placer reads: `file_segments` only holds content
-    /// that made it. So a backend could be full of half-finished uploads while
-    /// the placer went on offering it, which on a free tier is how an account
-    /// locks up — the space is gone and nothing can explain where.
+    /// The bytes of an upload that has not become a share are in the bucket and
+    /// in no figure the placer reads, since `file_segments` only holds content
+    /// that made it. Without this a backend fills with half-finished uploads
+    /// while the placer goes on offering it, which on a free tier locks up an
+    /// account with nothing to explain where the space went.
     ///
-    /// The *planned* length rather than what has landed, for the same reason
+    /// The *planned* length, not what has landed, for the same reason
     /// [`reserved_bytes`](Self::reserved_bytes) counts the declaration: a
-    /// segment that has written a tenth of itself is still going to want the
-    /// rest, and a placer told otherwise would hand the room to somebody else.
+    /// segment that has written a tenth of itself still wants the rest.
     ///
     /// # Errors
     ///
@@ -582,7 +577,7 @@ impl UploadRepository {
     /// Every object key an unfinished upload is writing to.
     ///
     /// These have no share yet, so the reconciliation would take them for
-    /// orphans and delete the bytes out from under somebody mid-upload.
+    /// orphans and delete the bytes out from under a live upload.
     ///
     /// # Errors
     ///

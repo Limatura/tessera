@@ -2,15 +2,14 @@
 //!
 //! # Why these are not hashed with Argon2
 //!
-//! Argon2 exists to make guessing *low-entropy* secrets expensive — people pick
-//! passwords from a small space, so the defence is to make each guess cost real
-//! time and memory.
+//! Argon2 exists to make guessing *low-entropy* secrets expensive: people pick
+//! passwords from a small space, so each guess is made to cost real time and
+//! memory.
 //!
-//! These secrets are 256 bits from the operating system's random source. There
-//! is nothing to guess: an attacker with the full hash and unlimited hardware is
-//! not going to find the preimage. Spending 19 MiB and tens of milliseconds
-//! deriving a key on *every authenticated request* would buy exactly nothing and
-//! would make the service unusable.
+//! These secrets are 256 bits from the operating system's random source, so
+//! there is nothing to guess. Spending 19 MiB and tens of milliseconds deriving
+//! a key on *every authenticated request* would buy nothing and make the
+//! service unusable.
 //!
 //! So they are stored under SHA-256. The reason to hash at all is a stolen
 //! database: the rows must not be usable as credentials.
@@ -30,7 +29,7 @@ pub const DISPLAY_PREFIX_LEN: usize = 8;
 
 /// Prefix on every API token.
 ///
-/// Fixed and distinctive on purpose: secret scanners (GitHub's, gitleaks,
+/// Fixed and distinctive by design. Secret scanners (GitHub's, gitleaks,
 /// trufflehog) match on patterns like this, so a token pasted into a public
 /// repository has a chance of being caught. A bare random string has none.
 pub const API_TOKEN_PREFIX: &str = "tsk_";
@@ -39,7 +38,7 @@ pub const API_TOKEN_PREFIX: &str = "tsk_";
 ///
 /// Exists only between generation and the response that carries it. Like
 /// [`Password`](tessera_core::Password) it cannot be printed or serialised by
-/// accident — its `Debug` shows nothing.
+/// accident: its `Debug` shows nothing.
 #[derive(Clone)]
 pub struct Secret(String);
 
@@ -103,8 +102,8 @@ impl fmt::Debug for Secret {
 
 /// Constant-time, so comparing two secrets in process cannot leak a prefix
 /// through timing. Lookups go through [`Secret::digest`] and the database's own
-/// index, so this is rarely the path taken — but the operator exists, and it
-/// should not be the naive one.
+/// index, so this is rarely the path taken, but the operator exists and should
+/// not be the naive one.
 impl PartialEq for Secret {
     fn eq(&self, other: &Self) -> bool {
         self.0.as_bytes().ct_eq(other.0.as_bytes()).into()
@@ -115,18 +114,17 @@ impl Eq for Secret {}
 
 /// Fills a buffer from the operating system's CSPRNG.
 ///
-/// Exposed because a retrieval code needs raw bytes rather than a hex string,
-/// and it should come from the same source as everything else secret here — one
-/// place that decides where randomness comes from.
+/// Exposed because a retrieval code needs raw bytes, not a hex string,
+/// and should come from the same source as everything else secret here: one
+/// place decides where randomness comes from.
 pub fn fill_random(bytes: &mut [u8]) {
     OsRng.fill_bytes(bytes);
 }
 
 fn random_hex() -> String {
     let mut bytes = [0_u8; SECRET_BYTES];
-    // `OsRng` reads the operating system's CSPRNG directly — the same source the
-    // password salt uses, reached through a crate already in the tree rather than
-    // by adding another.
+    // `OsRng` reads the operating system's CSPRNG directly, the same source the
+    // password salt uses, through a crate already in the tree.
     OsRng.fill_bytes(&mut bytes);
     hex(&bytes)
 }
@@ -151,16 +149,16 @@ mod tests {
 
     use super::*;
 
-    /// The digest is what is *stored*, so its output is a storage format, not an
-    /// implementation detail: change it and every session and API token ever
-    /// issued stops matching its row, with no error anywhere — people are just
-    /// signed out and their tokens stop working.
+    /// The digest is what is *stored*, so its output is a storage format rather
+    /// than an implementation detail: change it and every session and API token
+    /// ever issued stops matching its row with no error anywhere, and people
+    /// are simply signed out.
     ///
-    /// The expected values are lower-case hex SHA-256, computed outside this
+    /// The expected values are lower-case hex SHA-256 computed outside this
     /// crate (`printf ... | sha256sum`). Deriving them from our own code would
-    /// make the test agree with whatever we do rather than with SHA-256, which
-    /// is the one thing it exists to check. Nothing asserted this until a
-    /// dependency bump (sha2 0.10 to 0.11) made it worth asking.
+    /// make the test agree with whatever we do instead of with SHA-256, which
+    /// is the one thing it checks. Nothing asserted this until a dependency
+    /// bump (sha2 0.10 to 0.11) made it worth asking.
     #[rstest]
     #[case::empty("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")]
     #[case::token(
@@ -211,8 +209,8 @@ mod tests {
         );
     }
 
-    /// A client-supplied value must digest to the same thing the issued one did,
-    /// or nobody could ever authenticate.
+    /// A client-supplied value must digest to the same thing the issued one
+    /// did, or authentication could never succeed.
     #[test]
     fn a_secret_read_back_from_a_client_matches_the_issued_one() {
         let issued = Secret::generate_api_token();
@@ -240,8 +238,8 @@ mod tests {
         assert!(!rendered.contains(&exposed), "leaked: {rendered}");
     }
 
-    /// Garbage from a client must not be rejected on shape — it should simply
-    /// match no row, so probing cannot distinguish "wrong format" from "unknown".
+    /// Garbage from a client must not be rejected on shape. It should match no
+    /// row, so probing cannot tell "wrong format" from "unknown".
     #[test]
     fn client_supplied_garbage_digests_without_complaint() {
         for raw in ["", "not a token", "tsk_", "\u{1f600}"] {

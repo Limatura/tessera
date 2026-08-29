@@ -2,13 +2,13 @@
 //!
 //! `rust-embed` needs its folder to exist at compile time, but `apps/web/dist` is a
 //! build output that may not have been produced yet (a fresh clone, a backend-only
-//! CI job, `cargo run` during API work). Rather than making every `cargo build`
+//! CI job, `cargo run` during API work). Instead of making every `cargo build`
 //! depend on a pnpm build, this script mirrors the web bundle into
 //! `apps/server/assets/dist` when it exists and drops in a placeholder page when it
 //! does not. The server therefore always compiles, and always serves *something*.
 //!
-//! Errors are returned rather than panicked: cargo prints the `Err` and fails the
-//! build, which is the same outcome without tripping the crate's `panic` lint.
+//! Errors are returned, not panicked. Cargo prints the `Err` and fails the
+//! build: the same outcome without tripping the crate's `panic` lint.
 
 use std::{
     env,
@@ -72,11 +72,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
 /// Records which commit produced this binary, as `TESSERA_BUILD_REV`.
 ///
-/// A version number alone cannot identify a build between releases, which is
-/// exactly when bug reports arrive. Resolution order:
+/// A version number alone cannot identify a build between releases, exactly
+/// when bug reports arrive. Resolution order:
 ///
-/// 1. `TESSERA_BUILD_REV` from the environment — how a container build, which has no `.git`, gets a
-///    real answer.
+/// 1. `TESSERA_BUILD_REV` from the environment, how a container build with no `.git` gets a real
+///    answer.
 /// 2. `git describe`, for an ordinary checkout.
 /// 3. `unknown`, so a source tarball still builds.
 fn emit_build_revision(manifest_dir: &Path) {
@@ -92,8 +92,8 @@ fn emit_build_revision(manifest_dir: &Path) {
 }
 
 fn git_revision(manifest_dir: &Path) -> Option<String> {
-    // Rebuild when HEAD moves. Emitted only when the path exists — pointing
-    // `rerun-if-changed` at a missing file makes cargo rebuild every time.
+    // Rebuild when HEAD moves. Emitted only when the path exists, since
+    // pointing `rerun-if-changed` at a missing file rebuilds every time.
     let git_head = manifest_dir.join("../../.git/HEAD");
     if git_head.is_file() {
         println!("cargo::rerun-if-changed={}", git_head.display());

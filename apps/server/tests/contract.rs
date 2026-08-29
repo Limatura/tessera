@@ -2,10 +2,10 @@
 //!
 //! Two distinct guarantees:
 //!
-//! 1. The snapshot catches *accidental* contract changes — review the diff and run `cargo insta
+//! 1. The snapshot catches *accidental* contract changes. Review the diff and run `cargo insta
 //!    accept` when the change was intended.
 //! 2. The drift check catches a contract change that was intended but never written back to
-//!    `openapi.json`, which is the file every client generates from. CI runs the same comparison.
+//!    `openapi.json`, the file every client generates from. CI runs the same comparison.
 
 use std::path::PathBuf;
 
@@ -16,7 +16,7 @@ fn committed_contract_path() -> PathBuf {
 
 #[test]
 fn openapi_document_matches_its_snapshot() {
-    // `openapi_json()` rather than `openapi()`: the repaired document is the one
+    // `openapi_json()`, not `openapi()`. The repaired document is the one
     // that ships, and a snapshot of anything else would pass while the artefact
     // changed underneath it.
     let document = tessera_server::api::openapi_json();
@@ -34,7 +34,7 @@ fn committed_openapi_json_is_up_to_date() {
     });
 
     // Exactly what `tessera-openapi` writes, so that "up to date" means the file
-    // and the binary agree rather than merely resembling each other.
+    // and the binary agree instead of merely resembling each other.
     let generated = format!(
         "{}\n",
         serde_json::to_string_pretty(&tessera_server::api::openapi_json())

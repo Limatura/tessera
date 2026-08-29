@@ -1,8 +1,8 @@
 //! Replaces the `is_admin` boolean with roles and permissions.
 //!
 //! The SQL lives in `sql/`, one file per dialect. This module only picks which
-//! one to run — see the module docs on [`super`] for why the DDL is hand-written
-//! rather than built with `sea-query`.
+//! one to run. See the module docs on [`super`] for why the DDL is
+//! hand-written instead of built with `sea-query`.
 
 use sea_orm_migration::prelude::*;
 
@@ -21,8 +21,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -45,7 +45,7 @@ mod tests {
 
     /// The program names the two seeded roles by literal, and so does the SQL.
     /// Nothing else ties the two spellings together, and a mismatch shows up as
-    /// "every new account is in no role" — which points nowhere near either
+    /// "every new account is in no role", which points nowhere near either
     /// file.
     #[test]
     fn every_dialect_seeds_the_identifiers_the_program_names() {
@@ -58,9 +58,9 @@ mod tests {
 
     /// The permissions that existed when this migration was written.
     ///
-    /// Named rather than taken from [`Permission::ALL`]: a migration records
-    /// what it did, and a later version adding a permission does not change
-    /// that. Granting the new ones is the later migration's job — see
+    /// Named, not taken from [`Permission::ALL`]. A migration records what it
+    /// did, and a later version adding a permission does not change
+    /// that. Granting the new ones is the later migration's job; see
     /// `m20260818_000003`. The invariant that matters after every migration has
     /// run is checked against a real database, in `tests/admin.rs`.
     const SEEDED: [Permission; 13] = [
@@ -79,8 +79,8 @@ mod tests {
         Permission::StatsRead,
     ];
 
-    /// A permission the administrator role is not granted is one nobody can
-    /// hold on a fresh instance, and the endpoint protecting it is unreachable.
+    /// A permission the administrator role is not granted cannot be held on a
+    /// fresh instance, and the endpoint protecting it is unreachable.
     #[test]
     fn the_administrator_role_is_seeded_with_the_permissions_of_its_day() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {

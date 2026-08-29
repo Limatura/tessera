@@ -3,7 +3,7 @@
 //! # Why this one is the awkward one
 //!
 //! 7z keeps its table of contents at the *end*, and the thirty-two bytes at the
-//! start point at it — offset, size and checksum. So the first bytes out of the
+//! start point at it: offset, size and checksum. So the first bytes out of the
 //! door describe something that has not been written yet.
 //!
 //! That is survivable because the format makes per-file checksums optional. Left
@@ -11,16 +11,16 @@
 //! are known before anything is read. So it can be computed up front, written
 //! into the signature, and the entries streamed after it.
 //!
-//! The alternative would be reading every file twice — once for a checksum,
-//! once to send — which doubles the work of every download to fill in a field
-//! nothing here checks.
+//! The alternative would be reading every file twice, once for a checksum and
+//! once to send, doubling the work of every download to fill in a field nothing
+//! here checks.
 //!
 //! # What is implemented
 //!
 //! Store only: one folder per file, each with a single Copy coder. No
 //! compression, no encryption, no per-file checksums, no attributes. Empty files
-//! go through the format's own empty-stream bit vectors rather than being given
-//! a zero-length stream, which is what 7-Zip itself does.
+//! go through the format's own empty-stream bit vectors instead of being given
+//! a zero-length stream, as 7-Zip itself does.
 
 use bytes::{BufMut as _, Bytes, BytesMut};
 
@@ -47,7 +47,7 @@ const K_NAME: u8 = 0x11;
 /// Writes a number the way 7z keeps them.
 ///
 /// The first byte's high bits say how many more follow, and the rest are little
-/// endian. Small numbers — which is nearly all of them — take one byte.
+/// endian. Small numbers, nearly all of them, take one byte.
 fn put_number(out: &mut BytesMut, value: u64) {
     let mut first: u8 = 0;
     let mut mask: u8 = 0x80;
@@ -145,7 +145,7 @@ pub fn header(names_and_sizes: &[(String, u64)]) -> Bytes {
         put_number(&mut out, u64::try_from(bits.len()).unwrap_or(0));
         out.put(bits.freeze());
 
-        // Of the ones with no stream, which are files rather than directories.
+        // Of the ones with no stream, which are files and not directories.
         // All of them: nothing here makes a directory.
         let empties: Vec<bool> = empty.iter().filter(|e| **e).map(|_| true).collect();
         let mut bits = BytesMut::new();

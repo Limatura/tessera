@@ -18,8 +18,8 @@ pub struct Model {
     pub object_key: String,
     /// Where this piece starts within the whole file.
     ///
-    /// How much has landed is deliberately not here — `uploads.offset_bytes`
-    /// says it for the whole file, and a second copy is a second thing to keep
+    /// How much has landed is not here. `uploads.offset_bytes` says it for the
+    /// whole file, and a second copy is a second thing to keep
     /// true.
     pub offset_bytes: i64,
     /// How long this piece will be.
@@ -27,7 +27,7 @@ pub struct Model {
     /// The store's own multipart identifier. `None` on a local filesystem, and
     /// until the segment is opened.
     pub multipart_id: Option<String>,
-    /// `planned`, `open` or `complete` — see
+    /// `planned`, `open` or `complete`. See
     /// [`State`](super::super::repository::upload::SegmentState).
     pub state: String,
     /// When the segment was planned.

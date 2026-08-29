@@ -3,21 +3,21 @@
 //! Object stores have no directories, so for most backends this does nothing
 //! anybody would notice. WebDAV does have them, and it does not create them on
 //! `PUT`: the write answers `409`, and `object_store` reacts by walking up with
-//! MKCOL and retrying — *once*. Several uploads arriving together into a fresh
-//! backend each hit the `409`, each start creating `shares/YYYY/MM`, and the one
-//! whose single retry lands while a sibling's MKCOL is still in flight has
+//! MKCOL and retrying *once*. Several uploads arriving together into a fresh
+//! backend each hit the `409`, each start creating `shares/YYYY/MM`, and the
+//! one whose single retry lands while a sibling's MKCOL is still in flight has
 //! nothing left to try and fails.
 //!
 //! Measured against `rclone serve webdav`: run in parallel a four-test suite was
 //! reliably flaky, and one CI run saw three of four uploads fail then pass on
 //! retry. Serialising just the first write into each location makes it
-//! deterministic, and costs nothing after that — the second upload into the same
+//! deterministic and costs nothing after that: the second upload into the same
 //! month takes no lock at all.
 //!
-//! Deliberately not restricted to the schemes that need it. The check is one
-//! hash lookup on a set that never holds more than a handful of entries, and a
+//! Not restricted to the schemes that need it. The check is one hash lookup on
+//! a set that never holds more than a handful of entries, and a
 //! flag saying "this store has directories" would be a third capability bit to
-//! keep honest — see [`Stores`](crate::storage::Stores), which already carries
+//! keep honest. See [`Stores`](crate::storage::Stores), which already carries
 //! two that are easy to confuse.
 
 use std::collections::HashSet;
@@ -33,7 +33,7 @@ pub struct FirstWrites {
     known: parking_lot::Mutex<HashSet<String>>,
     /// Held for the duration of a first write.
     ///
-    /// One gate rather than one per location: contention needs two uploads into
+    /// One gate, not one per location. Contention needs two uploads into
     /// two *different* new locations at the same moment, which happens at most
     /// once a month per backend, and a map of mutexes would have to be reaped.
     gate: tokio::sync::Mutex<()>,
@@ -92,7 +92,7 @@ impl FirstWrites {
     }
 }
 
-/// Everything in `key` up to its last `/`, which is the location the object
+/// Everything in `key` up to its last `/`: the location the object
 /// lands in.
 ///
 /// `shares/2026/08/01ABC` is written into `shares/2026/08`. A key with no `/`
@@ -119,14 +119,14 @@ mod tests {
         assert_eq!(location_of(key), expected);
     }
 
-    /// The property the whole type exists for: exactly one write runs while the
+    /// The property this type exists for: exactly one write runs while the
     /// location does not exist yet.
     ///
-    /// Not "no two writes ever overlap" — that would be a global write lock and
+    /// Not "no two writes ever overlap", which would be a global write lock and
     /// the wrong thing entirely. Once the location is there the rest run
-    /// together, which is what `a_known_location_is_not_gated` covers. What must
-    /// not happen twice is the write that creates it, because on WebDAV that
-    /// write is a MKCOL walk and two of them racing is the whole bug.
+    /// together, which `a_known_location_is_not_gated` covers. What must not
+    /// happen twice is the write that creates it, because on WebDAV that write
+    /// is a MKCOL walk, and two of them racing is the bug.
     #[tokio::test]
     async fn only_one_write_runs_while_the_location_is_unknown() {
         let first = Arc::new(FirstWrites::default());

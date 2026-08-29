@@ -4,8 +4,8 @@
 //!
 //! Every other secret this software holds is either a hash (passwords, tokens)
 //! or lives outside the database (`database.url`, `storage.url`). A backend's
-//! URL is the first thing that has to be *recoverable* — the process needs the
-//! key to talk to the bucket — and stored, because the whole point is that an
+//! URL is the first thing that has to be both *recoverable*, since the process
+//! needs the key to talk to the bucket, and stored, since the point is that an
 //! operator can add one from the panel without a restart.
 //!
 //! Recoverable and stored means a database dump is a credential leak, unless
@@ -16,9 +16,9 @@
 //! # What this is not
 //!
 //! Not a secrets manager, and not protection against a reader of the running
-//! process — anything that can read `/proc` can read the key. It moves the
-//! blast radius of "somebody has the database file" from "and now they have
-//! your buckets" to "and now they have some ciphertext", which is the realistic
+//! process, since anything that can read `/proc` can read the key. It moves the
+//! blast radius of "the database file leaked" from "and now they have
+//! your buckets" to "and now they have some ciphertext", the realistic
 //! failure and the one an operator can do nothing about after the fact.
 
 use aws_lc_rs::aead::{AES_256_GCM, Aad, NONCE_LEN, Nonce, RandomizedNonceKey};
@@ -28,10 +28,9 @@ use aws_lc_rs::aead::{AES_256_GCM, Aad, NONCE_LEN, Nonce, RandomizedNonceKey};
 pub enum SecretError {
     /// No key is configured, so nothing can be stored.
     ///
-    /// Refused rather than falling back to plaintext: an instance that quietly
-    /// stored recoverable credentials in a table would be doing the one thing
-    /// this module exists to prevent, and nobody would find out until the dump
-    /// leaked.
+    /// Refused, not fallen back to plaintext. An instance that quietly
+    /// stored recoverable credentials in a table would do the one thing this
+    /// module exists to prevent, and that surfaces only when the dump leaks.
     #[error(
         "storage.secret_key is not set; add one to the environment before configuring a backend"
     )]
@@ -44,8 +43,7 @@ pub enum SecretError {
     /// The stored value will not open with this key.
     ///
     /// Almost always a key that changed, and the message says so because the
-    /// alternative reading — corrupted rows — sends an operator to look in the
-    /// wrong place.
+    /// other reading, corrupted rows, sends an operator to the wrong place.
     #[error("a stored credential will not open with this key; was storage.secret_key changed?")]
     WillNotOpen,
 }
@@ -96,7 +94,7 @@ impl Sealer {
 
     /// Seals `plain`, returning the nonce and ciphertext as hex.
     ///
-    /// A fresh nonce per call, chosen by the library rather than by us: reusing
+    /// A fresh nonce per call, chosen by the library and not by us. Reusing
     /// one under the same key is what breaks GCM, and the failure is silent.
     ///
     /// # Errors
@@ -184,8 +182,8 @@ mod tests {
         );
     }
 
-    /// The stored form must not contain what it is protecting — the whole point
-    /// is that a database dump is not a credential leak.
+    /// The stored form must not contain what it is protecting. A database dump
+    /// is not supposed to be a credential leak.
     #[test]
     fn the_stored_form_does_not_contain_the_secret() {
         let key = Sealer::new(KEY).expect("a key");
@@ -210,8 +208,8 @@ mod tests {
         );
     }
 
-    /// The message an operator gets has to send them to the key, not to the
-    /// rows — a changed key looks exactly like corruption from the inside.
+    /// The message an operator gets has to send them to the key, not the rows:
+    /// a changed key looks exactly like corruption from the inside.
     #[test]
     fn another_key_will_not_open_it() {
         let sealed = Sealer::new(KEY)
@@ -225,7 +223,7 @@ mod tests {
     }
 
     /// Falling back to plaintext would do the one thing this module exists to
-    /// prevent, and nobody would find out until the dump leaked.
+    /// prevent, and that surfaces only when the dump leaks.
     #[test]
     fn without_a_key_nothing_is_stored() {
         let sealer = Sealer::new("").expect("no key");

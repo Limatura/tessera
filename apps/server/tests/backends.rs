@@ -1,20 +1,19 @@
 //! Exercises a networked database backend against a real server.
 //!
-//! Until this file existed, the `postgres` and `mysql` features only ever proved
-//! that they *compiled* — the migrations, the pool options and the health path
-//! had never run against a live server. That is the gap this closes, and it is
-//! the gap that opened the moment the project chose three dialects: `sqlx::query!`
-//! verified one at compile time, so the other two were always going to need a
-//! real database somewhere.
+//! Until this file existed, the `postgres` and `mysql` features only ever
+//! proved that they *compiled*: the migrations, the pool options and the health
+//! path had never run against a live server. That gap opened the moment the
+//! project chose three dialects, since `sqlx::query!` verified one at compile
+//! time and the other two were always going to need a real database.
 //!
 //! Every test here is `#[ignore]`d, because it needs a server that a plain
-//! `cargo nextest run` has no reason to provide. Ignoring rather than silently
+//! `cargo nextest run` has no reason to provide. Ignoring, not silently
 //! skipping is deliberate: a test that returns early when an environment
 //! variable is missing reports "passed" and teaches you to trust coverage that
 //! never ran.
 //!
 //! The target comes from `TESSERA_TEST_DATABASE_URL`, so the same suite runs
-//! against every backend rather than being copied per dialect:
+//! against every backend instead of being copied per dialect:
 //!
 //! ```text
 //! docker run -d --name tessera-pg -p 5432:5432 \
@@ -25,7 +24,7 @@
 //!   cargo nextest run --run-ignored all -E 'binary(backends)'
 //! ```
 #![cfg(any(feature = "postgres", feature = "mysql"))]
-// The helpers below sit outside a `#[test]` body, which is as far as
+// The helpers below sit outside a `#[test]` body, and that is as far as
 // clippy.toml's test exemptions reach. A fixture that cannot resolve its target
 // has nothing to report but a failure.
 #![expect(clippy::expect_used, reason = "test fixture; see module docs")]
@@ -59,7 +58,7 @@ fn database_config() -> DatabaseConfig {
     }
 }
 
-/// Backend the configured URL points at. Asserting on this rather than hard-coding
+/// Backend the configured URL points at. Asserting on this, not hard-coding
 /// Postgres is what lets one suite cover every dialect.
 fn expected_backend() -> Backend {
     Backend::from_url(&database_url()).expect("TESSERA_TEST_DATABASE_URL must name a known backend")
@@ -80,7 +79,7 @@ async fn connects_migrates_and_pings() {
 #[ignore = "needs a live database; see the module docs"]
 async fn migrations_are_idempotent() {
     // Sequential re-application only. Concurrent first-time migration is *not*
-    // safe — sea-orm-migration does not lock before creating its bookkeeping
+    // safe: sea-orm-migration does not lock before creating its bookkeeping
     // table, so parallel runners collide on a virgin database. That is why this
     // binary is pinned to one thread in `.config/nextest.toml`.
     let conn = db::connect(&database_config()).await.expect("pool");
@@ -133,21 +132,21 @@ async fn health_reports_this_backend() {
 /// The reason this suite exists at all, applied to the tables that carry data.
 ///
 /// Connecting and migrating only prove the DDL parses. Whether the entities and
-/// the hand-written per-dialect SQL agree about every *column* — Postgres
+/// the hand-written per-dialect SQL agree about every *column* (Postgres
 /// `TIMESTAMPTZ` against SQLite's TEXT, MySQL's `BOOLEAN` being `TINYINT(1)`,
-/// nullability, the unique indexes and the foreign keys — is only settled by
+/// nullability, the unique indexes and the foreign keys) is only settled by
 /// writing rows and reading them back. That is what this does, through the HTTP
-/// surface, so a disagreement shows up as the wrong status code rather than as a
-/// panic nobody maps back to a schema.
+/// surface, so a disagreement shows up as the wrong status code and not a panic
+/// that maps back to nothing.
 #[tokio::test]
 #[ignore = "needs a live database; see the module docs"]
 async fn accounts_sessions_and_tokens_round_trip() {
     let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
     // Unlike the in-memory SQLite the other suites use, this database survives
-    // the run — so the account names have to be unique or the second invocation
-    // fails on a conflict that says nothing about the schema.
-    // Whole seconds, because a username is capped at 32 characters and the
-    // backend name has already spent some of them.
+    // the run, so the account names have to be unique or the second invocation
+    // fails on a conflict that says nothing about the schema. Whole seconds,
+    // because a username is capped at 32 characters and the backend name has
+    // already spent some of them.
     let suffix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
@@ -180,7 +179,7 @@ async fn a_share_can_be_created_authorised_and_retrieved() {
 /// The quota columns, against a real dialect.
 ///
 /// `quota_bytes` is a nullable `BIGINT` whose NULL and whose zero are opposite
-/// instructions — ask the next layer, or no ceiling at all — so a dialect that
+/// instructions (ask the next layer, or no ceiling at all) so a dialect that
 /// coerced one into the other would quietly widen or narrow everybody's
 /// allowance with nothing to say it had.
 #[tokio::test]
@@ -212,7 +211,7 @@ async fn quotas_round_trip() {
         .expect("create the role");
     assert_eq!(role.quota_bytes, Some(4096));
 
-    // Zero survives as zero rather than arriving back as "not set".
+    // Zero survives as zero, not as "not set".
     roles
         .set_quota(role.id, Some(0), now)
         .await
@@ -241,7 +240,8 @@ async fn quotas_round_trip() {
         "a cleared quota came back as a figure"
     );
 
-    // An edit through the whole-record path keeps it too, which is the path the
+    // An edit through the whole-record path keeps it too, and that is the path
+    // the
     // panel takes.
     roles
         .update(
@@ -271,11 +271,11 @@ async fn quotas_round_trip() {
 /// The scoped totals, against a real dialect.
 ///
 /// Two ways this query only fails away from SQLite. It restricts through
-/// `share_id IN (SELECT id FROM shares WHERE ...)` rather than a join, and it
-/// reads a blob's length — which used to be `CHAR_LENGTH`, a function Postgres
+/// `share_id IN (SELECT id FROM shares WHERE ...)` and not a join, and it
+/// reads a blob's length, which used to be `CHAR_LENGTH`, a function Postgres
 /// does not have for `bytea`. And Postgres widens `SUM(bigint)` to `NUMERIC`,
 /// so the result would not decode as an `i64` even once the sum ran. Both were
-/// found by running this suite rather than by reasoning about it, and both made
+/// found by running this suite, not by reasoning about it, and both made
 /// every upload a 500 on a Postgres instance with a ceiling set.
 #[tokio::test]
 #[ignore = "needs a live database; see the module docs"]
@@ -304,8 +304,8 @@ async fn the_scoped_totals_run_on_this_dialect() {
         )
         .await
         .expect("create the role");
-    // Nothing is charged to a role nobody is in, so zero is the honest answer
-    // — what is being tested is that the subquery runs at all.
+    // Nothing is charged to an empty role, so zero is the honest answer.
+    // What is being tested is that the subquery runs at all.
     assert_eq!(
         app.state
             .shares
@@ -323,7 +323,7 @@ async fn the_scoped_totals_run_on_this_dialect() {
         0
     );
 
-    // And the instance total with a text share in it, which is the half that
+    // And the instance total with a text share in it, the half that
     // reads the blob's length.
     let text = "quota accounting\n";
     let before = app
@@ -357,12 +357,12 @@ async fn the_scoped_totals_run_on_this_dialect() {
 }
 
 /// Every migration rolls back, on this dialect, all the way to an empty
-/// database — and then forward again.
+/// database, and then forward again.
 ///
 /// Nothing ran `down` before this test existed, on any dialect, ever. The `up`
 /// path is exercised by every other test here; the rollbacks were written,
 /// reviewed and never executed. Four of them did not work on MySQL: two used
-/// `DROP INDEX IF EXISTS`, which is not syntax it has; one rebuilt a table with
+/// `DROP INDEX IF EXISTS`, not syntax it has; one rebuilt a table with
 /// `TEXT` in its primary key, which `InnoDB` cannot index without a prefix
 /// length; and one dropped the last index a foreign key depended on. All four
 /// were found by running this, not by reading them.

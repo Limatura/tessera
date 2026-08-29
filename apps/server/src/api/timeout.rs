@@ -5,7 +5,7 @@
 //! Every route except the ones that receive a file gets a wall-clock budget:
 //! from the moment the request arrives to the moment a response is produced.
 //! That is the right shape for work whose duration does not depend on the
-//! caller's line — a query, a login, a listing.
+//! caller's line: a query, a login, a listing.
 //!
 //! An upload's duration depends on almost nothing else. A wall-clock budget
 //! large enough for the biggest file an operator allows, sent over the slowest
@@ -16,12 +16,12 @@
 //!
 //! So uploads are asked whether the other end is still sending, not how long
 //! they have been going. That question lives in the body loop, next to the only
-//! thing that can answer it — see `shares::ingest_into`.
+//! thing that can answer it. See `shares::ingest_into`.
 //!
 //! # Why a middleware and not `TimeoutLayer`
 //!
 //! `TimeoutLayer` is built once, from the configured value, and holds it. This
-//! reads the setting per request, which is what lets an operator change it
+//! reads the setting per request, so an operator can change it
 //! without a restart, and is also the only place that can see which
 //! route a request is for before deciding whether to apply a budget at all.
 
@@ -46,8 +46,8 @@ pub async fn enforce(State(state): State<AppState>, request: Request, next: Next
 
 /// Whether this request's body is a file being sent to us.
 ///
-/// Matched on the path rather than on `MatchedPath`, which axum fills in during
-/// routing and is therefore not there yet: this layer wraps the router. The two
+/// Matched on the path, not on `MatchedPath`, which axum fills in during
+/// routing and is not there yet: this layer wraps the router. The two
 /// routes are named exactly, because `POST /shares/{code}/unlock` and
 /// `POST /shares/{code}/events` sit under the same prefix and are ordinary
 /// requests that should keep their budget.

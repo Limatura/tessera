@@ -1,7 +1,7 @@
 //! The `shares` table, as SeaORM sees it.
 //!
-//! Deliberately narrow: this is read on every public request, so what a share
-//! holds lives in `text_shares` and `file_shares` rather than here. `kind` says
+//! Narrow by design. This is read on every public request, so what a share
+//! holds lives in `text_shares` and `file_shares` instead. `kind` says
 //! which of the two to read.
 
 use sea_orm::entity::prelude::*;
@@ -44,7 +44,7 @@ pub struct Model {
     pub og_config: Option<String>,
     /// SHA-256 of the token that lets an anonymous uploader manage this share.
     pub management_token_hash: Option<String>,
-    /// How many times the share page was looked at. Statistics only — the number
+    /// How many times the share page was looked at. Statistics only; the number
     /// that gates access is `use_count`.
     pub view_count: i32,
     /// How many times the content was copied.

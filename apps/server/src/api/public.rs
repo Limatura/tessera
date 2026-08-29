@@ -1,10 +1,10 @@
 //! The public retrieval routes: `/s/{code}/raw` and `/s/{code}/download`.
 //!
-//! These sit outside `/api/v1` and outside the generated contract, because they
-//! are not an API — they are where a link points. A person pastes one into a
+//! These sit outside `/api/v1` and outside the generated contract, because
+//! they are not an API but where a link points. A person pastes one into a
 //! chat, prints it, or hands it to `curl`, and it has to keep working for as
-//! long as the link exists. **Their shape can never change**, which is the
-//! deliberate price of a clean, versionless URL.
+//! long as the link exists. **Their shape can never change**, and that is the
+//! price of a clean, versionless URL.
 //!
 //! `/s/{code}` itself is not here: it is the single-page app, served by the
 //! fallback, which then reads `GET /api/v1/shares/{code}` to decide what to
@@ -54,15 +54,15 @@ pub struct RetrievalQuery {
     /// A download authorisation, for callers that cannot set a header.
     ///
     /// A download is an `<a href>`, and a browser navigation carries no custom
-    /// headers — so the ticket has to be able to ride in the URL. The header is
-    /// preferred where it is available.
+    /// headers, so the ticket has to be able to ride in the URL. The header is
+    /// preferred where available.
     pub t: Option<String>,
     /// Which container to pack several files into: `zip`, `tar` or `7z`.
     ///
-    /// Ignored for a share with one file, which is served as that file.
-    /// Defaulted rather than required, because the person following the link
-    /// did not choose it — a client offering the choice sends one, and a bare
-    /// link still works.
+    /// Ignored for a share with one file; that is served as the file itself.
+    /// Defaulted, not required, since the person following the link did not
+    /// choose it. A client offering the choice sends one, and a bare link
+    /// still works.
     #[serde(default)]
     pub format: Format,
 }
@@ -80,14 +80,13 @@ pub fn routes() -> Router<AppState> {
 /// The picture a chat client shows when this link is pasted.
 ///
 /// Reads the share through [`preview::lookup`](crate::api::preview::lookup)
-/// rather than the gate, for the two reasons that module gives: an unfurler
-/// follows the link before any person clicks, so counting it would burn a
+/// and not the gate, for the two reasons that module gives. An unfurler follows
+/// the link before any person clicks, so counting it would burn a
 /// one-time share on the way to its reader; and a crawler must not be able to
 /// spend the lookup allowance meant for people guessing codes.
 ///
 /// What the picture may say is decided by
-/// [`Preview`](crate::api::preview::Preview), not here — see
-/// [`crate::og`].
+/// [`Preview`](crate::api::preview::Preview), not here. See [`crate::og`].
 #[cfg(feature = "og-images")]
 async fn og_image(
     State(state): State<AppState>,
@@ -100,13 +99,13 @@ async fn og_image(
         .await
         .ok_or(Error::NotFound)?;
     let mut preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
-    // Read only for a note, and only to be thrown away if the share turns out
-    // to be locked — `with_snippet` is where that is decided, so the read here
-    // is unconditional and the discretion is not duplicated.
+    // Read only for a note, and thrown away if the share turns out to be
+    // locked. `with_snippet` decides that, so the read here is unconditional
+    // and the discretion is not duplicated.
     if share.kind == ShareKind::Text
         && let Ok(Some(text)) = state.shares.text_of(share.id).await
     {
-        // Lossy rather than refusing: the column is bytes, a paste is whatever
+        // Lossy instead of refusing. The column is bytes, a paste is whatever
         // the uploader sent, and a card with a replacement character in it is
         // better than no card.
         let body = String::from_utf8_lossy(&text.content);
@@ -125,7 +124,7 @@ async fn og_image(
             // Long enough that an unfurler asked twice in a minute does not
             // redraw, short enough that the countdown on the card is not stale
             // by a day. Drawing costs milliseconds, so this is politeness to
-            // caches rather than a saving we need.
+            // caches, not a saving we need.
             (header::CACHE_CONTROL, "public, max-age=300".to_owned()),
         ],
         png,
@@ -165,12 +164,11 @@ async fn raw(
     )
     .await?;
 
-    // `text/plain` whatever the uploader claimed, and `nosniff` so that a
-    // browser cannot decide otherwise. Without both, a `<script>` uploaded as a
-    // note becomes stored XSS on the origin that holds everyone's session
-    // cookie. GitHub solves this by serving raw content from another domain;
-    // self-hosted software cannot ask its operators for a second one, so the
-    // headers have to carry it.
+    // `text/plain` whatever the uploader claimed, plus `nosniff` so a browser
+    // cannot decide otherwise. Without both, a `<script>` uploaded as a note
+    // becomes stored XSS on the origin holding everyone's session cookie.
+    // GitHub serves raw content from another domain; self-hosted software
+    // cannot ask its operators for a second one, so the headers carry it.
     let content = state.shares.content_of(&share).await?;
     serve(
         &state,
@@ -197,7 +195,7 @@ async fn download(
     headers: HeaderMap,
 ) -> Result<Response> {
     // See `raw`: the admission decision needs the ticket, so it happens in
-    // `permit` rather than here.
+    // `permit`, not here.
     let share = gate::find(&state, &code, &source).await?;
     let payload = permit(
         &state,
@@ -228,12 +226,12 @@ async fn download(
     .await
 }
 
-/// What a response calls the content, which is the only thing the two routes
-/// disagree about.
+/// What a response calls the content, the only thing the two routes disagree
+/// about.
 ///
-/// Grouped rather than passed loose because they are decided together — a
-/// download says `attachment` and an opaque type, a note says `inline` and
-/// plain text — and neither route ever mixes them.
+/// Grouped, not passed loose, because they are decided together. A download
+/// says `attachment` and an opaque type, a note says `inline` and
+/// plain text, and neither route mixes them.
 struct Labels {
     /// The `Content-Type` to send, never the one the uploader claimed.
     content_type: HeaderValue,
@@ -248,9 +246,9 @@ struct Labels {
 
 /// The size of the archive this share becomes, or `None` when it is one file.
 ///
-/// One file is not archived. Two or more are, and then this is the exact number
-/// of bytes the response will carry — which is what lets it go out as a
-/// `Content-Length` before the first byte is read.
+/// One file is not archived. Two or more are, and then this is the exact byte
+/// count the response will carry, so it can go out as a `Content-Length` before
+/// the first byte is read.
 fn archived(content: &Content, format: Format) -> Option<u64> {
     let files = content.files();
     if files.len() < 2 {
@@ -266,11 +264,11 @@ fn archived(content: &Content, format: Format) -> Option<u64> {
 
 /// Answers with the slice the request asked for, and the headers that say so.
 ///
-/// Both routes reach this: they differ only in what they call the content, not
-/// in how a transfer works. Keeping the range handling in one place is not tidy
-/// housekeeping — `/raw` had none of it, so a client that asked for a range got
-/// the whole note with a `200`, and a downloader that had already written the
-/// first half wrote it again.
+/// Both routes reach this and differ only in what they call the content, not
+/// in how a transfer works. Keeping range handling in one place matters:
+/// `/raw` had none of it, so a client asking for a range got the whole note
+/// with a `200`, and a downloader that had written the first half wrote it
+/// again.
 async fn serve(
     state: &AppState,
     share: &Share,
@@ -285,10 +283,9 @@ async fn serve(
         format,
     } = labels;
 
-    // Several files leave as one archive, which has its own size, its own type
-    // and its own name. One file is still that file — the feature that makes
-    // archives exists, and that is not a reason to wrap something that is
-    // already a single download.
+    // Several files leave as one archive, with its own size, type and name.
+    // One file is still that file: archives existing is not a reason to wrap
+    // something that is already a single download.
     let packed = archived(content, format);
     if let Some(size) = packed {
         archive::check_size(format, size)?;
@@ -307,11 +304,11 @@ async fn serve(
     let total = packed.unwrap_or_else(|| content.size_bytes());
     let etag = etag_for(share, content);
 
-    // `If-Range` is what keeps a resumed transfer from stitching two different
-    // files together. A client sends the entity tag it had; if the share is not
-    // that one any more we must ignore the `Range` and send the whole thing,
-    // because serving a slice of the new content to a client holding the head of
-    // the old one produces a corrupt result that nothing reports as an error.
+    // `If-Range` keeps a resumed transfer from stitching two different files
+    // together. A client sends the entity tag it had; if the share is no longer
+    // that one, the `Range` is ignored and the whole thing sent. Serving a
+    // slice of new content to a client holding the head of the old produces a
+    // corrupt result nothing reports as an error.
     let honour_range = headers
         .get(header::IF_RANGE)
         .is_none_or(|value| value.as_bytes() == etag.as_bytes());
@@ -341,8 +338,8 @@ async fn serve(
     out.insert(header::CONTENT_DISPOSITION, disposition);
     out.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
     // Set by hand because a streamed body has no length axum can infer, and
-    // without it the browser has no progress bar and no estimated time — on
-    // exactly the transfers somebody is watching.
+    // without it the browser shows no progress bar and no estimated time, on
+    // exactly the transfers being watched.
     if let Ok(value) = HeaderValue::from_str(&length.to_string()) {
         out.insert(header::CONTENT_LENGTH, value);
     }
@@ -355,8 +352,8 @@ async fn serve(
         out.insert(header::CONTENT_RANGE, value);
     }
     harden(out);
-    // Tells the meter which share to credit. Set here rather than worked out
-    // from the path in the middleware: this is the only place that has already
+    // Tells the meter which share to credit. Set here instead of worked out
+    // from the path in the middleware, because this is the only place that has
     // resolved the code, and doing it again would be a second lookup on every
     // retrieval.
     response.extensions_mut().insert(Served(share.id));
@@ -379,10 +376,10 @@ fn harden(headers: &mut HeaderMap) {
 /// Makes sure the caller may have this share's content, paying for it if they
 /// have not already.
 ///
-/// A ticket means the retrieval was paid for at `unlock` — that is the whole
-/// point of it, and why a resumed download does not cost a second one. Without
-/// one this is a direct retrieval (`curl` following a link), so the password is
-/// checked and a use is spent here and now.
+/// A ticket means the retrieval was paid for at `unlock`, so a resumed download
+/// does not cost a second one. Without one this is a direct
+/// retrieval (`curl` following a link), so the password is checked and a use is
+/// spent here and now.
 async fn permit(
     state: &AppState,
     share: &Share,
@@ -392,20 +389,19 @@ async fn permit(
     source: &str,
 ) -> Result<Payload> {
     // First, because the answer decides whether an exhausted share is still
-    // collectable — the caller who emptied it is the one now coming for the
-    // bytes. `admit` is what turns anyone else away.
+    // collectable: the caller who emptied it is the one now coming for the
+    // bytes. `admit` turns anyone else away.
     let held = gate::holds_ticket(state, share, headers, ticket).await?;
     gate::admit(share, held)?;
 
-    // `HEAD` asks what a `GET` would answer, and answering that is not a
-    // retrieval. axum routes `HEAD` to the same handler as `GET`, so without
-    // this a link checker, a prefetch or a chat client probing the URL spends
-    // somebody's one-time share — the exact failure the ticket model exists to
-    // prevent, reached by a route nobody thinks about.
+    // `HEAD` asks what a `GET` would answer, and that is not a retrieval. axum
+    // routes `HEAD` to the same handler as `GET`, so without this a link
+    // checker, a prefetch or a chat client probing the URL spends a one-time
+    // share.
     //
-    // Without a ticket the password is still required: `HEAD` reveals the size,
-    // and a locked share should not describe itself. With one it is not, for
-    // the same reason a `GET` skips it — the ticket is the proof.
+    // Without a ticket the password is still required, since `HEAD` reveals the
+    // size and a locked share should not describe itself. With one it is not,
+    // for the same reason a `GET` skips it: the ticket is the proof.
     if method == Method::HEAD {
         if held == gate::Ticket::Absent {
             gate::unlock(state, share, headers, source).await?;
@@ -428,17 +424,16 @@ async fn permit(
 /// # Why only here
 ///
 /// This is the one place both retrieval routes agree the content is being
-/// handed over. A `HEAD` does not reach it, on purpose and for the same reason
-/// it does not spend a use: a link checker, a prefetch or a chat client
-/// unfurling the URL is not a person collecting the file, and a log full of
-/// those answers nobody's question.
+/// handed over. A `HEAD` does not reach it, for the same reason it does not
+/// spend a use: a link checker or a chat client unfurling the URL is not a
+/// person collecting the file, and a log full of those answers no question.
 ///
 /// # Why a failure here is not the caller's problem
 ///
-/// The share has already been authorised and paid for by this point. Refusing
-/// to serve it because a bookkeeping row would not insert would turn an
-/// operator's optional record-keeping into an outage on the one path that has
-/// to work. It is logged and the download continues.
+/// The share has already been authorised and paid for. Refusing to serve it
+/// because a bookkeeping row would not insert turns optional record-keeping
+/// into an outage on the one path that has to work. It is logged and the
+/// download continues.
 async fn record_access(state: &AppState, share: &Share, headers: &HeaderMap, source: &str) {
     if !state.config().share.access_log.enabled {
         return;
@@ -470,10 +465,10 @@ enum Payload {
 
 /// A tag that changes when the content does.
 ///
-/// Derived from the identifier and the size rather than from the bytes: hashing
-/// the content would mean reading it to answer a `HEAD`, and a share's bytes
-/// never change once written — only deletion and re-upload produce different
-/// content, and that produces a different identifier.
+/// Derived from the identifier and the size, not the bytes. Hashing the content
+/// would mean reading it to answer a `HEAD`, and a share's bytes never
+/// change once written. Only deletion and re-upload produce different content,
+/// and that produces a different identifier.
 fn etag_for(share: &Share, content: &Content) -> String {
     format!("\"{}-{}\"", share.id, content.size_bytes())
 }
@@ -484,26 +479,24 @@ fn etag_for(share: &Share, content: &Content) -> String {
 /// real value; without the latter a Chinese or Japanese file name arrives
 /// mangled in most browsers.
 fn content_disposition(content: &Content) -> String {
-    // The single file's own name, or the archive's. A share with one file is
-    // still that file — it does not become an archive because the feature that
-    // makes archives exists.
+    // The single file's own name, or the archive's. A share with one file does
+    // not become an archive just because archives exist.
     //
-    // The last component only, and after either separator. A stored name is
-    // what the uploader sent, unchanged apart from a length and control-character
-    // check — so it can carry the folder it came from, and it can be nothing but
-    // separators. A header naming a path is a header saying where on the
-    // recipient's disk to put the file, which is not ours to say and which RFC
-    // 6266 tells us not to try.
+    // The last component only, after either separator. A stored name is what
+    // the uploader sent, checked only for length and control characters, so it
+    // can carry the folder it came from or be nothing but separators. A header
+    // naming a path says where on the recipient's disk to put the file, which
+    // RFC 6266 tells us not to try.
     let name = content
         .single_file()
         .and_then(|file| file.filename.as_deref())
         .and_then(|filename| filename.rsplit(['/', '\\']).next())
         .filter(|last| !last.is_empty())
         .unwrap_or("download");
-    // The fallback keeps anything printable ASCII, which includes the space —
-    // `"my file.zip"` is a perfectly ordinary name and turning its space into an
-    // underscore helps nobody. What cannot survive is a quote or a backslash,
-    // since the value sits inside quotes.
+    // The fallback keeps anything printable ASCII, space included: `"my
+    // file.zip"` is an ordinary name, and turning its space into an underscore
+    // gains nothing. A quote or a backslash cannot survive, since the value
+    // sits inside quotes.
     let ascii: String = name
         .chars()
         .map(|c| {
@@ -535,9 +528,9 @@ fn percent_encode(value: &str) -> String {
 
 /// Parses one byte range, the only form worth supporting.
 ///
-/// Multi-range requests exist and are answered with the whole object instead:
-/// they require a multipart response, no browser download manager sends one, and
-/// the ones that do accept a `200` perfectly well.
+/// Multi-range requests are answered with the whole object instead: they need
+/// a multipart response, no browser download manager sends one, and the clients
+/// that do accept a `200`.
 fn parse_range(value: &str, size: u64) -> Result<(u64, u64)> {
     let unsatisfiable = || Error::RangeNotSatisfiable { size };
     let spec = value.strip_prefix("bytes=").ok_or_else(unsatisfiable)?;
@@ -570,13 +563,11 @@ fn parse_range(value: &str, size: u64) -> Result<(u64, u64)> {
 ///
 /// # Why this is a stream and not a `Vec<u8>`
 ///
-/// Collecting the object first costs its size in memory, twice over if it is
-/// then copied. Measured before this was a stream: an 80 MiB download raised
-/// peak RSS by about 160 MB, which on the machines this software is aimed at is
-/// the difference between serving a file and being killed. Uploads were careful
-/// about exactly this; reads were not, which made every claim about large files
-/// untrue in the direction that matters most — a share is written once and read
-/// many times.
+/// Collecting the object first costs its size in memory, twice over if copied.
+/// Measured before this was a stream: an 80 MiB download raised peak RSS by
+/// about 160 MB, which on a small machine is the difference between serving a
+/// file and being killed. Uploads were careful about this and reads were not,
+/// the wrong way round: a share is written once and read many times.
 ///
 /// Inline content is already in memory and bounded by
 /// `share.inline_threshold_bytes`, so it is handed over as it is.
@@ -600,9 +591,8 @@ async fn read_range(
     let files = content.files();
     match files {
         [] => Err(Error::NotFound),
-        // One file is that file. It keeps its name, its ranges and its ability
-        // to be resumed — none of which an archive has, and all of which the
-        // share that has always been single-file already had.
+        // One file is that file, keeping its name, its ranges and its ability
+        // to be resumed. An archive has none of those.
         [only] => stream_one(state, only, range).await,
         // Several become an archive, and an archive has no ranges: it is
         // produced as it is sent, so there is no earlier part to seek back to.
@@ -613,7 +603,7 @@ async fn read_range(
 /// One archive entry: its name, its size, and where to read it from.
 ///
 /// The location is optional because a file whose bytes are gone still takes a
-/// place in the archive — as an empty entry, so the listing matches the share.
+/// place in the archive, as an empty entry, so the listing matches the share.
 type PlannedEntry = (String, u64, Option<(Arc<dyn ObjectStore>, String)>);
 
 /// The store holding this file's bytes.
@@ -621,9 +611,8 @@ type PlannedEntry = (String, u64, Option<(Arc<dyn ObjectStore>, String)>);
 /// # Errors
 ///
 /// [`Error::Unavailable`] when the file names a backend this process has no
-/// configuration for. That is not "no such share" — the row is fine and the
-/// bytes are probably fine; what is missing is the credentials to reach them,
-/// which an operator can put back.
+/// configuration for. Not "no such share": the row and probably the bytes are
+/// fine, and what is missing is credentials an operator can put back.
 fn backend_of(state: &AppState, file: &FilePart) -> Result<Arc<dyn ObjectStore>> {
     let name = file.storage.backend().ok_or(Error::NotFound)?;
     state.backend(name).ok_or_else(|| {
@@ -637,13 +626,12 @@ fn backend_of(state: &AppState, file: &FilePart) -> Result<Arc<dyn ObjectStore>>
 
 /// Streams a file that was written across several backends.
 ///
-/// The segments are read in order and their bodies laid end to end. Each one is
-/// asked for the slice of itself the range covers, which for the segments in the
-/// middle is all of them — see
-/// [`stitch::reads_for`](crate::storage::stitch::reads_for).
+/// The segments are read in order and their bodies laid end to end. Each is
+/// asked for the slice of itself the range covers, which for the middle ones is
+/// all of it. See [`stitch::reads_for`](crate::storage::stitch::reads_for).
 ///
 /// The stream is built lazily, one segment at a time, so a fifty-gigabyte file
-/// costs one segment's chunk of memory rather than fifty gigabytes of it. That
+/// costs one segment's chunk of memory instead of fifty gigabytes. That
 /// laziness is also why this is not `async`: nothing is fetched until the body
 /// is read.
 ///
@@ -676,11 +664,11 @@ fn stream_stitched(state: &AppState, file: &FilePart, range: Option<(u64, u64)>)
     }
 
     // Lazily, one segment at a time: the next is not asked for until the one
-    // before it has been handed over, so the process holds a chunk rather than
-    // the file.
+    // before it has been handed over, so the process holds a chunk and not the
+    // whole file.
     //
-    // `async_stream` rather than a combinator — `futures-util` is deliberately
-    // not a dependency of the server, only of its tests.
+    // `async_stream` and not a combinator, since `futures-util` is not a
+    // dependency of the server, only of its tests.
     let chunks = async_stream::stream! {
         for (store, key, start, length) in opened {
             let options = GetOptions {
@@ -707,7 +695,7 @@ fn stream_stitched(state: &AppState, file: &FilePart, range: Option<(u64, u64)>)
 /// Streams one file, honouring a range.
 async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>) -> Result<Body> {
     // More than one piece means the file was spread, and reading it is a walk
-    // rather than a request. One piece is every file written with splitting off,
+    // and not a request. One piece is every file written with splitting off,
     // and it takes the path below unchanged.
     if file.segments.len() > 1 {
         return stream_stitched(state, file, range);
@@ -716,10 +704,9 @@ async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>
         return Err(Error::NotFound);
     };
     // The backend this file recorded, not whichever one new uploads go to. A
-    // name that is no longer configured is a share the operator has orphaned by
-    // changing the configuration, and `503` says "this instance cannot serve it
-    // right now" — which is true and recoverable — where `404` would say it
-    // never existed.
+    // name no longer configured is a share the operator orphaned by changing
+    // the configuration, so `503` ("cannot serve it right now") is true and
+    // recoverable where `404` would claim it never existed.
     let store = backend_of(state, file)?;
     let options = GetOptions {
         // HTTP ranges are inclusive at both ends; `GetRange::Bounded` is not.
@@ -741,9 +728,8 @@ async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>
 /// # Why the whole thing is not built first
 ///
 /// It would mean holding every byte of the share in memory to send it. The
-/// entries go out one at a time, exactly as they are read from the store, and
-/// the parts this adds — headers, descriptors, the directory — are a few dozen
-/// bytes each.
+/// entries go out one at a time as they are read from the store, and the parts
+/// this adds (headers, descriptors, the directory) are a few dozen bytes each.
 ///
 /// # Why there is no range
 ///
@@ -752,9 +738,9 @@ async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>
 /// gets the whole thing.
 async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) -> Result<Body> {
     // The same names `archived` predicted the size from. Two files can share a
-    // name, and an archive with two identical entries unpacks to one file — so
-    // the names are decided for the set, not one at a time, and both places have
-    // to decide them the same way.
+    // name and an archive with two identical entries unpacks to one file, so
+    // the names are decided for the set and not one at a time, and both places
+    // have to decide them the same way.
     let raw: Vec<Option<&str>> = files.iter().map(|f| f.filename.as_deref()).collect();
     // Each entry carries its own store, because the files in one archive need
     // not all live in the same backend.
@@ -822,8 +808,8 @@ async fn stream_archive(state: &AppState, files: &[FilePart], format: Format) ->
             }
             Format::SevenZ => {
                 // The signature goes first and names the header, so the header
-                // is built before anything is read — which is only possible
-                // because it carries no per-file checksums. See the module.
+                // is built before anything is read. Only possible because it
+                // carries no per-file checksums. See the module.
                 let listed: Vec<(String, u64)> = planned
                     .iter()
                     .map(|(name, size, _)| (name.clone(), *size))
@@ -882,7 +868,7 @@ mod tests {
         assert_eq!(parse_range("bytes=0-499", 1000).unwrap(), (0, 499));
         assert_eq!(parse_range("bytes=500-", 1000).unwrap(), (500, 999));
         assert_eq!(parse_range("bytes=-500", 1000).unwrap(), (500, 999));
-        // Past the end is clamped, which is what RFC 9110 asks for.
+        // Past the end is clamped, as RFC 9110 asks.
         assert_eq!(parse_range("bytes=0-99999", 1000).unwrap(), (0, 999));
     }
 
@@ -924,7 +910,7 @@ mod tests {
         }])
     }
 
-    /// Two files, which is what stops being one file's download.
+    /// Two files, so this stops being one file's download.
     #[test]
     fn a_share_with_several_files_is_offered_as_an_archive() {
         let two = Content::Files(vec![

@@ -28,7 +28,7 @@ pub struct Model {
 }
 
 /// No relations declared: the foreign keys are enforced by the database, and
-/// the queries here are explicit rather than joined through SeaORM.
+/// the queries here are explicit and not joined through SeaORM.
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
 

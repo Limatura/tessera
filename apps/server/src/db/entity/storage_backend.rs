@@ -7,7 +7,7 @@ use sea_orm::entity::prelude::*;
 #[sea_orm(table_name = "storage_backends")]
 pub struct Model {
     /// What `file_segments.backend` names. Stable, because rows point at it by
-    /// value — see the migration.
+    /// value; see the migration.
     #[sea_orm(primary_key, auto_increment = false)]
     pub name: String,
     /// Sealed. See `storage::secret`.
@@ -16,7 +16,7 @@ pub struct Model {
     pub options: String,
     /// Whether new uploads go here.
     pub is_default: bool,
-    /// How much it may hold, or `None` for no limit. Typed in — see the
+    /// How much it may hold, or `None` for no limit. Typed in; see the
     /// migration for why it cannot be queried.
     pub capacity_bytes: Option<i64>,
     /// Whether it still takes new content. Reads are unaffected.
@@ -27,7 +27,7 @@ pub struct Model {
     pub updated_at: TimeDateTimeWithTimeZone,
 }
 
-/// No relations declared: nothing has a foreign key to this table, on purpose.
+/// No relations declared. Nothing has a foreign key to this table, by design.
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
 

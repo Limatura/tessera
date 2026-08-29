@@ -2,19 +2,18 @@
 //!
 //! # Where the boundary is paid for
 //!
-//! The workspace keeps domain types in `tessera-core` and storage types here, so
-//! something has to translate. That translation is [`User::from_model`], and it
-//! is fallible.
+//! The workspace keeps domain types in `tessera-core` and storage types here,
+//! so something has to translate. That is [`User::from_model`], and it is
+//! fallible by design.
 //!
-//! Being fallible is the point. A row can violate today's rules — written by an
-//! older version, edited by hand, migrated from elsewhere — and the alternatives
-//! are worse: `unwrap` turns a bad row into a crashed request, and skipping
-//! validation lets an invalid value back into code that was promised it could
-//! not exist. A `Result` says "this row is not usable" once, at the edge, where
-//! the caller can log which row and move on.
+//! A row can violate today's rules, having been written by an older version,
+//! edited by hand or migrated from elsewhere. `unwrap` would turn a bad row
+//! into a crashed request, and skipping validation would let an invalid value
+//! back into code promised it could not exist. A `Result` says "this row is not
+//! usable" once, at the edge, where the caller can log which row and move on.
 //!
-//! This is what the two-crate split costs in practice, and it is worth writing
-//! down: roughly forty lines per table, most of it mechanical.
+//! That is what the two-crate split costs: roughly forty mechanical lines per
+//! table.
 
 use sea_orm::{
     ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
@@ -59,7 +58,7 @@ pub struct User {
     pub state: AccountState,
     /// When it was removed, if it was.
     pub deleted_at: Option<OffsetDateTime>,
-    /// Who removed it — an administrator, or the account itself.
+    /// Who removed it: an administrator, or the account itself.
     pub deleted_by: Option<UserId>,
     /// When the address was proven reachable, if it ever was.
     pub email_verified_at: Option<OffsetDateTime>,
@@ -94,15 +93,15 @@ impl User {
 
         Ok(Self {
             id: UserId::parse(&model.id).map_err(fail)?,
-            // Privileged parsing: reading a row back is not claiming the name.
-            // The bootstrap administrator is called `admin`, which the reserved
-            // list refuses — so the ordinary parser would declare the one row
-            // every instance has to be corrupt.
+            // Privileged parsing, because reading a row back is not claiming
+            // the name. The bootstrap administrator is called `admin`, which
+            // the reserved list refuses, so the ordinary parser would call the
+            // one row every instance has corrupt.
             username: Username::parse_privileged(&model.username).map_err(fail)?,
-            // Privileged, for the same reason the name above is: reading a row
-            // back is not claiming the address. A deleted account's row holds
-            // one at the reserved tombstone domain, and the ordinary parser
-            // refuses that — which is what stops anybody else taking it.
+            // Privileged for the same reason as the name above. A deleted
+            // account's row holds an address at the reserved tombstone domain,
+            // which the ordinary parser refuses, and that refusal is what stops
+            // anybody else taking it.
             email: EmailAddress::parse_privileged(&model.email).map_err(fail)?,
             role_id: model
                 .role_id
@@ -118,7 +117,7 @@ impl User {
             deleted_at: model.deleted_at,
             // A `deleted_by` that will not parse is a broken pointer, not a
             // broken account. Dropping it costs the record of who did it and
-            // keeps the account readable, which is the better of the two.
+            // keeps the account readable, the better of the two.
             deleted_by: model
                 .deleted_by
                 .as_deref()
@@ -152,9 +151,9 @@ impl User {
 
 /// Accounts, as the rest of the server sees them.
 ///
-/// A plain struct over the connection rather than a trait: the swappability a
-/// port would provide is already supplied by SeaORM, and a trait here would buy
-/// only mockability — which these methods, being thin queries, do not need.
+/// A plain struct over the connection, not a trait. SeaORM already supplies the
+/// swappability, and a trait would buy only mockability, which
+/// these thin queries do not need.
 #[derive(Debug, Clone)]
 pub struct UserRepository {
     connection: DatabaseConnection,
@@ -183,13 +182,12 @@ impl UserRepository {
     ///
     /// # The role travels on the account
     ///
-    /// It used to be a second insert into a join table, in a transaction so the
-    /// pair could not half happen. It is a column now, so there is no pair.
+    /// It used to be a second insert into a join table, in a transaction so
+    /// the pair could not half happen. It is a column now, so there is no pair.
     ///
     /// An account in no role is signed in and allowed nothing, which reads like
-    /// a bug rather than a deliberate state — so the field is there to be
-    /// filled in, and a caller who means it has to write `role_id: None`
-    /// rather than forget a second step.
+    /// a bug and not an intended state, so a caller who means it writes
+    /// `role_id: None` instead of forgetting a second step.
     ///
     /// # Errors
     ///
@@ -218,9 +216,9 @@ impl UserRepository {
 
     /// Finds an account by name.
     ///
-    /// Takes a [`Username`] rather than a `&str` so the caller cannot forget to
-    /// normalise — looking up `Alice` when the row says `alice` would silently
-    /// find nothing.
+    /// Takes a [`Username`], not a `&str`, so the caller cannot forget to
+    /// normalise. Looking up `Alice` when the row says `alice` would
+    /// silently find nothing.
     ///
     /// # Errors
     ///
@@ -257,8 +255,7 @@ impl UserRepository {
     /// Every account, newest first.
     ///
     /// No pagination. The instance this is built for has a handful of accounts,
-    /// and a page parameter nobody needs is a page parameter that gets tested
-    /// once and then rots.
+    /// and an unused page parameter is tested once and then rots.
     ///
     /// # Errors
     ///
@@ -268,7 +265,7 @@ impl UserRepository {
         if !include_deleted {
             // Off by default: a deleted account is a row that exists to keep
             // shares attributable, not a person an operator manages. Left in,
-            // every listing would fill with scrubbed names nobody can act on.
+            // every listing fills with scrubbed names that cannot be acted on.
             query = query.filter(user::Column::State.ne(AccountState::Deleted.as_str()));
         }
         let models = query.all(&self.connection).await?;
@@ -290,8 +287,7 @@ impl UserRepository {
     /// Changes an account's name, address, or both.
     ///
     /// Clearing `email_verified_at` when the address moves is the caller's
-    /// decision, not this one's — see the handler, which has the address to
-    /// compare against.
+    /// decision; see the handler, which has the address to compare against.
     ///
     /// Returns whether the account changed.
     ///
@@ -320,9 +316,9 @@ impl UserRepository {
 
     /// Suspends an account, or lets it back in.
     ///
-    /// Refuses to touch one that has been deleted: that is not a state anybody
-    /// comes back from, and quietly reactivating a scrubbed row would produce an
-    /// account with a tombstone for a name.
+    /// Refuses to touch a deleted one. That state is final, and reactivating a
+    /// scrubbed row produces an account with a tombstone for a
+    /// name.
     ///
     /// Returns whether the account changed.
     ///
@@ -350,16 +346,16 @@ impl UserRepository {
     /// # What is left and what is not
     ///
     /// The identifier stays, because `shares.user_id` points at it and a share
-    /// whose uploader is gone is a different thing from one nobody uploaded.
-    /// The name and the address are replaced with values that identify nobody,
-    /// which also frees the originals for somebody else. The password hash goes.
+    /// whose uploader is gone differs from one that was uploaded anonymously.
+    /// The name and address are replaced with values that identify no person,
+    /// which also frees the originals. The password hash goes.
     ///
     /// # Why the sessions and tokens go too
     ///
     /// Authentication already refuses a deleted account, so they would not
-    /// work — but a row that cannot work is a row that has to be explained. The
-    /// login history goes with them, which is the point: it is the most
-    /// identifying thing this service holds about a person.
+    /// work, and a row that cannot work has to be explained. The login history
+    /// goes with them, and that matters: it is the most identifying thing
+    /// this service holds about a person.
     ///
     /// Returns whether an account was removed.
     ///
@@ -406,23 +402,20 @@ impl UserRepository {
         is_admin: bool,
         now: OffsetDateTime,
     ) -> Result<bool, UserRepositoryError> {
-        // `true` grants `owner` rather than the lesser `admin` because that is
-        // what this boolean has always meant — everything. Making it mean less
-        // would silently change what an existing client does, and it would
-        // break the one sequence an operator most needs: promote a successor,
-        // then step down. A successor without `roles:write` cannot be stepped
-        // down to.
+        // `true` grants `owner`, not the lesser `admin`, because this
+        // boolean has always meant everything. Making it mean less would change
+        // what existing clients do and break the sequence an operator most
+        // needs: promote a successor, then step down. A successor without
+        // `roles:write` cannot be stepped down to.
         //
-        // `false` leaves the account in **no role**. That is what the join
-        // table did — the demotion removed `owner` and `admin` and kept
-        // whatever else was there, which for an account holding only one of
-        // them was nothing. Preserved rather than improved: sending somebody to
-        // the default role instead would be a different decision, and this
-        // field is a compatibility shim for clients that predate the role
-        // endpoints.
+        // `false` leaves the account in **no role**, as the join
+        // table did: the demotion removed `owner` and `admin` and kept whatever
+        // else was there, usually nothing. Preserved, not improved,
+        // since this field is a compatibility shim for clients predating the
+        // role endpoints.
         //
-        // One statement, where the join table needed a transaction so the
-        // account was never briefly in neither role.
+        // One statement, where the join table needed a transaction to keep the
+        // account from being briefly in neither role.
         let result = UserEntity::update_many()
             .col_expr(
                 user::Column::RoleId,
@@ -485,8 +478,8 @@ impl UserRepository {
     ///
     /// Only those with a figure: on an instance with a thousand accounts and
     /// three overrides, listing all thousand buries the three. And only live
-    /// ones — a removed account's row keeps its columns, so its quota would
-    /// otherwise be listed under a scrubbed name that names nobody.
+    /// ones, since a removed account keeps its columns and would otherwise be
+    /// listed under a scrubbed name that identifies no person.
     ///
     /// # Errors
     ///
@@ -510,10 +503,10 @@ impl UserRepository {
 
     /// Removes an account.
     ///
-    /// Sessions and API tokens go with it — the database says so. Shares do not:
-    /// their owner column is `ON DELETE SET NULL`, so what somebody uploaded
-    /// outlives their account as an anonymous share rather than vanishing along
-    /// with the bytes still on disk.
+    /// Sessions and API tokens go with it, by foreign key. Shares do not:
+    /// their owner column is `ON DELETE SET NULL`, so an upload outlives its
+    /// account as an anonymous share instead of vanishing with
+    /// the bytes still on disk.
     ///
     /// Returns whether an account was removed.
     ///
@@ -551,8 +544,8 @@ impl UserRepository {
 
     /// Whether any account exists.
     ///
-    /// Used at start-up to decide whether to bootstrap an administrator, which
-    /// is why it counts rather than fetching: the answer is one number and the
+    /// Used at start-up to decide whether to bootstrap an administrator. It
+    /// counts instead of fetching, because the answer is one number and the
     /// rows may be unreadable by today's rules without that mattering.
     ///
     /// # Errors
@@ -564,7 +557,7 @@ impl UserRepository {
 }
 
 /// Turns an optional row into an optional account, surfacing a row today's rules
-/// reject rather than hiding it as "not found".
+/// reject, instead of hiding it as "not found".
 fn convert(model: Option<user::Model>) -> Result<Option<User>, UserRepositoryError> {
     model.map(User::from_model).transpose().map_err(Into::into)
 }
@@ -623,7 +616,7 @@ mod tests {
         repository.insert(&user).await.unwrap();
 
         // Every lookup path must return the same account, with the domain types
-        // intact rather than the strings the columns hold.
+        // intact, not the strings the columns hold.
         let by_id = repository.find_by_id(user.id).await.unwrap().unwrap();
         let by_name = repository
             .find_by_username(&user.username)
@@ -660,8 +653,8 @@ mod tests {
         );
     }
 
-    /// Looking up by a differently-cased name must still find the account —
-    /// which it does because `Username` normalises before the query is built.
+    /// Looking up by a differently-cased name must still find the account,
+    /// which works because `Username` normalises before the query is built.
     #[tokio::test]
     async fn lookup_is_insensitive_to_how_the_name_was_typed() {
         let repository = repository().await;
@@ -711,8 +704,8 @@ mod tests {
     }
 
     /// The reason `from_model` returns a `Result`. A row written by an older
-    /// version, or edited by hand, can hold something today's rules reject —
-    /// and that must surface as a nameable error rather than a panic.
+    /// version, or edited by hand, can hold something today's rules reject, and
+    /// that must surface as a nameable error, not a panic.
     #[test]
     fn a_row_that_violates_todays_rules_is_reported_not_panicked() {
         let now = OffsetDateTime::from_unix_timestamp(1_785_000_000).unwrap();

@@ -1,10 +1,10 @@
 //! Process entry point.
 //!
-//! Start-up order is the whole point of this file: configuration is loaded and
+//! Start-up order is what this file is for. Configuration is loaded and
 //! validated *before* anything is opened, so a bad value fails the process
 //! immediately instead of surfacing as a 500 on the first request that touches it.
 //!
-//! `anyhow` is used here and nowhere else — this is the boundary where a typed
+//! `anyhow` is used here and nowhere else: this is the boundary where a typed
 //! error stops being actionable and becomes a message for an operator.
 
 use std::{
@@ -46,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
     let config = Config::load().context("configuration is not usable")?;
 
     // Read after the configuration, because every subcommand needs it and a bad
-    // config should say so once rather than per command.
+    // config should say so once, not per command.
     let command = match cli::parse(std::env::args().skip(1)) {
         Ok(command) => command,
         Err(message) => {
@@ -85,8 +85,8 @@ async fn main() -> anyhow::Result<()> {
         version = tessera_server::VERSION,
         build_rev = tessera_server::BUILD_REV,
         docs = config.features.docs,
-        // The largest thing this process reserves on purpose, and the one an
-        // operator sizing a container needs to know about.
+        // The largest reservation this process makes, and the figure an
+        // operator sizing a container needs.
         hasher_peak_mib = auth::password::peak_memory_bytes(config.auth.hashing) / (1024 * 1024),
         "starting tessera"
     );
@@ -104,11 +104,11 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!(backend = db::backend_name(&db), "migrations applied");
     }
 
-    // Built here rather than inside `open_stores` because the state needs it
+    // Built here, not inside `open_stores`, because the state needs it
     // too: the panel writes backends, and writing one means sealing it.
-    // A key that will not parse is fatal — every stored backend is unreadable
-    // without it, and starting anyway would present them as gone rather than as
-    // locked.
+    //
+    // A key that will not parse is fatal. Every stored backend is unreadable
+    // without it, and starting anyway would present them as gone, not locked.
     let sealer = storage::secret::Sealer::new(&config.storage.secret_key)
         .context("storage.secret_key is not usable")?;
     let (pool, default) = open_stores(&config, &db, &sealer).await?;
@@ -154,13 +154,13 @@ async fn main() -> anyhow::Result<()> {
 
     let drain = shutdown.clone();
     let state_for_drain = state.clone();
-    // Served exactly as `api::build` returns it — no outer service wrapper — so
-    // that the integration tests exercise the same stack this process does.
+    // Served exactly as `api::build` returns it, with no outer service wrapper,
+    // so the integration tests exercise the same stack this process does.
     //
     // `with_connect_info` is what makes the peer address reachable from a
-    // handler. Login throttling needs it: without the address, the only key
-    // available is the account name, and keying on that alone lets anyone lock a
-    // known user out by guessing at them.
+    // handler. Login throttling needs it: without the address the only key is
+    // the account name, and keying on that alone lets anyone lock a known user
+    // out by guessing at them.
     axum::serve(
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
@@ -179,7 +179,7 @@ async fn main() -> anyhow::Result<()> {
     // Not aborted: the sweep watches the same token, so it is already returning,
     // and letting it finish means the pool is never closed mid-`DELETE`. A join
     // error here means the task panicked, which the sweep's own error handling
-    // makes unreachable and which is not worth failing shutdown over.
+    // makes unreachable and not worth failing shutdown over.
     if let Err(error) = sweep_task.await {
         tracing::warn!(?error, "the housekeeping sweep did not stop cleanly");
     }
@@ -193,7 +193,7 @@ async fn main() -> anyhow::Result<()> {
 /// Issues `GET /health` against the locally configured listener and succeeds
 /// only on a 200.
 ///
-/// Hand-rolled over a raw socket rather than pulling in an HTTP client: a probe
+/// Hand-rolled over a raw socket, not built on an HTTP client. A probe
 /// that needs `reqwest` would add a TLS stack and several megabytes to an image
 /// whose entire selling point is that it is small.
 async fn probe_health(config: &Config) -> anyhow::Result<()> {
@@ -212,7 +212,7 @@ async fn probe_health(config: &Config) -> anyhow::Result<()> {
             .await?;
 
         // Only the status line matters, but TCP is free to deliver it in
-        // fragments, so read until a newline shows up rather than trusting one
+        // fragments, so read until a newline shows up instead of trusting one
         // `read` to have produced the whole thing.
         let mut head = Vec::with_capacity(STATUS_LINE_CAP);
         let mut chunk = [0_u8; 64];
@@ -241,7 +241,7 @@ async fn probe_health(config: &Config) -> anyhow::Result<()> {
 /// (which is what `docker stop` and systemd send).
 /// Binds the listening socket, and reports the address it actually got.
 ///
-/// Before anything announces readiness, so a port clash is fatal rather than a
+/// Before anything announces readiness, so a port clash is fatal instead of a
 /// process that looks healthy and serves nothing.
 async fn bind(config: &Config) -> anyhow::Result<(tokio::net::TcpListener, SocketAddr)> {
     let addr = SocketAddr::new(config.server.host, config.server.port);
@@ -249,7 +249,7 @@ async fn bind(config: &Config) -> anyhow::Result<(tokio::net::TcpListener, Socke
         .await
         .with_context(|| format!("could not bind {addr}"))?;
     // `local_addr` and not `addr`: port 0 asks the OS to choose, and the log
-    // should name the port somebody can actually connect to.
+    // should name the port that can actually be connected to.
     let local_addr = listener.local_addr().unwrap_or(addr);
     Ok((listener, local_addr))
 }
@@ -302,15 +302,15 @@ async fn watch_for_shutdown(token: CancellationToken) {
 
 /// Says something about the settings that are legal, quiet and dangerous.
 ///
-/// Warnings rather than refusals: each of these is the right setting for
-/// somebody. What they have in common is that nothing goes wrong at start-up and
-/// nothing goes wrong in testing — the cost only shows up when a stranger finds
-/// the instance.
+/// Warnings, not refusals, since each is the right setting for some deployment.
+/// What they share is that nothing goes wrong at start-up or in testing: the
+/// cost shows up when a stranger finds the instance.
 fn warn_about_settings_that_bite(config: &Config) {
     // The combination that turns an instance into free storage for anyone who
-    // can reach it. Neither half is wrong on its own — anonymous upload is the
-    // point of the product, and no quota is right when the operator is the only
-    // user — so this warns rather than refuses. `tessera.public.env.example` says to set both.
+    // can reach it. Neither half is wrong alone, since anonymous upload is the
+    // point of the product and no quota is right when the operator is the only
+    // user, so this warns instead of refusing. `tessera.public.env.example`
+    // says to set both.
     if config.features.anonymous_upload && config.storage.max_total_bytes == 0 {
         tracing::warn!(
             "anonymous uploads are enabled and `storage.max_total_bytes` is unset: anyone who \
@@ -356,8 +356,8 @@ fn warn_about_proxy_trust(server: &tessera_server::config::ServerConfig) {
 
 /// Where the frontend comes from, decided before anything is served.
 ///
-/// Fatal when it cannot be: a mistyped `assets_dir` should be answered while
-/// somebody is still looking at the terminal, not by a blank page later.
+/// Fatal when it cannot be. A mistyped `assets_dir` should be answered while
+/// the terminal is still open, not by a blank page later.
 fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::Source> {
     let assets = tessera_server::assets::Source::resolve(configured)
         .map_err(|reason| anyhow::anyhow!("server.assets_dir — {reason}"))?;
@@ -372,7 +372,7 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
 /// Split out so `main` stays under the line limit. Reading the stored backends
 /// needs the key, and a key that will not parse is fatal here: every stored
 /// backend is unreadable without it, and starting anyway would present them as
-/// gone rather than as locked.
+/// gone, not locked.
 async fn open_stores(
     config: &Config,
     db: &sea_orm::DatabaseConnection,

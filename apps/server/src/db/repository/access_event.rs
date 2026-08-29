@@ -4,7 +4,7 @@
 //!
 //! An operator who runs an instance for other people sometimes needs to answer
 //! "who has been fetching this". The counters cannot: they say how many times,
-//! never by whom, which is the whole reason they need no switch.
+//! never by whom, so they need no switch.
 //!
 //! What is written here does identify people, so nothing is written unless
 //! `share.access_log.enabled` says so, and what is written goes away after
@@ -104,8 +104,8 @@ impl AccessEventRepository {
     /// How many events a cutoff would remove.
     ///
     /// The same filter [`AccessEventRepository::delete_before`] uses, counted
-    /// rather than applied — so the warning describes exactly the rows the
-    /// sweep would take.
+    /// and not applied, so the warning describes exactly the rows the sweep
+    /// would take.
     ///
     /// # Errors
     ///
@@ -146,8 +146,8 @@ fn truncate(value: &str, limit: usize) -> String {
     while end > 0 && !value.is_char_boundary(end) {
         end -= 1;
     }
-    // `get` rather than an index: the loop above already stepped back to a
-    // boundary, and the fallible form says so to the reader instead of leaning
+    // `get`, not an index. The loop above already stepped back to a boundary,
+    // and the fallible form says so to the reader instead of leaning
     // on a panic that cannot happen.
     value.get(..end).unwrap_or_default().to_owned()
 }

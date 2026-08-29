@@ -3,14 +3,13 @@
 //! # The whole module is optional twice over
 //!
 //! Once at compile time (the `email` cargo feature, on by default because it
-//! costs 37 KB) and once at run time (an empty `mail.host`, which is the
-//! default). Neither is the usual case for the audience this is built for: one
-//! person on a NAS gets back into a forgotten account with `reset-password` on
-//! the box, and never configures a relay at all.
+//! costs 37 KB) and once at run time (an empty `mail.host`, the default). Neither is the usual case
+//! for the audience this is built for: one person on a NAS gets back into a forgotten account with
+//! `reset-password` on the box, and never configures a relay at all.
 //!
-//! What follows from that is the shape of [`Mailer::from_config`] — it returns
-//! `None` rather than failing, and every caller treats `None` as "this instance
-//! does not do that" rather than as an error to report.
+//! That is why [`Mailer::from_config`] returns `None` instead of failing, and
+//! why every caller treats `None` as "this instance does not do that" and not
+//! as an error to report.
 
 /// Anything that stopped a message being handed to the relay.
 #[derive(Debug, thiserror::Error)]
@@ -34,10 +33,10 @@ pub struct Letter {
     pub subject: String,
     /// Plain text body.
     ///
-    /// Text only, and that is a decision rather than a shortcut: a password
-    /// reset is one sentence and a link, HTML would add a way for it to render
-    /// as a blank page in somebody's client, and a mail with a *hidden* link is
-    /// exactly the shape people are told to distrust.
+    /// Text only, and that is a decision, not a shortcut. A password
+    /// reset is one sentence and a link, HTML adds a way for it to render as a
+    /// blank page in some clients, and a mail with a *hidden* link is exactly
+    /// the shape people are told to distrust.
     pub body: String,
 }
 
@@ -143,7 +142,7 @@ mod smtp {
     ///
     /// Constructing one is impossible, so every path that would send is dead
     /// code the optimiser removes. The type exists so the rest of the server
-    /// compiles either way rather than being littered with `cfg`.
+    /// compiles either way instead of being littered with `cfg`.
     #[derive(Debug, Clone)]
     pub struct Mailer(std::convert::Infallible);
 
@@ -157,7 +156,7 @@ mod smtp {
             Ok(None)
         }
 
-        /// Unreachable — there is no way to hold one of these.
+        /// Unreachable: there is no way to hold one of these.
         ///
         /// # Errors
         ///
@@ -172,8 +171,8 @@ pub use smtp::Mailer;
 
 /// Composes the message a password reset sends.
 ///
-/// Kept here rather than in the handler so the wording is in one place and can
-/// be read without the routing around it.
+/// Kept here, not in the handler, so the wording is in one place and can be
+/// read without the routing around it.
 #[must_use]
 pub fn password_reset_letter(to: &str, link: &str, minutes: u64) -> Letter {
     Letter {
@@ -192,8 +191,8 @@ pub fn password_reset_letter(to: &str, link: &str, minutes: u64) -> Letter {
 /// Composes the message that confirms a new registration.
 ///
 /// The account does not exist until this link is followed, and the wording says
-/// so: somebody who did not ask for this needs to know that ignoring it is
-/// enough, or they will go looking for an account to delete.
+/// so. A reader who did not ask for this needs to know that ignoring it is
+/// enough, or they go looking for an account to delete.
 #[must_use]
 pub fn registration_letter(to: &str, link: &str, hours: u64) -> Letter {
     Letter {
@@ -214,11 +213,11 @@ pub fn registration_letter(to: &str, link: &str, hours: u64) -> Letter {
 /// # Why this is sent at all
 ///
 /// So that registration can answer the same way whichever it is. Telling the
-/// caller "that address is taken" turns the form into a way of asking whether
-/// somebody has an account here, which is a question about who uses this
-/// instance, answerable by anyone.
+/// caller "that address is taken" turns the form into a way of asking who has
+/// an account here, a question about who uses this instance, answerable by
+/// anyone.
 ///
-/// # Why it says somebody may be probing
+/// # Why it mentions probing
 ///
 /// A single one of these is noise: a person mistyping, or forgetting they had
 /// signed up. Several is a signal, and the account holder is the only one in a
@@ -246,8 +245,8 @@ pub fn already_registered_letter(to: &str, reset_path: &str) -> Letter {
 
 /// Whether this build can send at all.
 ///
-/// Used at start-up to say something when the configuration asks for mail that
-/// the binary cannot deliver — a combination that is otherwise silent.
+/// Used at start-up to say something when the configuration asks for mail the
+/// binary cannot deliver, a combination that is otherwise silent.
 #[must_use]
 pub const fn compiled_in() -> bool {
     cfg!(feature = "email")

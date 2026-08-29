@@ -1,7 +1,7 @@
 //! Settings changed from the admin panel.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the SQLite one for why
-//! this is a table rather than a file, and why only hot-changeable settings
+//! The SQL lives in `sql/`, one file per dialect. See the SQLite one for why
+//! this is a table and not a file, and why only hot-changeable settings
 //! belong in it.
 
 use sea_orm_migration::prelude::*;
@@ -19,8 +19,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -39,8 +39,8 @@ impl MigrationTrait for Migration {
 mod tests {
     use super::{MYSQL, POSTGRES, SQLITE};
 
-    /// `key` is reserved in MySQL. Quoting it works until somebody writes one
-    /// query without the backticks, so the column is not called that anywhere.
+    /// `key` is reserved in MySQL. Quoting it works until one query is written
+    /// without the backticks, so the column is not called that anywhere.
     #[test]
     fn no_dialect_names_the_column_key() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {

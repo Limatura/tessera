@@ -1,20 +1,20 @@
 //! Colouring the few lines of a text share that fit on its card.
 //!
-//! # Why the markup is built here rather than by syntect
+//! # Why the markup is built here instead of by syntect
 //!
 //! `syntect::html` emits a `<pre>` and relies on the newlines inside it. takumi
 //! lays out with flexbox, where a newline in a text run is whitespace and
-//! nothing else — so a `<pre>` renders as one very long line running off the
+//! nothing else, so a `<pre>` renders as one very long line running off the
 //! card. The lines have to be boxes, which means building the markup from the
-//! styled ranges rather than taking the HTML syntect offers.
+//! styled ranges instead of the HTML syntect offers.
 //!
 //! # What it costs
 //!
 //! The first card in a given language pays for compiling that syntax's regular
 //! expressions. Measured on the release profile: 405 ms for TypeScript, then
-//! 1.3 ms for every card after it. That is once per language per process, and
-//! what waits for it is a crawler, so it is not worth a cache — see the module
-//! docs above for the same argument about the cards themselves.
+//! 1.3 ms for every card after it. Once per language per process, and what
+//! waits for it is a crawler, so it is not worth a cache. See the module docs
+//! above for the same argument about the cards themselves.
 
 use std::sync::OnceLock;
 
@@ -27,14 +27,13 @@ use syntect::{
 
 /// Lines shown on the card.
 ///
-/// Seven, not the nine the design draws: nine at a readable size overflows
-/// 630 pixels once the header and the footer have taken theirs, and what
-/// overflows is the retrieval code — the one thing on the card somebody has to
-/// be able to read.
+/// Seven, not the nine the design draws: nine at a readable size overflows 630
+/// pixels once the header and the footer have taken theirs, and what overflows
+/// is the retrieval code, the one thing the card must show.
 const LINES: usize = 7;
 /// Characters kept from any one line. A minified file is one line of fifty
 /// thousand characters, and shaping all of it to draw the first eighty is time
-/// spent on pixels nobody sees.
+/// spent on pixels that never render.
 const COLUMNS: usize = 96;
 
 /// The syntaxes and the theme, loaded once.
@@ -46,8 +45,8 @@ fn assets() -> &'static (SyntaxSet, Theme) {
     ASSETS.get_or_init(|| {
         let syntaxes = two_face::syntax::extra_newlines();
         // Nord: a dark theme whose greys sit close to the card's own ground, so
-        // the code block reads as part of the card rather than a screenshot
-        // pasted onto it.
+        // the code block reads as part of the card, not a screenshot pasted
+        // onto it.
         let theme = two_face::theme::extra()
             .get(two_face::theme::EmbeddedThemeName::Nord)
             .clone();
@@ -60,8 +59,8 @@ fn assets() -> &'static (SyntaxSet, Theme) {
 pub struct Line {
     /// How many characters of indentation the line had.
     ///
-    /// Carried as a number rather than left in the text because a layout engine
-    /// is free to collapse runs of whitespace, and on a card the difference
+    /// Carried as a number, not left in the text, because a layout engine may
+    /// collapse runs of whitespace, and on a card the difference
     /// between two spaces and four is the difference between code and a wall.
     /// The card draws it as padding.
     pub indent: usize,
@@ -73,8 +72,8 @@ pub struct Line {
 /// The snippet a card draws.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Snippet {
-    /// The coloured lines. At most seven — see the constant this module
-    /// keeps and the reason beside it.
+    /// The coloured lines. At most seven; see the constant this module keeps
+    /// and the reason beside it.
     pub lines: Vec<Line>,
     /// Whether the text carried on past what is shown.
     pub truncated: bool,
@@ -84,9 +83,9 @@ pub struct Snippet {
 
 /// Colours the first few lines of `text`.
 ///
-/// `hint` is the uploader's language, which is a hint and not a promise — an
-/// unknown one falls back to plain text rather than refusing, because a card
-/// without colour is better than no card.
+/// `hint` is the uploader's language, a hint and not a promise. An unknown one
+/// falls back to plain text instead of refusing, because a card without colour
+/// beats no card.
 #[must_use]
 pub fn highlight(text: &str, hint: Option<&str>) -> Snippet {
     let (syntaxes, theme) = assets();
@@ -109,8 +108,8 @@ pub fn highlight(text: &str, hint: Option<&str>) -> Snippet {
             break;
         }
         let clipped = clip(raw, COLUMNS);
-        // A line that will not parse is drawn without colour rather than
-        // dropped: losing the fourth line of a snippet silently would be worse
+        // A line that will not parse is drawn without colour, not dropped.
+        // Losing the fourth line of a snippet silently would be worse
         // than showing it plain.
         let mut runs = highlighter
             .highlight_line(&clipped, syntaxes)
@@ -151,13 +150,13 @@ fn runs(ranges: &[(Style, &str)]) -> Vec<(String, String)> {
 
 /// Removes the leading whitespace and says how wide it was.
 ///
-/// Tabs count as four, which is a guess, and the only one available: what a tab
+/// Tabs count as four. A guess, and the only one available: what a tab
 /// is worth is the reader's setting and a card has no reader to ask.
 fn take_indent(runs: &mut Vec<(String, String)>) -> usize {
     let mut indent = 0;
     while let Some((_, text)) = runs.first_mut() {
-        // Counted by character rather than by slicing at a byte offset: a run
-        // can start with anything, and a boundary computed from two lengths is
+        // Counted by character, not sliced at a byte offset. A run can start
+        // with anything, and a boundary computed from two lengths is
         // one refactor away from landing inside a character.
         let mut width = 0;
         let mut leading = 0;
@@ -210,7 +209,7 @@ mod tests {
         );
     }
 
-    /// A tab is worth four, which is a guess and the only one available.
+    /// A tab is worth four: a guess, and the only one available.
     #[test]
     fn a_tab_counts_as_four() {
         let snippet = highlight("x\n\t\ty\n", None);
@@ -248,8 +247,8 @@ mod tests {
         assert_eq!(snippet.lines.len(), 1);
     }
 
-    /// The count is load-bearing rather than taste: more of them and the
-    /// retrieval code falls off the bottom of the card.
+    /// The count is load-bearing, not taste. Any more and the retrieval code
+    /// falls off the bottom of the card.
     #[test]
     fn only_the_first_lines_are_kept() {
         let mut text = String::new();
@@ -264,7 +263,7 @@ mod tests {
     }
 
     /// A minified file is one enormous line, and shaping all of it to draw the
-    /// first eighty characters is work nobody sees.
+    /// first eighty characters is work that never reaches the card.
     #[test]
     fn a_very_long_line_is_clipped() {
         let snippet = highlight(&"x".repeat(10_000), None);
@@ -277,8 +276,8 @@ mod tests {
         assert!(drawn <= COLUMNS + 1, "kept {drawn} characters");
     }
 
-    /// Multi-byte characters must not be cut in half — `clip` slices by
-    /// character index for exactly this reason.
+    /// Multi-byte characters must not be cut in half, so `clip` slices by
+    /// character index.
     #[test]
     fn clipping_does_not_split_a_character() {
         let snippet = highlight(&"字".repeat(500), None);

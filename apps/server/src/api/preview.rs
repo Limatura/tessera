@@ -2,10 +2,10 @@
 //!
 //! # Why the server does this and not the page
 //!
-//! What unfurls a link — Discord, Slack, a mail client — fetches the URL and
-//! reads the HTML. It does not run JavaScript, so a single-page app can put
-//! whatever it likes in `document.head` and the preview will still show whatever
-//! the shipped `index.html` said. The tags have to be in the bytes the server
+//! Whatever unfurls a link (Discord, Slack, a mail client) fetches the URL and
+//! reads the HTML without running JavaScript, so a single-page app can put
+//! whatever it likes in `document.head` and the preview still shows what the
+//! shipped `index.html` said. The tags have to be in the bytes the server
 //! sends.
 //!
 //! That does not make this server-side rendering. The page is the same embedded
@@ -16,9 +16,9 @@
 //!
 //! - **Spend a retrieval.** An unfurler follows the link the moment it is pasted, before any person
 //!   clicks. Counting that would destroy a one-time share between sending it and reading it.
-//! - **Describe a locked share.** A preview is public by construction — it is shown to everyone in
-//!   the channel. If a password-protected share announced its file name and size there, the
-//!   password would be decorative.
+//! - **Describe a locked share.** A preview is public by construction, shown to everyone in the
+//!   channel. If a password-protected share announced its file name and size there, the password
+//!   would be decorative.
 
 use crate::{
     db::repository::share::{Availability, Content, Share, ShareKind},
@@ -27,17 +27,17 @@ use crate::{
 
 /// What the picture may draw, decided in the same place as the words.
 ///
-/// Both the tags and [`crate::og`] read this rather than each deciding for
-/// itself what is safe to say. A locked share whose description gives nothing
-/// away while its picture names the file is precisely the failure the rule
-/// exists to prevent, and two implementations of one rule is how that happens.
+/// Both the tags and [`crate::og`] read this instead of each deciding what is
+/// safe to say. A locked share whose description gives nothing away while its
+/// picture names the file is exactly the failure the rule prevents, and two
+/// implementations of one rule is how that happens.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Card {
     /// Available. Everything about it may be shown.
     Open {
         /// The eyebrow above the headline.
         label: &'static str,
-        /// Short facts beside it — the size, and a file count when there are
+        /// Short facts beside it: the size, and a file count when there are
         /// several.
         chips: Vec<String>,
         /// The line along the bottom: when it goes, and how many goes are left.
@@ -66,9 +66,8 @@ pub enum SampleCard {
     Open,
     /// Password-protected, with a title the uploader typed.
     ///
-    /// Worth being able to look at: it is the state where a layout can go
-    /// wrong in a way nobody notices, because it looks fine on every share the
-    /// operator tested with.
+    /// Worth being able to look at, because it is the state where a layout goes
+    /// wrong unnoticed: it looks fine on every share the operator tested with.
     Locked,
     /// Expired or already collected.
     Gone,
@@ -113,8 +112,8 @@ impl Preview {
                             .filename
                             .clone()
                             .unwrap_or_else(|| "Shared file".to_owned()),
-                        // A count rather than the first name: naming one of
-                        // five tells somebody about one of five.
+                        // A count, not the first name. Naming one of five
+                        // discloses one of five.
                         many => format!("{} shared files", many.len()),
                     },
                     ShareKind::Text => "Shared note".to_owned(),
@@ -137,11 +136,10 @@ impl Preview {
 
     /// Attaches the first lines of a note's body, coloured.
     ///
-    /// A no-op unless the share is [`Card::Open`], and that is the whole point
-    /// of putting it here: the caller reads a body without knowing whether the
-    /// share may describe itself, and this is where that is already decided. A
-    /// locked note keeps its code to itself without the caller having to
-    /// remember to ask.
+    /// A no-op unless the share is [`Card::Open`], and that is why it lives
+    /// here. The caller reads a body without knowing whether the
+    /// share may describe itself, and that is already decided here. A locked
+    /// note keeps its code to itself with no caller having to remember.
     #[cfg(feature = "og-images")]
     #[must_use]
     pub fn with_snippet(mut self, body: &str, language: Option<&str>) -> Self {
@@ -154,11 +152,10 @@ impl Preview {
     /// A preview with plausible values, for showing an operator what a card
     /// layout does before they save it.
     ///
-    /// Built here rather than in the endpoint so that the sample goes through
-    /// the same [`Card`] the real thing does. A sample assembled by hand would
-    /// be the one place a locked card could be shown describing itself — in the
-    /// screen whose whole job is to tell the operator what their layout looks
-    /// like.
+    /// Built here, not in the endpoint, so the sample goes through the
+    /// same [`Card`] the real thing does. A hand-assembled sample would be the
+    /// one place a locked card could be shown describing itself, on the screen
+    /// whose job is to show the operator what their layout looks like.
     #[must_use]
     pub fn sample(card: SampleCard) -> Self {
         match card {
@@ -195,9 +192,9 @@ impl Preview {
     /// The tags, ready to splice into a `<head>`.
     ///
     /// `origin` is where this instance is reachable from outside, without a
-    /// trailing slash — see [`origin`]. Without one the picture is left out
-    /// rather than pointed at with a relative path: `og:image` is read by a
-    /// crawler on another machine, where a relative path resolves to nothing.
+    /// trailing slash; see [`origin`]. Without one the picture is left out
+    /// instead of given a relative path, since `og:image` is read by a crawler
+    /// on another machine where that resolves to nothing.
     #[must_use]
     pub fn to_head_tags(&self, origin: Option<&str>, code: &str) -> String {
         let title = escape(&self.title);
@@ -281,9 +278,8 @@ fn describe_at(share: &Share, content: &Content, now: time::OffsetDateTime) -> S
 
 /// How long is left, rounded the way a person would say it.
 ///
-/// Coarse on purpose. A countdown to the second would be a different sentence
-/// every time a crawler looked, and nothing downstream is watching the clock
-/// that closely — this is a caption, not a timer.
+/// Coarse by design. A countdown to the second would be a different sentence
+/// every time a crawler looked, and this is a caption, not a timer.
 fn expires_in(when: time::OffsetDateTime, now: time::OffsetDateTime) -> Option<String> {
     let left = when - now;
     if left <= time::Duration::ZERO {
@@ -310,8 +306,8 @@ fn expires_in(when: time::OffsetDateTime, now: time::OffsetDateTime) -> Option<S
 
 /// A size the way a person would say it.
 ///
-/// Integer arithmetic throughout: this is a caption, and a float would trade a
-/// lossy conversion for a precision nobody reading "2.0 KiB" wanted.
+/// Integer arithmetic throughout. This is a caption, and a float would trade a
+/// lossy conversion for precision that "2.0 KiB" does not need.
 fn human_size(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
     const STEP: u64 = 1024;
@@ -340,13 +336,13 @@ fn human_size(bytes: u64) -> String {
 
 /// Escapes text for an HTML attribute.
 ///
-/// The title and file name came from whoever made the share, and they are being
-/// spliced into a `content="..."` attribute on a page served from this origin.
-/// Without this, `"><script>` closes the attribute, closes the tag, and runs —
-/// which is a cross-site scripting hole reachable by anyone who can upload.
+/// The title and file name came from whoever made the share and are spliced
+/// into a `content="..."` attribute on a page served from this origin. Without
+/// this, `"><script>` closes the attribute, closes the tag and runs: a
+/// cross-site scripting hole reachable by anyone who can upload.
 ///
-/// Both quote characters are escaped, not just the one the template happens to
-/// use, so changing the template cannot reopen the hole.
+/// Both quote characters are escaped, not only the one the template uses, so
+/// changing the template cannot reopen the hole.
 fn escape(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for character in value.chars() {
@@ -364,17 +360,15 @@ fn escape(value: &str) -> String {
 
 /// Splices `tags` into the document.
 ///
-/// Preferably just inside `<head>`, so that ours come before anything the bundle
-/// ships — where a crawler sees the same property twice, the first is what it
-/// keeps.
+/// Preferably just inside `<head>`, so ours come before anything the bundle
+/// ships: where a crawler sees the same property twice, it keeps the first.
 ///
 /// A document without a `<head>` still gets them, after the doctype or at the
 /// very start. An HTML parser hoists leading `<meta>` elements into the head it
-/// creates, and an unfurler reads the bytes rather than a tree, so both work.
-/// Falling back matters more than it sounds: the first version of this gave up
-/// when there was no `<head>`, which meant the shipped placeholder page — a bare
-/// fragment — silently had no previews at all, and any future change to the
-/// bundle's template could do the same without a word.
+/// creates, and an unfurler reads bytes and not a tree, so both work. The
+/// first version gave up when there was no `<head>`, which left the shipped
+/// placeholder page silently without previews, and any change to the bundle's
+/// template could do the same without a word.
 #[must_use]
 pub fn splice_into_document(html: &str, tags: &str) -> String {
     let at = insertion_point(html);
@@ -411,14 +405,14 @@ const CARD_HEIGHT: u32 = 630;
 /// Where this instance is reachable from outside, with no trailing slash.
 ///
 /// The configured value wins. It exists because deriving this is guesswork in
-/// exactly the deployments this software is for: a reverse proxy that rewrites
-/// `Host`, a container that only ever hears `localhost:8080`. When it is set,
-/// nothing about the request can change the answer — which also means a forged
-/// `Host` header cannot make our page advertise somebody else's picture.
+/// exactly the deployments this is for: a reverse proxy that rewrites `Host`, a
+/// container that only hears `localhost:8080`. When set, nothing about the
+/// request changes the answer, so a forged `Host` header cannot make our page
+/// advertise a picture from elsewhere.
 ///
-/// Falling back to the request is still better than emitting nothing, because
-/// the common case — one container, one domain, a proxy that passes `Host`
-/// through — gets it right with no configuration at all.
+/// Falling back to the request still beats emitting nothing, since the common
+/// case of one container behind a proxy that passes `Host` through is right
+/// with no configuration.
 #[must_use]
 pub fn origin(config: &crate::config::Config, headers: &axum::http::HeaderMap) -> Option<String> {
     let configured = config.server.public_url.trim().trim_end_matches('/');
@@ -457,8 +451,8 @@ pub mod testing {
     ///
     /// # Panics
     ///
-    /// If the hard-coded retrieval code stops being a valid one, which would
-    /// mean the code format changed and every fixture using it wants looking at.
+    /// If the hard-coded retrieval code stops being valid, which would mean the
+    /// code format changed and every fixture using it wants looking at.
     #[must_use]
     pub fn share(kind: ShareKind) -> Share {
         Share {
@@ -487,10 +481,10 @@ pub mod testing {
 
 /// Reads the share a `/s/{code}` page is about, without touching its counters.
 ///
-/// Deliberately not [`crate::api::gate::open`]: that refuses expired shares and
-/// counts misses against the lookup limit, and neither is right here. A crawler
-/// following a dead link should still get a page that explains itself, and a
-/// crawler should not be able to exhaust a limit meant for people guessing.
+/// Not [`crate::api::gate::open`], which refuses expired shares and counts
+/// misses against the lookup limit. Neither is right here. A
+/// crawler following a dead link should get a page that explains itself, and
+/// should not be able to exhaust a limit meant for people guessing.
 pub async fn lookup(state: &AppState, code: &str) -> Option<(Share, Content)> {
     let code = tessera_core::RetrievalCode::parse(code).ok()?;
     let share = state.shares.find_by_code(&code).await.ok().flatten()?;
@@ -506,8 +500,8 @@ mod tests {
     use super::*;
     use crate::db::repository::share::{FilePart, StorageLocation};
 
-    /// The content as the owning table describes it — which is where a preview
-    /// now reads the name and the size from.
+    /// The content as the owning table describes it, where a preview reads the
+    /// name and the size from.
     fn content() -> Content {
         Content::Files(vec![FilePart {
             segments: Vec::new(),
@@ -538,7 +532,7 @@ mod tests {
         )
     }
 
-    /// The rule the whole module exists for. A preview is shown to everyone in
+    /// The rule this module exists for. A preview is shown to everyone in
     /// the channel, so a locked share must not name what is inside it.
     #[test]
     fn a_locked_share_never_names_its_file() {
@@ -596,8 +590,7 @@ mod tests {
     /// A note's card carries its first lines; a locked note's does not.
     ///
     /// The caller reads the body without knowing whether the share may describe
-    /// itself — deliberately, so that one place decides — which makes this the
-    /// place the decision has to hold.
+    /// itself, so that one place decides. This is that place.
     #[cfg(feature = "og-images")]
     #[test]
     fn a_snippet_reaches_an_open_card_and_not_a_locked_one() {
@@ -637,8 +630,8 @@ mod tests {
         );
     }
 
-    /// Without an origin there is no picture, and the small card is asked for
-    /// instead — a large card with no image is a large blank.
+    /// Without an origin there is no picture, so the small card is asked for
+    /// instead: a large card with no image is a large blank.
     #[test]
     fn no_origin_means_no_image_tags() {
         let tags = Preview::of(
@@ -652,8 +645,8 @@ mod tests {
         assert!(tags.contains(r#"content="summary""#), "{tags}");
     }
 
-    /// With one, the image is absolute — a relative path resolves to nothing on
-    /// the crawler's machine.
+    /// With one, the image is absolute, since a relative path resolves to
+    /// nothing on the crawler's machine.
     #[test]
     fn the_image_url_is_absolute() {
         let tags = Preview::of(
@@ -671,7 +664,7 @@ mod tests {
     }
 
     /// The configured value wins over anything a request claims, so a forged
-    /// `Host` cannot make our page advertise somebody else's picture.
+    /// `Host` cannot make our page advertise a picture from elsewhere.
     #[test]
     fn a_configured_origin_beats_the_host_header() {
         let mut config = crate::config::Config::default();
@@ -749,9 +742,9 @@ mod tests {
         assert!(spliced.contains("lang=\"en\"><meta><title>"), "{spliced}");
     }
 
-    /// Giving up when there is no `<head>` is how a preview stops working with
-    /// nobody noticing: the shipped placeholder was a bare fragment, and the
-    /// bundle's template is not ours to depend on.
+    /// Giving up when there is no `<head>` is how a preview stops working
+    /// unnoticed. The shipped placeholder was a bare fragment, and the bundle's
+    /// template is not ours to depend on.
     #[test]
     fn a_document_without_a_head_still_gets_its_tags() {
         assert_eq!(
@@ -780,11 +773,11 @@ mod tests {
     /// A preview is shown to everyone in the channel. If it described the file,
     /// the password would be decorative.
     ///
-    /// The title is the one exception, and it is a deliberate one: the uploader
-    /// typed it as a label for other people, where the file name came off their
-    /// disk and they never agreed to publish it. The cost is real and worth
-    /// stating — a share titled "Q3 salaries" announces that in the channel —
-    /// which is why the default, with no title, says nothing at all.
+    /// The title is the one deliberate exception: the uploader typed it as a
+    /// label for other people, where the file name came off their disk and they
+    /// never agreed to publish it. The cost is real, since a share titled "Q3
+    /// salaries" announces that in the channel, so the default with no title
+    /// says nothing.
     #[test]
     fn a_locked_share_describes_nothing_but_its_title() {
         let mut share = share(ShareKind::File);

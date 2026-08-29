@@ -1,6 +1,6 @@
 //! One role per account.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the SQLite one for why
+//! The SQL lives in `sql/`, one file per dialect. See the SQLite one for why
 //! the join table goes and which role is kept when an account had several.
 
 use sea_orm_migration::prelude::*;
@@ -12,8 +12,8 @@ pub(super) const MYSQL: &str = include_str!("sql/m20260824_000001_single_role.my
 /// Rebuilds the join table with one row per account.
 ///
 /// Lossless for anything this migration produced, and lossy only for an
-/// instance that genuinely had somebody in two roles before it ran — that
-/// second role is gone, and nothing here remembers it.
+/// instance that genuinely had an account in two roles before it ran. That
+/// second role is gone and nothing here remembers it.
 const DOWN: &str = "CREATE TABLE IF NOT EXISTS user_roles (\n\
                     \x20   user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,\n\
                     \x20   role_id    TEXT NOT NULL REFERENCES roles (id) ON DELETE CASCADE,\n\
@@ -26,14 +26,14 @@ const DOWN: &str = "CREATE TABLE IF NOT EXISTS user_roles (\n\
 
 /// The same, restoring the table the way MySQL had it.
 ///
-/// Three differences, all of them things MySQL refuses rather than ignores:
-/// `TEXT` cannot be part of a key without a prefix length, so the identifiers
-/// come back as `CHAR(26)` — the width `m20260818_000001_roles` gave them;
-/// `InnoDB` silently drops a `REFERENCES` written on a column, so the keys are
-/// declared at table level; and `users.role_id` is named by a foreign key, which
-/// has to go before the column can.
+/// Three differences, all things MySQL refuses instead of ignoring. `TEXT`
+/// cannot be part of a key without a prefix length, so the identifiers come
+/// back as `CHAR(26)`, the width `m20260818_000001_roles` gave them. `InnoDB`
+/// silently drops a `REFERENCES` written on a column, so the keys are declared
+/// at table level. And `users.role_id` is named by a foreign key, which has to
+/// go before the column can.
 ///
-/// Checked against a real MySQL rather than reasoned about — see
+/// Checked against a real MySQL, not reasoned about. See
 /// `a_full_rollback_runs_on_this_dialect`.
 const DOWN_MYSQL: &str = "CREATE TABLE IF NOT EXISTS user_roles (\n\
                           \x20   user_id    CHAR(26)    NOT NULL,\n\
@@ -55,8 +55,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -76,8 +76,8 @@ mod tests {
     use super::{MYSQL, POSTGRES, SQLITE};
 
     /// The API took a list, so an account with two roles is possible and the
-    /// choice has to be deterministic — including between dialects, and between
-    /// two runs of the same one.
+    /// choice has to be deterministic, between dialects and between two runs of
+    /// the same one.
     #[test]
     fn every_dialect_breaks_ties_the_same_way() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {
@@ -88,8 +88,8 @@ mod tests {
         }
     }
 
-    /// Removing a role must take the assignment, not the account — the same
-    /// thing the join table's `ON DELETE CASCADE` on `role_id` did.
+    /// Removing a role must take the assignment, not the account, as the join
+    /// table's `ON DELETE CASCADE` on `role_id` did.
     #[test]
     fn removing_a_role_leaves_the_account() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {

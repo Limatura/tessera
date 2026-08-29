@@ -3,7 +3,7 @@
 //! One error type crosses every layer, and exactly one place decides what a given
 //! failure looks like on the wire ([`Error::into_response`]). Handlers therefore
 //! never construct status codes by hand, and the response body shape is part of
-//! the OpenAPI contract rather than an accident of whatever each handler returned.
+//! the OpenAPI contract, not an accident of whatever each handler returned.
 
 use axum::{
     Json,
@@ -108,7 +108,7 @@ pub enum Error {
     /// The caller stopped sending, or took longer than this route allows.
     ///
     /// For an upload it means no byte arrived within `server.upload_stall_secs`,
-    /// which is a statement about the connection rather than about how long the
+    /// which is a statement about the connection, not about how long the
     /// transfer was going to take. For everything else it is
     /// `server.request_timeout_secs`.
     #[error("timeout")]
@@ -118,7 +118,7 @@ pub enum Error {
     #[error("service unavailable")]
     Unavailable,
 
-    /// A relational store operation failed. Covers migrations too — SeaORM
+    /// A relational store operation failed. Covers migrations too, since SeaORM
     /// reports both through `DbErr`.
     #[error("database error")]
     Database(#[from] sea_orm::DbErr),
@@ -127,8 +127,8 @@ pub enum Error {
     #[error("storage error")]
     Storage(#[from] object_store::Error),
 
-    /// Hashing or verifying a password failed. Never means "wrong password" —
-    /// that is a `bool`, not an error.
+    /// Hashing or verifying a password failed. Never means "wrong password",
+    /// which is a `bool`, not an error.
     #[error("password hashing error")]
     Password(#[from] crate::auth::password::PasswordError),
 
@@ -175,7 +175,7 @@ pub enum ErrorCode {
     Timeout,
     /// See [`Error::Unavailable`].
     Unavailable,
-    /// Any failure whose cause is deliberately not exposed to the caller.
+    /// Any failure whose cause is withheld from the caller.
     Internal,
 }
 
@@ -310,7 +310,7 @@ impl Error {
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        // The full error, including the source chain, goes to the log — the
+        // The full error, including the source chain, goes to the log, so the
         // operator gets everything the client does not.
         if self.status().is_server_error() {
             tracing::error!(error = ?self, "request failed");
@@ -350,8 +350,8 @@ impl IntoResponse for Error {
 pub enum Tier {
     /// The caller's own quota.
     Account,
-    /// The quota on the role the caller is in — the guest role, for anonymous
-    /// callers.
+    /// The quota on the role the caller is in, or the guest role for an
+    /// anonymous caller.
     Role,
     /// `storage.max_total_bytes`.
     Instance,

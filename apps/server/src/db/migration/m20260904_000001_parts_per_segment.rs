@@ -1,6 +1,6 @@
 //! Which segment a part belongs to.
 //!
-//! The SQL lives in `sql/` — see the SQLite one for the collision this prevents
+//! The SQL lives in `sql/`. See the SQLite one for the collision this prevents
 //! and why the table is rebuilt there but altered in place elsewhere.
 
 use sea_orm_migration::prelude::*;
@@ -20,8 +20,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -40,7 +40,7 @@ impl MigrationTrait for Migration {
 mod tests {
     use super::{DOWN_MYSQL, MYSQL, POSTGRES, SQLITE};
 
-    /// The point of the whole migration: the segment is in the key.
+    /// What this migration is for: the segment is in the key.
     #[test]
     fn every_dialect_puts_the_segment_in_the_key() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {

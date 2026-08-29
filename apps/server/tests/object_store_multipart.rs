@@ -5,20 +5,20 @@
 //! Not every store can hold an upload open across requests. `object_store`'s
 //! HTTP backend returns `NotImplemented` for `put_multipart`; fake-gcs-server
 //! does not implement the XML multipart API at all. Those are real backends
-//! somebody deploys on, and they should be covered for everything they *can*
-//! do rather than left untested because of what they cannot.
+//! people deploy on, and they should be covered for everything they *can* do
+//! instead of left untested for what they cannot.
 //!
-//! Split by binary rather than skipped at runtime, because the alternative is a
-//! test that returns early and reports "passed" — which is the one thing the
-//! sibling module says it will not do. A CI job either runs this binary or it
-//! does not, and which it did is in the log.
+//! Split by binary, not skipped at runtime, because the alternative is a
+//! test that returns early and reports "passed", the one thing the sibling
+//! module says it will not do. A CI job either runs this binary or it does not,
+//! and which it did is in the log.
 //!
 //! ```text
 //! # Against the same store the sibling suite describes:
 //! cargo nextest run --run-ignored all -E 'binary(object_store_multipart)'
 //! ```
 
-// The helpers below sit outside a `#[test]` body, which is as far as
+// The helpers below sit outside a `#[test]` body, and that is as far as
 // clippy.toml's test exemptions reach.
 #![expect(clippy::expect_used, reason = "test fixture; see module docs")]
 
@@ -108,14 +108,10 @@ async fn download(app: &TestApp, code: &str) -> Vec<u8> {
         .to_vec()
 }
 
-/// A file small enough that the multipart upload never starts.
-///
-/// This is the `put` path, which is a different call from the one below and has
-/// its own way of being misconfigured.
 /// A file large enough to become several parts.
 ///
-/// `PART_SIZE` is 8 MiB, so 20 MiB is three parts — enough that a mistake in
-/// the last-part handling shows up, which two parts would not always catch.
+/// `PART_SIZE` is 8 MiB, so 20 MiB is three parts, enough that a mistake in the
+/// last-part handling shows up where two parts would not always catch it.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn a_multipart_upload_survives_the_round_trip() {
@@ -128,7 +124,7 @@ async fn a_multipart_upload_survives_the_round_trip() {
     let got = download(&app, &code).await;
 
     assert_eq!(got.len(), sent.len(), "wrong length");
-    // Compared by position rather than with `assert_eq!` on the whole vector:
+    // Compared by position, not with `assert_eq!` on the whole vector:
     // a mismatch in twenty megabytes should say where, not print both.
     let first = got.iter().zip(&sent).position(|(a, b)| a != b);
     assert_eq!(first, None, "first differing byte");
@@ -167,13 +163,13 @@ async fn a_resumable_upload_survives_being_sent_in_pieces() {
     let id = created["id"].as_str().expect("an id").to_owned();
     let token = created["token"].as_str().expect("a token").to_owned();
 
-    // Deliberately not aligned to the part size: the offset should come back
+    // Not aligned to the part size, on purpose: the offset should come back
     // lower than what was sent, and the client re-sends the difference.
     let mut at = 0_usize;
     let mut last = String::new();
     while at < sent.len() {
         // A whole part plus a little, so the offset comes back lower than what
-        // was sent and the difference is re-sent — the interrupted-transfer
+        // was sent and the difference is re-sent: the interrupted-transfer
         // path, exercised on purpose.
         let end = (at + part + 4096).min(sent.len());
         let response = app
@@ -314,13 +310,13 @@ async fn a_range_request_reads_across_a_part_boundary() {
 ///
 /// The split path had only ever run against `InMemory`, which accepts any part
 /// layout at all. `RustFS`, `MinIO` and the rest do not: they enforce S3's rule
-/// that a non-final part is at least 5 MiB, which is exactly the rule the
+/// that a non-final part is at least 5 MiB, exactly the rule the
 /// planner's alignment exists to satisfy. A planner that cut in the wrong place
 /// would pass every unit test, pass against `InMemory`, and fail on the store
-/// somebody actually pays for.
+/// a real deployment pays for.
 ///
 /// It lives in the multipart binary because a split file is written as one
-/// multipart upload per segment, which is the one thing the WebDAV store cannot
+/// multipart upload per segment, the one thing the WebDAV store cannot
 /// do.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
@@ -372,7 +368,7 @@ async fn a_file_split_across_two_buckets_survives_the_round_trip() {
         ],
     });
 
-    // A byte pattern rather than a constant: a segment written in the wrong
+    // A byte pattern, not a constant. A segment written in the wrong
     // order, or one byte out of place, has to show up as a mismatch.
     let content: Vec<u8> = (0..part * 3 / 2)
         .map(|i| u8::try_from(i % 251).unwrap_or(0))
@@ -381,7 +377,7 @@ async fn a_file_split_across_two_buckets_survives_the_round_trip() {
 
     // That it reads back is not on its own proof that it was split: a file
     // stored whole in one bucket reads back too. So look in the other bucket.
-    // Listed as a stream rather than with a delimiter: at the root a delimited
+    // Listed as a stream, not with a delimiter. At the root a delimited
     // listing reports `shares/` as a common prefix and no objects at all, which
     // reads as "nothing was written" for a bucket that is not empty.
     let cold = open_bucket(&second);
@@ -400,7 +396,7 @@ async fn a_file_split_across_two_buckets_survives_the_round_trip() {
         "the file did not come back as it went in"
     );
 
-    // Across the seam, which is where one bucket ends and the other begins.
+    // Across the seam, where one bucket ends and the other begins.
     let from = part - 100;
     let to = part + 99;
     let response = expect_status(

@@ -1,6 +1,6 @@
 //! Per-role and per-account storage quotas.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the SQLite one for the
+//! The SQL lives in `sql/`, one file per dialect. See the SQLite one for the
 //! three layers, why NULL is not zero, and why `uploads` gains a role.
 
 use sea_orm_migration::prelude::*;
@@ -9,9 +9,9 @@ pub(super) const SQLITE: &str = include_str!("sql/m20260826_000001_quotas.sqlite
 pub(super) const POSTGRES: &str = include_str!("sql/m20260826_000001_quotas.postgres.sql");
 pub(super) const MYSQL: &str = include_str!("sql/m20260826_000001_quotas.mysql.sql");
 
-/// Every instance falls back to `storage.max_total_bytes`, which is where it
-/// was before. What is lost is the per-role and per-account figures somebody
-/// set, and nothing can recompute those.
+/// Every instance falls back to `storage.max_total_bytes`, where it was
+/// before. What is lost is the per-role and per-account figures that were
+/// set, and nothing can recompute them.
 ///
 /// SQLite refuses to drop an indexed column, so the index goes first. Postgres
 /// does not need that but takes it.
@@ -22,13 +22,13 @@ const DOWN: &str = "DROP INDEX IF EXISTS idx_uploads_role;\n\
 
 /// The same, in the two ways MySQL differs.
 ///
-/// `DROP INDEX IF EXISTS` is not MySQL syntax at all — `DROP INDEX` there takes
-/// no `IF EXISTS` and needs an `ON <table>` — and a column a foreign key still
-/// names cannot be dropped — MySQL says "needed in a foreign key constraint".
-/// So the key goes first, and the index is left to go with the column, which
-/// MySQL does on its own.
+/// `DROP INDEX IF EXISTS` is not MySQL syntax at all: `DROP INDEX` there takes
+/// no `IF EXISTS` and needs an `ON <table>`. And a column a foreign key still
+/// names cannot be dropped, since MySQL says "needed in a foreign key
+/// constraint". So the key goes first, and the index is left to go with the
+/// column, which MySQL does on its own.
 ///
-/// Checked against a real MySQL rather than reasoned about, because the shared
+/// Checked against a real MySQL, not reasoned about, because the shared
 /// version fails on both statements and no suite runs `down`.
 const DOWN_MYSQL: &str = "ALTER TABLE uploads DROP FOREIGN KEY fk_uploads_role;\n\
                           ALTER TABLE uploads DROP COLUMN role_id;\n\
@@ -40,8 +40,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -60,7 +60,7 @@ impl MigrationTrait for Migration {
 mod tests {
     use super::{DOWN, DOWN_MYSQL, MYSQL, POSTGRES, SQLITE};
 
-    /// Nullable on purpose: NULL asks the next layer, zero means no ceiling.
+    /// Nullable by design: NULL asks the next layer, zero means no ceiling.
     /// A `NOT NULL DEFAULT 0` would silently give every account and every role
     /// an explicit "unlimited" and make the layering unreachable.
     #[test]
@@ -117,8 +117,8 @@ mod tests {
         assert!(DOWN.find("DROP INDEX") < DOWN.find("DROP COLUMN role_id"));
     }
 
-    /// A role that cannot be deleted without abandoning somebody's upload is a
-    /// role nobody can delete. Losing which role an in-flight session was
+    /// A role that cannot be deleted without abandoning a live upload is a role
+    /// that can never be deleted. Losing which role an in-flight session was
     /// charged to costs one session's accounting; refusing the delete, or
     /// taking the session with it, costs more.
     #[test]

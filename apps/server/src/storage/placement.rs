@@ -2,15 +2,15 @@
 //!
 //! # Why best fit and not most free space
 //!
-//! `rclone` ships both policies, and which one is right depends on what the
-//! pool is for. Spreading across the emptiest backend (`mfs`) balances load and
-//! leaves *every* backend with a gap at the end; filling the fullest one that
-//! still fits (`lfs`) concentrates the leftover into one place instead.
+//! `rclone` ships both policies, and which is right depends on what the pool is
+//! for. Spreading across the emptiest backend (`mfs`) balances load and leaves
+//! *every* backend with a gap at the end; filling the fullest one that still
+//! fits (`lfs`) concentrates the leftover into one place.
 //!
-//! The audience here is somebody pooling free tiers, where the scarce thing is
-//! bytes rather than throughput — so the gaps matter and the balance does not.
+//! This is aimed at pooling free tiers, where the scarce thing is bytes rather
+//! than throughput, so the gaps matter and the balance does not.
 //!
-//! # What this deliberately does not do
+//! # What this does not do
 //!
 //! It never splits a file across backends. If nothing has room for the whole
 //! thing, that is a refusal, not a plan. `storage::split` is the other
@@ -49,9 +49,9 @@ impl Candidate {
 /// The backend a file of `size` should go to, or `None` when none has room.
 ///
 /// The default is preferred whenever it fits, because an operator who set one
-/// meant it — spreading away from it to balance bytes would quietly undo a
-/// choice they made. Only when it cannot take the file does the rest of the
-/// pool come into play, and then the tightest fit wins.
+/// meant it, and spreading away to balance bytes would quietly undo that. Only
+/// when it cannot take the file does the rest of the pool come into play, and
+/// then the tightest fit wins.
 #[must_use]
 pub fn choose(candidates: &[Candidate], size: u64) -> Option<&Candidate> {
     let usable = || candidates.iter().filter(|candidate| candidate.fits(size));
@@ -64,7 +64,7 @@ pub fn choose(candidates: &[Candidate], size: u64) -> Option<&Candidate> {
     usable().min_by_key(|candidate| candidate.free_bytes().unwrap_or(u64::MAX))
 }
 
-/// The backend for a file whose size nobody has said.
+/// The backend for a file of undeclared size.
 ///
 /// A chunked body declares nothing, and asking [`choose`] for zero bytes is not
 /// a neutral question: everything fits zero, so the tightest-fit rule picks the
@@ -73,8 +73,8 @@ pub fn choose(candidates: &[Candidate], size: u64) -> Option<&Candidate> {
 /// part-way by the running check.
 ///
 /// So the rule inverts when the size is unknown: the operator's default first,
-/// because they said so, and otherwise the most room — the choice that is
-/// wrong in the fewest cases when there is nothing to fit against.
+/// because they said so, and otherwise the most room. That is wrong in the
+/// fewest cases when there is nothing to fit against.
 #[must_use]
 pub fn choose_unsized(candidates: &[Candidate]) -> Option<&Candidate> {
     let usable = || candidates.iter().filter(|candidate| candidate.fits(0));
@@ -87,7 +87,7 @@ pub fn choose_unsized(candidates: &[Candidate]) -> Option<&Candidate> {
 
 /// The largest single file the pool can accept right now.
 ///
-/// What a client is told, and what a refusal is measured against. Deliberately
+/// What a client is told, and what a refusal is measured against. It is
 /// **not** the sum of what is free: no file is split, so a pool with five
 /// backends each holding 100 MB free cannot take a 200 MB file, and reporting
 /// 500 MB would be a number that explains nothing when the upload is refused.
@@ -125,7 +125,7 @@ mod unsized_tests {
 
     /// The bug this exists for: asking `choose` for zero bytes is not a neutral
     /// question. Everything fits zero, so the tightest-fit rule hands back the
-    /// fullest backend — the one least able to take a body of unknown size.
+    /// fullest backend, the one least able to take a body of unknown size.
     #[test]
     fn asking_for_zero_bytes_picks_the_fullest_backend() {
         let pool = [backend("nearly-full", 1024), backend("roomy", 1024 * 1024)];
@@ -189,8 +189,8 @@ mod tests {
         assert_eq!(choose(&pool, 5_000).map(|c| c.name.as_str()), Some("hot"));
     }
 
-    /// Once the default cannot take it, the tightest fit does — that is what
-    /// leaves one gap at the end instead of one per backend.
+    /// Once the default cannot take it, the tightest fit does, which leaves one
+    /// gap at the end instead of one per backend.
     #[test]
     fn otherwise_the_tightest_fit_wins() {
         let mut hot = backend("hot", Some(10_000), 9_000);
@@ -227,7 +227,7 @@ mod tests {
         assert_eq!(choose(&[retired], 1).map(|c| c.name.as_str()), None);
     }
 
-    /// Nothing is split, so the answer is the largest single gap — not the sum.
+    /// Nothing is split, so the answer is the largest single gap, not the sum.
     /// Five backends with 100 MB each cannot take 200 MB, and saying "500 MB
     /// free" explains nothing when the upload is refused.
     #[test]
@@ -239,7 +239,7 @@ mod tests {
         assert!(choose(&pool, 200).is_none());
     }
 
-    /// One unlimited backend means there is no figure to report, which is
+    /// One unlimited backend means there is no figure to report, and that is
     /// different from reporting a very large one.
     #[test]
     fn an_unlimited_backend_has_no_figure() {
@@ -251,7 +251,7 @@ mod tests {
     }
 
     /// `0` is how "no limit" is spelled in the column as well as `NULL`, and
-    /// the two have to behave the same — there is no next layer to ask here.
+    /// the two have to behave the same, since there is no next layer to ask.
     #[test]
     fn zero_capacity_means_unlimited() {
         let pool = vec![backend("zero", Some(0), 999_999)];

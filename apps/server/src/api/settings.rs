@@ -3,9 +3,9 @@
 //! # What this surface promises
 //!
 //! Every setting it offers takes effect on the next request. There is no
-//! "saved — now restart": a setting that would need one is listed as read-only
-//! with the reason, and cannot be written at all. See [`crate::settings`] for
-//! how that line is drawn.
+//! "saved, now restart": a setting that would need one is listed read-only with
+//! the reason and cannot be written. See [`crate::settings`] for how that line
+//! is drawn.
 
 use std::{collections::BTreeMap, sync::Arc};
 
@@ -44,7 +44,7 @@ pub struct SettingResponse {
     ///
     /// `fixed_at_boot` for something the running process cannot pick up,
     /// `secret` for something that holds a credential. Present so a screen can
-    /// explain rather than only grey the field out.
+    /// explain instead of only greying the field out.
     #[schema(example = "fixed_at_boot")]
     pub refusal: Option<String>,
 }
@@ -62,19 +62,18 @@ pub struct SettingsResponse {
 pub struct UpdateSettingsRequest {
     /// The changes to apply, by dotted key.
     ///
-    /// `null` clears a setting, so it falls back to the environment, the file,
-    /// or the default — whichever comes next. That is the only way back to a
-    /// value the panel did not choose, and it is why clearing is a value rather
-    /// than a second endpoint.
+    /// `null` clears a setting, so it falls back to whichever layer comes next:
+    /// the environment, or the default. That is the only way back to a value
+    /// the panel did not choose, and why clearing is a value and not a second
+    /// endpoint.
     #[schema(value_type = Object, example = json!({"share.code_length": 10}))]
     pub changes: BTreeMap<String, serde_json::Value>,
 
     /// Go ahead even though the change destroys something.
     ///
     /// Without it, a change that would remove things is refused and the answer
-    /// says what and how many. That is deliberately two round trips: an empty
-    /// "are you sure?" is a button everybody clicks, and a number is what makes
-    /// somebody stop.
+    /// says what and how many. Two round trips by design: an empty "are you
+    /// sure?" is a button everyone clicks, and a number gives pause.
     #[serde(default)]
     pub confirm: bool,
 }
@@ -117,8 +116,8 @@ fn describe(stored: &BTreeMap<String, serde_json::Value>) -> SettingsResponse {
 /// sweep removes things that were going to be kept. Nothing warns about it and
 /// nothing brings them back.
 ///
-/// An empty "are you sure?" does not help — everybody clicks it. A number does:
-/// "this removes 23 shares, 4.2 GB" is a sentence somebody stops at.
+/// An empty "are you sure?" does not help, because everyone clicks it. A number
+/// does: "this removes 23 shares, 4.2 GB" is a sentence that gives pause.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
 pub struct Consequence {
     /// Which setting causes it.
@@ -139,9 +138,9 @@ pub struct Consequence {
 ///
 /// # Why only shortening counts
 ///
-/// Lengthening a retention keeps more, which destroys nothing. Only the
-/// direction that removes things is worth stopping somebody for — warning about
-/// both would train them to click through the warning.
+/// Lengthening a retention keeps more and destroys nothing. Only the direction
+/// that removes things is worth a warning; warning about both teaches an
+/// operator to click through.
 ///
 /// # Errors
 ///
@@ -187,8 +186,8 @@ async fn consequences_of(
         }
     }
 
-    // The login history somebody reads to answer "has anybody else been in
-    // here". Shortening it destroys the answer to that question.
+    // The login history that answers "has anyone else been in here".
+    // Shortening it destroys the answer.
     if changed.contains_key("auth.login_history_days")
         && next.auth.login_history_days < current.auth.login_history_days
     {
@@ -207,12 +206,12 @@ async fn consequences_of(
     Ok(found)
 }
 
-/// A `std::time::Duration` as `time`'s, saturating rather than panicking.
+/// A `std::time::Duration` as `time`'s, saturating instead of panicking.
 fn duration_of(value: std::time::Duration) -> time::Duration {
     time::Duration::try_from(value).unwrap_or(time::Duration::MAX)
 }
 
-/// Spells consequences out for somebody reading an error message.
+/// Spells consequences out for an error message.
 fn describe_consequences(consequences: &[Consequence]) -> String {
     let mut parts = Vec::with_capacity(consequences.len());
     for consequence in consequences {
@@ -237,9 +236,9 @@ fn describe_consequences(consequences: &[Consequence]) -> String {
 ///
 /// # Why the ones that cannot be changed are here too
 ///
-/// Leaving them out is what makes somebody ask where the port setting went.
-/// They come back marked `editable: false` with a reason, which is a screen
-/// that explains itself rather than one with a hole in it.
+/// Leaving them out prompts the question of where the port setting went. They
+/// come back marked `editable: false` with a reason: a screen that explains
+/// itself instead of one with a hole in it.
 ///
 /// # Errors
 ///
@@ -273,7 +272,7 @@ pub async fn list(
 /// Applies the changes to what is stored and proves the result loads.
 ///
 /// Shared by the preview and the update so the two cannot disagree about what a
-/// change means — a preview describing a configuration the update would refuse
+/// change means: a preview describing a configuration the update would refuse
 /// is worse than no preview.
 async fn resolve(
     state: &AppState,
@@ -304,7 +303,7 @@ async fn resolve(
     }
 
     // The proof that it works, before anything is written. A value that will
-    // not load is refused here rather than dropped at the next start-up.
+    // not load is refused here, not dropped at the next start-up.
     let (config, rejected) = Config::load_with_overrides(&candidate)
         .map_err(|error| Error::bad_request(error.to_string()))?;
     if let Some(bad) = rejected
@@ -323,7 +322,7 @@ async fn resolve(
 ///
 /// # Errors
 ///
-/// `400` for a key or value this instance will not accept — the same answers
+/// `400` for a key or value this instance will not accept, the same answers
 /// [`update`] gives, so a client cannot get a clean preview for a change that
 /// would then be refused.
 #[utoipa::path(
@@ -347,8 +346,8 @@ pub async fn preview(
     ApiJson(body): ApiJson<UpdateSettingsRequest>,
 ) -> Result<Json<PreviewResponse>> {
     require_admin_feature(&state)?;
-    // The write permission, not the read one: this reports what a change would
-    // cost, which is only useful to somebody who could make it.
+    // The write permission, not the read one. This reports what a change would
+    // cost, useful only to a caller who could make it.
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
 
     let (_, config) = resolve(&state, &body.changes).await?;
@@ -362,16 +361,16 @@ pub async fn preview(
 /// # Why the change is tried before it is stored
 ///
 /// A value this binary will not accept is refused here, with the key named,
-/// rather than written and quietly dropped at the next start-up. The start-up
-/// fallback exists so a bad row cannot make an instance unbootable — it is a
-/// safety net, not the validation path, and letting the panel lean on it would
-/// mean a save that reports success and reverts on restart.
+/// instead of written and quietly dropped at the next start-up. The start-up
+/// fallback exists so a bad row cannot make an instance unbootable: a safety
+/// net, not the validation path, and letting the panel lean on it would mean a
+/// save that reports success and reverts on restart.
 ///
 /// # Why one request can carry several
 ///
-/// Settings that only make sense together — turning the access log on and
-/// setting its retention — should not have a moment where one is applied and
-/// the other is not. They are validated as a set, and stored only if the set
+/// Settings that only make sense together, such as turning the access log on
+/// and setting its retention, should not have a moment where one is applied and
+/// the other is not. They are validated as a set and stored only if the set
 /// loads.
 ///
 /// # Errors
@@ -439,7 +438,7 @@ pub async fn update(
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct OgPreviewRequest {
     /// The layout, as it would be stored in `og.layout`. Empty draws the
-    /// built-in card, which is what an operator sees before they change
+    /// built-in card, what an operator sees before they change
     /// anything and what they are comparing against.
     #[serde(default)]
     pub layout: String,
@@ -452,11 +451,10 @@ pub struct OgPreviewRequest {
 ///
 /// # Why this is a server endpoint and not a preview in the browser
 ///
-/// The original plan was to render the preview in the browser with takumi's wasm
-/// build, so that what an operator sees while editing is the same engine that
-/// will draw the real card. Measured, that costs the browser 3.41 MB of wasm
-/// and another 3.43 MB of fonts, to arrive at an engine that is the same for
-/// rendering and a second implementation for parsing HTML.
+/// The original plan was to render the preview in the browser with takumi's
+/// wasm build, so an operator edits against the engine that draws the real
+/// card. Measured, that costs the browser 3.41 MB of wasm and 3.43 MB of fonts,
+/// and still leaves a second implementation for parsing HTML.
 ///
 /// This is the same engine for both halves, because it is not a second engine:
 /// it is the code that draws the real card, with the real fonts, behind the
@@ -491,8 +489,8 @@ pub async fn og_preview(
     use axum::response::IntoResponse as _;
 
     require_admin_feature(&state)?;
-    // The write permission, as for `preview`: this is what a change would look
-    // like, which is only useful to somebody who could make it.
+    // The write permission, as for `preview`. This shows what a change would
+    // look like, useful only to a caller who could make it.
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
 
     // The same check `Config::validate` runs, so the editor cannot show a clean

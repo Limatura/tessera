@@ -3,7 +3,7 @@
 //! # Why the SQL is hand-written and not built with `sea-query`
 //!
 //! SeaORM's schema builder produces one definition that renders correct DDL for
-//! every dialect, which is the obvious thing to reach for. It is not what this
+//! every dialect, the obvious thing to reach for. It is not what this
 //! project uses, for one reason: **the table definition is the part people need
 //! to read.** A contributor checking what a migration does, or an operator
 //! confirming what their database looks like, should see
@@ -17,10 +17,9 @@
 //! straight into a shell to check a hypothesis.
 //!
 //! The cost is one file per dialect per migration. That is affordable because
-//! migrations are rare — the queries, which change often, are still written once
-//! through SeaORM. The risk it introduces is a migration updated for one dialect
-//! and not the others, which CI catches by applying all three and comparing the
-//! resulting schemas.
+//! migrations are rare; the queries, which change often, are still written once
+//! through SeaORM. The risk is a migration updated for one dialect and not the
+//! others, which CI catches by applying all three and comparing the schemas.
 
 mod m20260808_000001_initial;
 mod m20260809_000001_users;
@@ -132,7 +131,7 @@ async fn execute_for_backend(
         DbBackend::MySql => mysql,
         // `DatabaseBackend` is `#[non_exhaustive]`. If SeaORM gains a backend
         // before we write SQL for it, refusing to migrate is the only safe
-        // answer — running another dialect's DDL would half-create a schema.
+        // answer: running another dialect's DDL would half-create a schema.
         other => {
             return Err(DbErr::Migration(format!(
                 "this migration has no SQL for the `{other:?}` backend"
@@ -161,22 +160,21 @@ async fn execute_all(manager: &SchemaManager<'_>, sql: &str) -> Result<(), DbErr
 
 /// Splits a migration file into individual statements.
 ///
-/// Statements are sent one at a time rather than as one blob because MySQL's
-/// protocol rejects multi-statement queries unless the client opts in, so the
-/// "just execute the whole file" shortcut works on two backends out of three —
-/// the worst kind of shortcut.
+/// Statements are sent one at a time, not as one blob, because MySQL's
+/// protocol rejects multi-statement queries unless the client opts in, so "just
+/// execute the whole file" works on two backends out of three.
 ///
-/// The split is deliberately naive: it breaks on a `;` that ends a line, and
-/// understands neither string literals nor `$$`-quoted bodies. Migration SQL here
-/// is DDL, where that is not a real constraint. If a future migration needs a
-/// semicolon inside a literal, give it its own file rather than making this
-/// cleverer — a parser in a migration runner is a bug factory.
+/// The split is naive: it breaks on a `;` that ends a line and understands
+/// neither string literals nor `$$`-quoted bodies. Migration SQL
+/// here is DDL, where that is not a real constraint. If a future migration
+/// needs a semicolon inside a literal, give it its own file instead of making
+/// this cleverer. A parser in a migration runner is a bug factory.
 ///
 /// Line endings are normalised first. A checkout with `core.autocrlf` on would
 /// otherwise leave every `;` followed by `\r\n`, no split would match, and the
-/// whole file would go out as one statement — which SQLite and Postgres tolerate
-/// and MySQL rejects. A bug that reaches exactly one backend, on exactly one kind
-/// of developer machine, is not one to leave lying around.
+/// whole file would go out as one statement, which SQLite and Postgres tolerate
+/// and MySQL rejects: a bug reaching exactly one backend on exactly one kind of
+/// developer machine.
 fn statements(sql: &str) -> impl Iterator<Item = String> {
     sql.replace("\r\n", "\n")
         .split(";\n")
@@ -202,10 +200,10 @@ mod tests {
     use super::*;
 
     /// `owner` is the role that can do everything, and a permission added later
-    /// has to reach it — otherwise the only account that can grant permissions
-    /// cannot grant the new one to anybody, including itself.
+    /// has to reach it, or the only account that can grant permissions cannot
+    /// grant the new one to anybody, itself included.
     ///
-    /// Across the whole chain rather than one file, because a permission added
+    /// Across the whole chain, not one file, because a permission added
     /// after `owner` was seeded is granted by its own migration. Checking the
     /// seed alone would pass by editing a migration that has already run
     /// everywhere, which changes nothing for an instance that is upgrading.
@@ -249,7 +247,7 @@ mod tests {
     #[rstest]
     #[case::unix("CREATE TABLE a (x INTEGER);\nCREATE INDEX i ON a(x);\n")]
     // Regression: with CRLF no split matched, so the whole file went out as a
-    // single statement — accepted by SQLite and Postgres, rejected by MySQL.
+    // single statement, accepted by SQLite and Postgres and rejected by MySQL.
     #[case::crlf("CREATE TABLE a (x INTEGER);\r\nCREATE INDEX i ON a(x);\r\n")]
     fn splits_on_statement_boundaries_whatever_the_line_endings(#[case] sql: &str) {
         let found: Vec<_> = statements(sql).collect();
@@ -269,7 +267,7 @@ mod tests {
 
     #[test]
     fn keeps_comments_that_precede_a_statement() {
-        // The comment travels with its statement rather than being stripped, so
+        // The comment travels with its statement instead of being stripped, so
         // errors from the database still point at recognisable SQL.
         let sql = "-- why this table exists\nCREATE TABLE a (x INTEGER);\n";
         let found: Vec<_> = statements(sql).collect();
@@ -283,13 +281,13 @@ mod tests {
         assert_eq!(found, ["CREATE TABLE a (x INTEGER)"]);
     }
 
-    /// Every migration's three dialect files, read from disk rather than listed.
+    /// Every migration's three dialect files, read from disk and not listed.
     ///
     /// It used to be a hand-written array with a comment saying that forgetting
-    /// to add a line would show up as a missing entry. Nothing checked, so it
-    /// did not: the list had seven of thirty-eight migrations, and the other
-    /// thirty-one had never been compared at all. A list that has to be
-    /// remembered is not a guard, it is a second thing to forget.
+    /// a line would show up as a missing entry. Nothing checked, so it did not:
+    /// the list had seven of thirty-eight migrations and the other thirty-one
+    /// had never been compared. A list that has to be remembered is not a
+    /// guard, it is a second thing to forget.
     fn dialect_files() -> Vec<(String, String, String, String)> {
         let directory =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/db/migration/sql");
@@ -323,10 +321,11 @@ mod tests {
     }
 
     /// `scripts/schema-docs.py` builds the database it documents by replaying
-    /// every `sql/*.sqlite.sql` in name order. A rollback left in that directory
-    /// sorts *after* the migration it undoes — `.` before `_` — so the generated
-    /// schema comes out rolled back, and the `checks` job is happy because the
-    /// files match what the script produced. Nothing else would catch it.
+    /// every `sql/*.sqlite.sql` in name order. A rollback left in that
+    /// directory sorts *after* the migration it undoes (`.` before `_`), so the
+    /// generated schema comes out rolled back and the `checks` job is happy
+    /// because the files match what the script produced. Nothing else catches
+    /// it.
     ///
     /// Rollbacks therefore live in `sql/down/`, and this is what says so.
     #[test]
@@ -355,15 +354,14 @@ mod tests {
         );
     }
 
-    /// Every dialect file is non-empty, or deliberately empty.
+    /// Every dialect file is non-empty, or empty by design.
     ///
     /// This used to compare statement *counts* across the three files, over a
     /// hand-written list of seven migrations. Widening it to all thirty-eight
-    /// showed the rule was never true: MySQL needs a separate
-    /// `ALTER TABLE ADD CONSTRAINT` where SQLite inlines `REFERENCES`, SQLite
-    /// rebuilds a table where MySQL drops a column, and one migration is MySQL's
-    /// alone. The seven the list happened to cover were the seven where the
-    /// counts coincided.
+    /// showed the rule was never true: MySQL needs a separate `ALTER TABLE ADD
+    /// CONSTRAINT` where SQLite inlines `REFERENCES`, SQLite rebuilds a table
+    /// where MySQL drops a column, and one migration is MySQL's alone. The
+    /// seven on the list were the seven where the counts coincided.
     ///
     /// What is left is the part that is actually invariant. The real guard
     /// against "sqlite was updated and the others were forgotten" is the
@@ -373,11 +371,11 @@ mod tests {
     fn every_migration_has_all_three_dialects() {
         for (migration, sqlite, postgres, mysql) in dialect_files() {
             // `m20260819_000002_mysql_datetime` fixes a column type only MySQL
-            // ever had, so the other two are empty on purpose.
-            let deliberately_empty = migration.contains("mysql_datetime");
+            // ever had, so the other two are empty by design.
+            let intentionally_empty = migration.contains("mysql_datetime");
             for (dialect, sql) in [("sqlite", &sqlite), ("postgres", &postgres)] {
                 assert!(
-                    deliberately_empty || statements(sql).count() > 0,
+                    intentionally_empty || statements(sql).count() > 0,
                     "{migration}: {dialect} does nothing"
                 );
             }
@@ -407,14 +405,13 @@ mod tests {
         }
 
         for (migration, sqlite, postgres, mysql) in dialect_files() {
-            // A rebuild is exempt, and the reason is not laziness. SQLite cannot
-            // alter a primary key, so it renames the table aside, creates the new
-            // shape under the real name and copies; Postgres and MySQL say
-            // `ALTER TABLE` and create nothing. One `CREATE TABLE` against none
-            // is a difference in technique, not in schema, and there is no way to
-            // tell them apart by reading the text. What checks these is the
-            // `backends` job, which applies all three against real servers and
-            // then rolls them back.
+            // A rebuild is exempt. SQLite cannot alter a primary key, so it
+            // renames the table aside, creates the new shape under the real
+            // name and copies, where Postgres and MySQL say `ALTER TABLE` and
+            // create nothing. One `CREATE TABLE` against none is a difference
+            // in technique, not in schema, and reading the text cannot tell
+            // them apart. The `backends` job checks these by applying all three
+            // against real servers and rolling them back.
             if [&sqlite, &postgres, &mysql]
                 .iter()
                 .any(|sql| sql.to_lowercase().contains("rename to"))

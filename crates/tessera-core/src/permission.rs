@@ -1,4 +1,4 @@
-//! What somebody is allowed to do.
+//! What an account is allowed to do.
 //!
 //! # Why an enum and not a table
 //!
@@ -15,14 +15,14 @@
 //! # Why `resource:verb`
 //!
 //! The string is what a database row and an API response carry, so it has to
-//! survive a round trip and be readable when somebody is looking at a table
-//! wondering why a person cannot do something.
+//! survive a round trip and stay readable to anyone staring at a table
+//! wondering why an account cannot do something.
 
 use core::{fmt, str::FromStr};
 
 use crate::error::DomainError;
 
-/// One thing somebody may be allowed to do.
+/// One thing an account may be allowed to do.
 ///
 /// Ordered as the surface is: the account's own things first, then the ones
 /// that reach other people's.
@@ -63,9 +63,9 @@ pub enum Permission {
     StatsRead,
     /// See how the instance is configured, and where each value came from.
     ///
-    /// Separate from writing because the two are different risks: the list
-    /// names every knob this instance has, which is worth showing somebody who
-    /// answers questions about it without letting them turn anything.
+    /// Separate from writing, because the risks differ. The list names every
+    /// knob this instance has, which suits an account that answers questions
+    /// about it without being able to turn anything.
     SettingsRead,
     /// Change how the instance is configured.
     SettingsWrite,
@@ -75,8 +75,8 @@ impl Permission {
     /// Every permission, in a stable order.
     ///
     /// Used to seed the administrator role and to answer "what could a role
-    /// possibly contain", so it has to stay exhaustive — adding a variant
-    /// without adding it here would make a permission nobody can be granted.
+    /// possibly contain", so it has to stay exhaustive. A variant added without
+    /// being added here is a permission that can never be granted.
     pub const ALL: [Self; 17] = [
         Self::SharesCreate,
         Self::SharesRead,
@@ -123,9 +123,9 @@ impl Permission {
 
     /// Whether this permission reaches beyond the holder's own things.
     ///
-    /// Not used to decide anything — the checks name permissions directly — but
-    /// to answer the question an operator actually asks of a role they are
-    /// about to grant: does this let them touch other people?
+    /// Decides nothing, since the checks name permissions directly. It answers
+    /// what an operator really asks of a role they are about to grant: does
+    /// this let them touch other people?
     #[must_use]
     pub const fn is_privileged(self) -> bool {
         !matches!(
@@ -149,9 +149,9 @@ impl FromStr for Permission {
     /// # Errors
     ///
     /// Returns [`DomainError::Malformed`] for a string no permission uses. A
-    /// row naming one this version does not have is the shape a downgrade
-    /// leaves behind, and refusing it is better than silently granting nothing
-    /// — the latter looks to an operator like the role simply stopped working.
+    /// row naming one this version does not have is what a downgrade leaves
+    /// behind, and refusing it beats silently granting nothing, which looks to
+    /// an operator like the role stopped working.
     fn from_str(value: &str) -> Result<Self, Self::Err> {
         Self::ALL
             .into_iter()
@@ -163,19 +163,19 @@ impl FromStr for Permission {
     }
 }
 
-/// The permissions somebody holds, from every role they are in.
+/// The permissions an account holds, across every role it is in.
 ///
-/// A set rather than a list: two roles that both grant `shares:create` grant it
+/// A set, not a list. Two roles that both grant `shares:create` grant it
 /// once, and the answer to "may they" must not depend on how many roles say so.
 ///
-/// Backed by a sorted `Vec` rather than a `HashSet` because it holds at most
-/// [`Permission::ALL`] and is asked far more often than it is built — a linear
-/// scan of thirteen `u8`-sized values beats hashing.
+/// Backed by a sorted `Vec`, not a `HashSet`, because it holds at most
+/// [`Permission::ALL`] and is asked far more often than built: a linear scan of
+/// thirteen `u8`-sized values beats hashing.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PermissionSet(Vec<Permission>);
 
 impl PermissionSet {
-    /// Everything, which is what the administrator role holds.
+    /// Everything: what the administrator role holds.
     #[must_use]
     pub fn all() -> Self {
         Self(Permission::ALL.to_vec())
@@ -197,9 +197,8 @@ impl PermissionSet {
 
     /// Whether nothing is allowed.
     ///
-    /// Someone in no role at all. They are signed in and can do nothing, which
-    /// is a state worth being able to name — see the note on the sign-in
-    /// response.
+    /// An account in no role at all: signed in and able to do nothing. Worth
+    /// naming; see the note on the sign-in response.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.0.is_empty()

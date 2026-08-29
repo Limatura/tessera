@@ -24,8 +24,8 @@ pub struct StorageBackend {
     pub is_default: bool,
     /// How much it may hold, or `None` for no limit.
     pub capacity_bytes: Option<u64>,
-    /// Whether it still takes new content. Reads are unaffected — a full
-    /// backend and a retired one both keep serving what they already hold.
+    /// Whether it still takes new content. Reads are unaffected: a full backend
+    /// and a retired one both keep serving what they already hold.
     pub read_only: bool,
 }
 
@@ -42,8 +42,8 @@ pub enum StorageBackendError {
 
     /// Removing it would leave content nothing can reach.
     ///
-    /// A `SET NULL` is not available — there is nowhere else for those bytes to
-    /// be — and cascading would delete somebody's files to tidy up a
+    /// A `SET NULL` is not available, since there is nowhere else for those
+    /// bytes to be, and cascading would delete real files to tidy up a
     /// configuration row. So the operator is told what it is holding and left
     /// to drain it.
     #[error("`{name}` still holds {files} file(s); move them off it before removing it")]
@@ -81,8 +81,8 @@ impl StorageBackendRepository {
     /// # Errors
     ///
     /// Returns [`StorageBackendError`] if the query fails, or if a row will not
-    /// open with this process's key — which is worth failing on rather than
-    /// skipping, because a backend silently missing is a set of shares that
+    /// open with this process's key. Worth failing on instead of skipping,
+    /// because a backend silently missing is a set of shares that
     /// silently stop working.
     pub async fn all(&self) -> Result<Vec<StorageBackend>, StorageBackendError> {
         StorageBackendEntity::find()
@@ -97,7 +97,7 @@ impl StorageBackendRepository {
     ///
     /// # Errors
     ///
-    /// [`SecretError::NoKey`] when this process has no key — refused rather
+    /// [`SecretError::NoKey`] when this process has no key: refused rather
     /// than stored in plaintext.
     pub async fn put(
         &self,
@@ -141,7 +141,7 @@ impl StorageBackendRepository {
 
     /// Removes a backend by name. Returns whether there was one.
     ///
-    /// Refuses while any segment still names it — see
+    /// Refuses while any segment still names it. See
     /// [`StorageBackendError::StillInUse`].
     ///
     /// # Errors
@@ -149,9 +149,9 @@ impl StorageBackendRepository {
     /// Returns [`StorageBackendError`] if the delete fails or the backend is
     /// still holding content.
     pub async fn remove(&self, name: &str) -> Result<bool, StorageBackendError> {
-        // Checked here rather than left to a foreign key, because there is no
-        // foreign key: `file_segments.backend` is a name so that a reference to
-        // a backend nobody configured any more stays readable. That makes this
+        // Checked here, not left to a foreign key, because there is no
+        // foreign key: `file_segments.backend` is a name, so a reference to a
+        // backend that is no longer configured stays readable. That makes this
         // the only place the check can live.
         let held = crate::db::repository::share::ShareRepository::new(self.connection.clone())
             .segments_on_backend(name)

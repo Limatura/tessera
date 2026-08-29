@@ -8,11 +8,11 @@ use crate::DomainError;
 
 /// Crockford's base32 alphabet.
 ///
-/// `I`, `L`, `O` and `U` are absent. The first three because they are the
-/// characters people confuse with `1`, `1` and `0` — and this is a value someone
-/// reads off a screen, says out loud, or types on a phone keyboard. `U` because
-/// leaving it out means a generated code cannot spell most of the words nobody
-/// wants printed on their screen.
+/// `I`, `L`, `O` and `U` are absent. The first three because people confuse
+/// them with `1`, `1` and `0`, and this value gets read off a screen, said out
+/// loud, and typed on a phone keyboard. `U` because leaving it out keeps a
+/// generated code from spelling most of the words you would not want printed on
+/// a share page.
 const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 /// A code that identifies a share to whoever holds it.
@@ -20,8 +20,8 @@ const ALPHABET: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 /// # Why it is not the primary key
 ///
 /// A share's identity is its ULID; this is how a *person* refers to it. Keeping
-/// them apart means the code can be regenerated — after an accidental paste into
-/// a public channel, say — without rewriting anything that points at the share.
+/// them apart lets the code be regenerated, after an accidental paste into a
+/// public channel say, without rewriting anything that points at the share.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct RetrievalCode(String);
@@ -31,21 +31,21 @@ impl RetrievalCode {
     pub const MAX_LENGTH: usize = 32;
     /// Shortest accepted code.
     ///
-    /// Short codes are guessable, and a public endpoint that answers "here is
-    /// somebody's file" to a guessed code is how these services leak. The floor
-    /// is a backstop, not a recommendation — see `share.code_length` for the
-    /// figure an instance actually uses, and note that a short code needs
-    /// throttling on lookups to mean anything.
+    /// Short codes are guessable, and a public endpoint answering "here is a
+    /// file" to a guessed code is how these services leak. A backstop, not a
+    /// recommendation: see `share.code_length` for the figure
+    /// an instance uses, and note that a short code needs throttled lookups to
+    /// mean anything.
     pub const MIN_LENGTH: usize = 4;
 
     /// Builds a code from random bytes, one character per byte.
     ///
-    /// # Why bytes rather than an internal generator
+    /// # Why bytes, and not an internal generator
     ///
-    /// The mapping is the part worth testing — that a given byte always yields a
+    /// The mapping is the part worth testing: that a given byte always yields a
     /// given character, and that every byte maps somewhere. Taking the entropy
-    /// as an argument makes that a plain assertion instead of a statistical one,
-    /// and leaves "where randomness comes from" to the caller that already owns
+    /// as an argument makes that a plain assertion, not a statistical
+    /// one, and leaves "where randomness comes from" to the caller that owns
     /// that question.
     ///
     /// Each byte is reduced modulo 32. That is unbiased here and only here:
@@ -57,10 +57,10 @@ impl RetrievalCode {
     /// Returns [`DomainError`] if `entropy` is outside
     /// [`MIN_LENGTH`](Self::MIN_LENGTH)..=[`MAX_LENGTH`](Self::MAX_LENGTH).
     // Indexing is total here: the operand is reduced modulo the array's own
-    // length, so it cannot leave the array. The alternatives are worse — a
+    // length, so it cannot leave the array. The alternatives are worse. A
     // `get().unwrap_or(..)` would substitute a wrong character if the invariant
-    // ever broke, and a `filter_map` would silently emit a shorter code, which
-    // on this type is a security bug rather than a cosmetic one.
+    // broke, and a `filter_map` would silently emit a shorter code, which on
+    // this type is a security bug, not a cosmetic one.
     #[expect(
         clippy::indexing_slicing,
         reason = "index is reduced modulo the array length; see comment"
@@ -84,10 +84,10 @@ impl RetrievalCode {
 
     /// Validates and normalises a code someone typed.
     ///
-    /// Normalisation is Crockford's, and it is the reason for choosing that
-    /// alphabet: `O` becomes `0`, `I` and `L` become `1`, and case is folded. So
-    /// a person reading `0ZPQ0` off a screen and typing `ozpqO` still arrives at
-    /// their file. Hyphens and spaces are dropped too, because people group
+    /// Normalisation is Crockford's, and that is why the alphabet was chosen:
+    /// `O` becomes `0`, `I` and `L` become `1`, and case is folded, so a person
+    /// reading `0ZPQ0` off a screen and typing `ozpqO` still arrives at their
+    /// file. Hyphens and spaces are dropped too, because people group
     /// characters when they write a code down.
     ///
     /// # Errors

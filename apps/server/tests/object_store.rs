@@ -3,10 +3,10 @@
 //! Until this file existed, `storage-s3` only ever proved that it *compiled*.
 //! Nothing had put a byte into a bucket and read it back, so "we support S3"
 //! rested on the `object_store` crate behaving and on our options being spelled
-//! right — neither of which anything checked.
+//! right, neither of which anything checked.
 //!
 //! Every test is `#[ignore]`d, because it needs a store that a plain
-//! `cargo nextest run` has no reason to provide. Ignoring rather than skipping
+//! `cargo nextest run` has no reason to provide. Ignoring, not skipping
 //! on a missing variable is deliberate: a test that returns early reports
 //! "passed" and teaches you to trust coverage that never ran.
 //!
@@ -25,7 +25,7 @@
 //! EOF
 //!
 //! # A second bucket, for the test that a file is read from the backend it
-//! # names — see `a_file_is_read_from_the_bucket_it_names`. Garage's CLI is in
+//! # names. See `a_file_is_read_from_the_bucket_it_names`. Garage's CLI is in
 //! # the image, so this needs no S3 client:
 //! #
 //! #   docker exec garage /garage bucket create tessera-cold
@@ -50,8 +50,8 @@
 //!
 //! Azure goes through Azurite, whose account and key are fixed and published.
 //! Its containers have to exist first, and creating one is a Shared Key
-//! signature rather than a plain request — `.github/workflows/rust.yml` signs it
-//! with `openssl` so no Azure client has to be installed. One trap worth
+//! signature and not a plain request, so `.github/workflows/rust.yml` signs
+//! it with `openssl` and no Azure client has to be installed. One trap worth
 //! knowing: `date` obeys the locale, and a localised day name inside the signed
 //! string produces a `403` with nothing in the body saying why, so that command
 //! runs under `LC_ALL=C`.
@@ -76,18 +76,18 @@
 //!
 //! It also only takes files small enough to write in one go. WebDAV's only
 //! upload verb is a whole-body `PUT`, and `object_store`'s `PutPayload` is an
-//! array of `Bytes` that cannot express a stream — so anything past
-//! `share.inline_threshold_bytes` is declined with `413` rather than started and
-//! failed halfway. This is not WebDAV's limit: a chunked `PUT` of any size works
-//! fine against a real server. It is
-//! `apache/arrow-rs-object-store#281`, with the work in progress in #817; when
-//! that lands and reaches the HTTP store, the placer stops declining.
+//! array of `Bytes` that cannot express a stream, so anything past
+//! `share.inline_threshold_bytes` is declined with `413` instead of started
+//! and failed halfway. Not WebDAV's limit: a chunked `PUT` of any size works
+//! fine against a real server. It is `apache/arrow-rs-object-store#281`, with
+//! work in progress in #817; when that lands and reaches the HTTP store, the
+//! placer stops declining.
 //!
 //! Two things are easy to lose an afternoon to. Plain HTTP needs
 //! `allow_http=true`, the same thing `AWS_ALLOW_HTTP` says for S3, and it cannot
 //! come from the environment: `is_backend_option` asks the S3, GCS and Azure key
 //! sets whether a name is a real option, and the HTTP store's keys are in none
-//! of them — so a WebDAV backend is configurable through the config file and the
+//! of them, so a WebDAV backend is configurable through the config file and the
 //! admin API and nowhere else. And WebDAV does not create parent collections on
 //! `PUT`, so the collections the suite writes into have to exist first or every
 //! upload comes back `409`.
@@ -97,7 +97,7 @@
 //! write once; concurrent first writes into a fresh backend race to create
 //! `shares/YYYY/MM`, and an upload whose single retry lands while a sibling's
 //! MKCOL is still in flight has nothing left to try. That is a property of the
-//! backend rather than of these tests — a real WebDAV store can return `500` on
+//! backend, not of these tests: a real WebDAV store can return `500` on
 //! its first burst of uploads for exactly this reason.
 //!
 //! ```text
@@ -115,38 +115,38 @@
 //! # Which stores this runs against
 //!
 //! Garage, `RustFS`, Azurite and a WebDAV server in CI. Two S3 implementations,
-//! because Garage is deliberately permissive — see below — and a single
+//! because Garage is permissive by design (see below) and a single
 //! implementation is a single opinion about what S3 means. `RustFS` is stricter,
 //! and it is what the self-hosting audience moved to after MinIO's repository
 //! was archived. Azurite is there because Azure is a different wire format, not
 //! a stricter reading of the same one. WebDAV is not object storage at all: it
-//! has no multipart, so it runs this binary only, which is what
+//! has no multipart, so it runs this binary only. That is what
 //! `object_store_multipart` being separate is for.
 //!
 //! One was tried and is not here:
 //!
-//! - **fake-gcs-server** does not implement the GCS *XML* API for writes, which is the one
-//!   `object_store` uses — its `put` goes to `{base}/{bucket}/{path}` with the object's name in the
-//!   path (see the `xml-api/put-object-upload` link in `gcp/client.rs`). Without `-public-host`
-//!   that path has no handler at all and answers `404`; with it, the request is routed into the
-//!   *JSON* upload handler, which wants `?uploadType=media&name=…` and rejects the bare `PUT` with
-//!   `name is required for simple uploads`. The two disagree about where an object's name goes, so
-//!   nothing configurable brings them together. `fsouza/fake-gcs-server#852` records the multipart
-//!   half of the same gap.
+//! - **fake-gcs-server** does not implement the GCS *XML* API for writes, the one `object_store`
+//!   uses: its `put` goes to `{base}/{bucket}/{path}` with the object's name in the path (see the
+//!   `xml-api/put-object-upload` link in `gcp/client.rs`). Without `-public-host` that path has no
+//!   handler at all and answers `404`; with it, the request is routed into the *JSON* upload
+//!   handler, which wants `?uploadType=media&name=…` and rejects the bare `PUT` with `name is
+//!   required for simple uploads`. The two disagree about where an object's name goes, so nothing
+//!   configurable brings them together. `fsouza/fake-gcs-server#852` records the multipart half of
+//!   the same gap.
 //!
 //! # Real providers
 //!
 //! Cloudflare R2, Backblaze B2 and AWS S3 have no emulator, and they are the
-//! only things that can confirm the rules this repository encodes about them —
+//! only things that can confirm the rules this repository encodes about them.
 //! `config.rs` records R2's equal-part requirement, and nothing here enforces
 //! it. So the job carries a step gated on `vars.STORAGE_PROVIDER_URL`: it costs
-//! nothing until somebody sets credentials, and it does not block a merge when
+//! nothing until credentials are set, and it does not block a merge when
 //! a provider has an outage, because that is their failure and not ours.
 //!
 //! # What this cannot catch
 //!
 //! One of the two part-size rules, not both. Measured by handing each store a
-//! deliberately illegal multipart upload:
+//! knowingly illegal multipart upload:
 //!
 //! | | a non-final part below S3's 5 MiB floor | non-final parts of unequal size |
 //! |---|---|---|
@@ -154,13 +154,13 @@
 //! | `RustFS` | **refuses** | accepts |
 //! | `MinIO` | **refuses** | accepts |
 //!
-//! So the floor *is* covered here, by `RustFS` — this section used to say
+//! So the floor *is* covered here, by `RustFS`. This section used to say
 //! neither rule was, which stopped being true when `RustFS` joined. What is
 //! still uncovered is Cloudflare R2's requirement that every part but the last
-//! be the *same* size: it is R2's own rule rather than S3's, and nothing
+//! be the *same* size: R2's own rule, not S3's, and nothing
 //! self-hostable enforces it. `config.rs` records it, the opt-in real-provider
-//! step is the only thing that can confirm it, and until somebody points that at
-//! an R2 bucket it rests on Cloudflare's documentation. See #148.
+//! step is the only thing that can confirm it, and until that is pointed at an
+//! R2 bucket it rests on Cloudflare's documentation. See #148.
 //!
 //! # Why there are more stores than there are opinions
 //!
@@ -169,13 +169,13 @@
 //! catch a bug the others would miss.
 //!
 //! They are here because the README names them. A compatibility table is a
-//! promise about somebody else's afternoon — they will point their instance at
-//! one of these and expect it to work — and the only honest way to make that
-//! promise is to run against it. Two of them show why. `SeaweedFS` refuses every
-//! write without an `-s3.config` identities file, which reads as "incompatible"
-//! until somebody tries it. s3proxy looked worse — nothing worked at all — and
-//! was twice waved off as "a testing tool, not something anybody stores things
-//! in", which was a reason not to look rather than a reason. Both were setup:
+//! promise about a stranger's afternoon: they will point their instance at one
+//! of these and expect it to work, and the only honest way to make that promise
+//! is to run against it. Two of them show why. `SeaweedFS` refuses every write
+//! without an `-s3.config` identities file, which reads as "incompatible" until
+//! you try it. s3proxy looked worse, with nothing working at all, and was twice
+//! waved off as "a testing tool, not something anybody stores things in": an
+//! excuse not to look, not a reason. Both were setup:
 //! `mc` will not take an access key shorter than three characters and says so
 //! while still reporting the bucket created, and `aws_skip_signature` is
 //! honoured on the plain path but not the multipart one, so the second half of
@@ -184,11 +184,11 @@
 //!
 //! What it *does* have is a real limitation, and it is the sort a table is for:
 //! its newest release, 2.6.0, answers `POST ?delete` with `501`. That is S3's
-//! bulk delete, which is how `object_store` deletes anything, so on 2.6.0 a
-//! share can be created and never removed. Master implements it, which is why
-//! the job pins a digest rather than a tag.
+//! bulk delete, and that is how `object_store` deletes anything, so on 2.6.0 a
+//! share can be created and never removed. Master implements it, so the job
+//! pins a digest and not a tag.
 #![cfg(feature = "storage-s3")]
-// The helpers below sit outside a `#[test]` body, which is as far as
+// The helpers below sit outside a `#[test]` body, and that is as far as
 // clippy.toml's test exemptions reach. A fixture that cannot resolve its target
 // has nothing to report but a failure.
 #![expect(clippy::expect_used, reason = "test fixture; see module docs")]
@@ -212,8 +212,8 @@ fn storage_url() -> String {
 
 /// Options for the store under test, as `key=value` pairs separated by commas.
 ///
-/// Plain HTTP needs `allow_http=true` — the same thing `AWS_ALLOW_HTTP` says for
-/// S3 — and no environment variable can carry it, because `is_backend_option`
+/// Plain HTTP needs `allow_http=true`, the same thing `AWS_ALLOW_HTTP` says for
+/// S3, and no environment variable can carry it, because `is_backend_option`
 /// asks only the S3, GCS and Azure key sets whether a name is a real option. So
 /// a WebDAV backend is configurable through the config file and the admin API
 /// and nowhere else, and this is how the suite reaches the same place.
@@ -284,7 +284,7 @@ async fn download(app: &TestApp, code: &str) -> Vec<u8> {
 
 /// A file small enough that the multipart upload never starts.
 ///
-/// This is the `put` path, which is a different call from the one below and has
+/// This is the `put` path, a different call from the one below, and it has
 /// its own way of being misconfigured.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
@@ -300,10 +300,10 @@ async fn a_small_file_survives_the_round_trip() {
 
 /// Range requests come from the store, not from a buffer we filled.
 ///
-/// Small on purpose: under `share.inline_threshold_bytes` the object goes up in
-/// one `put`, so this stays inside what every backend can do — a store without
+/// Small by design: under `share.inline_threshold_bytes` the object goes up in
+/// one `put`, so this stays inside what every backend can do: a store without
 /// multipart still has to honour a `Range`. The multipart binary carries the
-/// same check across a part boundary, which is the harder half and needs a
+/// same check across a part boundary, the harder half, and needs a
 /// store that can write one.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
@@ -426,8 +426,8 @@ async fn a_file_is_read_from_the_bucket_it_names() {
     .await;
 
     // The name every file in this test recorded, pointed at the *other*
-    // bucket. Nothing was copied there, so the bytes cannot be found — unless
-    // the reader is ignoring the name.
+    // bucket. Nothing was copied there, so the bytes cannot be found unless the
+    // reader is ignoring the name.
     let elsewhere = tessera_server::storage::build(&tessera_server::config::StorageConfig {
         url: second,
         // The same options as the first, for the same reason: a store that
@@ -453,17 +453,17 @@ async fn a_file_is_read_from_the_bucket_it_names() {
 
 /// A file past the inline threshold, against whatever store this run points at.
 ///
-/// Two outcomes, and which one is correct is decided by the scheme rather than
-/// by whatever happens: a store that can be written a piece at a time takes it,
+/// Two outcomes, and the scheme decides which is correct, not whatever
+/// happens: a store that can be written a piece at a time takes it,
 /// and one that cannot has to decline before the body is read. The second is
 /// the case that used to answer `500` from inside the store, halfway through
-/// the upload — see `place_streamed`.
+/// the upload. See `place_streamed`.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn a_streamed_file_is_taken_or_declined_by_scheme() {
     let app = app().await;
-    // Past `share.inline_threshold_bytes`, which is 64 KiB by default, so this
-    // takes the streaming path rather than a single buffered `put`.
+    // Past `share.inline_threshold_bytes`, 64 KiB by default, so this takes the
+    // streaming path and not a single buffered `put`.
     let sent = vec![9_u8; 128 * 1024];
 
     let response = app

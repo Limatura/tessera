@@ -1,7 +1,7 @@
-//! Where a file's bytes are, as a list rather than a column.
+//! Where a file's bytes are, as a list and not a column.
 //!
-//! The SQL lives in `sql/` — see the SQLite one for why this is a list when
-//! every row has exactly one entry, and why the backend is a name rather than a
+//! The SQL lives in `sql/`. See the SQLite one for why this is a list when
+//! every row has exactly one entry, and why the backend is a name and not a
 //! foreign key.
 
 use sea_orm_migration::prelude::*;
@@ -14,7 +14,7 @@ pub(super) const MYSQL: &str = include_str!("sql/m20260829_000001_file_segments.
 /// rolling back loses nothing: the segments were derived from them.
 ///
 /// One spelling for every dialect. Dropping a table takes its own foreign keys
-/// and indexes with it everywhere, which is why this needs none of the
+/// and indexes with it everywhere, so this needs none of the
 /// MySQL-only handling the quota rollback did.
 const DOWN: &str = "DROP TABLE IF EXISTS file_segments;\n";
 
@@ -23,8 +23,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -57,7 +57,7 @@ mod tests {
         }
     }
 
-    /// One segment per position, enforced rather than assumed — a second row at
+    /// One segment per position, enforced and not assumed. A second row at
     /// the same `seq` would make "read the file in order" ambiguous.
     #[test]
     fn the_position_is_the_key() {
@@ -72,8 +72,7 @@ mod tests {
     fn mysql_declares_the_key_where_innodb_reads_it() {
         assert_eq!(MYSQL.matches("FOREIGN KEY").count(), 1);
         // The declaration spans two lines, so the check is that every
-        // `REFERENCES` belongs to a table-level `CONSTRAINT` rather than
-        // sitting on a column.
+        // `REFERENCES` belongs to a table-level `CONSTRAINT`, not to a column.
         let statements: Vec<&str> = MYSQL
             .lines()
             .map(str::trim_start)

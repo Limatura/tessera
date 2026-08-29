@@ -3,18 +3,18 @@
 //! # The rule this module exists to keep
 //!
 //! **Anything stored in the database takes effect without a restart.** The
-//! panel never has to say "saved — now restart the server", because a setting
-//! that would need one is not offered at all.
+//! panel never has to say "saved, now restart the server", because a setting
+//! that would need one is not offered.
 //!
-//! That is not a promise about the settings; it is a promise about this list.
-//! A setting is excluded when the running process cannot pick it up, and there
-//! are only three reasons for that:
+//! That is a promise about this list, not about the settings. A setting
+//! is excluded when the running process cannot pick it up, and there are only
+//! three reasons for that:
 //!
 //! - the socket is already bound (`server.host`, `server.port`)
 //! - the pool is already built, and reading this table needs it (`database.*`)
 //! - the log subscriber is installed once, before anything else (`telemetry.*`)
 //!
-//! Those stay in the environment, which is where a deployment sets them anyway.
+//! Those stay in the environment, where a deployment sets them anyway.
 //!
 //! # Why secrets are excluded too
 //!
@@ -30,8 +30,8 @@ use crate::config::Config;
 ///
 /// Prefixes: `database` covers `database.url`, `database.max_connections` and
 /// anything added under it later. A new setting is hot unless it lands under
-/// one of these, which is the right default — everything the request path reads
-/// goes through the swapped configuration.
+/// one of these, the right default, since everything the request path
+/// reads goes through the swapped configuration.
 const FIXED_AT_BOOT: &[&str] = &[
     // The listener is already bound.
     "server.host",
@@ -46,9 +46,9 @@ const FIXED_AT_BOOT: &[&str] = &[
     //
     // `max_body_bytes` is the worst of the three, because half of it *would*
     // follow: the hand-rolled check in the upload path reads the current
-    // configuration, and `DefaultBodyLimit` does not. An operator raising it
-    // would find large uploads still refused, by a layer whose number no longer
-    // matches the one the panel shows.
+    // configuration and `DefaultBodyLimit` does not. An operator raising it
+    // would find large uploads still refused by a layer whose number no longer
+    // matches the panel's.
     "server.cors_allowed_origins",
     "server.max_body_bytes",
     // The SPA is read off disk once and embedded in the router's state.
@@ -64,8 +64,8 @@ const FIXED_AT_BOOT: &[&str] = &[
 
 /// Keys that hold a credential, and so are never stored here.
 ///
-/// Whole keys rather than prefixes: `mail.host` is not a secret and an operator
-/// has every reason to change it from the panel, so excluding all of `mail`
+/// Whole keys, not prefixes. `mail.host` is not a secret and an operator has
+/// every reason to change it from the panel, so excluding all of `mail`
 /// would cost more than it protects.
 const SECRETS: &[&str] = &[
     // Only read on first run, and only to create the first account. Storing it
@@ -73,7 +73,7 @@ const SECRETS: &[&str] = &[
     "auth.admin_password",
     "mail.username",
     "mail.password",
-    // Both carry credentials in the URL — `postgres://user:pass@…`,
+    // Both carry credentials in the URL: `postgres://user:pass@…`,
     // `s3://key:secret@…`.
     "database.url",
     "storage.url",
@@ -116,17 +116,16 @@ pub fn admits(key: &str) -> Result<(), Refusal> {
 
 /// Every setting this binary has, as dotted keys.
 ///
-/// Read off the default configuration rather than written down. A list written
-/// down is a list that goes stale the first time somebody adds a field and does
-/// not think of it — and the symptom would be a setting the panel silently
-/// cannot see.
+/// Read off the default configuration, not written down. A written list goes
+/// stale the first time a field is added without it, and the symptom is a
+/// setting the panel silently cannot see.
 #[must_use]
 pub fn keys() -> Vec<String> {
     let mut found = Vec::new();
     // A `Config` that will not serialise is a bug in this crate, not a runtime
-    // condition — but the key list is read while deciding what an operator may
-    // change, and returning nothing is the safe way to be wrong there: the
-    // panel offers no settings rather than the wrong ones.
+    // condition, but the key list is read while deciding what an operator may
+    // change, so returning nothing is the safe way to be wrong: the panel
+    // offers no settings instead of the wrong ones.
     let json = serde_json::to_value(Config::default()).unwrap_or(serde_json::Value::Null);
     walk("", &json, &mut found);
     found
@@ -144,8 +143,8 @@ pub fn changeable() -> Vec<String> {
 fn walk(prefix: &str, value: &serde_json::Value, out: &mut Vec<String>) {
     match value {
         // A nested object is a group of settings, not a setting. A map whose
-        // own keys are data — `server.cors_allowed_origins` is a list, not a
-        // group — never reaches here, because it is not an object.
+        // own keys are data never reaches here, because it is not an object:
+        // `server.cors_allowed_origins` is a list, not a group.
         serde_json::Value::Object(fields) => {
             for (name, nested) in fields {
                 let key = if prefix.is_empty() {
@@ -162,10 +161,10 @@ fn walk(prefix: &str, value: &serde_json::Value, out: &mut Vec<String>) {
 
 /// Drops anything the panel is not allowed to have changed.
 ///
-/// Applied to what comes *out* of the database as well as to what goes in. A
-/// row can predate a key moving onto one of the lists above, or arrive by hand
-/// through `sqlite3` — and neither should be able to reintroduce a value this
-/// binary has decided not to honour.
+/// Applied to what comes *out* of the database as well as what goes in. A row
+/// can predate a key moving onto one of the lists above, or arrive by hand
+/// through `sqlite3`, and neither may reintroduce a value this binary has
+/// decided not to honour.
 #[must_use]
 pub fn admitted_only(
     stored: BTreeMap<String, serde_json::Value>,
@@ -243,7 +242,7 @@ mod tests {
         assert_eq!(admits("share.nonsense"), Err(Refusal::Unknown));
     }
 
-    /// The ordinary settings — the reason the feature exists — have to be in.
+    /// The ordinary settings, the reason the feature exists, have to be in.
     #[test]
     fn the_settings_an_operator_actually_changes_are_offered() {
         let offered = changeable();
@@ -269,11 +268,11 @@ mod tests {
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
-    /// Nobody set it; this is what the binary ships with.
+    /// Unset; this is what the binary ships with.
     Default,
     /// An environment variable.
     Environment,
-    /// Somebody changed it in the admin panel.
+    /// Changed in the admin panel.
     Panel,
 }
 
@@ -297,14 +296,12 @@ pub struct View {
 /// # Why the source is worked out by comparison
 ///
 /// figment can name the provider that supplied a key, but only as a display
-/// string — "`TESSERA_` environment variable(s)". Matching on that would tie
-/// this to how a dependency phrases itself. Building the stack one layer at a
-/// time and seeing where the answer changes needs no such agreement.
+/// string ("`TESSERA_` environment variable(s)"), and matching on that would
+/// tie this to how a dependency phrases itself. Building the stack one layer at
+/// a time and seeing where the answer changes needs no such agreement.
 ///
 /// An environment variable set to the value the default already had reports as
-/// the default. That is the honest answer: nothing observable distinguishes
-/// them, and claiming otherwise would mean showing "from the environment" for a
-/// value the environment did not change.
+/// the default, the honest answer: nothing observable distinguishes them.
 #[must_use]
 pub fn describe(overrides: &BTreeMap<String, serde_json::Value>) -> Vec<View> {
     let defaults = Config::defaults();
@@ -337,7 +334,7 @@ pub fn describe(overrides: &BTreeMap<String, serde_json::Value>) -> Vec<View> {
 
             // A credential is named, never handed back. `database.url` and
             // `storage.url` carry a password inside them, and this list is read
-            // by an endpoint and printed by a command — both of which end up
+            // by an endpoint and printed by a command, both of which end up
             // pasted into issues. Whoever needs the value has the environment
             // it came from.
             let value = if refusal == Some(Refusal::Secret) {
@@ -406,8 +403,8 @@ mod describe_tests {
         });
     }
 
-    /// Settings the panel cannot change still appear, marked. Hiding them is
-    /// what makes somebody ask where the port setting went.
+    /// Settings the panel cannot change still appear, marked. Hiding them
+    /// prompts the question of where the port setting went.
     #[test]
     fn what_cannot_be_changed_is_still_listed() {
         figment::Jail::expect_with(|_jail| {
@@ -436,10 +433,9 @@ mod secrecy_tests {
 
     use super::{Refusal, describe};
 
-    /// A credential must not come back out of the description. Both readers of
-    /// this — the admin endpoint and the `settings list` command — produce
-    /// output that ends up pasted into issues and support threads, and
-    /// `database.url` carries the password inside it.
+    /// A credential must not come back out of the description. Both readers,
+    /// the admin endpoint and the `settings list` command, produce output that
+    /// ends up pasted into issues, and `database.url` carries the password.
     #[test]
     fn the_value_of_a_secret_is_withheld() {
         figment::Jail::expect_with(|jail| {

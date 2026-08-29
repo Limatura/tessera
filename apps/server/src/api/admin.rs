@@ -2,16 +2,15 @@
 //!
 //! # Why a cookie and not a token
 //!
-//! Every endpoint here refuses a bearer token. Granting somebody the
-//! administrator flag, or deleting an account, is the largest thing this API
-//! does — and a token exists so a script can upload files. One that leaked would
-//! otherwise be able to make itself permanent by promoting an account it
-//! controls, which is exactly the escalation the token endpoints already refuse
-//! for the smaller case of minting another token.
+//! Every endpoint here refuses a bearer token. A token exists so a script can
+//! upload files; granting the administrator flag or deleting an account is the
+//! largest thing this API does. A leaked token could otherwise make itself
+//! permanent by promoting an account it controls, the same escalation the token
+//! endpoints already refuse for minting another token.
 //!
 //! Automation against this surface waits for scoped tokens.
 //!
-//! # Why `features.admin = false` answers 404 rather than not mounting
+//! # Why `features.admin = false` answers 404 instead of not mounting
 //!
 //! The contract describes the software, not one instance's configuration, so
 //! `openapi.json` is the same file everywhere and a client can be built against
@@ -19,10 +18,10 @@
 //! says which half of the software is live here.
 
 // `params(SharePageParams)` makes utoipa emit a fully-qualified path to the
-// type. The generated code lands outside the function it decorates, so the
-// suppression has to be module-wide; dropping `params(..)` instead would take
-// the paging parameters out of the contract, which is the point of declaring
-// them. Same arrangement as `super::shares`.
+// type, and the generated code lands outside the function it decorates, so the
+// suppression has to be module-wide. Dropping `params(..)` instead would take
+// the paging parameters out of the contract. Same arrangement as
+// `super::shares`.
 #![expect(
     unused_qualifications,
     reason = "emitted by utoipa's params(..), not written here"
@@ -63,19 +62,19 @@ pub struct UpdateUserRequest {
     pub is_admin: bool,
     /// `active` to let it in, `disabled` to suspend it.
     ///
-    /// Omitted leaves it as it is. `deleted` is refused here — removing an
-    /// account scrubs it, and that is `DELETE` rather than a field on a patch.
+    /// Omitted leaves it as it is. `deleted` is refused here: removing an
+    /// account scrubs it: `DELETE`, not a field on a patch.
     #[serde(default)]
     pub state: Option<String>,
     /// A storage quota for this one account, overriding its role's.
     ///
     /// Absent leaves it alone, `null` clears it so the role's applies again,
     /// and `0` gives this account no ceiling of its own. Three instructions,
-    /// which is why absent and `null` are not the same here.
+    /// so absent and `null` are not the same here.
     ///
-    /// For raising or lowering one person without inventing a role for them.
-    /// `storage.max_total_bytes` still applies on top — this cannot grant
-    /// somebody more room than the instance has.
+    /// For raising or lowering one account without inventing a role for it.
+    /// `storage.max_total_bytes` still applies on top, so this cannot grant an
+    /// account more room than the instance has.
     #[serde(default, deserialize_with = "patched")]
     #[schema(example = 10_737_418_240_u64)]
     pub quota_bytes: Patch<u64>,
@@ -92,9 +91,8 @@ pub struct UpdateUserRequest {
 
 /// One account, as an administrator sees it.
 ///
-/// The same shape a person sees of themselves. There is nothing extra to show:
-/// this service stores no profile, and the one thing an administrator can change
-/// is already a field.
+/// The same shape a person sees of themselves. This service stores no profile,
+/// and the one thing an administrator can change is already a field.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AdminUserResponse(pub AccountResponse);
 
@@ -109,8 +107,8 @@ pub(super) fn require_admin_feature(state: &AppState) -> Result<()> {
 
 /// Whether one account holds a permission.
 ///
-/// Asked about somebody other than the caller, which is why it is a query
-/// rather than a look at [`CurrentUser::permissions`].
+/// Asked about an account other than the caller's, so it is a query and not a
+/// look at [`CurrentUser::permissions`].
 async fn holds(state: &AppState, user: UserId, permission: Permission) -> Result<bool> {
     Ok(state.roles.permissions_of(user).await?.allows(permission))
 }
@@ -118,9 +116,9 @@ async fn holds(state: &AppState, user: UserId, permission: Permission) -> Result
 /// Refuses anything that did not arrive with a session cookie, then checks the
 /// one permission this endpoint needs.
 ///
-/// The two go together everywhere here: an administrative action is one a
-/// person takes at a keyboard, and every one of them names what it needs rather
-/// than sharing a single "is an administrator" answer.
+/// The two go together throughout: an administrative action is one a person
+/// takes at a keyboard, and each names what it needs instead of sharing one
+/// "is an administrator" answer.
 pub(super) fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
@@ -176,14 +174,13 @@ pub async fn list_users(
 ///
 /// # Why the last one cannot be removed
 ///
-/// An instance with no administrator cannot be repaired through the API — there
-/// is no endpoint left that would let anybody grant the flag back. The way out
-/// is the command line against the database file, which an operator who locked
-/// themselves out of a container may not have. So the case is refused rather
-/// than allowed and regretted.
+/// An instance with no administrator cannot be repaired through the API: no
+/// endpoint is left that would grant the flag back. The way out is the command
+/// line against the database file, which an operator locked out of a container
+/// may not have.
 ///
-/// Removing your own flag while somebody else still has it is allowed: that is
-/// a person stepping down, not an accident.
+/// Removing your own flag while another administrator still holds it is
+/// allowed. That is stepping down, not an accident.
 ///
 /// # Errors
 ///
@@ -220,13 +217,13 @@ pub async fn update_user(
         return Err(Error::NotFound);
     };
 
-    // Counted over the permission that can restore every other one: an instance
-    // where nobody holds `roles:write` cannot be given an administrator back by
-    // anybody, through any screen.
+    // Counted over the permission that can restore every other one. Once no
+    // account holds `roles:write`, the instance cannot be given an
+    // administrator back.
     //
-    // Both halves matter. Demoting somebody who was never an administrator does
-    // not reduce the count, and refusing it would make the last administrator
-    // unable to change anybody at all.
+    // Both halves matter. Demoting an account that was never an administrator
+    // does not reduce the count, and refusing it would leave the last
+    // administrator unable to change anyone.
     let holds_the_keys = holds(&state, user.id, Permission::RolesWrite).await?;
     if holds_the_keys
         && !body.is_admin
@@ -247,8 +244,8 @@ pub async fn update_user(
                 "removing an account scrubs it; use DELETE rather than this field",
             ));
         }
-        // Suspending somebody who holds the keys is the same lock-out as
-        // demoting them, reached by another door.
+        // Suspending an account that holds the keys is the same lock-out as
+        // demoting it, reached by another door.
         if wanted != AccountState::Active
             && holds_the_keys
             && state.roles.holders_of(Permission::RolesWrite).await? <= 1
@@ -259,9 +256,9 @@ pub async fn update_user(
         }
         state.users.set_state(user_id, wanted, now).await?;
         if wanted != AccountState::Active {
-            // Authentication already refuses a suspended account, so this is
-            // not what stops them — it is what makes the session list they see
-            // afterwards true.
+            // Authentication already refuses a suspended account, so this does
+            // not stop them; it makes the session list they see afterwards
+            // true.
             state
                 .sessions
                 .end_all_for_user(user_id, None, SessionEnding::AccountDisabled, now)
@@ -293,10 +290,9 @@ pub async fn update_user(
 /// # What goes with it and what does not
 ///
 /// Sessions and API tokens are deleted by the database. Shares are not: their
-/// owner column is `ON DELETE SET NULL`, so what somebody uploaded becomes an
-/// anonymous share and keeps working for whoever holds the code. Deleting an
-/// account is about the account, and taking somebody's files off the internet in
-/// the same motion would be a second decision made silently.
+/// owner column is `ON DELETE SET NULL`, so their uploads become anonymous
+/// shares and keep working for whoever holds the code. Taking those files off
+/// the internet in the same motion would be a second decision made silently.
 ///
 /// # Errors
 ///
@@ -354,8 +350,8 @@ pub async fn delete_user(
     }
 
     // The login history is the most identifying thing this service holds about
-    // a person — where they signed in from and on what. Removing the account
-    // without removing that would leave the part that matters most.
+    // a person: where they signed in from and on what. Removing the account
+    // without it would leave the part that matters most.
     state.sessions.delete_all_for_user(user_id).await?;
     state.tokens.delete_all_for_user(user_id).await?;
 
@@ -369,8 +365,8 @@ pub async fn delete_user(
 pub struct CreateInviteRequest {
     /// How many accounts this code may create.
     ///
-    /// One code with several places is what the feature is for: something to
-    /// send to a group rather than a code per person. `1` makes it single-use.
+    /// One code with several places is the point: something to send to a group
+    /// instead of a code per person. `1` makes it single-use.
     #[schema(example = 3, minimum = 1)]
     pub uses: i64,
     /// How many days it lasts, or `null` for one that never expires.
@@ -386,7 +382,7 @@ pub struct CreateInviteRequest {
 /// One invite code, as an administrator sees it.
 ///
 /// Never carries the code. Only its digest is stored, so there is nothing to
-/// show — see [`CreatedInviteResponse`] for the one moment there is.
+/// show; see [`CreatedInviteResponse`] for the one moment there is.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct InviteResponse {
     /// Stable identifier, for revoking it.
@@ -398,10 +394,10 @@ pub struct InviteResponse {
     pub max_uses: i64,
     /// How many it has created.
     pub used: i64,
-    /// Whether it would still admit somebody.
+    /// Whether it would still admit an account.
     ///
-    /// Sent rather than left to the client to work out from `used`, `max_uses`
-    /// and `expires_at` against its own clock — the same reason a session says
+    /// Sent, not left to the client to work out from `used`, `max_uses`
+    /// and `expires_at` against its own clock, the same reason a session says
     /// whether it is active.
     pub active: bool,
     /// When it was made.
@@ -417,7 +413,7 @@ pub struct CreatedInviteResponse {
     #[serde(flatten)]
     pub invite: InviteResponse,
     /// **Shown once.** Only its SHA-256 digest is stored, so this value cannot
-    /// be read back afterwards — not by an administrator, not by anybody.
+    /// be read back afterwards, not even by an administrator.
     #[schema(example = "3f9a1c…")]
     pub code: String,
 }
@@ -477,9 +473,9 @@ pub async fn list_invites(
 ///
 /// # Why this exists when the CLI already does it
 ///
-/// The command line is the rescue path — it works with the service stopped and
-/// needs nothing but the database file. This is the ordinary path: somebody
-/// letting a friend in should not have to reach a shell on the box.
+/// The command line is the rescue path: it works with the service stopped and
+/// needs nothing but the database file. This is the ordinary path, because
+/// inviting a friend should not need a shell on the box.
 ///
 /// # Errors
 ///
@@ -540,10 +536,9 @@ pub async fn create_invite(
 
 /// Revokes an invite.
 ///
-/// The accounts it already admitted stay: an account created through a code does
-/// not depend on the code still existing. What this stops is the code letting
-/// anybody else in, which is what somebody who posted one in the wrong chat
-/// window wants.
+/// The accounts it already admitted stay, since an account does not depend on
+/// its code still existing. This only stops the code letting anyone else in,
+/// what an operator who posted it in the wrong chat window wants.
 ///
 /// # Errors
 ///
@@ -584,43 +579,40 @@ pub async fn revoke_invite(
 ///
 /// # Why this is not a metrics endpoint
 ///
-/// Four numbers an operator can act on, not a time series. "Am I near the
-/// quota", "how many people are on here", "is the sweep keeping up" — the
-/// questions somebody asks before deciding whether to change a setting. Anything
-/// that wants graphs wants Prometheus, and that is a different endpoint with a
-/// different shape.
+/// Four numbers an operator can act on, not a time series: "am I near the
+/// quota", "how many people are on here", "is the sweep keeping up". Anything
+/// wanting graphs wants Prometheus, a different endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct StatsResponse {
     /// How many accounts exist.
     pub accounts: u64,
     /// How many of those administer the instance.
     pub administrators: u64,
-    /// How many shares exist, including ones nobody can open any more.
+    /// How many shares exist, including ones that can no longer be opened.
     pub shares: u64,
     /// How many a visitor could still open.
     ///
-    /// The gap between this and `shares` is what the sweep has not reached yet,
-    /// which is worth seeing: a large one means retention is longer than
-    /// somebody expected, or the sweep is not running.
+    /// The gap between this and `shares` is what the sweep has not reached. A
+    /// large one means retention is longer than expected, or the sweep is not
+    /// running.
     pub live_shares: u64,
     /// Bytes of uploaded content still on the store.
     pub stored_bytes: u64,
     /// How many bytes this instance has sent out.
     ///
-    /// Bytes that left the process, not bytes that reached anybody — a proxy in
+    /// Bytes that left the process, not bytes that reached anybody: a proxy in
     /// front holds some, and a caching CDN answers requests this never sees.
-    /// For what crossed the network, a reverse proxy's own log is the authority.
+    /// For what crossed the network, a reverse proxy's log is the authority.
     ///
-    /// Counted over the shares still here: a swept share takes its tally with
-    /// it, so this falls when one goes.
+    /// Counted over the shares still here, so a swept share takes its tally
+    /// with it and this falls when one goes.
     pub bytes_served: u64,
     /// The ceiling from `storage.max_total_bytes`, or `null` when unset.
     ///
-    /// `null` is not "unlimited" so much as "nobody said" — and on an instance
-    /// that takes anonymous uploads, that is the combination the start-up
-    /// warning is about.
+    /// `null` means unset, not unlimited. On an instance taking anonymous
+    /// uploads, that combination is what the start-up warning is about.
     pub quota_bytes: Option<u64>,
-    /// How many invites could still admit somebody.
+    /// How many invites could still admit an account.
     pub live_invites: u64,
 }
 
@@ -657,11 +649,10 @@ pub async fn stats(
 
     Ok(Json(StatsResponse {
         accounts: state.users.count().await?,
-        // Counted over the permission, not over `users.is_admin`. The column is
-        // a mirror kept for rollback and nothing reads it to decide anything;
-        // once roles can be assigned directly it stops matching, and a number on
-        // a dashboard that quietly disagrees with who can actually administer
-        // the instance is worse than no number.
+        // Counted over the permission, not `users.is_admin`. That column is a
+        // mirror kept for rollback and decides nothing; once roles can be
+        // assigned directly it stops matching, and a dashboard number that
+        // disagrees with who can administer the instance is worse than none.
         administrators: state.roles.holders_of(Permission::RolesWrite).await?,
         shares,
         live_shares,
@@ -687,8 +678,8 @@ pub struct RoleResponse {
     pub description: Option<String>,
     /// Whether it is one of the two the instance was seeded with.
     ///
-    /// Those cannot be deleted — an instance whose administrator role has been
-    /// removed has nobody who can create one. They can still be edited.
+    /// Those cannot be deleted: an instance whose administrator role was
+    /// removed has no account left that could create one. They can be edited.
     pub is_system: bool,
     /// What it allows, as `resource:verb` strings.
     #[schema(example = json!(["users:read"]))]
@@ -705,8 +696,8 @@ pub struct RoleResponse {
     pub max_file_bytes: Option<u64>,
     /// How many accounts are in it.
     ///
-    /// The number an operator wants before editing one: changing a role that
-    /// nobody holds is free, and changing one that forty people hold is not.
+    /// What an operator wants before editing. Changing an empty role is free;
+    /// changing one held by forty accounts is not.
     pub members: u64,
     /// When it was created, RFC 3339.
     pub created_at: String,
@@ -754,25 +745,25 @@ pub struct RoleRequest {
     /// Largest single file accounts in this role may send.
     ///
     /// Omit or send `null` to fall back to `server.max_body_bytes`; send `0`
-    /// for no limit of its own. `server.max_body_bytes` still applies on top —
-    /// this cannot raise it, only lower it.
+    /// for no limit of its own. `server.max_body_bytes` still applies on top,
+    /// so this can only lower it.
     #[serde(default)]
     #[schema(example = 5_368_709_120_u64)]
     pub max_file_bytes: Option<u64>,
     /// Everything it should allow, as `resource:verb` strings.
     ///
-    /// The whole set, not a change to it. Two operators editing the same role
-    /// from two screens cannot interleave their edits into a set neither of
-    /// them chose — the last one to press save wins, visibly.
+    /// The whole set, not a change to it, so two operators editing the same
+    /// role cannot interleave their edits into a set neither chose. The last
+    /// one to press save wins, visibly.
     pub permissions: Vec<String>,
 }
 
 impl RoleRequest {
     /// Reads the permission names, refusing any this version does not have.
     ///
-    /// Refused rather than ignored: an operator who ticks something and is told
-    /// it was saved should get what they ticked. Silently dropping one produces
-    /// a role that does less than the screen says it does.
+    /// Refused, not ignored. An operator told their tick was saved
+    /// should get it. Dropping one silently produces a role that does less than
+    /// the screen says.
     fn permissions(&self) -> Result<PermissionSet> {
         self.permissions
             .iter()
@@ -797,9 +788,8 @@ impl RoleRequest {
 
 /// The longest a role name may be.
 ///
-/// Matches the `VARCHAR(191)` the MySQL migration uses — a name that fits on
-/// two of the three dialects and is truncated on the third is worse than one
-/// that is refused everywhere.
+/// Matches the `VARCHAR(191)` the MySQL migration uses. A name that fits two
+/// dialects and is truncated on the third is worse than one refused everywhere.
 const ROLE_NAME_LIMIT: usize = 191;
 
 /// Body of `PUT /admin/users/{id}/roles`.
@@ -807,17 +797,16 @@ const ROLE_NAME_LIMIT: usize = 191;
 pub struct UserRolesRequest {
     /// The role this account should be in, or `null` for none.
     ///
-    /// `null` is signed in and allowed nothing — a real state, and what an
-    /// empty list used to mean.
+    /// `null` is signed in and allowed nothing: a real state, and what an empty
+    /// list used to mean.
     #[serde(default)]
     pub role: Option<String>,
 }
 
 /// Every permission this version has, so a screen can offer them.
 ///
-/// Sent rather than hard-coded in the client: a client listing permissions it
-/// was built against would silently stop offering ones added since, and the
-/// operator would have no way to grant them.
+/// Sent, not hard-coded in the client, which would stop offering any
+/// permission added since it was built and leave no way to grant them.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PermissionResponse {
     /// The `resource:verb` string.
@@ -825,8 +814,8 @@ pub struct PermissionResponse {
     pub name: String,
     /// Whether it reaches beyond the holder's own things.
     ///
-    /// The question an operator is actually asking of a role they are about to
-    /// grant: does this let them touch other people?
+    /// What an operator is really asking of a role they are about to grant:
+    /// does this let them touch other people?
     pub privileged: bool,
 }
 
@@ -907,10 +896,9 @@ pub async fn list_permissions(
 ///
 /// # Why a caller cannot grant what they do not hold
 ///
-/// Otherwise `roles:write` is every permission: somebody holding only that
-/// could mint a role granting `users:delete`, put themselves in it, and have
-/// it. The check makes `roles:write` mean "may hand out what I have" rather
-/// than "may hand out anything".
+/// Otherwise `roles:write` is every permission. An account holding only that
+/// could mint a role granting `users:delete` and join it. The check makes it
+/// mean "may hand out what I have".
 ///
 /// # Errors
 ///
@@ -972,8 +960,8 @@ pub async fn create_role(
 /// `400` when the name or a permission is not usable, `401` when nothing was
 /// signed in, `403` when the caller may not write roles, used a bearer token,
 /// or asked for a permission they do not hold, `404` when no role has that
-/// identifier, `409` when the name is taken or the change would leave nobody
-/// able to administer the instance.
+/// identifier, `409` when the name is taken or the change would leave no
+/// account able to administer the instance.
 #[utoipa::path(
     put,
     path = "/admin/roles/{id}",
@@ -1014,15 +1002,14 @@ pub async fn update_role(
         return Err(Error::Conflict("a role already has that name".to_owned()));
     }
 
-    // A built-in role means the same thing on every instance, and that is the
-    // whole of its value: documentation, support conversations and the
-    // `auth.default_role` setting all name one expecting it to mean what it
-    // means everywhere else.
+    // A built-in role means the same thing on every instance, and that is its
+    // value: documentation, support conversations and `auth.default_role`
+    // all name one expecting it to mean what it means elsewhere.
     //
-    // The name is not part of that — an operator who wants to read `管理員` is
-    // changing a label, not a meaning — so only the permissions are refused.
-    // The way to have ordinary accounts do less is a role of your own, and
-    // `auth.default_role` to send new accounts into it.
+    // The name is not part of that, since an operator who wants to read `管理員`
+    // is changing a label, so only the permissions are refused. To have
+    // ordinary accounts do less, make a role and point `auth.default_role` at
+    // it.
     if existing.is_system && permissions != existing.permissions {
         return Err(Error::Conflict(
             "a built-in role's permissions cannot be changed; make a role of your own and point              auth.default_role at it"
@@ -1070,9 +1057,9 @@ pub async fn update_role(
 
 /// Removes a role.
 ///
-/// Anybody in it stops being in it, which can leave somebody in no role at all
-/// — signed in and allowed nothing. That is a real state and not an error; the
-/// listing shows how many people it would affect.
+/// Every member stops being one, which can leave an account in no role at all,
+/// signed in and allowed nothing. That is a real state, not an error, and the
+/// listing shows how many accounts it would affect.
 ///
 /// # Errors
 ///
@@ -1131,7 +1118,7 @@ pub async fn delete_role(
 /// `400` when a role identifier is not one, `401` when nothing was signed in,
 /// `403` when the caller may not write roles, used a bearer token, or would be
 /// granting a permission they do not hold, `404` when no such account or role,
-/// `409` when it would leave nobody able to administer the instance.
+/// `409` when it would leave no account able to administer the instance.
 #[utoipa::path(
     put,
     path = "/admin/users/{id}/roles",
@@ -1169,8 +1156,8 @@ pub async fn set_user_roles(
         .transpose()?;
 
     // What the account would end up holding, checked against what the caller
-    // holds — otherwise `roles:write` is a way to give somebody else, and then
-    // oneself, anything at all.
+    // holds. Otherwise `roles:write` is a way to grant another account, and
+    // then your own, anything at all.
     let resulting = match wanted {
         Some(role) => {
             let Some(found) = state.roles.find_by_id(role).await? else {
@@ -1209,7 +1196,7 @@ pub async fn set_user_roles(
 
 /// Refuses to hand out a permission the caller does not hold.
 ///
-/// Without it, `roles:write` is every permission — see [`create_role`].
+/// Without it, `roles:write` is every permission. See [`create_role`].
 fn refuse_escalation(current: &CurrentUser, wanted: &PermissionSet) -> Result<()> {
     for permission in wanted.iter() {
         current.require(permission)?;
@@ -1219,11 +1206,10 @@ fn refuse_escalation(current: &CurrentUser, wanted: &PermissionSet) -> Result<()
 
 /// One share, as an administrator sees it.
 ///
-/// Deliberately not the same shape a person sees of their own: this listing
-/// exists to find things that need removing, so it carries who uploaded it and
-/// how big it is, and it never carries the retrieval code. An administrator who
-/// can read every code can open every share, and that is a different power from
-/// being able to delete one.
+/// Not the shape a person sees of their own. This listing exists to find things
+/// that need removing, so it carries who uploaded it and how big
+/// it is, and never the retrieval code: an administrator who can read every
+/// code can open every share, a different power from deleting one.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AdminShareResponse {
     /// Stable identifier, for [`delete_share`].
@@ -1234,7 +1220,7 @@ pub struct AdminShareResponse {
     pub kind: String,
     /// What the uploader called it, when the share holds exactly one file.
     ///
-    /// `null` for text and for a share with several — see `file_count`.
+    /// `null` for text and for a share with several. See `file_count`.
     pub filename: Option<String>,
     /// How many files it holds. Zero for text.
     pub file_count: u32,
@@ -1243,19 +1229,18 @@ pub struct AdminShareResponse {
     /// How many bytes it has sent out, over its whole life.
     ///
     /// The instance-wide figure in `StatsResponse` answers "what is this
-    /// costing me"; this answers the question that follows it, which is which
-    /// share to do something about. One link posted somewhere busy is the way
-    /// an operator finds out their transfer is being spent, and the total
-    /// cannot say which one.
+    /// costing me"; this answers which share to do something about. One link
+    /// posted somewhere busy is usually where the transfer went, and the total
+    /// cannot say which.
     ///
     /// Not `size_bytes` times `use_count`: a range request, a resumed download
     /// and an abandoned one all send some other amount.
     pub bytes_served: u64,
-    /// Who uploaded it, or `null` when nobody was signed in.
+    /// Who uploaded it, or `null` for an anonymous upload.
     ///
-    /// An account that has since been deleted still appears here — the row it
-    /// left behind is what keeps this answerable. `null` means the upload was
-    /// anonymous, which is a different fact and worth telling apart.
+    /// An account deleted since still appears here, because the row it left
+    /// keeps this answerable. `null` means the upload was anonymous, a
+    /// different fact worth telling apart.
     pub owner_id: Option<String>,
     /// Whether a visitor could still open it.
     pub active: bool,
@@ -1291,9 +1276,8 @@ impl AdminShareResponse {
 pub struct UserListParams {
     /// Include accounts that have been deleted.
     ///
-    /// Off by default: what is left of one identifies nobody and cannot be
-    /// acted on, so it belongs in an answer somebody asked for rather than in
-    /// every listing.
+    /// Off by default. What is left of one identifies no person and cannot be
+    /// acted on, so it belongs only in an answer that asked for it.
     #[serde(default)]
     pub include_deleted: bool,
 }
@@ -1363,9 +1347,9 @@ pub struct AccessEventResponse {
     pub occurred_at: String,
     /// Where the request came from, or `null` when there was no honest answer.
     ///
-    /// Behind a proxy this instance does not trust, the address it can see is
-    /// the proxy's. A null says so; the proxy's own address would be a record
-    /// of the wrong person.
+    /// Behind a proxy this instance does not trust, the visible address is the
+    /// proxy's. A null says so; recording the proxy's address would record the
+    /// wrong person.
     #[schema(example = "203.0.113.9")]
     pub ip_address: Option<String>,
     /// What the client called itself, as presented and truncated.
@@ -1378,9 +1362,9 @@ pub struct AccessEventResponse {
 pub struct AccessLogResponse {
     /// Whether this instance is recording at all.
     ///
-    /// An empty list means two different things — nobody has fetched it, or
-    /// nothing is being written down — and a screen that cannot tell them apart
-    /// will report the second as the first.
+    /// An empty list means the share was never fetched, or that recording is
+    /// off. A screen that cannot tell those apart reports the second as the
+    /// first.
     pub enabled: bool,
     /// The events, most recent first.
     pub events: Vec<AccessEventResponse>,
@@ -1392,11 +1376,11 @@ pub struct AccessLogResponse {
 ///
 /// The switch belongs to whoever runs the instance, so the record does too.
 /// Handing visitor addresses to every uploader would be a second decision about
-/// somebody else's privacy, taken on behalf of an operator who only agreed to
-/// the first — and on a shared instance the uploader is not the operator.
+/// a visitor's privacy, made on behalf of an operator who agreed only to the
+/// first. On a shared instance the uploader is not the operator.
 ///
-/// If an instance wants uploaders to see their own, that is a deliberate change
-/// to make, not one to arrive at by leaving this open.
+/// Letting uploaders see their own is a deliberate change to make, not one to
+/// arrive at by leaving this open.
 ///
 /// # Errors
 ///
@@ -1456,10 +1440,9 @@ pub async fn share_access_log(
 /// # Why this exists
 ///
 /// The ordinary delete route asks whether the caller owns the share. An upload
-/// from an account that has since been deleted is owned by nobody, so nothing
-/// could remove it — it kept serving its content, kept its place in the storage
-/// quota, and was never swept if it had no expiry and no use limit. This is the
-/// only way to reach one.
+/// from a since-deleted account has no owner, so nothing could remove it. It
+/// kept serving, kept its place in the storage quota, and was never swept if it
+/// had no expiry and no use limit. This is the only way to reach one.
 ///
 /// # Errors
 ///
@@ -1492,11 +1475,9 @@ pub async fn delete_share(
         return Err(Error::NotFound);
     };
 
-    // The object first, for the same reason the owner's own delete does it in
-    // this order: a row without its object is a broken share, an object without
-    // its row is an orphan a sweep can still find by listing.
-    // Every object, not the first: a share can hold several, and removing one
-    // would leave the rest paid for and unreachable.
+    // Objects first, and every object, since a share can hold several. A row
+    // without its object is a broken share; an object without its row is an
+    // orphan a sweep can still find by listing.
     for key in state.shares.object_keys_of(share_id).await? {
         state
             .storage
@@ -1513,8 +1494,8 @@ pub async fn delete_share(
 pub struct RemovedSharesResponse {
     /// How many were still live and are now finished.
     ///
-    /// The bytes go as the reaper reaches them, so this number is not how much
-    /// space came back yet.
+    /// The bytes go as the reaper reaches them, so this is not how much space
+    /// has come back.
     pub removed: u64,
 }
 
@@ -1522,14 +1503,13 @@ pub struct RemovedSharesResponse {
 ///
 /// # Why this is not part of deleting the account
 ///
-/// Removing somebody and destroying what they uploaded are different acts. An
+/// Removing an account and destroying what it uploaded are different acts. An
 /// operator clearing space wants this and not that; one removing a person who
-/// has left wants that and not this. Welding them together would make one of
-/// those two impossible and the other a surprise.
+/// has left wants the reverse. Welding them together makes one impossible and
+/// the other a surprise.
 ///
-/// It works on an account in any state, including one still in use — an
-/// operator reclaiming space from somebody who is still here should not have to
-/// suspend them first.
+/// It works on an account in any state, including one still in use. Reclaiming
+/// space from an active account should not require suspending it first.
 ///
 /// # Errors
 ///

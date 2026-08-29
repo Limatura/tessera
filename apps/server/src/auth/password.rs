@@ -28,15 +28,15 @@ pub enum PasswordError {
 ///
 /// # Why there is a limit at all
 ///
-/// Each hash holds `auth.hashing.memory_kib` — 19 MiB by default — for its
-/// duration, and `spawn_blocking`
-/// will happily run hundreds in parallel. Without a bound, an unauthenticated
-/// stranger sending sign-in attempts as fast as the network allows makes the
+/// Each hash holds `auth.hashing.memory_kib` (19 MiB by default) for its
+/// duration, and `spawn_blocking` will happily run hundreds in parallel. Without a bound, an
+/// unauthenticated stranger sending sign-in attempts as fast as the network allows makes the
 /// process allocate until it is killed. Measured before this existed: a few
 /// hundred requests over a couple of seconds took resident memory from 34 MB to
 /// 792 MB, and nothing in the request path stopped it.
 ///
-/// Requests past the limit wait rather than fail. Hashing is CPU-bound, so more
+/// Requests past the limit wait, they do not fail. Hashing is CPU-bound, so
+/// more
 /// of it in parallel than there are cores buys nothing anyway; the queue is what
 /// turns "allocate without limit" into "take longer", and the request timeout is
 /// what ends it.
@@ -53,8 +53,8 @@ static IN_FLIGHT: LazyLock<tokio::sync::Semaphore> = LazyLock::new(|| {
 
 /// Peak memory the hasher can hold, for the start-up log.
 ///
-/// The configured cost times how many hashes may run at once — which is the
-/// number an operator sizing a small machine actually needs.
+/// The configured cost times how many hashes may run at once: the number an
+/// operator sizing a small machine needs.
 #[must_use]
 pub fn peak_memory_bytes(cost: HashingConfig) -> u64 {
     let permits = u64::try_from(IN_FLIGHT.available_permits()).unwrap_or(0);
@@ -70,7 +70,7 @@ fn hasher(cost: HashingConfig) -> Result<Argon2<'static>, PasswordError> {
 /// Hashes a password, returning a PHC string.
 ///
 /// The result carries its own parameters, so raising the cost later does not
-/// invalidate existing passwords — they verify against what they were made with
+/// invalidate existing passwords: they verify against what they were made with
 /// and can be re-hashed on next login.
 ///
 /// # Errors
@@ -81,8 +81,8 @@ pub async fn hash(password: Password, cost: HashingConfig) -> Result<String, Pas
         .acquire()
         .await
         .map_err(|_| PasswordError::Cancelled)?;
-    // Argon2 is deliberately slow and deliberately memory-hungry: it is CPU-bound
-    // work measured in tens of milliseconds. Running it on an async worker would
+    // Argon2 is slow and memory-hungry by design: CPU-bound work measured in
+    // tens of milliseconds. Running it on an async worker would
     // block that thread for the duration, stalling every other request the
     // executor had scheduled there. Nothing in the lint set catches this; it has
     // to be remembered, so it is written down.
@@ -99,7 +99,7 @@ pub async fn hash(password: Password, cost: HashingConfig) -> Result<String, Pas
 
 /// Whether `password` matches `stored`.
 ///
-/// A malformed stored hash is reported as "does not match" rather than as an
+/// A malformed stored hash is reported as "does not match" and not as an
 /// error, so a corrupted row cannot be told apart from a wrong password by
 /// anyone probing the login endpoint.
 ///
@@ -107,7 +107,7 @@ pub async fn hash(password: Password, cost: HashingConfig) -> Result<String, Pas
 ///
 /// Returns [`PasswordError::Cancelled`] if the runtime is shutting down.
 pub async fn verify(password: Password, stored: String) -> Result<bool, PasswordError> {
-    // Held for the whole verification — see `IN_FLIGHT`. This is the path an
+    // Held for the whole verification; see `IN_FLIGHT`. This is the path an
     // attacker reaches, because a wrong password still costs a full hash.
     let _permit = IN_FLIGHT
         .acquire()
@@ -137,7 +137,7 @@ mod tests {
     }
 
     /// The bound is what stops an unauthenticated stranger making the process
-    /// allocate until it dies. Asserted rather than assumed, because the failure
+    /// allocate until it dies. Asserted, not assumed, because the failure
     /// is invisible until the machine is out of memory.
     #[test]
     fn the_hasher_reserves_a_bounded_amount_of_memory() {
@@ -210,7 +210,8 @@ mod tests {
         );
     }
 
-    /// The hash carries its parameters, which is what lets the cost be raised
+    /// The hash carries its parameters, and that is what lets the cost be
+    /// raised
     /// later without locking anybody out.
     #[tokio::test]
     async fn the_stored_hash_is_a_phc_string_naming_its_parameters() {
@@ -242,8 +243,8 @@ mod tests {
     /// The reason `auth.hashing` is safe to change on a running instance: the
     /// parameters are written into the hash, so verification reads the cost the
     /// hash was made with, not the one configured now. Without this, raising
-    /// the cost would lock every existing account out — which is the failure an
-    /// operator would only discover from their users.
+    /// the cost would lock every existing account out, a failure an operator
+    /// would only discover from their users.
     #[tokio::test]
     async fn changing_the_cost_does_not_invalidate_an_existing_hash() {
         let cheap = HashingConfig {
@@ -270,9 +271,9 @@ mod tests {
     }
 
     /// The configured cost is what a new hash is actually made with. Reading it
-    /// back out of the PHC string is the only way to tell — a hash made with
-    /// the wrong parameters is indistinguishable from a correct one until
-    /// somebody counts how long it took.
+    /// back out of the PHC string is the only way to tell, since a hash made
+    /// with the wrong parameters is indistinguishable from a correct one until
+    /// the time it takes is measured.
     #[tokio::test]
     async fn the_configured_cost_is_the_one_written_into_the_hash() {
         let cost = HashingConfig {

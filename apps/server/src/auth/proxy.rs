@@ -10,14 +10,14 @@
 //!
 //! # Why the *rightmost* entry
 //!
-//! The obvious reading — "the client is the first name in the list" — is wrong
+//! The obvious reading, "the client is the first name in the list", is wrong
 //! even when a reverse proxy really is in front, and this was measured rather
 //! than argued. nginx's `$proxy_add_x_forwarded_for` *appends* the address it
-//! saw to whatever arrived, so a request that shows up carrying
-//! `X-Forwarded-For: 198.51.100.7` leaves the proxy as
-//! `198.51.100.7, 10.0.0.5` — the fabricated entry on the left, the real client
-//! on the right. Two hundred sign-in attempts, each prepending a different
-//! address, were all answered by an instance whose throttle blocks the eleventh.
+//! saw to whatever arrived, so a request carrying `X-Forwarded-For:
+//! 198.51.100.7` leaves the proxy as `198.51.100.7, 10.0.0.5`: the fabricated
+//! entry on the left, the real client on the right. Two hundred sign-in
+//! attempts, each prepending a different address, were all answered by an
+//! instance whose throttle blocks the eleventh.
 //!
 //! So the walk goes the other way: start at the peer, move leftwards, and stop
 //! at the first address that is not one of ours. Everything to the left of that
@@ -30,20 +30,20 @@ use ipnet::IpNet;
 
 /// What [`Origin::source`] says when there was no address to be had.
 ///
-/// A throttle needs a key whatever happens, so this stands in for one. It is
-/// named rather than written twice because anything *storing* an origin has to
-/// be able to recognise it and store nothing instead — a column reading
-/// `unknown` looks to a person like somewhere a session came from.
+/// A throttle needs a key whatever happens, so this stands in for one. Named
+/// and not written twice, because anything *storing* an origin has to
+/// recognise it and store nothing instead: a column reading `unknown` looks to
+/// a person like somewhere a session came from.
 pub const UNPLACEABLE: &str = "unknown";
 
 /// The one spelling an address is compared and counted under.
 ///
-/// A socket bound to `::` accepts IPv4 connections and reports them mapped —
+/// A socket bound to `::` accepts IPv4 connections and reports them mapped, so
 /// `127.0.0.1` arrives as `::ffff:127.0.0.1`. Without this, `server.host: "::"`
-/// silently stops a list containing `127.0.0.1` from ever matching: the proxy
-/// is then not trusted, every caller collapses onto its address, and the tenth
-/// failed sign-in on the whole instance locks out the eleventh person. Measured,
-/// and it is the sort of failure nobody would think to look here for.
+/// silently stops a list containing `127.0.0.1` from matching: the proxy is not
+/// trusted, every caller collapses onto its address, and the tenth failed
+/// sign-in on the whole instance locks out the eleventh person. Measured, and
+/// the sort of failure that sends you looking anywhere but here.
 ///
 /// It also keeps one client on one throttle key: the same person reaching a
 /// dual-stack instance over v4 and over v6-mapped-v4 is one person.
@@ -72,11 +72,11 @@ pub struct TrustedProxies {
     nets: Vec<IpNet>,
     /// Set by the deprecated `server.trusted_proxy` boolean.
     ///
-    /// It means "whatever connects to us is a proxy", which is the one thing a
-    /// list cannot express — and deliberately so, since it is the setting that
-    /// makes the header forgeable by anyone who can reach the port directly. It
-    /// does *not* extend to the rest of the chain: the peer is believed about
-    /// the address it saw, and nothing further left is.
+    /// It means "whatever connects to us is a proxy", the one thing a list
+    /// cannot express, since it makes the header forgeable by anyone who can
+    /// reach the port directly. It does *not* extend to the rest
+    /// of the chain: the peer is believed about the address it saw, and nothing
+    /// further left is.
     any_peer: bool,
 }
 
@@ -93,8 +93,8 @@ impl TrustedProxies {
             if entry.is_empty() {
                 continue;
             }
-            // A bare address is the common case in a compose file — one proxy,
-            // one address — and writing `/32` after it is a step people forget.
+            // A bare address is the common case in a compose file, one proxy
+            // and one address, and writing `/32` after it is easy to forget.
             let parsed = entry
                 .parse::<IpNet>()
                 .or_else(|_| entry.parse::<IpAddr>().map(IpNet::from));
@@ -115,7 +115,7 @@ impl TrustedProxies {
         }
     }
 
-    /// Whether nothing is trusted, which is the default.
+    /// Whether nothing is trusted, the default.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.nets.is_empty() && !self.any_peer
@@ -123,11 +123,11 @@ impl TrustedProxies {
 
     /// Whether the list contains a block that covers every address.
     ///
-    /// `0.0.0.0/0` is the entry somebody reaches for when the real proxy address
-    /// is awkward to find, and it does more than the boolean it replaced: every
-    /// hop in the chain is then one of ours too, so the walk runs all the way to
-    /// the leftmost entry — the one the caller wrote. It is worth saying so out
-    /// loud rather than letting it look like a configured proxy.
+    /// `0.0.0.0/0` is the entry to reach for when the real proxy address is
+    /// awkward to find, and it does more than the boolean it replaced: every
+    /// hop in the chain is then one of ours, so the walk runs all the way to
+    /// the leftmost entry, the one the caller wrote. Worth saying out
+    /// loud instead of letting it look like a configured proxy.
     #[must_use]
     pub fn covers_everything(&self) -> bool {
         self.nets.iter().any(|net| net.prefix_len() == 0)
@@ -139,15 +139,15 @@ impl TrustedProxies {
         self.nets.iter().any(|net| net.contains(&address))
     }
 
-    /// Whether the thing on the other end of the socket may speak for somebody.
+    /// Whether the peer on the other end of the socket may speak for a client.
     fn peer_is_proxy(&self, peer: IpAddr) -> bool {
         self.any_peer || self.is_proxy(peer)
     }
 
     /// Resolves who a request is from.
     ///
-    /// `peer` is `None` when the router is called directly rather than served
-    /// over a socket, which is how the tests drive it. There is no address to
+    /// `peer` is `None` when the router is called directly instead of served
+    /// over a socket, as the tests drive it. There is no address to
     /// report then, and none to trust.
     #[must_use]
     pub fn resolve(&self, peer: Option<IpAddr>, headers: &HeaderMap) -> Origin {
@@ -159,7 +159,7 @@ impl TrustedProxies {
         };
 
         if !self.peer_is_proxy(peer) {
-            // Not a proxy of ours, so whatever it says about somebody else is
+            // Not a proxy of ours, so whatever it claims about the client is
             // just something it wrote.
             return Origin {
                 source: peer.to_string(),
@@ -191,7 +191,7 @@ impl TrustedProxies {
 /// The forwarded chain, left to right, across however many headers carried it.
 ///
 /// A chain may arrive as one header with commas or as several headers, and both
-/// mean the same thing — so both are read, in the order they were received.
+/// mean the same thing, so both are read in the order they were received.
 fn forwarded_chain(headers: &HeaderMap) -> impl DoubleEndedIterator<Item = &str> {
     headers
         .get_all("x-forwarded-for")
@@ -298,7 +298,7 @@ mod tests {
         assert_eq!(origin.source, "10.0.0.1");
     }
 
-    /// Garbage in the chain stops the walk rather than being skipped over:
+    /// Garbage in the chain stops the walk instead of being skipped over.
     /// skipping would let anyone reach past a proxy by writing something
     /// unparsable in front of the address they wanted to claim.
     #[test]
@@ -310,8 +310,8 @@ mod tests {
         assert_eq!(origin.source, "10.0.0.9");
     }
 
-    /// The deprecated boolean believes whoever connected, but only about the one
-    /// hop it saw — so the chain in front of it is still not walked.
+    /// The deprecated boolean believes whoever connected, but only about the
+    /// one hop it saw, so the chain in front of it is still not walked.
     #[test]
     fn the_deprecated_boolean_believes_one_hop_only() {
         let origin = TrustedProxies::any_peer().resolve(

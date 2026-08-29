@@ -3,18 +3,18 @@
 //! Three extractors, so a handler's signature states what it needs and the
 //! compiler enforces it:
 //!
-//! - [`CurrentUser`] — signed in, any account.
-//! - [`MaybeUser`] — signed in or not; for endpoints that serve both.
+//! - [`CurrentUser`]: signed in, any account.
+//! - [`MaybeUser`]: signed in or not, for endpoints that serve both.
 //!
 //! There used to be a third for administrators. Roles replaced it: what a
-//! handler needs is a *permission*, and there is no extractor for "holds
-//! `users:write`" that would not be one type per permission. So the extractor
-//! answers who is asking, and the handler names what it requires —
-//! [`CurrentUser::require`], or `admitted` for the administrative surface.
+//! handler needs is a *permission*, and an extractor for "holds `users:write`"
+//! would be one type per permission. So the extractor answers who is asking and
+//! the handler names what it requires, with [`CurrentUser::require`] or
+//! `admitted` for the administrative surface.
 //!
 //! A handler cannot forget to ask who is calling: there is no way to reach the
 //! account except through one of these. It *can* forget to check a permission,
-//! which is why every administrative route goes through one helper rather than
+//! so every administrative route goes through one helper instead of
 //! spelling the check itself.
 
 use std::{convert::Infallible, net::SocketAddr};
@@ -40,11 +40,10 @@ pub enum Credential {
     Session {
         /// Which session it was.
         ///
-        /// Carried rather than looked up again, because two things need it and
-        /// both would otherwise have to find the row a second time: ending every
-        /// session *except this one*, and marking the current entry in a list of
-        /// them. A handler that has to re-find its own session by secret is one
-        /// that can get the answer wrong.
+        /// Carried, not looked up again, because two things need it and
+        /// would otherwise find the row a second time: ending every session
+        /// *except this one*, and marking the current entry in a list. A
+        /// handler that re-finds its own session by secret can get it wrong.
         id: SessionId,
     },
     /// A bearer token, from a script, the CLI or a bot.
@@ -54,11 +53,11 @@ pub enum Credential {
 impl Credential {
     /// Whether a browser session proved this request.
     ///
-    /// Four handlers ask this, and they all ask it for the same reason: a leaked
-    /// API token must not be able to mint another token, revoke one, change the
-    /// password, or sign the account out. Keeping it a question rather than an
-    /// equality check means adding a field to [`Credential::Session`] does not
-    /// touch any of them.
+    /// Four handlers ask this, all for the same reason: a leaked API token must
+    /// not be able to mint another token, revoke one, change the password, or
+    /// sign the account out. Keeping it a question, not an equality
+    /// check means adding a field to [`Credential::Session`] touches none of
+    /// them.
     #[must_use]
     pub const fn is_session(self) -> bool {
         matches!(self, Self::Session { .. })
@@ -76,21 +75,21 @@ impl Credential {
 
 /// An authenticated account that is free to act.
 ///
-/// An account whose password must be changed is **not** one of these. That check
-/// lives here, in the extractor every handler already has to go through, rather
-/// than in each handler — a flag the server reports but does not enforce is a
-/// request that the client please behave, and the one account that carries it is
-/// the administrator of the instance.
+/// An account whose password must be changed is **not** one of these. The check
+/// lives here, in the extractor every handler already goes through, instead of
+/// in each handler: a flag the server reports but does not enforce is a request
+/// that the client please behave, and the one account carrying it is the
+/// instance's administrator.
 #[derive(Debug, Clone)]
 pub struct CurrentUser {
     /// The account.
     pub user: User,
-    /// Which mechanism proved it, so a handler can refuse one of them where
-    /// that matters — changing a password with an API token, for instance.
+    /// Which mechanism proved it, so a handler can refuse one where that
+    /// matters, such as changing a password with an API token.
     pub credential: Credential,
     /// Everything this account is allowed to do, from every role it is in.
     ///
-    /// Loaded once here rather than queried by each handler: a handler that has
+    /// Loaded once here, not queried by each handler. A handler that has
     /// to remember to ask is a handler that can forget to.
     pub permissions: PermissionSet,
 }
@@ -98,19 +97,19 @@ pub struct CurrentUser {
 impl CurrentUser {
     /// Refuses the request unless this account holds the permission.
     ///
-    /// # Why the handler names it rather than an extractor
+    /// # Why the handler names it instead of an extractor
     ///
     /// `AdminUser` said "one of the privileged endpoints" and nothing more, so
-    /// every one of them was as powerful as the most powerful. Naming the
-    /// permission at the point of use is what makes a role like "can invite
-    /// people but cannot delete accounts" possible, and it is greppable: the
-    /// answer to "what does `users:delete` protect" is a search.
+    /// every one was as powerful as the most powerful. Naming the permission at
+    /// the point of use is what makes a role like "can invite people but cannot
+    /// delete accounts" possible, and it is greppable: "what does
+    /// `users:delete` protect" is a search.
     ///
     /// # Errors
     ///
     /// Returns [`Error::Forbidden`] when the account does not hold it. Forbidden
-    /// rather than not-found: the caller is authenticated, so telling them the
-    /// endpoint exists reveals nothing they could not read in the contract.
+    /// and not not-found, because the caller is authenticated and the
+    /// contract already says the endpoint exists.
     pub fn require(&self, permission: Permission) -> Result<(), Error> {
         if self.permissions.allows(permission) {
             Ok(())
@@ -124,8 +123,8 @@ impl CurrentUser {
 ///
 /// For the three endpoints that must keep working while an account is held in
 /// the change-password flow: reading its own identity, changing the password,
-/// and signing out. Everything else takes [`CurrentUser`], so forgetting to
-/// think about this state gives you the strict behaviour rather than the lax one.
+/// and signing out. Everything else takes [`CurrentUser`], so forgetting this
+/// state gives the strict behaviour, not the lax one.
 #[derive(Debug, Clone)]
 pub struct SelfServiceUser(pub CurrentUser);
 
@@ -140,8 +139,8 @@ impl FromRequestParts<AppState> for MaybeUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        // An instance with accounts turned off has nobody to be. Answering
-        // "not signed in" rather than erroring keeps every endpoint that serves
+        // An instance with accounts turned off has no account to be. Answering
+        // "not signed in" instead of erroring keeps every endpoint that serves
         // both cases working unchanged.
         if !state.config().features.accounts {
             return Ok(Self(None));
@@ -182,10 +181,10 @@ impl FromRequestParts<AppState> for CurrentUser {
 /// Used for throttle keys, never for authorisation: it is a hint, and a shared
 /// NAT or a VPN makes many people look like one address.
 ///
-/// Carries whether it came through a proxy this instance trusts, because the
-/// same fact decides two things — which address to count against, and whether
-/// `X-Forwarded-Proto` is worth reading — and working it out twice is how the
-/// two answers drift apart.
+/// Carries whether it came through a proxy this instance trusts, because that
+/// one fact decides both which address to count against and whether
+/// `X-Forwarded-Proto` is worth reading. Working it out twice is how the two
+/// answers drift apart.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientAddress(pub Origin);
 
@@ -198,7 +197,7 @@ impl FromRequestParts<AppState> for ClientAddress {
     ) -> Result<Self, Self::Rejection> {
         // The peer address is only present when the server was started with
         // `into_make_service_with_connect_info`. A test harness that calls the
-        // router directly has none, which is why this cannot fail.
+        // router directly has none, so this cannot fail.
         let peer = parts
             .extensions
             .get::<ConnectInfo<SocketAddr>>()
@@ -209,10 +208,10 @@ impl FromRequestParts<AppState> for ClientAddress {
 
 /// Resolves whichever credential the request carried.
 ///
-/// The cookie is tried first because a browser sends it on every request,
-/// whereas a bearer token is only present when something deliberately attached
-/// one. A request carrying both is a browser calling with an explicit token, and
-/// the explicit one should not be silently ignored — so the header wins.
+/// The cookie is tried first, because a browser sends it on every request while
+/// a bearer token appears only when something attached one. A request carrying
+/// both is a browser calling with an explicit token, and the
+/// explicit one should not be silently ignored, so the header wins.
 async fn authenticate(parts: &Parts, state: &AppState) -> Result<Option<CurrentUser>, Error> {
     if let Some(secret) = bearer_token(parts) {
         return authenticate_token(&secret, state).await;
@@ -246,12 +245,12 @@ async fn authenticate_session(
 
     let now = OffsetDateTime::now_utc();
     if !session.is_valid_at(now) {
-        // Refused, and the row is left alone. It used to be deleted here, on the
-        // grounds that a presented-but-dead session was the cheapest moment to
-        // clean one up — but the row is the record of that login now, and this
-        // is the moment it matters most: somebody presenting a session that was
-        // revoked is somebody still holding a credential the owner took away.
-        // Deleting it would erase exactly the entry they need to see.
+        // Refused, and the row is left alone. It used to be deleted here, on
+        // the grounds that a presented-but-dead session was the cheapest moment
+        // to clean one up, but the row is the record of that login now and this
+        // is when it matters most. A revoked session being presented means the
+        // credential the owner took away is still in use, and deleting it would
+        // erase the entry they need to see.
         return Ok(None);
     }
 
@@ -262,8 +261,8 @@ async fn authenticate_session(
         return Ok(None);
     };
     // Suspending or removing an account has to stop the sessions it already
-    // holds, not only the next sign-in — otherwise somebody suspended at noon
-    // carries on working until their cookie happens to expire.
+    // holds, not only the next sign-in, or an account suspended at noon keeps
+    // working until its cookie happens to expire.
     if !user.state.may_sign_in() {
         return Ok(None);
     }
@@ -305,8 +304,8 @@ async fn authenticate_token(
     state.tokens.touch(token.id, now).await?;
     // What the token was given, and no more than its owner may do *now*. Both
     // halves matter: a token cannot exceed the account that minted it, and
-    // demoting somebody narrows every token they hold at that moment rather
-    // than at the next time somebody remembers to look.
+    // demoting an account narrows every token it holds at that moment, not
+    // whenever the tokens are next looked at.
     let owner = state.roles.permissions_of(user.id).await?;
     let permissions: PermissionSet = token
         .permissions

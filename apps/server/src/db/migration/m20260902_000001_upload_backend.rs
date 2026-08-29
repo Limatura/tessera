@@ -1,6 +1,6 @@
 //! Which backend a resumable upload is writing to.
 //!
-//! The SQL lives in `sql/` — see the SQLite one for why it is nullable and why
+//! The SQL lives in `sql/`. See the SQLite one for why it is nullable and why
 //! it is never changed once written.
 
 use sea_orm_migration::prelude::*;
@@ -10,9 +10,9 @@ pub(super) const POSTGRES: &str = include_str!("sql/m20260902_000001_upload_back
 pub(super) const MYSQL: &str = include_str!("sql/m20260902_000001_upload_backend.mysql.sql");
 
 /// Rolling back sends every in-flight session back to the backend from
-/// `storage.url` — which is where they all were before this, so a session
-/// opened since and placed elsewhere would lose track of its parts. Finish or
-/// abandon the open ones first.
+/// `storage.url`, where they all were before this, so a session opened since
+/// and placed elsewhere loses track of its parts. Finish or abandon the open
+/// ones first.
 const DOWN: &str = "ALTER TABLE uploads DROP COLUMN backend;\n";
 
 #[derive(Debug, DeriveMigrationName)]
@@ -20,8 +20,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -40,9 +40,9 @@ impl MigrationTrait for Migration {
 mod tests {
     use super::{MYSQL, POSTGRES, SQLITE};
 
-    /// A session opened before this migration is already writing somewhere,
-    /// and it is not this column that will tell you where — NULL has to read
-    /// as the backend from `storage.url`, which is where it went.
+    /// A session opened before this migration is already writing somewhere, and
+    /// this column will not say where: NULL has to read as the backend from
+    /// `storage.url`, where it went.
     #[test]
     fn the_column_is_nullable() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {
@@ -57,8 +57,8 @@ mod tests {
         }
     }
 
-    /// No index and no key names it, which is why one rollback works
-    /// everywhere — unlike the quota migration, which needed a MySQL-only one.
+    /// No index and no key names it, so one rollback works everywhere, unlike
+    /// the quota migration, which needed a MySQL-only one.
     #[test]
     fn nothing_needs_a_dialect_specific_rollback() {
         for sql in [SQLITE, POSTGRES, MYSQL] {

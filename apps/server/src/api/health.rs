@@ -32,7 +32,7 @@ pub struct HealthResponse {
 
 /// Reports whether the service is ready to take traffic.
 ///
-/// Deliberately both a liveness and a readiness probe: the process only reaches
+/// Both a liveness and a readiness probe. The process only reaches
 /// [`ServiceStatus::Ready`] once migrations have run, and it flips to
 /// [`ServiceStatus::Draining`] the moment a shutdown signal arrives, so an
 /// orchestrator can stop routing before the listener actually closes.

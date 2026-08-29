@@ -11,17 +11,17 @@ use crate::DomainError;
 /// # What this does not do
 ///
 /// It does not implement RFC 5322. That grammar permits quoted strings,
-/// comments, and nested folding whitespace, and essentially every regex claiming
-/// to match it is wrong in some direction — usually by rejecting addresses that
+/// comments and nested folding whitespace, and essentially every regex claiming
+/// to match it is wrong in some direction, usually by rejecting addresses that
 /// really work.
 ///
 /// It also cannot tell you the address exists. **Nothing can, except sending
-/// mail to it.** Verification is a message with a link, not a parser, so the job
-/// here is only to catch what is obviously a mistake — a missing `@`, a typed
-/// space, an empty half — and let the rest through to be proven by delivery.
+/// mail to it.** Verification is a message with a link, not a parser, so the
+/// job here is to catch the obvious mistakes (a missing `@`, a typed space, an
+/// empty half) and let the rest be proven by delivery.
 ///
-/// Erring towards acceptance is deliberate: a rejected address that actually
-/// works is a user who cannot sign up and has no way to argue.
+/// Erring towards acceptance is deliberate: a rejected address that works is a
+/// user who cannot sign up and has no way to argue.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 pub struct EmailAddress {
@@ -64,9 +64,9 @@ impl EmailAddress {
     /// Reads an address the program itself is producing.
     ///
     /// The one caller is `tombstone`, which has to build an address at the very
-    /// domain [`parse`](Self::parse) refuses — refusing it is what stops anybody
-    /// else taking it. Reading a stored row back goes through here too, for the
-    /// same reason: the row is already there.
+    /// domain [`parse`](Self::parse) refuses, and that refusal is what stops
+    /// anybody else taking it. Reading a stored row back goes through here too,
+    /// since the row is already there.
     ///
     /// # Errors
     ///
@@ -107,10 +107,10 @@ impl EmailAddress {
         };
 
         // The domain a deleted account's address is rebuilt at. Refused for the
-        // same reason `Username` refuses the `gone-` prefix: what precedes it is
-        // a public identifier, so without this somebody could register the
-        // address a deletion will one day need and the unique index would then
-        // refuse that deletion.
+        // same reason `Username` refuses the `gone-` prefix: what precedes it
+        // is a public identifier, so without this the address a deletion will
+        // need could be registered first and the unique index would refuse
+        // that deletion.
         //
         // `.invalid` is reserved by RFC 2606 and can never be a real domain, so
         // nothing legitimate is being taken away.

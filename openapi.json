@@ -5,7 +5,7 @@
         "description": "One recorded retrieval, as an administrator sees it.",
         "properties": {
           "ip_address": {
-            "description": "Where the request came from, or `null` when there was no honest answer.\n\nBehind a proxy this instance does not trust, the address it can see is\nthe proxy's. A null says so; the proxy's own address would be a record\nof the wrong person.",
+            "description": "Where the request came from, or `null` when there was no honest answer.\n\nBehind a proxy this instance does not trust, the visible address is the\nproxy's. A null says so; recording the proxy's address would record the\nwrong person.",
             "example": "203.0.113.9",
             "type": [
               "string",
@@ -35,7 +35,7 @@
         "description": "A share's recorded retrievals.",
         "properties": {
           "enabled": {
-            "description": "Whether this instance is recording at all.\n\nAn empty list means two different things — nobody has fetched it, or\nnothing is being written down — and a screen that cannot tell them apart\nwill report the second as the first.",
+            "description": "Whether this instance is recording at all.\n\nAn empty list means the share was never fetched, or that recording is\noff. A screen that cannot tell those apart reports the second as the\nfirst.",
             "type": "boolean"
           },
           "events": {
@@ -66,7 +66,7 @@
             "type": "string"
           },
           "is_admin": {
-            "description": "Whether the account holds the seeded administrator role.\n\nKept because clients read it. It is now derived rather than stored, and\nit answers a narrower question than `permissions` does — somebody in a\nrole that grants `users:read` and nothing else is not an administrator\nbut can still reach one administrative endpoint. New clients should read\n`permissions`.",
+            "description": "Whether the account holds the seeded administrator role.\n\nKept because clients read it, but derived and not stored, and narrower\nthan `permissions`. An account in a role granting `users:read`\nand nothing else is not an administrator, yet reaches one administrative\nendpoint. New clients should read `permissions`.",
             "type": "boolean"
           },
           "must_change_password": {
@@ -74,7 +74,7 @@
             "type": "boolean"
           },
           "permissions": {
-            "description": "Everything this account is allowed to do.\n\n`resource:verb` strings. The set a client should decide what to show\nfrom — a screen that guesses from `is_admin` will be wrong for every\nrole between \"member\" and \"everything\".",
+            "description": "Everything this account is allowed to do.\n\n`resource:verb` strings, and what a client should decide from. A screen\nguessing from `is_admin` is wrong for every role between \"member\" and\n\"everything\".",
             "example": [
               "shares:create",
               "shares:read"
@@ -145,14 +145,14 @@
         "type": "object"
       },
       "AdminShareResponse": {
-        "description": "One share, as an administrator sees it.\n\nDeliberately not the same shape a person sees of their own: this listing\nexists to find things that need removing, so it carries who uploaded it and\nhow big it is, and it never carries the retrieval code. An administrator who\ncan read every code can open every share, and that is a different power from\nbeing able to delete one.",
+        "description": "One share, as an administrator sees it.\n\nNot the shape a person sees of their own. This listing exists to find things\nthat need removing, so it carries who uploaded it and how big\nit is, and never the retrieval code: an administrator who can read every\ncode can open every share, a different power from deleting one.",
         "properties": {
           "active": {
             "description": "Whether a visitor could still open it.",
             "type": "boolean"
           },
           "bytes_served": {
-            "description": "How many bytes it has sent out, over its whole life.\n\nThe instance-wide figure in `StatsResponse` answers \"what is this\ncosting me\"; this answers the question that follows it, which is which\nshare to do something about. One link posted somewhere busy is the way\nan operator finds out their transfer is being spent, and the total\ncannot say which one.\n\nNot `size_bytes` times `use_count`: a range request, a resumed download\nand an abandoned one all send some other amount.",
+            "description": "How many bytes it has sent out, over its whole life.\n\nThe instance-wide figure in `StatsResponse` answers \"what is this\ncosting me\"; this answers which share to do something about. One link\nposted somewhere busy is usually where the transfer went, and the total\ncannot say which.\n\nNot `size_bytes` times `use_count`: a range request, a resumed download\nand an abandoned one all send some other amount.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -175,7 +175,7 @@
             "type": "integer"
           },
           "filename": {
-            "description": "What the uploader called it, when the share holds exactly one file.\n\n`null` for text and for a share with several — see `file_count`.",
+            "description": "What the uploader called it, when the share holds exactly one file.\n\n`null` for text and for a share with several. See `file_count`.",
             "type": [
               "string",
               "null"
@@ -192,7 +192,7 @@
             "type": "string"
           },
           "owner_id": {
-            "description": "Who uploaded it, or `null` when nobody was signed in.\n\nAn account that has since been deleted still appears here — the row it\nleft behind is what keeps this answerable. `null` means the upload was\nanonymous, which is a different fact and worth telling apart.",
+            "description": "Who uploaded it, or `null` for an anonymous upload.\n\nAn account deleted since still appears here, because the row it left\nkeeps this answerable. `null` means the upload was anonymous, a\ndifferent fact worth telling apart.",
             "type": [
               "string",
               "null"
@@ -218,7 +218,7 @@
       },
       "AdminUserResponse": {
         "$ref": "#/components/schemas/AccountResponse",
-        "description": "One account, as an administrator sees it.\n\nThe same shape a person sees of themselves. There is nothing extra to show:\nthis service stores no profile, and the one thing an administrator can change\nis already a field."
+        "description": "One account, as an administrator sees it.\n\nThe same shape a person sees of themselves. This service stores no profile,\nand the one thing an administrator can change is already a field."
       },
       "BackendRequest": {
         "additionalProperties": false,
@@ -266,7 +266,7 @@
         "type": "object"
       },
       "BackendResponse": {
-        "description": "One backend, as the panel draws it.\n\nFour booleans, and they are four unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, and\nwhether it comes from the environment. Collapsing any pair into an enum\nwould invent a state the system does not have — a read-only backend can be\nthe default, and an unreachable one can be either.",
+        "description": "One backend, as the panel draws it.\n\nFour booleans answering four unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, and\nwhether it comes from the environment. Collapsing any pair into an enum\nwould invent a state the system does not have, since a read-only backend can\nbe the default and an unreachable one can be either.",
         "properties": {
           "capacity_bytes": {
             "description": "How much it may hold, or `null` for no limit.\n\nTyped in by the operator: object stores have no capacity API, and on a\nfree tier the limit belongs to the account's plan, which no API reports.",
@@ -279,7 +279,7 @@
             ]
           },
           "from_environment": {
-            "description": "Whether it comes from `storage.url` rather than this table.\n\nThe one that does cannot be edited or removed from here: it is where\neverything written before backends existed lives, and it is configured\nin the environment.",
+            "description": "Whether it comes from `storage.url` instead of this table.\n\nThe one that does cannot be edited or removed from here: it is where\neverything written before backends existed lives, and it is configured\nin the environment.",
             "type": "boolean"
           },
           "is_default": {
@@ -292,7 +292,7 @@
             "type": "string"
           },
           "reachable": {
-            "description": "Whether the process could open it.\n\n`false` means shares held there answer `503` until the operator fixes\nthe credentials or the address — worth showing prominently, because\nnothing else about the row will look wrong.",
+            "description": "Whether the process could open it.\n\n`false` means shares held there answer `503` until the operator fixes\nthe credentials or the address. Worth showing prominently, because\nnothing else about the row looks wrong.",
             "type": "boolean"
           },
           "read_only": {
@@ -300,7 +300,7 @@
             "type": "boolean"
           },
           "used_bytes": {
-            "description": "How much it is holding.\n\nNot typed in and not asked of the store — summed from the segments this\ninstance wrote.",
+            "description": "How much it is holding.\n\nNot typed in and not asked of the store, but summed from the segments\nthis instance wrote.",
             "example": 4294967296,
             "format": "int64",
             "minimum": 0,
@@ -318,20 +318,20 @@
         "type": "object"
       },
       "Capabilities": {
-        "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact: it describes every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade. A single-page app generated from the contract therefore cannot know\nwhether to render a login button — the contract says login exists, and on\nthis deployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is deliberately unauthenticated: a client needs the answer before\nit can know whether logging in is even possible.",
+        "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact describing every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade, so a single-page app generated from the contract cannot know whether\nto render a login button: the contract says login exists, and on this\ndeployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is unauthenticated, because a client needs the answer before it\ncan know whether logging in is possible at all.",
         "properties": {
           "access_log": {
-            "description": "Whether this instance writes down who fetches a share.\n\n`false` by default. When it is `true`, every retrieval records the\nvisitor's address and browser string, and the visitor is the person that\nhappens to — so a client should say so on the page where the share is\ncollected. Nobody else is going to tell them.",
+            "description": "Whether this instance writes down who fetches a share.\n\n`false` by default. When `true`, every retrieval records the visitor's\naddress and browser string, and the visitor is the person it happens to,\nso a client should say so on the page where the share is collected.\nNothing else will.",
             "type": "boolean"
           },
           "account_password_min_length": {
-            "description": "Shortest *account* password this instance accepts, so a client can say so\nbefore the round trip rather than after it.\n\nNamed for what it governs because there are two minimums and they are\ndeliberately different — see\n[`share_password_min_length`](Self::share_password_min_length).",
+            "description": "Shortest *account* password this instance accepts, so a client can say so\nbefore the round trip, not after it.\n\nNamed for what it governs, because there are two minimums and they\ndiffer. See\n[`share_password_min_length`](Self::share_password_min_length).",
             "example": 12,
             "minimum": 0,
             "type": "integer"
           },
           "accounts": {
-            "description": "Whether accounts exist at all on this instance.\n\n`false` means there is no registration, no login and no session — the\nshape for a personal instance behind a VPN.",
+            "description": "Whether accounts exist at all on this instance.\n\n`false` means no registration, no login and no session: the shape for a\npersonal instance behind a VPN.",
             "type": "boolean"
           },
           "admin": {
@@ -339,7 +339,7 @@
             "type": "boolean"
           },
           "anonymous_upload": {
-            "description": "Whether a caller without a session may upload.\n\nIndependent of [`accounts`](Self::accounts): an instance can have\naccounts *and* accept anonymous uploads, which is the default.",
+            "description": "Whether a caller without a session may upload.\n\nIndependent of [`accounts`](Self::accounts): an instance can have\naccounts *and* accept anonymous uploads, the default.",
             "type": "boolean"
           },
           "default_expiry_hours": {
@@ -353,7 +353,7 @@
             ]
           },
           "max_expiry_hours": {
-            "description": "The longest lifetime an uploader may ask for, in hours.\n\n`null` when there is no ceiling. A form that knows this can bound its own\ncontrol instead of letting somebody pick a date the server will refuse.",
+            "description": "The longest lifetime an uploader may ask for, in hours.\n\n`null` when there is no ceiling. A form that knows this can bound its own\ncontrol instead of offering a date the server will refuse.",
             "example": 8760,
             "format": "int64",
             "minimum": 0,
@@ -363,14 +363,14 @@
             ]
           },
           "max_upload_bytes": {
-            "description": "Largest single file *this caller* may send, in bytes.\n\nTheir own limit, then their role's, then `server.max_body_bytes` —\nwhichever is narrowest. So an operator who raised the instance figure\nfor themselves does not have to see it reported to every stranger, and a\nclient is never shown a number bigger than what it may actually send.",
+            "description": "Largest single file *this caller* may send, in bytes.\n\nThe narrowest of their own limit, their role's and\n`server.max_body_bytes`. So an operator who raised the instance figure\nfor themselves does not have it reported to every stranger, and a client\nis never shown a number bigger than what it may send.",
             "example": 104857600,
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "password_reset": {
-            "description": "Whether this instance can send a password reset link.\n\n`false` when no relay is configured, which is the default. A client that\ndraws the \"forgot password\" link regardless would send people to an\nendpoint that answers 404 — so this is the difference between a missing\nfeature and a broken one.",
+            "description": "Whether this instance can send a password reset link.\n\n`false` when no relay is configured, the default. A client that\ndrew the \"forgot password\" link regardless would send people to an\nendpoint answering 404, so this is the difference between a missing\nfeature and a broken one.",
             "type": "boolean"
           },
           "registration": {
@@ -378,17 +378,17 @@
             "description": "Who may create an account. Meaningless when\n[`accounts`](Self::accounts) is `false`."
           },
           "registration_requires_confirmation": {
-            "description": "Whether registering sends a confirmation link rather than creating the\naccount outright.\n\n`true` means `POST /auth/register` answers `202` and nothing exists\nuntil the address is confirmed — so a client must show \"check your\ninbox\" rather than treating the response as a sign-in. `false` means it\nanswers `201` with a session, which is what an instance that sends no\nmail does.",
+            "description": "Whether registering sends a confirmation link instead of creating the\naccount outright.\n\n`true` means `POST /auth/register` answers `202` and nothing exists\nuntil the address is confirmed, so a client must show \"check your inbox\"\ninstead of treating the response as a sign-in. `false` means it answers\n`201` with a session, as an instance sending no mail does.",
             "type": "boolean"
           },
           "share_password_min_length": {
-            "description": "Shortest password an uploader may put on a share.\n\nLower than the account minimum on purpose: a share password is a second\nfactor on a link that is already unguessable, and it gets read out over\nthe phone. A form that validated share passwords against the account\nrule would refuse the four-digit code the server would have accepted.",
+            "description": "Shortest password an uploader may put on a share.\n\nLower than the account minimum by design. A share password is a second\nfactor on a link that is already unguessable, and it gets read out over\nthe phone. A form that validated share passwords against the account\nrule would refuse the four-digit code the server would have accepted.",
             "example": 4,
             "minimum": 0,
             "type": "integer"
           },
           "storage_remaining_bytes": {
-            "description": "How much room the caller has left, in bytes.\n\nWhichever ceiling would refuse them first: their own quota, their role's,\nand — for somebody who may read instance statistics — the instance's.\n`null` when none of those applies to them.\n\n`storage.max_total_bytes` is not in everybody's answer because on a\npublic instance it is the operator's capacity planning and not the\nvisitor's business: telling every anonymous uploader how close the disk\nis to full invites somebody to close the gap. Their own quota is theirs\nto know, and a client that has it can say so before they pick a file\nrather than after they have sent it.",
+            "description": "How much room the caller has left, in bytes.\n\nWhichever ceiling refuses them first: their own quota, then their\nrole's. Callers who may read instance statistics also see the instance\nceiling. `null` if none applies.\n\n`storage.max_total_bytes` is not in everybody's answer because on a\npublic instance it is the operator's capacity planning, and telling\nevery anonymous uploader how close the disk is to full invites them to\nfinish it off. Their own quota is theirs to know, and a client holding\nit can say so before they pick a file.",
             "example": 53687091200,
             "format": "int64",
             "minimum": 0,
@@ -441,7 +441,7 @@
         "type": "object"
       },
       "Consequence": {
-        "description": "What a setting change would destroy the next time the sweep runs.\n\n# Why this exists\n\nThree settings are retention periods, and shortening one means the next\nsweep removes things that were going to be kept. Nothing warns about it and\nnothing brings them back.\n\nAn empty \"are you sure?\" does not help — everybody clicks it. A number does:\n\"this removes 23 shares, 4.2 GB\" is a sentence somebody stops at.",
+        "description": "What a setting change would destroy the next time the sweep runs.\n\n# Why this exists\n\nThree settings are retention periods, and shortening one means the next\nsweep removes things that were going to be kept. Nothing warns about it and\nnothing brings them back.\n\nAn empty \"are you sure?\" does not help, because everyone clicks it. A number\ndoes: \"this removes 23 shares, 4.2 GB\" is a sentence that gives pause.",
         "properties": {
           "bytes": {
             "description": "How many bytes of stored content go with them, when that applies.",
@@ -501,7 +501,7 @@
             ]
           },
           "uses": {
-            "description": "How many accounts this code may create.\n\nOne code with several places is what the feature is for: something to\nsend to a group rather than a code per person. `1` makes it single-use.",
+            "description": "How many accounts this code may create.\n\nOne code with several places is the point: something to send to a group\ninstead of a code per person. `1` makes it single-use.",
             "example": 3,
             "format": "int64",
             "minimum": 1,
@@ -532,7 +532,7 @@
             "type": "string"
           },
           "permissions": {
-            "description": "What the token may do, as `resource:verb` strings.\n\nOmitted means `shares:create` and nothing else — a token exists to\nupload, and the default that is wrong in the safe direction is the one\nthat has to be widened on purpose. The other default would hand every\nscreenshot tool the ability to delete everything its owner has.\n\nA permission the caller does not hold is refused: a token cannot be a\nway to exceed the account that minted it.",
+            "description": "What the token may do, as `resource:verb` strings.\n\nOmitted means `shares:create` and nothing else, since a token exists to\nupload, and a default that errs safe has to be widened explicitly. The\nother default would hand every screenshot tool the ability to delete\neverything its owner has.\n\nA permission the caller does not hold is refused: a token cannot be a\nway to exceed the account that minted it.",
             "items": {
               "type": "string"
             },
@@ -556,7 +556,7 @@
           {
             "properties": {
               "code": {
-                "description": "**Shown once.** Only its SHA-256 digest is stored, so this value cannot\nbe read back afterwards — not by an administrator, not by anybody.",
+                "description": "**Shown once.** Only its SHA-256 digest is stored, so this value cannot\nbe read back afterwards, not even by an administrator.",
                 "example": "3f9a1c…",
                 "type": "string"
               }
@@ -578,7 +578,7 @@
           {
             "properties": {
               "secret": {
-                "description": "The secret, in full.\n\n**Shown once.** Only its SHA-256 digest is stored, so this value cannot be\nrecovered — a client that does not keep it has to issue another token.",
+                "description": "The secret, in full.\n\n**Shown once.** Only its SHA-256 digest is stored, so this value cannot be\nrecovered, so a client that does not keep it must issue another token.",
                 "example": "tsk_a1b2c3d4e5f6...",
                 "type": "string"
               }
@@ -602,7 +602,7 @@
             "type": "string"
           },
           "delete_shares": {
-            "description": "Whether to end everything this account uploaded.\n\nDefaults to ending it. For a file courier, \"delete my account\" usually\nmeans \"and the things I sent\" — and somebody who wants the links they\nhanded out to keep working is the rarer case, worth one explicit `false`.\n\n# What \"delete\" means here\n\nEvery link stops working the moment this returns. The bytes go later,\nwhen the housekeeping pass reaches them — removing hundreds of objects\ninside one request is a request that times out half way through with no\nrecord of where it got to.\n\nSo the content does go, and nothing serves it in the meantime; what\narrives after the answer is the disk space.",
+            "description": "Whether to end everything this account uploaded.\n\nDefaults to ending it. \"Delete my account\" usually means \"and the things\nI sent\"; wanting the handed-out links to keep working is the rarer case,\nworth one explicit `false`.\n\n# What \"delete\" means here\n\nEvery link stops working the moment this returns. The bytes go later,\nwhen the housekeeping pass reaches them, because removing hundreds of\nobjects inside one request times out half way through with no record of\nwhere it got to. Nothing serves the content in the meantime; what\narrives after the answer is the disk space.",
             "type": "boolean"
           }
         },
@@ -690,10 +690,10 @@
         "type": "object"
       },
       "InviteResponse": {
-        "description": "One invite code, as an administrator sees it.\n\nNever carries the code. Only its digest is stored, so there is nothing to\nshow — see [`CreatedInviteResponse`] for the one moment there is.",
+        "description": "One invite code, as an administrator sees it.\n\nNever carries the code. Only its digest is stored, so there is nothing to\nshow; see [`CreatedInviteResponse`] for the one moment there is.",
         "properties": {
           "active": {
-            "description": "Whether it would still admit somebody.\n\nSent rather than left to the client to work out from `used`, `max_uses`\nand `expires_at` against its own clock — the same reason a session says\nwhether it is active.",
+            "description": "Whether it would still admit an account.\n\nSent, not left to the client to work out from `used`, `max_uses`\nand `expires_at` against its own clock, the same reason a session says\nwhether it is active.",
             "type": "boolean"
           },
           "created_at": {
@@ -748,7 +748,7 @@
             "type": "string"
           },
           "password": {
-            "description": "The account's password.\n\nBounded by what any instance could ever have accepted rather than by the\npolicy in force, so that raising the minimum cannot lock out an account\nwhose password was valid when it was chosen.",
+            "description": "The account's password.\n\nBounded by what any instance could ever have accepted, not by the policy\nin force, so that raising the minimum cannot lock out an account\nwhose password was valid when it was chosen.",
             "example": "correct horse battery staple",
             "maxLength": 1024,
             "minLength": 8,
@@ -769,7 +769,7 @@
             "description": "Which state to draw. Defaults to an ordinary file share."
           },
           "layout": {
-            "description": "The layout, as it would be stored in `og.layout`. Empty draws the\nbuilt-in card, which is what an operator sees before they change\nanything and what they are comparing against.",
+            "description": "The layout, as it would be stored in `og.layout`. Empty draws the\nbuilt-in card, what an operator sees before they change\nanything and what they are comparing against.",
             "type": "string"
           }
         },
@@ -823,7 +823,7 @@
       },
       "PatchShareRequest": {
         "additionalProperties": false,
-        "description": "Body of `PATCH /shares/{code}`.\n\nEvery field is optional and omitting one leaves that setting alone. Sending\n`null` clears it — absent and null are different instructions here.\n\nThe password is deliberately not here. It travels in `X-Share-Password`, the\nsame header the rest of this API uses, because a body is not the problem —\nthe problem is every other place a value can end up, and a header is the one\nchannel that stays out of the query string, the access log and the\n`Referer`. What is here is only the instruction to remove it, which is not a\nsecret.",
+        "description": "Body of `PATCH /shares/{code}`.\n\nEvery field is optional and omitting one leaves that setting alone. Sending\n`null` clears it: absent and null are different instructions here.\n\nThe password travels in `X-Share-Password`, as everywhere else in this API,\nbecause a header stays out of the query string, the access log and the\n`Referer`. Only the instruction to remove it lives here, and that is not a\nsecret.",
         "properties": {
           "expires_in_hours": {
             "description": "How long from now the share should last. `null` means it stops expiring.",
@@ -836,7 +836,7 @@
             ]
           },
           "max_uses": {
-            "description": "How many more times it may be retrieved. `null` means unlimited.\n\nCounted against the retrievals it has already had, so lowering this\nbelow `use_count` retires the share rather than reviving it.",
+            "description": "How many more times it may be retrieved. `null` means unlimited.\n\nCounted against the retrievals it has already had, so lowering this\nbelow `use_count` retires the share instead of reviving it.",
             "example": 1,
             "format": "int32",
             "minimum": 0,
@@ -846,14 +846,14 @@
             ]
           },
           "remove_password": {
-            "description": "Removes the share's password.\n\nSetting one is `X-Share-Password`; this is the other direction. Sending\nboth is refused rather than guessed at.",
+            "description": "Removes the share's password.\n\nSetting one is `X-Share-Password`; this is the other direction. Sending\nboth is refused, not guessed at.",
             "type": "boolean"
           }
         },
         "type": "object"
       },
       "PermissionResponse": {
-        "description": "Every permission this version has, so a screen can offer them.\n\nSent rather than hard-coded in the client: a client listing permissions it\nwas built against would silently stop offering ones added since, and the\noperator would have no way to grant them.",
+        "description": "Every permission this version has, so a screen can offer them.\n\nSent, not hard-coded in the client, which would stop offering any\npermission added since it was built and leave no way to grant them.",
         "properties": {
           "name": {
             "description": "The `resource:verb` string.",
@@ -861,7 +861,7 @@
             "type": "string"
           },
           "privileged": {
-            "description": "Whether it reaches beyond the holder's own things.\n\nThe question an operator is actually asking of a role they are about to\ngrant: does this let them touch other people?",
+            "description": "Whether it reaches beyond the holder's own things.\n\nWhat an operator is really asking of a role they are about to grant:\ndoes this let them touch other people?",
             "type": "boolean"
           }
         },
@@ -888,7 +888,7 @@
         "type": "object"
       },
       "PublicShareResponse": {
-        "description": "A share as a public visitor sees it.\n\nEverything but `code`, `kind` and `has_password` is withheld until the share\nis unlocked. A file name and a size are a description of the content, and a\npassword-protected share should not describe itself to somebody who has not\npresented the password — the same reason its link preview must not.",
+        "description": "A share as a public visitor sees it.\n\nEverything but `code`, `kind` and `has_password` is withheld until the share\nis unlocked. A file name and a size describe the content, and a\npassword-protected share should not describe itself before the password is\npresented. Its link preview is withheld for the same reason.",
         "properties": {
           "code": {
             "description": "The retrieval code.",
@@ -1003,7 +1003,7 @@
             ]
           },
           "password": {
-            "description": "At least `password_min_length` characters — see `/capabilities`.",
+            "description": "At least `password_min_length` characters. See `/capabilities`.",
             "example": "correct horse battery staple",
             "maxLength": 1024,
             "minLength": 8,
@@ -1038,7 +1038,7 @@
         "description": "How many shares an operation ended.",
         "properties": {
           "removed": {
-            "description": "How many were still live and are now finished.\n\nThe bytes go as the reaper reaches them, so this number is not how much\nspace came back yet.",
+            "description": "How many were still live and are now finished.\n\nThe bytes go as the reaper reaches them, so this is not how much space\nhas come back.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1060,7 +1060,7 @@
             ]
           },
           "max_file_bytes": {
-            "description": "Largest single file accounts in this role may send.\n\nOmit or send `null` to fall back to `server.max_body_bytes`; send `0`\nfor no limit of its own. `server.max_body_bytes` still applies on top —\nthis cannot raise it, only lower it.",
+            "description": "Largest single file accounts in this role may send.\n\nOmit or send `null` to fall back to `server.max_body_bytes`; send `0`\nfor no limit of its own. `server.max_body_bytes` still applies on top,\nso this can only lower it.",
             "example": 5368709120,
             "format": "int64",
             "minimum": 0,
@@ -1074,7 +1074,7 @@
             "type": "string"
           },
           "permissions": {
-            "description": "Everything it should allow, as `resource:verb` strings.\n\nThe whole set, not a change to it. Two operators editing the same role\nfrom two screens cannot interleave their edits into a set neither of\nthem chose — the last one to press save wins, visibly.",
+            "description": "Everything it should allow, as `resource:verb` strings.\n\nThe whole set, not a change to it, so two operators editing the same\nrole cannot interleave their edits into a set neither chose. The last\none to press save wins, visibly.",
             "items": {
               "type": "string"
             },
@@ -1117,7 +1117,7 @@
             "type": "string"
           },
           "is_system": {
-            "description": "Whether it is one of the two the instance was seeded with.\n\nThose cannot be deleted — an instance whose administrator role has been\nremoved has nobody who can create one. They can still be edited.",
+            "description": "Whether it is one of the two the instance was seeded with.\n\nThose cannot be deleted: an instance whose administrator role was\nremoved has no account left that could create one. They can be edited.",
             "type": "boolean"
           },
           "max_file_bytes": {
@@ -1131,7 +1131,7 @@
             ]
           },
           "members": {
-            "description": "How many accounts are in it.\n\nThe number an operator wants before editing one: changing a role that\nnobody holds is free, and changing one that forty people hold is not.",
+            "description": "How many accounts are in it.\n\nWhat an operator wants before editing. Changing an empty role is free;\nchanging one held by forty accounts is not.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1196,10 +1196,10 @@
         "type": "string"
       },
       "SessionResponse": {
-        "description": "One sign-in, as the API describes it.\n\nCovers sessions that are over as well as the ones that work. Somebody reading\nthis list is usually asking whether anybody else has been in, and a session\nthat was revoked last Tuesday is exactly what they need to see.",
+        "description": "One sign-in, as the API describes it.\n\nCovers sessions that are over as well as the ones that work. A person\nreading this is usually asking whether anyone else has been in, and a\nsession\nthat was revoked last Tuesday is exactly what they need to see.",
         "properties": {
           "active": {
-            "description": "Whether it still works.\n\nSent rather than left to the client to derive from `expires_at`: a\nbrowser's clock can be wrong by more than a session's remaining life, and\nbeing told \"this is still live\" by a machine with a fast clock is how\nsomebody decides not to revoke something they should have.",
+            "description": "Whether it still works.\n\nSent, not left to the client to derive from `expires_at`. A browser's\nclock can be wrong by more than a session's remaining life, and\nbeing told \"this is still live\" by a machine with a fast clock is how a\nsession that should have been revoked survives.",
             "type": "boolean"
           },
           "created_at": {
@@ -1215,7 +1215,7 @@
             ]
           },
           "created_user_agent": {
-            "description": "The `User-Agent` the sign-in arrived with, exactly as it was sent.\n\nNot parsed into \"Chrome on macOS\": doing that reliably is famously hard,\nand getting it wrong tells somebody a session is theirs when it is not.",
+            "description": "The `User-Agent` the sign-in arrived with, exactly as it was sent.\n\nNot parsed into \"Chrome on macOS\". Doing that reliably is famously hard,\nand getting it wrong marks a session as yours when it is not.",
             "example": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
             "type": [
               "string",
@@ -1227,7 +1227,7 @@
             "type": "boolean"
           },
           "ended_reason": {
-            "description": "Why it ended early, if somebody ended it.\n\n`null` means it simply ran out. The values are `signed_out`, `revoked`,\n`password_changed`, `password_reset` and `account_disabled`.",
+            "description": "Why it ended early, if it was ended.\n\n`null` means it simply ran out. The values are `signed_out`, `revoked`,\n`password_changed`, `password_reset` and `account_disabled`.",
             "example": "revoked",
             "type": [
               "string",
@@ -1271,7 +1271,7 @@
             "type": "string"
           },
           "refusal": {
-            "description": "Why it will not, when it will not.\n\n`fixed_at_boot` for something the running process cannot pick up,\n`secret` for something that holds a credential. Present so a screen can\nexplain rather than only grey the field out.",
+            "description": "Why it will not, when it will not.\n\n`fixed_at_boot` for something the running process cannot pick up,\n`secret` for something that holds a credential. Present so a screen can\nexplain instead of only greying the field out.",
             "example": "fixed_at_boot",
             "type": [
               "string",
@@ -1312,7 +1312,7 @@
         "type": "object"
       },
       "ShareBody": {
-        "description": "The request body of `POST /shares`: the content itself, as bytes.\n\nA named type only so the contract can say `format: binary`. Declaring the\nbody as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI\nrenders as a JSON array editor and a generated client types as `number[]` —\nneither of which can carry a file.\n\nAn empty body is refused with a `400`, and that rule is *not* expressible\nhere: `min_length` is a field-level attribute, and the field's own schema is\noverridden by the `value_type` above — which has to stay, or the body stops\nbeing binary. So the constraint lives in the handler and is documented as a\nresponse, and a generator reading this will believe an empty body is valid.",
+        "description": "The request body of `POST /shares`: the content itself, as bytes.\n\nA named type only so the contract can say `format: binary`. Declaring the\nbody as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI\nrenders as a JSON array editor and a generated client types as `number[]`.\n\nAn empty body is refused with a `400`, and that cannot be expressed here.\n`min_length` is field-level, and the `value_type` above overrides the\nfield's schema; drop it and the body stops being binary. So the handler\nenforces it, and a generator reading this will think an empty body is\nvalid.",
         "format": "binary",
         "type": "string"
       },
@@ -1321,7 +1321,7 @@
         "description": "Body of `POST /shares/{code}/events`.",
         "properties": {
           "kind": {
-            "description": "What happened: `view` or `copy`.\n\nRetrieval is deliberately not one of these — see [`record_event`].",
+            "description": "What happened: `view` or `copy`.\n\nRetrieval is not one of these. See [`record_event`].",
             "example": "view",
             "type": "string"
           }
@@ -1408,21 +1408,21 @@
             ]
           },
           "last_accessed_at": {
-            "description": "When it was last retrieved, RFC 3339.\n\nThe answer to the question somebody actually asks of their own share:\nhas the person I sent this to picked it up yet?",
+            "description": "When it was last retrieved, RFC 3339.\n\nAnswers the question people ask of their own share: has it been picked\nup yet?",
             "type": [
               "string",
               "null"
             ]
           },
           "management_token": {
-            "description": "Token that lets an anonymous uploader delete this share.\n\n**Shown once, at creation, and only when nobody was signed in.** Only its\ndigest is stored. Without it a mistaken anonymous upload could never be\ntaken back.",
+            "description": "Token that lets an anonymous uploader delete this share.\n\n**Shown once, at creation, and only for an anonymous upload.** Only its\ndigest is stored. Without it, a mistaken anonymous upload could never be\ntaken back.",
             "type": [
               "string",
               "null"
             ]
           },
           "path": {
-            "description": "Where the share lives, relative to this instance's origin.\n\nRelative on purpose: the server does not know what host it is reached\nthrough, and guessing wrong behind a reverse proxy produces links that\ndo not work. Whoever calls this already knows the origin they called.",
+            "description": "Where the share lives, relative to this instance's origin.\n\nRelative by design. The server does not know what host it is reached\nthrough, and guessing wrong behind a reverse proxy produces broken\nlinks. The caller already knows the origin it called.",
             "example": "/s/0ZPQ4M7K",
             "type": "string"
           },
@@ -1441,7 +1441,7 @@
             ]
           },
           "use_count": {
-            "description": "How many times it has been retrieved.\n\nCounted by the server on the transfer path, so it is the number to\ntrust — the two below are what a client told us.",
+            "description": "How many times it has been retrieved.\n\nCounted by the server on the transfer path, so this is the number to\ntrust. The two below are what a client reported.",
             "format": "int32",
             "minimum": 0,
             "type": "integer"
@@ -1489,7 +1489,7 @@
             ]
           },
           "position": {
-            "description": "Its position in the share, from zero.\n\nSent rather than left to the array's order: a client that sorts or\nfilters the list still has the uploader's order to put it back in.",
+            "description": "Its position in the share, from zero.\n\nSent explicitly, so a client that sorts or filters the list can still\nrestore the uploader's order.",
             "format": "int32",
             "minimum": 0,
             "type": "integer"
@@ -1517,7 +1517,7 @@
         "type": "string"
       },
       "StatsResponse": {
-        "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nFour numbers an operator can act on, not a time series. \"Am I near the\nquota\", \"how many people are on here\", \"is the sweep keeping up\" — the\nquestions somebody asks before deciding whether to change a setting. Anything\nthat wants graphs wants Prometheus, and that is a different endpoint with a\ndifferent shape.",
+        "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nFour numbers an operator can act on, not a time series: \"am I near the\nquota\", \"how many people are on here\", \"is the sweep keeping up\". Anything\nwanting graphs wants Prometheus, a different endpoint.",
         "properties": {
           "accounts": {
             "description": "How many accounts exist.",
@@ -1532,25 +1532,25 @@
             "type": "integer"
           },
           "bytes_served": {
-            "description": "How many bytes this instance has sent out.\n\nBytes that left the process, not bytes that reached anybody — a proxy in\nfront holds some, and a caching CDN answers requests this never sees.\nFor what crossed the network, a reverse proxy's own log is the authority.\n\nCounted over the shares still here: a swept share takes its tally with\nit, so this falls when one goes.",
+            "description": "How many bytes this instance has sent out.\n\nBytes that left the process, not bytes that reached anybody: a proxy in\nfront holds some, and a caching CDN answers requests this never sees.\nFor what crossed the network, a reverse proxy's log is the authority.\n\nCounted over the shares still here, so a swept share takes its tally\nwith it and this falls when one goes.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "live_invites": {
-            "description": "How many invites could still admit somebody.",
+            "description": "How many invites could still admit an account.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "live_shares": {
-            "description": "How many a visitor could still open.\n\nThe gap between this and `shares` is what the sweep has not reached yet,\nwhich is worth seeing: a large one means retention is longer than\nsomebody expected, or the sweep is not running.",
+            "description": "How many a visitor could still open.\n\nThe gap between this and `shares` is what the sweep has not reached. A\nlarge one means retention is longer than expected, or the sweep is not\nrunning.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
           },
           "quota_bytes": {
-            "description": "The ceiling from `storage.max_total_bytes`, or `null` when unset.\n\n`null` is not \"unlimited\" so much as \"nobody said\" — and on an instance\nthat takes anonymous uploads, that is the combination the start-up\nwarning is about.",
+            "description": "The ceiling from `storage.max_total_bytes`, or `null` when unset.\n\n`null` means unset, not unlimited. On an instance taking anonymous\nuploads, that combination is what the start-up warning is about.",
             "format": "int64",
             "minimum": 0,
             "type": [
@@ -1559,7 +1559,7 @@
             ]
           },
           "shares": {
-            "description": "How many shares exist, including ones nobody can open any more.",
+            "description": "How many shares exist, including ones that can no longer be opened.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1647,7 +1647,7 @@
             "type": "string"
           },
           "permissions": {
-            "description": "What it may do, as `resource:verb` strings.\n\nWhat it was minted with, not what it can do right now — those differ\nwhen the owner has since been demoted, and the owner is who this list is\nfor. Sending the narrowed set instead would make a token look as though\nit had been quietly edited.",
+            "description": "What it may do, as `resource:verb` strings.\n\nWhat it was minted with, not what it can do right now. Those differ\nwhen the owner has since been demoted, and the owner is who this list is\nfor. Sending the narrowed set instead would make a token look as though\nit had been quietly edited.",
             "example": [
               "shares:create"
             ],
@@ -1714,11 +1714,11 @@
         "description": "Body of `PUT /admin/settings`.",
         "properties": {
           "changes": {
-            "description": "The changes to apply, by dotted key.\n\n`null` clears a setting, so it falls back to the environment, the file,\nor the default — whichever comes next. That is the only way back to a\nvalue the panel did not choose, and it is why clearing is a value rather\nthan a second endpoint.",
+            "description": "The changes to apply, by dotted key.\n\n`null` clears a setting, so it falls back to whichever layer comes next:\nthe environment, or the default. That is the only way back to a value\nthe panel did not choose, and why clearing is a value and not a second\nendpoint.",
             "type": "object"
           },
           "confirm": {
-            "description": "Go ahead even though the change destroys something.\n\nWithout it, a change that would remove things is refused and the answer\nsays what and how many. That is deliberately two round trips: an empty\n\"are you sure?\" is a button everybody clicks, and a number is what makes\nsomebody stop.",
+            "description": "Go ahead even though the change destroys something.\n\nWithout it, a change that would remove things is refused and the answer\nsays what and how many. Two round trips by design: an empty \"are you\nsure?\" is a button everyone clicks, and a number gives pause.",
             "type": "boolean"
           }
         },
@@ -1741,10 +1741,10 @@
           },
           "quota_bytes": {
             "$ref": "#/components/schemas/Option_u64",
-            "description": "A storage quota for this one account, overriding its role's.\n\nAbsent leaves it alone, `null` clears it so the role's applies again,\nand `0` gives this account no ceiling of its own. Three instructions,\nwhich is why absent and `null` are not the same here.\n\nFor raising or lowering one person without inventing a role for them.\n`storage.max_total_bytes` still applies on top — this cannot grant\nsomebody more room than the instance has."
+            "description": "A storage quota for this one account, overriding its role's.\n\nAbsent leaves it alone, `null` clears it so the role's applies again,\nand `0` gives this account no ceiling of its own. Three instructions,\nso absent and `null` are not the same here.\n\nFor raising or lowering one account without inventing a role for it.\n`storage.max_total_bytes` still applies on top, so this cannot grant an\naccount more room than the instance has."
           },
           "state": {
-            "description": "`active` to let it in, `disabled` to suspend it.\n\nOmitted leaves it as it is. `deleted` is refused here — removing an\naccount scrubs it, and that is `DELETE` rather than a field on a patch.",
+            "description": "`active` to let it in, `disabled` to suspend it.\n\nOmitted leaves it as it is. `deleted` is refused here: removing an\naccount scrubs it: `DELETE`, not a field on a patch.",
             "type": [
               "string",
               "null"
@@ -1782,7 +1782,7 @@
             "type": "integer"
           },
           "token": {
-            "description": "Proof that a later request is the same uploader, for an anonymous one.\n\n**Store this.** It is shown once, and without it the upload cannot be\nresumed after the page is closed — which is the situation resuming\nexists for. `null` when the uploader is signed in, because their own\ncredential already answers the question.",
+            "description": "Proof that a later request is the same uploader, for an anonymous one.\n\n**Store this.** It is shown once, and without it the upload cannot be\nresumed after the page is closed, the situation resuming exists for.\n`null`\nwhen the uploader is signed in, since their credential already answers.",
             "type": [
               "string",
               "null"
@@ -1801,7 +1801,7 @@
         "description": "Body of `PUT /admin/users/{id}/roles`.",
         "properties": {
           "role": {
-            "description": "The role this account should be in, or `null` for none.\n\n`null` is signed in and allowed nothing — a real state, and what an\nempty list used to mean.",
+            "description": "The role this account should be in, or `null` for none.\n\n`null` is signed in and allowed nothing: a real state, and what an empty\nlist used to mean.",
             "type": [
               "string",
               "null"
@@ -1835,7 +1835,7 @@
   "paths": {
     "/api/v1/account": {
       "delete": {
-        "description": "# Why the shares are the caller's decision and not an administrator's\n\nThey are the person's own uploads. An administrator removing somebody else\ndoes not touch their content — that is a separate, explicit act — but\nsomebody removing themselves is entitled to say what happens to what they\nsent.\n\n# Errors\n\n`401` when the password is wrong, `403` when an API token was used or the\ncaller is the last one able to administer the instance.",
+        "description": "# Why the shares are the caller's decision and not an administrator's\n\nThey are the account's own uploads. An administrator removing another\naccount does not touch its content, a separate and explicit act,\nbut an account removing itself may say what happens to what it sent.\n\n# Errors\n\n`401` when the password is wrong, `403` when an API token was used or the\ncaller is the last one able to administer the instance.",
         "operationId": "delete_account",
         "requestBody": {
           "content": {
@@ -2028,7 +2028,7 @@
         ]
       },
       "post": {
-        "description": "# Why this exists when the CLI already does it\n\nThe command line is the rescue path — it works with the service stopped and\nneeds nothing but the database file. This is the ordinary path: somebody\nletting a friend in should not have to reach a shell on the box.\n\n# Errors\n\n`400` when `uses` is below one or the lifetime is beyond a calendar, `401`\nwhen nothing was signed in, `403` when the caller is not an administrator or\nused a bearer token, `404` when this instance has no administration.",
+        "description": "# Why this exists when the CLI already does it\n\nThe command line is the rescue path: it works with the service stopped and\nneeds nothing but the database file. This is the ordinary path, because\ninviting a friend should not need a shell on the box.\n\n# Errors\n\n`400` when `uses` is below one or the lifetime is beyond a calendar, `401`\nwhen nothing was signed in, `403` when the caller is not an administrator or\nused a bearer token, `404` when this instance has no administration.",
         "operationId": "create_invite",
         "requestBody": {
           "content": {
@@ -2105,7 +2105,7 @@
     },
     "/api/v1/admin/invites/{id}": {
       "delete": {
-        "description": "The accounts it already admitted stay: an account created through a code does\nnot depend on the code still existing. What this stops is the code letting\nanybody else in, which is what somebody who posted one in the wrong chat\nwindow wants.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no invite has that\nidentifier.",
+        "description": "The accounts it already admitted stay, since an account does not depend on\nits code still existing. This only stops the code letting anyone else in,\nwhat an operator who posted it in the wrong chat window wants.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no invite has that\nidentifier.",
         "operationId": "revoke_invite",
         "parameters": [
           {
@@ -2166,7 +2166,7 @@
     },
     "/api/v1/admin/og/preview": {
       "post": {
-        "description": "# Why this is a server endpoint and not a preview in the browser\n\nThe original plan was to render the preview in the browser with takumi's wasm\nbuild, so that what an operator sees while editing is the same engine that\nwill draw the real card. Measured, that costs the browser 3.41 MB of wasm\nand another 3.43 MB of fonts, to arrive at an engine that is the same for\nrendering and a second implementation for parsing HTML.\n\nThis is the same engine for both halves, because it is not a second engine:\nit is the code that draws the real card, with the real fonts, behind the\nsame check the real layout goes through. It costs a round trip and about\nthree milliseconds.\n\n# Errors\n\n`400` for a layout this instance will not draw, carrying the reason so the\neditor can show it. `401`, `403` and `404` as for [`preview`].",
+        "description": "# Why this is a server endpoint and not a preview in the browser\n\nThe original plan was to render the preview in the browser with takumi's\nwasm build, so an operator edits against the engine that draws the real\ncard. Measured, that costs the browser 3.41 MB of wasm and 3.43 MB of fonts,\nand still leaves a second implementation for parsing HTML.\n\nThis is the same engine for both halves, because it is not a second engine:\nit is the code that draws the real card, with the real fonts, behind the\nsame check the real layout goes through. It costs a round trip and about\nthree milliseconds.\n\n# Errors\n\n`400` for a layout this instance will not draw, carrying the reason so the\neditor can show it. `401`, `403` and `404` as for [`preview`].",
         "operationId": "preview_og_card",
         "requestBody": {
           "content": {
@@ -2366,7 +2366,7 @@
         ]
       },
       "post": {
-        "description": "# Why a caller cannot grant what they do not hold\n\nOtherwise `roles:write` is every permission: somebody holding only that\ncould mint a role granting `users:delete`, put themselves in it, and have\nit. The check makes `roles:write` mean \"may hand out what I have\" rather\nthan \"may hand out anything\".\n\n# Errors\n\n`400` when the name or a permission is not usable, `401` when nothing was\nsigned in, `403` when the caller may not write roles, used a bearer token,\nor asked for a permission they do not hold, `409` when the name is taken,\n`404` when this instance has no administration.",
+        "description": "# Why a caller cannot grant what they do not hold\n\nOtherwise `roles:write` is every permission. An account holding only that\ncould mint a role granting `users:delete` and join it. The check makes it\nmean \"may hand out what I have\".\n\n# Errors\n\n`400` when the name or a permission is not usable, `401` when nothing was\nsigned in, `403` when the caller may not write roles, used a bearer token,\nor asked for a permission they do not hold, `409` when the name is taken,\n`404` when this instance has no administration.",
         "operationId": "create_role",
         "requestBody": {
           "content": {
@@ -2453,7 +2453,7 @@
     },
     "/api/v1/admin/roles/{id}": {
       "delete": {
-        "description": "Anybody in it stops being in it, which can leave somebody in no role at all\n— signed in and allowed nothing. That is a real state and not an error; the\nlisting shows how many people it would affect.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write roles\nor used a bearer token, `404` when no role has that identifier, `409` when\nit is a seeded role or the last one able to administer the instance.",
+        "description": "Every member stops being one, which can leave an account in no role at all,\nsigned in and allowed nothing. That is a real state, not an error, and the\nlisting shows how many accounts it would affect.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write roles\nor used a bearer token, `404` when no role has that identifier, `409` when\nit is a seeded role or the last one able to administer the instance.",
         "operationId": "delete_role",
         "parameters": [
           {
@@ -2522,7 +2522,7 @@
         ]
       },
       "put": {
-        "description": "# Errors\n\n`400` when the name or a permission is not usable, `401` when nothing was\nsigned in, `403` when the caller may not write roles, used a bearer token,\nor asked for a permission they do not hold, `404` when no role has that\nidentifier, `409` when the name is taken or the change would leave nobody\nable to administer the instance.",
+        "description": "# Errors\n\n`400` when the name or a permission is not usable, `401` when nothing was\nsigned in, `403` when the caller may not write roles, used a bearer token,\nor asked for a permission they do not hold, `404` when no role has that\nidentifier, `409` when the name is taken or the change would leave no\naccount able to administer the instance.",
         "operationId": "update_role",
         "parameters": [
           {
@@ -2620,7 +2620,7 @@
     },
     "/api/v1/admin/settings": {
       "get": {
-        "description": "# Why the ones that cannot be changed are here too\n\nLeaving them out is what makes somebody ask where the port setting went.\nThey come back marked `editable: false` with a reason, which is a screen\nthat explains itself rather than one with a hole in it.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read\nsettings or used a bearer token, `404` when this instance has no\nadministration.",
+        "description": "# Why the ones that cannot be changed are here too\n\nLeaving them out prompts the question of where the port setting went. They\ncome back marked `editable: false` with a reason: a screen that explains\nitself instead of one with a hole in it.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read\nsettings or used a bearer token, `404` when this instance has no\nadministration.",
         "operationId": "list_settings",
         "responses": {
           "200": {
@@ -2675,7 +2675,7 @@
         ]
       },
       "put": {
-        "description": "# Why the change is tried before it is stored\n\nA value this binary will not accept is refused here, with the key named,\nrather than written and quietly dropped at the next start-up. The start-up\nfallback exists so a bad row cannot make an instance unbootable — it is a\nsafety net, not the validation path, and letting the panel lean on it would\nmean a save that reports success and reverts on restart.\n\n# Why one request can carry several\n\nSettings that only make sense together — turning the access log on and\nsetting its retention — should not have a moment where one is applied and\nthe other is not. They are validated as a set, and stored only if the set\nloads.\n\n# Errors\n\n`400` for an unknown key, one that cannot be changed, or a value the\nconfiguration will not accept. `401`, `403` and `404` as for [`list`].",
+        "description": "# Why the change is tried before it is stored\n\nA value this binary will not accept is refused here, with the key named,\ninstead of written and quietly dropped at the next start-up. The start-up\nfallback exists so a bad row cannot make an instance unbootable: a safety\nnet, not the validation path, and letting the panel lean on it would mean a\nsave that reports success and reverts on restart.\n\n# Why one request can carry several\n\nSettings that only make sense together, such as turning the access log on\nand setting its retention, should not have a moment where one is applied and\nthe other is not. They are validated as a set and stored only if the set\nloads.\n\n# Errors\n\n`400` for an unknown key, one that cannot be changed, or a value the\nconfiguration will not accept. `401`, `403` and `404` as for [`list`].",
         "operationId": "update_settings",
         "requestBody": {
           "content": {
@@ -2762,7 +2762,7 @@
     },
     "/api/v1/admin/settings/preview": {
       "post": {
-        "description": "# Errors\n\n`400` for a key or value this instance will not accept — the same answers\n[`update`] gives, so a client cannot get a clean preview for a change that\nwould then be refused.",
+        "description": "# Errors\n\n`400` for a key or value this instance will not accept, the same answers\n[`update`] gives, so a client cannot get a clean preview for a change that\nwould then be refused.",
         "operationId": "preview_settings",
         "requestBody": {
           "content": {
@@ -2930,7 +2930,7 @@
     },
     "/api/v1/admin/shares/{id}": {
       "delete": {
-        "description": "# Why this exists\n\nThe ordinary delete route asks whether the caller owns the share. An upload\nfrom an account that has since been deleted is owned by nobody, so nothing\ncould remove it — it kept serving its content, kept its place in the storage\nquota, and was never swept if it had no expiry and no use limit. This is the\nonly way to reach one.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no share has that identifier.",
+        "description": "# Why this exists\n\nThe ordinary delete route asks whether the caller owns the share. An upload\nfrom a since-deleted account has no owner, so nothing could remove it. It\nkept serving, kept its place in the storage quota, and was never swept if it\nhad no expiry and no use limit. This is the only way to reach one.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no share has that identifier.",
         "operationId": "delete_any_share",
         "parameters": [
           {
@@ -2991,7 +2991,7 @@
     },
     "/api/v1/admin/shares/{id}/access-log": {
       "get": {
-        "description": "# Why this is administrative and not the uploader's\n\nThe switch belongs to whoever runs the instance, so the record does too.\nHanding visitor addresses to every uploader would be a second decision about\nsomebody else's privacy, taken on behalf of an operator who only agreed to\nthe first — and on a shared instance the uploader is not the operator.\n\nIf an instance wants uploaders to see their own, that is a deliberate change\nto make, not one to arrive at by leaving this open.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read every\nshare or used a bearer token, `404` when there is no such share or this\ninstance has no administration.",
+        "description": "# Why this is administrative and not the uploader's\n\nThe switch belongs to whoever runs the instance, so the record does too.\nHanding visitor addresses to every uploader would be a second decision about\na visitor's privacy, made on behalf of an operator who agreed only to the\nfirst. On a shared instance the uploader is not the operator.\n\nLetting uploaders see their own is a deliberate change to make, not one to\narrive at by leaving this open.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not read every\nshare or used a bearer token, `404` when there is no such share or this\ninstance has no administration.",
         "operationId": "read_share_access_log",
         "parameters": [
           {
@@ -3206,7 +3206,7 @@
         ]
       },
       "post": {
-        "description": "The new one is opened and reachable to the next request — the pool is\nrebuilt here rather than at the next restart, because \"add a bucket\" that\nneeds a restart is the thing this whole feature exists to stop.\n\n# Errors\n\n`400` when the URL will not open or the name is the environment's, `401`\nwhen nothing was signed in, `403` when the caller may not write settings,\n`404` when this instance has no administration, `409` when no\n`storage.secret_key` is set.",
+        "description": "The new one is opened and reachable to the next request. The pool is rebuilt\nhere, not at the next restart, because \"add a bucket, then restart\"\nis what this feature exists to avoid.\n\n# Errors\n\n`400` when the URL will not open or the name is the environment's, `401`\nwhen nothing was signed in, `403` when the caller may not write settings,\n`404` when this instance has no administration, `409` when no\n`storage.secret_key` is set.",
         "operationId": "add_storage_backend",
         "requestBody": {
           "content": {
@@ -3381,7 +3381,7 @@
     },
     "/api/v1/admin/storage/backends/{name}/default": {
       "put": {
-        "description": "Existing files stay where they are — each records its own backend — so this\nchanges what happens next and nothing about what already happened.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write\nsettings, `404` when no backend has that name.",
+        "description": "Existing files stay where they are, since each records its own backend, so\nthis changes what happens next and nothing about what already happened.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write\nsettings, `404` when no backend has that name.",
         "operationId": "set_default_storage_backend",
         "parameters": [
           {
@@ -3453,7 +3453,7 @@
         "operationId": "list_users",
         "parameters": [
           {
-            "description": "Include accounts that have been deleted.\n\nOff by default: what is left of one identifies nobody and cannot be\nacted on, so it belongs in an answer somebody asked for rather than in\nevery listing.",
+            "description": "Include accounts that have been deleted.\n\nOff by default. What is left of one identifies no person and cannot be\nacted on, so it belongs only in an answer that asked for it.",
             "in": "path",
             "name": "include_deleted",
             "required": true,
@@ -3520,7 +3520,7 @@
     },
     "/api/v1/admin/users/{id}": {
       "delete": {
-        "description": "# What goes with it and what does not\n\nSessions and API tokens are deleted by the database. Shares are not: their\nowner column is `ON DELETE SET NULL`, so what somebody uploaded becomes an\nanonymous share and keeps working for whoever holds the code. Deleting an\naccount is about the account, and taking somebody's files off the internet in\nthe same motion would be a second decision made silently.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no account has that\nidentifier, `409` when this would leave the instance with no administrator.",
+        "description": "# What goes with it and what does not\n\nSessions and API tokens are deleted by the database. Shares are not: their\nowner column is `ON DELETE SET NULL`, so their uploads become anonymous\nshares and keep working for whoever holds the code. Taking those files off\nthe internet in the same motion would be a second decision made silently.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no account has that\nidentifier, `409` when this would leave the instance with no administrator.",
         "operationId": "delete_user",
         "parameters": [
           {
@@ -3589,7 +3589,7 @@
         ]
       },
       "patch": {
-        "description": "# Why the last one cannot be removed\n\nAn instance with no administrator cannot be repaired through the API — there\nis no endpoint left that would let anybody grant the flag back. The way out\nis the command line against the database file, which an operator who locked\nthemselves out of a container may not have. So the case is refused rather\nthan allowed and regretted.\n\nRemoving your own flag while somebody else still has it is allowed: that is\na person stepping down, not an accident.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no account has that\nidentifier, `409` when this would leave the instance with none.",
+        "description": "# Why the last one cannot be removed\n\nAn instance with no administrator cannot be repaired through the API: no\nendpoint is left that would grant the flag back. The way out is the command\nline against the database file, which an operator locked out of a container\nmay not have.\n\nRemoving your own flag while another administrator still holds it is\nallowed. That is stepping down, not an accident.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller is not an\nadministrator or used a bearer token, `404` when no account has that\nidentifier, `409` when this would leave the instance with none.",
         "operationId": "update_user",
         "parameters": [
           {
@@ -3677,7 +3677,7 @@
     },
     "/api/v1/admin/users/{id}/roles": {
       "put": {
-        "description": "# Errors\n\n`400` when a role identifier is not one, `401` when nothing was signed in,\n`403` when the caller may not write roles, used a bearer token, or would be\ngranting a permission they do not hold, `404` when no such account or role,\n`409` when it would leave nobody able to administer the instance.",
+        "description": "# Errors\n\n`400` when a role identifier is not one, `401` when nothing was signed in,\n`403` when the caller may not write roles, used a bearer token, or would be\ngranting a permission they do not hold, `404` when no such account or role,\n`409` when it would leave no account able to administer the instance.",
         "operationId": "set_user_roles",
         "parameters": [
           {
@@ -3765,7 +3765,7 @@
     },
     "/api/v1/admin/users/{id}/shares": {
       "delete": {
-        "description": "# Why this is not part of deleting the account\n\nRemoving somebody and destroying what they uploaded are different acts. An\noperator clearing space wants this and not that; one removing a person who\nhas left wants that and not this. Welding them together would make one of\nthose two impossible and the other a surprise.\n\nIt works on an account in any state, including one still in use — an\noperator reclaiming space from somebody who is still here should not have to\nsuspend them first.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no account has that identifier.",
+        "description": "# Why this is not part of deleting the account\n\nRemoving an account and destroying what it uploaded are different acts. An\noperator clearing space wants this and not that; one removing a person who\nhas left wants the reverse. Welding them together makes one impossible and\nthe other a surprise.\n\nIt works on an account in any state, including one still in use. Reclaiming\nspace from an active account should not require suspending it first.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not delete every\nshare or used a bearer token, `404` when no account has that identifier.",
         "operationId": "remove_user_shares",
         "parameters": [
           {
@@ -3928,7 +3928,7 @@
     },
     "/api/v1/auth/password": {
       "patch": {
-        "description": "Every other session is ended, and a fresh one is issued so the caller stays\nsigned in where they are. Whoever knew the old password may be holding a\nsession, and changing a password is how a person says they want that to stop.\n\n# Errors\n\n`401` when the current password is wrong, `403` when authenticated with an\nAPI token, `400` when the new password fails the policy.",
+        "description": "Every other session is ended, and a fresh one issued so the caller stays\nsigned in where they are. Changing a password is how a person says that\nwhoever knew the old one should stop being signed in.\n\n# Errors\n\n`401` when the current password is wrong, `403` when authenticated with an\nAPI token, `400` when the new password fails the policy.",
         "operationId": "change_password",
         "requestBody": {
           "content": {
@@ -3995,7 +3995,7 @@
     },
     "/api/v1/auth/password-reset": {
       "post": {
-        "description": "# Why this always answers the same way\n\n`202` whether or not the address belongs to an account, and whether or not\nthe mail could be handed to the relay. Any other shape turns this endpoint\ninto a way of asking \"does this person have an account here\" — which for a\nfile courier is a question about who uses it, answerable by anyone, at any\nrate the throttle allows.\n\nThe cost is that a typo produces no feedback. That is the right way round:\nsomebody who mistyped their own address will notice when no mail arrives,\nand nobody learns anything from the response either way.\n\n# Errors\n\n`404` when this instance sends no mail — the route is not mounted at all, so\nthis is the router's answer rather than the handler's. `429` when this\naddress has already been sent as many links as the window allows.",
+        "description": "# Why this always answers the same way\n\n`202` whether or not the address belongs to an account, and whether or not\nthe mail reached the relay. Any other shape turns this into a way to ask\n\"does this person have an account here\", answerable by anyone at whatever\nrate the throttle allows.\n\nThe cost is that a typo produces no feedback. A mistyped address is noticed\nwhen no mail arrives.\n\n# Errors\n\n`404` when this instance sends no mail. The route is not mounted, so that is\nthe router's answer. `429` when this address has already been sent as\nmany links as the window allows.",
         "operationId": "request_password_reset",
         "requestBody": {
           "content": {
@@ -4050,7 +4050,7 @@
     },
     "/api/v1/auth/password-reset/confirm": {
       "post": {
-        "description": "Every session belonging to the account is ended. Somebody asking to reset a\npassword is usually saying they have lost control of it, and leaving the\nsessions alone would leave whoever had it signed in.\n\n# Errors\n\n`400` when the token is unknown, spent or expired, or the new password fails\nthe policy. `404` when this instance sends no mail.",
+        "description": "Every session belonging to the account is ended. A reset request usually\nmeans control of the password has been lost, and leaving the\nsessions alone would leave whoever had it signed in.\n\n# Errors\n\n`400` when the token is unknown, spent or expired, or the new password fails\nthe policy. `404` when this instance sends no mail.",
         "operationId": "confirm_password_reset",
         "requestBody": {
           "content": {
@@ -4177,7 +4177,7 @@
     },
     "/api/v1/auth/register/confirm": {
       "post": {
-        "description": "# Why the checks happen here and not when the link was sent\n\nNothing was reserved while the message sat in an inbox. Reserving the name\nwould have made \"register and never confirm\" a free way to lock every good\nname away, with nothing an operator could do about it. The price is this:\nthe name is checked against today's accounts, and somebody can be told at\nthis point that it went to another person. That is rare, it is recoverable,\nand it is a much smaller problem than the alternative.\n\n# Errors\n\n`400` when the link is unknown, spent or expired, `403` when registration was\nclosed while this was waiting, `409` when the name went to somebody else in\nthe meantime, `404` when this instance sends no mail.",
+        "description": "# Why the checks happen here and not when the link was sent\n\nNothing was reserved while the message sat in an inbox. Reserving the name\nwould make \"register and never confirm\" a free way to lock every good name\naway. The price is that the name is checked against today's accounts, so a\nconfirmation can fail here because the name went elsewhere. Rare, and\nrecoverable.\n\n# Errors\n\n`400` when the link is unknown, spent or expired, `403` when registration was\nclosed while this was waiting, `409` when the name was taken in the\nmeantime, `404` when this instance sends no mail.",
         "operationId": "confirm_registration",
         "requestBody": {
           "content": {
@@ -4289,7 +4289,7 @@
     },
     "/api/v1/capabilities": {
       "get": {
-        "description": "Answers to everyone, signed in or not — a client needs this before it can\nknow whether logging in is even possible. An administrator gets one extra\nfield; see [`Capabilities::storage_remaining_bytes`].\n\n# Errors\n\nOnly when the storage total cannot be read, which is an administrator's\nrequest against a database that is not answering.",
+        "description": "Answers to everyone, signed in or not, since a client needs this before it\ncan know whether logging in is possible. An administrator gets one extra\nfield; see [`Capabilities::storage_remaining_bytes`].\n\n# Errors\n\nOnly when the storage total cannot be read: an administrator's\nrequest against a database that is not answering.",
         "operationId": "capabilities",
         "responses": {
           "200": {
@@ -4320,7 +4320,7 @@
     },
     "/api/v1/sessions": {
       "delete": {
-        "description": "The button somebody presses when they think another person is signed in as\nthem. It spares the browser doing the asking, because being logged out by\nyour own attempt to log everybody else out is a poor way to find out it\nworked.\n\n# Errors\n\n`401` when nothing was signed in, `403` when a bearer token was used.",
+        "description": "The button to press on suspecting that another person is signed in as you.\nIt spares the browser doing the asking, because being logged out by\nyour own attempt to log everybody else out is a poor way to find out it\nworked.\n\n# Errors\n\n`401` when nothing was signed in, `403` when a bearer token was used.",
         "operationId": "revoke_other_sessions",
         "responses": {
           "204": {
@@ -4469,7 +4469,7 @@
     },
     "/api/v1/shares": {
       "get": {
-        "description": "# Why this is paged\n\nIt was not, on the reasoning that one person's shares are bounded by what\none person uploaded. That holds for somebody using the web page and not for\nanybody driving the API from a script: an account with fifty thousand\nshares made every visit to the listing read fifty thousand rows and build\nfifty thousand responses, and nothing in the request said so.\n\n# Errors\n\n`401` when nothing was signed in.",
+        "description": "# Why this is paged\n\nOne person's shares are bounded by what one person uploaded, which holds for\nthe web page and not for a script. An account with fifty thousand shares made\nevery visit read fifty thousand rows and build fifty thousand responses.\n\n# Errors\n\n`401` when nothing was signed in.",
         "operationId": "list_shares",
         "parameters": [
           {
@@ -4617,7 +4617,7 @@
               }
             }
           },
-          "description": "The content itself. Send the file as the raw body — no wrapper, no encoding.",
+          "description": "The content itself. Send the file as the raw body: no wrapper, no encoding.",
           "required": true
         },
         "responses": {
@@ -4699,7 +4699,7 @@
                 }
               }
             },
-            "description": "Out of room — the body says whether that is the account's quota, its role's, or the instance's"
+            "description": "Out of room; the body says whether that is the account's quota, its role's, or the instance's"
           }
         },
         "security": [
@@ -4719,11 +4719,11 @@
     },
     "/api/v1/shares/{code}": {
       "delete": {
-        "description": "Accepts either the owning account or, for an anonymous share, the management\ntoken from creation — sent as `X-Share-Management-Token`.\n\n# Errors\n\n`404` when no share of the caller's has that code. Deliberately the same\nanswer as \"somebody else's\": distinguishing them would confirm which codes\nexist.",
+        "description": "Accepts either the owning account or, for an anonymous share, the management\ntoken from creation, sent as `X-Share-Management-Token`.\n\n# Errors\n\n`404` when no share of the caller's has that code. The same answer as one\nbelonging to another account, because telling them apart would confirm\nwhich codes exist.",
         "operationId": "delete_share",
         "parameters": [
           {
-            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
+            "description": "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -4776,7 +4776,7 @@
         "operationId": "describe_share",
         "parameters": [
           {
-            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
+            "description": "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -4855,11 +4855,11 @@
         ]
       },
       "patch": {
-        "description": "# Why this exists\n\nEverything here could be decided at creation and nothing could be changed\nafterwards, which is the state this replaces. It does not survive contact\nwith how people actually share a file: the link goes out, and then the\nreason for the expiry changes — the meeting moved, the recipient asks for\nanother day, the wrong person was in the thread and the password has to\nchange now rather than by deleting and re-uploading.\n\n# Who may\n\nThe same two answers as `DELETE`: the owning account, or whoever holds the\nmanagement token an anonymous upload was given. The permission checked is\n`shares:delete` — there is no `shares:update` today, and gating a change\nbehind the right to remove the thing outright is the conservative reading\nwhile there is not.\n\n# Errors\n\n`400` for a value the instance will not accept, `404` when no share of the\ncaller's has that code — deliberately the same answer as somebody else's,\nbecause distinguishing them would confirm which codes exist.",
+        "description": "# Why this exists\n\nThis replaces deciding everything at creation, which does not survive\ncontact with how people share a file. The link goes out, and then the\nmeeting moves, or the recipient asks for another day, or the wrong person\nwas in the thread and the password has to change now.\n\n# Who may\n\nThe same two answers as `DELETE`: the owning account, or the holder of the\nmanagement token an anonymous upload was given. The permission checked is\n`shares:delete`. There is no `shares:update` today, and gating a change\nbehind the right to delete outright is the conservative reading.\n\n# Errors\n\n`400` for a value the instance will not accept, `404` when no share of the\ncaller's has that code. The same answer as one belonging to another account,\nbecause telling them apart would confirm which codes exist.",
         "operationId": "update_share",
         "parameters": [
           {
-            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
+            "description": "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -4961,7 +4961,7 @@
     },
     "/api/v1/shares/{code}/events": {
       "post": {
-        "description": "# Why retrieval is not accepted here\n\n`use_count` is a limit. A client that could report its own retrievals would\nbe a client deciding whether the limit applied, and one `curl` at\n`/s/{code}/raw` would walk past it. The server counts that itself, on the\ntransfer path, where it cannot be skipped.\n\nThese two are the opposite case: nothing reaches the server when somebody\nreads a note on screen or presses a copy button, so a client is the only\nthing that can see them at all. The price is that anybody who can call this\ncan inflate them, which is tolerable precisely because nothing depends on\nthem.\n\n# Why it does not say whether the share exists\n\n`204` whatever happens, including for a code that names nothing. Answering\n`404` would make an unauthenticated endpoint into a way to ask which codes\nare real — the same oracle the retrieval throttle exists to close, reached\nthrough a door nobody was watching.\n\n# Errors\n\n`400` when `kind` is not one of the two, `429` when the source is asking too\noften.",
+        "description": "# Why retrieval is not accepted here\n\n`use_count` is a limit. A client that could report its own retrievals would\nbe a client deciding whether the limit applied, and one `curl` at\n`/s/{code}/raw` would walk past it. The server counts that itself, on the\ntransfer path, where it cannot be skipped.\n\nThese two are the opposite case. Nothing reaches the server when a note is\nread on screen or a copy button is pressed, so only a client can see\nthem. Anybody who can call this can inflate them, and that is tolerable\nbecause nothing depends on them.\n\n# Why it does not say whether the share exists\n\n`204` whatever happens, including for a code that names nothing. Answering\n`404` would turn an unauthenticated endpoint into a way to ask which codes\nare real, the same oracle the retrieval throttle exists to close.\n\n# Errors\n\n`400` when `kind` is not one of the two, `429` when the source is asking too\noften.",
         "operationId": "record_share_event",
         "parameters": [
           {
@@ -5020,7 +5020,7 @@
     },
     "/api/v1/shares/{code}/files": {
       "post": {
-        "description": "# Why files arrive one at a time\n\nOne request carrying five files is one request that loses five when it drops\nat the fourth — which is the case somebody uploading a folder of photographs\non a home connection hits, not a theoretical one. A file that fails here is\nretried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an upload interrupted\nhalf way leaves a share holding what did arrive rather than nothing at all.\n\nThe cost is that somebody who opened the link during the upload would see\npart of it. The link is handed out after the upload, by the person doing it.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room — the share owner's quota, their role's,\nor the instance's. The body says which.",
+        "description": "# Why files arrive one at a time\n\nOne request carrying five files loses five when it drops at the fourth,\nexactly what uploading a folder of photographs over a home connection hits.\nA file that fails here is retried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an interrupted upload\nleaves a share holding what did arrive, not nothing.\n\nThe cost is that a link opened mid-upload shows part of the share. The link\nis handed out afterwards, by the person doing the upload.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room. The body says whose ceiling that was.",
         "operationId": "add_share_file",
         "parameters": [
           {
@@ -5118,7 +5118,7 @@
                 }
               }
             },
-            "description": "Out of room — the body says whether that is the account's quota, its role's, or the instance's"
+            "description": "Out of room; the body says whether that is the account's quota, its role's, or the instance's"
           }
         },
         "security": [
@@ -5138,11 +5138,11 @@
     },
     "/api/v1/shares/{code}/unlock": {
       "post": {
-        "description": "# Why this is a separate step\n\nOne authorisation costs one retrieval; the ticket it returns is then good for\nevery request the transfer needs — each `Range`, each resumption, each retry.\nCounting requests instead would let a resumed download spend three uses of a\nshare that allows three.\n\n# Errors\n\n`401` when the password is wrong, `404` when nothing has that code, `410`\nwhen it has expired or run out.",
+        "description": "# Why this is a separate step\n\nOne authorisation costs one retrieval; the ticket it returns is then good\nfor every request the transfer needs, each `Range`, resumption and retry.\nCounting requests instead would let a resumed download spend all three uses\nof a share that allows three.\n\n# Errors\n\n`401` when the password is wrong, `404` when nothing has that code, `410`\nwhen it has expired or run out.",
         "operationId": "unlock_share",
         "parameters": [
           {
-            "description": "The retrieval code. Normalised before it is looked up, so O reads as 0, I and L read as 1, case is folded, and spaces and hyphens are dropped — `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
+            "description": "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.",
             "in": "path",
             "name": "code",
             "required": true,
@@ -5223,7 +5223,7 @@
     },
     "/api/v1/tokens": {
       "get": {
-        "description": "# Errors\n\n`401` when nothing was signed in — which is also what an instance with\naccounts turned off answers, since there is nobody to be. `403` when the\naccount still owes a password change.",
+        "description": "# Errors\n\n`401` when nothing was signed in. An instance with accounts turned off\nanswers the same, having no account to be. `403` when the account\nstill owes a password change.",
         "operationId": "list_tokens",
         "responses": {
           "200": {
@@ -5274,7 +5274,7 @@
         ]
       },
       "post": {
-        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with a token\nrather than a session, `400` when the name or lifetime is unusable.",
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with a token\nand not a session, `400` when the name or lifetime is unusable.",
         "operationId": "create_token",
         "requestBody": {
           "content": {
@@ -5402,7 +5402,7 @@
     },
     "/api/v1/uploads": {
       "post": {
-        "description": "# Errors\n\n`400` when `Upload-Length` is missing or unusable, `403` when the caller may\nnot upload, `404` when `code` names no share, `507` when the declared length\ndoes not fit in what is left — of the caller's quota, their role's, or the\ninstance's, whichever runs out first. The body says which.",
+        "description": "# Errors\n\n`400` when `Upload-Length` is missing or unusable, `403` when the caller may\nnot upload, `404` when `code` names no share, `507` when the declared length\ndoes not fit in what is left. The body says whose ceiling ran out.",
         "operationId": "create_upload",
         "parameters": [
           {
@@ -5501,7 +5501,7 @@
     },
     "/api/v1/uploads/{id}": {
       "head": {
-        "description": "# The answer must not be cached\n\nIt carries `Cache-Control: no-store`, and a client that caches it anyway\nwill corrupt the upload: a stale offset sends the next chunk to the wrong\nplace, and the bytes land somewhere nobody asked for. This is the one header\non this endpoint that is not politeness.\n\n# Errors\n\n`404` when there is no such session, or the caller may not continue it —\nthe same answer, so that a stranger cannot tell one from the other.",
+        "description": "# The answer must not be cached\n\nIt carries `Cache-Control: no-store`. A client that caches it anyway will\ncorrupt the upload: a stale offset sends the next chunk to the wrong place.\nThis is the one header on this endpoint that is not politeness.\n\n# Errors\n\n`404` when there is no such session, or the caller may not continue it. The\nsame answer, so a stranger cannot tell one from the other.",
         "operationId": "upload_offset",
         "parameters": [
           {
@@ -5540,7 +5540,7 @@
         ]
       },
       "patch": {
-        "description": "# Every chunk but the last must be a whole part\n\n`part_size` from the `POST` is a floor, not a suggestion: a chunk that is\nnot the last and carries fewer bytes than that is refused with `400`. The\nobject stores this streams to will not take a part below their own minimum\n— five mebibytes on S3 — so a short chunk cannot be written anywhere, and\nthe offset does not move. A client that kept sending one would re-send from\nthe same place for ever.\n\nThe last chunk is exempt, because there is nothing after it to make it whole.\n\nA client that sends `declared_bytes` in one request never meets this at all.\n\n# Errors\n\n`400` when a chunk that is not the last is shorter than `part_size`, `409`\nwhen the offset does not match, `404` when there is no such session, `415`\nwhen the content type is not the one the specification names.",
+        "description": "# Every chunk but the last must be a whole part\n\n`part_size` from the `POST` is a floor, not a suggestion: a chunk that is\nnot the last and carries fewer bytes is refused with `400`. The object\nstores this streams to will not take a part below their own minimum, five\nmebibytes on S3, so a short chunk cannot be written anywhere and the offset\ndoes not move. A client that kept sending one would loop for ever.\n\nThe last chunk is exempt, because there is nothing after it to make it whole.\n\nA client that sends `declared_bytes` in one request never meets this at all.\n\n# Errors\n\n`400` when a chunk that is not the last is shorter than `part_size`, `409`\nwhen the offset does not match, `404` when there is no such session, `415`\nwhen the content type is not the one the specification names.",
         "operationId": "append_to_upload",
         "parameters": [
           {
@@ -5631,7 +5631,7 @@
     },
     "/health": {
       "get": {
-        "description": "Deliberately both a liveness and a readiness probe: the process only reaches\n[`ServiceStatus::Ready`] once migrations have run, and it flips to\n[`ServiceStatus::Draining`] the moment a shutdown signal arrives, so an\norchestrator can stop routing before the listener actually closes.\n\n# Errors\n\nReturns [`Error::Unavailable`] (503) while starting up or draining, and when\nthe database round-trip fails.",
+        "description": "Both a liveness and a readiness probe. The process only reaches\n[`ServiceStatus::Ready`] once migrations have run, and it flips to\n[`ServiceStatus::Draining`] the moment a shutdown signal arrives, so an\norchestrator can stop routing before the listener actually closes.\n\n# Errors\n\nReturns [`Error::Unavailable`] (503) while starting up or draining, and when\nthe database round-trip fails.",
         "operationId": "health",
         "responses": {
           "200": {

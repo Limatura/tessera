@@ -47,8 +47,8 @@ pub enum ServiceStatus {
 /// Everything about where blobs go, as one argument.
 ///
 /// The store, its multipart view, the pool and the key that opens the pool's
-/// rows are one subject: a state built with three of them and the fourth from
-/// somewhere else would be a state whose backends and whose key disagree.
+/// rows are one subject: taking three from here and the fourth from elsewhere
+/// gives a state whose backends and whose key disagree.
 #[derive(Debug, Clone)]
 pub struct Storage {
     /// Where new content goes when nothing else claims it.
@@ -66,11 +66,10 @@ pub struct Storage {
 pub struct AppState {
     /// Validated configuration, as it stands right now.
     ///
-    /// Behind a swap rather than a plain `Arc`, because a change made in the
-    /// admin panel has to reach the next request without a restart — that is
-    /// the promise the `settings` table makes. Read it through
-    /// [`AppState::config`]; nothing should hold the result across an await,
-    /// or it will be acting on a configuration that has since been replaced.
+    /// Behind a swap, not a plain `Arc`, because a change made in the
+    /// admin panel has to reach the next request without a restart. Read it
+    /// through [`AppState::config`], and do not hold the result across an
+    /// await, or it will be acting on a configuration since replaced.
     config: Arc<ArcSwap<Config>>,
     /// Relational store. One connection type covers SQLite, Postgres and MySQL.
     pub db: DatabaseConnection,
@@ -101,25 +100,24 @@ pub struct AppState {
     ///
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
     /// block does not mount the endpoints that would use it.
-    /// Swappable for the same reason the configuration is: `mail.host` and its
-    /// neighbours are settings the panel can change, and a relay that stayed
-    /// pointed at the old server would be a change that reported success and
-    /// sent nothing.
+    ///
+    /// Swappable for the same reason the configuration is. `mail.host` and its
+    /// neighbours are settings the panel can change, and a relay left pointed
+    /// at the old server would report success and send nothing.
     mailer: Arc<ArcSwap<Option<Mailer>>>,
     /// The proxies this instance will be spoken for by.
     ///
-    /// Parsed once at start-up rather than per request: it is read on every
-    /// request that has a throttle behind it, and the parsing is the same answer
-    /// every time.
+    /// Parsed once at start-up, not per request. It is read on every request
+    /// with a throttle behind it, for the same answer every time.
     proxies: Arc<ArcSwap<TrustedProxies>>,
     /// Failed-attempt counters.
     ///
-    /// Shared rather than per-request: the whole point is that attempts
-    /// accumulate across requests. In memory, so it is state this process owns
-    /// and loses on restart — see [`Throttles`] for why that is the right trade,
-    /// and why there is more than one counter.
+    /// Shared, not per-request, since the point is that attempts accumulate
+    /// across them. In memory, so this process owns it and loses it
+    /// on restart; see [`Throttles`] for why, and why there is more than one
+    /// counter.
     pub throttles: Arc<Throttles>,
-    /// Blob store — the one new content is written to.
+    /// Blob store: the one new content is written to.
     ///
     /// Reading goes through [`AppState::backend`] instead, because a file
     /// records which backend holds it and that may not be this one any more.
@@ -132,37 +130,36 @@ pub struct AppState {
     /// Every configured backend, by name.
     ///
     /// An `ArcSwap` because the set is meant to be changeable while the process
-    /// runs — the same shape as `mailer`, and for the same reason. Today it is
-    /// built once from `storage.url` and holds a single entry.
+    /// runs, the same shape as `mailer`. Today it is built once from
+    /// `storage.url` and holds a single entry.
     pub backends: Arc<ArcSwap<crate::storage::Pool>>,
     /// Keeps the first upload into a location that does not exist yet from
-    /// racing its siblings — see
+    /// racing its siblings. See
     /// [`FirstWrites`](crate::storage::first_write::FirstWrites).
     pub first_writes: Arc<crate::storage::first_write::FirstWrites>,
-    /// Bytes arriving right now, which no table knows about yet — see
+    /// Bytes arriving right now, which no table knows about yet. See
     /// [`InFlight`](crate::storage::in_flight::InFlight).
     pub in_flight: Arc<crate::storage::in_flight::InFlight>,
     /// The same store when it can hold a multipart upload open across requests.
     ///
     /// `None` on a local filesystem, where a resumable upload appends to a
-    /// partial file instead — see `upload::sink`.
+    /// partial file instead. See `upload::sink`.
     pub multipart: Option<crate::storage::Multipart>,
     /// Upload sessions.
     pub uploads: UploadRepository,
-    /// Where the frontend is read from — the compiled-in bundle, or a directory.
+    /// Where the frontend is read from: the compiled-in bundle, or a directory.
     pub assets: Arc<crate::assets::Source>,
     /// Fonts for link-preview cards, decoded once at start-up.
     ///
     /// `None` when the embedded faces would not decode. That is a build fault
-    /// and it should not stop an instance from serving files, so it costs the
-    /// pictures and nothing else — the route answers `404` and the page keeps
-    /// its words.
+    /// and should not stop an instance serving files, so it costs the pictures
+    /// and nothing else: the route answers `404` and the page keeps its words.
     #[cfg(feature = "og-images")]
     pub cards: Option<Arc<crate::og::Cards>>,
     /// Current lifecycle status.
     ///
-    /// A `parking_lot::RwLock` rather than an async lock: the critical section is
-    /// a single enum write, so an await point here would cost more than it saves.
+    /// A `parking_lot::RwLock`, not an async lock. The critical section is a
+    /// single enum write, so an await point here costs more than it saves.
     status: Arc<RwLock<ServiceStatus>>,
     /// When the process started, used for the uptime figure in `/health`.
     started_at: OffsetDateTime,
@@ -171,9 +168,9 @@ pub struct AppState {
 impl AppState {
     /// The configuration as it stands right now.
     ///
-    /// Cheap — a pointer read, not a lock. The guard must not be held across an
-    /// await point: a handler that does is reading a configuration that may
-    /// already have been replaced, and the compiler will not say so.
+    /// Cheap: a pointer read, not a lock. The guard must not be held across an
+    /// await point, or the handler is reading a configuration that may already
+    /// have been replaced, and the compiler will not say so.
     #[must_use]
     pub fn config(&self) -> arc_swap::Guard<Arc<Config>> {
         self.config.load()
@@ -194,24 +191,12 @@ impl AppState {
         self.proxies.load()
     }
 
-    /// Replaces the configuration, and everything built from it.
-    ///
-    /// # Why the derived things are rebuilt here
-    ///
-    /// Swapping the configuration alone would leave the mailer talking to the
-    /// old relay and the proxy list trusting the old addresses — a change the
-    /// panel reported as saved and that visibly did nothing. Everything derived
-    /// from a setting is rebuilt in the same call, so there is one place to
-    /// look when something turns out not to follow.
-    ///
-    /// The throttles are updated rather than rebuilt, because they hold the
-    /// count of who has been failing to sign in. See [`Throttles::apply`].
     /// The store holding a named backend's objects.
     ///
-    /// `None` when the name is not configured — a share whose backend was
-    /// removed from the configuration. That has to be answerable rather than
-    /// fatal: the operator needs to be told which shares they have orphaned,
-    /// not have the process refuse to start.
+    /// `None` when the name is not configured: a share whose backend
+    /// was removed. That has to be answerable, not fatal: the operator
+    /// needs to be told which shares they orphaned, not have the process refuse
+    /// to start.
     #[must_use]
     pub fn backend(&self, name: &str) -> Option<Arc<dyn ObjectStore>> {
         self.backends
@@ -224,8 +209,8 @@ impl AppState {
     /// The same, as a multipart store when that backend is one.
     ///
     /// `None` for a name that is not configured *and* for one that cannot hold
-    /// a multipart open — a local directory, or a plain HTTP store. The caller
-    /// tells them apart by asking [`AppState::backend`] first.
+    /// a multipart open, such as a local directory or a plain HTTP store. The
+    /// caller tells them apart by asking [`AppState::backend`] first.
     #[must_use]
     pub fn backend_multipart(&self, name: &str) -> Option<crate::storage::Multipart> {
         self.backends
@@ -238,9 +223,9 @@ impl AppState {
     /// Replaces the set of backends, so one added from the panel or the command
     /// line is reachable without a restart.
     ///
-    /// The map is swapped whole rather than mutated: a request that is already
-    /// reading holds its own `Arc` and finishes against the set it started
-    /// with, which is what makes this safe to do under load.
+    /// The map is swapped whole, not mutated. A request already reading
+    /// holds its own `Arc` and finishes against the set it started with, which
+    /// is what makes this safe under load.
     pub fn replace_backends(&self, pool: crate::storage::Pool) {
         self.backends.store(Arc::new(pool));
     }
@@ -250,12 +235,12 @@ impl AppState {
     /// # Why the derived things are rebuilt here
     ///
     /// Swapping the configuration alone would leave the mailer talking to the
-    /// old relay and the proxy list trusting the old addresses — a change the
-    /// panel reported as saved and that visibly did nothing. Everything derived
+    /// old relay and the proxy list trusting the old addresses: a change the
+    /// panel reported as saved that visibly did nothing. Everything derived
     /// from a setting is rebuilt in the same call, so there is one place to
     /// look when something turns out not to follow.
     ///
-    /// The throttles are updated rather than rebuilt, because they hold the
+    /// The throttles are updated, not rebuilt, because they hold the
     /// count of who has been failing to sign in. See [`Throttles::apply`].
     pub fn replace_config(&self, config: Arc<Config>) {
         self.throttles.apply(&config.auth.throttle);
@@ -297,9 +282,9 @@ impl AppState {
                 sealer,
             );
         // A relay that will not build is reported and then treated as absent.
-        // Refusing to start would take the whole service down over the one
-        // feature that exists to be used when something else has already gone
-        // wrong — and the endpoints check for `Some` anyway.
+        // Refusing to start would take the service down over the one feature
+        // that exists for when something else has already gone wrong, and the
+        // endpoints check for `Some` anyway.
         let mailer = match Mailer::from_config(&config.mail) {
             Ok(mailer) => mailer,
             Err(error) => {
@@ -363,8 +348,8 @@ impl AppState {
         self.started_at
     }
 
-    /// Whole seconds since start-up. Saturates rather than wrapping if the system
-    /// clock steps backwards.
+    /// Whole seconds since start-up. Saturates instead of wrapping if the
+    /// system clock steps backwards.
     #[must_use]
     pub fn uptime_seconds(&self) -> u64 {
         let elapsed = OffsetDateTime::now_utc() - self.started_at;

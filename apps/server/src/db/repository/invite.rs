@@ -34,11 +34,11 @@ pub struct Invite {
 }
 
 impl Invite {
-    /// Whether this code could still admit somebody at `now`.
+    /// Whether this code could still admit an account at `now`.
     ///
     /// Both halves matter and they fail differently: a code with no places left
-    /// is finished, a code past its date may still have places nobody can use.
-    /// Neither is told apart in a response — see the handler.
+    /// is finished, while a code past its date may still hold unusable places.
+    /// Neither is told apart in a response; see the handler.
     #[must_use]
     pub fn is_usable_at(&self, now: OffsetDateTime) -> bool {
         self.used < self.max_uses && self.expires_at.is_none_or(|expiry| expiry > now)
@@ -75,9 +75,9 @@ impl InviteRepository {
 
     /// Mints a code and returns it, once.
     ///
-    /// The secret is returned rather than stored: only its digest reaches the
-    /// database, so this is the one moment the code exists in a form somebody
-    /// could type into a registration form.
+    /// The secret is returned, never stored. Only its digest reaches the
+    /// database, so this is the one moment the code exists in a form that could
+    /// be typed into a registration form.
     ///
     /// # Errors
     ///
@@ -171,10 +171,10 @@ impl InviteRepository {
         models.iter().map(Invite::from_model).collect()
     }
 
-    /// How many invites could still admit somebody.
+    /// How many invites could still admit an account.
     ///
-    /// Counted in the database rather than by reading them all and filtering:
-    /// the same answer, without carrying every row across the wire to throw most
+    /// Counted in the database, not by reading them all and filtering. The same
+    /// answer, without carrying every row across the wire to throw most
     /// of them away.
     ///
     /// # Errors
@@ -192,8 +192,8 @@ impl InviteRepository {
     ///
     /// The places it already gave out stay given: an account created through a
     /// code does not depend on the code still existing. Revoking one stops it
-    /// admitting anybody else, which is what somebody who posted a code in the
-    /// wrong chat window wants.
+    /// admitting anyone else, what an operator who posted a code in the wrong
+    /// chat window wants.
     ///
     /// Returns whether an invite was removed.
     ///

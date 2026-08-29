@@ -8,11 +8,10 @@ use crate::DomainError;
 
 /// How long a password must be to be accepted.
 ///
-/// Length is the only rule. Composition requirements — an uppercase, a digit, a
-/// symbol — are not here on purpose: NIST 800-63B dropped them because they push
-/// people towards `Password1!` and away from the long passphrases that actually
-/// resist guessing. Making the minimum longer is worth more than making the
-/// alphabet wider.
+/// Length is the only rule. Composition requirements (an uppercase, a digit, a
+/// symbol) are absent. NIST 800-63B dropped them because they push people
+/// towards `Password1!` and away from the long passphrases that resist
+/// guessing. A longer minimum is worth more than a wider alphabet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PasswordPolicy {
@@ -25,10 +24,10 @@ pub struct PasswordPolicy {
 impl PasswordPolicy {
     /// Longest maximum an operator may configure.
     ///
-    /// Argon2's cost is driven by its parameters rather than input length, but
-    /// the input is still hashed and still allocated — an unbounded password
-    /// field is an unauthenticated request that makes the server do arbitrary
-    /// work. This is a low ceiling for a passphrase and a hard stop for abuse.
+    /// Argon2's cost is driven by its parameters, not input length, but
+    /// the input is still hashed and allocated, so an unbounded password field
+    /// is an unauthenticated request that makes the server do arbitrary work. A
+    /// low ceiling for a passphrase and a hard stop for abuse.
     pub const CEILING: usize = 1024;
     /// Shortest minimum an operator may configure.
     ///
@@ -41,11 +40,10 @@ impl PasswordPolicy {
     /// # What this is for
     ///
     /// A policy describes passwords a person may *choose*. It must not describe
-    /// the ones they may *present*: an operator who raises `min_length` from 8
-    /// to 16 would otherwise lock out every account whose password is 12
-    /// characters long — not by refusing it, but by rejecting the input before
-    /// it ever reaches the hash, so the person sees "wrong password" for a
-    /// password that is right.
+    /// the ones they may *present*: an operator raising `min_length` from 8 to
+    /// 16 would otherwise lock out every account with a 12-character password,
+    /// not by refusing it but by rejecting the input before it reaches the
+    /// hash, so the person sees "wrong password" for a password that is right.
     ///
     /// So sign-in and change-password parse against this, and only choosing a
     /// *new* password is checked against the configured policy. The bounds are
@@ -90,7 +88,7 @@ impl PasswordPolicy {
 
 impl Default for PasswordPolicy {
     fn default() -> Self {
-        // 12 rather than the more common 8: this is a self-hosted service whose
+        // 12, not the more common 8. This is a self-hosted service whose
         // login page may face the internet, and the operator is often the only
         // user, so the cost of a slightly longer minimum is small and paid once.
         Self {
@@ -105,12 +103,12 @@ impl Default for PasswordPolicy {
 /// # Why this is a type and not a `String`
 ///
 /// A `String` password is one careless `{:?}` away from a log file. This type
-/// cannot be printed, cannot be serialised, and its `Debug` shows nothing —
-/// so the compiler stops the mistake rather than a reviewer having to.
+/// cannot be printed, cannot be serialised, and its `Debug` shows nothing, so
+/// the compiler stops the mistake, not a reviewer.
 ///
-/// It deliberately implements neither [`Display`](fmt::Display) nor
-/// `serde::Serialize`. `Deserialize` *is* implemented, because the whole point
-/// is to receive one from a request body.
+/// It implements neither [`Display`](fmt::Display) nor `serde::Serialize`.
+/// `Deserialize` *is* implemented, because receiving one from a request body is
+/// the point.
 ///
 /// Zeroing on drop is not attempted. `String` reallocates as it grows, so any
 /// wipe would be best-effort against copies we no longer have a pointer to;
@@ -169,10 +167,9 @@ impl fmt::Debug for Password {
     }
 }
 
-/// Compares in constant time with respect to content, so that using `==` cannot
-/// leak a prefix through timing. Comparing two plaintexts is not how login
-/// works — that is the hasher's job — but the operator exists, so it should not
-/// be the naive one.
+/// Compares in constant time with respect to content, so `==` cannot leak a
+/// prefix through timing. Comparing two plaintexts is not how login works,
+/// the hasher's job, but the operator exists and should not be naive.
 impl PartialEq for Password {
     fn eq(&self, other: &Self) -> bool {
         let (a, b) = (self.0.as_bytes(), other.0.as_bytes());

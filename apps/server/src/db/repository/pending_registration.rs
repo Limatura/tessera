@@ -15,12 +15,12 @@ use crate::{
     },
 };
 
-/// A registration nobody has confirmed yet.
+/// A registration awaiting confirmation.
 #[derive(Debug, Clone)]
 pub struct PendingRegistration {
     /// Row identifier.
     pub id: PendingRegistrationId,
-    /// The name asked for, which is checked for real only at confirmation.
+    /// The name asked for. Checked for real only at confirmation.
     pub username: Username,
     /// The address being confirmed.
     pub email: EmailAddress,
@@ -66,15 +66,15 @@ impl PendingRegistration {
 
 /// What one waiting registration is asking to become.
 ///
-/// A type rather than four more arguments: they are one description of one
-/// intention, and they are only ever passed together.
+/// A type, not four more arguments. They are one description of one intention,
+/// and they are only ever passed together.
 #[derive(Debug)]
 pub struct Waiting<'a> {
     /// The name asked for.
     pub username: &'a Username,
     /// The address being confirmed.
     pub email: &'a EmailAddress,
-    /// Already hashed — this table must be no more use to a thief than `users`.
+    /// Already hashed: this table must be no more use to a thief than `users`.
     pub password_hash: String,
     /// Which invite it came in on, on an invite-only instance.
     pub invite_id: Option<InviteId>,
@@ -95,10 +95,10 @@ impl PendingRegistrationRepository {
 
     /// Records a registration and returns the secret to put in the email.
     ///
-    /// Replaces any existing registration for the same address rather than
-    /// adding a second: two live links in one mailbox means the older one keeps
-    /// working after somebody has already used the newer, and there is no
-    /// reason for that to be possible.
+    /// Replaces any existing registration for the same address instead of
+    /// adding a second. Two live links in one mailbox means the older one keeps
+    /// working after the newer has been used, and there is no reason for that
+    /// to be possible.
     ///
     /// # Errors
     ///
@@ -124,7 +124,7 @@ impl PendingRegistrationRepository {
         PendingEntity::insert(row)
             .on_conflict(
                 // Everything but the id, so a second attempt is the one that
-                // counts — including a different username or password, because
+                // counts, including a different username or password, because
                 // the usual reason to register again is having got something
                 // wrong the first time.
                 OnConflict::column(Column::Email)
@@ -164,14 +164,14 @@ impl PendingRegistrationRepository {
 
     /// Finds the registration waiting on an address, if there is one.
     ///
-    /// There is at most one — see [`PendingRegistrationRepository::start`].
+    /// There is at most one; see [`PendingRegistrationRepository::start`].
     ///
     /// Nothing in the request path calls this: registration answers the same
     /// way whether or not a row exists, so looking one up could only be a way
     /// to make the answers differ. It is here because the token exists nowhere
     /// but the email, so this is the only way to observe that a registration
-    /// was recorded at all — in a test, or by an operator with a database
-    /// prompt and somebody telling them the message never arrived.
+    /// was recorded at all, in a test or by an operator with a database prompt
+    /// after a report that the message never arrived.
     ///
     /// # Errors
     ///
@@ -202,7 +202,7 @@ impl PendingRegistrationRepository {
         Ok(result.rows_affected == 1)
     }
 
-    /// Removes registrations nobody confirmed in time.
+    /// Removes registrations that were never confirmed in time.
     ///
     /// # Errors
     ///

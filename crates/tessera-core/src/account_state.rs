@@ -10,7 +10,7 @@ use crate::{EmailAddress, UserId, Username, error::DomainError};
 ///
 /// `shares.user_id` is `ON DELETE SET NULL`, so removing the row would turn
 /// every share that account uploaded into one indistinguishable from an
-/// anonymous upload. "Nobody ever owned this" and "the owner is gone" are
+/// anonymous upload. "This never had an owner" and "the owner is gone" are
 /// different facts, and once merged they cannot be told apart again.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub enum AccountState {
@@ -19,9 +19,9 @@ pub enum AccountState {
     Active,
     /// Suspended: the person is stopped, their content is not.
     ///
-    /// Their shares keep serving — whoever holds one of those links did nothing
-    /// wrong. Stopping the content too is what a share's own `disabled_at` is
-    /// for, and an administrator can reach every share to set it.
+    /// Their shares keep serving, since whoever holds one of those links did
+    /// nothing wrong. Stopping the content too is what a share's own
+    /// `disabled_at` is for, and an administrator can reach every share.
     Disabled,
     /// Gone. The row survives to keep the shares attributable and to record
     /// that an account was here; everything identifying has been scrubbed.
@@ -41,8 +41,8 @@ impl AccountState {
 
     /// Whether an account in this state may authenticate.
     ///
-    /// One question asked in one place, rather than each call site deciding
-    /// which states it minds — the two that are not `Active` are alike in every
+    /// One question asked in one place, instead of each call site deciding
+    /// which states it minds. The two that are not `Active` are alike in every
     /// way that matters to a request.
     #[must_use]
     pub const fn may_sign_in(self) -> bool {
@@ -82,26 +82,26 @@ impl FromStr for AccountState {
 
 /// The name and address a deleted account is left with.
 ///
-/// # Why values rather than `NULL`
+/// # Why values and not `NULL`
 ///
 /// Both columns are `NOT NULL` and carry a unique index. Making them nullable
-/// would mean rebuilding the table on SQLite for a case that a value handles
-/// just as well — and a value keeps the index doing its job.
+/// would mean rebuilding the table on SQLite for a case a value handles just as
+/// well, and a value keeps the index doing its job.
 ///
 /// # What they are for
 ///
-/// Freeing the originals, so somebody else may register that name and that
-/// address. What is left identifies nobody: the identifier was already public
-/// to anyone who could see the account, and `.invalid` is reserved precisely so
-/// that it can never be a real domain (RFC 2606).
+/// Freeing the originals, so the name and address can be registered again. What
+/// is left identifies no person: the identifier was already public to anyone
+/// who could see the account, and `.invalid` is reserved so it can never be a
+/// real domain (RFC 2606).
 ///
 /// # Why these two are themselves reserved
 ///
-/// The identifier is public — every response naming an account carries one. So
-/// without reserving them, a person could read somebody else's, take the name
-/// and address that account's deletion will one day need, and the unique index
-/// would then refuse the deletion. The account becomes undeletable, by its
-/// owner and by an administrator alike. Measured before it was fixed:
+/// The identifier is public, since every response naming an account carries
+/// one. Without reserving them, another account's identifier could be read, its
+/// future tombstone name and address claimed, and
+/// the unique index would refuse the deletion. The account becomes undeletable
+/// by its owner and an administrator alike. Measured before it was fixed:
 /// `UNIQUE constraint failed: users.username`.
 ///
 /// Which is why this builds them through the privileged parsers. It is the one
@@ -163,8 +163,8 @@ mod tests {
 
     /// The two halves of the fix, tied together.
     ///
-    /// If the parsers ever stop refusing what this produces, somebody can take
-    /// a tombstone that is not theirs and make that account undeletable.
+    /// If the parsers ever stop refusing what this produces, a tombstone can be
+    /// claimed by the wrong account, making that account undeletable.
     #[test]
     fn nobody_else_can_take_a_tombstone() {
         let (name, email) = tombstone(UserId::generate());

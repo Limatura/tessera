@@ -3,12 +3,12 @@
 //! This is a *storage* shape, not a domain shape. It holds `String`s where the
 //! domain holds [`Username`](tessera_core::Username) and
 //! [`EmailAddress`](tessera_core::EmailAddress), because that is what a column
-//! is — and because a row read back from a database written by an older version
+//! is, and because a row read back from a database written by an older version
 //! might not satisfy today's rules.
 //!
 //! Crossing between the two is
 //! [`User::from_model`](crate::db::repository::user::User::from_model), and it
-//! is fallible on purpose. See `db::repository::user` for what that buys.
+//! is fallible by design. See `db::repository::user` for what that buys.
 
 use sea_orm::entity::prelude::*;
 
@@ -28,8 +28,8 @@ pub struct Model {
     pub email: String,
     /// PHC-format Argon2 string. Never a plaintext password.
     pub password_hash: String,
-    /// Which role the account is in, or `None` for one in no role — signed in
-    /// and allowed nothing, which is a real state rather than a fault.
+    /// Which role the account is in, or `None` for one in no role: signed in
+    /// and allowed nothing: a real state, not a fault.
     pub role_id: Option<String>,
     /// How much storage this account may hold, or `None` to ask its role.
     /// `Some(0)` is no ceiling.

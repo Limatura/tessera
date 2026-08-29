@@ -6,7 +6,7 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "settings")]
 pub struct Model {
-    /// The dotted key, as it appears in the configuration — `share.code_length`.
+    /// The dotted key as it appears in the configuration, `share.code_length`.
     #[sea_orm(primary_key, auto_increment = false)]
     pub name: String,
     /// The value as JSON, so a number stays a number.

@@ -31,8 +31,8 @@ use crate::{
 
 /// `length()`, which every dialect here answers in bytes for a blob.
 ///
-/// Written out rather than taken from `Func`, whose `char_length` renders as
-/// `CHAR_LENGTH` — a function Postgres does not have for `bytea`.
+/// Written out instead of taken from `Func`, whose `char_length` renders as
+/// `CHAR_LENGTH`, which Postgres does not have for `bytea`.
 struct Length;
 
 impl Iden for Length {
@@ -48,8 +48,8 @@ impl Iden for Length {
 /// Records where a file's bytes are.
 ///
 /// One segment per file today, so this writes `seq` 0 and nothing else. Content
-/// that is inline or already gone has no object and gets no segment — a file
-/// with no segments is exactly what "the bytes are not in a store" looks like.
+/// that is inline or already gone has no object and gets no segment, so a file
+/// with no segments is what "the bytes are not in a store" looks like.
 async fn insert_segment(
     connection: &DatabaseConnection,
     file_id: &str,
@@ -93,9 +93,9 @@ async fn insert_segment(
 /// The shares a scope owns, as a subquery on `shares.id`, or `None` for the
 /// whole instance.
 ///
-/// `Scope::Role` reads `shares.role_id` rather than joining through the
-/// account: it is the role recorded when the share was made, so moving somebody
-/// to another role does not silently move their old shares' bytes with them.
+/// `Scope::Role` reads `shares.role_id` instead of joining through the account.
+/// That is the role recorded when the share was made, so moving an
+/// account to another role does not move its old shares' bytes with it.
 fn owned_shares(scope: Scope) -> Option<SelectStatement> {
     let (column, owner) = match scope {
         Scope::User(id) => (share::Column::UserId, id.to_string()),
@@ -144,9 +144,9 @@ impl ShareKind {
 
 /// What a partial update says about one column: leave it, or write this.
 ///
-/// Distinct from `Option`, which here would have to mean two things at once —
-/// the value being written is itself nullable, so `None` cannot also stand for
-/// "not mentioned".
+/// Distinct from `Option`, which would mean two things at once here: the value
+/// being written is itself nullable, so `None` cannot also stand for "not
+/// mentioned".
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Change<T> {
     /// The caller did not mention this field.
@@ -180,9 +180,8 @@ pub struct NewFile {
     pub storage: StorageLocation,
     /// Every piece, when the file was spread over more than one backend.
     ///
-    /// Empty means "one piece, the one `storage` names" — which is every file
-    /// written before splitting was switched on, and every file written with it
-    /// off.
+    /// Empty means one piece, the one `storage` names: every file written
+    /// before splitting was switched on, and every file written with it off.
     pub segments: Vec<NewSegment>,
 }
 
@@ -203,21 +202,20 @@ pub struct NewSegment {
 ///
 /// # Why the details are an argument and not fields on [`Share`]
 ///
-/// They used to be columns on `shares`, which worked while a share held exactly
-/// one thing. It stops working the moment it can hold several — `filename` has
-/// no honest value for a share with three files — so they live on the tables
-/// that own them, and creating a share says what goes in those tables.
+/// They used to be columns on `shares`, which worked while a share held one
+/// thing. `filename` has no honest value for a share with three files, so they
+/// live on the tables that own them and creating a share says what goes there.
 ///
-/// Multi-file shares will turn the file case into a list. The enum is the shape
-/// that survives that; a set of optional columns is not.
+/// Multi-file shares will turn the file case into a list. The enum survives
+/// that; a set of optional columns does not.
 #[derive(Debug, Clone)]
 pub enum NewContent {
     /// One file, wherever its bytes ended up.
     ///
     /// A share is created with one and grown with
-    /// [`append_file`](ShareRepository::append_file) — rather than created with
-    /// a list — because the files arrive in separate requests. One request
-    /// carrying five means losing five when it drops at the fourth.
+    /// [`append_file`](ShareRepository::append_file), not created with a list,
+    /// because the files arrive in separate requests. One request
+    /// carrying five loses five when it drops at the fourth.
     File(NewFile),
     /// Text, which is its own row.
     Text {
@@ -250,7 +248,7 @@ pub struct FilePart {
     pub content_type: Option<String>,
     /// How many bytes.
     pub size_bytes: u64,
-    /// Where those bytes are — the first piece, for the legacy column.
+    /// Where those bytes are: the first piece, for the legacy column.
     pub storage: StorageLocation,
     /// Every piece, in order. One entry for a file that was not split.
     pub segments: Vec<FileSegment>,
@@ -269,12 +267,12 @@ pub struct TextPart {
 ///
 /// # Why an enum now
 ///
-/// It was one flat struct while a share held exactly one thing, and the fields
-/// that did not apply were `None`. A share can hold several files, and "several"
-/// is not something optional fields express — a reader that wants the second
-/// file has nowhere to ask.
+/// It was one flat struct while a share held one thing, with the fields that
+/// did not apply set to `None`. A share can hold several files, and optional
+/// fields cannot express that: a reader wanting the second file has nowhere to
+/// ask.
 ///
-/// The three cases are the three a reader has to handle differently: stream one
+/// The three cases are the three a reader handles differently: stream one
 /// object, hand over a row, or explain that there is nothing left.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Content {
@@ -299,9 +297,8 @@ impl Content {
 
     /// The one file, when there is exactly one.
     ///
-    /// The case worth naming: a share with one file is downloaded as that file,
-    /// resumable and under its own name. Two or more become an archive, which
-    /// is neither.
+    /// A share with one file is downloaded as that file, resumable and under
+    /// its own name. Two or more become an archive, and an archive is neither.
     #[must_use]
     pub fn single_file(&self) -> Option<&FilePart> {
         match self {
@@ -323,7 +320,7 @@ impl Content {
     ///
     /// `backends` maps a file's id to the backend its first segment names.
     /// Files whose bytes are gone have no segment, and a row from before this
-    /// table existed falls back to the seeded backend — see
+    /// table existed falls back to the seeded backend. See
     /// [`StorageLocation::parse`].
     fn from_files(
         models: &[file_share::Model],
@@ -351,7 +348,7 @@ impl Content {
                     storage: StorageLocation::parse(
                         &model.storage,
                         model.object_key.clone(),
-                        // The first piece's backend, which is what the legacy
+                        // The first piece's backend, all the legacy
                         // single-object shape can hold.
                         segments
                             .get(&model.id)
@@ -379,18 +376,18 @@ impl Content {
 ///
 /// # Why these two and not retrieval
 ///
-/// A retrieval is a limit, so the server has to be the one counting it — a
-/// client that reported its own would be a client deciding whether the limit
-/// applied, and `curl /s/{code}/raw` would walk past it. These two have no side
-/// effect and no server-side moment to observe: nothing reaches the server when
-/// somebody reads a note on screen or presses a copy button.
+/// A retrieval is a limit, so the server counts it: a client reporting its own
+/// would be a client deciding whether the limit applied, and `curl
+/// /s/{code}/raw` would walk past it. These two have no server-side moment to
+/// observe: nothing reaches the server when a note is read on screen or a copy
+/// button is pressed.
 ///
-/// So the trade is the other way round from `use_count`. These numbers can be
-/// inflated by anybody who can call the endpoint, and that is tolerable because
-/// nothing depends on them being right.
+/// So the trade runs the other way from `use_count`. Anybody who can call the
+/// endpoint can inflate these, and that is tolerable because nothing depends
+/// on them.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ShareEvent {
-    /// The content was shown to somebody.
+    /// The content was displayed.
     View,
     /// The content was copied to a clipboard.
     Copy,
@@ -398,7 +395,7 @@ pub enum ShareEvent {
 
 /// Where a share's bytes live.
 ///
-/// An enum rather than a `storage` string plus a nullable `object_key`, so that
+/// An enum, not a `storage` string plus a nullable `object_key`, so that
 /// "object storage with no key" is a state the rest of the program cannot be
 /// handed.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -409,23 +406,23 @@ pub enum StorageLocation {
     Object {
         /// Which configured backend holds it.
         ///
-        /// Recorded per file rather than taken from the configuration, because
-        /// the configuration can change: without this, pointing `storage.url`
+        /// Recorded per file, not read from the configuration, which can
+        /// change. Without this, pointing `storage.url`
         /// somewhere else leaves every existing share reading as present and
         /// failing to deliver, with nothing saying where the bytes went.
         backend: String,
-        /// Key as it was written. Stored rather than recomputed, so the layout
-        /// can change later without moving existing objects.
+        /// Key as it was written. Stored, not recomputed, so the layout can
+        /// change later without moving existing objects.
         key: String,
     },
     /// The content has been removed; only the row survives.
     ///
     /// A share that has expired or been used up is kept for a while so that
-    /// following its link says "this expired" rather than "no such code". The
-    /// *content* is not needed for that — [`crate::api::gate::open`] refuses a
-    /// dead share before anything reads it — so the bytes go at death and the
-    /// row goes later, which is the difference between holding a week of dead
-    /// payloads and holding none.
+    /// following its link says "this expired" instead of "no such code". The
+    /// *content* is not needed for that, since [`crate::api::gate::open`]
+    /// refuses a dead share before anything reads it, so the bytes go at death
+    /// and the row goes later. Otherwise the instance holds a week of dead
+    /// payloads.
     Gone,
 }
 
@@ -439,10 +436,9 @@ impl StorageLocation {
     /// Saves every caller a `match` whose only other arm is "no key", and keeps
     /// the variant shape from leaking into code that just wants the key.
     ///
-    /// `Gone` answers `None` like `Inline` does. That is deliberate: the two
-    /// mean different things to a sweep, which asks
-    /// [`is_reapable`](Self::is_reapable) instead, and the same thing to
-    /// everybody else — there is no object to fetch.
+    /// `Gone` answers `None` like `Inline` does. The two differ only to a
+    /// sweep, which asks [`is_reapable`](Self::is_reapable); to everybody else
+    /// they mean the same thing, that there is no object to fetch.
     #[must_use]
     pub fn object_key(&self) -> Option<&str> {
         match self {
@@ -482,14 +478,13 @@ impl StorageLocation {
         backend: Option<String>,
     ) -> Result<Self, DomainError> {
         match (storage, object_key) {
-            // `object_key` is kept rather than cleared, so a row still records
-            // which object was removed — the one thing worth having if a
-            // deletion ever turns out to have been wrong.
+            // `object_key` is kept, not cleared, so the row still records
+            // which object was removed if a deletion turns out wrong.
             (Self::GONE, _) => Ok(Self::Gone),
             (Self::INLINE, _) => Ok(Self::Inline),
-            // A row written before backends were recorded, or one whose
-            // segment is missing, reads as the seeded backend — which is the
-            // store those bytes were written to, because there was only one.
+            // A row written before backends were recorded, or one whose segment
+            // is missing, reads as the seeded backend: there was only one store
+            // then, so that is where those bytes went.
             (Self::OBJECT, Some(key)) => Ok(Self::Object {
                 backend: backend.unwrap_or_else(|| crate::storage::DEFAULT_BACKEND.to_owned()),
                 key,
@@ -513,13 +508,14 @@ pub struct Share {
     pub id: ShareId,
     /// How a person refers to it.
     pub code: RetrievalCode,
-    /// Owner, or `None` for an anonymous upload — **or** for one whose account
-    /// has since been deleted. [`role_id`](Self::role_id) tells those apart.
+    /// Owner, or `None` for an anonymous upload **or** one whose account has
+    /// since been deleted. [`role_id`](Self::role_id) tells those apart.
     pub user_id: Option<UserId>,
     /// The role the uploader was in when they uploaded it.
     ///
-    /// A snapshot: moving somebody to another role later does not change which
-    /// quota their old shares count against. Anonymous uploads carry `guest`.
+    /// A snapshot. Moving an account to another role later does not change
+    /// which quota its old shares count against. Anonymous uploads carry
+    /// `guest`.
     /// `None` on a share that predates the column or whose role was removed,
     /// and both mean the instance-wide ceiling decides.
     pub role_id: Option<RoleId>,
@@ -540,12 +536,11 @@ pub struct Share {
     /// Display name.
     pub title: Option<String>,
 
-    /// JSON describing how to draw the OG image.
-    /// Unused. The card design is one setting for the instance — `og.layout` —
-    /// not one per share, because a knob on every upload form for something
-    /// almost nobody wants is a worse trade than a column nothing writes. Kept
-    /// rather than dropped so that a future layout editor has somewhere to go
-    /// if it ever wants per-share designs; nothing reads it today.
+    /// JSON describing how to draw the OG image. Unused.
+    ///
+    /// The card design is one instance-wide setting, `og.layout`, not one per
+    /// share. Kept, not dropped, so a future layout editor has somewhere to put
+    /// per-share designs. Nothing reads it today.
     pub og_config: Option<String>,
     /// SHA-256 of the token that lets an anonymous uploader manage this share.
     pub management_token_hash: Option<String>,
@@ -555,7 +550,7 @@ pub struct Share {
     pub copy_count: u32,
     /// How many bytes this share has sent out.
     ///
-    /// Bytes that left this process, not bytes that reached anybody — see the
+    /// Bytes that left this process, not bytes that reached anybody. See the
     /// migration for what a proxy in front does to the difference.
     pub bytes_served: u64,
     /// When the share was last touched.
@@ -594,12 +589,11 @@ impl Share {
     ///
     /// # Why the reasons are distinguishable
     ///
-    /// "Expired" and "no such code" could be collapsed into one answer to avoid
-    /// confirming that a code was ever real. They are kept apart because the
-    /// share page has to render a password prompt for a live share, which
-    /// already reveals existence for any valid code — so the collapse would buy
-    /// nothing and cost the reader an explanation of why their link stopped
-    /// working.
+    /// "Expired" and "no such code" could be one answer, to avoid confirming a
+    /// code was ever real. They are kept apart because the share page renders a
+    /// password prompt for a live share, which already reveals existence for
+    /// any valid code, so collapsing them would buy nothing and cost the reader
+    /// an explanation of why their link stopped working.
     #[must_use]
     pub fn availability_at(&self, now: OffsetDateTime) -> Availability {
         if self.disabled_at.is_some() {
@@ -736,20 +730,19 @@ impl ShareRepository {
     ///
     /// # Why a file share is written twice
     ///
-    /// A file's name, type, size and location now live in `file_shares`, and
-    /// they are still written to `shares` as well. That duplication is the point
-    /// of this step rather than an oversight: the new table has to be true from
-    /// the first row, and the code that reads it is a separate change. Writing
-    /// only the new one would break every reader at once; writing only the old
-    /// one would leave a table that the migration filled and nothing maintained,
-    /// which is worse than not having it.
+    /// A file's name, type, size and location live in `file_shares` and are
+    /// still written to `shares` as well. The duplication is deliberate: the
+    /// new table has to be true from the first row, and the code that reads it
+    /// is a separate change. Writing only the new one breaks every reader at
+    /// once; writing only the old one leaves a table the migration filled and
+    /// nothing maintains.
     ///
     /// The columns on `shares` go when the last reader does.
     ///
     /// # Errors
     ///
-    /// Returns [`ShareRepositoryError`] if the insert fails — including when the
-    /// code is already taken, which the unique index rejects.
+    /// Returns [`ShareRepositoryError`] if the insert fails, including when the
+    /// unique index rejects a code that is already taken.
     pub async fn insert(
         &self,
         share: &Share,
@@ -762,9 +755,8 @@ impl ShareRepository {
         match content {
             NewContent::File(file) => {
                 FileShareEntity::insert(file_share::ActiveModel {
-                    // Derived from the share rather than generated, so that a
-                    // share with one file keeps an identifier somebody can
-                    // follow back.
+                    // Derived from the share, not generated, so a single-file
+                    // share keeps a followable identifier.
                     id: Set(share.id.to_string()),
                     share_id: Set(share.id.to_string()),
                     position: Set(0),
@@ -801,9 +793,9 @@ impl ShareRepository {
     /// The text of a share, when it has been moved to its own table.
     ///
     /// `None` for a file, and for a text share whose content is still in the
-    /// object store waiting for the sweep to fetch it back. A caller that gets
-    /// `None` falls back to the old path, which is what makes the move something
-    /// that can happen gradually rather than during an upgrade.
+    /// object store waiting for the sweep to fetch it back. A caller getting
+    /// `None` falls back to the old path, which lets the move happen gradually
+    /// instead of during an upgrade.
     ///
     /// # Errors
     ///
@@ -838,9 +830,8 @@ impl ShareRepository {
     /// # Why the position is worked out here
     ///
     /// It is the count of what is already there, and reading it in the handler
-    /// would leave a window for two uploads to pick the same one. Deciding it
-    /// in the same statement that writes the row is what stops two files
-    /// claiming to be third.
+    /// leaves a window for two uploads to pick the same one. Deciding it beside
+    /// the write is what stops two files claiming to be third.
     ///
     /// # Errors
     ///
@@ -857,7 +848,7 @@ impl ShareRepository {
             .await?;
         let id = ShareId::generate().to_string();
         FileShareEntity::insert(file_share::ActiveModel {
-            // Its own identifier, unlike the first file's — that one borrows the
+            // Its own identifier, unlike the first file's, which borrows the
             // share's so a single-file share stays followable.
             id: Set(id.clone()),
             share_id: Set(share_id.to_string()),
@@ -879,11 +870,9 @@ impl ShareRepository {
     ///
     /// # Why a list
     ///
-    /// One today, because a share holds one file. Multi-file shares will make it
-    /// several, and a sweep that removed the first and stopped would leave the
-    /// rest paid for
-    /// and unreachable — a leak nothing would ever find, because the row that
-    /// named them is gone.
+    /// A sweep that removed the first and stopped would leave the rest paid for
+    /// and unreachable, a leak nothing can find once the row that named them is
+    /// gone.
     ///
     /// Text has no objects: its content is its row.
     ///
@@ -906,24 +895,20 @@ impl ShareRepository {
 
     /// Every object key any share still names.
     ///
-    /// # Why the whole set rather than a batched `IN`
+    /// # Why the whole set, and not a batched `IN`
     ///
     /// The reconciliation walks the store and asks "is this one still spoken
-    /// for". Asking per batch would be one query per batch against a column
-    /// with no index — and indexing `object_key` to serve a job that runs once
-    /// a day would cost a write on every upload for ever. One query and a set
-    /// in memory is the cheaper trade: a courier holds roughly its upload rate
-    /// times its retention, so the set is tens of megabytes at instance sizes
-    /// this software is aimed at.
+    /// for". Asking per batch would be one query per batch against an unindexed
+    /// column, and indexing `object_key` for a job that runs once a day costs a
+    /// write on every upload for ever. One query and a set in memory is
+    /// cheaper: the set is tens of megabytes at the sizes this is aimed at.
     ///
-    /// Read from `file_segments`, not from `file_shares.object_key`.
+    /// # Read from `file_segments`, not `file_shares.object_key`
     ///
-    /// That column holds one key, and it is the column the reconciliation used
-    /// to ask. A file spread over several backends has one row here per piece,
-    /// and every piece but the first would be missing from the answer — so the
-    /// sweep would see a real object that no share appeared to name and delete
-    /// it. Data loss, not an error message, and it would have arrived with the
-    /// first split file rather than with this query.
+    /// That column holds one key. A file spread over several backends has one
+    /// row here per piece, so every piece but the first would be missing from
+    /// the answer and the sweep would delete a real object no share appeared to
+    /// name. Data loss, arriving with the first split file.
     ///
     /// # Errors
     ///
@@ -939,16 +924,16 @@ impl ShareRepository {
 
     /// Reads what a share holds, from the table that owns it.
     ///
-    /// # Why this exists rather than more columns on [`Share`]
+    /// # Why this exists instead of more columns on [`Share`]
     ///
-    /// The columns describing content — filename, type, size, where the bytes
-    /// are — only make sense for one kind of share, and half of them were
-    /// always `NULL`. They live on `file_shares` and `text_shares` now, and
-    /// `kind` is what says which to read.
+    /// The columns describing content (filename, type, size, where the bytes
+    /// are) only make sense for one kind of share, and half were always `NULL`.
+    /// They live on `file_shares` and `text_shares` now, and `kind` says which
+    /// to read.
     ///
-    /// A share whose subtype row is gone reads as [`Content::Gone`] rather than
-    /// failing: that is what a share whose content was swept looks like, and
-    /// the listing still has to be able to show it.
+    /// A share whose subtype row is gone reads as [`Content::Gone`] instead of
+    /// failing. That is what a swept share looks like, and the listing still
+    /// has to show it.
     ///
     /// # Errors
     ///
@@ -969,9 +954,8 @@ impl ShareRepository {
 
     /// The same, for a page of shares, without a query each.
     ///
-    /// The listing endpoint builds one response per share. Asking per share
-    /// would make a page of fifty shares fifty-one queries, which is the shape
-    /// of slowness that only appears once somebody has enough shares to care.
+    /// The listing endpoint builds one response per share, so asking per share
+    /// makes a page of fifty into fifty-one queries.
     ///
     /// # Errors
     ///
@@ -999,8 +983,8 @@ impl ShareRepository {
         for text in &texts {
             texts_by_share.insert(text.share_id.clone(), Content::from_text(text));
         }
-        // Grouped rather than taken one at a time: the query is ordered by
-        // position, so pushing in order keeps the uploader's order.
+        // The query is ordered by position, so pushing in order keeps the
+        // uploader's order.
         let mut files_by_share: HashMap<String, Vec<file_share::Model>> = HashMap::new();
         for file in files {
             files_by_share
@@ -1034,14 +1018,12 @@ impl ShareRepository {
     /// How many bytes each backend is holding, by name.
     ///
     /// Summed from the segments this instance wrote, not asked of the store:
-    /// `object_store` has no capacity API, and for the free tiers this is aimed
-    /// at the limit is a property of the *account's plan* that no API reports.
-    /// What the operator has to supply is the ceiling; what they must not have
-    /// to supply is the usage.
+    /// `object_store` has no capacity API, and on a free tier the limit is a
+    /// property of the account's plan that no API reports. The operator supplies
+    /// the ceiling; they should not have to supply the usage.
     ///
-    /// Only content that still exists — a share kept past its death to say
-    /// "this expired" had its bytes removed at death and its segments with
-    /// them, so it occupies nothing.
+    /// Only content that still exists. A share kept past its death to say "this
+    /// expired" lost its bytes and its segments at death, so it counts nothing.
     ///
     /// # Errors
     ///
@@ -1082,21 +1064,16 @@ impl ShareRepository {
             .await?)
     }
 
-    /// Which backend holds each of these files, by file id.
+    /// Every file's pieces, in order, keyed by file id.
     ///
-    /// Only the first segment, because a file has exactly one unless it was
-    /// split across backends. A
-    /// file with no segment is absent from the map, and reads as the seeded
-    /// backend — see [`StorageLocation::parse`].
+    /// All of them, not `seq = 0`. A file spread over several backends is read
+    /// by walking the list, and asking only for the first would serve the first
+    /// piece and call it the file. A file with no segment is absent from the
+    /// map and reads as the seeded backend. See [`StorageLocation::parse`].
     ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails.
-    /// Every file's pieces, in order.
-    ///
-    /// All of them, not `seq = 0`. A file spread over several backends is read
-    /// by walking the list, and asking only for the first would serve the first
-    /// piece and call it the file.
     async fn segments_of(
         &self,
         file_ids: &[String],
@@ -1153,25 +1130,24 @@ impl ShareRepository {
 
     /// Ends every share one account uploaded.
     ///
-    /// # Why this expires them rather than deleting them
+    /// # Why this expires them instead of deleting them
     ///
-    /// The bytes live in an object store, and removing five hundred objects
-    /// inside one request is a request that times out half way through with no
-    /// record of where it got to. Expiring them is one `UPDATE`; the reaper
-    /// then removes the content a batch at a time, and the retention sweep
-    /// removes the rows later — machinery that already exists and is already
-    /// tested.
+    /// The bytes live in an object store, and removing five hundred objects in
+    /// one request times out half way through with no record of where it got
+    /// to. Expiring them is one `UPDATE`; the reaper then removes the content a
+    /// batch at a time and the retention sweep removes the rows later, using
+    /// machinery that already exists.
     ///
     /// # What it costs
     ///
-    /// A visitor following one of these links is told it expired rather than
-    /// that somebody removed it. That is the right amount to tell them: both
-    /// mean the link is finished, and the difference is the operator's business.
+    /// A visitor is told the link expired, not that it was removed. Both mean
+    /// the link is finished, and the difference is the operator's
+    /// business.
     ///
-    /// `disabled_at` would have been the more literal marker and is deliberately
-    /// not used — the reaper leaves disabled shares alone, because disabling is
-    /// something an operator may undo and re-enabling a share whose content has
-    /// been destroyed gives them a live link to nothing.
+    /// `disabled_at` is the more literal marker and is not used here. The
+    /// reaper leaves disabled shares alone, because an operator may undo
+    /// disabling, and re-enabling a share whose content is destroyed gives them
+    /// a live link to nothing.
     ///
     /// Returns how many were ended.
     ///
@@ -1188,7 +1164,7 @@ impl ShareRepository {
             .col_expr(share::Column::UpdatedAt, now.into())
             .filter(share::Column::UserId.eq(user_id.to_string()))
             // Ones that already finished are left alone, so the count means
-            // "this many were still live" rather than "this many rows exist".
+            // "this many were still live", not "this many rows exist".
             .filter(
                 share::Column::ExpiresAt
                     .is_null()
@@ -1247,9 +1223,7 @@ impl ShareRepository {
     /// Lists an account's shares, newest first, a page at a time.
     ///
     /// Paged for the same reason [`ShareRepository::list_all`] is: an account
-    /// driven by a script is not bounded by what a person would upload by
-    /// hand, and an unpaged listing only becomes a problem once somebody has
-    /// enough shares to have stopped watching.
+    /// driven by a script is not bounded by what a person uploads by hand.
     ///
     /// # Errors
     ///
@@ -1286,12 +1260,11 @@ impl ShareRepository {
     ///
     /// # Why this is one statement and not read-then-write
     ///
-    /// Two requests arriving together on a share with one use left must not both
-    /// succeed. Reading the count and writing it back leaves exactly that race,
-    /// and no amount of care in the handler closes it. Putting the limit in the
-    /// `WHERE` clause makes the database do the comparison and the increment in
-    /// the same statement, which is atomic on all three backends without a
-    /// transaction.
+    /// Two requests arriving together on a share with one use left must not
+    /// both succeed, and reading the count then writing it back leaves that
+    /// race open however careful the handler is. Putting the limit in the
+    /// `WHERE` clause makes the comparison and the increment one statement,
+    /// atomic on all three backends without a transaction.
     ///
     /// # Errors
     ///
@@ -1320,9 +1293,9 @@ impl ShareRepository {
 
     /// Rewrites the settings a share can be changed after the fact.
     ///
-    /// One statement, and only the columns the caller named — a read-modify-write
-    /// here would let two people editing the same share each undo the other's
-    /// field without either seeing a conflict.
+    /// One statement, and only the columns the caller named. A
+    /// read-modify-write would let two people editing the same share each undo
+    /// the other's field without either seeing a conflict.
     ///
     /// Returns whether a row matched, so a caller can tell "changed nothing"
     /// from "no such share".
@@ -1360,10 +1333,9 @@ impl ShareRepository {
 
     /// How much this instance has sent out, over every share it still has.
     ///
-    /// Shares that have been swept take their tally with them, so this is "what
-    /// the rows still here have sent", not "what this instance has ever sent".
-    /// Keeping the latter would mean a counter that survives its subject, and
-    /// nothing here has one of those yet.
+    /// Swept shares take their tally with them, so this is what the rows still
+    /// here have sent, not what the instance has ever sent. The latter needs a
+    /// counter that survives its subject, and nothing here has one.
     ///
     /// # Errors
     ///
@@ -1409,9 +1381,8 @@ impl ShareRepository {
 
     /// Records that the share page was looked at.
     ///
-    /// Deliberately separate from [`consume`](Self::consume): a look is not a
-    /// retrieval, and a crawler unfurling a link must never spend somebody's
-    /// one-time share.
+    /// Separate from [`consume`](Self::consume). A look is not a retrieval, and
+    /// a crawler unfurling a link must never spend a one-time share.
     ///
     /// # Errors
     ///
@@ -1435,8 +1406,8 @@ impl ShareRepository {
 
     /// Deletes a share. Its inline content goes with it, by foreign key.
     ///
-    /// Any object in the blob store does **not** — no database action reaches
-    /// it, so the caller is responsible for that.
+    /// Any object in the blob store does **not**: no database action reaches
+    /// it, so that is the caller's responsibility.
     ///
     /// # Errors
     ///
@@ -1448,33 +1419,22 @@ impl ShareRepository {
         Ok(())
     }
 
-    /// Lists shares that are finished with and old enough to remove.
-    ///
-    /// Two ways to be finished: past an expiry, or having been retrieved as many
-    /// times as it was allowed to be. Cleaning only the first would leave the
-    /// second accumulating forever, which is the same bug with a longer fuse —
-    /// a burn-after-reading share is dead the moment it is read and has no
-    /// expiry to notice.
-    ///
-    /// `cutoff` is the retention boundary rather than "now": a dead share is
-    /// kept for a while so its link can still explain itself, and only then
-    /// removed.
-    ///
-    /// Returned rather than deleted here because the payload lives in the blob
-    /// store, which no database action reaches. The caller removes the object
-    /// first and the row second.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
-    /// usable.
     /// Shares whose content can go now, because nothing can reach it any more.
     ///
-    /// Dead *at* `now`, not before some cutoff: the row is what has to linger so
-    /// a visitor is told "this expired" instead of "no such code", and the bytes
-    /// are not needed for that. [`crate::api::gate::open`] refuses a dead share
-    /// before anything reads its content, so from the moment it dies the object
-    /// is unreachable — keeping it is pure cost.
+    /// Two ways to be finished: past an expiry, or retrieved as many times as
+    /// it was allowed to be. Cleaning only the first leaves the second
+    /// accumulating for ever, since a burn-after-reading share is dead the
+    /// moment it is read and has no expiry to notice.
+    ///
+    /// Dead *at* `now`, not before some cutoff. The row is what lingers so a
+    /// visitor is told "this expired" instead of "no such code", and the bytes
+    /// are not needed for that: [`crate::api::gate::open`] refuses a dead share
+    /// before anything reads its content, so the object is unreachable from the
+    /// moment it dies.
+    ///
+    /// Returned, not deleted here, because the payload lives in the blob store
+    /// and no database action reaches it. The caller removes the object first
+    /// and the row second.
     ///
     /// # Errors
     ///
@@ -1491,17 +1451,15 @@ impl ShareRepository {
             .is_not_null()
             .and(Expr::col(share::Column::UseCount).gte(Expr::col(share::Column::UseLimit)));
 
-        // Disabled shares are deliberately not here. Expiry and exhaustion are
-        // one-way — no amount of waiting brings them back — but disabling is
-        // something an operator did and may undo, and re-enabling a share whose
-        // content has been destroyed would give them a live link to nothing.
+        // Disabled shares are not here. Expiry and exhaustion are one-way;
+        // disabling is something an operator may undo, and re-enabling
+        // a share whose content is destroyed gives them a live link to nothing.
         // The row's own retention still removes it eventually, content and all.
         let models = ShareEntity::find()
             .filter(expired.or(exhausted))
-            // Storage now lives on `file_shares`. Text has no object, so a
-            // text share is reapable on the strength of its own row alone —
-            // which is why this is a `NOT EXISTS` over gone files rather than a
-            // join that would drop every text share.
+            // Storage lives on `file_shares`, and text has no object, so a text
+            // share is reapable on its own row alone. Hence a subquery rather
+            // than a join, which would drop every text share.
             .filter(
                 share::Column::Kind.eq(ShareKind::Text.as_str()).or(
                     share::Column::Id.in_subquery(
@@ -1532,19 +1490,18 @@ impl ShareRepository {
     /// text is a row in `text_shares`, and that row is this function's to
     /// remove.
     ///
-    /// Marking without deleting the row would be the dangerous half of a lie:
-    /// the quota would report the space as free while the database still held
-    /// it, and the gap would widen for as long as the retention window.
+    /// Marking without deleting the row would report the space as free while
+    /// the database still held it, and the gap would widen for the whole
+    /// retention window.
     ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if either statement fails.
     pub async fn mark_content_removed(&self, id: ShareId) -> Result<(), ShareRepositoryError> {
-        // `file_shares` says where the bytes are, and readers now believe it
-        // over the column above. Marking only the column would leave the table
-        // pointing at an object that has just been deleted, so a reader that
-        // slipped past the gate would ask the store for it and get a `500`
-        // where the honest answer is "this is gone".
+        // `file_shares` says where the bytes are, and readers believe it over
+        // the column above. Marking only the column leaves the table pointing
+        // at a just-deleted object, so a reader past the gate asks the store
+        // for it and gets a `500` where the answer is "this is gone".
         FileShareEntity::update_many()
             .col_expr(
                 file_share::Column::Storage,
@@ -1557,8 +1514,8 @@ impl ShareRepository {
             .filter(file_share::Column::ShareId.eq(id.to_string()))
             .exec(&self.connection)
             .await?;
-        // Text's content *is* its row, so removing the row is removing the
-        // content — there is no separate marker to keep in step.
+        // Text's content *is* its row, so removing the row removes the content.
+        // There is no separate marker to keep in step.
         TextShareEntity::delete_by_id(id.to_string())
             .exec(&self.connection)
             .await?;
@@ -1567,14 +1524,13 @@ impl ShareRepository {
 
     /// Bytes this instance is currently holding.
     ///
-    /// Counts only shares whose content still exists — a row kept around to
-    /// answer "this expired" costs a few hundred bytes of database and no
-    /// storage, and charging a quota for it would make the number a lie.
+    /// Counts only shares whose content still exists. A row kept to answer
+    /// "this expired" costs a few hundred bytes of database and no storage, so
+    /// charging a quota for it would make the number wrong.
     ///
-    /// Summed rather than tracked in a counter: a counter has to be kept in step
-    /// with every insert, delete and failed upload, and the first time it drifts
-    /// an instance either refuses uploads it has room for or accepts ones it
-    /// does not.
+    /// Summed, not tracked in a counter. A counter would have to keep step with
+    /// every insert, delete and failed upload; once it drifts the instance
+    /// refuses uploads it has room for, or accepts ones it does not.
     ///
     /// # Errors
     ///
@@ -1585,25 +1541,24 @@ impl ShareRepository {
 
     /// The same, for one account, one role, or the whole instance.
     ///
-    /// Content lives on `file_shares` and `text_shares`, which carry no owner —
+    /// Content lives on `file_shares` and `text_shares`, which carry no owner;
     /// the owner is on `shares`. Rather than declare a relation for one query,
-    /// the restriction goes in as a subquery on the share id, which is the
-    /// primary key on one side and an indexed foreign key on the other.
+    /// the restriction goes in as a subquery on the share id: the primary key
+    /// on one side, an indexed foreign key on the other.
     ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if a query fails.
     pub async fn stored_bytes(&self, scope: Scope) -> Result<u64, ShareRepositoryError> {
-        // Two tables now, because content lives on the table that owns it. A
-        // file's size is a column; text's size is the length of its row.
+        // Two tables, because content lives on the table that owns it. A file's
+        // size is a column; text's size is the length of its row.
         //
         // `length()`, not `CHAR_LENGTH()`. The column is a blob on every
-        // dialect — BLOB, bytea, LONGBLOB — and `length()` is the one spelling
-        // all three answer in bytes for one. Postgres has no `char_length` for
-        // `bytea` at all: it does not return the wrong number, it refuses to
-        // plan the query, so on Postgres this whole total failed the moment an
-        // operator set `storage.max_total_bytes`. Found by running the backend
-        // suite against a real Postgres rather than reasoning about it.
+        // dialect (BLOB, bytea, LONGBLOB) and `length()` is the one spelling
+        // all three answer in bytes. Postgres has no `char_length` for `bytea`
+        // at all and refuses to plan the query, so this total failed the moment
+        // an operator set `storage.max_total_bytes`. Found by running the
+        // backend suite against a real Postgres.
         let files: Option<i64> = FileShareEntity::find()
             .filter(file_share::Column::Storage.ne(StorageLocation::GONE))
             .apply_if(owned_shares(scope), |query, owned| {
@@ -1645,8 +1600,8 @@ impl ShareRepository {
 
     /// How many shares exist, and how many of those a visitor could still open.
     ///
-    /// Two numbers rather than one because they answer different questions. The
-    /// total is what the database is holding; the live count is what the
+    /// Two numbers, because they answer different questions. The total is what
+    /// the database is holding; the live count is what the
     /// instance is actually serving, and the gap between them is what the sweep
     /// has not got to yet.
     ///
@@ -1655,11 +1610,10 @@ impl ShareRepository {
     /// Returns [`ShareRepositoryError`] if either query fails.
     pub async fn counts_at(&self, now: OffsetDateTime) -> Result<(u64, u64), ShareRepositoryError> {
         let total = ShareEntity::find().count(&self.connection).await?;
-        // Live means the gate would let somebody in, and each clause mirrors one
-        // of `Share::availability_at` — not disabled, not past its expiry, not
-        // exhausted. Both `expires_at` and `use_limit` are nullable, and in each
-        // of them null is the *unlimited* case, so neither can be compared
-        // numerically on its own.
+        // Live means the gate would open. Each clause mirrors one of
+        // `Share::availability_at`: not disabled, not past its expiry, not
+        // exhausted. Null is the *unlimited* case in both `expires_at` and
+        // `use_limit`, so neither can be compared numerically on its own.
         let live = ShareEntity::find()
             .filter(share::Column::DisabledAt.is_null())
             .filter(
@@ -1677,29 +1631,12 @@ impl ShareRepository {
         Ok((total, live))
     }
 
-    /// Shares whose rows can go, because they have been dead long enough that
-    /// nobody is still following the link that made them.
-    ///
-    /// `cutoff` is the retention boundary rather than "now": a dead share is
-    /// kept for a while so its link can still explain itself, and only then
-    /// removed. Its *content* is not kept that long — see
-    /// [`find_reapable`](Self::find_reapable), which runs first and takes the
-    /// bytes at death.
-    ///
-    /// Returned rather than deleted here because the payload lives in the blob
-    /// store, which no database action reaches. The caller removes the object
-    /// first and the row second.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ShareRepositoryError`] if the query fails or a row is not
-    /// usable.
     /// How many dead shares a cutoff would take, and how much they hold.
     ///
     /// The same condition [`ShareRepository::find_dead`] sweeps on, counted
-    /// instead of listed and with no page limit — this answers "what would
-    /// shortening the retention destroy", and a number capped at one page
-    /// would understate it exactly when the answer matters.
+    /// instead of listed and with no page limit. It answers "what would
+    /// shortening the retention destroy", which a number capped at one page
+    /// would understate exactly when it matters.
     ///
     /// # Errors
     ///
@@ -1712,10 +1649,9 @@ impl ShareRepository {
             .filter(Self::dead_before(cutoff))
             .count(&self.connection)
             .await?;
-        // Files only. Text lives in its own table and is measured by row
-        // length, which is a second query for a number that rounds to nothing
-        // beside the files — and this figure exists to answer "how much disk
-        // would this free", where a paste does not move the answer.
+        // Files only. Text is measured by row length, a second query for a
+        // number that rounds to nothing beside the files, and this figure
+        // answers "how much disk would this free".
         let bytes: Option<i64> = FileShareEntity::find()
             .filter(file_share::Column::Storage.ne(StorageLocation::GONE))
             .filter(
@@ -1745,9 +1681,8 @@ impl ShareRepository {
     }
 
     /// A share is dead when it has run out of time, or out of uses and has not
-    /// been touched since. Written once because the sweep and the count that
-    /// warns about the sweep must agree — two spellings of this would mean the
-    /// warning describes a different set from the one that gets removed.
+    /// been touched since. Written once so the sweep and the count that warns
+    /// about it cannot describe different sets.
     fn dead_before(cutoff: OffsetDateTime) -> sea_orm::Condition {
         use sea_orm::Condition;
         let expired = share::Column::ExpiresAt
@@ -1761,18 +1696,17 @@ impl ShareRepository {
         Condition::any().add(expired).add(exhausted)
     }
 
-    /// Shares whose rows can go, because they have been dead long enough that
-    /// nobody is still following the link that made them.
+    /// Shares whose rows can go, having been dead long enough that their links
+    /// are no longer being followed.
     ///
-    /// `cutoff` is the retention boundary rather than "now": a dead share is
-    /// kept for a while so its link can still explain itself, and only then
-    /// removed. Its *content* is not kept that long — see
-    /// [`find_reapable`](Self::find_reapable), which runs first and takes the
-    /// bytes at death.
+    /// `cutoff` is the retention boundary, not "now". A dead share is kept a
+    /// while so its link can still explain itself. Its *content* is not
+    /// kept that long; see [`find_reapable`](Self::find_reapable), which runs
+    /// first and takes the bytes at death.
     ///
-    /// Returned rather than deleted here because the payload lives in the blob
-    /// store, which no database action reaches. The caller removes the object
-    /// first and the row second.
+    /// Returned, not deleted here, because the payload lives in the blob store
+    /// and no database action reaches it. The caller removes the object first
+    /// and the row second.
     ///
     /// # Errors
     ///
@@ -1799,8 +1733,8 @@ impl ShareRepository {
 /// One authorisation to retrieve a share.
 ///
 /// Issued when a retrieval is spent, then presented for every request the
-/// transfer needs. See the migration SQL for why it is a row rather than a
-/// signed value.
+/// transfer needs. See the migration SQL for why it is a row and not a signed
+/// value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ShareTicket {
     /// Stable identifier.
@@ -1849,7 +1783,7 @@ impl ShareTicketRepository {
 
     /// Records an authorisation and returns the secret to hand to the caller.
     ///
-    /// The secret is returned rather than stored: only its digest reaches the
+    /// The secret is returned, never stored. Only its digest reaches the
     /// database, so this is the one moment it exists in a presentable form.
     ///
     /// # Errors
@@ -1882,26 +1816,18 @@ impl ShareTicketRepository {
         Ok((ticket, secret))
     }
 
-    /// Finds the authorisation a secret refers to, whether or not it is still
-    /// valid.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`ShareRepositoryError`] if the query fails or the row is not
-    /// usable.
     /// Pushes a ticket's expiry out, without letting it outlive its ceiling.
     ///
     /// # Why the arithmetic is here and not in SQL
     ///
     /// `created_at + ttl` is a date addition, and the three dialects store the
-    /// column differently — TEXT on SQLite, `TIMESTAMPTZ` on Postgres,
-    /// `DATETIME(6)` on MySQL. One expression that means the same thing on all
-    /// three is not worth writing for a value the caller already has in hand.
+    /// column differently: TEXT on SQLite, `TIMESTAMPTZ` on Postgres,
+    /// `DATETIME(6)` on MySQL. One expression meaning the same on all three is
+    /// not worth writing for a value the caller already holds.
     ///
     /// Two range requests extending at once is not a race worth closing: both
-    /// compute nearly the same instant, and the `WHERE` keeps whichever is
-    /// later. That is unlike the use count, where two writers must not both
-    /// succeed.
+    /// compute nearly the same instant and the `WHERE` keeps the later one.
+    /// Unlike the use count, where two writers must not both succeed.
     ///
     /// # Errors
     ///
@@ -1917,8 +1843,8 @@ impl ShareTicketRepository {
         let wanted = Ord::min(now.saturating_add(idle), ceiling);
         ShareTicketEntity::update_many()
             .col_expr(share_ticket::Column::ExpiresAt, wanted.into())
-            // Never backwards. Without this, a request that arrives late with a
-            // stale clock could shorten a ticket somebody is still using.
+            // Never backwards. Without this, a request arriving late with a
+            // stale clock could shorten a ticket still in use.
             .filter(share_ticket::Column::ExpiresAt.lt(wanted))
             .filter(share_ticket::Column::Id.eq(ticket.id.to_string()))
             .exec(&self.connection)
@@ -1946,10 +1872,9 @@ impl ShareTicketRepository {
 
     /// Every authorisation outstanding for one share.
     ///
-    /// Only the tests ask this — the serving path looks a ticket up by its
-    /// secret, never by share. It is here rather than in a test helper because
-    /// a test that reached into the table directly would stop noticing when the
-    /// table changed shape.
+    /// Only the tests ask this; the serving path looks a ticket up by its
+    /// secret. It lives here instead of a test helper, because a test reaching
+    /// into the table directly stops noticing when the table changes.
     ///
     /// # Errors
     ///

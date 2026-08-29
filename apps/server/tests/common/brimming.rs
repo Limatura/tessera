@@ -1,16 +1,16 @@
 //! A store that stops taking bytes at a point of the test's choosing.
 //!
-//! Every store the suite runs against — Garage, `RustFS`, a local directory —
-//! has more room than any test will use, so "the backend filled up while the
-//! upload was in flight" has never once been exercised. That is the path where
-//! a partial object is left behind, a session records bytes that are not there,
-//! and the sweep has to know what to do about it. Waiting to find out in
-//! production is the alternative this exists to avoid — see #184, which names it
-//! as something to have *before* a file is spread over several backends.
+//! Every store the suite runs against (Garage, `RustFS`, a local directory) has
+//! more room than any test will use, so "the backend filled up while the upload
+//! was in flight" has never once been exercised. That is the path where a
+//! partial object is left behind, a session records bytes that are not there,
+//! and the sweep has to know what to do about it. The alternative is finding
+//! out in production; see #184, which names it as something to have *before* a
+//! file is spread over several backends.
 //!
 //! The point is that it stops **mid-upload**. A store that refuses from the
 //! first byte proves only that a refusal is handled; this one takes what fits
-//! and then fails, which is what a real bucket hitting its quota does.
+//! and then fails, as a real bucket hitting its quota does.
 
 use std::{
     ops::Range,
@@ -48,7 +48,7 @@ impl Brimming {
 
     /// Takes `bytes` out of what is left, or says there is not enough.
     ///
-    /// Counted before the write rather than after, because a store that accepts
+    /// Counted before the write, not after, because a store that accepts
     /// the write and *then* reports itself full is not what a full bucket does.
     fn take(&self, bytes: u64) -> Result<()> {
         let mut current = self.written.load(Ordering::SeqCst);
@@ -112,7 +112,7 @@ impl ObjectStore for Brimming {
     }
 
     /// Deletion goes through the stream form: `ObjectStore` has no `delete` of
-    /// its own — the single-object one is an extension built on this.
+    /// its own, and the single-object one is an extension built on this.
     fn delete_stream(
         &self,
         locations: futures_util::stream::BoxStream<'static, Result<Path>>,
@@ -144,7 +144,7 @@ impl ObjectStore for Brimming {
 /// One multipart upload, counting against the same budget.
 ///
 /// This is the half that matters: a large file is written a part at a time, so
-/// the store runs out somewhere in the middle rather than at the door.
+/// the store runs out somewhere in the middle, not at the door.
 #[derive(Debug)]
 struct BrimmingUpload {
     inner: Box<dyn MultipartUpload>,

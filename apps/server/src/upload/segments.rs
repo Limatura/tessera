@@ -3,9 +3,9 @@
 //! [`split::plan`](crate::storage::split::plan) says where the bytes go;
 //! this puts them there. It is the easiest part of splitting to get wrong: the
 //! state where "the first backend is finished and the second has not been opened
-//! yet" has to be true of something rather than implied — so it is a unit that
-//! can be
-//! tested on its own, against a store that runs out part-way.
+//! yet" has to be true of something and not merely implied, so it is a unit
+//! that
+//! can be tested on its own against a store that runs out part-way.
 //!
 //! # What it guarantees
 //!
@@ -13,20 +13,20 @@
 //!   few is a file that reassembles short; one too many overwrites the next segment's first byte.
 //! - A segment is completed before the next is opened. Two multipart uploads open at once is two
 //!   things to abort on a failure and two ways to lose track of one.
-//! - Parts within a segment are whole `part_size` blocks apart from the last, which is what S3
-//!   requires and what the plan's alignment exists to make possible.
+//! - Parts within a segment are whole `part_size` blocks apart from the last, as S3 requires and as
+//!   the plan's alignment exists to make possible.
 //!
 //! # Who cleans up after a failure
 //!
-//! Both answers are right, for different callers, which is why [`Writer::abandon`]
-//! exists rather than a `Drop`.
+//! Both answers are right, for different callers, so [`Writer::abandon`] exists
+//! instead of a `Drop`.
 //!
 //! A **resumable** session has rows: the segments are in `upload_segments`, and
 //! the sweep walks them. Aborting here would be a second cleaner racing the
 //! first, and throwing the identifiers away would leave parts nothing can ever
 //! abort.
 //!
-//! A **direct** `POST /shares` has no rows at all — there is nothing to record
+//! A **direct** `POST /shares` has no rows at all, since there is nothing to record
 //! against until the share exists. If this does not clean up, nothing does, and
 //! S3 bills for the parts for ever. So that caller calls `abandon`.
 
@@ -76,8 +76,9 @@ pub struct Writer<'a> {
 }
 
 impl std::fmt::Debug for Writer<'_> {
-    /// Where it is up to, not what it holds: the open upload is a trait object
-    /// with nothing printable, and the buffer is bytes nobody wants in a log.
+    /// Where it is up to, not what it holds. The open upload is a trait object
+    /// with nothing printable, and the buffer is bytes that do not belong in a
+    /// log.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Writer")
             .field("segments", &self.plan.len())
@@ -108,7 +109,7 @@ impl<'a> Writer<'a> {
     ///
     /// A chunk that crosses a segment boundary is split at it: the first part
     /// finishes the segment it belongs to, the segment is completed, and the
-    /// rest opens the next. That is the case the whole type exists for, and it
+    /// rest opens the next. That is the case this type exists for, and it
     /// is why this cannot be "write the buffer when it is full".
     ///
     /// # Errors
@@ -145,7 +146,7 @@ impl<'a> Writer<'a> {
 
     /// Closes whatever is still open and hands back what was written.
     ///
-    /// The last segment is the one allowed to be short — the plan's own rule —
+    /// The last segment is the one allowed to be short, by the plan's own rule,
     /// so this completes it whatever it holds.
     ///
     /// # Errors
@@ -164,11 +165,11 @@ impl<'a> Writer<'a> {
     /// Gives back everything this writer put in a store.
     ///
     /// The open segment is aborted and the finished ones are deleted. For a
-    /// caller with no rows to record the segments against — a direct
-    /// `POST /shares` — this is the only thing that will ever free them.
+    /// caller with no rows to record the segments against, such as a direct
+    /// `POST /shares`, this is the only thing that will ever free them.
     ///
-    /// Failures are logged rather than returned: this runs on the way out of an
-    /// error, and one store refusing must not hide the error that got here.
+    /// Failures are logged, not returned. This runs on the way out of an error,
+    /// and one store refusing must not hide the error that got here.
     pub async fn abandon(mut self) {
         if let Some(mut upload) = self.open.take()
             && let Err(error) = upload.abort().await

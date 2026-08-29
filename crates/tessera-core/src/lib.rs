@@ -16,8 +16,8 @@
 //! # What may not go here
 //!
 //! No HTTP, no SQL, no filesystem, no `async`. The rule is enforced by
-//! `Cargo.toml` rather than by review — this crate does not depend on `axum`,
-//! `sea-orm`, `object_store` or `tokio`, so code that reaches for them does not
+//! `Cargo.toml` and not by review: this crate does not depend on `axum`,
+//! `sea-orm`, `object_store` or `tokio`, so code reaching for them does not
 //! compile. CI additionally walks the resolved dependency tree, which catches a
 //! banned crate arriving transitively.
 //!
@@ -29,7 +29,7 @@
 //!   parameter instead of reading it, so expiry behaviour is tested by passing a timestamp rather
 //!   than by sleeping.
 //!
-//! Persistence traits deliberately live in `tessera-server`, not here. A
+//! Persistence traits live in `tessera-server`, not here. A
 //! repository is inherently `async`, and importing `async` into this crate to
 //! declare one would cost the guarantee above while buying little: the
 //! swappability such a port usually provides is already supplied by SeaORM.

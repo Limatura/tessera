@@ -17,11 +17,11 @@ pub struct Model {
     /// `shares.role_id`: the reserved bytes are charged to the role at the
     /// time, not to whatever the account is in now.
     pub role_id: Option<String>,
-    /// Digest of the secret that lets somebody continue it.
+    /// Digest of the secret that lets a caller continue it.
     pub token_hash: String,
     /// The name the uploader gave it.
     pub filename: Option<String>,
-    /// Recorded, never echoed — see the migration on `file_shares`.
+    /// Recorded, never echoed; see the migration on `file_shares`.
     pub content_type: Option<String>,
     /// What the client said it would send.
     pub declared_bytes: i64,

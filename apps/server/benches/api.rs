@@ -1,6 +1,6 @@
 //! Benchmark skeleton.
 //!
-//! Deliberately thin for now: it exists so that the harness, the profile and the
+//! Thin for now. It exists so the harness, the profile and the
 //! CI entry point are already in place when there is something worth measuring
 //! (retrieval-code lookup, streaming upload throughput, expiry sweeps).
 //!

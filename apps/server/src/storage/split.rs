@@ -4,12 +4,11 @@
 //! file to move. Without splitting that is not slow or wasteful, it is
 //! impossible. Every competitor surveyed refuses it.
 //!
-//! The order the pieces run in, and what turning this on costs, are drawn out in
-//! `docs/splitting.md` — `rustdoc` cannot draw a diagram and that is the half
-//! this note cannot carry.
+//! The order the pieces run in, and what turning this on costs, are drawn out
+//! in `docs/splitting.md`, which can carry a diagram where rustdoc cannot.
 //!
 //! Off by default. An operator turns it on, and until they do this module only
-//! ever produces plans of one segment, which is exactly what
+//! ever produces plans of one segment, exactly what
 //! [`placement::choose`](super::placement::choose) already did.
 //!
 //! # Why the cuts are not aligned to a part
@@ -18,17 +17,17 @@
 //! `server.part_size_bytes`. It does not any more, and the reason it did was
 //! wrong: it was written down as an S3 requirement, and S3 does not require it.
 //!
-//! S3's rule — no part below 5 MiB except the last — is scoped to one multipart
-//! upload, and each segment is an upload of its own with its part numbering
-//! starting again at one. A segment of any length ends in a short final part
-//! that S3 accepts. The suite proves it on every store in CI, by storing 20 MiB
-//! in 8 MiB parts: 8, 8, and 4.
+//! S3's rule, no part below 5 MiB except the last, is scoped to one multipart
+//! upload, and each segment is an upload of its own whose part numbering starts
+//! again at one. A segment of any length ends in a short final part that S3
+//! accepts. The suite proves it on every store in CI by storing 20 MiB in 8 MiB
+//! parts: 8, 8 and 4.
 //!
-//! Alignment cost the remainder of every backend it touched — up to a part each,
+//! Alignment cost the remainder of every backend it touched, up to a part each,
 //! and those bytes were reachable by nothing. On the free tiers this feature
-//! exists for, unreachable space is the thing being economised.
+//! exists for, unreachable space is what is being economised.
 //!
-//! It will have to come back for **resumable** splitting, which is not built.
+//! It will have to come back for **resumable** splitting, not yet built.
 //! A `tus` session's chunks are already forced to whole parts, so with aligned
 //! segments a chunk boundary always lands on a part boundary and a request can
 //! end with nothing buffered. Unaligned, a chunk can end in the middle of a
@@ -40,9 +39,9 @@
 //! Taking 6 MB from a backend with 6 MB free would add a segment, a row, a
 //! multipart upload and a place for the reader to stall, in exchange for 6 MB.
 //! [`min_segment`] is the floor below which a backend is not worth involving,
-//! and it is why [`capacity`] is not the sum of what is free — a pool of five
-//! backends with 1 MB each can hold nothing at all, and reporting 5 MB would be
-//! a number that explains nothing when the upload is refused.
+//! and why [`capacity`] is not the sum of what is free: a pool of five backends
+//! with 1 MB each holds nothing, and reporting 5 MB would explain nothing when
+//! the upload is refused.
 
 use super::placement::Candidate;
 
@@ -50,9 +49,8 @@ use super::placement::Candidate;
 ///
 /// `part_size_bytes` because a segment shorter than one part cannot be aligned,
 /// and 5 MiB because that is S3's floor for a part that is not the last. The
-/// configuration already refuses a `part_size_bytes` below 5 MiB, so today the
-/// first term always wins — the `max` is here so that stays true if it ever
-/// does not.
+/// configuration already refuses a `part_size_bytes` below 5 MiB, so the first
+/// term always wins today; the `max` keeps that true if it ever does not.
 #[must_use]
 pub const fn min_segment(part_size: u64) -> u64 {
     const S3_PART_FLOOR: u64 = 5 * 1024 * 1024;
@@ -65,7 +63,7 @@ pub const fn min_segment(part_size: u64) -> u64 {
 
 /// One backend's share of a file.
 ///
-/// `offset` is where this piece starts within the whole file, which is what the
+/// `offset` is where this piece starts within the whole file, exactly what the
 /// reader needs to answer a `Range`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Segment {
@@ -79,10 +77,10 @@ pub struct Segment {
 
 /// Whether splitting is allowed, and how large a piece has to be.
 ///
-/// One argument rather than two loose numbers because they are never chosen
+/// One argument, not two loose numbers, because they are never chosen
 /// independently: `part_size` comes from `server.part_size_bytes` and `split`
-/// from the operator's switch, and a call site that passes one without the other
-/// has got something wrong.
+/// from the operator's switch, so a call site passing one without the other has
+/// got something wrong.
 #[derive(Debug, Clone, Copy)]
 pub struct Rules {
     /// `server.part_size_bytes`.
@@ -97,9 +95,9 @@ pub struct Rules {
 /// With `split` off this is [`placement::choose`](super::placement::choose)
 /// wearing a different return type: one segment or nothing.
 ///
-/// The order backends are filled in is the order `choose` would pick them — the
-/// operator's default first, then the tightest fit. Spending the tightest
-/// backend first is what keeps the roomier ones able to take a whole file later.
+/// Backends are filled in the order `choose` would pick them: the operator's
+/// default first, then the tightest fit. Spending the tightest first keeps the
+/// roomier ones able to take a whole file later.
 #[must_use]
 pub fn plan(candidates: &[Candidate], size: u64, rules: Rules) -> Option<Vec<Segment>> {
     if !rules.split {
@@ -162,19 +160,17 @@ pub fn plan(candidates: &[Candidate], size: u64, rules: Rules) -> Option<Vec<Seg
 
 /// The largest file this pool can take, given the rules.
 ///
-/// With splitting off this is the largest single backend, which is what
+/// With splitting off this is the largest single backend, what
 /// [`largest_acceptable`](super::placement::largest_acceptable) already says.
 ///
 /// With it on, it is the sum of what every backend worth involving has free.
-/// That is exact rather than a bound: a segment takes everything its backend
-/// holds, so a file of exactly this many bytes plans, and one byte more does
-/// not. It was a generous upper bound while cuts were aligned to a part, which
-/// they no longer are.
+/// That is exact, not a bound. A segment takes everything its backend
+/// holds, so a file of exactly this many bytes plans and one byte more does
+/// not. It was a generous upper bound while cuts were aligned to a part.
 ///
-/// It is still nothing like the naive sum. A backend below [`min_segment`]
-/// contributes nothing at all, so five backends with a megabyte each hold no
-/// file — reporting five megabytes would be a number that explains nothing when
-/// the upload is refused.
+/// Still nothing like the naive sum. A backend below [`min_segment`]
+/// contributes nothing, so five backends with a megabyte each hold no file, and
+/// reporting five megabytes would explain nothing when the upload is refused.
 ///
 /// `None` means nothing limits it.
 #[must_use]
@@ -198,16 +194,16 @@ pub fn capacity(candidates: &[Candidate], rules: Rules) -> Option<u64> {
     }
 
     // A pool whose every backend is below the floor can still take a file small
-    // enough to sit whole in one of them, which is what `whole` is doing here.
+    // enough to sit whole in one of them, what `whole` does here.
     Some(total.max(whole))
 }
 
 /// The backends worth filling, in the order they should be filled.
 ///
-/// The operator's default first — they said it, and going elsewhere while it has
-/// room would quietly undo that. Then the tightest fit, so the roomiest backend
-/// is the last one spent and stays able to take a whole file. Unlimited ones
-/// sort last for the same reason: they have nothing to preserve.
+/// The operator's default first, since going elsewhere while it has room would
+/// quietly undo what they said. Then the tightest fit, so the roomiest backend
+/// is spent last and stays able to take a whole file. Unlimited ones sort last
+/// for the same reason: they have nothing to preserve.
 fn order(candidates: &[Candidate], floor: u64) -> Vec<&Candidate> {
     let mut usable: Vec<&Candidate> = candidates
         .iter()
@@ -320,10 +316,10 @@ mod tests {
     }
 
     prop_compose! {
-        /// Free space in whole parts, sometimes with a ragged tail, so that both
-        /// the aligned and the unaligned case are generated. Named by position
-        /// afterwards — two backends with the same name is not a pool that can
-        /// exist, and generating one only tests the test.
+        /// Free space in whole parts, sometimes with a ragged tail, so both the
+        /// aligned and the unaligned case are generated. Named by position
+        /// afterwards, since two backends with the same name is not a pool that
+        /// can exist and generating one only tests the test.
         fn a_free_space()(parts in 0_u64..40, tail in 0_u64..PART) -> u64 {
             parts * PART + tail
         }
@@ -340,9 +336,9 @@ mod tests {
     }
 
     /// The properties below all begin "if a plan came back", so a planner that
-    /// refused everything would pass every one of them. This keeps that from
-    /// happening quietly: over a fixed sweep of the same space the generators
-    /// draw from, a healthy share of the plans have to be genuinely split.
+    /// refused everything would pass all of them. Over a fixed sweep of the
+    /// space the generators draw from, a healthy share of the plans have to be
+    /// genuinely split.
     ///
     /// Measured when written: 908 refused, 1182 whole, 910 split.
     #[test]
@@ -397,10 +393,9 @@ mod tests {
 
         /// Every piece is worth having.
         ///
-        /// Only the floor is asserted now. Cuts used to have to be a whole
-        /// number of parts as well; the module docs say why that went away.
-        /// The last segment is exempt: it is whatever the file has left, and a
-        /// file may end anywhere.
+        /// Only the floor is asserted. Cuts used to have to be a whole number
+        /// of parts as well; the module docs say why that went away. The last
+        /// segment is exempt, being whatever the file has left.
         #[test]
         fn every_segment_but_the_last_is_worth_having(
             pool in a_pool(),
@@ -449,10 +444,9 @@ mod tests {
         /// The figure and the planner agree, in both directions.
         ///
         /// The first half was all that could be asserted while cuts were
-        /// aligned: the figure was an upper bound, so a file inside it might
-        /// still be refused. Now that a segment takes its whole backend the
-        /// figure is exact, and the second half — everything inside it really
-        /// does plan — is the half that makes it a promise rather than a hint.
+        /// aligned, since the figure was then an upper bound and a file inside
+        /// it might still be refused. Now a segment takes its whole backend, so
+        /// the figure is exact and everything inside it really does plan.
         #[test]
         fn capacity_agrees_with_what_can_be_planned(
             pool in a_pool(),

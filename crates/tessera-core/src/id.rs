@@ -1,9 +1,9 @@
 //! Identifiers.
 //!
-//! Every entity gets its own identifier type rather than sharing one. Passing a
-//! [`SessionId`] where a [`UserId`] belongs is then a compile error instead of a
-//! query that quietly returns nothing — which is the failure mode when both are
-//! `String`, and the one that costs an afternoon to find.
+//! Every entity gets its own identifier type instead of sharing one. Passing a
+//! [`SessionId`] where a [`UserId`] belongs is then a compile error and not
+//! a query that quietly returns nothing, as happens when both are `String`, and
+//! costs an afternoon to find.
 
 use std::{fmt, str::FromStr};
 
@@ -20,17 +20,17 @@ macro_rules! declare_id {
     ($(#[$meta:meta])* $name:ident, $field:literal) => {
         $(#[$meta])*
         ///
-        /// A ULID rather than an auto-incrementing integer or a UUIDv4:
+        /// A ULID, not an auto-incrementing integer or a UUIDv4:
         ///
         /// - Sequential integers leak how many rows exist and let anyone
         ///   enumerate them, which matters for a service that may face the
         ///   internet.
         /// - UUIDv4 fixes that but is random, so an index on it scatters writes
-        ///   across the B-tree — the usual reason a table slows as it grows.
+        ///   across the B-tree, the usual reason a table slows as it grows.
         ///
         /// ULIDs are time-ordered *and* unguessable, so inserts stay at the hot
         /// end of the index and the value still gives nothing away. They are
-        /// also shorter than a UUID in text form, which is the form that ends up
+        /// also shorter than a UUID in text form, the form that ends up
         /// in URLs and logs.
         #[derive(
             Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -142,7 +142,7 @@ declare_id!(
     /// Identifies one role.
     ///
     /// The two seeded roles have fixed identifiers written into the migration
-    /// rather than generated ones, so that every instance and every dialect
+    /// and not generated ones, so every instance and every dialect
     /// names them the same way.
     RoleId,
     "role_id"
@@ -151,9 +151,9 @@ declare_id!(
 /// The roles the `is_admin` boolean used to mean.
 ///
 /// Written into the migration as literals, so they are named here as literals
-/// too. The test below is the only thing tying the two spellings together —
-/// without it a typo in either would show up as an instance where nobody is an
-/// administrator.
+/// too. The test below is the only thing tying the two spellings together;
+/// without it a typo in either shows up as an instance with no administrator
+/// at all.
 impl RoleId {
     /// Helping run the instance, short of the three destructive powers.
     pub const ADMIN: &'static str = "00ADMN00000000000000000000";
@@ -227,9 +227,8 @@ mod tests {
     }
 
     /// The reason each entity gets its own type: one cannot stand in for
-    /// another. This is a compile-time property, so the test is that the code
-    /// below does *not* compile — asserted by construction rather than by
-    /// running anything.
+    /// another. A compile-time property, so the test is that the code below
+    /// does *not* compile, asserted by construction and not by running.
     #[test]
     fn identifier_types_do_not_interchange() {
         let user = UserId::generate();
@@ -279,9 +278,8 @@ mod seeded_role_tests {
     use super::RoleId;
 
     /// The migration inserts these two strings. If either stops being a valid
-    /// identifier, every request loading a role fails to parse the row — and
-    /// the symptom is "nobody is an administrator", which points nowhere near
-    /// here.
+    /// identifier, every request loading a role fails to parse the row, and the
+    /// symptom is "there is no administrator", which points nowhere near here.
     #[test]
     fn the_seeded_roles_are_valid_identifiers() {
         for id in [RoleId::OWNER, RoleId::ADMIN, RoleId::MEMBER] {

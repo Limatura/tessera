@@ -2,30 +2,30 @@
 //!
 //! # The hole this fills
 //!
-//! Both ceilings an upload is checked against — the quota for its scope and the
-//! room left on its backend — are read from the database once, before the body
-//! is read, and then compared against a running count. Two uploads arriving
-//! together therefore read the *same* figure and both believe the whole
-//! remainder is theirs.
+//! Both ceilings an upload is checked against, the quota for its scope and the
+//! room left on its backend, are read from the database once before the body is
+//! read and then compared against a running count. Two uploads arriving
+//! together read the *same* figure and both believe the whole remainder is
+//! theirs.
 //!
 //! Measured before this existed: an instance capped at 50 KiB, two concurrent
 //! 40 KiB uploads, both answered `201`. Eighty kilobytes stored against a fifty
 //! kilobyte ceiling, from two requests. A free-tier bucket does not fill up
-//! because somebody sent one enormous file; it fills up because several people
-//! sent ordinary ones at the same moment.
+//! from one enormous file; it fills up because several people sent ordinary
+//! ones at the same moment.
 //!
 //! Resumable uploads were already covered: a `tus` session writes an `uploads`
 //! row carrying `declared_bytes`, and `reserved_bytes` counts it. A plain
-//! `POST /shares` writes no such row — there is nothing to declare, since the
-//! body may be chunked — so nothing reserved on its behalf.
+//! `POST /shares` writes no such row, since a chunked body has nothing to
+//! declare, so nothing is reserved on its behalf.
 //!
 //! # Why a counter in the process
 //!
 //! The same reasoning as `first_write`: tessera is one process, and a number
 //! held in it is exact for every upload that process is serving. A second
-//! instance sharing a bucket would not see these bytes, which is the honest
-//! limit of this and is why the database figures remain the base — this is
-//! added to them, never a substitute.
+//! instance sharing a bucket would not see these bytes. That is the honest
+//! limit of this and why the database figures remain the base. This is added to
+//! them, never a substitute.
 //!
 //! Reserving the declared size up front would be the alternative, and it cannot
 //! work here: a chunked body declares nothing, so there would be nothing to
@@ -34,15 +34,14 @@
 //! # What it does not do
 //!
 //! It does not pick a winner. Counting as the bytes land is symmetric, so two
-//! uploads that cross the line at the same moment both stop — thirty kilobytes
+//! uploads crossing the line at the same moment both stop: thirty kilobytes
 //! each into fifty kilobytes of room, and neither finishes. The room is then
 //! free for whoever retries first.
 //!
-//! That is deliberate rather than unnoticed. Choosing a winner means claiming
-//! room before it is used, and the size that would be claimed is exactly what a
-//! chunked body will not say. Refusing both is the outcome that is merely
-//! wasteful; letting both through is the one that leaves a bucket over its
-//! quota, which on a free tier is not recoverable by retrying.
+//! Deliberate, not unnoticed. Choosing a winner means claiming room before it
+//! is used, and the size to claim is exactly what a chunked body will not say.
+//! Refusing both is merely wasteful; letting both through leaves a bucket over
+//! its quota, which on a free tier retrying does not fix.
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -58,8 +57,8 @@ pub struct InFlight {
 impl InFlight {
     /// Starts counting for one upload.
     ///
-    /// The guard adds to every key it was opened with, and takes all of it back
-    /// when dropped — on the error path as much as the happy one, which is what
+    /// The guard adds to every key it was opened with and takes all of it back
+    /// when dropped, on the error path as much as the happy one. That is what
     /// makes a refused upload stop holding room it never used.
     #[must_use]
     pub fn begin(self: &Arc<Self>, keys: Vec<String>) -> Arrival {
@@ -72,7 +71,7 @@ impl InFlight {
 
     /// What everything *else* is currently holding under `key`.
     ///
-    /// Excluding `mine` is the whole point: the caller is already comparing its
+    /// Excluding `mine` matters: the caller is already comparing its
     /// own running total against the ceiling, and counting those bytes twice
     /// would refuse an upload for competing with itself.
     #[must_use]
@@ -120,8 +119,8 @@ pub struct Arrival {
 impl Arrival {
     /// Records that `total` bytes have now arrived for this upload.
     ///
-    /// Takes the running total rather than the delta because that is what the
-    /// caller already has, and because a missed call then costs accuracy rather
+    /// Takes the running total, not the delta, because that is what the caller
+    /// already has, and because a missed call then costs accuracy rather
     /// than leaving the ledger permanently wrong.
     pub fn reached(&mut self, total: u64) {
         let more = total.saturating_sub(self.counted);
@@ -201,7 +200,7 @@ mod tests {
         assert_eq!(ledger.elsewhere("cold", 0), 1500);
     }
 
-    /// Several at once add up, which is the arithmetic the ceiling check needs.
+    /// Several at once add up, the arithmetic the ceiling check needs.
     #[test]
     fn several_uploads_add_up() {
         let ledger = Arc::new(InFlight::default());

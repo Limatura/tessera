@@ -1,16 +1,16 @@
 //! Storage backends, from the panel.
 //!
 //! The same operations `tessera-server backends` offers, over HTTP. The command
-//! line exists for the instance that has no panel — `features.admin` off, or a
-//! configuration that broke the panel — and this exists because adding a bucket
-//! from a terminal is not how most operators want to spend an afternoon.
+//! line exists for an instance with no panel (`features.admin` off, or a
+//! configuration that broke it); this exists because adding a bucket from a
+//! terminal is not how most operators want to spend an afternoon.
 //!
 //! # What is never sent
 //!
-//! The URL and the options. Both carry credentials, and a listing is the sort of
-//! thing that ends up pasted into a support thread. The panel can *set* them and
-//! can see everything else; it cannot read them back. That is also what makes
-//! the sealing worth anything — a surface that echoed them would leave the
+//! The URL and the options. Both carry credentials, and a listing is the sort
+//! of thing that ends up pasted into a support thread. The panel can *set* them
+//! and see everything else, but cannot read them back. That is what makes the
+//! sealing worth anything: a surface that echoed them would leave the
 //! encryption protecting the database against everybody except the one request
 //! that asks nicely.
 
@@ -33,11 +33,11 @@ use crate::{
 
 /// One backend, as the panel draws it.
 ///
-/// Four booleans, and they are four unrelated questions: where new uploads go,
+/// Four booleans answering four unrelated questions: where new uploads go,
 /// whether this one still takes them, whether the process can reach it, and
 /// whether it comes from the environment. Collapsing any pair into an enum
-/// would invent a state the system does not have — a read-only backend can be
-/// the default, and an unreachable one can be either.
+/// would invent a state the system does not have, since a read-only backend can
+/// be the default and an unreachable one can be either.
 #[expect(
     clippy::struct_excessive_bools,
     reason = "four independent facts about one backend; see above"
@@ -58,8 +58,8 @@ pub struct BackendResponse {
     pub capacity_bytes: Option<u64>,
     /// How much it is holding.
     ///
-    /// Not typed in and not asked of the store — summed from the segments this
-    /// instance wrote.
+    /// Not typed in and not asked of the store, but summed from the segments
+    /// this instance wrote.
     #[schema(example = 4_294_967_296_u64)]
     pub used_bytes: u64,
     /// Whether it still takes new content. Reads are unaffected.
@@ -67,10 +67,10 @@ pub struct BackendResponse {
     /// Whether the process could open it.
     ///
     /// `false` means shares held there answer `503` until the operator fixes
-    /// the credentials or the address — worth showing prominently, because
-    /// nothing else about the row will look wrong.
+    /// the credentials or the address. Worth showing prominently, because
+    /// nothing else about the row looks wrong.
     pub reachable: bool,
-    /// Whether it comes from `storage.url` rather than this table.
+    /// Whether it comes from `storage.url` instead of this table.
     ///
     /// The one that does cannot be edited or removed from here: it is where
     /// everything written before backends existed lives, and it is configured
@@ -130,9 +130,9 @@ pub async fn list(
 
 /// Adds a backend, or replaces one of the same name.
 ///
-/// The new one is opened and reachable to the next request — the pool is
-/// rebuilt here rather than at the next restart, because "add a bucket" that
-/// needs a restart is the thing this whole feature exists to stop.
+/// The new one is opened and reachable to the next request. The pool is rebuilt
+/// here, not at the next restart, because "add a bucket, then restart"
+/// is what this feature exists to avoid.
 ///
 /// # Errors
 ///
@@ -182,9 +182,8 @@ pub async fn add(
     };
 
     // Opened before it is stored. A backend that will not open is a typo the
-    // operator can fix while they still have the form in front of them —
-    // storing it first would mean the failure shows up as somebody's upload
-    // going wrong later.
+    // operator can fix with the form still in front of them; storing it first
+    // surfaces the failure later, as a broken upload.
     open_or_refuse(&backend)?;
 
     state
@@ -242,8 +241,8 @@ pub async fn remove(
 
 /// Sends new uploads to one backend.
 ///
-/// Existing files stay where they are — each records its own backend — so this
-/// changes what happens next and nothing about what already happened.
+/// Existing files stay where they are, since each records its own backend, so
+/// this changes what happens next and nothing about what already happened.
 ///
 /// # Errors
 ///
@@ -272,7 +271,7 @@ pub async fn set_default(
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
 
     // The environment's one becomes the default by nothing else claiming it,
-    // which is what clearing the flag everywhere does.
+    // as clearing the flag everywhere does.
     let chosen = if name == crate::storage::DEFAULT_BACKEND {
         state
             .storage_backends
@@ -297,8 +296,8 @@ pub async fn set_default(
 /// Refuses a name that belongs to the environment.
 ///
 /// The backend from `storage.url` has no row, so writing one under its name
-/// would create a second definition of the same thing — and the configured one
-/// wins at start-up, so the stored one would be silently ignored.
+/// would create a second definition of the same thing. The configured one wins
+/// at start-up, so the stored one would be silently ignored.
 fn refuse_reserved(name: &str) -> Result<()> {
     if name == crate::storage::DEFAULT_BACKEND {
         return Err(Error::bad_request(
@@ -321,7 +320,7 @@ fn open_or_refuse(backend: &StorageBackend) -> Result<()> {
 
 /// Rebuilds the pool so a change is live for the next request.
 ///
-/// The whole point of storing these rather than configuring them: an operator
+/// Why these are stored and not configured: an operator
 /// adding a bucket should not have to restart the instance to use it.
 async fn reload(state: &AppState) -> Result<()> {
     let configured = state
@@ -348,7 +347,7 @@ async fn one(state: &AppState, name: &str) -> Result<Json<BackendResponse>> {
 /// Every backend, with what it is holding.
 ///
 /// Separate from the handler so the write endpoints can answer with the same
-/// shape they just changed, rather than a second description that could drift
+/// shape they just changed, not a second description that could drift
 /// from the one the listing gives.
 async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
     let used = state.shares.bytes_per_backend().await?;
@@ -379,7 +378,7 @@ async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
 /// Turns a repository failure into the answer the caller should get.
 ///
 /// The two that are not internal errors are the two an operator can act on: no
-/// key configured, and a backend that is still holding somebody's files.
+/// key configured, and a backend that still holds files.
 fn describe_failure(error: StorageBackendError) -> Error {
     match error {
         StorageBackendError::Secret(inner) => Error::Conflict(inner.to_string()),

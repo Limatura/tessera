@@ -1,7 +1,7 @@
 //! Which role uploaded a share.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the SQLite one for why
-//! it is a snapshot, and why anonymous uploads carry `guest` rather than NULL.
+//! The SQL lives in `sql/`, one file per dialect. See the SQLite one for why
+//! it is a snapshot, and why anonymous uploads carry `guest` and not NULL.
 
 use sea_orm_migration::prelude::*;
 
@@ -10,15 +10,15 @@ pub(super) const POSTGRES: &str = include_str!("sql/m20260825_000001_share_role.
 pub(super) const MYSQL: &str = include_str!("sql/m20260825_000001_share_role.mysql.sql");
 
 /// Dropping the column loses which role each share was uploaded under, and
-/// nothing can recompute it — the uploader's role today is not necessarily the
-/// one they held then, which is the whole reason the column exists.
+/// nothing can recompute it: the uploader's role today is not necessarily the
+/// one they held then. Hence the column.
 const DOWN: &str = "DROP INDEX IF EXISTS idx_shares_role;\n\
                     ALTER TABLE shares DROP COLUMN role_id;\n";
 
-/// The same, in the two ways MySQL differs — the same pair the quota rollback
+/// The same, in the two ways MySQL differs, the same pair the quota rollback
 /// hit. `DROP INDEX IF EXISTS` is not syntax it has, and a column a foreign key
-/// still names cannot be dropped. So the key goes first and the index is left to
-/// go with the column, which MySQL does on its own.
+/// still names cannot be dropped. So the key goes first and the index is left
+/// to go with the column, which MySQL does on its own.
 const DOWN_MYSQL: &str = "ALTER TABLE shares DROP FOREIGN KEY fk_shares_role;\n\
                           ALTER TABLE shares DROP COLUMN role_id;\n";
 
@@ -27,8 +27,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -48,8 +48,8 @@ mod tests {
     use super::{MYSQL, POSTGRES, SQLITE};
 
     /// `InnoDB` silently ignores a `REFERENCES` written on a column, so the
-    /// column form would leave MySQL without the cascade — and removing a role
-    /// would then fail, or take somebody's shares with it.
+    /// column form would leave MySQL without the cascade, and removing a role
+    /// would then fail, or take real shares with it.
     #[test]
     fn mysql_declares_the_key_where_innodb_reads_it() {
         assert_eq!(MYSQL.matches("FOREIGN KEY").count(), 1);
@@ -74,8 +74,8 @@ mod tests {
         }
     }
 
-    /// Losing the role is recoverable; refusing to delete a role, or deleting
-    /// somebody's share along with it, is not.
+    /// Losing the role is recoverable; refusing to delete a role, or deleting a
+    /// share along with it, is not.
     #[test]
     fn removing_a_role_leaves_the_shares() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {

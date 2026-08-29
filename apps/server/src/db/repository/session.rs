@@ -30,21 +30,21 @@ pub struct Session {
     pub expires_at: OffsetDateTime,
     /// Where the session started, when that could be established.
     ///
-    /// `None` covers two cases that are worth keeping apart from a fabricated
-    /// value: a session created before this was recorded at all, and one whose
-    /// address we had no honest answer for.
+    /// `None` covers two cases worth keeping apart from a fabricated value: a
+    /// session created before this was recorded, and one whose address there
+    /// was no honest answer for.
     pub created_ip: Option<String>,
     /// The `User-Agent` it started with, unparsed and truncated.
     pub created_user_agent: Option<String>,
-    /// Why somebody ended it early, if they did.
+    /// Why it was ended early, if it was.
     pub ended_reason: Option<SessionEnding>,
 }
 
 /// Why a session stopped early.
 ///
-/// Stored as text and read by nobody but a person: it decides nothing, and
-/// liveness is [`Session::is_valid_at`] alone. It exists so that the account
-/// holder can tell "I signed out on the laptop" from "I did not do that".
+/// Stored as text, and only ever read by a person. It decides nothing, since
+/// liveness is [`Session::is_valid_at`] alone, and exists so the account holder
+/// can tell "I signed out on the laptop" from "I did not do that".
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SessionEnding {
     /// The person signed out of this one.
@@ -57,9 +57,9 @@ pub enum SessionEnding {
     PasswordReset,
     /// The account was suspended.
     ///
-    /// Its own reason rather than `Revoked`: that one reads as "somebody ended
-    /// this session", and the person looking at the list wants to know their
-    /// account was stopped, not their browser.
+    /// Its own reason, not `Revoked`, which reads as "this session was ended".
+    /// The person looking at the list wants to know their account was
+    /// stopped, not their browser.
     AccountDisabled,
 }
 
@@ -78,9 +78,9 @@ impl SessionEnding {
 
     /// Reads one back, or `None` for a spelling this version does not know.
     ///
-    /// Unknown rather than an error: a row written by a later version that has
-    /// grown another reason should still list, just without a label. Refusing to
-    /// read it would make a downgrade lose somebody's history.
+    /// Unknown, not an error. A row written by a later version that grew
+    /// another reason should still list, without a label. Refusing it would
+    /// make a downgrade lose the account's history.
     #[must_use]
     pub fn parse(raw: &str) -> Option<Self> {
         match raw {
@@ -96,8 +96,8 @@ impl SessionEnding {
 
 /// What is known about the request that started a session.
 ///
-/// A type rather than two more arguments, because they are the same fact from
-/// two angles and are only ever passed together.
+/// A type, not two more arguments, because they are the same fact from two
+/// angles and are only ever passed together.
 #[derive(Debug, Clone, Default)]
 pub struct SessionOrigin {
     /// The caller's address, as resolved through whatever proxies are trusted.
@@ -108,23 +108,21 @@ pub struct SessionOrigin {
 
 /// How much of a `User-Agent` is kept.
 ///
-/// The caller chooses this string, so something has to bound it or a sign-in is
-/// a way to write as many bytes into the database as the request body limit
-/// allows. Real ones run to about 200 characters; this is generous enough that
-/// nothing legitimate is cut and small enough that the row stays a row.
+/// The caller chooses this string, so something has to bound it or a sign-in
+/// writes as many bytes into the database as the request body limit allows.
+/// Real ones run to about 200 characters, so nothing legitimate is cut.
 const MAX_USER_AGENT: usize = 512;
 
 impl SessionOrigin {
     /// Trims the user agent to something the narrowest column holds.
     ///
-    /// Counts characters rather than bytes, and builds the result instead of
-    /// slicing. Not because a header can arrive as arbitrary UTF-8 — it cannot,
+    /// Counts characters, not bytes, and builds the result instead of
+    /// slicing. Not because a header can arrive as arbitrary UTF-8:
     /// `HeaderValue::to_str` has already refused anything outside visible
-    /// ASCII, so on this path characters and bytes are the same number. It is
-    /// that a repository takes a `String` and cannot see where it came from, so
-    /// the one operation that cannot panic is the one to use. Collecting costs
-    /// an allocation the alternative — cloning the string — was going to cost
-    /// anyway.
+    /// ASCII, so here characters and bytes are the same number. It is that a
+    /// repository takes a `String` and cannot see where it came from, so use
+    /// the operation that cannot panic. Collecting costs an allocation cloning
+    /// the string would have cost anyway.
     fn bounded_user_agent(&self) -> Option<String> {
         self.user_agent
             .as_ref()
@@ -135,7 +133,7 @@ impl SessionOrigin {
 impl Session {
     /// Whether the session is still valid at `now`.
     ///
-    /// Takes the instant rather than reading the clock, so expiry is testable by
+    /// Takes the instant instead of reading the clock, so expiry is testable by
     /// passing a timestamp instead of by sleeping.
     #[must_use]
     pub fn is_valid_at(&self, now: OffsetDateTime) -> bool {
@@ -143,7 +141,7 @@ impl Session {
     }
 
     /// Takes a reference: unlike a token, a session row has nothing to move out
-    /// of — its identifiers are parsed and its timestamps are `Copy`.
+    /// of, since its identifiers are parsed and its timestamps are `Copy`.
     fn from_model(model: &session::Model) -> Result<Self, CorruptRow> {
         let fail = |source| CorruptRow {
             id: model.id.clone(),
@@ -189,9 +187,8 @@ impl SessionRepository {
 
     /// Starts a session and returns the secret to hand to the browser.
     ///
-    /// The secret is returned rather than stored: only its digest reaches the
-    /// database, so this is the one moment it exists in a form that could be
-    /// presented as a credential.
+    /// The secret is returned, never stored. Only its digest reaches the
+    /// database, so this is the one moment it exists as a usable credential.
     ///
     /// # Errors
     ///
@@ -234,8 +231,8 @@ impl SessionRepository {
 
     /// Finds the session a secret refers to.
     ///
-    /// Looks up by digest, so the secret itself never appears in a query — and
-    /// the comparison is the database's index rather than ours.
+    /// Looks up by digest, so the secret never appears in a query and the
+    /// comparison is the database's index and not ours.
     ///
     /// # Errors
     ///
@@ -272,9 +269,9 @@ impl SessionRepository {
 
     /// Lists an account's sessions, newest first.
     ///
-    /// Everything, including the ones that are over: a person looking at this is
-    /// usually asking whether somebody else has been in, and a session that was
-    /// revoked last Tuesday is exactly what they need to see.
+    /// Everything, including the ones that are over. A person reading this is
+    /// usually asking whether anyone else has been in, and a session revoked
+    /// last Tuesday is exactly what they need to see.
     ///
     /// # Errors
     ///
@@ -318,10 +315,9 @@ impl SessionRepository {
 
 /// What ending one session turned out to mean.
 ///
-/// Three outcomes and only two answers, on purpose: a caller who names somebody
-/// else's session and a caller who names one that is already over both asked for
-/// something that is now true, and neither is entitled to know which of the two
-/// they did.
+/// Three outcomes and two answers, by design. Naming another account's session
+/// and naming one that is already over both ask for something that is now true,
+/// and neither caller is entitled to know which they did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Revocation {
     /// It was live, and now it is not.
@@ -335,10 +331,10 @@ pub enum Revocation {
 impl SessionRepository {
     /// Ends one session, but only if it belongs to this account.
     ///
-    /// The owner is in the `WHERE` clause rather than checked beforehand. A
+    /// The owner is in the `WHERE` clause, not checked beforehand. A
     /// check first would answer "not yours" and "does not exist" differently,
-    /// which turns this endpoint into a way to ask whether an identifier is
-    /// somebody's — and it would race with the row being ended by other means.
+    /// turning this into a way to ask who owns an identifier, and it would race
+    /// with the row being ended by other means.
     ///
     /// Returns whether a row was ended, so the caller can answer the same way
     /// for a stranger's identifier and one that never existed.
@@ -360,8 +356,8 @@ impl SessionRepository {
             )
             .filter(session::Column::Id.eq(id.to_string()))
             .filter(session::Column::UserId.eq(user_id.to_string()))
-            // Already over, so there is nothing to end and its ending time must
-            // not be moved to now — that timestamp is what the list shows.
+            // Already over, so there is nothing to end, and its ending time
+            // must not be moved to now: that timestamp is what the list shows.
             .filter(session::Column::ExpiresAt.gt(now))
             .exec(&self.connection)
             .await?;
@@ -369,11 +365,10 @@ impl SessionRepository {
             return Ok(Revocation::Ended);
         }
 
-        // Nothing was written, and the two reasons for that deserve different
-        // answers to the caller even though neither is told which: one is a row
-        // of theirs that had already finished, the other is not their row at
-        // all. Asking a second time is safe — losing the race means the row is
-        // now over, which is the answer either way.
+        // Nothing was written. The two reasons are a row of theirs that had
+        // already finished and a row that is not theirs, and the caller is told
+        // neither. Asking a second time is safe: losing the race means the row
+        // is now over, the answer either way.
         let theirs = SessionEntity::find()
             .filter(session::Column::Id.eq(id.to_string()))
             .filter(session::Column::UserId.eq(user_id.to_string()))
@@ -388,11 +383,10 @@ impl SessionRepository {
 
     /// Removes every session an account ever had.
     ///
-    /// Not the same as ending them. Ending keeps the row, because the list of
-    /// sessions is also the login history — and that history is where a person
-    /// signed in from and on what, which is the most identifying thing this
-    /// service stores about anybody. Removing the account and keeping that
-    /// would leave behind the part that matters most.
+    /// Not the same as ending them. Ending keeps the row, because the session
+    /// list is also the login history: where a person signed in from and on
+    /// what, the most identifying thing this service stores. Removing the
+    /// account and keeping that would leave behind the part that matters most.
     ///
     /// # Errors
     ///
@@ -411,9 +405,8 @@ impl SessionRepository {
     /// Ends every live session an account has, optionally sparing one.
     ///
     /// `keep` is how "sign out my other devices" leaves the browser doing the
-    /// asking signed in. A password change passes `None`, because whoever knew
-    /// the old password may be holding a session and changing it is how a person
-    /// says they want that to stop.
+    /// asking signed in. A password change passes `None`, since whoever knew the
+    /// old password may be holding a session.
     ///
     /// # Errors
     ///
@@ -439,8 +432,8 @@ impl SessionRepository {
 
     /// Removes the row entirely.
     ///
-    /// For the one case where there is nobody left to show it to: the account is
-    /// gone. Everything else ends a session rather than deleting it.
+    /// For the one case with no one left to show it to: the account is gone.
+    /// Everything else ends a session instead of deleting it.
     ///
     /// # Errors
     ///
@@ -452,21 +445,12 @@ impl SessionRepository {
         Ok(())
     }
 
-    /// Removes sessions that ended longer ago than the history is kept for.
-    ///
-    /// The same query the expiry sweep used to be, with a different bound: rows
-    /// are the login history now, so they outlive the credential by however long
-    /// an operator wants to be able to look back.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SessionRepositoryError`] if the delete fails.
     /// How many rows a cutoff would remove.
     ///
     /// The same filter [`SessionRepository::delete_ended_before`] applies. This
-    /// table is also the login history somebody reads to answer "has anybody
-    /// else been in here", so shortening it destroys the answer to that — worth
-    /// a number before it happens.
+    /// table is also the login history that answers "has anyone else been in
+    /// here", so shortening it destroys that answer. Worth a number
+    /// beforehand.
     ///
     /// # Errors
     ///
@@ -483,9 +467,9 @@ impl SessionRepository {
 
     /// Removes sessions that ended longer ago than the history is kept for.
     ///
-    /// The same query the expiry sweep used to be, with a different bound: rows
-    /// are the login history now, so they outlive the credential by however long
-    /// an operator wants to be able to look back.
+    /// The same query the expiry sweep used to be, with a different bound: the
+    /// rows are the login history now, so they outlive the credential by as
+    /// long as an operator wants to look back.
     ///
     /// # Errors
     ///

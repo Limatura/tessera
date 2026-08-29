@@ -1,7 +1,7 @@
 //! Reading and writing the settings an administrator has changed.
 //!
 //! Storage only. What may be stored, and what a stored value means once it is
-//! layered under the environment, is [`crate::config`]'s decision — this module
+//! layered under the environment, is [`crate::config`]'s decision. This module
 //! would otherwise be a second place that has to agree about the key list.
 
 use std::collections::BTreeMap;
@@ -29,9 +29,9 @@ impl SettingRepository {
 
     /// Every stored override, by key.
     ///
-    /// A value that will not parse as JSON is left out rather than failing the
+    /// A value that will not parse as JSON is left out instead of failing the
     /// call. This is read at start-up, and one unreadable row must not be the
-    /// reason a process refuses to boot — losing that override is recoverable,
+    /// reason a process refuses to boot: losing that override is recoverable,
     /// an instance that will not start is not.
     ///
     /// # Errors
@@ -75,7 +75,7 @@ impl SettingRepository {
             value: Set(encoded),
             updated_at: Set(now),
         })
-        // One statement rather than "look, then insert or update": two
+        // One statement, not "look, then insert or update". Two
         // administrators saving at the same moment would otherwise both find
         // nothing and both insert.
         .on_conflict(

@@ -3,24 +3,23 @@
 //! # Why the parsing is by hand
 //!
 //! There are two subcommands and three flags between them. `clap` would add
-//! roughly half a megabyte to a binary whose whole pitch is that it is one small
-//! file, and this module is the second place that decision has come up — the
-//! health probe is hand-rolled for the same reason, rather than pulling in an
-//! HTTP client. If a third subcommand arrives, revisit it; two is not enough to
-//! pay for a dependency.
+//! roughly half a megabyte to a binary whose whole pitch is that it is one
+//! small file. The health probe is hand-rolled for the same reason, instead of
+//! pulling in an HTTP client. Revisit if a third subcommand arrives; two is not
+//! enough to pay for a dependency.
 //!
 //! # Why password reset is a subcommand and not an endpoint
 //!
 //! The case that matters is the only administrator having forgotten theirs.
-//! That is not rare on a single-person instance, and the machine it happens on
-//! usually has no mail server, so anything involving email is unavailable
-//! exactly when it is needed. A rescue path has to work when the service does
-//! not: no network, no session, no running process.
+//! That is not rare on a single-person instance, and the machine usually has no
+//! mail server, so anything involving email is unavailable exactly when it is
+//! needed. A rescue path has to work with no network, no session and no running
+//! process.
 //!
-//! The consequence is stated plainly rather than hidden: **whoever can run this
-//! binary against the database can take any account.** For self-hosted software
-//! that is already true — the database is a file they own — so this makes an
-//! existing property usable rather than granting a new one.
+//! Stated plainly: **whoever can run this binary against the database can take
+//! any account.** That is already true of self-hosted software, since the
+//! database is a file they own, so this makes an existing property usable
+//! instead of granting a new one.
 
 use std::io::IsTerminal as _;
 
@@ -75,20 +74,19 @@ pub enum Command {
     /// # Why this exists alongside the panel
     ///
     /// Two instances cannot use the panel at all. One has `features.accounts`
-    /// off — a file drop behind a VPN, which has no accounts and so no session
-    /// to sign in with. The other has been configured into a state where the
-    /// panel does not work, which is exactly when the way to undo it must not
-    /// be the panel.
+    /// off, a file drop behind a VPN with no accounts and so no session to sign
+    /// in with. The other has been configured into a state where the panel does
+    /// not work, exactly when the way to undo it must not be the panel.
     Settings(SettingsAction),
     /// Read or change storage quotas without the admin panel.
     ///
     /// The instance-wide ceiling is a setting, so it is `settings set
     /// storage.max_total_bytes`. These are the per-role and per-account
-    /// figures, which are rows rather than settings.
+    /// figures, which are rows and not settings.
     Quota(QuotaAction),
     /// Add, list or remove storage backends.
     ///
-    /// The one from `storage.url` is always there and is not in this list — it
+    /// The one from `storage.url` is always there and not in this list: it
     /// comes from the environment and cannot be removed from here.
     Backends(BackendAction),
     /// Print usage and exit successfully.
@@ -197,10 +195,10 @@ enum Chosen {
     Supplied,
     /// We picked one. It is printed, and the account is asked to change it.
     Generated {
-        /// The copy to show, since nobody else has seen it.
+        /// The copy to show, since it exists nowhere else.
         printed: String,
         /// Whether this happened because there was no terminal to ask at,
-        /// rather than because `--generate` asked for it.
+        /// and not because `--generate` asked for it.
         for_want_of_a_terminal: bool,
     },
 }
@@ -210,20 +208,19 @@ enum Chosen {
 /// # Why the command line is not the default
 ///
 /// A password in an argument is visible twice over: it stays in the shell
-/// history file, and for as long as the process runs it is in `/proc/<pid>/cmdline`,
-/// which `ps` reads and every other user on the machine can see. For a tool
-/// whose whole purpose is rescuing an administrator account, that is a poor
-/// place to leave the credential.
+/// history file, and while the process runs it is in `/proc/<pid>/cmdline`,
+/// which `ps` reads and every other user on the machine can see. That is a poor
+/// place to leave the credential for an administrator account.
 ///
-/// So the flag stays — automation exists and refusing it would only make people
-/// write worse workarounds — but it is no longer where an operator lands by
-/// default, and `--help` says what it costs.
+/// The flag stays, because automation exists and refusing it would only produce
+/// worse workarounds, but it is not the default and `--help` says what it
+/// costs.
 #[derive(Debug, PartialEq, Eq)]
 pub enum PasswordSource {
     /// Typed at the terminal if there is one, generated if there is not.
     ///
-    /// Resolved when the command runs rather than when it is parsed, so that
-    /// reading the arguments stays a pure function.
+    /// Resolved when the command runs, not when it is parsed, so reading the
+    /// arguments stays a pure function.
     Ask,
     /// `--password <value>`. Visible to `ps`; see the type's own docs.
     Argument(String),
@@ -240,8 +237,8 @@ pub enum PasswordSource {
 /// # Errors
 ///
 /// A message for the operator when the arguments do not describe a command.
-/// Unknown arguments are refused rather than ignored: a mistyped flag that is
-/// silently dropped would look like the command ran and did nothing.
+/// Unknown arguments are refused, not ignored. A mistyped flag that is silently
+/// dropped looks like the command ran and did nothing.
 pub fn parse<I: IntoIterator<Item = String>>(args: I) -> Result<Command, String> {
     let mut args = args.into_iter();
     let Some(first) = args.next() else {
@@ -266,8 +263,8 @@ fn parse_reset_password<I: Iterator<Item = String>>(mut args: I) -> Result<Comma
     let mut username = None;
     let mut source = PasswordSource::Ask;
 
-    // Two password flags are refused rather than last-one-wins: together they
-    // mean the operator believes something about the command that is not true,
+    // Two password flags are refused, not resolved by last-one-wins. Together
+    // they mean the operator believes something untrue about the command,
     // and quietly picking one would set a password they did not intend on the
     // one account they cannot get back into.
     while let Some(arg) = args.next() {
@@ -407,7 +404,7 @@ fn parse_quota<I: Iterator<Item = String>>(mut args: I) -> Result<Command, Strin
                 .next()
                 .ok_or_else(|| "quota set: needs bytes, 0, or none".to_owned())?;
             // `none` and `0` are different instructions and the difference is
-            // the whole design, so neither is spelled as the other: `none`
+            // the design, so neither is spelled as the other: `none`
             // hands the question to the next layer, `0` answers it with "no
             // ceiling".
             let bytes = match value.as_str() {
@@ -613,17 +610,17 @@ pub async fn reset_password(
     username: &str,
     source: PasswordSource,
 ) -> anyhow::Result<()> {
-    // Privileged parsing, because the account this exists to rescue is normally
-    // `admin` — which is on the reserved list precisely so nobody else can
-    // register it, and which the ordinary parser therefore refuses.
+    // Privileged parsing. The account this rescues is normally `admin`, which
+    // sits on the reserved list so no stranger can register it, and which the
+    // ordinary parser therefore refuses.
     let username = Username::parse_privileged(username)
         .map_err(|error| anyhow::anyhow!("`{username}` is not a usable account name: {error}"))?;
 
     let db = db::connect(&config.database)
         .await
         .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
-    // Deliberately no migrations. A rescue tool that quietly rewrites the schema
-    // is the last thing you want to run against a database you are already
+    // No migrations. A rescue tool that quietly rewrites the schema is the last
+    // thing to run against a database you are already
     // unsure about; if the schema is behind, start the server once and try again.
     let users = UserRepository::new(db.clone());
 
@@ -658,8 +655,7 @@ pub async fn reset_password(
 
 /// The new password, and a copy of it when we were the one who chose it.
 ///
-/// Split out because the cases are held to different rules, and reading that
-/// difference matters more than saving a function.
+/// Split out because the cases are held to different rules.
 ///
 /// # Errors
 ///
@@ -670,16 +666,15 @@ fn choose_password(source: PasswordSource, config: &Config) -> anyhow::Result<(P
         PasswordSource::Generate => return generated_password(false),
         PasswordSource::Argument(value) => value,
         PasswordSource::Stdin => read_from_stdin()?,
-        // The test is on *stdin*, while the prompt below reads from the terminal
-        // device directly — they are not the same question, and the stricter one
-        // is deliberate. Asking whether a terminal exists would make
-        // `echo secret | tessera-server reset-password -u admin` stop at a prompt,
-        // and a script run from a terminal would hang there with nobody watching.
-        // A password printed to a log is a visible mistake; a job that never
-        // returns is not.
+        // The test is on *stdin*, while the prompt below reads the terminal
+        // device directly. Not the same question, and the stricter one is
+        // deliberate: asking whether a terminal exists would make `echo secret
+        // | tessera-server reset-password -u admin` stop at a prompt, and a
+        // script run from a terminal would hang unattended. A password printed
+        // to a log is a visible mistake; a hung job is not.
         //
-        // The cost is that the same forgotten `--password-stdin` sets a password
-        // nobody asked for. `report` says so, and says which flag was missing.
+        // The cost is that a forgotten `--password-stdin` sets an unintended
+        // password. `report` says so, and names the missing flag.
         PasswordSource::Ask if !std::io::stdin().is_terminal() => {
             return generated_password(true);
         }
@@ -696,9 +691,9 @@ fn choose_password(source: PasswordSource, config: &Config) -> anyhow::Result<(P
 /// One we chose, returned alongside a copy to print.
 fn generated_password(for_want_of_a_terminal: bool) -> anyhow::Result<(Password, Chosen)> {
     let generated = Secret::generate_session().expose().to_owned();
-    // Parsed against the default policy rather than the configured one: an
-    // operator who set `min_length` to 64 should not make the rescue path fail
-    // on a password nobody has to type twice.
+    // Parsed against the default policy, not the configured one. An operator
+    // who set `min_length` to 64 should not make the rescue path fail
+    // on a generated password that is never typed.
     let password = Password::parse(generated.clone(), PasswordPolicy::default())
         .map_err(|_| anyhow::anyhow!("could not generate a password"))?;
     Ok((
@@ -713,14 +708,12 @@ fn generated_password(for_want_of_a_terminal: bool) -> anyhow::Result<(Password,
 /// Asks twice, without echoing, and insists the two agree.
 ///
 /// Twice because there is nothing to check a typo against: this writes straight
-/// to the database with the service stopped, so a mistyped password is only
-/// discovered at the next sign-in, by which point the operator has no reason to
-/// suspect the tool.
+/// to the database with the service stopped, so a mistyped password surfaces at
+/// the next sign-in, when the operator has no reason to suspect the tool.
 ///
-/// The prompt is written straight to the terminal rather than to stdout, which
-/// is what keeps stdout the command's result and nothing else: redirecting it to
-/// a file captures `Password for ... set.` and no prompt. Measured rather than
-/// assumed — that is `rpassword`'s doing, not ours.
+/// The prompt goes to the terminal, not stdout, which keeps stdout the
+/// command's result. Redirecting it to a file captures `Password for ... set.`
+/// and no prompt. That is `rpassword`'s doing, not ours.
 fn read_from_terminal() -> anyhow::Result<String> {
     let first = rpassword::prompt_password("New password: ")
         .context("could not read the password from the terminal")?;
@@ -734,9 +727,9 @@ fn read_from_terminal() -> anyhow::Result<String> {
 
 /// Reads one line from standard input, for automation.
 ///
-/// One line rather than the whole stream, so that `echo secret | ...` works
-/// without the trailing newline becoming part of the password — a difference
-/// nobody would see until the sign-in that fails.
+/// One line, not the whole stream, so `echo secret | ...` works without the
+/// trailing newline becoming part of the password. That difference stays
+/// invisible until a sign-in fails.
 fn read_from_stdin() -> anyhow::Result<String> {
     let mut raw = String::new();
     std::io::stdin()
@@ -748,8 +741,8 @@ fn read_from_stdin() -> anyhow::Result<String> {
 /// One line, with the line ending taken off.
 ///
 /// Split out to be testable, because the failure it prevents is invisible:
-/// keeping the newline gives a password that differs from the one the operator
-/// piped in by one character, and nothing says so until a sign-in fails.
+/// keeping the newline gives a password one character off from what the
+/// operator piped in, and nothing says so until a sign-in fails.
 ///
 /// # Errors
 ///
@@ -770,9 +763,9 @@ fn first_line(raw: &str) -> anyhow::Result<&str> {
 ///
 /// # Why this writes to the same table the panel does
 ///
-/// So that the two agree. A separate file or a separate flag would be a second
-/// answer to "what is this instance configured with", and the first thing
-/// anybody would ask is which one wins.
+/// So the two agree. A separate file or flag would be a second answer to "what
+/// is this instance configured with", and the first question would be which
+/// wins.
 ///
 /// # Errors
 ///
@@ -841,8 +834,8 @@ async fn run_backends(
             print_backends(&listed);
         }
         BackendAction::Add { name, url } => {
-            // Options are not settable from here on purpose: they are a map,
-            // and a command line that takes one turns into a parser. The panel
+            // Options are not settable from here. They are a map, and a command
+            // line that takes one turns into a parser. The panel
             // takes them; this exists for the instance that has no panel and
             // needs one backend added by hand.
             store
@@ -901,10 +894,9 @@ async fn run_backends(
 
 /// Changes one field of a stored backend, leaving the rest as they were.
 ///
-/// Read-modify-write rather than a targeted `UPDATE`: the row's credentials are
+/// Read-modify-write, not a targeted `UPDATE`. The row's credentials are
 /// sealed, so writing it back means re-sealing them, and doing that from the
-/// values already in hand is what keeps this one code path instead of one per
-/// field.
+/// values in hand keeps this one code path instead of one per field.
 async fn amend(
     store: &StorageBackendRepository,
     name: &str,
@@ -928,9 +920,9 @@ async fn amend(
 
 /// Prints what is configured, never a credential.
 ///
-/// The URL is what carries the key, so it is not shown even to somebody who
-/// already has shell access — a listing is the sort of thing that ends up in a
-/// support thread.
+/// The URL carries the key, so it is withheld even from a caller who already
+/// has shell access. A listing is the sort of thing that ends up in a support
+/// thread.
 #[expect(
     clippy::print_stdout,
     reason = "a command-line tool's result belongs on stdout, not in the log"
@@ -1067,8 +1059,8 @@ async fn run_settings(store: &SettingRepository, action: SettingsAction) -> anyh
 
 /// Refuses a key the panel would refuse, with the same reason.
 ///
-/// The two surfaces have to agree: a setting the panel calls unchangeable and
-/// the command line accepts would be a value nobody could explain afterwards.
+/// The two surfaces have to agree. A setting the panel calls unchangeable and
+/// the command line accepts leaves a value with no explanation.
 fn refuse_unless_settable(key: &str) -> anyhow::Result<()> {
     match settings::admits(key) {
         Ok(()) => Ok(()),
@@ -1087,18 +1079,16 @@ fn refuse_unless_settable(key: &str) -> anyhow::Result<()> {
 /// Reads a value the way an operator typed it.
 ///
 /// JSON first, so `10`, `true` and `["a","b"]` arrive as what they look like.
-/// Anything that is not JSON is taken as a string, because quoting every
-/// hostname at a shell prompt is the kind of friction that makes a tool
-/// unpleasant — and `s3://…` is not valid JSON.
+/// Anything else is taken as a string, because quoting every hostname at a
+/// shell prompt is friction, and `s3://…` is not valid JSON.
 fn parse_value(raw: &str) -> serde_json::Value {
     serde_json::from_str(raw).unwrap_or_else(|_| serde_json::Value::String(raw.to_owned()))
 }
 
 /// Says what was stored, and that a running server has not noticed.
 ///
-/// On stdout rather than through the log, for the same reason the invite code
-/// is: this is a command-line tool's result, and `telemetry.filter` set to
-/// `warn` must not be able to swallow it.
+/// On stdout, not through the log, like the invite code. This is the command's
+/// result, and `telemetry.filter` set to `warn` must not swallow it.
 #[expect(
     clippy::print_stdout,
     reason = "a command-line tool's result belongs on stdout, not in the log"
@@ -1110,8 +1100,8 @@ fn report_setting_stored(key: &str, value: &serde_json::Value) {
 
 /// Says whether there was anything to clear.
 ///
-/// Worth telling apart: "cleared" and "there was nothing here" look the same to
-/// somebody who mistyped the key.
+/// "Cleared" and "there was nothing here" look identical after a mistyped key,
+/// so they are reported apart.
 #[expect(
     clippy::print_stdout,
     reason = "a command-line tool's result belongs on stdout, not in the log"
@@ -1203,9 +1193,9 @@ fn print_settings(views: &[settings::View]) {
             settings::Source::Environment => "environment",
             settings::Source::Panel => "stored",
         };
-        // The ones that cannot be changed are marked rather than hidden, for
-        // the same reason the panel lists them: leaving them out is what makes
-        // somebody ask where the port setting went.
+        // The ones that cannot be changed are marked, not hidden, for the same
+        // reason the panel lists them. Leaving them out prompts the
+        // question of where the port setting went.
         let fixed = if view.editable { "" } else { "  (read-only)" };
         // `describe` already withheld the value of anything that holds a
         // credential; this only spells the hole as something a person reads.
@@ -1236,8 +1226,8 @@ pub async fn mint_invite(
     let db = db::connect(&config.database)
         .await
         .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
-    // Deliberately no migrations, for the same reason `reset-password` runs
-    // none: a tool that quietly rewrites the schema is the last thing to run
+    // No migrations, for the same reason `reset-password` runs none: a tool
+    // that quietly rewrites the schema is the last thing to run
     // against a database you are unsure about.
     let invites = InviteRepository::new(db.clone());
 
@@ -1266,9 +1256,9 @@ pub async fn mint_invite(
 
 /// Says what happened, on stdout.
 ///
-/// Printed rather than logged: this is the entire output of the command, and a
-/// rescue tool whose result disappears because `telemetry.filter` is set to
-/// `warn` would be worse than useless.
+/// Printed, not logged. This is the command's entire output, and a rescue tool
+/// whose result vanishes because `telemetry.filter` is `warn` would
+/// be worse than useless.
 #[expect(
     clippy::print_stdout,
     reason = "a command-line tool's result belongs on stdout, not in the log"
@@ -1323,8 +1313,8 @@ fn report(username: &str, chosen: &Chosen) {
                  Sign in with it and choose a new one — this account is now marked as \
                  owing a change."
             );
-            // The case this exists for: somebody piped a password in and forgot
-            // the flag that reads it. Without this line the command looks like
+            // The case this exists for: a password piped in, and the flag that
+            // reads it forgotten. Without this line the command looks like
             // it worked, and the password they meant to set is gone with no
             // indication that it was ever seen.
             if *for_want_of_a_terminal {
@@ -1587,8 +1577,8 @@ mod quota_tests {
         assert!(parsed(&["quota", "reset", "role", "member"]).is_err());
     }
 
-    /// The two figures are different things, so the command line has to be able
-    /// to say which one — and `set` has to keep meaning what it meant.
+    /// The two figures are different things, so the command line has to say
+    /// which one, and `set` has to keep meaning what it meant.
     #[test]
     fn set_file_is_the_other_figure() {
         assert_eq!(
@@ -1647,8 +1637,7 @@ mod backend_tests {
     }
 
     /// A backend added without a URL would be a name pointing at nothing, and
-    /// the failure would land on whoever uploads next rather than on whoever
-    /// typed it.
+    /// the failure lands on whoever uploads next, not on whoever typed it.
     #[test]
     fn a_missing_argument_is_refused() {
         assert!(parsed(&["backends", "add", "cold"]).is_err());
@@ -1658,8 +1647,8 @@ mod backend_tests {
         assert!(parsed(&["backends", "rename", "cold", "hot"]).is_err());
     }
 
-    /// `0` is how "no limit" is spelled, so it has to parse rather than be
-    /// mistaken for a missing argument.
+    /// `0` is how "no limit" is spelled, so it has to parse and not be mistaken
+    /// for a missing argument.
     #[test]
     fn capacity_and_retire_parse() {
         assert_eq!(

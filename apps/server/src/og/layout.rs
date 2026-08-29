@@ -2,26 +2,26 @@
 //!
 //! # Whose design this is
 //!
-//! One layout for the instance, set by whoever runs it — not one per share.
-//! Per-share customisation would be a knob on every upload form for something
-//! almost nobody wants, and the shares table's `og_config` column stays unused
-//! because of that decision rather than by oversight.
+//! One layout for the instance, set by whoever runs it, not one per share.
+//! Per-share customisation would be a knob on every upload form for
+//! something almost never wanted, and the shares table's `og_config` column
+//! stays unused by that decision, not by oversight.
 //!
 //! # What the checking is for
 //!
 //! Not a security boundary. The only person who can set this already runs the
 //! process; a layout is not a way for them to reach anything they could not
-//! reach by editing the configuration file, which is the other way to set it.
+//! reach by editing the configuration file, the other way to set it.
 //!
-//! What it is for is telling them **when they save** rather than when somebody
-//! else pastes a link into a channel. A `<script>` or an `<img src="https://…">`
-//! does not fail loudly at render time — takumi has no HTTP client, so an
+//! What it is for is telling them **when they save**, not when a link is
+//! pasted into a channel. A `<script>` or an `<img src="https://…">`
+//! does not fail loudly at render time: takumi has no HTTP client, so an
 //! external image is quietly nothing, and an unknown element is quietly
 //! dropped. Left to be discovered, the first sign of a mistake is a card that
-//! looks wrong on somebody else's screen.
+//! looks wrong on a stranger's screen.
 //!
-//! So the rules are narrow on purpose, and they refuse things that would merely
-//! be useless as firmly as things that would be wrong.
+//! So the rules are narrow, and they refuse things that would merely be useless
+//! as firmly as things that would be wrong.
 //!
 //! # Why it is checked twice
 //!
@@ -39,18 +39,17 @@ use markup5ever_rcdom::{Handle, NodeData, RcDom};
 
 /// Elements a layout may use.
 ///
-/// Boxes and text, and nothing else. `img` and `svg` are absent deliberately:
-/// both are ways to name a resource, takumi does not fetch resources, and a
-/// layout that references one draws a hole. When there is a reason to put a
-/// logo on a card, the answer is somewhere to upload one — not a URL in a
-/// string.
+/// Boxes and text, and nothing else. `img` and `svg` are absent because both
+/// name a resource, takumi does not fetch resources, and a layout
+/// referencing one draws a hole. When there is a reason to put a logo on a
+/// card, the answer is somewhere to upload one, not a URL in a string.
 const ELEMENTS: [&str; 2] = ["div", "span"];
 
 /// Attributes an element may carry.
 ///
-/// `style` alone. `class` and `tw` would work — takumi reads both — but they
-/// name rules that live somewhere this layout cannot see, so a layout using
-/// them would render differently here and in whatever previewed it.
+/// `style` alone. `class` and `tw` would work, since takumi reads both, but
+/// they name rules living somewhere this layout cannot see, so a layout using
+/// them renders differently here and in whatever previewed it.
 const ATTRIBUTES: [&str; 1] = ["style"];
 
 /// The most markup a layout may be.
@@ -84,7 +83,7 @@ pub enum Refused {
     /// Something that would name a resource outside this server.
     #[error("a layout cannot reference anything outside this server, and this one has `{0}`")]
     External(String),
-    /// A placeholder nobody will fill in.
+    /// A placeholder this server will not fill in.
     #[error("`{{{{{0}}}}}` is not a placeholder this server knows")]
     Placeholder(String),
 }
@@ -93,8 +92,8 @@ pub enum Refused {
 ///
 /// # Errors
 ///
-/// Returns the first [`Refused`] that applies. First rather than all of them
-/// because the checks are cheap to re-run and a list of problems that stops
+/// Returns the first [`Refused`] that applies, not all of them. The checks are
+/// cheap to re-run, and a list of problems that stops
 /// being true after the first fix is worse company than one problem at a time.
 pub fn check(html: &str) -> Result<(), Refused> {
     if html.len() > MAX_BYTES {
@@ -144,7 +143,7 @@ fn walk(handle: &Handle, depth: usize) -> Result<(), Refused> {
         NodeData::Element { name, attrs, .. } => {
             let tag = name.local.to_string();
             // The fragment parser wraps everything in the context element it was
-            // given, which is ours and not the operator's.
+            // given, ours and not the operator's.
             if tag != "html" {
                 if !ELEMENTS.contains(&tag.as_str()) {
                     return Err(Refused::Element(tag));
@@ -178,8 +177,8 @@ fn check_attributes(attrs: &[Attribute]) -> Result<(), Refused> {
     Ok(())
 }
 
-/// The names a layout may ask for, and what each is worth is decided by
-/// [`Card`](crate::api::preview::Card) — not here.
+/// The names a layout may ask for. What each is worth is decided by
+/// [`Card`](crate::api::preview::Card), not here.
 pub const PLACEHOLDERS: [&str; 7] = [
     "title", "label", "size", "code", "expires", "footer", "language",
 ];
@@ -262,8 +261,8 @@ mod tests {
     }
 
     /// takumi has no HTTP client, so an external reference is not a way out of
-    /// this process — it is a hole in the picture. Refusing it at save time is
-    /// the difference between an error message and a card that looks broken to
+    /// this process but a hole in the picture. Refusing it at save time is the
+    /// difference between an error message and a card that looks broken to
     /// everyone but its author.
     #[test]
     fn anything_pointing_outside_is_refused() {
@@ -311,7 +310,7 @@ mod tests {
     }
 
     /// The one that matters: a placeholder the share may not answer becomes
-    /// nothing, rather than the value it would have had.
+    /// nothing, not the value it would have had.
     #[test]
     fn a_placeholder_with_no_value_becomes_nothing() {
         let values = BTreeMap::new();

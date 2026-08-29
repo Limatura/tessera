@@ -1,8 +1,8 @@
 //! Makes every stored time the same thing on MySQL: a UTC wall clock.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the MySQL one for why.
-//! SQLite and Postgres have nothing to do, and their files say so rather than
-//! being absent, so that "no file" always means "somebody forgot".
+//! The SQL lives in `sql/`, one file per dialect. See the MySQL one for why.
+//! SQLite and Postgres have nothing to do, and their files say so instead of
+//! being absent, so "no file" always means "this was forgotten".
 
 use sea_orm_migration::prelude::*;
 
@@ -10,13 +10,13 @@ pub(super) const SQLITE: &str = include_str!("sql/m20260819_000002_mysql_datetim
 pub(super) const POSTGRES: &str = include_str!("sql/m20260819_000002_mysql_datetime.postgres.sql");
 pub(super) const MYSQL: &str = include_str!("sql/m20260819_000002_mysql_datetime.mysql.sql");
 
-/// Deliberately empty.
+/// Empty by design.
 ///
 /// Going back means putting a 2038 ceiling on columns that may by then hold a
-/// value above it, and MySQL refuses those rows rather than rounding them —
-/// so a `down` that looked reversible would fail part way through, leaving
-/// half the tables converted. Nothing is lost by staying: `DATETIME` holds
-/// every instant `TIMESTAMP` could, read by the same code.
+/// value above it, and MySQL refuses those rows instead of rounding them, so a
+/// `down` that looked reversible would fail part way through and leave half the
+/// tables converted. Nothing is lost by staying: `DATETIME` holds every instant
+/// `TIMESTAMP` could, read by the same code.
 const DOWN: &str = "";
 
 #[derive(Debug, DeriveMigrationName)]
@@ -24,8 +24,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -45,7 +45,7 @@ mod tests {
     use super::MYSQL;
 
     /// A column left behind keeps the 2038 ceiling and keeps reading a
-    /// different number from the ones beside it, which is the whole thing this
+    /// different number from the ones beside it, exactly what this
     /// migration exists to end. The list is what `information_schema` reported
     /// after every earlier migration had run.
     const CONVERTED: [(&str, usize); 10] = [

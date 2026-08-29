@@ -1,32 +1,31 @@
-//! The picture a chat client shows when somebody pastes a share link.
+//! The picture a chat client shows for a pasted share link.
 //!
 //! # Why the server draws it
 //!
 //! What unfurls a link does not run JavaScript, so the picture has to exist as
-//! bytes at a URL. That is the whole reason this is in Rust and not in the app:
+//! bytes at a URL. That is why this is in Rust and not in the app:
 //! see [`crate::api::preview`], which puts the tags pointing at it into the
 //! page.
 //!
 //! # Why it is drawn per request and not cached
 //!
-//! Caching each card in the object store was the original plan,
-//! keyed by the layout version, the font configuration and the share's own
-//! fields. Measured, a card costs about **three milliseconds** — so the cache
-//! would be a store to write, a key to get right and an invalidation to get
-//! wrong, in exchange for three milliseconds. The route already loads the share
-//! row to build the tags; drawing is the cheaper half of what it then does.
+//! Caching each card in the object store was the original plan, keyed by the
+//! layout version, the font configuration and the share's own fields. Measured,
+//! a card costs about **three milliseconds**, so the cache would be a store to
+//! write, a key to get right and an invalidation to get wrong in exchange for
+//! three milliseconds. The route already loads the share row to build the tags,
+//! and drawing is the cheaper half of what it then does.
 //!
-//! It also buys something: the fields that move — how long is left, how many
-//! retrievals remain — are correct every time they are looked at, because there
-//! is no older copy to serve.
+//! It also buys something: the fields that move, such as how long is left and
+//! how many retrievals remain, are correct every time they are looked at,
+//! because there is no older copy to serve.
 //!
 //! # What it must not do
 //!
-//! The rules are [`crate::api::preview`]'s, and they are enforced by sharing
-//! its decision rather than repeating it. [`Card`] says what may be drawn; this
-//! module only draws it. In particular a locked share reaches here as
-//! [`Card::Locked`], which carries no file name, no size and no file count —
-//! there is nothing here to leak, because the leak was prevented one layer up.
+//! The rules are [`crate::api::preview`]'s, enforced by sharing its decision
+//! instead of repeating it. [`Card`] says what may be drawn; this module only
+//! draws it. A locked share reaches here as [`Card::Locked`], carrying no file
+//! name, no size and no file count, so there is nothing here to leak.
 //!
 //! Spending a retrieval is prevented the same way: the route reads the share
 //! through [`preview::lookup`](crate::api::preview::lookup), which does not
@@ -34,10 +33,10 @@
 //!
 //! # Why the layouts are HTML
 //!
-//! There will be a layout editor eventually, and an editor that edits the same
-//! source the server renders cannot drift from it. A node tree built in Rust would
-//! have meant inventing a format later and maintaining two implementations of
-//! it — the preview in the browser and the real thing here.
+//! There will be a layout editor eventually, and one that edits the same source
+//! the server renders cannot drift from it. A node tree built in Rust would
+//! have meant inventing a format later and maintaining two implementations: the
+//! preview in the browser and the real thing here.
 
 pub mod code;
 pub mod layout;
@@ -56,10 +55,10 @@ pub const HEIGHT: u32 = 630;
 
 /// Something went wrong drawing a card.
 ///
-/// Its own type rather than a variant of [`crate::error::Error`]: none of these
-/// depend on the request. A card that will not draw means the layout or the
-/// embedded fonts are wrong, which is this module's problem, and the caller's
-/// only sensible response is to serve the page without a picture.
+/// Its own type, not a variant of [`crate::error::Error`], because none
+/// of these depend on the request. A card that will not draw means the layout
+/// or the embedded fonts are wrong, and the caller's only sensible response is
+/// to serve the page without a picture.
 #[derive(Debug, thiserror::Error)]
 pub enum CardError {
     /// An embedded face would not decode. A build problem.
@@ -75,8 +74,8 @@ pub enum CardError {
 
 /// The faces, decoded once.
 ///
-/// Decoding is the expensive part of drawing a card — several times the cost of
-/// the drawing itself — so this is built at startup and shared. Which faces and
+/// Decoding is the expensive part of drawing a card, several times the cost of
+/// the drawing itself, so this is built at startup and shared. Which faces and
 /// why is recorded in `assets/fonts/README.md`.
 pub struct Cards {
     fonts: Fonts,
@@ -84,7 +83,7 @@ pub struct Cards {
 
 impl std::fmt::Debug for Cards {
     /// `Fonts` is a decode cache with nothing printable in it, and the faces it
-    /// holds are a compile-time constant — so the count is the only fact worth
+    /// holds are a compile-time constant, so the count is the only fact worth
     /// showing.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Cards")
@@ -106,7 +105,7 @@ const FACES: [&[u8]; 6] = [
     include_bytes!("../../assets/fonts/NotoEmoji.woff2"),
     // Code is set in a monospace face, and not only because it looks right:
     // indentation on a card is drawn as padding measured in character widths,
-    // which is a number only when every character is the same width.
+    // a number only when every character is the same width.
     include_bytes!("../../assets/fonts/DejaVuSansMono.woff2"),
 ];
 
@@ -116,7 +115,7 @@ impl Cards {
     /// # Errors
     ///
     /// Returns [`CardError::Font`] if a face will not decode, which can only
-    /// mean the embedded bytes are wrong — a build problem, not a runtime one.
+    /// mean the embedded bytes are wrong: a build problem, not a runtime one.
     pub fn new() -> Result<Self, CardError> {
         let mut fonts = Fonts::default();
         for face in FACES {
@@ -133,7 +132,7 @@ impl Cards {
     ///
     /// Returns [`CardError`] if the layout will not parse or the image will not
     /// encode. Neither depends on the share, so both mean this module is broken
-    /// rather than the request.
+    /// and not the request.
     pub fn draw(&self, preview: &Preview, code: &str) -> Result<Vec<u8>, CardError> {
         self.draw_with(preview, code, "")
     }
@@ -143,8 +142,8 @@ impl Cards {
     /// A layout that no longer passes its own rules falls back to the built-in
     /// card and says so in the log. The rules can tighten after a layout was
     /// stored, and a card that is not the operator's design still tells the
-    /// reader what the share is — an error tells them nothing, on somebody
-    /// else's screen.
+    /// reader what the share is. An error on a stranger's screen tells them
+    /// nothing.
     ///
     /// # Errors
     ///
@@ -181,10 +180,9 @@ impl Cards {
 
 /// What each placeholder is worth for this share.
 ///
-/// Read off [`Card`], which is the same thing the built-in layout reads. A
-/// locked share therefore has no `size` and no `label` to give, so a layout
-/// asking for them gets nothing — the discretion is in the value, not in the
-/// layout's manners.
+/// Read off [`Card`], the same thing the built-in layout reads. A locked share
+/// has no `size` and no `label` to give, so a layout asking for them gets
+/// nothing: the discretion is in the value, not in the layout's manners.
 fn placeholder_values<'a>(
     preview: &'a Preview,
     code: &'a str,
@@ -230,9 +228,9 @@ fn placeholder_values<'a>(
 
 /// What each placeholder is worth, reachable from the integration tests.
 ///
-/// The rule it carries — that a locked share has no size to give — is worth
+/// The rule it carries, that a locked share has no size to give, is worth
 /// testing from outside this crate, where a test cannot reach a private
-/// function and asserting on the drawn pixels would be a test of the renderer.
+/// function and asserting on drawn pixels would test the renderer instead.
 #[must_use]
 pub fn placeholder_values_for_test(
     preview: &Preview,
@@ -245,7 +243,7 @@ pub fn placeholder_values_for_test(
 mod ink {
     /// The ground.
     pub(super) const GROUND: &str = "#0a0605";
-    /// The one accent, on everything that is ours rather than the share's.
+    /// The one accent, on everything that is ours and not the share's.
     pub(super) const ACCENT: &str = "#d94f2b";
     /// Body text.
     pub(super) const TEXT: &str = "#ffffff";
@@ -292,8 +290,8 @@ fn layout(preview: &Preview, code: &str) -> String {
         ),
     };
     // A note with a snippet gets its own arrangement: the code is the picture,
-    // so it takes the middle and the headline shrinks to a line above it. Fitted
-    // into the shared shell instead, it overflows — and what a 630-pixel card
+    // so it takes the middle and the headline shrinks to a line above it.
+    // Fitted into the shared shell it overflows, and what a 630-pixel card
     // drops off the bottom is the retrieval code.
     if let Card::Open {
         label,
@@ -344,8 +342,8 @@ fn chip_row(chips: &[String]) -> String {
     let mut boxes = String::new();
     for chip in chips {
         use std::fmt::Write as _;
-        // A push rather than `map().collect()`: clippy would rather this than a
-        // `format!` per item, and the loop reads the same.
+        // A push, not `map().collect()`. Clippy prefers this to a `format!`
+        // per item, and the loop reads the same.
         let _ = write!(
             boxes,
             r#"<div style="background:{chip_ink};border-radius:999px;padding:10px 20px;font-size:22px">{text}</div>"#,
@@ -439,7 +437,7 @@ fn code_block(snippet: &code::Snippet) -> String {
     )
 }
 
-/// The three marks are drawn from boxes rather than an icon font, so that the
+/// The three marks are drawn from boxes, not an icon font, so the
 /// card needs nothing the binary does not already carry.
 fn document_mark() -> String {
     format!(
@@ -469,12 +467,11 @@ fn empty_mark() -> String {
 
 /// Escapes text going into the layout.
 ///
-/// The same hole as the one [`crate::api::preview`] escapes for, one parser
-/// along: the title and file name came from whoever made the share, and they
-/// are being spliced into HTML that `takumi` will parse. An unescaped `"` ends
-/// the style attribute and the rest of the name becomes markup — which on a
-/// picture is a broken card rather than script execution, but a name is not
-/// allowed to restructure the layout either.
+/// The same hole [`crate::api::preview`] escapes for, one parser along: the
+/// title and file name came from whoever made the share and are spliced into
+/// HTML that `takumi` will parse. An unescaped `"` ends the style attribute and
+/// the rest of the name becomes markup. On a picture that is a broken card
+/// and not script execution, but a name may not restructure the layout.
 fn escape(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for character in value.chars() {
@@ -495,8 +492,8 @@ mod tests {
     use super::*;
     use crate::api::preview::{Preview, testing};
 
-    /// Writes the cards out so a person can look at them. Ignored by default —
-    /// this checks nothing, it produces something to judge.
+    /// Writes the cards out so a person can look at them. Ignored by default,
+    /// since it checks nothing and only produces something to judge.
     #[test]
     #[ignore = "draws the cards to /tmp for a person to look at"]
     fn draw_the_cards() {

@@ -1,8 +1,8 @@
 //! Turning a quota between the domain's `Option<u64>` and the column's
 //! `Option<i64>`.
 //!
-//! Two tables carry the same nullable figure — `roles.quota_bytes` and
-//! `users.quota_bytes` — with the same three-way reading:
+//! Two tables carry the same nullable figure, `roles.quota_bytes` and
+//! `users.quota_bytes`, with the same three-way reading:
 //!
 //! | value     | meaning                       |
 //! |-----------|-------------------------------|
@@ -10,8 +10,8 @@
 //! | `Some(0)` | no ceiling                    |
 //! | `Some(n)` | `n` bytes                     |
 //!
-//! `None` and `Some(0)` are different answers, which is why neither table
-//! stores a plain number.
+//! `None` and `Some(0)` are different answers, so neither table stores a plain
+//! number.
 
 use sea_orm::sea_query::{Expr, SimpleExpr};
 use tessera_core::{RoleId, UserId};
@@ -20,8 +20,8 @@ use tessera_core::{RoleId, UserId};
 ///
 /// The tier that supplies the ceiling also decides what counts against it. If a
 /// role allows ten gigabytes, "ten gigabytes of what" is that role's shares, not
-/// the instance's — measuring the ceiling against the wrong denominator refuses
-/// somebody at their first upload because a stranger filled the disk.
+/// the instance's. Measuring a ceiling against the wrong denominator refuses an
+/// account at its first upload because a stranger filled the disk.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scope {
     /// One account's own shares.
@@ -35,8 +35,8 @@ pub enum Scope {
 /// The column value for a quota.
 ///
 /// A figure above [`i64::MAX`] is an operator asking for more storage than the
-/// column can hold, so it becomes the largest the column can hold rather than
-/// wrapping into a negative one — which the reader would take as "ask the next
+/// column can hold, so it saturates to the column's maximum instead of wrapping
+/// into a negative, which the reader would take as "ask the next
 /// layer" and quietly widen the ceiling instead of narrowing it.
 pub(crate) fn to_column(bytes: Option<u64>) -> Option<i64> {
     bytes.map(|bytes| i64::try_from(bytes).unwrap_or(i64::MAX))
@@ -82,7 +82,7 @@ mod tests {
         );
     }
 
-    /// Only reachable by writing to the database by hand, which is exactly when
+    /// Only reachable by writing to the database by hand, exactly when
     /// the reading matters.
     #[test]
     fn a_negative_row_asks_the_next_layer() {

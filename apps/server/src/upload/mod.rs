@@ -2,7 +2,7 @@
 //!
 //! A file arrives across several requests instead of one, so a transfer that
 //! dies at ninety percent resumes from ninety percent. The protocol is tus's
-//! offset model — see `api::uploads` — and where the bytes go while the upload
+//! offset model (see `api::uploads`), and where the bytes go while the upload
 //! is unfinished is [`sink`].
 
 pub mod segments;
@@ -18,7 +18,7 @@ use crate::{db::repository::upload::Segment, state::AppState};
 /// under a session that was already open.
 ///
 /// Shared by the `PATCH` route and the sweep, because "which sink does this row
-/// mean" has one answer and two callers — and the sweep getting it wrong would
+/// mean" has one answer and two callers, and the sweep getting it wrong would
 /// abort nothing while reporting that it had.
 #[must_use]
 pub fn reopen(state: &AppState, segment: &Segment) -> Option<sink::Sink> {
@@ -34,7 +34,7 @@ pub fn reopen(state: &AppState, segment: &Segment) -> Option<sink::Sink> {
             id: id.clone(),
         });
     }
-    // The partial file only exists for the backend built from `storage.url` —
+    // The partial file only exists for the backend built from `storage.url`,
     // that is the only one that can be a local directory.
     if segment.backend != crate::storage::DEFAULT_BACKEND {
         return None;

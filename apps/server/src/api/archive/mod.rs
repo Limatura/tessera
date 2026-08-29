@@ -2,28 +2,28 @@
 //!
 //! # Why a share with several files is packed at all
 //!
-//! Handing somebody five files means five downloads and five things to keep
-//! track of. One is what a person asked for when they followed one link.
+//! Five files means five downloads and five things to keep track of. One is
+//! what a person asked for when they followed one link.
 //!
 //! # Why nothing is compressed
 //!
-//! What goes through here is what somebody uploaded — images, video, archives,
+//! What goes through here is uploaded content: images, video, archives,
 //! documents that are already compressed. Deflating those spends processor time
-//! to make them slightly larger. The rare case that would compress well is text,
-//! and a text share is not an archive.
+//! to make them slightly larger. The rare case that would compress well is
+//! text, and a text share is not an archive.
 //!
-//! Storing rather than compressing also means no compression library, which is
-//! the difference between pure Rust and a C dependency for every format here.
+//! Storing instead of compressing also means no compression library: the
+//! difference between pure Rust and a C dependency for every format here.
 //!
-//! # Why the formats are written here rather than taken from crates
+//! # Why the formats are written here instead of taken from crates
 //!
-//! The size has to be known before the first byte goes out — a share with five
-//! files is a download somebody watches, and a response with no
-//! `Content-Length` has no progress bar and no estimated time.
+//! The size has to be known before the first byte goes out. A share with five
+//! files is a download people watch, and a response with no `Content-Length`
+//! has no progress bar and no estimated time.
 //!
-//! That size has to match the bytes exactly. If a crate wrote the bytes and this
-//! predicted the length, the two would have to agree to the byte through every
-//! version of that crate — one added extra field and the transfer truncates.
+//! That size has to match the bytes exactly. If a crate wrote the bytes and
+//! this predicted the length, the two would have to agree to the byte through
+//! every version of that crate, and one added field truncates the transfer.
 //! Written here, the prediction and the bytes come from the same code, and one
 //! test pins them together.
 //!
@@ -43,8 +43,8 @@ use serde::Deserialize;
 /// # Why the choice is the recipient's
 ///
 /// They are the one who has to open it. What a machine can unpack varies by
-/// operating system and by what somebody installed, and the uploader does not
-/// know who they sent the link to.
+/// operating system and by what is installed, and the uploader does not know
+/// who they sent the link to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Format {
@@ -54,7 +54,7 @@ pub enum Format {
     Zip,
     /// No size ceiling, names kept as bytes, and already on every Unix.
     Tar,
-    /// For somebody who asked for it.
+    /// For callers that ask for it.
     #[serde(rename = "7z")]
     SevenZ,
 }
@@ -114,9 +114,8 @@ pub fn check_size(format: Format, total: u64) -> crate::error::Result<()> {
 /// # Why this exists
 ///
 /// The name came from whoever uploaded the file. An entry called `../../etc/x`
-/// is a path traversal against whatever unpacks it, and plenty of tools still
-/// honour one. Separators go, and so does anything that would leave the name
-/// empty.
+/// is a path traversal against whatever unpacks it, and plenty of tools honour
+/// one. Separators go, and so does anything that would leave the name empty.
 fn sanitise(raw: Option<&str>, position: usize) -> String {
     let kept: Vec<String> = raw
         .unwrap_or("")
@@ -135,23 +134,23 @@ fn sanitise(raw: Option<&str>, position: usize) -> String {
 ///
 /// # What escaping would look like, and why none of it survives
 ///
-/// `..` is the whole attack. Stripping leading dots turns it into nothing,
-/// which the caller then drops — so `../../etc/passwd` arrives as `etc/passwd`,
-/// a name relative to wherever it is unpacked. A leading `/` becomes an empty
-/// first segment and goes the same way, and a Windows drive letter loses its
-/// colon below and becomes an ordinary directory called `C`.
+/// `..` is the attack. Stripping leading dots turns it into nothing,
+/// which the caller then drops, so `../../etc/passwd` arrives as `etc/passwd`,
+/// relative to wherever it is unpacked. A leading `/` becomes an empty first
+/// segment and goes the same way, and a Windows drive letter loses its colon
+/// below and becomes an ordinary directory called `C`.
 ///
 /// Backslash is a separator here as well as `/`. It is one on Windows, and an
 /// entry called `a\b.txt` is a directory there and a strange file name
-/// everywhere else — splitting on it gives the same tree on every machine.
+/// everywhere else, so splitting on it gives the same tree on every machine.
 ///
 /// # The characters removed
 ///
 /// `< > : " | ? *` are illegal in a Windows file name, and an archive holding
-/// one extracts everywhere except the place most people will open it. Trailing
-/// dots and spaces are removed for the same reason: Windows silently drops
-/// them, so `report.` and `report` are one file there and would collide after
-/// this function had already decided they were two.
+/// one extracts everywhere except where most people will open it. Trailing dots
+/// and spaces go for the same reason: Windows silently drops them, so `report.`
+/// and `report` are one file there and would collide after this function had
+/// decided they were two.
 fn clean_segment(raw: &str) -> String {
     let cleaned: String = raw
         .chars()
@@ -168,11 +167,11 @@ fn clean_segment(raw: &str) -> String {
 ///
 /// # Why the whole list at once
 ///
-/// Two files in one share can have the same name — somebody dragging a photo
-/// from each of two folders is the ordinary way it happens, not a contrived
-/// one. An archive holding two entries called `photo.jpg` unpacks to one file:
-/// the second overwrites the first, and nothing reports it. Measured before
-/// this existed: two files in, one file out, no error anywhere.
+/// Two files in one share can have the same name, which happens when a photo is
+/// dragged in from each of two folders. An archive holding two
+/// entries called `photo.jpg` unpacks to one file, the second overwriting the
+/// first with nothing reported. Measured before this existed: two files in, one
+/// file out, no error anywhere.
 ///
 /// So a repeat gets a number before its extension, the way a desktop does it.
 /// Doing that needs to see the other names, which one-name-at-a-time cannot.
@@ -200,7 +199,7 @@ pub fn safe_names(raw: &[Option<&str>]) -> Vec<String> {
 fn numbered(base: &str, attempt: u32) -> String {
     // Only the last component is a file name; the ones before it are
     // directories, and numbering those would put one file in a folder of its
-    // own rather than renaming it.
+    // own instead of renaming it.
     let (directory, name) = match base.rsplit_once('/') {
         Some((directory, name)) => (format!("{directory}/"), name),
         None => (String::new(), base),
@@ -220,9 +219,9 @@ mod tests {
 
     /// A name from an uploader is a name an attacker chose.
     ///
-    /// The guarantee is not that the name is flat — folders are the point now —
-    /// but that whatever comes out is relative and cannot reach above wherever
-    /// it is unpacked.
+    /// The guarantee is not that the name is flat, since folders are the point
+    /// now, but that whatever comes out is relative and cannot reach above
+    /// wherever it is unpacked.
     #[test]
     fn a_name_cannot_climb_out_of_the_archive() {
         assert_eq!(safe_names(&[Some("../../etc/passwd")]), ["etc/passwd"]);
@@ -284,7 +283,7 @@ mod tests {
     }
 
     /// An archive holding one of these extracts everywhere except Windows,
-    /// which is where most people will open it.
+    /// where most people will open it.
     #[test]
     fn characters_windows_refuses_are_removed() {
         assert_eq!(
@@ -316,8 +315,8 @@ mod tests {
         );
     }
 
-    /// Two files can share a basename without being the same file — that is
-    /// what folders are for, and numbering them would undo the structure the
+    /// Two files can share a basename without being the same file. That is what
+    /// folders are for, and numbering them would undo the structure the
     /// uploader picked.
     #[test]
     fn the_same_name_in_two_folders_is_two_files() {
@@ -328,7 +327,7 @@ mod tests {
     }
 
     /// A repeat inside one folder is still a repeat, and the number goes on the
-    /// file rather than on the folder.
+    /// file and not on the folder.
     #[test]
     fn a_repeat_within_a_folder_numbers_the_file() {
         assert_eq!(

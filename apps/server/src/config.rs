@@ -1,20 +1,13 @@
-//! Configuration loading and validation.
+//! Configuration loading and validation. See `docs/configuration.md`.
 //!
 //! Precedence, lowest to highest: built-in defaults → environment variables
 //! (`TESSERA_` prefix, `__` separates nesting levels) → the `settings` table
-//! the admin panel writes.
+//! the admin panel writes. There is no configuration file; the environment
+//! holds only what the panel cannot change at runtime.
 //!
-//! There is no configuration file. The panel owns every setting a running
-//! process can pick up, which leaves the environment holding only the ones it
-//! cannot — the listening address, the database, the log subscriber, the
-//! middleware baked into the router, and anything carrying a credential. See
-//! [`crate::settings`] for where that line is drawn and why.
-//!
-//! Every value is validated in [`Config::load`]. A bad log filter or an
-//! unsupported database URL therefore fails during start-up, not on the first
-//! request that happens to touch it. A bad value from the *table* is dropped
-//! instead — see [`Config::load_with_overrides`], because the panel must not be
-//! able to make an instance unbootable.
+//! [`Config::load`] validates everything, so bad values fail at start-up. A bad
+//! value from the *table* is dropped instead ([`Config::load_with_overrides`]),
+//! so the panel cannot make an instance unbootable.
 
 use std::{collections::BTreeMap, net::IpAddr, time::Duration};
 
@@ -37,24 +30,23 @@ pub const ENV_NESTED_SEPARATOR: &str = "__";
 /// Variables that share the [`ENV_PREFIX`] namespace without being settings.
 ///
 /// [`Config`] is `deny_unknown_fields`, so a typo like `TESSERA_SERVER__PROT`
-/// stops the process instead of being silently ignored — which is the behaviour
-/// we want. The cost is that anything else in the namespace is read as a setting
-/// too, and both of these would otherwise abort start-up:
+/// stops the process instead of being silently ignored. The cost is that
+/// anything else in the namespace is read as a setting too, and both of these
+/// would otherwise abort start-up:
 ///
 /// - `CONFIG_FILE` selects the file to read, so it cannot be a field *in* it.
-/// - `BUILD_REV` is consumed by `build.rs` at compile time; cargo re-exports it to the process it
-///   builds, which broke every `cargo run` until this list existed.
+/// - `BUILD_REV` is consumed by `build.rs` at compile time, and cargo re-exports it to the process
+///   it builds. That broke every `cargo run` until this list existed.
 ///
 /// Keep it minimal: every entry is a name a user can no longer typo-check.
 const NON_CONFIG_ENV_KEYS: &[&str] = &["CONFIG_FILE", "BUILD_REV"];
 
 /// The variable that used to name a configuration file.
 ///
-/// There is no file layer any more — the panel owns every setting a running
-/// instance can change, and the rest come from the environment. It stays in
-/// [`NON_CONFIG_ENV_KEYS`] so that an instance upgrading with it still set
-/// boots instead of failing `deny_unknown_fields`, and [`Config::load`] says a
-/// word, because the alternative is somebody's file being ignored in silence.
+/// There is no file layer any more. It stays in [`NON_CONFIG_ENV_KEYS`] so an
+/// instance upgrading with it still set boots instead of failing
+/// `deny_unknown_fields`. [`Config::load`] warns about it, because a file that
+/// is silently ignored looks like a file that is being read.
 const RETIRED_CONFIG_FILE_ENV: &str = "TESSERA_CONFIG_FILE";
 
 /// Anything that can go wrong between "process started" and "configuration is
@@ -118,43 +110,34 @@ pub struct Config {
 
 /// The link-preview card, as the operator wants it.
 ///
-/// One design for the instance rather than one per share: see
-/// [`og::layout`](crate::og::layout) for why, and for what a layout may
-/// contain.
+/// One design for the whole instance, not one per share. See
+/// [`og::layout`](crate::og::layout) and `docs/link-previews.md`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct OgConfig {
     /// The operator's own card, as HTML.
     ///
-    /// Empty, the default, draws the built-in card — the one that knows about
-    /// locked shares, notes with code in them, and shares that are gone. A
-    /// layout set here replaces it for every share, and what it may say about
-    /// each is still decided where it always was: a `{{size}}` in a locked
-    /// share's card comes out empty, because the value does, not because the
-    /// layout was careful.
+    /// Empty, the default, draws the built-in card. A layout set here replaces
+    /// it for every share; what each share may reveal is still decided
+    /// elsewhere, so `{{size}}` in a locked share's card comes out empty
+    /// because the value does, not because the layout was careful.
     ///
-    /// Refused at the door if it uses anything but `div`, `span` and `style`,
-    /// or names a resource outside this server. Those rules and their reasons
-    /// are in `og::layout`.
+    /// Rejected if it uses anything but `div`, `span` and `style`, or names a
+    /// resource outside this server. See `og::layout`.
     pub layout: String,
 }
 
 /// Which parts of the service this instance exposes.
 ///
-/// These are *runtime* switches: a disabled feature's routes are never mounted,
-/// so calling one is a plain 404 rather than a 403 that confirms it exists.
-/// Turning something off does not make the binary smaller — for that there are
-/// cargo features, which gate whole backends (`postgres`, `storage-s3`) where
-/// the saving is measured in megabytes rather than kilobytes.
+/// These are *runtime* switches. A disabled feature's routes are never mounted,
+/// so calling one gives a plain 404 instead of a 403 that would confirm it
+/// exists. Turning something off does not shrink the binary; cargo features
+/// (`postgres`, `storage-s3`) do that.
 ///
-/// `GET /api/v1/capabilities` reports the effective answer, because a
-/// single-page app cannot know from a static contract which of these an
-/// instance turned on.
-// `struct_excessive_bools` suggests modelling this as a state machine. That is
-// good advice when the flags are really one value in disguise, and wrong here:
-// these switches are independent by design — the whole point of separating
-// `accounts` from `anonymous_upload` is that every combination is a real
-// deployment somebody wants.
+/// `GET /api/v1/capabilities` reports the effective answer. A single-page app
+/// cannot tell from a static contract which of these an instance turned on.
+// The flags are independent by design, not one value in disguise: every
+// combination of `accounts` and `anonymous_upload` is a real deployment.
 #[expect(
     clippy::struct_excessive_bools,
     reason = "independent switches, not a state machine; see the comment above"
@@ -164,8 +147,8 @@ pub struct OgConfig {
 pub struct FeatureConfig {
     /// Registration, login and sessions.
     ///
-    /// Off means the instance has no accounts at all — the right shape for one
-    /// person behind a VPN who wants a file drop and nothing else.
+    /// Off means the instance has no accounts at all, which suits one person
+    /// behind a VPN who wants a file drop and nothing else.
     pub accounts: bool,
 
     /// Administrative endpoints, used by the separate admin front-end.
@@ -173,29 +156,24 @@ pub struct FeatureConfig {
 
     /// Whether a caller without a session may upload.
     ///
-    /// Deliberately independent of [`accounts`](Self::accounts): wanting an
-    /// admin panel is not the same as wanting to force everyone to register,
-    /// and coupling the two is how self-hosted tools end up unusable for the
-    /// case they were built for.
+    /// Independent of [`accounts`](Self::accounts) by design. Wanting an admin
+    /// panel is not the same as wanting to force everyone to register.
     pub anonymous_upload: bool,
 
     /// The browsable API reference at `/docs`.
     ///
-    /// Off by default: a development convenience rather than part of the
+    /// Off by default. It is a development convenience, not part of the
     /// product.
     ///
-    /// The page this serves is a few lines of HTML that pull the renderer from a
-    /// CDN. **The server never fetches it** — the browser does, so it is the
-    /// reader's network that matters, not the instance's. A server behind a
-    /// firewall with no outbound access still serves working docs to an operator
-    /// on an ordinary connection, which is the common homelab shape. Only a
-    /// genuinely air-gapped reader gets a blank page.
+    /// The page is a few lines of HTML that pull the renderer from a CDN.
+    /// **The server never fetches it**, the browser does. A server behind a
+    /// firewall still serves working docs to an operator on an ordinary
+    /// connection; only an air-gapped reader gets a blank page.
     ///
-    /// Keeping the renderer remote is what holds ~11 MB of bundled UI out of the
-    /// binary, measured: 23.8 MB with it embedded, 12.5 MB without.
+    /// Keeping the renderer remote holds ~11 MB out of the binary: 23.8 MB
+    /// with it embedded, 12.5 MB without.
     ///
-    /// `openapi.json` is served either way — turning this off is about not
-    /// shipping a UI, not about hiding the API.
+    /// `openapi.json` is served either way. This only controls the UI.
     pub docs: bool,
 }
 
@@ -207,7 +185,7 @@ pub enum RegistrationPolicy {
     Open,
     /// Only with an invitation.
     Invite,
-    /// Nobody; accounts are created by an administrator.
+    /// No one. An administrator creates accounts.
     Closed,
 }
 
@@ -215,27 +193,24 @@ pub enum RegistrationPolicy {
 ///
 /// # Empty means off, not broken
 ///
-/// An empty `host` is the default and the common case: the instance this was
-/// built for has one user, and the way back into a forgotten account is
-/// `reset-password` on the box itself. Nothing is mounted, nothing is
-/// advertised, and start-up says nothing — an instance that does not send mail
-/// is not missing a setting.
+/// An empty `host` is the default and the common case. A single-user instance
+/// gets back into a forgotten account with `reset-password` on the box itself.
+/// Nothing is mounted, nothing is advertised, and start-up says nothing.
 ///
 /// # Why not a mail server
 ///
-/// Nobody should run one for this. Home connections cannot deliver mail:
-/// port 25 is blocked by most providers and receiving servers reject
-/// residential addresses regardless of SPF and DKIM. What this expects is a
-/// relay — Resend, Brevo, SES, Fastmail, or a company's own — which is four
-/// values pasted into a file.
+/// Home connections cannot deliver mail: port 25 is blocked by most providers
+/// and receiving servers reject residential addresses regardless of SPF and
+/// DKIM. This expects a relay (Resend, Brevo, SES, Fastmail, or a company's
+/// own): four values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MailConfig {
     /// SMTP host. Empty turns off everything that sends mail.
     pub host: String,
 
-    /// SMTP port. 587 is submission with STARTTLS, which is what relays want;
-    /// 465 is implicit TLS and also common.
+    /// SMTP port. Relays generally want 587, submission with STARTTLS; 465 is
+    /// implicit TLS and also common.
     pub port: u16,
 
     /// SMTP username. Resend wants the literal `resend` here.
@@ -244,49 +219,40 @@ pub struct MailConfig {
     /// SMTP password. For most relays this is an API key.
     pub password: String,
 
-    /// The `From:` address. Must be one the relay will accept — a domain you
-    /// have verified with them, not an arbitrary address.
+    /// The `From:` address. Must be a domain verified with the relay.
     pub from: String,
 
     /// Where this instance is reachable, used to build the links in mail.
     ///
-    /// Configured rather than taken from the request's `Host` header, and that
-    /// is a security property rather than a convenience: a reset link built
-    /// from a header an attacker controls would point at *their* server, and
-    /// the person clicking it would hand over their token.
+    /// Configured, never taken from the request's `Host` header. A reset link
+    /// built from an attacker-controlled header would point at their server and
+    /// hand them the token.
     pub public_url: String,
 
     /// How long a password reset link works for, in minutes.
     ///
-    /// Short because the link *is* the credential. Long enough to survive a
-    /// mail queue and somebody reading their inbox after lunch, and capped at
-    /// [`MAX_RESET_TTL_MINUTES`] because past that it stops being a reset and
-    /// becomes a spare key living in a mailbox.
+    /// Short because the link *is* the credential: long enough to survive a
+    /// mail queue, capped at [`MAX_RESET_TTL_MINUTES`].
     pub reset_ttl_minutes: u64,
 
     /// How long a registration confirmation link works for, in hours.
     ///
-    /// Much longer than a reset link, because the two are asked for under
-    /// different circumstances. A reset is somebody standing at a locked door;
-    /// a registration confirmation often sits in an inbox until the evening.
-    /// The link is also worth less: following it creates an account with a
-    /// password whoever asked already chose, so a stolen one gains an account
-    /// its thief cannot sign into.
+    /// Much longer than a reset link, because it grants less. Following it
+    /// creates an account with a password the person who asked already chose,
+    /// so a stolen link gains an account its thief cannot sign into.
     pub registration_ttl_hours: u64,
 }
 
 /// The longest a reset link may be configured to last, in minutes.
 ///
-/// A day. Long enough for any mail delay worth surviving; past it the link has
-/// stopped being a way back in and become a second credential, sitting
-/// somewhere far less protected than a password.
+/// A day. Past that it has stopped being a way back in and become a second
+/// credential sitting somewhere less protected than a password.
 pub const MAX_RESET_TTL_MINUTES: u64 = 24 * 60;
 
 /// The longest a registration link may be configured to last, in hours.
 ///
 /// A week. The row behind it holds a password hash for an account that does not
-/// exist, and keeping one of those indefinitely is a liability with no
-/// corresponding use — nobody confirms a registration a fortnight later.
+/// exist, and a registration is never confirmed a fortnight later.
 pub const MAX_REGISTRATION_TTL_HOURS: u64 = 7 * 24;
 
 impl Default for MailConfig {
@@ -321,10 +287,9 @@ impl MailConfig {
 
     /// How long a reset link is good for.
     ///
-    /// Saturating rather than plain multiplication: validation caps the value,
-    /// but this is `pub` and a caller that built a `MailConfig` by hand should
-    /// get a long duration rather than a panic in debug and a wrapped one in
-    /// release.
+    /// Saturating multiplication. Validation caps the value, but this is `pub`,
+    /// and a caller who built a `MailConfig` by hand should get a long duration
+    /// instead of a debug panic and a release wraparound.
     #[must_use]
     pub const fn reset_ttl(&self) -> Duration {
         Duration::from_secs(self.reset_ttl_minutes.saturating_mul(60))
@@ -342,14 +307,13 @@ pub struct AuthConfig {
     pub session_ttl_hours: u64,
     /// How long an ended session stays in the list of logins, in days.
     ///
-    /// The rows are what a person reads to answer "has anybody else been in
-    /// here", so they outlive the credential. Long enough to still answer that
-    /// about last month, short enough that a home instance is not carrying a
-    /// year of them.
+    /// The rows answer "has anybody else been in here", so they outlive the
+    /// credential. Long enough to cover last month, short enough that a home
+    /// instance is not carrying a year of them.
     #[serde(default = "default_login_history_days")]
     pub login_history_days: u64,
 
-    /// Password length policy. Composition rules are deliberately absent — see
+    /// Password length policy. There are no composition rules; see
     /// [`PasswordPolicy`].
     pub password: PasswordPolicy,
 
@@ -368,17 +332,14 @@ pub struct AuthConfig {
     ///
     /// By name, because that is what an operator reads in the admin panel.
     ///
-    /// # Why this rather than editing the built-in role
+    /// # Why not just edit the built-in role
     ///
-    /// "I want ordinary users to be able to do less" is the real need behind
-    /// wanting to edit `member`, and it is better served by choosing a
-    /// different role than by changing what `member` means — a built-in role
-    /// that means something different on every instance is one that
-    /// documentation and support conversations cannot rely on.
+    /// If ordinary users should do less, point this at a role of your own.
+    /// Redefining `member` makes it mean something different on every
+    /// instance, and then no documentation can describe it.
     ///
-    /// The role has to exist. That is checked at startup rather than at
-    /// somebody's registration, because the failure would otherwise arrive as
-    /// a stranger's `500`.
+    /// Startup checks that the role exists, so a missing one fails there
+    /// instead of turning a stranger's registration into a `500`.
     #[serde(default = "default_role")]
     pub default_role: String,
 
@@ -390,9 +351,9 @@ pub struct AuthConfig {
 
     /// Password for the administrator created on first run.
     ///
-    /// Empty means "generate one and print it once". That is the friendlier
-    /// default *and* the safer one: a password written into a compose file or an
-    /// environment variable tends to stay there, and stay unchanged.
+    /// Empty means "generate one and print it once". That is also the safer
+    /// default, because a password written into a compose file tends to stay
+    /// there unchanged.
     pub admin_password: String,
 }
 
@@ -407,52 +368,43 @@ pub struct ShareConfig {
 
     /// Characters in a generated retrieval code.
     ///
-    /// This is the one figure an operator has a real reason to change, because
-    /// the trade is theirs to make: a short code is quicker to read out loud, a
-    /// long one is not worth scanning for. Eight Crockford base32 characters is
-    /// about 1.1 x 10^12 combinations. Five — the figure some comparable
-    /// services use — is 33 million, which a public endpoint can be walked
-    /// through; that is how these services leak other people's uploads.
-    ///
-    /// Short codes are only defensible behind a throttle on failed lookups.
+    /// A short code is quicker to read out loud, a long one is not worth
+    /// scanning for. Eight Crockford base32 characters is about 1.1 x 10^12
+    /// combinations; five, as some comparable services use, is 33 million,
+    /// which a public endpoint can be walked through. Short codes are only
+    /// defensible behind a throttle on failed lookups.
     pub code_length: usize,
 
-    /// Content at or below this size is kept in the database rather than the
-    /// blob store.
+    /// Content at or below this size stays in the database instead of the blob
+    /// store.
     ///
-    /// Most shares on a personal instance are a short note or a snippet, and for
-    /// those a round trip to object storage costs more than it saves — a backup
-    /// of the database is also a backup of the content. Above it, bytes belong
-    /// in the store, where they can be streamed rather than loaded.
+    /// Most shares on a personal instance are a short note or a snippet, where
+    /// a round trip to object storage costs more than it saves. A database
+    /// backup then covers the content too. Larger content goes to the store,
+    /// where it can be streamed instead of loaded.
     pub inline_threshold_bytes: usize,
     /// The largest a text share may be, in bytes.
     ///
-    /// Text lives in the database, so this is the size of the largest row this
-    /// service will write and the most memory one upload can hold at once —
-    /// there is no streaming a value that has to be handed over whole.
+    /// Text lives in the database, so this is the largest row this service will
+    /// write and the most memory one upload can hold at once. A value handed
+    /// over whole cannot be streamed.
     ///
-    /// A megabyte is about a million characters. The whole of *The Lord of the
-    /// Rings* as plain text is around two and a half, so a paste that does not
-    /// fit here is not a paste. Somebody who wants to share something larger
-    /// sends it as a file, which is streamed to the object store and never held
-    /// in full.
+    /// A megabyte is about a million characters. Anything larger is not a
+    /// paste and belongs in a file share, which does stream.
     pub max_text_bytes: usize,
 
     /// How long a download authorisation stays usable, in hours.
     ///
     /// One authorisation spends one of a share's permitted retrievals; the
-    /// resulting ticket may then be presented as often as the transfer needs —
-    /// for `Range` requests, for a resumed download, for a retry after the
-    /// connection dropped. Without that separation a single interrupted
-    /// download would burn a one-time share and the sender would have to upload
-    /// it again.
+    /// resulting ticket may then be presented as often as the transfer needs
+    /// (`Range` requests, a resumed download, a retry after a dropped
+    /// connection). Without that separation a single interrupted download would
+    /// burn a one-time share.
     ///
-    /// The ceiling, not the usual life: [`ticket_idle_hours`] is what a ticket
-    /// normally dies of. A ticket cannot outlive this however busy it is, so
-    /// one that is being kept alive on purpose still ends.
-    ///
-    /// Long on purpose: ten gigabytes over a slow link takes most of a day, and
-    /// whoever holds the ticket already has the right to the content.
+    /// This is the ceiling, not the usual life; most tickets die of
+    /// [`ticket_idle_hours`] first. It is long because ten gigabytes over a
+    /// slow link takes most of a day, and the holder already has the right to
+    /// the content.
     ///
     /// [`ticket_idle_hours`]: Self::ticket_idle_hours
     pub ticket_ttl_hours: u64,
@@ -461,39 +413,29 @@ pub struct ShareConfig {
     ///
     /// # Why idleness and not a fixed life
     ///
-    /// A ticket is transferable — it is a string, and handing it to somebody
-    /// else is easier than handing them ten gigabytes. A fixed life has to be
-    /// long enough for the slowest link to finish the largest file, and that is
-    /// exactly long enough for the ticket to be worth passing on.
+    /// A ticket is a string, so it can be forwarded. A fixed life has to cover
+    /// the slowest link finishing the largest file, and a ticket that lives
+    /// that long is a ticket worth forwarding.
     ///
-    /// Every presentation pushes the expiry out again, so a transfer that is
-    /// still going keeps its authorisation for as long as it needs, and one
-    /// that finished is dead within the hour. What decides is "is this download
-    /// still alive", not "how long ago did it start" — the same question
-    /// `server.upload_stall_secs` asks on the way in.
-    ///
-    /// The three-option guess this replaces — one hour flat, or scaled by file
-    /// size — could not work: the server knows how big the file is and has no
-    /// idea what the line can carry. Ten gigabytes is eighty seconds on a
-    /// gigabit link and seventy minutes on twenty megabits, and any formula has
-    /// to pick one of those to be wrong about.
+    /// Every presentation pushes the expiry out. A live transfer keeps its
+    /// authorisation; a finished one dies within the hour. This asks whether
+    /// the download is still alive, the same question
+    /// `server.upload_stall_secs` asks on the way in. Scaling by file size
+    /// cannot work: ten gigabytes is eighty seconds on gigabit and seventy
+    /// minutes on twenty megabits, and the server cannot see the line.
     pub ticket_idle_hours: u64,
 
     /// Lifetime a share gets when the request does not ask for one, in hours.
     ///
-    /// This is the figure that decides how much disk an instance holds, and it
-    /// decides it more than any quota does. Ephemeral storage does not
-    /// accumulate: what is on disk at any moment is roughly the upload rate
-    /// multiplied by how long things are kept, so an instance keeping shares for
-    /// a week holds a week of uploads however long it runs.
+    /// This decides how much disk an instance holds, more than any quota does.
+    /// What is on disk is roughly the upload rate times how long things are
+    /// kept, so an instance keeping shares for a week holds a week of uploads
+    /// however long it runs.
     ///
-    /// A week rather than a day because the common case is handing a link to
-    /// somebody who is asleep, or in another timezone, or who will not read
-    /// their messages until Monday. Rather than a month because a default is
-    /// what most shares get, and most shares are collected within hours.
+    /// A day is too short when the recipient is asleep or in another timezone.
+    /// A month is too long when most shares are collected within hours.
     ///
-    /// `0` means "use [`max_expiry_hours`](Self::max_expiry_hours)", which is
-    /// what this used to do unconditionally.
+    /// `0` means "use [`max_expiry_hours`](Self::max_expiry_hours)".
     pub default_expiry_hours: u64,
 
     /// Longest lifetime a share may be given, in hours. `0` means no ceiling.
@@ -501,30 +443,26 @@ pub struct ShareConfig {
 
     /// How long a finished share is kept before it is removed, in hours.
     ///
-    /// A share that has expired or been used up is kept for a while so that
-    /// following its link still says "this expired" rather than "no such code" —
-    /// which are different things to tell a person, and only one of them is
-    /// worth retyping. After this, the row and whatever it put in the blob store
-    /// both go.
+    /// A share that expired or was used up is kept a while, so following its
+    /// link says "this expired" instead of "no such code". Only one of those
+    /// answers is worth retyping. After this, the row and its blob both go.
     ///
     /// `0` removes them on the next sweep.
     pub retain_after_death_hours: u64,
 
     /// How long an unfinished upload waits before the sweep removes it.
     ///
-    /// It is holding real bytes in the store the whole time, and they count
-    /// against the quota — so this is how long somebody may reserve space by
-    /// starting an upload and walking away. Long enough that a laptop closed
-    /// overnight can still resume; short enough that abandoned ones do not
-    /// accumulate.
+    /// It holds real bytes that count against the quota the whole time, so this
+    /// is how long an upload can reserve space after being abandoned. Long
+    /// enough that a laptop closed overnight can still resume, short enough
+    /// that dead sessions do not pile up.
     ///
     /// # On S3, set a lifecycle rule as well
     ///
-    /// The sweep aborts what it finds, but an abort that fails leaves parts at
-    /// the store, and S3 never removes an abandoned multipart upload by itself
-    /// — AWS recommends an `AbortIncompleteMultipartUpload` lifecycle rule for
-    /// exactly this. Set one a few days longer than this value and the storage
-    /// cannot leak even if this instance is offline when a session expires.
+    /// The sweep aborts what it finds, but a failed abort leaves parts at the
+    /// store and S3 never removes an abandoned multipart upload by itself. Set
+    /// an `AbortIncompleteMultipartUpload` rule a few days longer than this
+    /// value so storage cannot leak while this instance is offline.
     pub upload_session_ttl_hours: u64,
 }
 
@@ -540,23 +478,21 @@ pub struct ServerConfig {
     pub port: u16,
     /// Per-request wall-clock budget, in seconds.
     ///
-    /// Does not apply to upload routes — see `upload_stall_secs` for why they
-    /// need a different question asked of them.
+    /// Does not apply to upload routes. See `upload_stall_secs`.
     pub request_timeout_secs: u64,
 
     /// How long an upload may go without a byte arriving, in seconds.
     ///
     /// # Why uploads are not given a wall-clock budget
     ///
-    /// One number cannot be both. To let a 5 GB upload finish over a 20 Mbit/s
-    /// line it would have to be 2400 seconds, and that is also how long a client
-    /// that connects and then sends nothing would hold a slot. The two demands
-    /// are three orders of magnitude apart, so any single value is wrong for one
-    /// of them.
+    /// One number cannot be both. Letting a 5 GB upload finish over a 20 Mbit/s
+    /// line needs 2400 seconds, and that is also how long a client that
+    /// connects and sends nothing would hold a slot. The two demands are three
+    /// orders of magnitude apart.
     ///
-    /// This asks the question that separates them: is the other end still
-    /// sending? A 5 GB upload passes for as long as it takes, because every
-    /// second of it moves bytes; a dead connection is dropped in this many.
+    /// So this asks a different question: is the other end still sending? A
+    /// 5 GB upload takes as long as it takes; a dead connection is dropped
+    /// after this many seconds.
     pub upload_stall_secs: u64,
     /// Maximum accepted request body, in bytes.
     pub max_body_bytes: usize,
@@ -564,24 +500,21 @@ pub struct ServerConfig {
     /// How much of an upload is gathered before a part goes to the store.
     ///
     /// Only reaches an object store that does multipart. S3 refuses every part
-    /// but the last below 5 MiB, and Cloudflare R2 additionally requires every
-    /// part but the last to be the *same* size — so an instance on R2 wants
-    /// this and the minimum to agree, which is what tusd does. Garage enforces
-    /// neither, which is why the CI job cannot catch a mistake here.
+    /// but the last below 5 MiB. Cloudflare R2 also requires every part but the
+    /// last to be the *same* size, so on R2 this should equal the minimum, as
+    /// tusd does. Garage enforces neither, so the CI job cannot catch a mistake
+    /// here.
     pub part_size_bytes: usize,
 
     /// Where this instance is reachable from outside, as an absolute URL.
     ///
-    /// Only link previews need it, and they need it absolutely: `og:image` is
-    /// read by a crawler on somebody else's machine, so a relative path is not
-    /// a picture, it is nothing.
+    /// Only link previews need it, and they need it absolute. `og:image` is
+    /// fetched by a crawler on another machine.
     ///
     /// Empty, the default, derives it from each request's `Host` and forwarded
-    /// scheme. That is right often enough to be a sensible default and wrong in
-    /// exactly the setups this software is aimed at — a reverse proxy that
-    /// rewrites `Host`, a container that only ever sees `localhost:8080` — so an
-    /// operator whose previews come out blank should set it here rather than
-    /// hunt through proxy configuration.
+    /// scheme. That breaks in the setups this is aimed at: a reverse proxy that
+    /// rewrites `Host`, or a container that only ever sees `localhost:8080`. If
+    /// previews come out blank, set this.
     ///
     /// A trailing slash is trimmed, so both spellings behave the same.
     #[serde(default)]
@@ -589,32 +522,29 @@ pub struct ServerConfig {
 
     /// Directory to serve the frontend from, instead of the bundle compiled in.
     ///
-    /// Empty, the default, serves the compiled-in bundle — one file, no web
-    /// server in front of it, which is the point of embedding it.
+    /// Empty, the default, serves the compiled-in bundle. One file, and no web
+    /// server in front of it.
     ///
     /// Set, every request reads from disk, so rebuilding the frontend and
-    /// refreshing the browser is the whole loop. That is what this exists for:
-    /// without it, changing one line of CSS and seeing it in a container means
-    /// waiting for a Rust build.
+    /// refreshing the browser is the whole loop. Without it, changing one line
+    /// of CSS in a container means waiting for a Rust build.
     ///
-    /// A directory with no `index.html` in it stops the server rather than
-    /// falling back. Falling back quietly would show somebody yesterday's build
-    /// while they believed they were looking at today's.
+    /// A directory with no `index.html` stops the server. Falling back to the
+    /// compiled-in bundle would quietly serve yesterday's build.
     #[serde(default)]
     pub assets_dir: String,
     /// Origins allowed to call the API from a browser. Empty means same-origin
-    /// only, which is the correct default for the single-binary deployment.
+    /// only, the right default for the single-binary deployment.
     pub cors_allowed_origins: Vec<String>,
 
     /// Which proxies in front of this service may be believed, as CIDR blocks
     /// or bare addresses.
     ///
-    /// Empty by default, which means nothing is believed: `X-Forwarded-For` and
-    /// `X-Forwarded-Proto` are set by whoever spoke to us last, so on a direct
-    /// connection that is the caller. Believing them from anyone would let a
-    /// caller pick their own source address — and every throttle in this service
-    /// counts against that address — as well as claim HTTPS on a plain
-    /// connection.
+    /// Empty by default, meaning nothing is believed: `X-Forwarded-For` and
+    /// `X-Forwarded-Proto` are set by whoever spoke to us last, which on a
+    /// direct connection is the caller. Believing them from anyone would let a
+    /// caller pick their own source address, which every throttle here counts
+    /// against, and claim HTTPS on a plain connection.
     ///
     /// `["127.0.0.1", "::1"]` covers a proxy on the same host;
     /// `["10.0.0.0/8"]` a container network.
@@ -623,10 +553,10 @@ pub struct ServerConfig {
 
     /// Deprecated: use [`ServerConfig::trusted_proxies`].
     ///
-    /// `true` means "whatever connects to us is a proxy", which is the setting
-    /// that makes the headers forgeable by anyone who can reach the port
-    /// directly. Kept working so an upgrade does not lock an operator out of
-    /// their own instance, and warned about at start-up.
+    /// `true` means "whatever connects to us is a proxy", so anyone who can
+    /// reach the port directly can forge the headers. It still works, so an
+    /// upgrade does not lock an operator out of their own instance, and
+    /// start-up warns about it.
     #[serde(default)]
     pub trusted_proxy: bool,
 }
@@ -653,58 +583,49 @@ pub struct StorageConfig {
     /// Most bytes of live share content this instance will hold. `0` is no
     /// limit.
     ///
-    /// Without this, an instance with `anonymous_upload` on — which is the
-    /// default — is an unlimited anonymous drive for anyone who can reach it,
-    /// and the first sign of trouble is writes failing because the disk is
-    /// full. That is the worst place to find out: the shares already on it are
-    /// fine, and the ones being refused get no explanation.
+    /// Without this, an instance with `anonymous_upload` on (the default) is an
+    /// unlimited anonymous drive for anyone who can reach it, and the first
+    /// sign of trouble is writes failing on a full disk.
     ///
-    /// Counts content that still exists, wherever it lives — content under
-    /// `share.inline_threshold_bytes` sits in the database rather than the blob
-    /// store, and it is still disk. A share kept past its death so its link can
-    /// say "this expired" has already had its bytes removed, in both places,
-    /// and does not count against this.
+    /// Counts content that still exists, wherever it lives: content under
+    /// `share.inline_threshold_bytes` sits in the database and is still disk. A
+    /// share kept past its death so its link can say "this expired" has already
+    /// had its bytes removed from both places and does not count.
     ///
-    /// Approximate under concurrency: uploads in flight together can land past
-    /// the line by up to their own number times `server.max_body_bytes`, and the
-    /// next one is refused. It is a guard against unbounded growth, not an
-    /// accounting system — leave the same slack you would leave on a disk.
+    /// Approximate under concurrency. Uploads in flight together can land past
+    /// the line by up to their own number times `server.max_body_bytes`, and
+    /// the next one is refused. Leave the same slack you would on a disk.
     ///
-    /// `share.default_expiry_hours` is the other half of the same question, and
-    /// usually the more effective one: what is held is roughly the upload rate
-    /// times how long things are kept, so shortening the default lowers the
-    /// steady state without ever refusing anybody.
+    /// `share.default_expiry_hours` is usually the more effective lever:
+    /// shortening it lowers the steady state without refusing anybody.
     pub max_total_bytes: u64,
 
     /// How often to reconcile the store against the database, in hours. `0`
     /// turns it off.
     ///
-    /// Separate from the hourly sweep because it costs a full listing of the
-    /// store rather than a `DELETE` over an indexed column. Daily is chosen so
-    /// that a leak is bounded by a day rather than by for ever, without paying
-    /// for a listing every hour on an instance that never leaks.
+    /// Separate from the hourly sweep, because it costs a full listing of the
+    /// store where the sweep costs a `DELETE` over an indexed column. Daily
+    /// bounds a leak to a day without paying for a listing every hour.
     ///
-    /// A listing is billed as API calls on most object stores, and free tiers
-    /// meter those separately from storage — so an operator whose transactions
-    /// are tighter than their bytes has a reason to lengthen this, and one on a
-    /// local disk has a reason to shorten it.
+    /// Most object stores bill a listing as API calls, metered separately from
+    /// storage. Lengthen this if your transaction budget is tighter than your
+    /// byte budget; shorten it on a local disk.
     pub reconcile_interval_hours: u64,
 
     /// How old an unreferenced object must be before the reconciliation
     /// removes it, in hours.
     ///
-    /// An object is written to the store before the row naming it is written to
-    /// the database, so for a moment every upload looks like an orphan. This is
-    /// the margin around that moment. It is generously wide on purpose: the
-    /// cost of waiting an extra day to reclaim leaked bytes is nothing, and the
-    /// cost of deleting somebody's file the instant before its row lands is
-    /// their file.
+    /// An object is written to the store before the row naming it, so for a
+    /// moment every upload looks like an orphan. This is the margin around that
+    /// moment, and it is generous: waiting an extra day to reclaim leaked bytes
+    /// costs nothing, while deleting a file the instant before its row lands
+    /// costs the file.
     pub reconcile_grace_hours: u64,
 
     /// Where blobs live.
     ///
-    /// A bare path is a local directory, created if missing — the homelab
-    /// default. Anything with a scheme is handed to `object_store`:
+    /// A bare path is a local directory, created if missing. Anything with a
+    /// scheme is handed to `object_store`:
     /// `s3://bucket/prefix`, `gs://bucket`, `az://container`,
     /// `https://host/dav`, `memory://`.
     pub url: String,
@@ -714,39 +635,35 @@ pub struct StorageConfig {
     /// The stored backends carry their own figure in the table; this one is
     /// configured where its URL is, because it has no row.
     ///
-    /// Distinct from `max_total_bytes`, which is the whole instance across
-    /// every backend. This is what one bucket will take before uploads are
-    /// placed elsewhere — the number an operator on a free tier types so the
-    /// provider never gets to say no for them.
+    /// Distinct from `max_total_bytes`, which covers the whole instance. This
+    /// is what one bucket takes before uploads go elsewhere, so a free tier can
+    /// be stopped short of the provider's own limit.
     pub capacity_bytes: u64,
 
     /// Whether one file may be spread across several backends.
     ///
-    /// Off, and it stays off until an operator says otherwise. What it buys is
-    /// the only thing that cannot be had any other way: a file larger than any
-    /// single account will hold. Five free 10 GB buckets take a 40 GB file with
-    /// this on and refuse it with `507` without.
+    /// Off by default. It buys a file larger than any single account will hold:
+    /// five free 10 GB buckets take a 40 GB file with this on and refuse it
+    /// with `507` without.
     ///
-    /// What it costs is real, which is why it is a switch rather than a default.
-    /// A split file has no direct link — a presigned URL names one object — so
-    /// its bytes come back through this server or are stitched in the browser.
-    /// On the free tiers this is aimed at, that is upload bandwidth *and*
-    /// download bandwidth, billed separately.
+    /// The cost is that a split file has no direct link, since a presigned URL
+    /// names one object, so its bytes come back through this server or are
+    /// stitched in the browser. On free tiers that is upload bandwidth *and*
+    /// download bandwidth.
     ///
-    /// A file is only split when nothing can take it whole; turning this on does
-    /// not spread ordinary uploads around. See `docs/splitting.md`.
+    /// A file is only split when nothing can take it whole. See
+    /// `docs/splitting.md`.
     pub split_across_backends: bool,
 
     /// Key that seals stored backend credentials, as 64 hexadecimal characters.
     ///
-    /// Empty, the default, means this instance cannot store a backend — adding
-    /// one is refused rather than written in plaintext. See
-    /// [`storage::secret`](crate::storage::secret) for why refusing is the
-    /// right answer.
+    /// Empty, the default, means this instance cannot store a backend. Adding
+    /// one is refused instead of written in plaintext. See
+    /// [`storage::secret`](crate::storage::secret).
     ///
-    /// Generate one with `openssl rand -hex 32`. It belongs in the environment
-    /// and nowhere near a backup of the rows it protects; losing it means the
-    /// stored backends cannot be opened and have to be entered again.
+    /// Generate one with `openssl rand -hex 32`. It belongs in the environment,
+    /// nowhere near a backup of the rows it protects; losing it means the
+    /// stored backends have to be entered again.
     pub secret_key: String,
 
     /// Backend-specific options, passed through verbatim.
@@ -757,8 +674,8 @@ pub struct StorageConfig {
     /// credentials need not be written into a file that might get committed;
     /// anything set here wins over the environment.
     ///
-    /// A `BTreeMap` rather than a `HashMap` so that iteration — and therefore
-    /// any log or error listing the options — is deterministic.
+    /// A `BTreeMap`, so iteration is deterministic and any log or error listing
+    /// the options comes out in the same order twice.
     #[serde(default)]
     pub options: BTreeMap<String, String>,
 }
@@ -822,12 +739,8 @@ impl Default for StorageConfig {
         Self {
             url: "data/blobs".to_owned(),
             options: BTreeMap::new(),
-            // No limit. The common deployment is one person on hardware they
-            // own, where a ceiling they did not ask for is an obstacle and the
-            // disk is something they can already see. The deployment that needs
-            // one is an instance strangers upload to, and that is not a default
-            // anybody falls into by accident — but `Config::load` warns when it
-            // sees the combination, so it is not a silent trap either.
+            // No limit: the usual deployment is one person on their own
+            // hardware. `Config::load` warns if anonymous uploads are also on.
             max_total_bytes: 0,
             capacity_bytes: 0,
             split_across_backends: false,
@@ -859,9 +772,8 @@ impl StorageConfig {
 
 impl Default for FeatureConfig {
     fn default() -> Self {
-        // Everything on. The shipped image is meant to work out of the box; an
-        // operator who wants less says so, rather than having to discover which
-        // switch was off by default.
+        // Everything on: the shipped image should work out of the box, and an
+        // operator who wants less says so.
         Self {
             accounts: true,
             admin: true,
@@ -875,18 +787,15 @@ impl Default for FeatureConfig {
 ///
 /// # Why this is a setting
 ///
-/// The defaults are OWASP's current recommendation, and they are right for a
-/// machine with memory to spare. They are not right for every machine this runs
-/// on: 19 MiB per hash in flight is real on a four-gigabyte Pi serving a burst
-/// of sign-ins, and somebody running on hardware with room would rather raise
-/// the cost than leave it at the floor.
+/// The defaults are OWASP's current recommendation, right for a machine with
+/// memory to spare. 19 MiB per hash in flight is real on a four-gigabyte Pi
+/// serving a burst of sign-ins, and bigger hardware can afford more.
 ///
 /// # Changing these does not invalidate anybody's password
 ///
-/// The parameters are written into the hash itself, and verification reads them
-/// from there. An existing password keeps verifying against what it was made
-/// with; only new hashes use the new cost. Bringing old ones up to date means
-/// re-hashing on the next successful sign-in, which is a separate decision.
+/// The parameters are written into the hash itself and verification reads them
+/// from there, so only new hashes use the new cost. Re-hashing old ones on the
+/// next successful sign-in is a separate decision.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct HashingConfig {
@@ -919,11 +828,10 @@ impl HashingConfig {
     /// # Errors
     ///
     /// Returns [`ConfigError::Invalid`] for a value Argon2 refuses, or one so
-    /// low that the hash would not be worth computing.
+    /// low the resulting hash would be cheap to crack.
     fn validate(&self) -> Result<(), ConfigError> {
-        // Argon2's own floor, and below it `Params::new` fails — at the first
-        // sign-in rather than at start-up, which is the wrong moment to find
-        // out.
+        // Argon2's own floor. Below it `Params::new` fails at the first
+        // sign-in instead of at start-up.
         if self.memory_kib < 8 * self.lanes {
             return Err(ConfigError::Invalid {
                 field: "auth.hashing.memory_kib",
@@ -931,8 +839,8 @@ impl HashingConfig {
                     .to_owned(),
             });
         }
-        // OWASP's minimum for Argon2id with one lane. Lower is a hash somebody
-        // can compute in bulk, which is the one thing it exists to prevent.
+        // OWASP's minimum for Argon2id with one lane. Below it the hash can be
+        // computed in bulk, which defeats the point of hashing.
         if self.memory_kib < 7 * 1024 {
             return Err(ConfigError::Invalid {
                 field: "auth.hashing.memory_kib",
@@ -976,11 +884,9 @@ impl Limit {
     }
 
     fn validate(&self, field: &'static str) -> Result<(), ConfigError> {
-        // Zero attempts refuses everybody the moment anything is recorded
-        // against their key, which on the source counter is the whole
-        // instance. A zero window never refuses at all, which reads as "on"
-        // in the file and is off in practice — the worse of the two, because
-        // nothing says so.
+        // Zero attempts locks out every caller; on the source counter that is
+        // the whole instance. A zero window never refuses at all, so it reads
+        // as on and behaves as off.
         if self.max_attempts == 0 || self.window_secs == 0 {
             return Err(ConfigError::Invalid {
                 field,
@@ -996,9 +902,8 @@ impl Limit {
 
 /// How hard the instance is on repeated attempts.
 ///
-/// Six counters because they protect different things — see [`Throttles`]. An
-/// instance on the open internet tightens them; one on a home network that
-/// keeps locking a forgetful household out loosens them.
+/// Six counters, because they protect different things. See [`Throttles`] and
+/// `docs/auth.md`.
 ///
 /// [`Throttles`]: crate::auth::throttle::Throttles
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1015,8 +920,8 @@ pub struct ThrottleConfig {
     /// Failed sign-ins, keyed on the account and the source.
     #[serde(default = "default_login_limit")]
     pub login: Limit,
-    /// Anything expensive, keyed on the source alone. Deliberately loose —
-    /// addresses are shared, so refusing one refuses everybody behind it.
+    /// Anything expensive, keyed on the source alone. Loose by design:
+    /// addresses are shared, so refusing one refuses everyone behind it.
     #[serde(default = "default_source_limit")]
     pub source: Limit,
     /// Retrieval codes tried and not found, keyed on the source.
@@ -1035,9 +940,9 @@ pub struct ThrottleConfig {
 
 /// The most keys an instance may be configured to hold.
 ///
-/// Each entry is a caller-chosen string plus a counter — a few hundred bytes
-/// with the map's own overhead, so this is tens of megabytes at the ceiling.
-/// The bound exists because the setting is the one an attacker gets to fill.
+/// Each entry is a caller-chosen string plus a counter, a few hundred bytes
+/// with the map's overhead, so the ceiling is tens of megabytes. The bound
+/// exists because an attacker is the one filling this map.
 const MAX_TRACKED_KEYS_CEILING: usize = 100_000;
 
 const fn default_tracked_keys() -> usize {
@@ -1105,14 +1010,12 @@ impl ThrottleConfig {
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
-            // Open by default because the instance belongs to whoever deployed
-            // it, and the common case is a person setting it up for people they
-            // know. An instance facing the open internet should close it.
+            // Open by default, for an instance set up among people who know
+            // each other. An internet-facing one should close it.
             registration: RegistrationPolicy::Open,
-            // 30 days. Long, on purpose: this is a tool people reach for
-            // occasionally, and being logged out between uses is the kind of
-            // friction that makes a self-hosted service go unused.
             default_role: default_role(),
+            // 30 days. This is an occasional-use tool, and being logged out
+            // between uses is friction.
             session_ttl_hours: 24 * 30,
             login_history_days: default_login_history_days(),
             hashing: HashingConfig::default(),
@@ -1130,15 +1033,11 @@ impl Default for AuthConfig {
 ///
 /// # Why this is off by default
 ///
-/// The counters need no switch — `view_count` is an integer and tells nobody
-/// where a visitor was. A row per retrieval is different: it is an address and
-/// a browser string, kept in the operator's database, about somebody who was
-/// handed a link and never agreed to anything.
-///
-/// Anonymity is one of the reasons to run this software at all, so turning that
-/// off is a decision the operator makes rather than a default they inherit.
-/// Whoever switches it on should say so on the page — the visitor is the one
-/// being recorded and is the last to find out.
+/// The counters need no switch. `view_count` is an integer and says nothing
+/// about where a visitor was. A row per retrieval is an address and a browser
+/// string, recorded about a person who was handed a link and agreed to nothing.
+/// That is the operator's decision to make, not a default to inherit, and an
+/// instance that turns it on should say so on the page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AccessLogConfig {
@@ -1146,10 +1045,9 @@ pub struct AccessLogConfig {
     pub enabled: bool,
     /// How many days a row is kept before the sweep removes it.
     ///
-    /// The whole of the promise this feature makes about how long a visit is
-    /// remembered. Zero is refused rather than read as "forever": a retention
-    /// period that silently means no retention is the wrong way round for a
-    /// setting about somebody else's data.
+    /// This is the only promise the feature makes about how long a visit is
+    /// remembered. Zero is refused; reading it as "forever" would be the wrong
+    /// default for a setting about other people's data.
     pub retention_days: u64,
 }
 
@@ -1157,8 +1055,8 @@ impl Default for AccessLogConfig {
     fn default() -> Self {
         Self {
             enabled: false,
-            // Long enough to answer "who fetched this last month", short enough
-            // that an instance is not carrying a year of somebody's movements.
+            // Long enough to answer "who fetched this last month", short
+            // enough not to accumulate a year of visitor records.
             retention_days: 30,
         }
     }
@@ -1180,7 +1078,8 @@ impl AccessLogConfig {
         if self.enabled && self.retention_days == 0 {
             return Err(ConfigError::Invalid {
                 field: "share.access_log.retention_days",
-                reason: "must be at least 1 while the access log is on; there is no value that                          means \"keep for ever\", because a record of somebody's visits should                          have an end"
+                reason: "must be at least 1 while the access log is on; there is no value that \
+                         means \"keep for ever\""
                     .to_owned(),
             });
         }
@@ -1196,26 +1095,16 @@ impl Default for ShareConfig {
             inline_threshold_bytes: 64 * 1024,
             max_text_bytes: 1024 * 1024,
             ticket_ttl_hours: 24,
-            // An hour of silence means the transfer is over. Long enough that a
-            // paused download or a client retrying with backoff survives;
-            // short enough that a ticket somebody passed on has usually already
-            // died.
+            // An hour of silence means the transfer is over. It survives a
+            // paused download or a client retrying with backoff, and a
+            // forwarded ticket has usually expired by the time it is used.
             ticket_idle_hours: 1,
-            // A week. This is what almost every share gets, because almost no
-            // caller asks for a lifetime — so it, and not the ceiling below,
-            // is what decides how much disk an instance holds.
+            // A week. Almost no caller asks for a lifetime, so this and not the
+            // ceiling below decides how much disk an instance holds.
             default_expiry_hours: 24 * 7,
-            // 30 days. Not a limit anyone has asked for, but an instance that
-            // never forgets anything eventually runs out of disk, and finding
-            // that out is worse than being told at creation time.
-            //
-            // Deliberately far above the default: this is the longest a person
-            // may *ask* for, which is a different question from what they get
-            // when they do not ask.
+            // 30 days, far above the default. This is the longest anyone may
+            // *ask* for, not what they get by default.
             max_expiry_hours: 24 * 30,
-            // A week. Long enough that somebody coming back to a link they were
-            // sent gets told what happened, short enough that dead payloads do
-            // not become the reason the disk fills.
             upload_session_ttl_hours: 24,
             retain_after_death_hours: 24 * 7,
         }
@@ -1234,13 +1123,11 @@ impl Default for TelemetryConfig {
 
 /// Reads a list written either as a list or as one comma-separated string.
 ///
-/// An environment variable has to carry its structure inside a string, and the
-/// JSON figment expects for `TESSERA_SERVER__TRUSTED_PROXIES`
-/// (`["127.0.0.1","::1"]`) is not what anybody writes first. Refusing the
-/// obvious spelling would be a small thing anywhere else — here it is the
-/// setting that decides whether the throttles work, and the way out of a
-/// setting somebody cannot get to load is the deprecated boolean that turns
-/// them off.
+/// An environment variable carries its structure inside a string, and the JSON
+/// figment expects for `TESSERA_SERVER__TRUSTED_PROXIES` (`["127.0.0.1","::1"]`)
+/// is not what anybody writes first. This setting decides whether the throttles
+/// work, and the way out of one that will not load is the deprecated boolean
+/// that turns them off, so the obvious spelling has to be accepted.
 fn list_or_commas<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -1279,13 +1166,10 @@ impl ServerConfig {
     /// The proxies this instance will be spoken for by.
     ///
     /// A non-empty list wins over the deprecated boolean, so an operator part
-    /// way through migrating gets the setting that says something specific
-    /// rather than the one that says "anyone".
+    /// way through migrating gets the specific setting instead of "anyone".
     ///
-    /// The list is validated during [`Config::validate`], so by the time this
-    /// is called it cannot fail — an unusable entry has already stopped
-    /// start-up. Falling back to trusting nothing is the safe reading of a state
-    /// that should not be reachable.
+    /// [`Config::validate`] has already rejected an unusable entry by the time
+    /// this runs, so the fallback to trusting nothing is unreachable.
     #[must_use]
     pub fn proxy_trust(&self) -> TrustedProxies {
         if !self.trusted_proxies.is_empty() {
@@ -1310,8 +1194,8 @@ fn default_role() -> String {
 
 /// The most history an instance may be asked to keep.
 ///
-/// A bound rather than a preference: the sweep is what stops the table growing
-/// without limit, and a value in the thousands turns it off without saying so.
+/// The sweep is what stops the table growing without limit, and a value in the
+/// thousands turns it off without saying so.
 const MAX_LOGIN_HISTORY_DAYS: u64 = 365 * 2;
 
 impl AuthConfig {
@@ -1339,9 +1223,9 @@ impl DatabaseConfig {
 impl Config {
     /// Loads and validates configuration from the defaults and the environment.
     ///
-    /// Without the stored overrides: this is what the process starts from
+    /// Without the stored overrides. This is what the process starts from
     /// before it has a database to read them out of. See
-    /// [`Config::load_with_overrides`] for the whole stack.
+    /// [`Config::load_with_overrides`] for the full stack.
     ///
     /// # Errors
     ///
@@ -1371,30 +1255,25 @@ impl Config {
     ///
     /// # Why the overrides win
     ///
-    /// They are the only layer a person edited on purpose *on this instance*.
-    /// The environment arrives with the deployment — the image sets six
-    /// variables of its own, so on a container it is mostly values nobody here
-    /// chose. Letting those beat what somebody typed into the panel would make
-    /// the panel a screen that reports success and changes nothing.
+    /// They are the only layer edited by hand *on this instance*. The
+    /// environment arrives with the deployment, and the image sets six
+    /// variables of its own, so letting it beat the panel would turn the panel
+    /// into a screen that reports success and changes nothing.
     ///
     /// # Why a bad stored value cannot stop the process
     ///
-    /// The panel can write a value this binary refuses — a number out of range,
-    /// or a string where a number belongs, or a key that was fine in the
-    /// version that wrote it. If that stopped start-up, the panel would be able
-    /// to make the instance unbootable, and the instance has to be running to
-    /// offer the panel that could undo it. So an override that will not load is
-    /// dropped, logged, and the layer below it decides instead.
-    ///
-    /// Dropping happens one key at a time: the rest of somebody's settings
-    /// should survive one bad one.
+    /// The panel can write a value this binary refuses: out of range, wrong
+    /// type, or a key that was fine in the version that wrote it. If that
+    /// stopped start-up, the panel could make the instance unbootable, and the
+    /// instance has to be running to serve the panel that would undo it. So an
+    /// override that will not load is dropped and logged, one key at a time,
+    /// leaving the rest of the settings intact.
     ///
     /// # Errors
     ///
-    /// Returns [`ConfigError`] when the *file and environment* cannot produce a
-    /// usable configuration. That is a deployment mistake, and failing loudly is
-    /// right — nothing in the panel can have caused it and nothing there can fix
-    /// it.
+    /// Returns [`ConfigError`] when the *environment* cannot produce a usable
+    /// configuration. That is a deployment mistake: the panel neither caused it
+    /// nor can fix it, so it fails loudly.
     pub fn load_with_overrides(
         overrides: &BTreeMap<String, serde_json::Value>,
     ) -> Result<(Self, Vec<RejectedSetting>), ConfigError> {
@@ -1407,13 +1286,12 @@ impl Config {
             match Self::extract_with(&candidates) {
                 Ok(config) => return Ok((config, rejected)),
                 Err(error) => {
-                    // Which key the layer below would have to disown. `None`
-                    // means the failure is not attributable to an override, so
-                    // no amount of dropping will help.
+                    // Which key to drop. `None` means no override caused this,
+                    // so dropping more of them will not help.
                     let Some(key) = Self::blamed_key(&error, &candidates) else {
-                        // Nothing left of ours to blame: re-run with no
-                        // overrides at all. If that still fails, the deployment
-                        // is broken and the caller should hear about it.
+                        // No override left to blame, so re-run with none. A
+                        // failure now is the deployment's, and the caller
+                        // should hear about it.
                         if candidates.is_empty() {
                             return Err(error);
                         }
@@ -1447,9 +1325,8 @@ impl Config {
     /// One pass: defaults, file, environment, then the overrides.
     fn extract_with(overrides: &BTreeMap<String, serde_json::Value>) -> Result<Self, ConfigError> {
         let figment = Self::defaults().merge(Self::env_provider());
-        // Dotted keys, one at a time, so a stored `share.code_length` lands
-        // where a nested provider would have put it without needing the rest of
-        // `share` to be present.
+        // Dotted keys, one at a time, so `share.code_length` lands where a
+        // nested provider would put it without the rest of `share`.
         let figment = overrides.iter().fold(figment, |figment, (key, value)| {
             figment.merge((key.clone(), value.clone()))
         });
@@ -1463,9 +1340,8 @@ impl Config {
     ///
     /// Two shapes of failure. A type error comes from figment and names the
     /// path it could not deserialise; a range error comes from
-    /// [`Config::validate`] and names the field itself. Both give a dotted key,
-    /// which is the same spelling the overrides are stored under — so the
-    /// answer is a lookup rather than a guess.
+    /// [`Config::validate`] and names the field. Both give a dotted key in the
+    /// same spelling the overrides are stored under, so this is a lookup.
     fn blamed_key(
         error: &ConfigError,
         candidates: &BTreeMap<String, serde_json::Value>,
@@ -1500,9 +1376,8 @@ impl Config {
 
 /// A stored setting this binary would not honour, and why.
 ///
-/// Kept rather than only logged so that whatever reads settings can show the
-/// operator which of their changes did not survive — a value that vanished with
-/// only a line in the log is one they will set again.
+/// Returned as well as logged, so the settings screen can show which changes
+/// did not survive. A value that vanishes into a log line just gets set again.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RejectedSetting {
     /// The dotted key.
@@ -1516,9 +1391,9 @@ pub struct RejectedSetting {
 impl OgConfig {
     /// Rejects a card layout this binary will not draw.
     ///
-    /// Here rather than at the settings endpoint so that the file, the
-    /// environment and the admin panel are held to one rule — a layout that the
-    /// panel refuses should not be settable by editing a file and restarting.
+    /// Here, not at the settings endpoint, so the environment and the admin
+    /// panel are held to one rule. A layout the panel refuses should not become
+    /// settable by editing the environment and restarting.
     ///
     /// # Errors
     ///
@@ -1560,10 +1435,10 @@ impl Config {
 impl MailConfig {
     /// Refuses a half-filled mail block.
     ///
-    /// Being half-configured is worse than being empty: empty means the feature
-    /// does not exist and every path around it is quiet, whereas a host with no
-    /// `from` means the endpoints get mounted, the frontend draws the link, and
-    /// the failure only shows up when somebody is already locked out.
+    /// Half-configured is worse than empty. Empty means the feature does not
+    /// exist and every path around it stays quiet. A host with no `from` mounts
+    /// the endpoints and draws the link, then fails at the moment someone is
+    /// already locked out.
     fn validate(&self) -> Result<(), ConfigError> {
         let given: Vec<&str> = [
             (!self.host.is_empty()).then_some("mail.host"),
@@ -1575,12 +1450,13 @@ impl MailConfig {
         .collect();
 
         if given.is_empty() || given.len() == 3 {
-            // All or nothing, which is what `is_configured` also asks.
+            // All or nothing, the same question `is_configured` asks.
         } else {
             return Err(ConfigError::Invalid {
                 field: "mail",
                 reason: format!(
-                    "set all of mail.host, mail.from and mail.public_url, or none of them                      (only {} given)",
+                    "set all of mail.host, mail.from and mail.public_url, or none of them \
+                     (only {} given)",
                     given.join(", ")
                 ),
             });
@@ -1598,7 +1474,8 @@ impl MailConfig {
         if !self.public_url.starts_with("http://") && !self.public_url.starts_with("https://") {
             return Err(ConfigError::Invalid {
                 field: "mail.public_url",
-                reason: "must start with http:// or https:// — it is the base of a link somebody                          will click"
+                reason: "must start with http:// or https://; it is the base of a link \
+                         somebody will click"
                     .to_owned(),
             });
         }
@@ -1606,7 +1483,8 @@ impl MailConfig {
             return Err(ConfigError::Invalid {
                 field: "mail.reset_ttl_minutes",
                 reason: format!(
-                    "must be between 1 and {MAX_RESET_TTL_MINUTES}; a link that has already                      expired helps nobody, and one that lasts longer than a day is a spare key                      sitting in a mailbox"
+                    "must be between 1 and {MAX_RESET_TTL_MINUTES}; past a day the link has \
+                     stopped being a reset and become a second credential"
                 ),
             });
         }
@@ -1617,8 +1495,7 @@ impl MailConfig {
                 field: "mail.registration_ttl_hours",
                 reason: format!(
                     "must be between 1 and {MAX_REGISTRATION_TTL_HOURS}; an unconfirmed \
-                     registration holds a password hash for an account that does not exist, and \
-                     keeping one for longer than a week serves nobody"
+                     registration holds a password hash for an account that does not exist"
                 ),
             });
         }
@@ -1654,9 +1531,8 @@ impl ShareConfig {
     /// Lifetime an unspecified share gets, or `None` when even that is
     /// unbounded.
     ///
-    /// Falls back to the ceiling, which is what this did before the default was
-    /// separable — and is still the only sensible reading of "no default" on an
-    /// instance that has a ceiling.
+    /// Falls back to the ceiling, the only sensible reading of "no default" on
+    /// an instance that has one.
     #[must_use]
     pub const fn default_expiry(&self) -> Option<Duration> {
         if self.default_expiry_hours == 0 {
@@ -1696,9 +1572,9 @@ impl ShareConfig {
             return Err(ConfigError::Invalid {
                 field: "share.max_text_bytes",
                 reason: format!(
-                    "must be between 1 and {MAX_TEXT_CEILING}; text is held whole in memory \
-                     while it is read and stored whole as one row, so a larger value turns one \
-                     upload into that much resident memory and that much of a single read"
+                    "must be between 1 and {MAX_TEXT_CEILING}; text is held whole in memory and \
+                     stored as one row, so a larger value makes one upload that much resident \
+                     memory"
                 ),
             });
         }
@@ -1711,9 +1587,8 @@ impl ShareConfig {
                 ),
             });
         }
-        // A default above the ceiling would make every unspecified share fail
-        // the very check the ceiling exists for, and the caller could not tell
-        // why: they did not ask for a lifetime at all.
+        // A default above the ceiling would fail every share whose caller asked
+        // for no lifetime at all, with nothing to tell them why.
         if self.max_expiry_hours != 0
             && self.default_expiry_hours != 0
             && self.default_expiry_hours > self.max_expiry_hours
@@ -1740,17 +1615,16 @@ impl ShareConfig {
 
 /// The most a text share may ever be allowed to be.
 ///
-/// A bound on the setting, not the setting: an operator who wants larger pastes
-/// can raise `share.max_text_bytes`, but not to a number that makes one upload
-/// a memory problem for everybody else on the instance. Sixteen megabytes is
-/// already six times the plain text of a long novel.
+/// A bound on the setting, not the setting. An operator who wants larger pastes
+/// can raise `share.max_text_bytes`, but not to a number that makes one upload a
+/// memory problem for everybody else.
 const MAX_TEXT_CEILING: usize = 16 * 1024 * 1024;
 
 /// Highest inline threshold an operator may configure.
 ///
 /// Inline content is read into memory whole, so this is the largest allocation a
 /// single retrieval can be made to perform. MySQL's `MEDIUMBLOB` would hold far
-/// more; the limit here is about memory, not about the column.
+/// more; this limit is about memory, not the column.
 const INLINE_CEILING: usize = 1024 * 1024;
 
 impl ServerConfig {
@@ -1769,8 +1643,8 @@ impl ServerConfig {
                 reason: "must be at least 1 second".to_owned(),
             });
         }
-        // Below S3's floor every multipart upload of more than one part fails
-        // at `complete`, which is late, remote and hard to read.
+        // Below S3's floor, every multipart upload of more than one part fails
+        // at `complete`: late, remote and hard to read.
         if self.part_size_bytes < 5 * 1024 * 1024 {
             return Err(ConfigError::Invalid {
                 field: "server.part_size_bytes",
@@ -1848,11 +1722,9 @@ impl DatabaseConfig {
 
 impl StorageConfig {
     fn validate(&self) -> Result<(), ConfigError> {
-        // Deliberately shallow. Whether a given scheme is compiled in, and
-        // whether its options make sense, is knowledge that lives in
-        // `object_store` — duplicating it here would mean a second list to keep
-        // in step. `storage::build` surfaces those failures during start-up,
-        // which is early enough.
+        // Shallow by design. `object_store` knows which schemes are compiled
+        // in and whether the options parse; `storage::build` reports that at
+        // start-up, and a copy here would be a second list to keep in step.
         if self.url.trim().is_empty() {
             return Err(ConfigError::Invalid {
                 field: "storage.url",
@@ -1866,8 +1738,7 @@ impl StorageConfig {
 impl FeatureConfig {
     fn validate(self) -> Result<(), ConfigError> {
         // An instance with neither accounts nor anonymous upload can receive
-        // nothing at all. That is never what anybody meant, and it is far kinder
-        // to say so at start-up than to let every upload fail with a 403.
+        // nothing. Better said at start-up than as a 403 on every upload.
         if !self.accounts && !self.anonymous_upload {
             return Err(ConfigError::Invalid {
                 field: "features.anonymous_upload",
@@ -1912,9 +1783,8 @@ impl AuthConfig {
 
 impl TelemetryConfig {
     fn validate(&self) -> Result<(), ConfigError> {
-        // Parsing here rather than in telemetry::init is the whole point of
-        // fail-fast validation: a typo in the filter would otherwise silently
-        // degrade to "no logs" long after start-up.
+        // Parsed here, not in telemetry::init. A typo in the filter would
+        // otherwise degrade to "no logs" long after start-up.
         tracing_subscriber::EnvFilter::try_new(&self.filter).map_err(|e| ConfigError::Invalid {
             field: "telemetry.filter",
             reason: format!("not a valid tracing filter directive: {e}"),
@@ -1939,11 +1809,8 @@ mod tests {
 
     use super::*;
 
-    /// The default is what almost every share gets, because almost no caller
-    /// asks for a lifetime. It used to *be* the ceiling, which meant the longest
-    /// life anyone was allowed to request was also what everyone got without
-    /// asking — thirty days of uploads held to serve links that are mostly
-    /// collected within hours.
+    /// Almost no caller asks for a lifetime, so the default is what almost
+    /// every share gets. It must not be the ceiling.
     #[test]
     fn the_default_lifetime_is_shorter_than_the_longest_allowed() {
         let share = ShareConfig::default();
@@ -1956,9 +1823,8 @@ mod tests {
         assert_eq!(share.default_expiry_hours, 24 * 7, "a week");
     }
 
-    /// `0` is how an operator says "I have no opinion", and the only sensible
-    /// reading of that on an instance with a ceiling is the ceiling — which is
-    /// also what this did before the two were separable.
+    /// `0` means "no opinion", which on an instance with a ceiling reads as
+    /// the ceiling.
     #[test]
     fn a_zero_default_falls_back_to_the_ceiling() {
         let share = ShareConfig {
@@ -1975,9 +1841,8 @@ mod tests {
         assert_eq!(unbounded.default_expiry(), None);
     }
 
-    /// A default above the ceiling would make every share that asks for nothing
-    /// fail the check the ceiling exists for, and the caller could not act on
-    /// the error — they did not request a lifetime at all.
+    /// Otherwise every share whose caller asked for nothing fails a check they
+    /// cannot act on.
     #[test]
     fn a_default_above_the_ceiling_is_refused() {
         let share = ShareConfig {
@@ -2001,11 +1866,10 @@ mod tests {
         Config::default().validate().unwrap();
     }
 
-    /// Wrapped in a `Jail` even though it sets nothing: the jail gives the test a
-    /// clean environment *and* takes figment's global lock. Without it this test
-    /// reads whatever `TESSERA_*` variables a concurrently running jail happens
-    /// to have set — invisible under nextest, which forks per test, and flaky
-    /// under any thread-based runner.
+    /// Callers wrap these in a `Jail` even when setting nothing. The jail gives
+    /// a clean environment *and* takes figment's global lock. Without it a test
+    /// reads whatever `TESSERA_*` a concurrently running jail set: invisible
+    /// under nextest, flaky under any thread-based runner.
     fn overrides(pairs: &[(&str, serde_json::Value)]) -> BTreeMap<String, serde_json::Value> {
         pairs
             .iter()
@@ -2013,8 +1877,7 @@ mod tests {
             .collect()
     }
 
-    /// The whole point of storing them: what somebody typed into the panel
-    /// beats what the deployment brought.
+    /// What was typed into the panel beats what the deployment brought.
     #[test]
     fn a_stored_setting_beats_the_file_and_the_environment() {
         figment::Jail::expect_with(|jail| {
@@ -2042,9 +1905,8 @@ mod tests {
         });
     }
 
-    /// The panel can store a value this binary refuses. If that stopped the
-    /// process, the panel could make the instance unbootable — and the instance
-    /// has to be running to offer the panel that would undo it.
+    /// If a refused value stopped the process, the panel could make the
+    /// instance unbootable, and the instance has to run to offer the panel.
     #[test]
     fn a_stored_value_out_of_range_is_dropped_rather_than_fatal() {
         figment::Jail::expect_with(|_jail| {
@@ -2065,8 +1927,7 @@ mod tests {
         });
     }
 
-    /// A value of the wrong shape entirely — figment cannot even deserialise
-    /// it. Same rule, different failure.
+    /// A value figment cannot deserialise at all. Same rule, different failure.
     #[test]
     fn a_stored_value_of_the_wrong_type_is_dropped_too() {
         figment::Jail::expect_with(|_jail| {
@@ -2085,8 +1946,7 @@ mod tests {
         });
     }
 
-    /// One bad setting should cost that setting, not somebody's whole
-    /// configuration.
+    /// One bad setting should cost that setting, not the whole configuration.
     #[test]
     fn one_bad_setting_does_not_take_the_good_ones_with_it() {
         figment::Jail::expect_with(|_jail| {
@@ -2104,10 +1964,9 @@ mod tests {
         });
     }
 
-    /// A row can outlive the rule that admitted it — a key can move onto the
-    /// secret list, or somebody can write one straight into the table with
-    /// `sqlite3`. Neither should be able to set something the panel would
-    /// refuse.
+    /// A row can outlive the rule that admitted it. A key can move onto the
+    /// secret list, or be written straight into the table by hand. Neither may
+    /// set something the panel would refuse.
     #[test]
     fn a_stored_setting_the_panel_would_refuse_is_ignored() {
         figment::Jail::expect_with(|_jail| {
@@ -2147,7 +2006,7 @@ mod tests {
     #[case::no_throttle_attempts("auth.throttle.source", |c: &mut Config| {
         c.auth.throttle.source.max_attempts = 0;
     })]
-    // The bound an attacker gets to fill. Above the ceiling it stops being a
+    // An attacker fills this map, so above the ceiling the bound stops being a
     // limit and becomes the size of the hole.
     #[case::unbounded_keys("auth.throttle.max_tracked_keys", |c: &mut Config| {
         c.auth.throttle.max_tracked_keys = MAX_TRACKED_KEYS_CEILING + 1;
@@ -2161,9 +2020,8 @@ mod tests {
     #[case::zero_pool("database.max_connections", |c: &mut Config| c.database.max_connections = 0)]
     #[case::bad_url("database.url", |c: &mut Config| c.database.url = "mongodb://x".to_owned())]
     #[case::empty_storage("storage.url", |c: &mut Config| c.storage.url = "  ".to_owned())]
-    // A log that is on with no retention keeps nothing while reading as if it
-    // keeps something, which is the wrong way round for a setting about
-    // somebody else's data.
+    // A log on with no retention keeps nothing while reading as if it keeps
+    // something.
     #[case::log_without_retention("share.access_log.retention_days", |c: &mut Config| {
         c.share.access_log.enabled = true;
         c.share.access_log.retention_days = 0;
@@ -2177,10 +2035,8 @@ mod tests {
     #[case::bad_filter("telemetry.filter", |c: &mut Config| {
         c.telemetry.filter = "=====".to_owned();
     })]
-    // Half a mail block is worse than none: empty means the feature does not
-    // exist and every path around it is quiet, whereas a host with no `from`
-    // mounts the endpoints and draws the link, and only fails once somebody is
-    // already locked out.
+    // Half a mail block mounts the endpoints and draws the link, then fails at
+    // the moment someone is already locked out.
     #[case::half_configured_mail("mail", |c: &mut Config| {
         c.mail.host = "smtp.example.com".to_owned();
     })]
@@ -2196,8 +2052,8 @@ mod tests {
         configured_mail(c);
         c.mail.reset_ttl_minutes = 0;
     })]
-    // A link that outlives the day has stopped being a way back in and become a
-    // second credential, kept somewhere far less protected than a password.
+    // Past a day the link has become a second credential, kept somewhere less
+    // protected than a password.
     #[case::endless_reset_ttl("mail.reset_ttl_minutes", |c: &mut Config| {
         configured_mail(c);
         c.mail.reset_ttl_minutes = MAX_RESET_TTL_MINUTES + 1;
@@ -2242,8 +2098,8 @@ mod tests {
     #[test]
     fn an_invalid_environment_override_fails_at_load_time() {
         figment::Jail::expect_with(|jail| {
-            // `EnvFilter` is permissive — it treats most junk as a bare target
-            // name. This is one of the shapes it genuinely refuses.
+            // `EnvFilter` treats most junk as a bare target name. This is one
+            // of the few shapes it genuinely refuses.
             jail.set_env("TESSERA_TELEMETRY__FILTER", "=====");
             let err = Config::load().expect_err("must be rejected");
             assert!(matches!(
@@ -2260,9 +2116,8 @@ mod tests {
     /// Regression test. `TESSERA_BUILD_REV` is exported into every `cargo run`
     /// by the build script, and `TESSERA_CONFIG_FILE` is what an instance that
     /// predates the panel still has set. Both sit inside the settings
-    /// namespace, so `deny_unknown_fields` rejected them and the process
-    /// refused to start — which for the second one would turn an upgrade into
-    /// an outage.
+    /// namespace, so `deny_unknown_fields` refused to start; for the second
+    /// that turns an upgrade into an outage.
     #[rstest]
     #[case("TESSERA_CONFIG_FILE", "/etc/tessera.toml")]
     #[case("TESSERA_BUILD_REV", "v0.1.0-3-gabcdef")]
@@ -2276,8 +2131,7 @@ mod tests {
         });
     }
 
-    /// A fully configured mail block is accepted, and so is an empty one — the
-    /// two ends of the all-or-nothing rule.
+    /// Both ends of the all-or-nothing rule: whole and absent.
     #[test]
     fn mail_is_accepted_when_whole_and_when_absent() {
         let mut config = Config::default();
@@ -2292,8 +2146,7 @@ mod tests {
         assert!(config.mail.is_configured());
     }
 
-    /// An instance that accepts neither anonymous uploads nor accounts can
-    /// receive nothing at all, which is never what anybody configured on purpose.
+    /// Neither accounts nor anonymous uploads means nothing can be received.
     #[test]
     fn rejects_an_instance_that_could_never_receive_anything() {
         let mut config = Config::default();
@@ -2328,9 +2181,8 @@ mod tests {
         assert!(err.to_string().contains("trusted_proxies"), "got: {err}");
     }
 
-    /// The spelling an operator reaches for first has to work, because the way
-    /// out of a setting that will not load is the boolean that turns the
-    /// throttles off.
+    /// The spelling an operator reaches for first has to work: the way out of a
+    /// setting that will not load is the boolean that turns the throttles off.
     #[test]
     fn a_comma_separated_list_is_understood() {
         figment::Jail::expect_with(|jail| {
@@ -2368,8 +2220,8 @@ mod tests {
 
         let trust = config.server.proxy_trust();
         let chain = HeaderMap::new();
-        // 127.0.0.1 is outside the list, so it is not a proxy and gets no say —
-        // which the boolean on its own would have granted it.
+        // 127.0.0.1 is outside the list, so it is not a proxy and gets no say.
+        // The boolean on its own would have granted it one.
         assert!(
             !trust
                 .resolve(Some("127.0.0.1".parse().unwrap()), &chain)
@@ -2393,8 +2245,7 @@ mod tests {
     #[test]
     fn unknown_keys_are_rejected_rather_than_ignored() {
         figment::Jail::expect_with(|jail| {
-            // A typo in an environment variable must not silently do nothing —
-            // `TESSERA_SERVER__PROT` should stop the process, not be dropped.
+            // A typo must stop the process, not be dropped.
             jail.set_env("TESSERA_SERVER__PROT", "9001");
             let err = Config::load().expect_err("must be rejected");
             assert!(matches!(err, ConfigError::Source(_)), "got {err}");
@@ -2402,8 +2253,8 @@ mod tests {
         });
     }
 
-    /// A code length the domain type would refuse is one every generated code
-    /// fails on — better to say so at start-up than on the first upload.
+    /// A code length the domain type refuses fails every generated code, which
+    /// is better said at start-up than on the first upload.
     #[test]
     fn the_default_code_length_is_one_the_domain_accepts() {
         let config = ShareConfig::default();

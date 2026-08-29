@@ -1,9 +1,9 @@
-//! Where an upload in flight is putting its bytes, as a list rather than three
+//! Where an upload in flight is putting its bytes, as a list and not three
 //! columns.
 //!
-//! The SQL lives in `sql/` — see the SQLite one for what the three columns could
-//! not say, why the state is named rather than inferred, and why `planned` is
-//! the reservation rather than bookkeeping.
+//! The SQL lives in `sql/`. See the SQLite one for what the three columns
+//! could not say, why the state is named and not inferred, and why `planned`
+//! is the reservation and not bookkeeping.
 
 use sea_orm_migration::prelude::*;
 
@@ -12,18 +12,19 @@ pub(super) const POSTGRES: &str = include_str!("sql/m20260903_000001_upload_segm
 pub(super) const MYSQL: &str = include_str!("sql/m20260903_000001_upload_segments.mysql.sql");
 
 /// Rollbacks live in `sql/down/`, not beside the migrations. Everything in
-/// `sql/` is replayed, in order, by `scripts/schema-docs.py` to build the schema
-/// it documents — a rollback sitting among them is applied straight after the
-/// migration it undoes, and the generated documentation describes a database
-/// nobody runs. `no_rollback_sits_where_the_schema_docs_replay_from` is what
-/// keeps that from happening again.
+/// `sql/` is replayed in order by `scripts/schema-docs.py` to build the schema
+/// it documents, so a rollback sitting among them is applied straight after the
+/// migration it undoes, and the generated documentation then describes a
+/// database that was never deployed.
+/// `no_rollback_sits_where_the_schema_docs_replay_from` keeps that from
+/// happening again.
 const DOWN_SQLITE: &str = include_str!("sql/down/m20260903_000001_upload_segments.sqlite.sql");
 /// Postgres takes the SQLite spelling unchanged: `ADD COLUMN`, a correlated
 /// subquery and a `DROP TABLE` are the same statements in both.
 const DOWN_POSTGRES: &str = include_str!("sql/down/m20260903_000001_upload_segments.postgres.sql");
 /// MySQL cannot read the table it is updating from a correlated subquery, so the
-/// restore is a join. Written out rather than shared for the same reason the
-/// quota rollback was: a `down` that has never run on the dialect it claims to
+/// restore is a join. Written out, not shared, for the same reason the quota
+/// rollback was: a `down` that has never run on the dialect it claims to
 /// support is not a rollback, it is a note.
 const DOWN_MYSQL: &str = include_str!("sql/down/m20260903_000001_upload_segments.mysql.sql");
 
@@ -32,8 +33,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -64,7 +65,7 @@ mod tests {
             assert!(sql.contains("INSERT INTO upload_segments"), "{dialect}");
             assert!(sql.contains("FROM uploads"), "{dialect}");
             // Sessions opened before backends were recorded meant the one from
-            // `storage.url`, which is the name the configuration seeds.
+            // `storage.url`, the name the configuration seeds.
             assert!(sql.contains("COALESCE(u.backend, 'default')"), "{dialect}");
         }
     }
@@ -148,7 +149,7 @@ mod tests {
         assert!(MYSQL.contains("object_key    TEXT"));
     }
 
-    /// `CREATE INDEX IF NOT EXISTS` is not MySQL syntax — the same trap the
+    /// `CREATE INDEX IF NOT EXISTS` is not MySQL syntax: the same trap the
     /// quota rollback hit with `DROP INDEX IF EXISTS`, in the other direction.
     #[test]
     fn mysql_creates_its_index_without_the_guard() {

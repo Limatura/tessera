@@ -12,7 +12,7 @@ pub struct Model {
     /// Position in the file, from zero.
     #[sea_orm(primary_key, auto_increment = false)]
     pub seq: i64,
-    /// Which configured backend holds it — a name, not a foreign key. See the
+    /// Which configured backend holds it: a name, not a foreign key. See the
     /// migration.
     pub backend: String,
     /// Where the bytes are within that backend.

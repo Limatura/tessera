@@ -76,7 +76,7 @@ async fn an_administrator_sees_every_account() {
     );
 }
 
-/// Everybody else gets the same answer as somebody who is not signed in would
+/// Every other caller gets the same answer as one that is not signed in
 /// get from an endpoint they may not use.
 #[tokio::test]
 async fn an_ordinary_account_may_not_look() {
@@ -161,10 +161,10 @@ async fn an_administrator_can_promote_and_demote_somebody_else() {
     assert_eq!(body_json(demoted).await["is_admin"], false);
 }
 
-/// An instance with no administrator cannot be repaired through the API — there
-/// is no endpoint left that would grant the flag back. The way out is the
-/// command line against the database file, which somebody who locked themselves
-/// out of a container may not have.
+/// An instance with no administrator cannot be repaired through the API: no
+/// endpoint is left that would grant the flag back. The way out is the command
+/// line against the database file, which an operator locked out of
+/// a container may not have.
 #[tokio::test]
 async fn the_last_administrator_cannot_step_down() {
     let app = TestApp::ready().await;
@@ -187,7 +187,7 @@ async fn the_last_administrator_cannot_step_down() {
     assert_eq!(list(&app, Auth::Cookie(&admin)).await.len(), 2);
 }
 
-/// And stepping down is allowed once somebody else can do the job.
+/// And stepping down is allowed once another account can do the job.
 #[tokio::test]
 async fn stepping_down_works_when_there_is_a_successor() {
     let app = TestApp::ready().await;
@@ -221,7 +221,7 @@ async fn stepping_down_works_when_there_is_a_successor() {
 }
 
 /// The same guard on the other door: deleting the only administrator would leave
-/// the instance in exactly the state the demotion guard refuses.
+/// the instance in the very state the demotion guard refuses.
 #[tokio::test]
 async fn the_last_administrator_cannot_be_deleted() {
     let app = TestApp::ready().await;
@@ -264,7 +264,7 @@ async fn deleting_an_account_ends_what_it_was_holding() {
         StatusCode::UNAUTHORIZED
     );
     // The listing shows the one account left. The row the deletion left behind
-    // is not somebody an operator manages, so it takes asking to see it.
+    // is not an account an operator manages, so it takes asking to see it.
     assert_eq!(list(&app, Auth::Cookie(&admin)).await.len(), 1);
 
     let with_deleted = body_json(
@@ -283,7 +283,7 @@ async fn deleting_an_account_ends_what_it_was_holding() {
     let rows = with_deleted.as_array().expect("a list");
     assert_eq!(rows.len(), 2);
 
-    // And what is left of it identifies nobody.
+    // And what is left of it identifies no person.
     let gone = rows
         .iter()
         .find(|row| row["id"] == id)
@@ -296,7 +296,7 @@ async fn deleting_an_account_ends_what_it_was_holding() {
 }
 
 /// An identifier that is not an identifier answers the same as one that names
-/// nobody.
+/// no person.
 #[tokio::test]
 async fn an_unknown_account_says_only_that() {
     let app = TestApp::ready().await;
@@ -320,7 +320,8 @@ async fn an_unknown_account_says_only_that() {
     }
 }
 
-/// A leaked token must not be able to promote an account it controls, which is
+/// A leaked token must not be able to promote an account it controls, and that
+/// is
 /// how a leak becomes permanent.
 #[tokio::test]
 async fn a_bearer_token_may_not_administer() {
@@ -375,8 +376,8 @@ async fn create_invite(
 
 /// Registers on an instance that asks for a code.
 ///
-/// Even the first account needs one — an operator would not hit this, because
-/// the first administrator is created at start-up rather than registered, but a
+/// Even the first account needs one. An operator would not hit this, since the
+/// first administrator is created at start-up, not registered, but a
 /// test that makes accounts through the API does.
 #[expect(
     clippy::expect_used,
@@ -428,9 +429,8 @@ async fn list_invites(app: &TestApp, auth: Auth<'_>) -> Vec<serde_json::Value> {
         .unwrap_or_default()
 }
 
-/// The command line is the rescue path — it works with the service stopped.
-/// This is the ordinary one: letting a friend in should not need a shell on the
-/// box.
+/// The command line is the rescue path, working with the service stopped. This
+/// is the ordinary one: letting a friend in should not need a shell on the box.
 #[tokio::test]
 async fn an_administrator_can_mint_a_code_and_use_it() {
     let app = TestApp::with_config(|config| {
@@ -456,7 +456,7 @@ async fn an_administrator_can_mint_a_code_and_use_it() {
     assert_eq!(created["active"], true);
     assert_eq!(created["note"], "family");
 
-    // And it actually admits somebody.
+    // And it actually admits an account.
     assert_eq!(
         app.json(
             Method::POST,
@@ -484,7 +484,7 @@ async fn an_administrator_can_mint_a_code_and_use_it() {
 }
 
 /// The list never carries the code. Only a digest is stored, so there is
-/// nothing to show — an administrator who lost the code issues another one.
+/// nothing to show, and an administrator who lost the code issues another one.
 #[tokio::test]
 async fn the_list_never_shows_a_code() {
     let app = TestApp::ready().await;
@@ -508,7 +508,7 @@ async fn the_list_never_shows_a_code() {
     );
 }
 
-/// What somebody who posted a code in the wrong chat window wants: it stops
+/// What an operator who posted a code in the wrong chat window wants: it stops
 /// admitting anybody, and the accounts it already let in stay.
 #[tokio::test]
 async fn revoking_a_code_stops_it_without_undoing_what_it_did() {
@@ -599,7 +599,7 @@ async fn an_invite_that_admits_nobody_is_refused() {
 }
 
 /// A code past its date is listed but not active, so an administrator can see
-/// why it stopped working rather than wondering where it went.
+/// why it stopped working instead of wondering where it went.
 #[tokio::test]
 async fn an_expired_code_is_listed_as_inactive() {
     let app = TestApp::ready().await;
@@ -734,8 +734,8 @@ async fn an_unset_quota_is_null_rather_than_zero() {
 }
 
 /// The gap between the two share counts is what the sweep has not reached, and
-/// seeing it is the point: a large one means retention is longer than somebody
-/// expected, or the sweep is not running.
+/// seeing it is the point: a large one means retention is longer than expected,
+/// or the sweep is not running.
 #[tokio::test]
 async fn a_share_that_nobody_can_open_still_counts_as_stored() {
     let app = TestApp::ready().await;
@@ -789,7 +789,7 @@ async fn stats_need_an_administrator_with_a_cookie() {
     );
 }
 
-/// One permission at a time, which is the point of the change.
+/// One permission at a time, the point of the change.
 ///
 /// Under the boolean, reaching any administrative endpoint meant reaching all
 /// of them. A role holding only `users:read` proves that is no longer true.
@@ -847,8 +847,8 @@ async fn a_role_can_grant_looking_without_granting_changing() {
     );
 }
 
-/// Somebody in no role is signed in and allowed nothing, and that has to be a
-/// clean refusal rather than a crash.
+/// An account in no role is signed in and allowed nothing, and that has to be a
+/// clean refusal, not a crash.
 #[tokio::test]
 async fn an_account_with_no_roles_may_do_nothing() {
     let app = TestApp::ready().await;
@@ -876,7 +876,7 @@ async fn an_account_with_no_roles_may_do_nothing() {
     );
 }
 
-/// The instance must keep somebody who can hand out roles.
+/// The instance must keep an account that can hand out roles.
 #[tokio::test]
 async fn the_last_account_holding_the_keys_cannot_be_deleted() {
     let app = TestApp::ready().await;
@@ -909,7 +909,7 @@ async fn the_last_account_holding_the_keys_cannot_be_deleted() {
         StatusCode::CONFLICT,
         "the only holder of roles:write"
     );
-    // And somebody who never held them is not caught by the same guard.
+    // And an account that never held them is not caught by the same guard.
     assert_eq!(
         app.empty(
             Method::DELETE,
@@ -924,7 +924,7 @@ async fn the_last_account_holding_the_keys_cannot_be_deleted() {
 
 /// The dashboard number has to mean the same thing the guard means.
 ///
-/// It counted `users.is_admin`, which is now a mirror kept for rollback. A role
+/// It counted `users.is_admin`, now a mirror kept for rollback. A role
 /// granted directly does not touch that column, so the number would say one
 /// while two people could administer the instance.
 #[tokio::test]
@@ -964,9 +964,10 @@ async fn the_administrator_count_follows_roles_not_the_column() {
 
 /// `roles:write` must not be a way to obtain every other permission.
 ///
-/// Without this check somebody holding only `roles:write` mints a role granting
+/// Without this check an account holding only `roles:write` mints a role
+/// granting
 /// `users:delete`, puts themselves in it, and has it. The permission would mean
-/// "may hand out anything" rather than "may hand out what I have".
+/// "may hand out anything" instead of "may hand out what I have".
 #[tokio::test]
 async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
     let app = TestApp::ready().await;
@@ -1008,7 +1009,7 @@ async fn a_role_cannot_hand_out_a_permission_its_author_lacks() {
         .await;
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 
-    // And the same door from the other side: granting it to somebody else.
+    // And the same door from the other side: granting it to another account.
     let existing = app
         .state
         .roles
@@ -1177,7 +1178,7 @@ async fn a_role_can_be_created_and_granted() {
     assert_eq!(auditor["members"], 1);
 }
 
-/// The permission list is served rather than built into the client, so a client
+/// The permission list is served, not built into the client, so a client
 /// cannot silently stop offering permissions added since it was built.
 #[tokio::test]
 async fn every_permission_is_offered_to_the_screen() {
@@ -1318,8 +1319,8 @@ async fn new_accounts_go_into_the_configured_role() {
     );
 
     // And the first account still administers the instance whatever the setting
-    // says — an instance whose first account cannot administer it has nobody who
-    // can fix that.
+    // says, since an instance whose first account cannot administer it has
+    // no way to fix that.
     assert_eq!(
         app.empty(Method::GET, "/api/v1/admin/users", Auth::Cookie(&ordinary))
             .await
@@ -1330,10 +1331,10 @@ async fn new_accounts_go_into_the_configured_role() {
 
 /// After every migration has run, the administrator role holds everything.
 ///
-/// The per-migration tests each check what their own file wrote, which is what
-/// a migration is answerable for. Nothing checked the state they add up to —
-/// and a permission nobody can hold is an endpoint nobody can reach, on a fresh
-/// instance, with no error anywhere to say so.
+/// The per-migration tests each check what their own file wrote, all a migration
+/// is answerable for. Nothing checked the state they add up to, and a
+/// permission that cannot be held is an endpoint that cannot be reached on a
+/// fresh instance, with no error anywhere to say so.
 #[tokio::test]
 async fn the_owner_role_ends_up_holding_every_permission() {
     let app = TestApp::ready().await;
@@ -1355,10 +1356,10 @@ async fn the_owner_role_ends_up_holding_every_permission() {
 
 /// The gap this endpoint exists to close.
 ///
-/// A share whose uploader is gone is owned by nobody, so the ordinary delete
-/// route — which asks whether the caller owns it — could never reach one. With
-/// no expiry and no use limit the sweep never reaches it either, so it served
-/// its content forever and nothing could stop it.
+/// A share whose uploader is gone has no owner, so the ordinary delete
+/// route, which asks whether the caller owns it, could never reach one. With no
+/// expiry and no use limit the sweep never reaches it either, so it served its
+/// content for ever and nothing could stop it.
 #[tokio::test]
 async fn an_administrator_can_remove_a_share_nobody_owns() {
     let app = TestApp::ready().await;
@@ -1396,7 +1397,7 @@ async fn an_administrator_can_remove_a_share_nobody_owns() {
     )
     .await;
 
-    // It is still served — which is the part that makes this worth fixing.
+    // It is still served, and that is what makes this worth fixing.
     assert_eq!(
         app.empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
             .await
@@ -1405,7 +1406,7 @@ async fn an_administrator_can_remove_a_share_nobody_owns() {
         "an orphaned share keeps working"
     );
 
-    // And now somebody can remove it.
+    // And now it can be removed.
     expect_status(
         app.empty(
             Method::DELETE,
@@ -1427,7 +1428,7 @@ async fn an_administrator_can_remove_a_share_nobody_owns() {
 /// The listing tells an anonymous upload apart from one whose owner is gone.
 ///
 /// Both have no reachable account, and collapsing them would throw away which
-/// is which — information nothing could recover afterwards.
+/// is which, information nothing could recover afterwards.
 #[tokio::test]
 async fn the_listing_says_who_uploaded_each_share() {
     let app = TestApp::with_config(|config| {
@@ -1591,14 +1592,15 @@ async fn suspending_an_account_stops_it_signing_in_but_keeps_its_shares_served()
     )
     .await;
 
-    // The session they already held stops working — not only the next sign-in.
+    // The session they already held stops working, not only the next sign-in.
     assert_eq!(
         app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&theirs))
             .await
             .status(),
         StatusCode::UNAUTHORIZED
     );
-    // Signing in again answers the same as a wrong password, so nobody can ask
+    // Signing in again answers the same as a wrong password, so no caller can
+    // ask
     // this endpoint which accounts are suspended.
     assert_eq!(
         app.json(
@@ -1664,8 +1666,8 @@ async fn a_deleted_account_cannot_be_reactivated() {
     )
     .await;
 
-    // The patch reports success — the row is there and the flag was written —
-    // but the state does not move.
+    // The patch reports success, since the row is there and the flag was
+    // written, but the state does not move.
     expect_status(
         app.json(
             Method::PATCH,
@@ -1764,7 +1766,7 @@ async fn a_deletion_records_who_did_it() {
 ///
 /// Ending the sessions is what makes the cookie stop working, and for a while
 /// that looked like enough. It is not: a token is not a session, so nothing
-/// ended it — the state check at authentication is the only thing that does.
+/// ended it, and the state check at authentication is the only thing that does.
 #[tokio::test]
 async fn suspending_an_account_stops_its_tokens() {
     let app = TestApp::ready().await;
@@ -1817,7 +1819,7 @@ async fn suspending_an_account_stops_its_tokens() {
     );
 }
 
-/// The three powers that separate somebody helping from somebody whose instance
+/// The three powers that separate an account that helps from one whose instance
 /// it is.
 ///
 /// Before this split the seeded set had nothing between `admin` (everything)
@@ -1893,7 +1895,7 @@ async fn an_admin_helps_run_the_instance_without_being_able_to_take_it() {
         "roles:write is what would let them raise themselves"
     );
 
-    // And a share of somebody else's, which is the content half.
+    // And another account's share, the content half.
     let created = body_json(
         expect_status(
             app.send(
@@ -2034,7 +2036,7 @@ async fn an_operator_can_end_everything_one_account_uploaded() {
     assert_eq!(stored, 0, "the reaper reclaims what the update marked");
 }
 
-/// The account is untouched — this is about content, not about people.
+/// The account is untouched: this is about content, not about people.
 #[tokio::test]
 async fn ending_an_accounts_shares_leaves_the_account_alone() {
     let app = TestApp::ready().await;
@@ -2066,7 +2068,7 @@ async fn ending_an_accounts_shares_leaves_the_account_alone() {
 /// The instance this exists for is one running `features.admin: false`: no role
 /// endpoints, so only the seeded roles, and their permissions are locked. Before
 /// this row its operator chose between open registration where every stranger
-/// can upload and closed registration where nobody can join.
+/// can upload and closed registration where no one can join.
 #[tokio::test]
 async fn a_new_account_can_be_given_nothing_at_all() {
     let app = TestApp::with_config(|config| {
@@ -2074,9 +2076,9 @@ async fn a_new_account_can_be_given_nothing_at_all() {
     })
     .await;
 
-    // The first account is the administrator and does not read the setting —
-    // an instance whose first account cannot administer it is one nobody can
-    // repair.
+    // The first account is the administrator and does not read the setting,
+    // since an instance whose first account cannot administer it cannot be
+    // repaired.
     register(&app, "first").await;
     let (guest, _) = register(&app, "second").await;
     let user = account(&app, "second").await;
@@ -2092,10 +2094,10 @@ async fn a_new_account_can_be_given_nothing_at_all() {
     // Signed in, and stopped at the first thing an account is for.
     //
     // Worth knowing before choosing this role: the refusal is about the
-    // account, not about the instance. With `features.anonymous_upload` on — it
-    // is on by default — the same person could sign out and upload as a
-    // stranger. So `guest` restricts somebody only on an instance that has
-    // already closed the anonymous door; on one that has not, it is a label.
+    // account, not the instance. With `features.anonymous_upload` on, the
+    // default, the same person could sign out and upload as a stranger. So
+    // `guest` restricts an account only on an instance that has already closed
+    // the anonymous door; on one that has not, it is a label.
     assert_eq!(
         app.send(
             Request::builder()
@@ -2164,10 +2166,10 @@ async fn the_share_listing_says_what_each_one_has_sent() {
     // Nothing sent yet.
     assert_eq!(admin_share(&app, &admin).await, 0);
 
-    // A whole download, then a partial one — the second is why this cannot be
+    // A whole download, then a partial one. The second is why this cannot be
     // worked out from `size_bytes` and a count.
     //
-    // The bodies are read rather than dropped: the meter counts what leaves
+    // The bodies are read, not dropped. The meter counts what leaves
     // through the response body, so a test that only looks at the status line
     // measures a transfer that never happened.
     let whole = expect_status(
@@ -2249,7 +2251,7 @@ async fn upload(app: &TestApp) -> serde_json::Value {
 
 /// The record is for whoever runs the instance, because the switch is theirs.
 /// An ordinary member seeing visitors' addresses would be a second decision
-/// about somebody else's privacy that no operator agreed to.
+/// about a visitor's privacy that no operator agreed to.
 #[tokio::test]
 async fn only_an_administrator_can_read_a_share_s_access_log() {
     let app = TestApp::ready().await;
@@ -2271,9 +2273,9 @@ async fn only_an_administrator_can_read_a_share_s_access_log() {
     );
 }
 
-/// An empty list means two different things — nobody fetched it, or nothing is
-/// being written down. A screen that cannot tell them apart reports the second
-/// as the first, so the answer says which.
+/// An empty list means the share was never fetched, or nothing is being written
+/// down. A screen that cannot tell them apart reports the second as the first,
+/// so the answer says which.
 #[tokio::test]
 async fn the_access_log_says_whether_it_is_even_recording() {
     let app = TestApp::ready().await;
@@ -2350,8 +2352,9 @@ async fn an_administrator_reads_what_was_recorded() {
     );
 }
 
-/// The list has to include what cannot be changed, or somebody asks where the
-/// port setting went — and it has to say why, or the greyed-out field is a
+/// The list has to include what cannot be changed, or the question becomes
+/// where the
+/// port setting went, and it has to say why, or the greyed-out field is a
 /// mystery.
 #[tokio::test]
 async fn the_settings_list_marks_what_cannot_be_changed() {
@@ -2386,8 +2389,8 @@ async fn the_settings_list_marks_what_cannot_be_changed() {
     assert_eq!(find("mail.password")["refusal"], "secret");
 }
 
-/// The point of the whole feature: change it here, and the next request uses it
-/// — no restart.
+/// What the feature is for: change it here and the next request uses it,
+/// with no restart.
 #[tokio::test]
 async fn a_changed_setting_applies_to_the_next_request() {
     let app = TestApp::ready().await;
@@ -2461,8 +2464,9 @@ async fn null_clears_a_setting_back_to_the_layer_below() {
 }
 
 /// A value the configuration refuses is refused here, naming the key. The
-/// start-up fallback that drops a bad row is a safety net, not the validation
-/// path — leaning on it would mean a save that succeeds and reverts on restart.
+/// start-up fallback that drops a bad row is a safety net, not the
+/// validation path; leaning on it would mean a save that succeeds and reverts
+/// on restart.
 #[tokio::test]
 async fn a_value_the_configuration_refuses_is_rejected_with_its_key() {
     let app = TestApp::ready().await;
@@ -2600,7 +2604,7 @@ async fn the_settings_endpoint_never_returns_a_credential() {
 
 /// Shortening a retention means the next sweep removes things that were going
 /// to be kept, and nothing brings them back. An empty "are you sure?" is a
-/// button everybody clicks; a number is what makes somebody stop.
+/// button everyone clicks; a number is what gives pause.
 #[tokio::test]
 async fn shortening_a_retention_is_refused_until_it_is_confirmed() {
     let app = TestApp::ready().await;
@@ -2657,7 +2661,7 @@ async fn shortening_a_retention_is_refused_until_it_is_confirmed() {
 }
 
 /// The numbers have to be available on their own, so a screen can show a table
-/// rather than parse them out of an error message.
+/// instead of parsing them out of an error message.
 #[tokio::test]
 async fn preview_reports_what_a_change_would_destroy() {
     let app = TestApp::ready().await;
@@ -2718,7 +2722,7 @@ async fn preview_reports_what_a_change_would_destroy() {
 }
 
 /// Lengthening a retention keeps more, which destroys nothing. Warning about
-/// both directions would train somebody to click through the warning.
+/// both directions would train an operator to click through the warning.
 #[tokio::test]
 async fn lengthening_a_retention_needs_no_confirmation() {
     let app = TestApp::ready().await;
@@ -2919,7 +2923,7 @@ async fn without_a_key_the_panel_refuses_to_store_one() {
 }
 
 /// A typo is something the operator can fix while the form is still in front of
-/// them. Storing it first would surface the failure as somebody's upload going
+/// them. Storing it first would surface the failure as a later upload going
 /// wrong later.
 #[tokio::test]
 async fn a_backend_that_will_not_open_is_refused_before_it_is_stored() {
@@ -3111,9 +3115,8 @@ async fn the_card_preview_draws_a_layout_and_refuses_a_bad_one() {
         .expect("the body");
     assert_eq!(bytes.get(..8), Some(b"\x89PNG\r\n\x1a\n".as_slice()));
 
-    // A layout the save would refuse is refused here too, with the reason —
-    // otherwise the editor shows a clean preview of something that will not
-    // store.
+    // A layout the save would refuse is refused here too, with the reason, or
+    // the editor shows a clean preview of something that will not store.
     let refused = expect_status(
         ask("<div><script>alert(1)</script></div>", "open").await,
         StatusCode::BAD_REQUEST,
@@ -3130,7 +3133,7 @@ async fn the_card_preview_draws_a_layout_and_refuses_a_bad_one() {
 }
 
 /// The locked sample is the one worth being able to look at, so it must be
-/// drawable — and it must not describe anything.
+/// drawable, and it must not describe anything.
 #[tokio::test]
 async fn the_locked_sample_card_says_nothing_about_a_file() {
     let app = TestApp::ready().await;
@@ -3156,7 +3159,7 @@ async fn the_locked_sample_card_says_nothing_about_a_file() {
     assert_eq!(bytes.get(..8), Some(b"\x89PNG\r\n\x1a\n".as_slice()));
 
     // The sample goes through the same `Card` a real share does, so the value
-    // is simply not there. Asserted on the values rather than the pixels.
+    // is simply not there. Asserted on the values, not the pixels.
     let filled = tessera_server::og::layout::fill(
         "{{size}}|{{label}}",
         &tessera_server::og::placeholder_values_for_test(

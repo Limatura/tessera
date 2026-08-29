@@ -1,9 +1,9 @@
 //! Uploads that survive a dropped connection.
 //!
-//! The local-filesystem path, which is what a default instance runs. The
+//! The local-filesystem path, what a default instance runs. The
 //! multipart path against a real store is exercised by `object_store`.
 
-// The helpers below sit outside a `#[test]` body, which is as far as
+// The helpers below sit outside a `#[test]` body, and that is as far as
 // clippy.toml's test exemptions reach. A fixture that cannot read what it was
 // just handed has nothing to report but a failure.
 #![expect(clippy::expect_used, reason = "test fixture")]
@@ -103,7 +103,7 @@ async fn head(app: &TestApp, id: &str, token: &str) -> (StatusCode, Option<u64>,
     )
 }
 
-/// The whole point: a file that arrives in pieces is the same file.
+/// The point: a file that arrives in pieces is the same file.
 #[tokio::test]
 async fn a_file_sent_in_pieces_arrives_whole() {
     let app = TestApp::ready().await;
@@ -113,7 +113,7 @@ async fn a_file_sent_in_pieces_arrives_whole() {
     let (id, token, _) = open(&app, "pieces.bin", sent.len()).await;
 
     // Three requests, and the client could have been restarted between any two
-    // of them — nothing is carried in memory between them.
+    // of them, since nothing is carried in memory between them.
     let third = sent.len() / 3;
     let mut at = 0_u64;
     let mut last = String::new();
@@ -160,7 +160,7 @@ async fn head_reports_the_offset_and_forbids_caching() {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(at, Some(0));
     // A cached offset sends the next chunk to the wrong place, and it is a
-    // proxy rather than the client that would cache it.
+    // proxy, not the client, that would cache it.
     assert_eq!(cache.as_deref(), Some("no-store"));
 
     patch(&app, &id, &token, 0, vec![9; 1024]).await;
@@ -228,7 +228,7 @@ async fn sending_more_than_declared_is_refused() {
     assert_eq!(status, StatusCode::BAD_REQUEST);
 }
 
-/// An upload can grow a share that already exists, which is what multi-file
+/// An upload can grow a share that already exists, and that is what multi-file
 /// shares need from it.
 #[tokio::test]
 async fn an_upload_can_append_to_an_existing_share() {
@@ -290,13 +290,13 @@ async fn an_upload_can_append_to_an_existing_share() {
 ///
 /// What this proves is the truncation: the local sink cuts back to the recorded
 /// offset before adding to it, so the request that loses the race leaves
-/// nothing behind. Measured with that removed — the file came out 6144 bytes
+/// nothing behind. Measured with that removed: the file came out 6144 bytes
 /// long instead of 4096, holding both writes.
 ///
 /// It does **not** prove the conditional update in `advance`; removing that
 /// leaves this passing, because truncation already makes the local path
 /// self-consistent. That check earns its keep on the multipart path, where
-/// there is nothing to truncate — a part that has been uploaded is at the store
+/// there is nothing to truncate: a part that has been uploaded is at the store
 /// whatever happens next, and only the recorded list decides what `complete`
 /// assembles.
 #[tokio::test]
@@ -372,7 +372,7 @@ async fn two_sessions_cannot_reserve_the_same_room() {
         .await;
     assert_eq!(first.status(), StatusCode::CREATED);
 
-    // Nothing has arrived yet, so the room is only spoken for — not used.
+    // Nothing has arrived yet, so the room is only spoken for, not used.
     let second = app
         .send(
             Request::builder()
@@ -415,7 +415,7 @@ async fn an_anonymous_session_does_not_spend_a_members_quota() {
             .expect("store the quota");
     }
 
-    // An anonymous session holding the whole guest allowance.
+    // An anonymous session holding the entire guest allowance.
     let anonymous = app
         .send(
             Request::builder()
@@ -427,7 +427,7 @@ async fn an_anonymous_session_does_not_spend_a_members_quota() {
         .await;
     assert_eq!(anonymous.status(), StatusCode::CREATED);
 
-    // A second anonymous one is refused — the room really is spoken for.
+    // A second anonymous one is refused: the room really is spoken for.
     let again = app
         .send(
             Request::builder()
@@ -497,10 +497,10 @@ async fn a_resumable_upload_is_placed_like_any_other() {
     use tessera_server::db::repository::storage_backend::StorageBackend;
 
     let app = TestApp::with_config(|config| config.storage.capacity_bytes = 1024).await;
-    // A multipart view too, the way a real S3-shaped backend has one — without
+    // A multipart view too, the way a real S3-shaped backend has one. Without
     // it this backend could not hold a resumable upload and the placer would be
-    // right to pass it over.
-    // One store behind both views, the way a real backend has one.
+    // right to pass it over. One store behind both views, as a real backend
+    // has.
     let memory = std::sync::Arc::new(object_store::memory::InMemory::new());
     let second: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::<object_store::memory::InMemory>::clone(&memory);
@@ -564,7 +564,7 @@ async fn a_resumable_upload_is_placed_like_any_other() {
 /// A session records where it is writing, so a later request must not send the
 /// next part to whichever backend is current.
 ///
-/// The session is opened on a *non-default* backend on purpose: with a local
+/// The session is opened on a *non-default* backend by design: with a local
 /// default, "used the recorded name" and "used whatever was in hand" both end
 /// at the same appending sink, and the test proves nothing. Here the recorded
 /// backend is a remote one, so the two answers differ.
@@ -619,7 +619,7 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
     );
 
     // `cold` is dropped from the pool. The session still names it, so the write
-    // has to fail rather than land in whatever is current.
+    // has to fail instead of landing in whatever is current.
     app.state.replace_backends(tessera_server::storage::Pool {
         open: tessera_server::storage::Backends::from([(
             tessera_server::storage::DEFAULT_BACKEND.to_owned(),
@@ -650,10 +650,10 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
 ///
 /// The sweep used to reopen the session's *first* segment and stop. A file
 /// written across two backends is two multipart uploads, and S3 bills for an
-/// abandoned one's parts until somebody aborts it — so the second would sit
+/// abandoned one's parts until it is aborted, so the second would sit
 /// there costing money with nothing left that knew its identifier. Nothing
-/// splits yet, so this builds the two-segment session by hand; the point is that
-/// the sweep is ready before the write path can produce one.
+/// splits yet, so this builds the two-segment session by hand; the point is
+/// that the sweep is ready before the write path can produce one.
 #[tokio::test]
 async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
     use sea_orm::{ActiveValue::Set, EntityTrait as _};
@@ -690,7 +690,7 @@ async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
     .await
     .expect("the second segment");
 
-    // A partial file for each, which is what the appending sink leaves behind.
+    // A partial file for each, as the appending sink leaves behind.
     for key in [&first.object_key, &second_key] {
         let path = std::path::Path::new(&root).join(format!("{key}.part"));
         if let Some(parent) = path.parent() {

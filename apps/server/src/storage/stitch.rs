@@ -10,13 +10,13 @@
 //! asked. That is the case every file is in today, and it is why this can be
 //! written and pinned before anything splits.
 //!
-//! # Why the offsets are given rather than added up
+//! # Why the offsets are given and not added up
 //!
 //! A segment's position could be derived by summing the lengths before it, and
 //! that would be one fewer thing to pass. It would also be one fewer thing to
 //! check: the planner guarantees the segments tile the file, but the rows come
 //! back from a database, and a gap there should produce a wrong answer that a
-//! test can see rather than a right-looking one built from an assumption.
+//! test can see, not a right-looking one built from an assumption.
 
 /// A slice of one segment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,7 +35,7 @@ pub struct Read {
 /// `range` is inclusive at both ends, the way an HTTP `Range` header is.
 ///
 /// Empty when the range falls entirely outside the file, or when it is
-/// backwards. Both are the caller's business to reject — an empty plan is not a
+/// backwards. Both are the caller's business to reject: an empty plan is not a
 /// silent success, it is nothing to read.
 #[must_use]
 pub fn reads_for(segments: &[(u64, u64)], range: (u64, u64)) -> Vec<Read> {
@@ -102,7 +102,7 @@ mod tests {
         );
     }
 
-    /// The case the whole module exists for.
+    /// The case this module exists for.
     #[test]
     fn a_range_across_a_boundary_reads_the_tail_then_the_head() {
         let reads = reads_for(&[(0, 100), (100, 100)], (90, 109));
@@ -134,7 +134,7 @@ mod tests {
     }
 
     /// A gap between segments is a corrupt row set, and the answer has to be
-    /// visibly short rather than quietly stitched over.
+    /// visibly short instead of quietly stitched over.
     #[test]
     fn a_gap_is_not_papered_over() {
         // 0..50 and 100..150, with nothing in between.
@@ -238,8 +238,8 @@ mod tests {
             }
         }
 
-        /// Laid end to end, the reads are the bytes the caller asked for — in
-        /// the right order, from the right places. The check above proves the
+        /// Laid end to end, the reads are the bytes the caller asked for, in
+        /// the right order from the right places. The check above proves the
         /// count; this proves the positions.
         #[test]
         fn the_reads_land_where_they_should((segments, range, _total) in a_file_and_a_range()) {

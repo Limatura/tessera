@@ -5,7 +5,7 @@ use sea_orm::entity::prelude::*;
 /// A row of `role_permissions`.
 ///
 /// The primary key is the pair, so a role cannot hold the same permission
-/// twice — holding it twice is not holding it more.
+/// twice, since holding it twice is not holding it more.
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "role_permissions")]
 pub struct Model {

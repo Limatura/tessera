@@ -23,7 +23,7 @@ use crate::db::{
 
 /// Everything an edit replaces.
 ///
-/// The whole set, not a change to it — see [`RoleRepository::update`].
+/// The whole set, not a change to it. See [`RoleRepository::update`].
 #[derive(Debug)]
 pub struct RoleFields<'a> {
     /// What an operator types and reads.
@@ -96,9 +96,9 @@ pub enum RoleChange {
     NoSuchRole,
     /// It is one of the seeded roles and may not be removed.
     ///
-    /// Only removal is refused. An operator who wants `member` to stop being
-    /// able to delete shares is entitled to say so, and refusing that would be
-    /// the software deciding an instance's policy for it.
+    /// Only removal is refused. An operator who wants `member` to stop deleting
+    /// shares may say so; refusing would be the software deciding an instance's
+    /// policy.
     Seeded,
 }
 
@@ -115,24 +115,10 @@ impl RoleRepository {
         Self { connection }
     }
 
-    /// Everything one person is allowed to do.
-    ///
-    /// # Why an unreadable permission is skipped rather than fatal
-    ///
-    /// A row naming a permission this version does not have is what a downgrade
-    /// leaves behind. Refusing the whole set would lock every one of that
-    /// person's requests out, including the ones the rest of their roles do
-    /// allow — a strictly worse outcome than ignoring the one word nobody here
-    /// can act on. It is logged, because it means somebody is running a mixed
-    /// pair of versions.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`UserRepositoryError`] if a query fails.
     /// The role one account is in, if any.
     ///
-    /// One column on `users` since the join table went — the account row
-    /// carries it, so this is a lookup by primary key.
+    /// One column on `users` since the join table went, so this is a lookup by
+    /// primary key.
     ///
     /// # Errors
     ///
@@ -146,14 +132,13 @@ impl RoleRepository {
 
     /// Everything one person is allowed to do.
     ///
-    /// # Why an unreadable permission is skipped rather than fatal
+    /// # Why an unreadable permission is skipped instead of fatal
     ///
     /// A row naming a permission this version does not have is what a downgrade
-    /// leaves behind. Refusing the whole set would lock every one of that
-    /// person's requests out, including the ones their role does allow — a
-    /// strictly worse outcome than ignoring the one word nobody here can act
-    /// on. It is logged, because it means somebody is running a mixed pair of
-    /// versions.
+    /// leaves behind. Refusing the whole set would lock the person out of every
+    /// request, including the ones their role does allow. That is worse than
+    /// ignoring one unrecognised word. Logged, because it means a mixed pair of
+    /// versions is running.
     ///
     /// # Errors
     ///
@@ -231,7 +216,7 @@ impl RoleRepository {
 
     /// The roles of many people at once.
     ///
-    /// Three queries whatever the number of accounts, rather than two each.
+    /// Three queries whatever the number of accounts, instead of two each.
     ///
     /// # Errors
     ///
@@ -261,7 +246,7 @@ impl RoleRepository {
             // Still a list in the answer, because that is what the responses
             // are shaped like and one role fits in a list of one. A role the
             // account names but that no longer exists comes back as no roles,
-            // which is what it means.
+            // as the name says.
             let held = user
                 .role_id
                 .and_then(|id| by_id.get(&id.to_string()).cloned())
@@ -310,8 +295,8 @@ impl RoleRepository {
 
     /// One role, by the name an operator typed.
     ///
-    /// Used to answer "is this name taken" before writing, so the unique index
-    /// is a backstop rather than the thing producing the error message.
+    /// Answers "is this name taken" before writing, so the unique index is a
+    /// backstop, not the source of the error message.
     ///
     /// # Errors
     ///
@@ -343,8 +328,8 @@ impl RoleRepository {
 
     /// How many accounts are in each role.
     ///
-    /// One query rather than one per role: the listing shows the number beside
-    /// every role, and it is the number an operator wants before editing one.
+    /// One query, not one per role. The listing shows it beside every
+    /// role, and it is what an operator wants before editing one.
     ///
     /// # Errors
     ///
@@ -476,8 +461,8 @@ impl RoleRepository {
     ///
     /// # Errors
     ///
-    /// Returns [`UserRepositoryError`] if the write fails — including when the
-    /// name is taken, which the unique index refuses.
+    /// Returns [`UserRepositoryError`] if the write fails, including when the
+    /// unique index refuses a name that is taken.
     pub async fn create(
         &self,
         fields: RoleFields<'_>,
@@ -525,12 +510,11 @@ impl RoleRepository {
 
     /// Replaces what a role allows.
     ///
-    /// # Why the whole set rather than add and remove
+    /// # Why the whole set, and not add and remove
     ///
-    /// The caller is holding a list of ticked boxes. Sending the result and
-    /// having this write exactly that is the only version where two operators
-    /// editing the same role cannot interleave into a set neither of them
-    /// chose.
+    /// The caller is holding a list of ticked boxes. Writing exactly that is
+    /// the only version where two operators editing the same role cannot
+    /// interleave into a set neither chose.
     ///
     /// # Errors
     ///
@@ -566,9 +550,8 @@ impl RoleRepository {
 
     /// Removes a role, unless it is one of the seeded ones.
     ///
-    /// Anybody in it simply stops being in it — the foreign key cascades. That
-    /// can leave somebody with no roles at all, which is a real state: signed
-    /// in, allowed nothing.
+    /// Every member stops being one, by cascade. That can leave an account with
+    /// no role at all: a real state, signed in and allowed nothing.
     ///
     /// # Errors
     ///
@@ -589,10 +572,10 @@ impl RoleRepository {
         Ok(RoleChange::Done)
     }
 
-    /// Puts somebody in a role, or in none.
+    /// Puts an account in a role, or in none.
     ///
-    /// `None` is signed in and allowed nothing — a real state, and the only way
-    /// to express what "no rows in the join table" used to.
+    /// `None` is signed in and allowed nothing: a real state, and the only way
+    /// to express what "no rows in the join table" used to mean.
     ///
     /// # Errors
     ///
@@ -604,7 +587,7 @@ impl RoleRepository {
         now: OffsetDateTime,
     ) -> Result<RoleChange, UserRepositoryError> {
         // The role must exist before anything is written, or a typo silently
-        // takes away the one somebody had.
+        // strips the role the account already had.
         if let Some(id) = role
             && RoleEntity::find_by_id(id.to_string())
                 .one(&self.connection)
@@ -627,8 +610,8 @@ impl RoleRepository {
 
     /// How many people hold a permission.
     ///
-    /// Asked before taking somebody's last administrator role away, which is
-    /// the change that can leave an instance nobody can administer.
+    /// Asked before taking away an account's last administrator role, the
+    /// change that can leave an instance with no administrator at all.
     ///
     /// # Errors
     ///
@@ -645,8 +628,8 @@ impl RoleRepository {
             return Ok(0);
         }
 
-        // One role each, so counting accounts is counting holders — there is no
-        // longer a person in two granting roles to deduplicate.
+        // One role each, so counting accounts is counting holders. No account
+        // is in two granting roles to deduplicate.
         Ok(PaginatorTrait::count(
             UserEntity::find().filter(user::Column::RoleId.is_in(granting)),
             &self.connection,

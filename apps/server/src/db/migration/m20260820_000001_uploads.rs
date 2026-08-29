@@ -1,6 +1,6 @@
 //! Resumable uploads: a file that arrives across several requests.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the SQLite one for why
+//! The SQL lives in `sql/`, one file per dialect. See the SQLite one for why
 //! an unfinished upload is not a `file_shares` row, and why its object key is
 //! decided once.
 
@@ -20,8 +20,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -41,10 +41,10 @@ mod tests {
     use super::{MYSQL, POSTGRES, SQLITE};
 
     /// `InnoDB` silently ignores `REFERENCES` written on a column and only
-    /// honours a table-level `FOREIGN KEY`. A migration that used the column
-    /// form would create the table, pass every test, and leave MySQL with no
-    /// cascade at all — so an upload session would outlive the share it was
-    /// appending to.
+    /// honours a table-level `FOREIGN KEY`. A migration using the column form
+    /// would create the table, pass every test, and leave MySQL with no cascade
+    /// at all, so an upload session would outlive the share it was appending
+    /// to.
     #[test]
     fn mysql_declares_its_foreign_keys_where_innodb_reads_them() {
         assert_eq!(
