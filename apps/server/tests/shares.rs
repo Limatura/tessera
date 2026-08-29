@@ -5340,3 +5340,66 @@ async fn the_card_for_a_locked_share_draws_without_the_file_name() {
 
     expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
 }
+
+/// A note's card shows its first lines, coloured, and a locked one does not.
+///
+/// The second half is the point. The colouring reads the body, which is exactly
+/// the thing a password is protecting — so the read happens unconditionally and
+/// the discretion lives in one place, where the rest of the preview's rules
+/// already are.
+#[tokio::test]
+async fn a_notes_card_draws_its_code_unless_the_note_is_locked() {
+    let code_text = "export function withAuth(handler: Handler) {\n  const token = req.headers.get(\"authorization\");\n  return handler(req);\n}\n";
+
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?language=ts"),
+                Body::from(code_text),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let open = created["code"].as_str().expect("a code").to_owned();
+
+    let locked_created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?language=ts")
+                    .header("x-share-password", "hunter2hunter2"),
+                Body::from(code_text),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let locked = locked_created["code"].as_str().expect("a code").to_owned();
+
+    let mut drawn = Vec::new();
+    for code in [&open, &locked] {
+        let response =
+            expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+        drawn.push(
+            to_bytes(response.into_body(), usize::MAX)
+                .await
+                .expect("the body")
+                .len(),
+        );
+    }
+
+    // Both draw. That the locked one draws *without* the code is asserted
+    // exactly, on the decision itself, in `api::preview`'s own tests — a
+    // difference in PNG size would only ever be a proxy for it, and a weak one.
+    let (with_code, without) = (drawn[0], drawn[1]);
+    assert!(with_code > 0 && without > 0);
+}

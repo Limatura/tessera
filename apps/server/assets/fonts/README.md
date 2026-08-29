@@ -15,8 +15,16 @@ what it costs; the coverage argument is in the issue.
 | `DroidSansFallback.woff2` | 1.41 MB | CJK ideographs, kana, bopomofo |
 | `NotoSansKR-hangul.woff2` | 0.95 MB | Hangul, all 11 172 precomposed syllables |
 | `NotoEmoji.woff2` | 0.45 MB | 1 503 emoji, monochrome |
+| `DejaVuSansMono.woff2` | 0.14 MB | the code block on a note's card |
 
-Total 3.29 MB.
+Total 3.43 MB.
+
+## Why there is a monospace face
+
+A note's card draws the first lines of what was pasted, and code set in a
+proportional face does not read as code. It is also load-bearing rather than
+decorative: indentation is drawn as padding measured in character widths, and a
+character width is a number only when every character has the same one.
 
 ## Why Korean needs its own file
 

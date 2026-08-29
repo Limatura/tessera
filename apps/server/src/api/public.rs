@@ -99,7 +99,19 @@ async fn og_image(
     let (share, content) = crate::api::preview::lookup(&state, &code)
         .await
         .ok_or(Error::NotFound)?;
-    let preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
+    let mut preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
+    // Read only for a note, and only to be thrown away if the share turns out
+    // to be locked — `with_snippet` is where that is decided, so the read here
+    // is unconditional and the discretion is not duplicated.
+    if share.kind == ShareKind::Text
+        && let Ok(Some(text)) = state.shares.text_of(share.id).await
+    {
+        // Lossy rather than refusing: the column is bytes, a paste is whatever
+        // the uploader sent, and a card with a replacement character in it is
+        // better than no card.
+        let body = String::from_utf8_lossy(&text.content);
+        preview = preview.with_snippet(&body, text.language.as_deref());
+    }
     let png = cards.draw(&preview, &code).map_err(|error| {
         tracing::error!(%error, "could not draw a link-preview card");
         Error::Unavailable

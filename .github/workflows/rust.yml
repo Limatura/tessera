@@ -327,7 +327,13 @@ jobs:
       # adds another store's worth of images to the same machine.
       - name: Check the runner has room and free ports
         run: |
-          FLOOR_GB=20
+          # Twelve, from the three measurements there are rather than from
+          # taste: the disk is 55 GB, a run with about 10 GB free had every
+          # SeaweedFS write fail, and a run with 17 GB was stopped by the old
+          # floor of 20 having done nothing wrong. The cap in
+          # `.github/actions/rust` is what keeps the disk out of that region;
+          # this only catches what the cap cannot see.
+          FLOOR_GB=12
           free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
           echo "root filesystem ${free_gb} GB free (floor ${FLOOR_GB} GB)"
           if [ "$free_gb" -lt "$FLOOR_GB" ]; then
@@ -886,7 +892,8 @@ jobs:
           # 1.4 GB. It stopped being enough when the musl cross toolchain
           # replaced it at 3.5 GB, and the runner filled up mid-build and went
           # offline.
-          FLOOR_GB=20
+          # See the note on the other copy of this check.
+          FLOOR_GB=12
           free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
           used_pct=$(df --output=pcent / | tail -1 | tr -dc '0-9')
           echo "root filesystem ${used_pct}% full, ${free_gb} GB free (floor ${FLOOR_GB} GB)"

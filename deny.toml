@@ -29,6 +29,13 @@ ignore = [
   # utoipa-axum, so the fix is upstream migrating to `pastey`, not a change here.
   # Revisit whenever utoipa-axum is bumped.
   { id = "RUSTSEC-2024-0436", reason = "unmaintained proc-macro helper pulled in by utoipa-axum; no runtime exposure, no upgrade path on our side" },
+  # `bincode` 1.x is unmaintained, and it reaches us through `syntect`, which
+  # uses it for one thing: deserialising the syntax and theme dumps that are
+  # compiled into our own binary. It never sees a byte from a request — the
+  # input is a `include_bytes!` constant we ship — so "unmaintained" here is a
+  # supply-chain question about a build input, not an attack surface. syntect 5
+  # has no version that drops it; the fix is upstream.
+  { id = "RUSTSEC-2025-0141", reason = "unmaintained deserialiser used by syntect only to load syntax dumps embedded in our own binary; never reads request data" },
 ]
 
 [licenses]

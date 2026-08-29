@@ -42,6 +42,10 @@ pub enum Card {
         chips: Vec<String>,
         /// The line along the bottom: when it goes, and how many goes are left.
         footer: String,
+        /// The first lines of a text share, coloured. `None` for a file, and
+        /// for a note whose body was not read.
+        #[cfg(feature = "og-images")]
+        snippet: Option<crate::og::code::Snippet>,
     },
     /// Password-protected. Only a title the uploader typed themselves appears.
     Locked {
@@ -107,9 +111,27 @@ impl Preview {
                     },
                     chips: chips(share, content),
                     footer: describe(share, content),
+                    #[cfg(feature = "og-images")]
+                    snippet: None,
                 },
             },
         }
+    }
+
+    /// Attaches the first lines of a note's body, coloured.
+    ///
+    /// A no-op unless the share is [`Card::Open`], and that is the whole point
+    /// of putting it here: the caller reads a body without knowing whether the
+    /// share may describe itself, and this is where that is already decided. A
+    /// locked note keeps its code to itself without the caller having to
+    /// remember to ask.
+    #[cfg(feature = "og-images")]
+    #[must_use]
+    pub fn with_snippet(mut self, body: &str, language: Option<&str>) -> Self {
+        if let Card::Open { snippet, .. } = &mut self.card {
+            *snippet = Some(crate::og::code::highlight(body, language));
+        }
+        self
     }
 
     /// The headline: a title the uploader typed, or what stands in for one.
@@ -371,6 +393,46 @@ pub fn origin(config: &crate::config::Config, headers: &axum::http::HeaderMap) -
     Some(format!("{scheme}://{host}"))
 }
 
+/// Fixtures other modules' tests need. Compiled only for tests.
+#[cfg(test)]
+pub mod testing {
+    use tessera_core::{RetrievalCode, ShareId};
+    use time::OffsetDateTime;
+
+    use crate::db::repository::share::{Share, ShareKind};
+
+    /// A share with nothing set: no password, and three days left.
+    ///
+    /// # Panics
+    ///
+    /// If the hard-coded retrieval code stops being a valid one, which would
+    /// mean the code format changed and every fixture using it wants looking at.
+    #[must_use]
+    pub fn share(kind: ShareKind) -> Share {
+        Share {
+            role_id: None,
+            id: ShareId::generate(),
+            code: RetrievalCode::parse("K3P9XQ2M").expect("a valid code"),
+            user_id: None,
+            kind,
+            password_hash: None,
+            use_limit: Some(5),
+            use_count: 0,
+            expires_at: Some(OffsetDateTime::now_utc() + time::Duration::days(3)),
+            disabled_at: None,
+            title: None,
+            og_config: None,
+            management_token_hash: None,
+            view_count: 0,
+            copy_count: 0,
+            bytes_served: 0,
+            last_accessed_at: None,
+            created_at: OffsetDateTime::now_utc(),
+            updated_at: OffsetDateTime::now_utc(),
+        }
+    }
+}
+
 /// Reads the share a `/s/{code}` page is about, without touching its counters.
 ///
 /// Deliberately not [`crate::api::gate::open`]: that refuses expired shares and
@@ -477,6 +539,50 @@ mod tests {
         assert!(!said.contains("severance"), "{said}");
         assert!(!said.contains("Board pack"), "{said}");
         assert!(!said.contains("2.0 KiB"), "{said}");
+    }
+
+    /// A note's card carries its first lines; a locked note's does not.
+    ///
+    /// The caller reads the body without knowing whether the share may describe
+    /// itself — deliberately, so that one place decides — which makes this the
+    /// place the decision has to hold.
+    #[cfg(feature = "og-images")]
+    #[test]
+    fn a_snippet_reaches_an_open_card_and_not_a_locked_one() {
+        let text = "const secret = \"hunter2\";\n";
+
+        let open = Preview::of(
+            &share(ShareKind::Text),
+            &content(),
+            OffsetDateTime::now_utc(),
+        )
+        .with_snippet(text, Some("ts"));
+        assert!(
+            matches!(
+                &open.card,
+                Card::Open {
+                    snippet: Some(_),
+                    ..
+                }
+            ),
+            "an open note lost its snippet: {:?}",
+            open.card
+        );
+
+        let mut locked = share(ShareKind::Text);
+        locked.password_hash = Some("$argon2id$...".to_owned());
+        let locked = Preview::of(&locked, &content(), OffsetDateTime::now_utc())
+            .with_snippet(text, Some("ts"));
+        assert!(
+            matches!(locked.card, Card::Locked { .. }),
+            "{:?}",
+            locked.card
+        );
+        assert!(
+            !format!("{:?}", locked.card).contains("hunter2"),
+            "a locked note's body reached its card: {:?}",
+            locked.card
+        );
     }
 
     /// Without an origin there is no picture, and the small card is asked for

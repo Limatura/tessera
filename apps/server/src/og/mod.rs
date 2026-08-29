@@ -41,6 +41,8 @@
 //!
 //! [#12]: https://github.com/Limatura/tessera/issues/12
 
+pub mod code;
+
 use std::result::Result;
 
 use takumi::{from_html, prelude::*, render, write_image};
@@ -97,12 +99,16 @@ impl std::fmt::Debug for Cards {
 /// Latin first so that a name which is mostly ASCII is set in the face designed
 /// for it; the fallbacks behind it, each covering what the ones before it do
 /// not.
-const FACES: [&[u8]; 5] = [
-    include_bytes!("../assets/fonts/DejaVuSans.woff2"),
-    include_bytes!("../assets/fonts/DejaVuSans-Bold.woff2"),
-    include_bytes!("../assets/fonts/DroidSansFallback.woff2"),
-    include_bytes!("../assets/fonts/NotoSansKR-hangul.woff2"),
-    include_bytes!("../assets/fonts/NotoEmoji.woff2"),
+const FACES: [&[u8]; 6] = [
+    include_bytes!("../../assets/fonts/DejaVuSans.woff2"),
+    include_bytes!("../../assets/fonts/DejaVuSans-Bold.woff2"),
+    include_bytes!("../../assets/fonts/DroidSansFallback.woff2"),
+    include_bytes!("../../assets/fonts/NotoSansKR-hangul.woff2"),
+    include_bytes!("../../assets/fonts/NotoEmoji.woff2"),
+    // Code is set in a monospace face, and not only because it looks right:
+    // indentation on a card is drawn as padding measured in character widths,
+    // which is a number only when every character is the same width.
+    include_bytes!("../../assets/fonts/DejaVuSansMono.woff2"),
 ];
 
 impl Cards {
@@ -171,6 +177,8 @@ fn layout(preview: &Preview, code: &str) -> String {
             label,
             chips,
             footer,
+            // A note with one took the branch above; this arm is the file card.
+            snippet: _,
         } => (
             *label,
             ink::ACCENT,
@@ -195,6 +203,20 @@ fn layout(preview: &Preview, code: &str) -> String {
             "It expired, or it has already been collected".to_owned(),
         ),
     };
+    // A note with a snippet gets its own arrangement: the code is the picture,
+    // so it takes the middle and the headline shrinks to a line above it. Fitted
+    // into the shared shell instead, it overflows — and what a 630-pixel card
+    // drops off the bottom is the retrieval code.
+    if let Card::Open {
+        label,
+        snippet: Some(snippet),
+        footer,
+        ..
+    } = &preview.card
+    {
+        return note_layout(label, &headline, snippet, &escape(footer), &code);
+    }
+
     let mark = match &preview.card {
         Card::Open { .. } => document_mark(),
         Card::Locked { .. } => lock_mark(),
@@ -246,6 +268,89 @@ fn chip_row(chips: &[String]) -> String {
     format!(r#"<div style="display:flex;gap:12px">{boxes}</div>"#)
 }
 
+/// The card a text share gets: its own code, large, with everything else small.
+fn note_layout(
+    label: &str,
+    headline: &str,
+    snippet: &code::Snippet,
+    footer: &str,
+    code_text: &str,
+) -> String {
+    let language = escape(&snippet.language);
+    format!(
+        r#"<div style="width:{WIDTH}px;height:{HEIGHT}px;background:{ground};display:flex;flex-direction:column;justify-content:space-between;padding:48px 56px;color:{text};font-family:DejaVu Sans">
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:16px">
+      <div style="width:40px;height:24px;background:{accent}"></div>
+      <div style="font-size:24px;font-weight:700">Tessera</div>
+    </div>
+    <div style="font-size:20px;color:{quiet}">{language}</div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:18px;font-weight:700;color:{accent};letter-spacing:2px">{label}</div>
+    <div style="font-size:32px;font-weight:700">{headline}</div>
+  </div>
+  {block}
+  <div style="display:flex;align-items:center;justify-content:space-between">
+    <div style="font-size:20px;color:{quiet}">{footer}</div>
+    <div style="border:2px dashed {accent};border-radius:10px;padding:12px 20px;font-size:26px;font-weight:700;letter-spacing:3px">{code_text}</div>
+  </div>
+</div>"#,
+        ground = ink::GROUND,
+        text = ink::TEXT,
+        accent = ink::ACCENT,
+        quiet = ink::QUIET,
+        block = code_block(snippet),
+    )
+}
+
+/// The first lines of a note, coloured, as a block of line boxes.
+///
+/// One `div` per line because takumi lays out with flexbox, where the newlines
+/// inside a `<pre>` are whitespace and the whole snippet would come out as a
+/// single line running off the card.
+fn code_block(snippet: &code::Snippet) -> String {
+    use std::fmt::Write as _;
+
+    let mut lines = String::new();
+    for line in &snippet.lines {
+        let mut runs = String::new();
+        for (colour, text) in &line.runs {
+            // Spaces become non-breaking ones: indentation is made of spaces,
+            // and a layout engine that collapses them turns nine lines of code
+            // into a left-aligned wall.
+            let text = escape(text).replace(' ', "\u{a0}");
+            let _ = write!(runs, r#"<span style="color:{colour}">{text}</span>"#);
+        }
+        if runs.is_empty() {
+            // A blank line still needs a box, or the lines below it move up.
+            r#"<span style="color:#00000000">.</span>"#.clone_into(&mut runs);
+        }
+        // Indentation as padding, at the width of one monospace character at
+        // this size. `ch` units would say it better, but the layout engine
+        // takes pixels.
+        let pad = line.indent * 13;
+        let _ = write!(
+            lines,
+            r#"<div style="height:30px;display:flex;padding-left:{pad}px">{runs}</div>"#
+        );
+    }
+
+    let more = if snippet.truncated {
+        format!(
+            r#"<div style="font-size:20px;color:{faded};margin-top:8px">…and more</div>"#,
+            faded = ink::FADED,
+        )
+    } else {
+        String::new()
+    };
+
+    format!(
+        r#"<div style="display:flex;flex-direction:column;background:{chip};border-radius:12px;padding:20px 24px;font-size:21px;font-family:DejaVu Sans Mono">{lines}{more}</div>"#,
+        chip = ink::CHIP,
+    )
+}
+
 /// The three marks are drawn from boxes rather than an icon font, so that the
 /// card needs nothing the binary does not already carry.
 fn document_mark() -> String {
@@ -295,4 +400,46 @@ fn escape(value: &str) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::api::preview::{Preview, testing};
+
+    /// Writes the cards out so a person can look at them. Ignored by default —
+    /// this checks nothing, it produces something to judge.
+    #[test]
+    #[ignore = "draws the cards to /tmp for a person to look at"]
+    fn draw_the_cards() {
+        use crate::db::repository::share::{Content, FilePart, ShareKind, StorageLocation};
+
+        let cards = Cards::new().expect("the fonts");
+        let content = Content::Files(vec![FilePart {
+            segments: Vec::new(),
+            filename: Some("Q3-2026-finance-and-operations-review.pdf".to_owned()),
+            content_type: None,
+            size_bytes: 26_000_000,
+            storage: StorageLocation::Inline,
+        }]);
+        let now = time::OffsetDateTime::now_utc();
+
+        let base = testing::share(ShareKind::Text);
+        let note = Preview::of(&base, &content, now).with_snippet(
+            "export function withAuth(handler: Handler) {\n  return async (req: Request) => {\n    const token = req.headers.get(\"authorization\");\n    if (!token) return new Response(\"Unauthorized\", { status: 401 });\n\n    const session = await verifySession(token);\n    return handler(req, session);\n  };\n}\n\nexport default withAuth;\n",
+            Some("ts"),
+        );
+
+        for (name, preview) in [
+            ("note", note),
+            (
+                "file",
+                Preview::of(&testing::share(ShareKind::File), &content, now),
+            ),
+        ] {
+            let png = cards.draw(&preview, "K3P9XQ2M").expect("a card");
+            std::fs::write(format!("/tmp/card-{name}.png"), png).expect("write");
+            println!("wrote /tmp/card-{name}.png");
+        }
+    }
 }

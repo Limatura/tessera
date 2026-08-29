@@ -47,10 +47,15 @@ runs:
     # precisely so a build does not start from nothing, and throwing it away on
     # every run would trade an hour of disk for an hour of compiling. Over the
     # cap, the next build pays for one cold start and the disk comes back.
+    #
+    # Fourteen because the number has to leave the rest of the job room on a
+    # 55 GB disk, and 25 did not: measured on 2026-08-29 the directory sat at
+    # 23 GB, under that cap and therefore kept, with 17 GB free — and the job
+    # was then stopped by its own floor. A cap only helps if it binds.
     - name: Keep the shared target directory under a cap
       shell: bash
       run: |
-        CAP_GB=25
+        CAP_GB=14
         target="${CARGO_TARGET_DIR:-}"
         if [ -z "$target" ] || [ ! -d "$target" ]; then
           echo "no shared target directory yet"
