@@ -28,7 +28,7 @@ workspace = true
 # every backend, and nobody should have to rebuild to point at S3. The flags stay
 # so that someone building from source for a constrained box can strip back down
 # — `--no-default-features --features sqlite,storage-fs` is a much smaller binary.
-default = ["sqlite", "postgres", "mysql", "storage-fs", "storage-s3", "storage-gcs", "storage-azure", "storage-http", "email"]
+default = ["sqlite", "postgres", "mysql", "storage-fs", "storage-s3", "storage-gcs", "storage-azure", "storage-http", "email", "og-images"]
 
 # --- data ---
 # Each backend pulls in our direct sqlx dependency, which is what pins the TLS
@@ -47,6 +47,25 @@ storage-s3 = ["object_store/aws"]
 storage-gcs = ["object_store/gcp"]
 storage-azure = ["object_store/azure"]
 storage-http = ["object_store/http"]       # WebDAV and plain HTTP stores
+
+# --- link previews ---
+# Draws the picture a chat client shows when somebody pastes a share link.
+#
+# Measured against a blank binary on this project's release profile: takumi with
+# `from-html` costs 5.02 MB, and the five embedded faces another 3.29 MB. That is
+# the largest single flag here, which is why it is a flag — an instance whose
+# links are never pasted anywhere public can turn it off and get the space back.
+#
+# `from-html` rather than building a node tree in Rust: the layouts are HTML so
+# that the editor #12 plans can edit the same source the server renders, instead
+# of a preview and a real output drifting apart as two implementations.
+#
+# `woff2` because the faces are stored compressed — 3.29 MB rather than 9.06 MB
+# of TrueType.
+#
+# Version pinned exactly, not caret: takumi went 2.7.1 to 2.12.0 in thirteen
+# days, and `takumi-html` is still 0.x.
+og-images = ["dep:takumi"]
 
 # --- email ---
 # On by default, like every other backend, because it costs 37 KB.
@@ -208,6 +227,22 @@ axum-extra = { version = "0.12", features = ["cookie"] }
 ipnet = "2"
 parking_lot = "0.12"
 rust-embed = "8.12"
+# Pinned exactly rather than with a caret: see the `og-images` feature note.
+# Pinned exactly rather than with a caret: see the `og-images` feature note.
+#
+# The explicit feature list saves no bytes — measured, it came out 64 larger
+# than the default set, because link-time optimisation already drops the JPEG,
+# WebP and GIF decoders nothing calls. It is here for the compile time and to
+# say what is actually used. `svg-source` is not used either: `raster-backend`
+# on its own does not compile, and has not since 0.4.13 — `node_paint.rs` looks
+# for a `draw_image` that only another feature defines. Upstream bug, still
+# present in 0.4.21.
+takumi = { version = "=2.12.0", default-features = false, features = [
+  "raster-backend",
+  "from-html",
+  "woff2",
+  "svg-source",
+], optional = true }
 mime_guess = "2"
 bytes = "1"
 # `BodyExt::frame` is how the upload path reads a request body one chunk at a

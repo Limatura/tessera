@@ -333,6 +333,25 @@ jobs:
           if [ "$free_gb" -lt "$FLOOR_GB" ]; then
             echo "short on room; clearing unused images"
             timeout 300 docker system prune -a -f || true
+            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+            echo "after clearing: ${free_gb} GB free"
+          fi
+          # Checked again, and this time it stops. Carrying on without room does
+          # not produce a message about room: the stores come up, accept
+          # connections, and then answer writes with an error their gateways
+          # report as a 500 — so the run fails three minutes later in whichever
+          # test happened to write first, saying nothing about the cause.
+          # Measured on 2026-08-28: 6 GB free, 10 after pruning, and every
+          # SeaweedFS test failed with `internal error`.
+          #
+          # What was filling the disk was not the stores — they use tens of
+          # megabytes — but the shared cargo target directory, which reaches
+          # 64 GB on a 55 GB runner. That is bounded in `.github/actions/rust`,
+          # which runs before this and can hand the space back. This is the
+          # backstop for everything else on a shared machine.
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor; the object stores need room to write"
+            exit 1
           fi
           # Our own leftovers first. A cancelled job does not reach its cleanup
           # step — cancellation skips what has not started — so a run that was
@@ -748,6 +767,27 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E "$filter"
 
+      # A store that will not take a write answers with an error its gateway
+      # reports as a plain `500`, so the test says `internal error` and nothing
+      # about why. The store itself says why, and this is the only place that
+      # record survives the job — the next step removes the containers.
+      #
+      # After every suite rather than beside each one: a step guarded by
+      # `if: failure()` runs wherever the failure was, and which store broke is
+      # not known until one does.
+      - name: What the stores said, if a suite failed
+        if: failure()
+        run: |
+          for name in tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+                      tessera-minio tessera-seaweed tessera-versity tessera-s3proxy; do
+            if docker inspect "$name" > /dev/null 2>&1; then
+              echo "::group::$name"
+              docker logs --tail 80 "$name" 2>&1 || true
+              echo "::endgroup::"
+            fi
+          done
+          df -h /
+
       # The runner keeps running after the job ends, so a container started here
       # outlives it and the next run finds the name and the port taken.
       - name: Stop the stores
@@ -854,6 +894,13 @@ jobs:
             echo "short on room; clearing images and caches too"
             timeout 300 docker system prune -a --volumes -f || true
             rm -rf /tmp/tessera-buildx-cache
+            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+            echo "after clearing: ${free_gb} GB free"
+          fi
+          # As above: stop rather than fail later saying something else.
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor"
+            exit 1
           fi
           df -h / | tail -1
 
@@ -905,8 +952,16 @@ jobs:
           #
           # These leave about half. That is loose enough to sit still through
           # ordinary work and tight enough that a doubling still says something.
-          BINARY_BUDGET_MB=28
-          ROOTFS_BUDGET_MB=32
+          #
+          # Raised on 2026-08-29 for the link-preview cards. Measured on the
+          # release profile, the same build with and without `og-images`:
+          # 19.8 MB against 28.2 MB, so the feature costs 8.4 MB — takumi 5.0
+          # and five embedded font faces 3.3. That left the old budget passing
+          # by 218 KB, which is the state the paragraph above says is worse than
+          # useless, so the budgets move with it rather than being squeaked
+          # under. These again leave about half.
+          BINARY_BUDGET_MB=40
+          ROOTFS_BUDGET_MB=44
 
           cid=$(docker create tessera-server:ci)
           docker cp "$cid:/usr/local/bin/tessera-server" /tmp/tessera-server

@@ -6,26 +6,21 @@ The reasoning lives next to the code, in the module docs of `storage/split.rs`, 
 
 ## What exists today
 
-All of it, with the switch off by default. Turning
-`storage.split_across_backends` on makes a file larger than any single backend
-go up in pieces and come back whole — there is an end-to-end test that does
-exactly that against two buckets neither of which could hold it.
+All of it, with the switch off by default. Turning `storage.split_across_backends` on makes a file larger than any single backend go up in pieces and come back whole — there is an end-to-end test that does exactly that against two buckets neither of which could hold it.
 
-What is *not* built is the frontend delivery in [#184]: a split file has no
-direct link, so its bytes come back through the server rather than being
-stitched in the browser.
+What is _not_ built is the frontend delivery in [#184]: a split file has no direct link, so its bytes come back through the server rather than being stitched in the browser.
 
-| Piece | Where |
-|---|---|
-| Planner | `storage::split::plan` |
-| Range mapping | `storage::stitch::reads_for` |
-| Writing across segments | `upload::segments::Writer` |
-| Reading across segments | `api::public::stream_stitched` |
+| Piece                               | Where                               |
+| ----------------------------------- | ----------------------------------- |
+| Planner                             | `storage::split::plan`              |
+| Range mapping                       | `storage::stitch::reads_for`        |
+| Writing across segments             | `upload::segments::Writer`          |
+| Reading across segments             | `api::public::stream_stitched`      |
 | `upload_segments` / `file_segments` | migrations `m20260903`, `m20260904` |
-| How much the pool holds | `storage::split::capacity` |
-| Sweep over every segment | `maintenance::abandon` |
-| A store that stops mid-upload | `tests/common/brimming.rs` |
-| The switch | `storage.split_across_backends` |
+| How much the pool holds             | `storage::split::capacity`          |
+| Sweep over every segment            | `maintenance::abandon`              |
+| A store that stops mid-upload       | `tests/common/brimming.rs`          |
+| The switch                          | `storage.split_across_backends`     |
 
 ## Upload
 
@@ -57,26 +52,15 @@ A chunked body declares nothing. The planner needs a size to cut against, and fi
 
 ### Where the reservation actually lives
 
-The design said `upload_segments` rows in state `planned`, written before any
-bytes. The implementation does not, and the reason is structural rather than a
-shortcut: a direct `POST /shares` has no `uploads` row at all — there is nothing
-to record against until the share exists — and `upload_segments.upload_id` is a
-foreign key to one. There is nowhere to put the row.
+The design said `upload_segments` rows in state `planned`, written before any bytes. The implementation does not, and the reason is structural rather than a shortcut: a direct `POST /shares` has no `uploads` row at all — there is nothing to record against until the share exists — and `upload_segments.upload_id` is a foreign key to one. There is nowhere to put the row.
 
-What holds the space instead is `storage::in_flight`, which counts bytes as they
-arrive and is added to the database's figures. Two uploads planning against the
-same backend at the same moment see each other through it.
+What holds the space instead is `storage::in_flight`, which counts bytes as they arrive and is added to the database's figures. Two uploads planning against the same backend at the same moment see each other through it.
 
-`planned` is therefore still unwritten. It is the right shape for the resumable
-path, which *does* have rows — and which does not split yet either. Both are the
-same piece of work, and neither is done.
+`planned` is therefore still unwritten. It is the right shape for the resumable path, which _does_ have rows — and which does not split yet either. Both are the same piece of work, and neither is done.
 
 ### What does not split yet
 
-- **Resumable (`tus`) uploads.** They go through `place_resumable`, which picks
-  one backend. A session declares its size up front, so the planner would fit
-  well; what is missing is the `planned` rows above and a writer that survives
-  across requests.
+- **Resumable (`tus`) uploads.** They go through `place_resumable`, which picks one backend. A session declares its size up front, so the planner would fit well; what is missing is the `planned` rows above and a writer that survives across requests.
 - **Anything without a `Content-Length`.** Deliberate, and above.
 
 ## Download

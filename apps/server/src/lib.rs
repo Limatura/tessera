@@ -27,6 +27,8 @@ pub mod db;
 pub mod error;
 pub mod mail;
 pub mod maintenance;
+#[cfg(feature = "og-images")]
+pub mod og;
 pub mod settings;
 pub mod state;
 pub mod storage;

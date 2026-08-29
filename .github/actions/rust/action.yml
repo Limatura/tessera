@@ -31,6 +31,39 @@ runs:
         done <<< "$(ps -eo pid=,ppid=,etimes=,comm=)"
         [ "$reaped" -eq 0 ] || echo "reaped ${reaped} orphaned compilers"
 
+    # The shared target directory is what actually fills the disk, and nothing
+    # was bounding it.
+    #
+    # Measured on 2026-08-28: this workspace's `target/debug` reaches 64 GB, on a
+    # runner whose whole root filesystem is about 55. Across an hour of runs the
+    # free space went 21 GB, 8 GB, 9 GB — and the failure that produced was not
+    # a message about disk. The object stores came up, took connections, and
+    # then answered every write with an error their gateways report as a plain
+    # `500`, because a volume server out of room marks its volumes read-only.
+    # The run failed three minutes later in whichever test wrote first, saying
+    # `internal error`.
+    #
+    # A cap rather than a clean every time: the directory is shared between jobs
+    # precisely so a build does not start from nothing, and throwing it away on
+    # every run would trade an hour of disk for an hour of compiling. Over the
+    # cap, the next build pays for one cold start and the disk comes back.
+    - name: Keep the shared target directory under a cap
+      shell: bash
+      run: |
+        CAP_GB=25
+        target="${CARGO_TARGET_DIR:-}"
+        if [ -z "$target" ] || [ ! -d "$target" ]; then
+          echo "no shared target directory yet"
+          exit 0
+        fi
+        size_gb=$(du -s --block-size=1G "$target" 2>/dev/null | cut -f1)
+        size_gb=${size_gb:-0}
+        echo "cargo target directory is ${size_gb} GB (cap ${CAP_GB} GB)"
+        if [ "$size_gb" -gt "$CAP_GB" ]; then
+          echo "over the cap; the next build starts from an empty one"
+          rm -rf "$target"
+        fi
+
     # GitHub's hosted images ship with rustup, so this never had to be said. A
     # self-hosted runner is whatever somebody installed on it, and a job that
     # fails with `rustup: command not found` sends the reader to look at the

@@ -496,8 +496,40 @@ async fn a_locked_share_gives_nothing_away_in_its_preview() {
     let page =
         body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
             .await;
+    assert!(!page.contains("payroll"), "the file name leaked: {page}");
+    // The title does appear, and that is the decision rather than an oversight:
+    // the uploader typed it as a label for other people. It is also the sharp
+    // edge — a share titled "Salaries" announces that to the channel — which is
+    // why nothing else about a locked share is shown and why the default, with
+    // no title, says nothing at all.
+    assert!(page.contains("Salaries"), "the title was dropped: {page}");
+}
+
+/// With no title, a locked share still gives nothing away.
+#[tokio::test]
+async fn a_locked_share_without_a_title_gives_nothing_away() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=payroll.xlsx")
+                .header("x-share-password", "1234"),
+            Body::from("secret"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
+            .await;
     assert!(!page.contains("payroll"), "{page}");
-    assert!(!page.contains("Salaries"), "{page}");
     assert!(page.contains("Password-protected share"), "{page}");
 }
 

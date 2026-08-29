@@ -69,9 +69,54 @@ pub struct RetrievalQuery {
 
 /// Routes that are not part of the versioned API.
 pub fn routes() -> Router<AppState> {
-    Router::new()
+    let router = Router::new()
         .route("/{code}/raw", get(raw))
-        .route("/{code}/download", get(download))
+        .route("/{code}/download", get(download));
+    #[cfg(feature = "og-images")]
+    let router = router.route("/{code}/og.png", get(og_image));
+    router
+}
+
+/// The picture a chat client shows when this link is pasted.
+///
+/// Reads the share through [`preview::lookup`](crate::api::preview::lookup)
+/// rather than the gate, for the two reasons that module gives: an unfurler
+/// follows the link before any person clicks, so counting it would burn a
+/// one-time share on the way to its reader; and a crawler must not be able to
+/// spend the lookup allowance meant for people guessing codes.
+///
+/// What the picture may say is decided by
+/// [`Preview`](crate::api::preview::Preview), not here — see
+/// [`crate::og`].
+#[cfg(feature = "og-images")]
+async fn og_image(
+    State(state): State<AppState>,
+    ApiPath(code): ApiPath<String>,
+) -> Result<Response> {
+    use crate::api::preview::Preview;
+
+    let cards = state.cards.as_ref().ok_or(Error::NotFound)?;
+    let (share, content) = crate::api::preview::lookup(&state, &code)
+        .await
+        .ok_or(Error::NotFound)?;
+    let preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
+    let png = cards.draw(&preview, &code).map_err(|error| {
+        tracing::error!(%error, "could not draw a link-preview card");
+        Error::Unavailable
+    })?;
+
+    Ok((
+        [
+            (header::CONTENT_TYPE, "image/png".to_owned()),
+            // Long enough that an unfurler asked twice in a minute does not
+            // redraw, short enough that the countdown on the card is not stale
+            // by a day. Drawing costs milliseconds, so this is politeness to
+            // caches rather than a saving we need.
+            (header::CACHE_CONTROL, "public, max-age=300".to_owned()),
+        ],
+        png,
+    )
+        .into_response())
 }
 
 /// Serves a share's content as plain text.

@@ -544,6 +544,23 @@ pub struct ServerConfig {
     /// neither, which is why the CI job cannot catch a mistake here.
     pub part_size_bytes: usize,
 
+    /// Where this instance is reachable from outside, as an absolute URL.
+    ///
+    /// Only link previews need it, and they need it absolutely: `og:image` is
+    /// read by a crawler on somebody else's machine, so a relative path is not
+    /// a picture, it is nothing.
+    ///
+    /// Empty, the default, derives it from each request's `Host` and forwarded
+    /// scheme. That is right often enough to be a sensible default and wrong in
+    /// exactly the setups this software is aimed at — a reverse proxy that
+    /// rewrites `Host`, a container that only ever sees `localhost:8080` — so an
+    /// operator whose previews come out blank should set it here rather than
+    /// hunt through proxy configuration.
+    ///
+    /// A trailing slash is trimmed, so both spellings behave the same.
+    #[serde(default)]
+    pub public_url: String,
+
     /// Directory to serve the frontend from, instead of the bundle compiled in.
     ///
     /// Empty, the default, serves the compiled-in bundle — one file, no web
@@ -754,6 +771,7 @@ impl Default for ServerConfig {
             // 8 MiB: above S3's 5 MiB floor with room to spare, and small
             // enough that a part which has to be retried is not a long retry.
             part_size_bytes: 8 * 1024 * 1024,
+            public_url: String::new(),
             assets_dir: String::new(),
             cors_allowed_origins: Vec::new(),
             trusted_proxies: Vec::new(),

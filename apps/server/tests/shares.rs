@@ -5245,3 +5245,98 @@ async fn two_uploads_that_both_need_splitting_cannot_both_have_the_pool() {
         );
     }
 }
+
+/// The picture a chat client fetches must not spend a retrieval.
+///
+/// An unfurler follows a link the moment it is pasted, before anyone clicks. If
+/// that counted, a one-time share would be destroyed between being sent and
+/// being read — by the chat client, on the sender's behalf, silently.
+#[tokio::test]
+async fn drawing_the_link_preview_does_not_spend_a_retrieval() {
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=note.txt&max_uses=1"),
+                Body::from("hello"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    // Twice, because once could pass on an off-by-one.
+    for _ in 0..2 {
+        let response = app.get(&format!("/s/{code}/og.png")).await;
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get("content-type")
+                .and_then(|value| value.to_str().ok()),
+            Some("image/png")
+        );
+        let bytes = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("the body");
+        assert_eq!(
+            bytes.get(..8),
+            Some(b"\x89PNG\r\n\x1a\n".as_slice()),
+            "that is not a PNG"
+        );
+    }
+
+    let stored = app
+        .state
+        .shares
+        .find_by_code(&tessera_core::RetrievalCode::parse(&code).expect("a code"))
+        .await
+        .expect("query")
+        .expect("the share");
+    assert_eq!(stored.use_count, 0, "drawing a card spent a retrieval");
+
+    // And the share still works, which is the thing that would have been lost.
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// The card for a locked share must not contain its file name — the same rule
+/// as the tags, checked on the picture, because a picture is where a leak would
+/// be hardest to notice.
+#[tokio::test]
+async fn the_card_for_a_locked_share_draws_without_the_file_name() {
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=payroll.xlsx")
+                    .header("x-share-password", "hunter2hunter2"),
+                Body::from("hello"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    // The page's tags are the readable half of the same decision; the picture
+    // is drawn from that decision, so this pins both.
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
+            .await;
+    assert!(!page.contains("payroll"), "the page named a locked file");
+
+    expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+}

@@ -156,7 +156,11 @@ pub fn normalize_asset_path(raw: &str) -> Option<String> {
 /// A miss on a path that looks like a file (it has an extension) is a 404; a miss
 /// on anything else is a client-side route, so `index.html` is returned with a
 /// 200 and the router in the browser takes over.
-pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> Response {
+pub async fn handler(
+    State(state): State<crate::state::AppState>,
+    headers: axum::http::HeaderMap,
+    uri: Uri,
+) -> Response {
     let Some(path) = normalize_asset_path(uri.path()) else {
         return not_found();
     };
@@ -182,7 +186,7 @@ pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> R
     // A share page is the one client-side route the server knows something
     // about, and the one whose link gets pasted where something will unfurl it.
     if let Some(code) = share_code(&path) {
-        return serve_share_page(&state, code).await;
+        return serve_share_page(&state, &headers, code).await;
     }
     serve(source, INDEX)
 }
@@ -220,7 +224,11 @@ fn strip_locale_prefix(path: &str) -> &str {
 ///
 /// Every failure path here falls back to the plain page. A preview is worth
 /// having; it is not worth a share page that does not load.
-async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Response {
+async fn serve_share_page(
+    state: &crate::state::AppState,
+    headers: &axum::http::HeaderMap,
+    code: &str,
+) -> Response {
     use crate::api::preview::{Preview, splice_into_document};
 
     let Some(asset) = load(&state.assets, INDEX) else {
@@ -233,7 +241,9 @@ async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Respons
         return respond(&state.assets, INDEX, asset);
     };
     let html = html.to_owned();
-    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc()).to_head_tags();
+    let origin = crate::api::preview::origin(&state.config(), headers);
+    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc())
+        .to_head_tags(origin.as_deref(), code);
     let page = splice_into_document(&html, &tags);
 
     (

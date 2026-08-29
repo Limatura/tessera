@@ -53,6 +53,24 @@ allow = [
   # Community Data License Agreement. It is a permissive *data* licence with no
   # obligations attached to distributing a compiled binary.
   "CDLA-Permissive-2.0",
+  # xxhash-rust, which takumi uses for its caches. The Boost licence is
+  # permissive and, unlike MIT, does not even require the notice to appear in a
+  # binary distribution. It shows up here rather than earlier because every
+  # other Boost-licensed crate in the tree — ryu, whoami — is dual-licensed and
+  # satisfied through Apache-2.0.
+  "BSL-1.0",
+  # cssparser, cssparser-macros, selectors and dtoa-short: Servo's CSS engine,
+  # reached through takumi-html, which is how a `style` attribute on a card
+  # layout becomes layout.
+  #
+  # This one is a real exception to the rule above, and it is deliberate. MPL-2.0
+  # is copyleft, but *per file*: §3.2 obliges us to make the source of those
+  # files available to anyone we give the binary to, and says nothing about the
+  # code that links them. We do not modify them — they are unmodified crates.io
+  # releases — so pointing at upstream discharges it. Contamination in the sense
+  # the rule is guarding against, where the licence reaches our own source, does
+  # not happen with MPL.
+  "MPL-2.0",
 ]
 confidence-threshold = 0.9
 # The allow-list is a policy statement, not an inventory. Entries that no current

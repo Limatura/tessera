@@ -151,6 +151,14 @@ pub struct AppState {
     pub uploads: UploadRepository,
     /// Where the frontend is read from — the compiled-in bundle, or a directory.
     pub assets: Arc<crate::assets::Source>,
+    /// Fonts for link-preview cards, decoded once at start-up.
+    ///
+    /// `None` when the embedded faces would not decode. That is a build fault
+    /// and it should not stop an instance from serving files, so it costs the
+    /// pictures and nothing else — the route answers `404` and the page keeps
+    /// its words.
+    #[cfg(feature = "og-images")]
+    pub cards: Option<Arc<crate::og::Cards>>,
     /// Current lifecycle status.
     ///
     /// A `parking_lot::RwLock` rather than an async lock: the critical section is
@@ -318,6 +326,14 @@ impl AppState {
             uploads: UploadRepository::new(db.clone()),
             multipart,
             assets: Arc::new(assets),
+            #[cfg(feature = "og-images")]
+            cards: match crate::og::Cards::new() {
+                Ok(cards) => Some(Arc::new(cards)),
+                Err(error) => {
+                    tracing::error!(%error, "link-preview cards are unavailable");
+                    None
+                }
+            },
             proxies: Arc::new(ArcSwap::from_pointee(config.server.proxy_trust())),
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
             config: Arc::new(ArcSwap::from(config)),
