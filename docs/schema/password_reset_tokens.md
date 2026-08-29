@@ -68,7 +68,6 @@ erDiagram
   TEXT id PK
   TEXT username
   TEXT email
-  TEXT password_hash
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at
@@ -76,6 +75,9 @@ erDiagram
   TEXT state
   TEXT deleted_at
   TEXT deleted_by FK
+  TEXT role_id FK
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 ```
 

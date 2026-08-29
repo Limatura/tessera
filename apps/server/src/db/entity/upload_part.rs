@@ -9,7 +9,14 @@ pub struct Model {
     /// Which upload this part belongs to.
     #[sea_orm(primary_key, auto_increment = false)]
     pub upload_id: String,
-    /// Its position, from one — what S3 calls the part number.
+    /// Which segment of the file it belongs to.
+    ///
+    /// Part numbers restart at one for every multipart upload, and a file spread
+    /// over two backends is two of them, so the number alone does not identify
+    /// a part.
+    #[sea_orm(primary_key, auto_increment = false)]
+    pub seq: i32,
+    /// Its position, from one: what S3 calls the part number.
     #[sea_orm(primary_key, auto_increment = false)]
     pub part_number: i32,
     /// The store's identifier for the part, its `ETag` on S3.

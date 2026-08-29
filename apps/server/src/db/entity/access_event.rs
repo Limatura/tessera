@@ -1,6 +1,6 @@
 //! The `access_events` table, as SeaORM sees it.
 //!
-//! Nothing writes here unless `share.access_log.enabled` is on — see the
+//! Nothing writes here unless `share.access_log.enabled` is on; see the
 //! migration for why that is the default.
 
 use sea_orm::entity::prelude::*;
@@ -16,9 +16,9 @@ pub struct Model {
     pub share_id: String,
     /// When it was fetched.
     pub occurred_at: TimeDateTimeWithTimeZone,
-    /// Where the request came from, or `None` when there is no honest answer —
-    /// behind a proxy this instance does not trust, the address it can see
-    /// belongs to the proxy rather than to the person.
+    /// Where the request came from, or `None` when there is no honest answer:
+    /// behind a proxy this instance does not trust, the visible address belongs
+    /// to the proxy, not to the person.
     pub ip_address: Option<String>,
     /// What the client called itself. Recorded as presented, never echoed.
     pub user_agent: Option<String>,

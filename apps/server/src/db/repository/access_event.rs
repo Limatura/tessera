@@ -4,7 +4,7 @@
 //!
 //! An operator who runs an instance for other people sometimes needs to answer
 //! "who has been fetching this". The counters cannot: they say how many times,
-//! never by whom, which is the whole reason they need no switch.
+//! never by whom, so they need no switch.
 //!
 //! What is written here does identify people, so nothing is written unless
 //! `share.access_log.enabled` says so, and what is written goes away after
@@ -12,8 +12,8 @@
 //! instance; neither is made here.
 
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _,
-    QueryOrder as _, QuerySelect as _,
+    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
+    QueryFilter as _, QueryOrder as _, QuerySelect as _,
 };
 use tessera_core::{AccessEventId, ShareId};
 use time::OffsetDateTime;
@@ -101,6 +101,22 @@ impl AccessEventRepository {
             .collect())
     }
 
+    /// How many events a cutoff would remove.
+    ///
+    /// The same filter [`AccessEventRepository::delete_before`] uses, counted
+    /// and not applied, so the warning describes exactly the rows the sweep
+    /// would take.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`sea_orm::DbErr`] if the query fails.
+    pub async fn count_before(&self, cutoff: OffsetDateTime) -> Result<u64, sea_orm::DbErr> {
+        AccessEventEntity::find()
+            .filter(access_event::Column::OccurredAt.lt(cutoff))
+            .count(&self.connection)
+            .await
+    }
+
     /// Removes events older than `cutoff`.
     ///
     /// The retention period is the whole of the promise this feature makes
@@ -130,8 +146,8 @@ fn truncate(value: &str, limit: usize) -> String {
     while end > 0 && !value.is_char_boundary(end) {
         end -= 1;
     }
-    // `get` rather than an index: the loop above already stepped back to a
-    // boundary, and the fallible form says so to the reader instead of leaning
+    // `get`, not an index. The loop above already stepped back to a boundary,
+    // and the fallible form says so to the reader instead of leaning
     // on a panic that cannot happen.
     value.get(..end).unwrap_or_default().to_owned()
 }

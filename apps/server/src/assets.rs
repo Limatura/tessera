@@ -4,9 +4,9 @@
 //! `build.rs` for how the directory is populated), so a deployment is one file
 //! with no web server in front of it.
 //!
-//! `server.assets_dir` reads from a directory instead. That is a development
-//! convenience, and it is also the only mode with a filesystem to get wrong —
-//! see [`load`] for what confines it.
+//! `server.assets_dir` reads from a directory instead. A development
+//! convenience, and the only mode with a filesystem to get wrong; see `load`
+//! for what confines it.
 
 use std::path::PathBuf;
 
@@ -35,8 +35,8 @@ const INDEX: &str = "index.html";
 /// Confinement is decided by comparing the resolved path of the request against
 /// the resolved path of the root, and a root that resolved differently per
 /// request would be comparing against a moving target. Resolving it at start-up
-/// also means a directory that does not exist is a start-up failure rather than
-/// a 404 on every page.
+/// also means a directory that does not exist is a start-up failure, not a 404
+/// on every page.
 #[derive(Debug, Clone)]
 pub enum Source {
     /// The bundle compiled into this binary.
@@ -62,8 +62,8 @@ impl Source {
         if !root.is_dir() {
             return Err(format!("`{configured}` is not a directory"));
         }
-        // Checked here rather than on the first request: an operator who
-        // mistyped the path should be told while they are still looking at the
+        // Checked here, not on the first request. An operator who mistyped the
+        // path should be told while they are still looking at the
         // terminal, not by a blank page an hour later.
         if !root.join(INDEX).is_file() {
             return Err(format!("`{configured}` has no {INDEX} in it"));
@@ -83,10 +83,10 @@ struct Asset {
 /// # Why the directory case resolves the path again
 ///
 /// [`normalize_asset_path`] already removes `..`, and against the embedded
-/// bundle that is the whole of it — there is no filesystem to escape to. A
+/// bundle that is enough, since there is no filesystem to escape to. A
 /// directory has one, and a name that survived normalisation can still be a
-/// symbolic link pointing anywhere: a `logo.png` in the mounted directory that
-/// points at `/etc/shadow` is a path with no `..` in it at all.
+/// symbolic link pointing anywhere: a `logo.png` pointing at `/etc/shadow` is a
+/// path with no `..` in it.
 ///
 /// So the resolved path is compared against the resolved root, and anything
 /// that lands outside is treated as absent.
@@ -95,7 +95,7 @@ fn load(source: &Source, path: &str) -> Option<Asset> {
         Source::Embedded => Bundle::get(path).map(|file| Asset {
             etag: quoted_etag(&file.metadata.sha256_hash()),
             // `Cow::Borrowed` is the release-build case: the bytes live in
-            // `.rodata` and the response body borrows them rather than copying
+            // `.rodata` and the response body borrows them instead of copying
             // per request.
             bytes: match file.data {
                 std::borrow::Cow::Borrowed(bytes) => Bytes::from_static(bytes),
@@ -126,11 +126,11 @@ const NO_CACHE: &str = "no-cache";
 ///
 /// Returns `None` when the path could escape the bundle root.
 ///
-/// Against the compiled-in bundle this is not the security boundary — there is
-/// no filesystem behind it — but a request that *tries* is a probe, and
-/// answering it with `index.html` would quietly reward the attempt. Against a
-/// directory it is the first of two checks; the second is in [`load`], because
-/// a symbolic link is a path with no `..` in it.
+/// Against the compiled-in bundle this is not the security boundary, since
+/// there is no filesystem behind it, but a request that *tries* is a probe and
+/// answering it with `index.html` would reward the attempt. Against a directory
+/// it is the first of two checks; the second is in `load`, because a symbolic
+/// link is a path with no `..` in it.
 ///
 /// The result never starts with `/`, never contains a `.` or `..` segment, and is
 /// idempotent under a second application.
@@ -141,7 +141,7 @@ pub fn normalize_asset_path(raw: &str) -> Option<String> {
 
     for segment in trimmed.split('/') {
         match segment {
-            // Collapse `//` and `/./`, which are noise rather than an attack.
+            // Collapse `//` and `/./`, which are noise, not an attack.
             "" | "." => {}
             ".." => return None,
             other => segments.push(other),
@@ -156,7 +156,11 @@ pub fn normalize_asset_path(raw: &str) -> Option<String> {
 /// A miss on a path that looks like a file (it has an extension) is a 404; a miss
 /// on anything else is a client-side route, so `index.html` is returned with a
 /// 200 and the router in the browser takes over.
-pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> Response {
+pub async fn handler(
+    State(state): State<crate::state::AppState>,
+    headers: axum::http::HeaderMap,
+    uri: Uri,
+) -> Response {
     let Some(path) = normalize_asset_path(uri.path()) else {
         return not_found();
     };
@@ -182,7 +186,7 @@ pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> R
     // A share page is the one client-side route the server knows something
     // about, and the one whose link gets pasted where something will unfurl it.
     if let Some(code) = share_code(&path) {
-        return serve_share_page(&state, code).await;
+        return serve_share_page(&state, &headers, code).await;
     }
     serve(source, INDEX)
 }
@@ -193,12 +197,11 @@ pub async fn handler(State(state): State<crate::state::AppState>, uri: Uri) -> R
 /// routes and never reach the fallback.
 ///
 /// The frontend puts the locale in the path, so the same page is also
-/// `/en/s/{code}`. The locale list lives in `apps/web/project.inlang`, and
-/// duplicating it here would be a second copy to keep in step — so any single
+/// `/en/s/{code}`. The locale list lives in `apps/web/project.inlang` and
+/// duplicating it here would be a second copy to keep in step, so any single
 /// leading segment shaped like a language tag is skipped instead. Being loose
-/// costs nothing: a preview for `/nonsense/s/{code}` tells its reader only what
-/// `/s/{code}` would have told them anyway, and the lookup behind it is
-/// throttled the same way.
+/// costs nothing: a preview for `/nonsense/s/{code}` tells its reader what
+/// `/s/{code}` would have anyway, and the lookup is throttled the same way.
 fn share_code(path: &str) -> Option<&str> {
     let rest = strip_locale_prefix(path).strip_prefix("s/")?;
     (!rest.is_empty() && !rest.contains('/')).then_some(rest)
@@ -220,7 +223,11 @@ fn strip_locale_prefix(path: &str) -> &str {
 ///
 /// Every failure path here falls back to the plain page. A preview is worth
 /// having; it is not worth a share page that does not load.
-async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Response {
+async fn serve_share_page(
+    state: &crate::state::AppState,
+    headers: &axum::http::HeaderMap,
+    code: &str,
+) -> Response {
     use crate::api::preview::{Preview, splice_into_document};
 
     let Some(asset) = load(&state.assets, INDEX) else {
@@ -233,7 +240,9 @@ async fn serve_share_page(state: &crate::state::AppState, code: &str) -> Respons
         return respond(&state.assets, INDEX, asset);
     };
     let html = html.to_owned();
-    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc()).to_head_tags();
+    let origin = crate::api::preview::origin(&state.config(), headers);
+    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc())
+        .to_head_tags(origin.as_deref(), code);
     let page = splice_into_document(&html, &tags);
 
     (
@@ -268,10 +277,10 @@ fn respond(source: &Source, path: &str, asset: Asset) -> Response {
     let mime = mime_guess::from_path(path).first_or_octet_stream();
     // Nothing from a directory is immutable, whatever it is called. The bundle
     // compiled in cannot change without the binary changing, so a hashed name
-    // in it will never mean different bytes; a directory is the opposite — it
-    // exists to be rewritten while the server keeps running. Telling a browser
-    // to keep `favicon.ico` for a year would undo the one thing this mode is
-    // for, and would do it silently, on exactly the files vite does not hash.
+    // in it never means different bytes; a directory exists to be rewritten
+    // while the server runs. Telling a browser to keep `favicon.ico` for a year
+    // would silently undo the one thing this mode is for, on exactly the files
+    // vite does not hash.
     let cache = if path == INDEX || matches!(source, Source::Directory(_)) {
         NO_CACHE
     } else {
@@ -380,8 +389,8 @@ mod tests {
     }
 
     /// A share link carries whatever locale the person who copied it was
-    /// reading in, so the preview has to survive the prefix. This failing is
-    /// invisible — the page still loads, the unfurl is just blank.
+    /// reading in, so the preview has to survive the prefix. Failing is
+    /// invisible: the page still loads and the unfurl is simply blank.
     #[rstest]
     #[case::unprefixed("s/ABC123", Some("ABC123"))]
     #[case::english("en/s/ABC123", Some("ABC123"))]
@@ -405,7 +414,7 @@ mod tests {
     }
 
     /// `s` is one character, so it must never be mistaken for the locale and
-    /// eaten — that would turn every share page into a plain page.
+    /// eaten, which would turn every share page into a plain page.
     #[test]
     fn the_share_segment_is_not_taken_for_a_locale() {
         assert_eq!(strip_locale_prefix("s/ABC123"), "s/ABC123");

@@ -52,7 +52,7 @@ The docs UI is off by default because it pulls its renderer from a CDN, which ke
 
 ## Configuration
 
-Defaults, then `tessera.yaml`, then the environment. Environment variables are prefixed `TESSERA_`, with `__` separating nesting levels:
+Almost everything is changed in the admin panel and takes effect on the next request. Seventeen settings cannot be: the socket is already bound, the connection pool is already built, and the log subscriber was installed before either. Those come from the environment, prefixed `TESSERA_`, with `__` separating nesting levels:
 
 ```bash
 TESSERA_SERVER__PORT=9000
@@ -62,7 +62,40 @@ TESSERA_STORAGE__URL=data/blobs                     # or s3:// / gs:// / az:// /
 
 Every backend is compiled in by default, so pointing at S3 or Postgres needs no rebuild.
 
-On first run the server writes a `tessera.yaml` next to itself with every setting commented out, showing the values it is actually using. Two worked examples sit in the repository root — `tessera.personal.yaml` for an instance only you can reach, and `tessera.public.yaml` for one strangers upload to. They disagree on almost every line, because those two deployments want opposite things.
+### What the storage URL can point at
+
+Each of these has the test suite run against it on every change, so the list is what is currently true rather than what ought to work:
+
+| Store | URL | Notes |
+| --- | --- | --- |
+| A local directory | `data/blobs` | The default. No object store needed. |
+| Garage | `s3://bucket` |  |
+| RustFS | `s3://bucket` |  |
+| MinIO | `s3://bucket` |  |
+| SeaweedFS | `s3://bucket` | Needs an `-s3.config` identities file, or it refuses every write. |
+| VersityGW | `s3://bucket` |  |
+| s3proxy | `s3://bucket` | Needs a build newer than 2.6.0 — that release has no bulk delete. |
+| Azure Blob | `azure://container` | Checked against Azurite. |
+| WebDAV | `https://host/path` | **Small files only** — see below. |
+
+AWS S3, Cloudflare R2 and Backblaze B2 speak the same S3 API as the first group and no emulator can stand in for them, so they are checked by an opt-in job that runs only when an operator adds credentials.
+
+Two limits worth knowing before choosing:
+
+- **WebDAV** takes only files below `share.inline_threshold_bytes` (64 KiB by default). Anything larger is written a piece at a time, WebDAV's only upload verb is a whole-body `PUT`, and the library underneath cannot stream one. A file too large is refused with `413` rather than failing halfway.
+- **Google Cloud Storage** is compiled in and untested. No emulator implements the API the library uses for writes, so nothing here can prove it works.
+
+That split is the whole rule: **if it is in the panel, changing it works.** The panel never says "saved — now restart", because a setting that would need one is shown read-only with the reason instead.
+
+Two worked examples sit in the repository root — `tessera.personal.env.example` for an instance only you can reach, and `tessera.public.env.example` for one strangers upload to. Each lists the environment half and then the panel settings worth changing for that deployment, because those two want opposite things. `contrib/tessera.service` is a systemd unit for running it outside a container.
+
+No panel — an instance with `features.accounts` off has no session to sign in with — leaves the command line:
+
+```bash
+tessera-server settings list
+tessera-server settings set share.default_expiry_hours 720
+tessera-server settings reset-all        # the way back from a bad change
+```
 
 `apps/server/README.md` documents the rest, including how to strip the build down for a constrained box.
 

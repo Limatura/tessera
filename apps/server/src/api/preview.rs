@@ -2,10 +2,10 @@
 //!
 //! # Why the server does this and not the page
 //!
-//! What unfurls a link — Discord, Slack, a mail client — fetches the URL and
-//! reads the HTML. It does not run JavaScript, so a single-page app can put
-//! whatever it likes in `document.head` and the preview will still show whatever
-//! the shipped `index.html` said. The tags have to be in the bytes the server
+//! Whatever unfurls a link (Discord, Slack, a mail client) fetches the URL and
+//! reads the HTML without running JavaScript, so a single-page app can put
+//! whatever it likes in `document.head` and the preview still shows what the
+//! shipped `index.html` said. The tags have to be in the bytes the server
 //! sends.
 //!
 //! That does not make this server-side rendering. The page is the same embedded
@@ -16,20 +16,70 @@
 //!
 //! - **Spend a retrieval.** An unfurler follows the link the moment it is pasted, before any person
 //!   clicks. Counting that would destroy a one-time share between sending it and reading it.
-//! - **Describe a locked share.** A preview is public by construction — it is shown to everyone in
-//!   the channel. If a password-protected share announced its file name and size there, the
-//!   password would be decorative.
+//! - **Describe a locked share.** A preview is public by construction, shown to everyone in the
+//!   channel. If a password-protected share announced its file name and size there, the password
+//!   would be decorative.
 
 use crate::{
     db::repository::share::{Availability, Content, Share, ShareKind},
     state::AppState,
 };
 
+/// What the picture may draw, decided in the same place as the words.
+///
+/// Both the tags and [`crate::og`] read this instead of each deciding what is
+/// safe to say. A locked share whose description gives nothing away while its
+/// picture names the file is exactly the failure the rule prevents, and two
+/// implementations of one rule is how that happens.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Card {
+    /// Available. Everything about it may be shown.
+    Open {
+        /// The eyebrow above the headline.
+        label: &'static str,
+        /// Short facts beside it: the size, and a file count when there are
+        /// several.
+        chips: Vec<String>,
+        /// The line along the bottom: when it goes, and how many goes are left.
+        footer: String,
+        /// The first lines of a text share, coloured. `None` for a file, and
+        /// for a note whose body was not read.
+        #[cfg(feature = "og-images")]
+        snippet: Option<crate::og::code::Snippet>,
+    },
+    /// Password-protected. Only a title the uploader typed themselves appears.
+    Locked {
+        /// Whether there was a title. Without one the headline is our own
+        /// stand-in sentence, and the card draws it quietly to say so.
+        named: bool,
+    },
+    /// Expired, exhausted, or switched off.
+    Gone,
+}
+
+/// Which sample card to draw.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SampleCard {
+    /// A file share with everything shown.
+    #[default]
+    Open,
+    /// Password-protected, with a title the uploader typed.
+    ///
+    /// Worth being able to look at, because it is the state where a layout goes
+    /// wrong unnoticed: it looks fine on every share the operator tested with.
+    Locked,
+    /// Expired or already collected.
+    Gone,
+}
+
 /// The tags to insert, already escaped.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Preview {
     title: String,
     description: String,
+    /// What the picture is allowed to draw. See [`Card`].
+    pub card: Card,
 }
 
 impl Preview {
@@ -40,10 +90,20 @@ impl Preview {
             Availability::Expired | Availability::Exhausted | Availability::Disabled => Self {
                 title: "Share unavailable".to_owned(),
                 description: "This share has expired or has already been collected.".to_owned(),
+                card: Card::Gone,
             },
+            // A title is the one thing a locked share may say. The uploader
+            // typed it as a label for other people; the file name came off
+            // their disk, and they never agreed to publish that.
             Availability::Available if share.needs_password() => Self {
-                title: "Password-protected share".to_owned(),
+                title: share
+                    .title
+                    .clone()
+                    .unwrap_or_else(|| "Password-protected share".to_owned()),
                 description: "Open the link and enter the password to see what this is.".to_owned(),
+                card: Card::Locked {
+                    named: share.title.is_some(),
+                },
             },
             Availability::Available => Self {
                 title: share.title.clone().unwrap_or_else(|| match share.kind {
@@ -52,37 +112,159 @@ impl Preview {
                             .filename
                             .clone()
                             .unwrap_or_else(|| "Shared file".to_owned()),
-                        // A count rather than the first name: naming one of
-                        // five tells somebody about one of five.
+                        // A count, not the first name. Naming one of five
+                        // discloses one of five.
                         many => format!("{} shared files", many.len()),
                     },
                     ShareKind::Text => "Shared note".to_owned(),
                 }),
                 description: describe(share, content),
+                card: Card::Open {
+                    label: match share.kind {
+                        ShareKind::File if content.files().len() > 1 => "SHARED FOLDER",
+                        ShareKind::File => "SHARED FILE",
+                        ShareKind::Text => "SHARED NOTE",
+                    },
+                    chips: chips(share, content),
+                    footer: describe(share, content),
+                    #[cfg(feature = "og-images")]
+                    snippet: None,
+                },
             },
         }
     }
 
-    /// The tags, ready to splice into a `<head>`.
+    /// Attaches the first lines of a note's body, coloured.
+    ///
+    /// A no-op unless the share is [`Card::Open`], and that is why it lives
+    /// here. The caller reads a body without knowing whether the
+    /// share may describe itself, and that is already decided here. A locked
+    /// note keeps its code to itself with no caller having to remember.
+    #[cfg(feature = "og-images")]
     #[must_use]
-    pub fn to_head_tags(&self) -> String {
+    pub fn with_snippet(mut self, body: &str, language: Option<&str>) -> Self {
+        if let Card::Open { snippet, .. } = &mut self.card {
+            *snippet = Some(crate::og::code::highlight(body, language));
+        }
+        self
+    }
+
+    /// A preview with plausible values, for showing an operator what a card
+    /// layout does before they save it.
+    ///
+    /// Built here, not in the endpoint, so the sample goes through the
+    /// same [`Card`] the real thing does. A hand-assembled sample would be the
+    /// one place a locked card could be shown describing itself, on the screen
+    /// whose job is to show the operator what their layout looks like.
+    #[must_use]
+    pub fn sample(card: SampleCard) -> Self {
+        match card {
+            SampleCard::Open => Self {
+                title: "Q3-2026-finance-and-operations-review.pdf".to_owned(),
+                description: "24.8 MiB · expires in 3 days · 5 retrievals left".to_owned(),
+                card: Card::Open {
+                    label: "SHARED FILE",
+                    chips: vec!["24.8 MiB".to_owned()],
+                    footer: "24.8 MiB · expires in 3 days · 5 retrievals left".to_owned(),
+                    #[cfg(feature = "og-images")]
+                    snippet: None,
+                },
+            },
+            SampleCard::Locked => Self {
+                title: "Board pack, October".to_owned(),
+                description: "Open the link and enter the password to see what this is.".to_owned(),
+                card: Card::Locked { named: true },
+            },
+            SampleCard::Gone => Self {
+                title: "Share unavailable".to_owned(),
+                description: "This share has expired or has already been collected.".to_owned(),
+                card: Card::Gone,
+            },
+        }
+    }
+
+    /// The headline: a title the uploader typed, or what stands in for one.
+    #[must_use]
+    pub fn title(&self) -> &str {
+        &self.title
+    }
+
+    /// The tags, ready to splice into a `<head>`.
+    ///
+    /// `origin` is where this instance is reachable from outside, without a
+    /// trailing slash; see [`origin`]. Without one the picture is left out
+    /// instead of given a relative path, since `og:image` is read by a crawler
+    /// on another machine where that resolves to nothing.
+    #[must_use]
+    pub fn to_head_tags(&self, origin: Option<&str>, code: &str) -> String {
         let title = escape(&self.title);
         let description = escape(&self.description);
+
+        let picture = origin.map_or_else(String::new, |origin| {
+            let image = escape(&format!("{origin}/s/{code}/og.png"));
+            let page = escape(&format!("{origin}/s/{code}"));
+            let width = CARD_WIDTH;
+            let height = CARD_HEIGHT;
+            format!(
+                "<meta property=\"og:url\" content=\"{page}\">\
+                 <meta property=\"og:image\" content=\"{image}\">\
+                 <meta property=\"og:image:width\" content=\"{width}\">\
+                 <meta property=\"og:image:height\" content=\"{height}\">\
+                 <meta property=\"og:image:type\" content=\"image/png\">\
+                 <meta property=\"og:image:alt\" content=\"{title}. {description}\">\
+                 <meta name=\"twitter:image\" content=\"{image}\">"
+            )
+        });
+
+        // `summary_large_image` only when there is one: the small card is what a
+        // client falls back to, and asking for the large one with no picture
+        // gets a large blank.
+        let twitter_card = if origin.is_some() {
+            "summary_large_image"
+        } else {
+            "summary"
+        };
+
         format!(
             "<meta property=\"og:title\" content=\"{title}\">\
              <meta property=\"og:description\" content=\"{description}\">\
              <meta property=\"og:type\" content=\"website\">\
-             <meta name=\"twitter:card\" content=\"summary\">\
+             <meta property=\"og:site_name\" content=\"Tessera\">\
+             {picture}\
+             <meta name=\"twitter:card\" content=\"{twitter_card}\">\
+             <meta name=\"twitter:title\" content=\"{title}\">\
+             <meta name=\"twitter:description\" content=\"{description}\">\
              <meta name=\"description\" content=\"{description}\">"
         )
     }
 }
 
+/// The short facts that sit beside the headline on the picture.
+fn chips(share: &Share, content: &Content) -> Vec<String> {
+    let mut chips = vec![human_size(content.size_bytes())];
+    if share.kind == ShareKind::File {
+        let count = content.files().len();
+        if count > 1 {
+            chips.push(format!("{count} files"));
+        }
+    }
+    chips
+}
+
 fn describe(share: &Share, content: &Content) -> String {
+    describe_at(share, content, time::OffsetDateTime::now_utc())
+}
+
+fn describe_at(share: &Share, content: &Content, now: time::OffsetDateTime) -> String {
     let mut parts = vec![match share.kind {
         ShareKind::File => human_size(content.size_bytes()),
         ShareKind::Text => format!("{} of text", human_size(content.size_bytes())),
     }];
+    if let Some(when) = share.expires_at
+        && let Some(said) = expires_in(when, now)
+    {
+        parts.push(said);
+    }
     if let Some(limit) = share.use_limit {
         let left = limit.saturating_sub(share.use_count);
         parts.push(if left == 1 {
@@ -94,10 +276,38 @@ fn describe(share: &Share, content: &Content) -> String {
     parts.join(" · ")
 }
 
+/// How long is left, rounded the way a person would say it.
+///
+/// Coarse by design. A countdown to the second would be a different sentence
+/// every time a crawler looked, and this is a caption, not a timer.
+fn expires_in(when: time::OffsetDateTime, now: time::OffsetDateTime) -> Option<String> {
+    let left = when - now;
+    if left <= time::Duration::ZERO {
+        return None;
+    }
+    let days = left.whole_days();
+    if days >= 1 {
+        return Some(if days == 1 {
+            "expires tomorrow".to_owned()
+        } else {
+            format!("expires in {days} days")
+        });
+    }
+    let hours = left.whole_hours();
+    if hours >= 1 {
+        return Some(if hours == 1 {
+            "expires within the hour".to_owned()
+        } else {
+            format!("expires in {hours} hours")
+        });
+    }
+    Some("expires within the hour".to_owned())
+}
+
 /// A size the way a person would say it.
 ///
-/// Integer arithmetic throughout: this is a caption, and a float would trade a
-/// lossy conversion for a precision nobody reading "2.0 KiB" wanted.
+/// Integer arithmetic throughout. This is a caption, and a float would trade a
+/// lossy conversion for precision that "2.0 KiB" does not need.
 fn human_size(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
     const STEP: u64 = 1024;
@@ -126,13 +336,13 @@ fn human_size(bytes: u64) -> String {
 
 /// Escapes text for an HTML attribute.
 ///
-/// The title and file name came from whoever made the share, and they are being
-/// spliced into a `content="..."` attribute on a page served from this origin.
-/// Without this, `"><script>` closes the attribute, closes the tag, and runs —
-/// which is a cross-site scripting hole reachable by anyone who can upload.
+/// The title and file name came from whoever made the share and are spliced
+/// into a `content="..."` attribute on a page served from this origin. Without
+/// this, `"><script>` closes the attribute, closes the tag and runs: a
+/// cross-site scripting hole reachable by anyone who can upload.
 ///
-/// Both quote characters are escaped, not just the one the template happens to
-/// use, so changing the template cannot reopen the hole.
+/// Both quote characters are escaped, not only the one the template uses, so
+/// changing the template cannot reopen the hole.
 fn escape(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for character in value.chars() {
@@ -150,17 +360,15 @@ fn escape(value: &str) -> String {
 
 /// Splices `tags` into the document.
 ///
-/// Preferably just inside `<head>`, so that ours come before anything the bundle
-/// ships — where a crawler sees the same property twice, the first is what it
-/// keeps.
+/// Preferably just inside `<head>`, so ours come before anything the bundle
+/// ships: where a crawler sees the same property twice, it keeps the first.
 ///
 /// A document without a `<head>` still gets them, after the doctype or at the
 /// very start. An HTML parser hoists leading `<meta>` elements into the head it
-/// creates, and an unfurler reads the bytes rather than a tree, so both work.
-/// Falling back matters more than it sounds: the first version of this gave up
-/// when there was no `<head>`, which meant the shipped placeholder page — a bare
-/// fragment — silently had no previews at all, and any future change to the
-/// bundle's template could do the same without a word.
+/// creates, and an unfurler reads bytes and not a tree, so both work. The
+/// first version gave up when there was no `<head>`, which left the shipped
+/// placeholder page silently without previews, and any change to the bundle's
+/// template could do the same without a word.
 #[must_use]
 pub fn splice_into_document(html: &str, tags: &str) -> String {
     let at = insertion_point(html);
@@ -188,12 +396,95 @@ fn insertion_point(html: &str) -> usize {
     0
 }
 
+/// The card's dimensions, repeated here so the tags can state them without
+/// depending on a module that may not be compiled in.
+const CARD_WIDTH: u32 = 1200;
+/// See [`CARD_WIDTH`].
+const CARD_HEIGHT: u32 = 630;
+
+/// Where this instance is reachable from outside, with no trailing slash.
+///
+/// The configured value wins. It exists because deriving this is guesswork in
+/// exactly the deployments this is for: a reverse proxy that rewrites `Host`, a
+/// container that only hears `localhost:8080`. When set, nothing about the
+/// request changes the answer, so a forged `Host` header cannot make our page
+/// advertise a picture from elsewhere.
+///
+/// Falling back to the request still beats emitting nothing, since the common
+/// case of one container behind a proxy that passes `Host` through is right
+/// with no configuration.
+#[must_use]
+pub fn origin(config: &crate::config::Config, headers: &axum::http::HeaderMap) -> Option<String> {
+    let configured = config.server.public_url.trim().trim_end_matches('/');
+    if !configured.is_empty() {
+        return Some(configured.to_owned());
+    }
+
+    let host = headers.get(axum::http::header::HOST)?.to_str().ok()?;
+    if host.is_empty() {
+        return None;
+    }
+    // A proxy that terminates TLS says so here; without it, assume what we are
+    // actually speaking.
+    let scheme = headers
+        .get("x-forwarded-proto")
+        .and_then(|value| value.to_str().ok())
+        .map_or("http", |value| {
+            if value.eq_ignore_ascii_case("https") {
+                "https"
+            } else {
+                "http"
+            }
+        });
+    Some(format!("{scheme}://{host}"))
+}
+
+/// Fixtures other modules' tests need. Compiled only for tests.
+#[cfg(test)]
+pub mod testing {
+    use tessera_core::{RetrievalCode, ShareId};
+    use time::OffsetDateTime;
+
+    use crate::db::repository::share::{Share, ShareKind};
+
+    /// A share with nothing set: no password, and three days left.
+    ///
+    /// # Panics
+    ///
+    /// If the hard-coded retrieval code stops being valid, which would mean the
+    /// code format changed and every fixture using it wants looking at.
+    #[must_use]
+    pub fn share(kind: ShareKind) -> Share {
+        Share {
+            role_id: None,
+            id: ShareId::generate(),
+            code: RetrievalCode::parse("K3P9XQ2M").expect("a valid code"),
+            user_id: None,
+            kind,
+            password_hash: None,
+            use_limit: Some(5),
+            use_count: 0,
+            expires_at: Some(OffsetDateTime::now_utc() + time::Duration::days(3)),
+            disabled_at: None,
+            title: None,
+            og_config: None,
+            management_token_hash: None,
+            view_count: 0,
+            copy_count: 0,
+            bytes_served: 0,
+            last_accessed_at: None,
+            created_at: OffsetDateTime::now_utc(),
+            updated_at: OffsetDateTime::now_utc(),
+        }
+    }
+}
+
 /// Reads the share a `/s/{code}` page is about, without touching its counters.
 ///
-/// Deliberately not [`crate::api::gate::open`]: that refuses expired shares and
-/// counts misses against the lookup limit, and neither is right here. A crawler
-/// following a dead link should still get a page that explains itself, and a
-/// crawler should not be able to exhaust a limit meant for people guessing.
+/// Not [`crate::api::gate::open`], which refuses expired shares and counts
+/// misses against the lookup limit. Neither is right here. A
+/// crawler following a dead link should get a page that explains itself, and
+/// should not be able to exhaust a limit meant for people guessing.
 pub async fn lookup(state: &AppState, code: &str) -> Option<(Share, Content)> {
     let code = tessera_core::RetrievalCode::parse(code).ok()?;
     let share = state.shares.find_by_code(&code).await.ok().flatten()?;
@@ -209,10 +500,11 @@ mod tests {
     use super::*;
     use crate::db::repository::share::{FilePart, StorageLocation};
 
-    /// The content as the owning table describes it — which is where a preview
-    /// now reads the name and the size from.
+    /// The content as the owning table describes it, where a preview reads the
+    /// name and the size from.
     fn content() -> Content {
         Content::Files(vec![FilePart {
+            segments: Vec::new(),
             filename: None,
             content_type: None,
             size_bytes: 2048,
@@ -223,6 +515,7 @@ mod tests {
     /// The same, with a name on the one file.
     fn named(filename: &str) -> Content {
         Content::Files(vec![FilePart {
+            segments: Vec::new(),
             filename: Some(filename.to_owned()),
             content_type: None,
             size_bytes: 2048,
@@ -230,8 +523,185 @@ mod tests {
         }])
     }
 
+    /// Everything a preview produces about a locked share, as one haystack.
+    fn everything_said(share: &Share, content: &Content) -> String {
+        let preview = Preview::of(share, content, OffsetDateTime::now_utc());
+        format!(
+            "{} {} {:?}",
+            preview.title, preview.description, preview.card
+        )
+    }
+
+    /// The rule this module exists for. A preview is shown to everyone in
+    /// the channel, so a locked share must not name what is inside it.
+    #[test]
+    fn a_locked_share_never_names_its_file() {
+        let mut share = share(ShareKind::File);
+        share.password_hash = Some("argon2-something".to_owned());
+
+        let said = everything_said(&share, &named("severance-agreement.pdf"));
+
+        assert!(
+            !said.contains("severance"),
+            "a locked share leaked its file name: {said}"
+        );
+        assert!(
+            !said.contains("2.0 KiB"),
+            "a locked share leaked its size: {said}"
+        );
+    }
+
+    /// The exception, and the reason it is safe: a title is something the
+    /// uploader typed as a label for other people.
+    #[test]
+    fn a_locked_share_shows_a_title_the_uploader_typed() {
+        let mut share = share(ShareKind::File);
+        share.password_hash = Some("argon2-something".to_owned());
+        share.title = Some("Board pack, October".to_owned());
+
+        let said = everything_said(&share, &named("severance-agreement.pdf"));
+
+        assert!(
+            said.contains("Board pack, October"),
+            "the title was dropped: {said}"
+        );
+        assert!(
+            !said.contains("severance"),
+            "a title is not permission to publish the file name: {said}"
+        );
+        assert!(said.contains("named: true"));
+    }
+
+    /// Expired or collected says nothing about what it was either. "The 24.8 MB
+    /// file has been collected" still tells a channel plenty.
+    #[test]
+    fn a_share_that_is_gone_describes_nothing() {
+        let mut share = share(ShareKind::File);
+        share.expires_at = Some(OffsetDateTime::now_utc() - time::Duration::hours(1));
+        share.title = Some("Board pack, October".to_owned());
+
+        let said = everything_said(&share, &named("severance-agreement.pdf"));
+
+        assert!(!said.contains("severance"), "{said}");
+        assert!(!said.contains("Board pack"), "{said}");
+        assert!(!said.contains("2.0 KiB"), "{said}");
+    }
+
+    /// A note's card carries its first lines; a locked note's does not.
+    ///
+    /// The caller reads the body without knowing whether the share may describe
+    /// itself, so that one place decides. This is that place.
+    #[cfg(feature = "og-images")]
+    #[test]
+    fn a_snippet_reaches_an_open_card_and_not_a_locked_one() {
+        let text = "const secret = \"hunter2\";\n";
+
+        let open = Preview::of(
+            &share(ShareKind::Text),
+            &content(),
+            OffsetDateTime::now_utc(),
+        )
+        .with_snippet(text, Some("ts"));
+        assert!(
+            matches!(
+                &open.card,
+                Card::Open {
+                    snippet: Some(_),
+                    ..
+                }
+            ),
+            "an open note lost its snippet: {:?}",
+            open.card
+        );
+
+        let mut locked = share(ShareKind::Text);
+        locked.password_hash = Some("$argon2id$...".to_owned());
+        let locked = Preview::of(&locked, &content(), OffsetDateTime::now_utc())
+            .with_snippet(text, Some("ts"));
+        assert!(
+            matches!(locked.card, Card::Locked { .. }),
+            "{:?}",
+            locked.card
+        );
+        assert!(
+            !format!("{:?}", locked.card).contains("hunter2"),
+            "a locked note's body reached its card: {:?}",
+            locked.card
+        );
+    }
+
+    /// Without an origin there is no picture, so the small card is asked for
+    /// instead: a large card with no image is a large blank.
+    #[test]
+    fn no_origin_means_no_image_tags() {
+        let tags = Preview::of(
+            &share(ShareKind::File),
+            &content(),
+            OffsetDateTime::now_utc(),
+        )
+        .to_head_tags(None, "ABCD1234");
+
+        assert!(!tags.contains("og:image"), "{tags}");
+        assert!(tags.contains(r#"content="summary""#), "{tags}");
+    }
+
+    /// With one, the image is absolute, since a relative path resolves to
+    /// nothing on the crawler's machine.
+    #[test]
+    fn the_image_url_is_absolute() {
+        let tags = Preview::of(
+            &share(ShareKind::File),
+            &content(),
+            OffsetDateTime::now_utc(),
+        )
+        .to_head_tags(Some("https://share.example"), "ABCD1234");
+
+        assert!(
+            tags.contains(r#"content="https://share.example/s/ABCD1234/og.png""#),
+            "{tags}"
+        );
+        assert!(tags.contains("summary_large_image"), "{tags}");
+    }
+
+    /// The configured value wins over anything a request claims, so a forged
+    /// `Host` cannot make our page advertise a picture from elsewhere.
+    #[test]
+    fn a_configured_origin_beats_the_host_header() {
+        let mut config = crate::config::Config::default();
+        config.server.public_url = "https://share.example/".to_owned();
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(
+            axum::http::header::HOST,
+            "evil.example".parse().expect("a host"),
+        );
+
+        assert_eq!(
+            origin(&config, &headers).as_deref(),
+            Some("https://share.example")
+        );
+    }
+
+    /// And with nothing configured, the request is still better than nothing:
+    /// one container behind one proxy is the common case and needs no setup.
+    #[test]
+    fn without_configuration_the_request_is_used() {
+        let config = crate::config::Config::default();
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(
+            axum::http::header::HOST,
+            "share.example".parse().expect("a host"),
+        );
+        headers.insert("x-forwarded-proto", "https".parse().expect("a scheme"));
+
+        assert_eq!(
+            origin(&config, &headers).as_deref(),
+            Some("https://share.example")
+        );
+    }
+
     fn share(kind: ShareKind) -> Share {
         Share {
+            role_id: None,
             id: ShareId::generate(),
             code: RetrievalCode::parse("ABCD1234").expect("a valid code"),
             user_id: None,
@@ -272,9 +742,9 @@ mod tests {
         assert!(spliced.contains("lang=\"en\"><meta><title>"), "{spliced}");
     }
 
-    /// Giving up when there is no `<head>` is how a preview stops working with
-    /// nobody noticing: the shipped placeholder was a bare fragment, and the
-    /// bundle's template is not ours to depend on.
+    /// Giving up when there is no `<head>` is how a preview stops working
+    /// unnoticed. The shipped placeholder was a bare fragment, and the bundle's
+    /// template is not ours to depend on.
     #[test]
     fn a_document_without_a_head_still_gets_its_tags() {
         assert_eq!(
@@ -294,24 +764,46 @@ mod tests {
         let mut share = share(ShareKind::Text);
         share.title = Some(r#""><script>alert(1)</script>"#.to_owned());
 
-        let tags = Preview::of(&share, &content(), OffsetDateTime::now_utc()).to_head_tags();
+        let tags = Preview::of(&share, &content(), OffsetDateTime::now_utc())
+            .to_head_tags(None, "ABCD1234");
         assert!(!tags.contains("<script"), "{tags}");
         assert!(tags.contains("&quot;&gt;&lt;script&gt;"), "{tags}");
     }
 
     /// A preview is shown to everyone in the channel. If it described the file,
     /// the password would be decorative.
+    ///
+    /// The title is the one deliberate exception: the uploader typed it as a
+    /// label for other people, where the file name came off their disk and they
+    /// never agreed to publish it. The cost is real, since a share titled "Q3
+    /// salaries" announces that in the channel, so the default with no title
+    /// says nothing.
     #[test]
-    fn a_locked_share_describes_nothing() {
-        let share_ = share(ShareKind::File);
-        let mut share = share_;
+    fn a_locked_share_describes_nothing_but_its_title() {
+        let mut share = share(ShareKind::File);
         share.title = Some("Q3 salaries".to_owned());
         share.password_hash = Some("$argon2id$...".to_owned());
         let content = named("payroll.xlsx");
 
-        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags();
+        let tags =
+            Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags(None, "ABCD1234");
+        assert!(!tags.contains("payroll"), "the file name leaked: {tags}");
+        assert!(!tags.contains("2.0 KiB"), "the size leaked: {tags}");
+        assert!(
+            tags.contains("Q3 salaries"),
+            "the title was dropped: {tags}"
+        );
+    }
+
+    /// And with no title, nothing.
+    #[test]
+    fn a_locked_share_with_no_title_says_nothing_at_all() {
+        let mut share = share(ShareKind::File);
+        share.password_hash = Some("$argon2id$...".to_owned());
+
+        let tags = Preview::of(&share, &named("payroll.xlsx"), OffsetDateTime::now_utc())
+            .to_head_tags(None, "ABCD1234");
         assert!(!tags.contains("payroll"), "{tags}");
-        assert!(!tags.contains("Q3"), "{tags}");
         assert!(tags.contains("Password-protected"), "{tags}");
     }
 
@@ -321,7 +813,8 @@ mod tests {
         share.expires_at = Some(OffsetDateTime::now_utc() - time::Duration::hours(1));
         let content = named("gone.zip");
 
-        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags();
+        let tags =
+            Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags(None, "ABCD1234");
         assert!(!tags.contains("gone.zip"), "{tags}");
         assert!(tags.contains("Share unavailable"), "{tags}");
     }

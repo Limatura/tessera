@@ -1,16 +1,15 @@
 //! Connection pool and migration runner.
 //!
 //! One [`DatabaseConnection`] covers SQLite, Postgres and MySQL. That is the
-//! reason this project uses SeaORM at all: the previous shape was an enum with a
-//! `match` in every method, which costs one arm per backend per query — twenty
-//! queries across three dialects is sixty code paths, of which two thirds are
-//! rarely exercised.
+//! reason this project uses SeaORM at all: the previous shape was an enum with
+//! a `match` in every method, one arm per backend per query, so twenty queries
+//! across three dialects is sixty code paths, two thirds of them rarely
+//! exercised.
 //!
-//! What that trade gives up is `sqlx::query!`'s compile-time schema check. It is
-//! worth being precise about the loss: that macro only ever verified *one*
-//! dialect, so committing to three removed it regardless of ORM. What replaces
-//! it is CI — the repository tests run against all three real servers, which is
-//! narrower feedback but wider coverage.
+//! The trade gives up `sqlx::query!`'s compile-time schema check. That macro
+//! only ever verified *one* dialect, so committing to three removed it whatever
+//! the ORM. CI replaces it: the repository tests run against all three real
+//! servers: narrower feedback, wider coverage.
 
 pub mod entity;
 pub mod migration;
@@ -35,8 +34,8 @@ pub enum Backend {
 impl Backend {
     /// Classifies a connection URL, or `None` if the scheme is unsupported.
     ///
-    /// Lives here rather than in `config` so that the set of understood schemes
-    /// and the set of pools we can actually build cannot drift apart.
+    /// Lives here, not in `config`, so the set of understood schemes and the
+    /// set of pools we can actually build cannot drift apart.
     #[must_use]
     pub fn from_url(url: &str) -> Option<Self> {
         match url.split_once(':').map(|(scheme, _)| scheme)? {
@@ -81,10 +80,10 @@ impl Backend {
 impl Backend {
     /// Classifies a live connection's backend.
     ///
-    /// Fallible rather than a `From` impl because `DbBackend` is
-    /// `#[non_exhaustive]` — SeaORM may add a backend before we do, and
-    /// pretending an unknown one is SQLite would be a lie the health endpoint
-    /// then repeats to an operator.
+    /// Fallible, not a `From` impl, because `DbBackend` is
+    /// `#[non_exhaustive]`: SeaORM may add a backend before we do, and
+    /// pretending an unknown one is SQLite is a lie the health endpoint then
+    /// repeats to an operator.
     #[must_use]
     pub const fn from_sea_orm(backend: DbBackend) -> Option<Self> {
         match backend {
@@ -131,7 +130,7 @@ async fn connect_networked(config: &DatabaseConfig) -> Result<DatabaseConnection
         .max_connections(config.max_connections)
         .acquire_timeout(config.acquire_timeout())
         .connect_timeout(config.acquire_timeout())
-        // SeaORM logs every statement at `info` by default, which is far too
+        // SeaORM logs every statement at `info` by default, far too
         // loud for a service and would put retrieval codes in the log.
         .sqlx_logging(false);
     sea_orm::Database::connect(options).await
@@ -141,7 +140,7 @@ async fn connect_networked(config: &DatabaseConfig) -> Result<DatabaseConnection
 ///
 /// [`ConnectOptions`] cannot express SQLite pragmas and sqlx's URL parser
 /// rejects unknown query parameters, so there is no way to ask for WAL through
-/// SeaORM's own API. Setting the pragmas after connecting does not work either —
+/// SeaORM's own API. Setting the pragmas after connecting does not work either:
 /// `journal_mode` is persistent but `foreign_keys`, `busy_timeout` and
 /// `synchronous` are per-connection, and the pool opens connections lazily.
 #[cfg(feature = "sqlite")]
@@ -167,9 +166,9 @@ async fn connect_sqlite(config: &DatabaseConfig) -> Result<DatabaseConnection, s
         .auto_vacuum(SqliteAutoVacuum::Incremental)
         .busy_timeout(config.acquire_timeout());
 
-    // `create_if_missing` creates the database *file*, not the directory holding
-    // it — so the shipped default of `sqlite://data/tessera.db` would fail on a
-    // fresh checkout. A homelab install should not have to mkdir before it starts.
+    // `create_if_missing` creates the database *file*, not the directory
+    // holding it, so the shipped default of `sqlite://data/tessera.db` would
+    // fail on a fresh checkout. An install should not have to mkdir first.
     let filename = options.get_filename();
     if let Some(parent) = filename.parent()
         && !parent.as_os_str().is_empty()

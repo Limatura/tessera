@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use sea_orm::{
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait, QueryFilter as _,
-    QueryOrder as _, Set, TransactionTrait as _,
+    QueryOrder as _, QuerySelect as _, Set, TransactionTrait as _,
 };
 use tessera_core::{DomainError, Permission, PermissionSet, RoleId, UserId};
 use time::OffsetDateTime;
@@ -13,10 +13,32 @@ use crate::db::{
     entity::{
         role::{self, Entity as RoleEntity},
         role_permission::{self, Entity as RolePermissionEntity},
-        user_role::{self, Entity as UserRoleEntity},
+        user::{self, Entity as UserEntity},
     },
-    repository::user::{CorruptRow, UserRepositoryError},
+    repository::{
+        quota,
+        user::{CorruptRow, UserRepositoryError},
+    },
 };
+
+/// Everything an edit replaces.
+///
+/// The whole set, not a change to it. See [`RoleRepository::update`].
+#[derive(Debug)]
+pub struct RoleFields<'a> {
+    /// What an operator types and reads.
+    pub name: &'a str,
+    /// What it is for.
+    pub description: Option<String>,
+    /// How much storage each account in it may hold, or `None` for the
+    /// instance ceiling.
+    pub quota_bytes: Option<u64>,
+    /// Largest single file each account in it may send, or `None` for
+    /// `server.max_body_bytes`.
+    pub max_file_bytes: Option<u64>,
+    /// Everything it allows.
+    pub permissions: &'a PermissionSet,
+}
 
 /// One role, with everything it allows.
 #[derive(Debug, Clone)]
@@ -29,6 +51,15 @@ pub struct Role {
     pub description: Option<String>,
     /// Whether removing it would leave the instance unadministrable.
     pub is_system: bool,
+    /// How much storage each account in this role may hold.
+    ///
+    /// `None` asks the instance ceiling; `Some(0)` is no ceiling at all. They
+    /// are not the same answer, so this cannot collapse to a plain number.
+    pub quota_bytes: Option<u64>,
+    /// Largest single file each account in this role may send.
+    ///
+    /// `None` asks `server.max_body_bytes`; `Some(0)` is no limit of its own.
+    pub max_file_bytes: Option<u64>,
     /// What it allows.
     pub permissions: PermissionSet,
     /// When it was created.
@@ -46,6 +77,8 @@ impl Role {
             })?,
             name: model.name.clone(),
             description: model.description.clone(),
+            quota_bytes: quota::from_column(model.quota_bytes),
+            max_file_bytes: quota::from_column(model.max_file_bytes),
             is_system: model.is_system,
             permissions,
             created_at: model.created_at,
@@ -63,9 +96,9 @@ pub enum RoleChange {
     NoSuchRole,
     /// It is one of the seeded roles and may not be removed.
     ///
-    /// Only removal is refused. An operator who wants `member` to stop being
-    /// able to delete shares is entitled to say so, and refusing that would be
-    /// the software deciding an instance's policy for it.
+    /// Only removal is refused. An operator who wants `member` to stop deleting
+    /// shares may say so; refusing would be the software deciding an instance's
+    /// policy.
     Seeded,
 }
 
@@ -82,34 +115,41 @@ impl RoleRepository {
         Self { connection }
     }
 
+    /// The role one account is in, if any.
+    ///
+    /// One column on `users` since the join table went, so this is a lookup by
+    /// primary key.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    async fn role_of(&self, user: UserId) -> Result<Option<String>, UserRepositoryError> {
+        Ok(UserEntity::find_by_id(user.to_string())
+            .one(&self.connection)
+            .await?
+            .and_then(|model| model.role_id))
+    }
+
     /// Everything one person is allowed to do.
     ///
-    /// # Why an unreadable permission is skipped rather than fatal
+    /// # Why an unreadable permission is skipped instead of fatal
     ///
     /// A row naming a permission this version does not have is what a downgrade
-    /// leaves behind. Refusing the whole set would lock every one of that
-    /// person's requests out, including the ones the rest of their roles do
-    /// allow — a strictly worse outcome than ignoring the one word nobody here
-    /// can act on. It is logged, because it means somebody is running a mixed
-    /// pair of versions.
+    /// leaves behind. Refusing the whole set would lock the person out of every
+    /// request, including the ones their role does allow. That is worse than
+    /// ignoring one unrecognised word. Logged, because it means a mixed pair of
+    /// versions is running.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if a query fails.
     pub async fn permissions_of(&self, user: UserId) -> Result<PermissionSet, UserRepositoryError> {
-        let role_ids: Vec<String> = UserRoleEntity::find()
-            .filter(user_role::Column::UserId.eq(user.to_string()))
-            .all(&self.connection)
-            .await?
-            .into_iter()
-            .map(|row| row.role_id)
-            .collect();
-        if role_ids.is_empty() {
+        let Some(role_id) = self.role_of(user).await? else {
             return Ok(PermissionSet::default());
-        }
+        };
 
         let rows = RolePermissionEntity::find()
-            .filter(role_permission::Column::RoleId.is_in(role_ids))
+            .filter(role_permission::Column::RoleId.eq(role_id))
             .all(&self.connection)
             .await?;
         Ok(rows
@@ -155,19 +195,12 @@ impl RoleRepository {
     ///
     /// Returns [`UserRepositoryError`] if a query fails or a row is not usable.
     pub async fn of_user(&self, user: UserId) -> Result<Vec<Role>, UserRepositoryError> {
-        let role_ids: Vec<String> = UserRoleEntity::find()
-            .filter(user_role::Column::UserId.eq(user.to_string()))
-            .all(&self.connection)
-            .await?
-            .into_iter()
-            .map(|row| row.role_id)
-            .collect();
-        if role_ids.is_empty() {
+        let Some(role_id) = self.role_of(user).await? else {
             return Ok(Vec::new());
-        }
+        };
 
         let models = RoleEntity::find()
-            .filter(role::Column::Id.is_in(role_ids))
+            .filter(role::Column::Id.eq(role_id))
             .order_by_asc(role::Column::Name)
             .all(&self.connection)
             .await?;
@@ -183,7 +216,7 @@ impl RoleRepository {
 
     /// The roles of many people at once.
     ///
-    /// Three queries whatever the number of accounts, rather than two each.
+    /// Three queries whatever the number of accounts, instead of two each.
     ///
     /// # Errors
     ///
@@ -195,12 +228,8 @@ impl RoleRepository {
         if users.is_empty() {
             return Ok(HashMap::new());
         }
-        let ids: Vec<String> = users.iter().map(|user| user.id.to_string()).collect();
-        let memberships = UserRoleEntity::find()
-            .filter(user_role::Column::UserId.is_in(ids))
-            .all(&self.connection)
-            .await?;
-
+        // No query for the memberships: every account carries its own role now,
+        // and the caller already has the accounts.
         let models = RoleEntity::find()
             .order_by_asc(role::Column::Name)
             .all(&self.connection)
@@ -214,18 +243,16 @@ impl RoleRepository {
 
         let mut resolved: HashMap<UserId, Vec<Role>> = HashMap::with_capacity(users.len());
         for user in users {
-            resolved.insert(user.id, Vec::new());
-        }
-        for membership in &memberships {
-            let (Ok(user), Some(role)) = (
-                UserId::parse(&membership.user_id),
-                by_id.get(&membership.role_id),
-            ) else {
-                continue;
-            };
-            if let Some(held) = resolved.get_mut(&user) {
-                held.push(role.clone());
-            }
+            // Still a list in the answer, because that is what the responses
+            // are shaped like and one role fits in a list of one. A role the
+            // account names but that no longer exists comes back as no roles,
+            // as the name says.
+            let held = user
+                .role_id
+                .and_then(|id| by_id.get(&id.to_string()).cloned())
+                .map(|role| vec![role])
+                .unwrap_or_default();
+            resolved.insert(user.id, held);
         }
         Ok(resolved)
     }
@@ -268,8 +295,8 @@ impl RoleRepository {
 
     /// One role, by the name an operator typed.
     ///
-    /// Used to answer "is this name taken" before writing, so the unique index
-    /// is a backstop rather than the thing producing the error message.
+    /// Answers "is this name taken" before writing, so the unique index is a
+    /// backstop, not the source of the error message.
     ///
     /// # Errors
     ///
@@ -301,16 +328,25 @@ impl RoleRepository {
 
     /// How many accounts are in each role.
     ///
-    /// One query rather than one per role: the listing shows the number beside
-    /// every role, and it is the number an operator wants before editing one.
+    /// One query, not one per role. The listing shows it beside every
+    /// role, and it is what an operator wants before editing one.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the query fails or a row is not usable.
     pub async fn member_counts(&self) -> Result<HashMap<RoleId, u64>, UserRepositoryError> {
         let mut counts: HashMap<RoleId, u64> = HashMap::new();
-        for row in UserRoleEntity::find().all(&self.connection).await? {
-            if let Ok(id) = RoleId::parse(&row.role_id) {
+        // Only the column, not whole accounts: this reads every row in the
+        // table, and an instance with a lot of them should not be pulling
+        // password hashes across to count.
+        let rows: Vec<Option<String>> = UserEntity::find()
+            .select_only()
+            .column(user::Column::RoleId)
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        for row in rows.into_iter().flatten() {
+            if let Ok(id) = RoleId::parse(&row) {
                 *counts.entry(id).or_insert(0) += 1;
             }
         }
@@ -324,7 +360,7 @@ impl RoleRepository {
     /// Returns [`UserRepositoryError`] if the query fails.
     pub async fn member_count(&self, id: RoleId) -> Result<u64, UserRepositoryError> {
         Ok(PaginatorTrait::count(
-            UserRoleEntity::find().filter(user_role::Column::RoleId.eq(id.to_string())),
+            UserEntity::find().filter(user::Column::RoleId.eq(id.to_string())),
             &self.connection,
         )
         .await?)
@@ -338,11 +374,16 @@ impl RoleRepository {
     pub async fn update(
         &self,
         id: RoleId,
-        name: &str,
-        description: Option<String>,
-        permissions: &PermissionSet,
+        fields: RoleFields<'_>,
         now: OffsetDateTime,
     ) -> Result<RoleChange, UserRepositoryError> {
+        let RoleFields {
+            name,
+            description,
+            quota_bytes,
+            max_file_bytes,
+            permissions,
+        } = fields;
         if RoleEntity::find_by_id(id.to_string())
             .one(&self.connection)
             .await?
@@ -360,6 +401,8 @@ impl RoleRepository {
         RoleEntity::update_many()
             .col_expr(role::Column::Name, name.into())
             .col_expr(role::Column::Description, description.into())
+            .col_expr(role::Column::QuotaBytes, quota::to_expr(quota_bytes))
+            .col_expr(role::Column::MaxFileBytes, quota::to_expr(max_file_bytes))
             .col_expr(role::Column::UpdatedAt, now.into())
             .filter(role::Column::Id.eq(id.to_string()))
             .exec(&transaction)
@@ -368,26 +411,81 @@ impl RoleRepository {
         Ok(RoleChange::Done)
     }
 
+    /// Sets or clears one role's storage quota.
+    ///
+    /// `None` clears it, which puts the role back on the instance ceiling;
+    /// `Some(0)` gives it no ceiling of its own. Returns whether a row changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the write fails.
+    pub async fn set_quota(
+        &self,
+        id: RoleId,
+        quota_bytes: Option<u64>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = RoleEntity::update_many()
+            .col_expr(role::Column::QuotaBytes, quota::to_expr(quota_bytes))
+            .col_expr(role::Column::UpdatedAt, now.into())
+            .filter(role::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Sets or clears one role's single-file limit.
+    ///
+    /// `None` clears it, which puts the role back on `server.max_body_bytes`;
+    /// `Some(0)` gives it no limit of its own. Returns whether a row changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the write fails.
+    pub async fn set_max_file_bytes(
+        &self,
+        id: RoleId,
+        max_file_bytes: Option<u64>,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = RoleEntity::update_many()
+            .col_expr(role::Column::MaxFileBytes, quota::to_expr(max_file_bytes))
+            .col_expr(role::Column::UpdatedAt, now.into())
+            .filter(role::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
     /// Creates a role.
     ///
     /// # Errors
     ///
-    /// Returns [`UserRepositoryError`] if the write fails — including when the
-    /// name is taken, which the unique index refuses.
+    /// Returns [`UserRepositoryError`] if the write fails, including when the
+    /// unique index refuses a name that is taken.
     pub async fn create(
         &self,
-        name: String,
-        description: Option<String>,
-        permissions: &PermissionSet,
+        fields: RoleFields<'_>,
         now: OffsetDateTime,
     ) -> Result<Role, UserRepositoryError> {
+        // The same bundle `update` takes: one shape for "everything a role is",
+        // so a field added to one path cannot be forgotten on the other.
+        let RoleFields {
+            name,
+            description,
+            quota_bytes,
+            max_file_bytes,
+            permissions,
+        } = fields;
         let id = RoleId::generate();
         let transaction = self.connection.begin().await?;
 
         RoleEntity::insert(role::ActiveModel {
             id: Set(id.to_string()),
-            name: Set(name.clone()),
+            name: Set(name.to_owned()),
             description: Set(description.clone()),
+            quota_bytes: Set(quota::to_column(quota_bytes)),
+            max_file_bytes: Set(quota::to_column(max_file_bytes)),
             is_system: Set(false),
             created_at: Set(now),
             updated_at: Set(now),
@@ -399,8 +497,10 @@ impl RoleRepository {
 
         Ok(Role {
             id,
-            name,
+            name: name.to_owned(),
             description,
+            quota_bytes,
+            max_file_bytes,
             is_system: false,
             permissions: permissions.clone(),
             created_at: now,
@@ -410,12 +510,11 @@ impl RoleRepository {
 
     /// Replaces what a role allows.
     ///
-    /// # Why the whole set rather than add and remove
+    /// # Why the whole set, and not add and remove
     ///
-    /// The caller is holding a list of ticked boxes. Sending the result and
-    /// having this write exactly that is the only version where two operators
-    /// editing the same role cannot interleave into a set neither of them
-    /// chose.
+    /// The caller is holding a list of ticked boxes. Writing exactly that is
+    /// the only version where two operators editing the same role cannot
+    /// interleave into a set neither chose.
     ///
     /// # Errors
     ///
@@ -451,9 +550,8 @@ impl RoleRepository {
 
     /// Removes a role, unless it is one of the seeded ones.
     ///
-    /// Anybody in it simply stops being in it — the foreign key cascades. That
-    /// can leave somebody with no roles at all, which is a real state: signed
-    /// in, allowed nothing.
+    /// Every member stops being one, by cascade. That can leave an account with
+    /// no role at all: a real state, signed in and allowed nothing.
     ///
     /// # Errors
     ///
@@ -474,54 +572,46 @@ impl RoleRepository {
         Ok(RoleChange::Done)
     }
 
-    /// Puts somebody in exactly these roles.
+    /// Puts an account in a role, or in none.
     ///
-    /// Same reasoning as [`set_permissions`](Self::set_permissions): the caller
-    /// holds the resulting list, not a diff.
+    /// `None` is signed in and allowed nothing: a real state, and the only way
+    /// to express what "no rows in the join table" used to mean.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if a query fails.
-    pub async fn set_roles_of(
+    pub async fn set_role_of(
         &self,
         user: UserId,
-        roles: &[RoleId],
+        role: Option<RoleId>,
         now: OffsetDateTime,
     ) -> Result<RoleChange, UserRepositoryError> {
-        // Every named role must exist before anything is written, or a typo
-        // silently removes somebody from the roles they had.
-        for id in roles {
-            if RoleEntity::find_by_id(id.to_string())
+        // The role must exist before anything is written, or a typo silently
+        // strips the role the account already had.
+        if let Some(id) = role
+            && RoleEntity::find_by_id(id.to_string())
                 .one(&self.connection)
                 .await?
                 .is_none()
-            {
-                return Ok(RoleChange::NoSuchRole);
-            }
+        {
+            return Ok(RoleChange::NoSuchRole);
         }
 
-        let transaction = self.connection.begin().await?;
-        UserRoleEntity::delete_many()
-            .filter(user_role::Column::UserId.eq(user.to_string()))
-            .exec(&transaction)
+        // One statement, where the join table needed a transaction to replace a
+        // set without a moment of having none.
+        UserEntity::update_many()
+            .col_expr(user::Column::RoleId, role.map(|id| id.to_string()).into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(user.to_string()))
+            .exec(&self.connection)
             .await?;
-        for id in roles {
-            UserRoleEntity::insert(user_role::ActiveModel {
-                user_id: Set(user.to_string()),
-                role_id: Set(id.to_string()),
-                granted_at: Set(now),
-            })
-            .exec(&transaction)
-            .await?;
-        }
-        transaction.commit().await?;
         Ok(RoleChange::Done)
     }
 
     /// How many people hold a permission.
     ///
-    /// Asked before taking somebody's last administrator role away, which is
-    /// the change that can leave an instance nobody can administer.
+    /// Asked before taking away an account's last administrator role, the
+    /// change that can leave an instance with no administrator at all.
     ///
     /// # Errors
     ///
@@ -538,15 +628,13 @@ impl RoleRepository {
             return Ok(0);
         }
 
-        let holders: std::collections::HashSet<String> = UserRoleEntity::find()
-            .filter(user_role::Column::RoleId.is_in(granting))
-            .all(&self.connection)
-            .await?
-            .into_iter()
-            .map(|row| row.user_id)
-            // A person in two roles that both grant it is one holder.
-            .collect();
-        Ok(u64::try_from(holders.len()).unwrap_or(u64::MAX))
+        // One role each, so counting accounts is counting holders. No account
+        // is in two granting roles to deduplicate.
+        Ok(PaginatorTrait::count(
+            UserEntity::find().filter(user::Column::RoleId.is_in(granting)),
+            &self.connection,
+        )
+        .await?)
     }
 }
 

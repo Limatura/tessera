@@ -35,12 +35,12 @@ pub struct ApiToken {
     pub created_at: OffsetDateTime,
     /// When it was last accepted.
     pub last_used_at: Option<OffsetDateTime>,
-    /// What it may do, which is at most what its owner may do.
+    /// What it may do: at most what its owner may do.
     ///
-    /// Stored on the token rather than derived from its owner: the point of a
-    /// token is to hand a script something narrower than an account. The
+    /// Stored on the token, not derived from its owner. The point of a token is
+    /// to hand a script something narrower than an account. The
     /// intersection with the owner's own permissions happens at the request, so
-    /// demoting somebody narrows every token they hold at the same moment.
+    /// demoting an account narrows every token it holds at the same moment.
     pub permissions: PermissionSet,
     /// When it stops being accepted, or `None` to live until revoked.
     pub expires_at: Option<OffsetDateTime>,
@@ -51,8 +51,8 @@ pub struct ApiToken {
 impl ApiToken {
     /// Whether the token may be accepted at `now`.
     ///
-    /// Revocation and expiry are separate states on purpose: a revoked token
-    /// stays in the table so that an audit can still show it existed, and this
+    /// Revocation and expiry are separate states. A revoked token stays in the
+    /// table so an audit can still show it existed, and this
     /// is the single place that decides both stop it working.
     #[must_use]
     pub fn is_usable_at(&self, now: OffsetDateTime) -> bool {
@@ -103,7 +103,7 @@ impl ApiTokenRepository {
         Self { connection }
     }
 
-    /// Issues a token and returns the secret, which is the only time it exists.
+    /// Issues a token and returns the secret, the only time it exists.
     ///
     /// # Errors
     ///
@@ -194,7 +194,7 @@ impl ApiTokenRepository {
         let models = ApiTokenEntity::find()
             .filter(api_token::Column::UserId.eq(user_id.to_string()))
             .order_by_desc(api_token::Column::CreatedAt)
-            // Tiebreak on the identifier, which is a ULID and therefore already
+            // Tiebreak on the identifier, a ULID and therefore already
             // in creation order. Two tokens issued in the same microsecond would
             // otherwise come back in an order the database chose.
             .order_by_desc(api_token::Column::Id)
@@ -257,9 +257,9 @@ impl ApiTokenRepository {
 
     /// Removes every token an account ever had.
     ///
-    /// Revoking would do for stopping them — authentication refuses a deleted
-    /// account anyway — but a revoked token keeps its name, and the name is
-    /// something its owner chose.
+    /// Revoking would do for stopping them, since authentication refuses a
+    /// deleted account anyway, but a revoked token keeps its name and the name
+    /// is something its owner chose.
     ///
     /// # Errors
     ///
@@ -295,9 +295,9 @@ impl ApiTokenRepository {
 
     /// Revokes a token belonging to `user_id`.
     ///
-    /// Scoped to the owner in the query rather than checked afterwards: a
+    /// Scoped to the owner in the query, not checked afterwards. A
     /// separate ownership check is a race and an easy thing to forget, where a
-    /// `WHERE` clause simply cannot revoke somebody else's token.
+    /// `WHERE` clause simply cannot revoke another account's token.
     ///
     /// Returns whether a row changed, so a caller can tell "revoked" from "no
     /// such token of yours" without a second query.

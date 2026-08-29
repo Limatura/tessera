@@ -28,9 +28,9 @@ const MAX_NAME_LENGTH: usize = 64;
 
 /// Longest lifetime a caller may ask for, in days.
 ///
-/// Not a security boundary — a caller can always create another — but a token
-/// with a ten-year expiry is one nobody will ever revisit, and this at least
-/// makes the choice deliberate.
+/// Not a security boundary, since a caller can always create another, but a
+/// ten-year expiry is one that never gets revisited. This makes the choice
+/// explicit.
 const MAX_EXPIRY_DAYS: u32 = 3650;
 
 /// An issued token, as a listing describes it. Never carries the secret.
@@ -48,7 +48,7 @@ pub struct TokenResponse {
     pub display_prefix: String,
     /// What it may do, as `resource:verb` strings.
     ///
-    /// What it was minted with, not what it can do right now — those differ
+    /// What it was minted with, not what it can do right now. Those differ
     /// when the owner has since been demoted, and the owner is who this list is
     /// for. Sending the narrowed set instead would make a token look as though
     /// it had been quietly edited.
@@ -74,7 +74,7 @@ pub struct CreatedTokenResponse {
     /// The secret, in full.
     ///
     /// **Shown once.** Only its SHA-256 digest is stored, so this value cannot be
-    /// recovered — a client that does not keep it has to issue another token.
+    /// recovered, so a client that does not keep it must issue another token.
     #[schema(example = "tsk_a1b2c3d4e5f6...")]
     pub secret: String,
 }
@@ -88,10 +88,10 @@ pub struct CreateTokenRequest {
 
     /// What the token may do, as `resource:verb` strings.
     ///
-    /// Omitted means `shares:create` and nothing else — a token exists to
-    /// upload, and the default that is wrong in the safe direction is the one
-    /// that has to be widened on purpose. The other default would hand every
-    /// screenshot tool the ability to delete everything its owner has.
+    /// Omitted means `shares:create` and nothing else, since a token exists to
+    /// upload, and a default that errs safe has to be widened explicitly. The
+    /// other default would hand every screenshot tool the ability to delete
+    /// everything its owner has.
     ///
     /// A permission the caller does not hold is refused: a token cannot be a
     /// way to exceed the account that minted it.
@@ -135,9 +135,9 @@ impl From<ApiToken> for TokenResponse {
 ///
 /// # Errors
 ///
-/// `401` when nothing was signed in — which is also what an instance with
-/// accounts turned off answers, since there is nobody to be. `403` when the
-/// account still owes a password change.
+/// `401` when nothing was signed in. An instance with accounts turned off
+/// answers the same, having no account to be. `403` when the account
+/// still owes a password change.
 #[utoipa::path(
     get,
     path = "/tokens",
@@ -166,13 +166,13 @@ pub async fn list(
 ///
 /// A token exists to upload. Defaulting to the whole account would mean every
 /// screenshot tool and backup script handed out the ability to delete
-/// everything its owner has, and nobody would notice until one leaked.
+/// everything its owner has, and that surfaces only when one leaks.
 ///
 /// # Why a permission the caller lacks is refused
 ///
 /// A token must not be a way to exceed the account that minted it. Without
-/// this, somebody demoted to `member` could still mint a token carrying
-/// `users:delete` if they had ever known to ask.
+/// this, an account demoted to `member` could still mint a token carrying
+/// `users:delete`.
 ///
 /// # Errors
 ///
@@ -201,7 +201,7 @@ fn requested_permissions(current: &CurrentUser, asked: Option<&[String]>) -> Res
 /// # Errors
 ///
 /// `401` when nothing was signed in, `403` when authenticated with a token
-/// rather than a session, `400` when the name or lifetime is unusable.
+/// and not a session, `400` when the name or lifetime is unusable.
 #[utoipa::path(
     post,
     path = "/tokens",
@@ -309,8 +309,8 @@ pub async fn revoke(
     }
     current.require(Permission::TokensManage)?;
 
-    // An unparsable id and somebody else's id are the same answer. Telling them
-    // apart would confirm which identifiers exist.
+    // An unparsable id and another account's id get the same answer. Telling
+    // them apart would confirm which identifiers exist.
     let token_id = ApiTokenId::parse(&id).map_err(|_| Error::NotFound)?;
 
     let revoked = state

@@ -2,12 +2,12 @@
 //!
 //! # Why a cookie and not a token
 //!
-//! All three endpoints refuse a bearer token, which is stricter than the token
+//! All three endpoints refuse a bearer token, stricter than the token
 //! endpoints next door. Two different reasons, and both matter:
 //!
-//! Ending sessions with a token would mean a leaked token can throw the owner
-//! off every device they have — the opposite of what a person does when they
-//! discover a leak.
+//! Ending sessions with a token would let a leaked token throw the owner off
+//! every device they have, the opposite of what a person does on discovering a
+//! leak.
 //!
 //! Listing them with a token would hand it the addresses and browsers the owner
 //! signs in from. That is the most identifying thing this service stores about
@@ -29,8 +29,9 @@ use crate::{
 
 /// One sign-in, as the API describes it.
 ///
-/// Covers sessions that are over as well as the ones that work. Somebody reading
-/// this list is usually asking whether anybody else has been in, and a session
+/// Covers sessions that are over as well as the ones that work. A person
+/// reading this is usually asking whether anyone else has been in, and a
+/// session
 /// that was revoked last Tuesday is exactly what they need to see.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SessionResponse {
@@ -44,10 +45,10 @@ pub struct SessionResponse {
     pub current: bool,
     /// Whether it still works.
     ///
-    /// Sent rather than left to the client to derive from `expires_at`: a
-    /// browser's clock can be wrong by more than a session's remaining life, and
-    /// being told "this is still live" by a machine with a fast clock is how
-    /// somebody decides not to revoke something they should have.
+    /// Sent, not left to the client to derive from `expires_at`. A browser's
+    /// clock can be wrong by more than a session's remaining life, and
+    /// being told "this is still live" by a machine with a fast clock is how a
+    /// session that should have been revoked survives.
     pub active: bool,
     /// When the sign-in happened.
     pub created_at: String,
@@ -63,11 +64,11 @@ pub struct SessionResponse {
     pub created_ip: Option<String>,
     /// The `User-Agent` the sign-in arrived with, exactly as it was sent.
     ///
-    /// Not parsed into "Chrome on macOS": doing that reliably is famously hard,
-    /// and getting it wrong tells somebody a session is theirs when it is not.
+    /// Not parsed into "Chrome on macOS". Doing that reliably is famously hard,
+    /// and getting it wrong marks a session as yours when it is not.
     #[schema(example = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15")]
     pub created_user_agent: Option<String>,
-    /// Why it ended early, if somebody ended it.
+    /// Why it ended early, if it was ended.
     ///
     /// `null` means it simply ran out. The values are `signed_out`, `revoked`,
     /// `password_changed`, `password_reset` and `account_disabled`.
@@ -96,7 +97,7 @@ impl SessionResponse {
 /// Refuses anything that did not arrive with a session cookie.
 ///
 /// Returns the calling session's identifier, which every handler here needs
-/// anyway — to mark the current row, or to spare it.
+/// anyway, to mark the current row or to spare it.
 fn require_session(current: &CurrentUser) -> Result<SessionId> {
     current.credential.session_id().ok_or(Error::Forbidden)
 }
@@ -174,7 +175,7 @@ pub async fn revoke(
 ) -> Result<StatusCode> {
     require_session(&current)?;
 
-    // An unparsable identifier and somebody else's are the same answer.
+    // An unparsable identifier and another account's get the same answer.
     let session_id = SessionId::parse(&id).map_err(|_| Error::NotFound)?;
 
     match state
@@ -189,8 +190,8 @@ pub async fn revoke(
 
 /// Ends every session except the one asking.
 ///
-/// The button somebody presses when they think another person is signed in as
-/// them. It spares the browser doing the asking, because being logged out by
+/// The button to press on suspecting that another person is signed in as you.
+/// It spares the browser doing the asking, because being logged out by
 /// your own attempt to log everybody else out is a poor way to find out it
 /// worked.
 ///

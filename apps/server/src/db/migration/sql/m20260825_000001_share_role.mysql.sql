@@ -1,0 +1,40 @@
+-- Which role uploaded a share.
+--
+-- # Why a column and not a join
+--
+-- The quota a share counts against is decided by role (#176), and the upload
+-- path would otherwise go back to the account on every request to find out
+-- which. One column answers it, and summing a role's usage becomes one indexed
+-- query rather than a join.
+--
+-- # It is a snapshot, on purpose
+--
+-- This is the role the uploader was in *at the time*. Moving somebody to
+-- another role later does not rewrite which quota their old shares counted
+-- against — one change to one account would otherwise silently redistribute
+-- storage that was already accounted for.
+--
+-- # Why anonymous uploads get `guest` rather than NULL
+--
+-- `user_id IS NULL` already means two different things: nobody was signed in,
+-- and the account that uploaded it has since been deleted. Reading "is this
+-- anonymous" off it is therefore wrong for the second case. The role says
+-- which, and `guest` is the seeded role for exactly this.
+--
+-- # ON DELETE SET NULL
+--
+-- A role can be removed while shares uploaded under it still exist. Losing
+-- which one is recoverable; refusing to delete the role, or deleting somebody's
+-- share along with it, is not. A share with no role falls back to the
+-- instance-wide ceiling, which is also what every share that predates this
+-- column does.
+--
+-- # Why this dialect looks different
+--
+-- `VARCHAR(191)` because the column is indexed and MySQL cannot index TEXT
+-- without a prefix length. The foreign key is table-level because `InnoDB`
+-- silently ignores a `REFERENCES` written on a column.
+ALTER TABLE shares ADD COLUMN role_id VARCHAR(191);
+ALTER TABLE shares ADD CONSTRAINT fk_shares_role FOREIGN KEY (role_id) REFERENCES roles (id) ON DELETE SET NULL;
+
+CREATE INDEX idx_shares_role ON shares (role_id);

@@ -9,7 +9,7 @@ pub struct Model {
     /// ULID in text form.
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: String,
-    /// SHA-256 of the code. Never the code itself — it exists in readable form
+    /// SHA-256 of the code. Never the code itself: it exists in readable form
     /// once, on the terminal that made it.
     #[sea_orm(unique)]
     pub code_hash: String,
@@ -26,8 +26,8 @@ pub struct Model {
     pub expires_at: Option<TimeDateTimeWithTimeZone>,
 }
 
-/// No relations declared: `pending_registrations.invite_id` deliberately has no
-/// foreign key, so there is nothing for SeaORM to join across.
+/// No relations declared. `pending_registrations.invite_id` carries no foreign
+/// key, so there is nothing for SeaORM to join across.
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {}
 

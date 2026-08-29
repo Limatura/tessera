@@ -5,6 +5,70 @@ description: >-
 runs:
   using: composite
   steps:
+    # Before anything else, because the thing this is clearing is memory and the
+    # step after it starts a compiler.
+    #
+    # A `rustc` whose parent is gone was reparented to PID 1: the job that
+    # started it is not coming back for it, and on a self-hosted runner nothing
+    # else will. Enough of them and the machine runs out of memory — which is
+    # what a runner being `SIGTERM`ed mid-job looks like from the outside.
+    #
+    # Orphans only. A live build's compiler has the shell that spawned it as its
+    # parent, so this cannot reach one; the age floor is a second guard against a
+    # process the kernel has only just reparented.
+    - name: Reap compilers nobody is waiting for
+      shell: bash
+      run: |
+        reaped=0
+        while read -r pid ppid age comm; do
+          [ "$ppid" = "1" ] || continue
+          [ "$age" -gt 60 ] || continue
+          case "$comm" in
+            rustc|cargo) ;;
+            *) continue ;;
+          esac
+          kill -9 "$pid" 2>/dev/null && reaped=$((reaped + 1))
+        done <<< "$(ps -eo pid=,ppid=,etimes=,comm=)"
+        [ "$reaped" -eq 0 ] || echo "reaped ${reaped} orphaned compilers"
+
+    # The shared target directory is what actually fills the disk, and nothing
+    # was bounding it.
+    #
+    # Measured on 2026-08-28: this workspace's `target/debug` reaches 64 GB, on a
+    # runner whose whole root filesystem is about 55. Across an hour of runs the
+    # free space went 21 GB, 8 GB, 9 GB — and the failure that produced was not
+    # a message about disk. The object stores came up, took connections, and
+    # then answered every write with an error their gateways report as a plain
+    # `500`, because a volume server out of room marks its volumes read-only.
+    # The run failed three minutes later in whichever test wrote first, saying
+    # `internal error`.
+    #
+    # A cap rather than a clean every time: the directory is shared between jobs
+    # precisely so a build does not start from nothing, and throwing it away on
+    # every run would trade an hour of disk for an hour of compiling. Over the
+    # cap, the next build pays for one cold start and the disk comes back.
+    #
+    # Fourteen because the number has to leave the rest of the job room on a
+    # 55 GB disk, and 25 did not: measured on 2026-08-29 the directory sat at
+    # 23 GB, under that cap and therefore kept, with 17 GB free — and the job
+    # was then stopped by its own floor. A cap only helps if it binds.
+    - name: Keep the shared target directory under a cap
+      shell: bash
+      run: |
+        CAP_GB=14
+        target="${CARGO_TARGET_DIR:-}"
+        if [ -z "$target" ] || [ ! -d "$target" ]; then
+          echo "no shared target directory yet"
+          exit 0
+        fi
+        size_gb=$(du -s --block-size=1G "$target" 2>/dev/null | cut -f1)
+        size_gb=${size_gb:-0}
+        echo "cargo target directory is ${size_gb} GB (cap ${CAP_GB} GB)"
+        if [ "$size_gb" -gt "$CAP_GB" ]; then
+          echo "over the cap; the next build starts from an empty one"
+          rm -rf "$target"
+        fi
+
     # GitHub's hosted images ship with rustup, so this never had to be said. A
     # self-hosted runner is whatever somebody installed on it, and a job that
     # fails with `rustup: command not found` sends the reader to look at the

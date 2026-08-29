@@ -9,8 +9,8 @@ use crate::auth::secret::Secret;
 
 /// Name of the session cookie.
 ///
-/// The `__Host-` prefix is deliberately **not** used. Browsers only honour it on
-/// HTTPS, and refusing to set a cookie at all on a plain-HTTP LAN deployment
+/// The `__Host-` prefix is **not** used. Browsers only honour it on HTTPS, and
+/// refusing to set a cookie at all on a plain-HTTP LAN deployment
 /// would break login for a large share of the people this software is for.
 pub const COOKIE_NAME: &str = "tessera_session";
 
@@ -38,17 +38,17 @@ impl SecurePolicy {
     /// # Why this is not simply "read `X-Forwarded-Proto`"
     ///
     /// That header is set by whoever spoke to us last, which on a direct
-    /// connection is the client — so trusting it unconditionally lets anyone
+    /// connection is the client, so trusting it unconditionally lets anyone
     /// claim HTTPS. It is only meaningful when a reverse proxy we control put it
-    /// there, which is what naming it in `server.trusted_proxies` asserts — so
+    /// there, and naming it in `server.trusted_proxies` asserts exactly that, so
     /// the answer depends on who connected, not on configuration alone.
     ///
     /// When the header is not trusted the answer is "not secure", and that
-    /// direction is chosen on purpose. Marking a cookie `Secure` on a plain-HTTP
+    /// direction is chosen. Marking a cookie `Secure` on a plain-HTTP
     /// deployment does not fail loudly: the browser accepts the response,
     /// discards the cookie, and the user sees a login that appears to succeed and
     /// then does nothing. A missing `Secure` flag on a LAN is a smaller problem
-    /// than a login nobody can diagnose.
+    /// than a login that cannot be diagnosed.
     #[must_use]
     pub fn applies(self, headers: &HeaderMap, trust_forwarded_proto: bool) -> bool {
         match self {
@@ -70,16 +70,16 @@ impl SecurePolicy {
 
 /// Builds the cookie that carries a session.
 ///
-/// `SameSite=Lax` rather than `Strict`: retrieval links get opened from Discord,
+/// `SameSite=Lax`, not `Strict`. Retrieval links get opened from Discord,
 /// mail clients and chat apps, and `Strict` withholds the cookie on exactly that
-/// kind of top-level navigation — so a logged-in user would arrive logged out.
-/// `Lax` still withholds it on cross-site POSTs, which is the case CSRF cares
+/// kind of top-level navigation, so a logged-in user would arrive logged out.
+/// `Lax` still withholds it on cross-site POSTs, the case CSRF cares
 /// about.
 #[must_use]
 pub fn session_cookie(secret: &Secret, max_age: Duration, secure: bool) -> Cookie<'static> {
     Cookie::build((COOKIE_NAME, secret.expose().to_owned()))
         // Unconditional: the session secret must never be readable from
-        // JavaScript, which is what turns an XSS into a stolen account.
+        // JavaScript. That is what turns an XSS into a stolen account.
         .http_only(true)
         .same_site(SameSite::Lax)
         .secure(secure)
@@ -90,7 +90,7 @@ pub fn session_cookie(secret: &Secret, max_age: Duration, secure: bool) -> Cooki
 
 /// Builds the cookie that clears a session.
 ///
-/// Attributes must match the one being replaced — a browser keys cookies by
+/// Attributes must match the one being replaced, since a browser keys cookies by
 /// name, domain and path, so a removal with a different `Path` creates a second
 /// cookie instead of deleting the first.
 #[must_use]
@@ -172,7 +172,7 @@ mod tests {
     }
 
     /// A removal whose attributes differ from the original adds a second cookie
-    /// rather than deleting the first, and the user stays logged in.
+    /// instead of deleting the first, and the user stays logged in.
     #[test]
     fn the_clearing_cookie_matches_the_one_it_replaces() {
         let live = session_cookie(&Secret::generate_session(), Duration::hours(1), true);

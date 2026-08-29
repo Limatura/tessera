@@ -8,8 +8,24 @@
 # depended on cleanup succeeding, which is backwards — cleanup exists so that
 # runs keep working, not the other way round.
 #
-# On a schedule instead. Nothing waits for it, it does not care whether the last
-# run passed, and a machine that is offline simply misses a turn.
+# Not after every run, and not for want of trying. `workflow_run` would fire
+# when `rust` finishes without being a job inside it, which is the shape that
+# avoids the hang above — but `zizmor` refuses it as `dangerous-triggers`, and
+# it is right to: a `workflow_run` job holds the base repository's token while
+# being triggered by a run that a fork can start. This one checks nothing out
+# and reads nothing from the event, so the escalation does not apply, but
+# suppressing a high-severity audit to save a nightly cron is a bad trade and
+# this repository has no suppressions to follow.
+#
+# What replaced it is better anyway: the machine is cleaned *before* something
+# uses it rather than after. `.github/actions/rust` reaps orphaned compilers at
+# the start of every job, and the storage job removes its own leftover
+# containers before checking ports. Garbage then never survives into the run
+# that would trip over it, which is the only thing "clean after every run" was
+# ever buying.
+#
+# This stays for what accumulates while nothing is running: buildx builders, the
+# cargo target directory, images nothing referenced for a day.
 #
 # The jobs that create something specific still clean up after themselves — see
 # the image build in `rust.yml`. This is for what accumulates.
@@ -17,9 +33,7 @@ name: housekeeping
 
 on:
   schedule:
-    # Small hours, when nobody is waiting on a build. The docker job also
-    # clears space for itself before building — a disk that fills at noon has
-    # eaten every run until this would have got to it.
+    # Small hours, when nobody is waiting on a build.
     - cron: "0 4 * * *"
   workflow_dispatch:
 
@@ -79,5 +93,30 @@ jobs:
           fi
           exit 0
 
+      # Orphans only: a `rustc` whose parent is gone was reparented to PID 1,
+      # which means the job that started it is not coming back for it. A live
+      # build's compiler has the shell that spawned it as its parent, so this
+      # cannot touch one — and it must not, because the single runner may already
+      # have started the next run by the time this fires.
+      #
+      # The age floor is a second guard on the same idea: a process that has been
+      # orphaned for under a minute may be one the kernel has not finished
+      # reparenting.
+      - name: Reap compilers nobody is waiting for
+        run: |
+          reaped=0
+          while read -r pid ppid age comm; do
+            [ "$ppid" = "1" ] || continue
+            [ "$age" -gt 60 ] || continue
+            case "$comm" in
+              rustc|cargo) ;;
+              *) continue ;;
+            esac
+            kill -9 "$pid" 2>/dev/null && reaped=$((reaped + 1))
+          done <<< "$(ps -eo pid=,ppid=,etimes=,comm=)"
+          echo "reaped ${reaped} orphaned compilers"
+
       - name: What is left
-        run: df -h / | tail -1
+        run: |
+          df -h / | tail -1
+          free -h | head -2

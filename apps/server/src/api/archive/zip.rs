@@ -1,10 +1,10 @@
 //! The zip half of packing a share.
 //!
-//! # Why this is written here rather than taken from a crate
+//! # Why this is written here instead of taken from a crate
 //!
 //! The size has to be known before the first byte goes out. A share with five
-//! files is a download somebody watches, and a response with no
-//! `Content-Length` has no progress bar and no estimated time — on exactly the
+//! files is a download people watch, and a response with no
+//! `Content-Length` has no progress bar and no estimated time, on exactly the
 //! transfers where those matter most.
 //!
 //! Streaming zip crates cannot give that: they compress, so the size is not
@@ -12,14 +12,14 @@
 //! and then the entries can still be streamed one at a time without holding any
 //! of them in memory.
 //!
-//! # Why storing rather than compressing
+//! # Why storing and not compressing
 //!
-//! What goes through here is what somebody uploaded — images, video, archives,
+//! What goes through here is uploaded content: images, video, archives,
 //! documents that are already compressed. Deflating those spends processor time
-//! to make them slightly larger. The rare case that would compress well is text,
-//! and a text share is not an archive.
-// `as` rather than `u64::from`: the latter is not const yet, and this is a
-// widening conversion of a constant — the case `as` cannot get wrong.
+//! to make them slightly larger. The rare case that would compress well is
+//! text, and a text share is not an archive.
+// `as`, not `u64::from`. The latter is not const yet, and this is a
+// widening conversion of a constant, the case `as` cannot get wrong.
 // The table is built in a `const fn`, where `From` and `TryFrom` are not
 // available and every index is bounded by the loop that writes it. Both lints
 // are right in general and cannot see either fact here.
@@ -34,7 +34,7 @@
 //!
 //! The subset of PKWARE's format that stores: local headers, entry data, the
 //! central directory, and the end record. No compression, no encryption, no
-//! Zip64 — see [`MAX_ARCHIVE_SIZE`] for what that last one costs.
+//! Zip64; see [`MAX_ARCHIVE_SIZE`] for what that last one costs.
 
 use std::io;
 
@@ -45,7 +45,7 @@ use bytes::{BufMut as _, Bytes, BytesMut};
 /// Four gigabytes, because the classic format keeps sizes and offsets in 32
 /// bits. An archive past it would be produced happily and open as nonsense, so
 /// the size is checked before anything is sent and refused with an explanation
-/// rather than a corrupt file.
+/// instead of a corrupt file.
 pub const MAX_ARCHIVE_SIZE: u64 = u32::MAX as u64;
 
 /// One file going into the archive.
@@ -57,10 +57,10 @@ pub struct Entry {
     pub size: u64,
     /// CRC-32 of its contents, which the format keeps in the header.
     ///
-    /// Computed as the bytes stream past rather than up front — reading every
-    /// file twice to fill in a checksum would double the work of the download.
+    /// Computed as the bytes stream past, not up front, since reading
+    /// every file twice for a checksum would double the work of the download.
     /// The header carries a zero and a flag saying "the real values follow the
-    /// data", which is what the format provides for exactly this.
+    /// data", the escape the format provides for exactly this.
     pub crc: u32,
 }
 
@@ -180,7 +180,7 @@ pub fn crc32(bytes: &[u8]) -> u32 {
 
 /// CRC-32 as the format wants it, fed a chunk at a time.
 ///
-/// Written here rather than taken from a crate because it is a table and a loop,
+/// Written here, not taken from a crate, because it is a table and a loop,
 /// and the alternative is a dependency whose only use is this.
 #[derive(Debug, Clone, Copy)]
 pub struct Crc32(u32);

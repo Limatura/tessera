@@ -10,16 +10,14 @@
 //! fetch(url, { method: 'POST', body: file })   // the browser streams a File
 //! ```
 //!
-//! `multipart/form-data` is deliberately not accepted yet. A `fetch` with a
-//! `File` body streams natively, so the only caller that would need multipart is
-//! a plain HTML `<form>` — and supporting one would add a parser, a dependency
-//! and a buffering path for a case nothing in this project has.
+//! `multipart/form-data` is not accepted. A `fetch` with a `File` body streams
+//! natively, so the only caller that would need multipart is a plain HTML
+//! `<form>`. Supporting one costs a parser, a dependency and a buffering path.
 
-// `params(CreateShareParams)` makes utoipa emit a fully-qualified path to the
-// type. The generated code lands outside the function it decorates, so the
-// suppression has to be module-wide; dropping `params(..)` instead would take
-// the query parameters out of the contract, which is the point of declaring
-// them.
+// utoipa's `params(..)` emits a fully-qualified path, and the generated code
+// lands outside the function it decorates, so the suppression must be
+// module-wide. Dropping `params(..)` would drop the query parameters from the
+// contract.
 #![expect(
     unused_qualifications,
     reason = "emitted by utoipa's params(..), not written here"
@@ -36,17 +34,17 @@ use axum::{
 };
 use bytes::Bytes;
 use http_body_util::BodyExt as _;
-use object_store::{MultipartUpload, ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
+use object_store::{ObjectStoreExt as _, PutPayload, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
-use tessera_core::{Password, Permission, RetrievalCode, ShareId};
+use tessera_core::{Password, Permission, RetrievalCode, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
 use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     api::{
-        SHARES_TAG,
+        Patch, SHARES_TAG,
         extract::{ApiJson, ApiPath, ApiQuery},
-        gate,
+        gate, patched,
     },
     auth::{
         extract::{ClientAddress, CurrentUser, MaybeUser},
@@ -55,30 +53,30 @@ use crate::{
         secret::Secret,
         throttle::Decision,
     },
-    db::repository::share::{
-        Change, Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+    db::repository::{
+        quota::Scope,
+        share::{
+            Change, Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+        },
+        user::User,
     },
-    error::{Error, Result},
+    error::{Error, Result, Tier},
     state::AppState,
 };
 
 /// Attempts to find an unused retrieval code before giving up.
 ///
-/// Collisions are vanishingly rare at the default length, so more than a couple
-/// of failures means the code space is genuinely crowded and the operator needs
-/// to hear about it rather than have the server keep trying.
+/// Collisions are vanishingly rare at the default length, so repeated failures
+/// mean the code space is crowded and the operator should hear about it.
 const CODE_ATTEMPTS: u8 = 8;
 
 /// Longest `filename` and `title` a share may carry, in characters.
 ///
-/// Tied to the MySQL column width. Without a check here the value reaches the
-/// insert, and the three backends then disagree: SQLite and Postgres store it,
-/// MySQL refuses the row. The caller sees `201` or `500` depending on which
-/// database the operator chose — for the same request, which is the worst kind
-/// of difference to leave in.
+/// Tied to the MySQL column width. Without a check here the backends disagree:
+/// SQLite and Postgres store the value, MySQL refuses the row, so the same
+/// request gets `201` or `500` depending on the operator's database.
 ///
-/// 191 rather than a round number because that is what utf8mb4 allows in an
-/// indexable `VARCHAR`, and matching the column is what makes the limit real.
+/// 191 because that is what utf8mb4 allows in an indexable `VARCHAR`.
 const MAX_TEXT_FIELD: usize = 191;
 
 /// Longest `language` hint, matching its narrower column.
@@ -88,14 +86,13 @@ const MAX_LANGUAGE: usize = 64;
 ///
 /// A named type only so the contract can say `format: binary`. Declaring the
 /// body as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI
-/// renders as a JSON array editor and a generated client types as `number[]` —
-/// neither of which can carry a file.
+/// renders as a JSON array editor and a generated client types as `number[]`.
 ///
-/// An empty body is refused with a `400`, and that rule is *not* expressible
-/// here: `min_length` is a field-level attribute, and the field's own schema is
-/// overridden by the `value_type` above — which has to stay, or the body stops
-/// being binary. So the constraint lives in the handler and is documented as a
-/// response, and a generator reading this will believe an empty body is valid.
+/// An empty body is refused with a `400`, and that cannot be expressed here.
+/// `min_length` is field-level, and the `value_type` above overrides the
+/// field's schema; drop it and the body stops being binary. So the handler
+/// enforces it, and a generator reading this will think an empty body is
+/// valid.
 #[derive(Debug, ToSchema)]
 #[schema(value_type = String, format = Binary)]
 pub struct ShareBody(
@@ -103,11 +100,10 @@ pub struct ShareBody(
 );
 
 /// Metadata for `POST /shares`, supplied as query parameters.
-// `parameter_in = Query` is not a detail: without it `IntoParams` defaults to
-// `Path`, and the document then tells every generated client that these belong
-// in a path that has no placeholders for them — and that all five are required,
-// when the handler treats every one as optional. A client built from that
-// cannot construct a valid request at all.
+// `parameter_in = Query` is load-bearing. Without it `IntoParams` defaults to
+// `Path`: the document puts these in a path with no placeholders for them and
+// marks all five required, though the handler treats them as optional. No
+// client built from that can construct a valid request.
 #[derive(Debug, Default, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
@@ -142,9 +138,9 @@ pub struct ShareResponse {
     pub code: String,
     /// Where the share lives, relative to this instance's origin.
     ///
-    /// Relative on purpose: the server does not know what host it is reached
-    /// through, and guessing wrong behind a reverse proxy produces links that
-    /// do not work. Whoever calls this already knows the origin they called.
+    /// Relative by design. The server does not know what host it is reached
+    /// through, and guessing wrong behind a reverse proxy produces broken
+    /// links. The caller already knows the origin it called.
     #[schema(example = "/s/0ZPQ4M7K")]
     pub path: String,
     /// `text` or `file`.
@@ -165,8 +161,8 @@ pub struct ShareResponse {
     pub uses_remaining: Option<u32>,
     /// How many times it has been retrieved.
     ///
-    /// Counted by the server on the transfer path, so it is the number to
-    /// trust — the two below are what a client told us.
+    /// Counted by the server on the transfer path, so this is the number to
+    /// trust. The two below are what a client reported.
     pub use_count: u32,
     /// How many times a client reported showing it.
     pub view_count: u32,
@@ -174,8 +170,8 @@ pub struct ShareResponse {
     pub copy_count: u32,
     /// When it was last retrieved, RFC 3339.
     ///
-    /// The answer to the question somebody actually asks of their own share:
-    /// has the person I sent this to picked it up yet?
+    /// Answers the question people ask of their own share: has it been picked
+    /// up yet?
     pub last_accessed_at: Option<String>,
     /// When it stops being served, RFC 3339, or `null` to live until deleted.
     pub expires_at: Option<String>,
@@ -184,8 +180,8 @@ pub struct ShareResponse {
 
     /// Token that lets an anonymous uploader delete this share.
     ///
-    /// **Shown once, at creation, and only when nobody was signed in.** Only its
-    /// digest is stored. Without it a mistaken anonymous upload could never be
+    /// **Shown once, at creation, and only for an anonymous upload.** Only its
+    /// digest is stored. Without it, a mistaken anonymous upload could never be
     /// taken back.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub management_token: Option<String>,
@@ -196,8 +192,8 @@ pub struct ShareResponse {
 pub struct SharedFile {
     /// Its position in the share, from zero.
     ///
-    /// Sent rather than left to the array's order: a client that sorts or
-    /// filters the list still has the uploader's order to put it back in.
+    /// Sent explicitly, so a client that sorts or filters the list can still
+    /// restore the uploader's order.
     pub position: u32,
     /// What it was uploaded as.
     #[schema(example = "holiday.jpg")]
@@ -275,14 +271,13 @@ fn format_timestamp(value: OffsetDateTime) -> String {
     params(CreateShareParams),
     request_body(
         content = ShareBody,
-        description = "The content itself. Send the file as the raw body — no wrapper, no encoding.",
+        description = "The content itself. Send the file as the raw body: no wrapper, no encoding.",
         content_type = "application/octet-stream",
     ),
     responses(
-        // The code in this response is the only way to reach the three
-        // operations below — it is random by design, so nothing can derive one.
-        // Saying so here is what lets a contract-driven test chain create into
-        // describe, and what tells a generated client which field to carry.
+        // The code is random, so nothing can derive one. These links are how a
+        // contract-driven test chains create into the three operations below,
+        // and how a client learns which field to carry.
         (status = 201, description = "Created", body = ShareResponse,
             links(
                 ("describe" = (operation_id = "describe_share",
@@ -296,7 +291,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
         (status = 401, description = "This instance requires an account to upload", body = crate::error::ErrorBody),
         (status = 403, description = "The credential does not carry `shares:create`", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
-        (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
+        (status = 507, description = "Out of room; the body says whether that is the account's quota, its role's, or the instance's", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -307,12 +302,12 @@ pub async fn create(
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response> {
-    if current.is_none() && !state.config.features.anonymous_upload {
+    if current.is_none() && !state.config().features.anonymous_upload {
         return Err(Error::Unauthorized);
     }
-    // An anonymous caller has no permissions to check — the setting above is
-    // the whole of that decision. A signed-in one does, and this is what makes
-    // a token minted for a screenshot tool unable to do anything else.
+    // An anonymous caller has no permissions to check, so the setting above
+    // decides. For a signed-in one, this keeps a token minted for a screenshot
+    // tool from doing anything else.
     if let Some(user) = current.as_ref() {
         user.require(Permission::SharesCreate)?;
     }
@@ -329,7 +324,7 @@ pub async fn create(
     let now = OffsetDateTime::now_utc();
     let expires_at = resolve_expiry(&state, params.expires_in_hours, now)?;
     let password_hash = match share_password(&headers)? {
-        Some(password) => Some(password::hash(password, state.config.auth.hashing).await?),
+        Some(password) => Some(password::hash(password, state.config().auth.hashing).await?),
         None => None,
     };
 
@@ -340,28 +335,48 @@ pub async fn create(
         ShareKind::Text
     };
 
-    let Ingested {
-        storage,
-        size_bytes,
-        inline,
-    } = ingest(&state, id, kind, now, body).await?;
+    // Held until the row exists. Between the last byte and the insert, the
+    // bytes are in the store and in no table, so dropping the guard there lets
+    // another upload claim room that is already spent. That was the
+    // `[201, 201]` this fixed.
+    let (
+        Ingested {
+            storage,
+            size_bytes,
+            inline,
+            segments,
+        },
+        _arriving,
+    ) = ingest(
+        &state,
+        Ingest {
+            id,
+            kind,
+            owner: current.as_ref().map(|current| &current.user),
+            now,
+        },
+        body,
+    )
+    .await?;
 
-    // A share of nothing has nothing to hand out, and the retrieval code it
-    // would occupy is not free.
+    // Nothing to hand out, and the retrieval code it would occupy is not free.
     if size_bytes == 0 {
         return Err(Error::bad_request("the request body is empty"));
     }
 
-    // Anonymous uploads get a token so their author can take one back. A signed-in
-    // uploader already has one — their account.
+    // Anonymous uploads get a token so their author can take one back. A
+    // signed-in uploader already has their account.
     let management_secret = current.is_none().then(Secret::generate_session);
 
     let share = Share {
         id,
-        // Replaced on each attempt below; the id and the object key do not
-        // change, so a retry costs one insert rather than a re-upload.
+        // Replaced on each attempt below. The id and object key do not change,
+        // so a retry costs one insert, not a re-upload.
         code: RetrievalCode::parse("0000").unwrap_or_else(|_| unreachable!("four zeroes parse")),
         user_id: current.as_ref().map(|user| user.user.id),
+        // Already in hand for a signed-in caller, and the guest role for an
+        // anonymous one. Neither touches the database.
+        role_id: charged_role_of(current.as_ref().map(|current| &current.user)),
         kind,
         password_hash,
         use_limit: params.max_uses,
@@ -381,19 +396,19 @@ pub async fn create(
 
     let content = match kind {
         ShareKind::File => NewContent::File(NewFile {
+            segments,
             filename,
-            // What the uploader claimed, recorded so a future feature can use it
-            // — and never echoed, because serving an attacker-chosen media type
-            // back is how a `text/html` upload becomes stored XSS on our own
-            // origin.
+            // What the uploader claimed. Recorded but never echoed; serving an
+            // attacker-chosen media type back turns a `text/html` upload into
+            // stored XSS on our own origin.
             content_type: claimed_content_type(&headers),
             size_bytes,
             storage,
         }),
         ShareKind::Text => NewContent::Text {
             language,
-            // Text is its own row, so it is always here by the time a share
-            // exists — `ingest` refuses anything it could not hold.
+            // Text is its own row and `ingest` refuses anything it could not
+            // hold, so this is always present by the time a share exists.
             body: inline.unwrap_or_default(),
         },
     };
@@ -413,9 +428,8 @@ pub async fn create(
 /// different response body.
 #[derive(Debug, Default, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
-// Same reason as `CreateShareParams`: a query the handler does not understand
-// is a caller who believes something that is not true, and answering `200` to
-// it teaches them it worked.
+// Same reason as `CreateShareParams`: answering `200` to a query the handler
+// does not understand teaches the caller it worked.
 #[serde(deny_unknown_fields)]
 pub struct SharePageParams {
     /// How many to return. Capped, and defaulted when omitted.
@@ -433,34 +447,29 @@ const DEFAULT_SHARE_PAGE: u64 = 50;
 
 /// The largest paging figure this API accepts.
 ///
-/// Two reasons, and they agree. `sea-query`'s encoders convert both the limit
-/// and the offset to `i64` and `unwrap()` the conversion, so anything above
-/// `i64::MAX` panics inside the driver — a `500` no handler can catch,
-/// reachable by anybody who can read a listing. And the document says `int64`,
-/// because that is what utoipa emits for these; a value the schema does not
-/// admit should be refused rather than quietly interpreted.
+/// `sea-query`'s encoders convert both the limit and the offset to `i64` and
+/// `unwrap()` the conversion, so anything above `i64::MAX` panics inside the
+/// driver. That is a `500` no handler can catch, reachable by any caller who
+/// can read a listing. The document also says `int64`, so a value the schema
+/// does not admit should be refused, not quietly reinterpreted.
 ///
-/// Found by the contract fuzzer, which is the only reader that would ever send
-/// one.
+/// Found by the contract fuzzer, the only reader that would send one.
 const MAX_PAGE_FIGURE: u64 = i64::MAX.unsigned_abs();
 
 /// Resolves a page request into a limit and an offset.
 ///
-/// The bounds live in one function rather than at each call site — a route
-/// that forgot one would be either the unbounded query this replaced or the
-/// panic above.
+/// The bounds live in one function, not at each call site. A route that forgot
+/// one gets the unbounded query this replaced, or the panic above.
 ///
 /// # Why one bound refuses and the other clamps
 ///
-/// They are different kinds of wrong. Asking for more rows than
-/// [`MAX_SHARE_PAGE`] is a reasonable request the server is entitled to answer
-/// with fewer, which is what every paged API does. A figure the document does
-/// not admit at all is not a request anybody meant, and answering it with a
-/// page would report something for a question that was never asked.
+/// Asking for more rows than the page cap is reasonable, and the server may
+/// answer with fewer, as every paged API does. A figure the document does not
+/// admit at all was never a real request.
 ///
 /// # Errors
 ///
-/// `400` when either figure is larger than [`MAX_PAGE_FIGURE`].
+/// `400` when either figure is larger than the largest this API accepts.
 pub fn page_bounds(params: &SharePageParams) -> Result<(u64, u64)> {
     for (name, value) in [("limit", params.limit), ("offset", params.offset)] {
         if value.is_some_and(|value| value > MAX_PAGE_FIGURE) {
@@ -491,11 +500,9 @@ pub struct SharePage {
 ///
 /// # Why this is paged
 ///
-/// It was not, on the reasoning that one person's shares are bounded by what
-/// one person uploaded. That holds for somebody using the web page and not for
-/// anybody driving the API from a script: an account with fifty thousand
-/// shares made every visit to the listing read fifty thousand rows and build
-/// fifty thousand responses, and nothing in the request said so.
+/// One person's shares are bounded by what one person uploaded, which holds for
+/// the web page and not for a script. An account with fifty thousand shares made
+/// every visit read fifty thousand rows and build fifty thousand responses.
 ///
 /// # Errors
 ///
@@ -526,8 +533,7 @@ pub async fn list(
         .shares
         .list_for_user(current.user.id, limit, offset)
         .await?;
-    // One query for the whole page rather than one per share: see
-    // `contents_for`.
+    // One query for the page, not one per share. See `contents_for`.
     let contents = state.shares.contents_for(&shares).await?;
     Ok(Json(SharePage {
         shares: shares
@@ -545,19 +551,19 @@ pub async fn list(
 /// Deletes a share, and whatever it put in the blob store.
 ///
 /// Accepts either the owning account or, for an anonymous share, the management
-/// token from creation — sent as `X-Share-Management-Token`.
+/// token from creation, sent as `X-Share-Management-Token`.
 ///
 /// # Errors
 ///
-/// `404` when no share of the caller's has that code. Deliberately the same
-/// answer as "somebody else's": distinguishing them would confirm which codes
-/// exist.
+/// `404` when no share of the caller's has that code. The same answer as one
+/// belonging to another account, because telling them apart would confirm
+/// which codes exist.
 #[utoipa::path(
     delete,
     path = "/shares/{code}",
     operation_id = "delete_share",
     tag = SHARES_TAG,
-    params(("code" = String, Path, description = "The retrieval code")),
+    params(("code" = String, Path, description = "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share.")),
     responses(
         (status = 204, description = "Deleted"),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
@@ -578,9 +584,9 @@ pub async fn delete(
         .await?
         .ok_or(Error::NotFound)?;
 
-    // Owning it is not enough; the credential in hand has to carry the
-    // permission too. A token given only `shares:create` uploads on its owner's
-    // behalf and cannot then delete what the owner has.
+    // Owning it is not enough; the credential must carry the permission too. A
+    // token given only `shares:create` can upload on its owner's behalf but
+    // cannot delete what the owner has.
     let owns = current.as_ref().is_some_and(|user| {
         share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesDelete)
     });
@@ -591,10 +597,9 @@ pub async fn delete(
         return Err(Error::NotFound);
     }
 
-    // The object first. A row without its object is a broken share; an object
-    // without its row is an orphan the sweep can still find by listing, so if
-    // only one of the two can happen, this is the better order.
-    // Every object, not the first: a share can hold several.
+    // Objects first, and every one of them, since a share can hold several. A
+    // row without its object is a broken share; an object without its row is an
+    // orphan the sweep can still find by listing.
     for key in state.shares.object_keys_of(share.id).await? {
         state
             .storage
@@ -605,36 +610,14 @@ pub async fn delete(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// One field of a partial update: absent, explicitly `null`, or a value.
-///
-/// `Option<T>` cannot say this. serde hands back `None` both for "the caller
-/// did not mention it" and for "the caller sent `null`", and in a `PATCH` those
-/// are opposite instructions — leave it as it is, or clear it. Every field
-/// below that can be cleared carries this instead.
-type Patch<T> = Option<Option<T>>;
-
-/// Deserialises a present field into [`Patch`], so that absent stays `None`.
-///
-/// `#[serde(default)]` supplies `None` when the key is missing; this runs only
-/// when it is there, which is what makes `null` land as `Some(None)`.
-fn patched<'de, D, T>(deserializer: D) -> std::result::Result<Patch<T>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-    T: Deserialize<'de>,
-{
-    Option::<T>::deserialize(deserializer).map(Some)
-}
-
 /// Body of `PATCH /shares/{code}`.
 ///
 /// Every field is optional and omitting one leaves that setting alone. Sending
-/// `null` clears it — see [`Patch`].
+/// `null` clears it: absent and null are different instructions here.
 ///
-/// The password is deliberately not here. It travels in `X-Share-Password`, the
-/// same header the rest of this API uses, because a body is not the problem —
-/// the problem is every other place a value can end up, and a header is the one
-/// channel that stays out of the query string, the access log and the
-/// `Referer`. What is here is only the instruction to remove it, which is not a
+/// The password travels in `X-Share-Password`, as everywhere else in this API,
+/// because a header stays out of the query string, the access log and the
+/// `Referer`. Only the instruction to remove it lives here, and that is not a
 /// secret.
 #[derive(Debug, Default, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
@@ -647,7 +630,7 @@ pub struct PatchShareRequest {
     /// How many more times it may be retrieved. `null` means unlimited.
     ///
     /// Counted against the retrievals it has already had, so lowering this
-    /// below `use_count` retires the share rather than reviving it.
+    /// below `use_count` retires the share instead of reviving it.
     #[serde(default, deserialize_with = "patched")]
     #[schema(value_type = Option<u32>, example = 1)]
     pub max_uses: Patch<u32>,
@@ -655,7 +638,7 @@ pub struct PatchShareRequest {
     /// Removes the share's password.
     ///
     /// Setting one is `X-Share-Password`; this is the other direction. Sending
-    /// both is refused rather than guessed at.
+    /// both is refused, not guessed at.
     #[serde(default)]
     pub remove_password: bool,
 }
@@ -664,33 +647,30 @@ pub struct PatchShareRequest {
 ///
 /// # Why this exists
 ///
-/// Everything here could be decided at creation and nothing could be changed
-/// afterwards, which is the state this replaces. It does not survive contact
-/// with how people actually share a file: the link goes out, and then the
-/// reason for the expiry changes — the meeting moved, the recipient asks for
-/// another day, the wrong person was in the thread and the password has to
-/// change now rather than by deleting and re-uploading.
+/// This replaces deciding everything at creation, which does not survive
+/// contact with how people share a file. The link goes out, and then the
+/// meeting moves, or the recipient asks for another day, or the wrong person
+/// was in the thread and the password has to change now.
 ///
 /// # Who may
 ///
-/// The same two answers as `DELETE`: the owning account, or whoever holds the
+/// The same two answers as `DELETE`: the owning account, or the holder of the
 /// management token an anonymous upload was given. The permission checked is
-/// `shares:delete` — there is no `shares:update` today, and gating a change
-/// behind the right to remove the thing outright is the conservative reading
-/// while there is not.
+/// `shares:delete`. There is no `shares:update` today, and gating a change
+/// behind the right to delete outright is the conservative reading.
 ///
 /// # Errors
 ///
 /// `400` for a value the instance will not accept, `404` when no share of the
-/// caller's has that code — deliberately the same answer as somebody else's,
-/// because distinguishing them would confirm which codes exist.
+/// caller's has that code. The same answer as one belonging to another account,
+/// because telling them apart would confirm which codes exist.
 #[utoipa::path(
     patch,
     path = "/shares/{code}",
     operation_id = "update_share",
     tag = SHARES_TAG,
     params(
-        ("code" = String, Path, description = "The retrieval code"),
+        ("code" = String, Path, description = "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share."),
         ("X-Share-Management-Token" = Option<String>, Header, description = "The token an anonymous upload was given"),
         ("X-Share-Password" = Option<String>, Header, description = "A new password for the share"),
     ),
@@ -717,9 +697,8 @@ pub async fn patch(
         .await?
         .ok_or(Error::NotFound)?;
 
-    // Byte for byte the check `delete` makes, and for the same reason: owning
-    // the share is not enough if the credential in hand does not carry the
-    // permission.
+    // The same check `delete` makes: owning the share is not enough if the
+    // credential in hand does not carry the permission.
     let owns = current.as_ref().is_some_and(|user| {
         share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesDelete)
     });
@@ -740,15 +719,15 @@ pub async fn patch(
     let now = OffsetDateTime::now_utc();
     let expires_at = match body.expires_in_hours {
         None => Change::Keep,
-        // Clearing the expiry would put the share outside whatever ceiling the
-        // instance set, through a route that was never meant to grant that. An
-        // instance with no ceiling has nothing to bypass.
+        // Clearing the expiry would push the share past the instance ceiling
+        // through a route never meant to grant that. An instance with no
+        // ceiling has nothing to bypass.
         Some(None) => {
-            if state.config.share.max_expiry().is_some() {
+            if state.config().share.max_expiry().is_some() {
                 return Err(Error::bad_request(format!(
                     "this instance keeps shares for at most {} hours, so `expires_in_hours` \
                      cannot be cleared",
-                    state.config.share.max_expiry_hours
+                    state.config().share.max_expiry_hours
                 )));
             }
             Change::Set(None)
@@ -773,7 +752,7 @@ pub async fn patch(
         match supplied {
             None => Change::Keep,
             Some(password) => Change::Set(Some(
-                password::hash(password, state.config.auth.hashing).await?,
+                password::hash(password, state.config().auth.hashing).await?,
             )),
         }
     };
@@ -783,9 +762,8 @@ pub async fn patch(
         .update_settings(share.id, expires_at, use_limit, password_hash, now)
         .await?;
 
-    // Read back rather than patching the copy in hand: the response then says
-    // what the database holds, which is the only version that matters when the
-    // caller sends the next one.
+    // Read back instead of patching the copy in hand, so the response reports
+    // what the database holds.
     let share = state
         .shares
         .find_by_id(share.id)
@@ -795,11 +773,55 @@ pub async fn patch(
     Ok(Json(ShareResponse::from_share(&share, &content, None)))
 }
 
+/// Which role a share should be charged to.
+///
+/// The uploader's role, or `guest` for an anonymous upload. Anonymous uploads
+/// carry a role instead of NULL, because `user_id IS NULL` already means two
+/// things: no one was signed in, or the account has since been deleted. It
+/// cannot answer "was this anonymous".
+///
+/// Read at upload time and stored, not looked up when the quota is checked.
+/// Moving an account to another role must not rewrite which quota its old
+/// shares counted against.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the account cannot be read.
+async fn charged_role(state: &AppState, user_id: Option<UserId>) -> Result<Option<RoleId>> {
+    let Some(user_id) = user_id else {
+        return Ok(guest_role());
+    };
+    Ok(state
+        .users
+        .find_by_id(user_id)
+        .await?
+        .and_then(|user| user.role_id))
+}
+
+/// The same answer for a caller that already holds the account.
+///
+/// The extractor already read the row to authenticate the request, so asking
+/// the database again would be a second query for a value in hand.
+pub(crate) fn charged_role_of(user: Option<&User>) -> Option<RoleId> {
+    user.map_or_else(guest_role, |user| user.role_id)
+}
+
+/// The role anonymous work is charged to.
+///
+/// `parse` on a constant this crate owns. A failure would mean the seeded id is
+/// malformed, which no deployment can cause.
+fn guest_role() -> Option<RoleId> {
+    RoleId::parse(RoleId::GUEST).ok()
+}
+
 /// Where a share's bytes ended up, and how many there were.
 struct Ingested {
     storage: StorageLocation,
     size_bytes: u64,
     inline: Option<Vec<u8>>,
+    /// Every piece, when the file was spread. Empty for the one-object case,
+    /// meaning every upload made with the switch off.
+    segments: Vec<crate::db::repository::share::NewSegment>,
 }
 
 /// Reads the body, keeping it in the database if it is small and streaming it to
@@ -807,54 +829,649 @@ struct Ingested {
 ///
 /// # Why it is not `bytes().await`
 ///
-/// Reading the whole body first is one line and costs the body's size in memory.
-/// At the default limit that is 100 MiB per upload in flight, which on the small
-/// machines this software is aimed at is the difference between working and
-/// being killed by the OOM reaper. So the body is consumed a frame at a time:
-/// buffered while it might still be small enough to inline, and pushed to the
-/// store in fixed blocks once it is not.
+/// Reading the body in one go costs its size in memory: 100 MiB per upload in
+/// flight at the default limit. On a small machine that is the difference
+/// between working and being killed by the OOM reaper. So the body is consumed
+/// a frame at a time, buffered while it might still be small enough to inline,
+/// and pushed to the store in fixed blocks once it is not.
 ///
 /// # Why the size limit is enforced here
 ///
-/// `DefaultBodyLimit` is not a limit on the connection — it is a value that
-/// *extractors* consult, so `Bytes`, `String` and `Json` respect it and a
-/// handler that takes the `Body` and reads frames itself does not. Reading the
-/// body by hand means owning the limit by hand; without this check the layer in
-/// `api::build` silently does nothing for this route.
-/// How many more bytes this instance will accept, or [`u64::MAX`] when it has
-/// no limit.
+/// `DefaultBodyLimit` does not limit the connection. It is a value that
+/// *extractors* consult, so `Bytes`, `String` and `Json` respect it while a
+/// handler reading frames itself does not. Without this check, the layer in
+/// `api::build` does nothing at all for this route.
 ///
-/// Read once per upload rather than held in a counter. An upload is not a hot
-/// path, and a counter would have to survive every failed ingest, every delete
-/// and every sweep — the first time it drifted, the instance would either
-/// refuse uploads it had room for or accept ones it did not, and nothing would
-/// say which.
+/// # Errors
 ///
-/// # This is a guard, not an accountant
-///
-/// Uploads in flight at the same time each read this before any of them has a
-/// row to be counted, so together they can land past the line. The overshoot is
-/// bounded by the number of concurrent uploads times `server.max_body_bytes`,
-/// and the next upload after them is refused.
-///
-/// Closing that window would mean reserving space up front and releasing it on
-/// every failure path, or completing the upload and then deleting the object
-/// when the total turns out to be over. Both add a way to lose bytes that
-/// should have been kept, to make a limit whose entire job is to stop unbounded
-/// growth slightly more exact. Set the figure with the same slack you would
-/// give a disk.
-/// What is left of the instance's allowance, counting uploads still arriving.
+/// Returns [`Error`] if the body cannot be read or the store will not take it.
+async fn ingest(
+    state: &AppState,
+    request: Ingest<'_>,
+    body: Body,
+) -> Result<(Ingested, crate::storage::in_flight::Arrival)> {
+    // Read before the body is consumed. The size hint covers an in-memory body
+    // as well as `Content-Length`; a chunked body reports nothing, and that is
+    // the honest answer.
+    let expected_bytes = <Body as http_body::Body>::size_hint(&body).exact();
+    let mut upload: Option<crate::upload::segments::Writer<'_>> = None;
+    // Opened here so it outlives the read loop. The caller holds it until the
+    // row is written; the keys go in once the scope and backend are known.
+    let mut arriving = state.in_flight.begin(Vec::new());
+    let result = ingest_into(
+        state,
+        request,
+        expected_bytes,
+        body,
+        &mut upload,
+        &mut arriving,
+    )
+    .await;
+
+    if let Some(writer) = upload.take() {
+        // Only reachable on failure; the success path takes the writer out of
+        // the slot after finishing it. A direct `POST /shares` records no
+        // segments, because there is nothing to record against until the share
+        // exists. If this does not free them, nothing will, and the store bills
+        // for the parts for ever.
+        writer.abandon().await;
+    }
+    result.map(|ingested| (ingested, arriving))
+}
+
+/// What is left before the first ceiling refuses, counting uploads still
+/// arriving.
 ///
 /// An open upload session has reserved the room it declared, so it spends quota
 /// before a byte of it arrives. Without that, two callers can each be promised
 /// the same free space and the instance goes over its own limit.
 ///
+/// Read once per upload, not held in a counter. An upload is not a hot path,
+/// and a counter would have to survive every failed ingest, delete and sweep.
+/// Once it drifted, the instance would refuse uploads it had room for, or
+/// accept ones it did not, and nothing would say which.
+///
+/// # This is a guard, not an accountant
+///
+/// Uploads in flight each read this before any of them has a row to be counted,
+/// so together they can land past the line. The overshoot is bounded by the
+/// number of concurrent uploads times `server.max_body_bytes`, and the next
+/// upload is refused.
+///
+/// Closing that window means reserving space up front and releasing it on every
+/// failure path, or deleting the object after the fact. Both add a way to lose
+/// bytes that should have been kept. Set the figure with the slack you would
+/// give a disk.
+///
 /// # Errors
 ///
-/// Returns [`Error`] if either total cannot be read.
-pub(crate) async fn remaining_room(state: &AppState) -> Result<u64> {
-    let free = remaining_quota(state).await?;
-    Ok(free.saturating_sub(state.uploads.reserved_bytes().await?))
+/// Returns [`Error`] if a total cannot be read.
+pub(crate) async fn remaining_room(state: &AppState, user: Option<&User>) -> Result<Room> {
+    tightest(state, ceilings(state, user).await?).await
+}
+
+/// The same, ignoring `storage.max_total_bytes`.
+///
+/// For telling a caller how much room *they* have. How full the disk is goes
+/// only to whoever may read instance-wide figures; answering a personal quota
+/// with it would tell every signed-in account how full the machine is.
+///
+/// # Errors
+///
+/// Returns [`Error`] if a total cannot be read.
+pub(crate) async fn personal_room(state: &AppState, user: Option<&User>) -> Result<Room> {
+    let personal = ceilings(state, user)
+        .await?
+        .into_iter()
+        .filter(|ceiling| ceiling.tier != Tier::Instance)
+        .collect();
+    tightest(state, personal).await
+}
+
+/// Whichever of these ceilings has the least room left.
+///
+/// Later ceilings win a tie so the answer names the nearest one: "your quota is
+/// full" is actionable where "the instance is full" is not, and when both are
+/// equally full both are true.
+async fn tightest(state: &AppState, ceilings: Vec<Ceiling>) -> Result<Room> {
+    let mut tightest = Room {
+        bytes: u64::MAX,
+        tier: Tier::Instance,
+        scope: Scope::Instance,
+    };
+    for ceiling in ceilings {
+        let used = state
+            .shares
+            .stored_bytes(ceiling.scope)
+            .await?
+            .saturating_add(state.uploads.reserved_bytes(ceiling.scope).await?);
+        let left = ceiling.bytes.saturating_sub(used);
+        if left <= tightest.bytes {
+            tightest = Room {
+                bytes: left,
+                tier: ceiling.tier,
+                scope: ceiling.scope,
+            };
+        }
+    }
+    Ok(tightest)
+}
+
+/// How much room is left, and which ceiling is the one running out.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Room {
+    /// Bytes before that ceiling refuses. [`u64::MAX`] when nothing limits it.
+    pub bytes: u64,
+    /// Which one it is, so a refusal can say who can do something about it.
+    pub tier: Tier,
+    /// What the ceiling is counted over.
+    ///
+    /// Carried so the in-flight ledger can be asked the same question the
+    /// database was, "how much is spoken for under this scope", for the bytes
+    /// no table has seen yet.
+    pub scope: Scope,
+}
+
+/// One planned file, and everything the loop learned by planning it.
+struct Opened<'a> {
+    /// The writer that routes the body into the plan's segments.
+    writer: crate::upload::segments::Writer<'a>,
+    /// What the first backend has room for.
+    limit: u64,
+    /// What to count these bytes under while they arrive.
+    ledger_key: String,
+}
+
+/// Plans where the file goes, and starts counting the bytes against the first
+/// backend it named.
+///
+/// The two go together: from the moment a backend is chosen, everything read so
+/// far is spoken for there as much as what follows.
+///
+/// The ledger and the running limit follow the *first* segment, the one the
+/// bytes are going into now. The planner has already checked every other
+/// segment, and re-checking per chunk would be three queries a chunk for a
+/// figure that cannot have moved in this upload's favour.
+///
+/// # Errors
+///
+/// As [`plan_object`].
+async fn open_object<'a>(
+    state: &'a AppState,
+    id: ShareId,
+    now: OffsetDateTime,
+    expected_bytes: Option<u64>,
+    arriving: &mut crate::storage::in_flight::Arrival,
+) -> Result<Opened<'a>> {
+    let plan = plan_object(state, id, now, expected_bytes).await?;
+    let first = plan
+        .first()
+        .ok_or(Error::Unavailable)?
+        .segment
+        .backend
+        .clone();
+    // One segment: the running check below is all that stands between a body
+    // and a backend that cannot hold it, so the limit is that backend's room.
+    //
+    // Several: the planner has already found room for every piece. Comparing
+    // the file against the *first* backend's share would refuse the uploads
+    // splitting exists to accept, so the limit is the plan itself, which the
+    // writer also enforces by running off the end.
+    let limit = if plan.len() > 1 {
+        plan.iter().map(|p| p.segment.length).sum()
+    } else {
+        backend_free(state, &first).await?
+    };
+    let ledger_key = format!("backend:{first}");
+    arriving.also_count_under(ledger_key.clone());
+    let part_size = state.config().server.part_size_bytes;
+    Ok(Opened {
+        writer: crate::upload::segments::Writer::new(state, plan, part_size),
+        limit,
+        ledger_key,
+    })
+}
+
+/// Reads the ceiling again if it is time to, then stops the body if these bytes
+/// are past it.
+///
+/// The caller carries `room` and `next_read` across the loop, so the re-read is
+/// periodic instead of per chunk.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`] naming the tier that refused, or whatever the
+/// query fails with.
+async fn enforce_ceiling(
+    state: &AppState,
+    owner: Option<&User>,
+    so_far: u64,
+    part_size: usize,
+    room: &mut Room,
+    next_read: &mut u64,
+) -> Result<()> {
+    if so_far >= *next_read {
+        *room = remaining_room(state, owner).await?;
+        *next_read = so_far.saturating_add(re_read_interval(room.bytes, part_size));
+    }
+    refuse_if_past(state, &scope_key(room.scope), so_far, *room)
+}
+
+/// Stops the body when these bytes, plus everything else arriving under `key`,
+/// are past the ceiling.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`], naming the tier that refused.
+fn refuse_if_past(state: &AppState, key: &str, mine: u64, room: Room) -> Result<()> {
+    if would_pass(state, key, mine, room.bytes) {
+        return Err(Error::InsufficientStorage(room.tier));
+    }
+    Ok(())
+}
+
+/// Whether these bytes, plus everything else arriving under `key`, are past
+/// `ceiling`.
+///
+/// The upload's own bytes are excluded from the ledger figure and added back
+/// here, so an upload is never refused for competing with itself.
+fn would_pass(state: &AppState, key: &str, mine: u64, ceiling: u64) -> bool {
+    mine.saturating_add(state.in_flight.elsewhere(key, mine)) > ceiling
+}
+
+/// The ledger key for a quota scope.
+///
+/// Spelled out, not derived from `Debug`. It is compared across requests, and a
+/// formatting change would silently split one scope into two.
+fn scope_key(scope: Scope) -> String {
+    match scope {
+        Scope::User(id) => format!("user:{id}"),
+        Scope::Role(id) => format!("role:{id}"),
+        Scope::Instance => "instance".to_owned(),
+    }
+}
+
+/// One ceiling that applies to this caller.
+#[derive(Debug, Clone, Copy)]
+struct Ceiling {
+    scope: Scope,
+    tier: Tier,
+    bytes: u64,
+}
+
+/// Which backend a file of `size` should be written to.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`] when nothing has room for the whole file. Not
+/// a `413`, because the file is not too big in itself. The pool is too full,
+/// and a smaller file, or the same one later, may fit.
+pub(crate) async fn place(state: &AppState, size: u64) -> Result<String> {
+    place_where(state, Some(size), |_| true).await
+}
+
+/// The same, restricted to backends that can hold a resumable upload open.
+///
+/// A backend with no multipart view cannot, and neither can one that is not the
+/// default, since the partial file the appending sink writes only exists beside
+/// the directory `storage.url` names. Placing a resumable upload on one anyway
+/// answers `400 this instance's store cannot hold a resumable upload` while
+/// another backend could have taken it.
+///
+/// # Errors
+///
+/// [`Error::InsufficientStorage`] when nothing suitable has room.
+pub(crate) async fn place_resumable(state: &AppState, size: u64) -> Result<String> {
+    place_where(state, Some(size), |name| {
+        state.backend_multipart(name).is_some() || name == crate::storage::DEFAULT_BACKEND
+    })
+    .await
+}
+
+/// The same, restricted to backends that can be written a piece at a time.
+///
+/// A file past `share.inline_threshold_bytes` is streamed out with
+/// `put_multipart` while it is still arriving, so a backend without it cannot
+/// take one however much room it has. Filtering here, instead of failing at the
+/// write, is the difference between "too large for anywhere we can put it" and
+/// a `500` raised halfway through the body. See
+/// [`Stores::put_multipart`](crate::storage::Stores::put_multipart).
+///
+/// # Errors
+///
+/// [`Error::PayloadTooLarge`] when the only backends with room cannot take a
+/// streamed write, [`Error::InsufficientStorage`] when none had room anyway.
+async fn place_streamed(state: &AppState, size: Option<u64>) -> Result<String> {
+    // Loaded once, outside the predicate. Asking the `ArcSwap` per candidate
+    // would let a reload land mid-decision and judge two candidates against two
+    // different sets of backends.
+    let pool = state.backends.load();
+    place_where(state, size, |name| {
+        pool.open
+            .get(name)
+            .is_some_and(|stores| stores.put_multipart)
+    })
+    .await
+}
+
+/// What each backend is holding, counting what has not become a share yet.
+///
+/// Two sources: `file_segments` for content that made it, and `upload_segments`
+/// for sessions still in flight. Leaving the second out is how a bucket fills
+/// with half-finished uploads while the placer goes on offering it.
+///
+/// # Errors
+///
+/// Returns [`Error`] if either query fails.
+async fn backend_usage(state: &AppState) -> Result<crate::storage::Usage> {
+    let mut used = state.shares.bytes_per_backend().await?;
+    // Sorted before merging: the order two maps are walked in is not stable,
+    // and a figure depending on it differs between two runs of the same query.
+    let mut in_flight: Vec<(String, u64)> = state
+        .uploads
+        .bytes_per_backend()
+        .await?
+        .into_iter()
+        .collect();
+    in_flight.sort_unstable();
+    for (backend, bytes) in in_flight {
+        let entry = used.entry(backend).or_insert(0);
+        *entry = entry.saturating_add(bytes);
+    }
+    Ok(used)
+}
+
+/// The three sizes the read loop needs, read once.
+///
+/// Read together, because each `state.config()` is a load from the swap. Three
+/// in a row can straddle a change made mid-upload, leaving the loop enforcing
+/// one configuration's limit with another's part size.
+struct Sizes {
+    /// `share.max_text_bytes`.
+    text_limit: usize,
+    /// `share.inline_threshold_bytes`.
+    threshold: usize,
+    /// `server.part_size_bytes`.
+    part_size: usize,
+}
+
+impl From<&crate::config::Config> for Sizes {
+    fn from(config: &crate::config::Config) -> Self {
+        Self {
+            text_limit: config.share.max_text_bytes,
+            threshold: config.share.inline_threshold_bytes,
+            part_size: config.server.part_size_bytes,
+        }
+    }
+}
+
+/// How many bytes to take before asking the database for the ceiling again.
+///
+/// # Why the ceiling is read more than once
+///
+/// `in_flight` covers two uploads that overlap in time. It does not cover one
+/// that *finishes* between another's snapshot and its writes: the first's row
+/// appears as its ledger entry goes, and the second is still comparing against
+/// a figure taken before either existed. Measured as `[201, 201]` about one
+/// full-suite run in three, and still caught by
+/// `two_uploads_at_once_cannot_both_spend_the_last_of_the_room` after the
+/// ledger landed.
+///
+/// # Why not every chunk
+///
+/// That is correct and costs a query per chunk, thousands on a large upload.
+/// A quarter of what is left, capped at a part: an instance with room to spare
+/// pays almost nothing, and a nearly full one checks often enough that the
+/// overshoot is a fraction of what remained. Never zero, or the loop is back to
+/// querying every chunk.
+fn re_read_interval(room: u64, part_size: usize) -> u64 {
+    let cap = u64::try_from(part_size).unwrap_or(u64::MAX);
+    let quarter = room / 4;
+    let every = if quarter < cap { quarter } else { cap };
+    if every == 0 { 1 } else { every }
+}
+
+/// The placer to use for a size that may or may not be known.
+///
+/// `None` is not "zero bytes": everything fits zero, so asking
+/// [`choose`](crate::storage::placement::choose) that question hands back the
+/// fullest backend. See
+/// [`choose_unsized`](crate::storage::placement::choose_unsized).
+fn pick(
+    pool: &[crate::storage::placement::Candidate],
+    size: Option<u64>,
+) -> Option<&crate::storage::placement::Candidate> {
+    match size {
+        Some(size) => crate::storage::placement::choose(pool, size),
+        None => crate::storage::placement::choose_unsized(pool),
+    }
+}
+
+async fn place_where(
+    state: &AppState,
+    size: Option<u64>,
+    suitable: impl Fn(&str) -> bool,
+) -> Result<String> {
+    let pool = state.backends.load();
+    let used = backend_usage(state).await?;
+    let all =
+        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used);
+    let candidates: Vec<crate::storage::placement::Candidate> = all
+        .iter()
+        .filter(|candidate| suitable(&candidate.name))
+        .cloned()
+        .collect();
+
+    if let Some(chosen) = pick(&candidates, size) {
+        return Ok(chosen.name.clone());
+    }
+
+    // Two failures wear the same shape here. "Every backend is full" is fixed
+    // by adding room; "the backends with room cannot take a file written this
+    // way" is not about room, and adding more changes nothing.
+    Err(if pick(&all, size).is_some() {
+        Error::PayloadTooLarge
+    } else {
+        Error::InsufficientStorage(Tier::Instance)
+    })
+}
+
+/// Places the file and opens a multipart upload on the backend chosen.
+///
+/// Placed before the first byte goes anywhere. Choosing after the upload
+/// started would record a name the bytes are not at.
+///
+/// # Errors
+///
+/// Returns [`Error`] if nothing has room, or the chosen backend will not open.
+async fn plan_object(
+    state: &AppState,
+    id: ShareId,
+    now: OffsetDateTime,
+    expected_bytes: Option<u64>,
+) -> Result<Vec<crate::upload::segments::Planned>> {
+    let base = object_key(id, now);
+    let config = state.config();
+
+    // Splitting needs a size to cut against, and a chunked body declares none.
+    // Finding out halfway that the pool is short would leave pieces on several
+    // backends with no way to finish, so without a length the file is placed
+    // whole, as it is with the switch off.
+    if let (true, Some(size)) = (config.storage.split_across_backends, expected_bytes) {
+        let pool = state.backends.load();
+        let used = backend_usage(state).await?;
+        let candidates =
+            crate::storage::candidates(&config.storage, &pool.configured, &pool.open, &used);
+        let rules = crate::storage::split::Rules {
+            part_size: u64::try_from(config.server.part_size_bytes).unwrap_or(u64::MAX),
+            split: true,
+        };
+        let plan = crate::storage::split::plan(&candidates, size, rules)
+            .ok_or(Error::InsufficientStorage(Tier::Instance))?;
+        return Ok(plan
+            .into_iter()
+            .enumerate()
+            .map(|(seq, segment)| crate::upload::segments::Planned {
+                // One object per piece, named by position and sharing a prefix
+                // so an operator can see in a bucket that they belong together.
+                object_key: if seq == 0 {
+                    base.clone()
+                } else {
+                    format!("{base}.{seq}")
+                },
+                segment,
+            })
+            .collect());
+    }
+
+    let chosen = place_streamed(state, expected_bytes).await?;
+    Ok(vec![crate::upload::segments::Planned {
+        segment: crate::storage::split::Segment {
+            backend: chosen,
+            offset: 0,
+            length: expected_bytes.unwrap_or(u64::MAX),
+        },
+        object_key: base,
+    }])
+}
+
+/// How much room one named backend has, or [`u64::MAX`] when nothing limits it.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the usage cannot be read.
+async fn backend_free(state: &AppState, name: &str) -> Result<u64> {
+    let pool = state.backends.load();
+    let used = backend_usage(state).await?;
+    Ok(
+        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used)
+            .into_iter()
+            .find(|candidate| candidate.name == name)
+            .and_then(|candidate| candidate.free_bytes())
+            .unwrap_or(u64::MAX),
+    )
+}
+
+/// The largest single file any backend can currently take, or `None` when one
+/// of them is unlimited.
+///
+/// Not the sum of what is free: nothing is split across backends, so a pool of
+/// five holding 100 MB each cannot take 200 MB, and reporting 500 MB would
+/// explain nothing when the upload is refused.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the usage cannot be read.
+pub(crate) async fn largest_placeable(state: &AppState) -> Result<Option<u64>> {
+    let pool = state.backends.load();
+    let used = backend_usage(state).await?;
+    Ok(crate::storage::placement::largest_acceptable(
+        &crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used),
+    ))
+}
+
+/// The largest single file this caller may send.
+///
+/// Nearest wins, same as the storage quota: the account's own figure, then its
+/// role's, then `server.max_body_bytes`. `0` at a layer means no limit *there*
+/// and hands the question to the instance, which always applies.
+///
+/// Not a [`Tier`], because a refusal here is a `413` and knowing which layer
+/// said so changes nothing: the file is too big and stays too big. A `507` is
+/// different, where whose quota is full tells the caller whether deleting their
+/// own shares would help.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the role cannot be read.
+pub(crate) async fn max_file_bytes(state: &AppState, user: Option<&User>) -> Result<u64> {
+    let instance = u64::try_from(state.config().server.max_body_bytes).unwrap_or(u64::MAX);
+
+    if let Some(user) = user
+        && let Some(bytes) = user.max_file_bytes
+    {
+        return Ok(narrower(bytes, instance));
+    }
+    let Some(role) = charged_role_of(user) else {
+        return Ok(instance);
+    };
+    let role = state
+        .roles
+        .find_by_id(role)
+        .await?
+        .and_then(|role| role.max_file_bytes);
+    Ok(role.map_or(instance, |bytes| narrower(bytes, instance)))
+}
+
+/// A layer's figure against the instance's, where `0` means "no limit here".
+fn narrower(layer: u64, instance: u64) -> u64 {
+    if layer == 0 {
+        return instance;
+    }
+    layer.min(instance)
+}
+
+/// Every ceiling this caller has to fit under.
+///
+/// Two at most, and both apply; neither overrides the other.
+///
+/// * `storage.max_total_bytes`, the disk. Nothing may pass it. A role granted "no ceiling" has no
+///   ceiling *of its own*, and that is not permission to fill the machine: whoever set the role
+///   does not own the disk.
+/// * The caller's own figure, from their account if it has one and from their role otherwise.
+///   Nearest wins, so raising one person needs no role invented for them.
+///
+/// A tier saying `0` has no ceiling *there* and drops out. A tier saying nothing
+/// at all asks the next one, and that is why the columns are nullable.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the role cannot be read.
+async fn ceilings(state: &AppState, user: Option<&User>) -> Result<Vec<Ceiling>> {
+    let mut ceilings = Vec::with_capacity(2);
+
+    let instance = state.config().storage.max_total_bytes;
+    if instance > 0 {
+        ceilings.push(Ceiling {
+            scope: Scope::Instance,
+            tier: Tier::Instance,
+            bytes: instance,
+        });
+    }
+
+    if let Some(user) = user
+        && let Some(bytes) = user.quota_bytes
+    {
+        if bytes > 0 {
+            ceilings.push(Ceiling {
+                scope: Scope::User(user.id),
+                tier: Tier::Account,
+                bytes,
+            });
+        }
+        return Ok(ceilings);
+    }
+
+    // Anonymous work is charged to the guest role so an instance that allows it
+    // can still bound it. Otherwise the only figure reaching a caller with no
+    // account is the instance's, and "let strangers upload, but not more than
+    // twenty gigabytes of it" cannot be said.
+    let role = charged_role_of(user);
+    if let Some(role) = role
+        && let Some(bytes) = state
+            .roles
+            .find_by_id(role)
+            .await?
+            .and_then(|role| role.quota_bytes)
+        && bytes > 0
+    {
+        ceilings.push(Ceiling {
+            scope: Scope::Role(role),
+            tier: Tier::Role,
+            bytes,
+        });
+    }
+    Ok(ceilings)
 }
 
 /// A filename from a query parameter, length- and control-character-checked.
@@ -867,73 +1484,76 @@ pub(crate) fn checked_filename(value: Option<String>) -> Result<Option<String>> 
     checked_label(value, "filename", MAX_TEXT_FIELD)
 }
 
-async fn remaining_quota(state: &AppState) -> Result<u64> {
-    let quota = state.config.storage.max_total_bytes;
-    if quota == 0 {
-        return Ok(u64::MAX);
-    }
-    let used = state.shares.total_stored_bytes().await?;
-    Ok(quota.saturating_sub(used))
+/// What one ingest is: where the bytes go, what they are, and whose ceiling
+/// has to allow them.
+struct Ingest<'a> {
+    /// Names the object, not the share. A share holds several files and each
+    /// needs its own key; deriving it from the share meant the second upload
+    /// silently overwrote the first, and the download sent one file's bytes
+    /// three times. Two rows, one object.
+    id: ShareId,
+    /// Decides whether the bytes become an object or a row.
+    kind: ShareKind,
+    /// Whose ceilings apply, and not always the caller's. A management token
+    /// lets an account-less uploader append to a member's share.
+    owner: Option<&'a User>,
+    /// One reading of the clock, shared by the whole request.
+    now: OffsetDateTime,
 }
 
-async fn ingest(
-    state: &AppState,
-    id: ShareId,
-    kind: ShareKind,
-    now: OffsetDateTime,
+async fn ingest_into<'a>(
+    state: &'a AppState,
+    request: Ingest<'_>,
+    // What the body says it will be, when it says. Chooses the backend before
+    // the first byte is written; without it the placer can only be asked for
+    // "somewhere with any room", which picks one the file does not fit in after
+    // parts have already been written there.
+    expected_bytes: Option<u64>,
     body: Body,
+    upload: &mut Option<crate::upload::segments::Writer<'a>>,
+    arriving: &mut crate::storage::in_flight::Arrival,
 ) -> Result<Ingested> {
-    // `id` names the object, not the share. A share holds several files and each
-    // needs its own key — deriving it from the share meant the second upload
-    // wrote over the first, silently, and the download sent one file's bytes
-    // three times. Measured before it was fixed: two rows, one object.
-    let mut upload: Option<Box<dyn MultipartUpload>> = None;
-    let result = ingest_into(state, id, kind, now, body, &mut upload).await;
-
-    if let Some(upload) = upload.as_mut() {
-        // Only reachable when something failed: the success path takes the
-        // upload out of the slot after completing it. Abandoning a multipart
-        // upload leaves parts behind that a store will bill for and that nothing
-        // else will ever look for, so the failure path has to say so explicitly.
-        if let Err(error) = upload.abort().await {
-            tracing::warn!(?error, %id, "could not abort an incomplete upload");
-        }
-    }
-    result
-}
-
-async fn ingest_into(
-    state: &AppState,
-    id: ShareId,
-    kind: ShareKind,
-    now: OffsetDateTime,
-    body: Body,
-    upload: &mut Option<Box<dyn MultipartUpload>>,
-) -> Result<Ingested> {
-    // Where the bytes end up is decided by what they are, not by how many of
-    // them there are. A file is an object whatever its size, so an operator
-    // looking for an upload finds it in one place; text is a row, so reading a
-    // paste is one query.
+    let Ingest {
+        id,
+        kind,
+        owner,
+        now,
+    } = request;
+    // Where the bytes end up follows what they are, not how many there are. A
+    // file is an object whatever its size, so an operator finds it in one
+    // place; text is a row, so reading a paste is one query.
     //
-    // The threshold still earns its keep: it is how much of a file is buffered
-    // before the multipart upload starts, which is a memory decision rather than
-    // a storage one.
+    // The threshold still decides how much of a file is buffered before the
+    // multipart upload starts. That is a memory question, not a storage one.
     let stream_to_object = kind == ShareKind::File;
-    let text_limit = state.config.share.max_text_bytes;
-    let threshold = state.config.share.inline_threshold_bytes;
-    let part_size = state.config.server.part_size_bytes;
-    let limit = u64::try_from(state.config.server.max_body_bytes).unwrap_or(u64::MAX);
+    let Sizes {
+        text_limit,
+        threshold,
+        part_size,
+    } = Sizes::from(state.config().as_ref());
+    // The caller's own limit: `server.max_body_bytes`, or something narrower.
+    // Read here, not in the handler, so the direct and resumable paths share
+    // one definition of "too big for you".
+    let limit = max_file_bytes(state, owner).await?;
     // What is left of the instance's allowance, checked as the body arrives
-    // rather than only up front: the caller need not send a `Content-Length`,
-    // and a chunked upload that would take us past the line should stop at the
-    // line instead of after it.
-    let budget = remaining_quota(state).await?;
+    // and not only up front. The caller need not send a `Content-Length`, and a
+    // chunked upload past the line should stop at the line.
+    let mut room = remaining_room(state, owner).await?;
+    // Re-read as the body arrives. See `re_read_interval`.
+    let mut re_read_at = re_read_interval(room.bytes, part_size);
+    // What the database said, plus what is arriving now and is not in it yet.
+    // Otherwise two uploads that both read `room` before either wrote anything
+    // are each told the remainder is theirs. Measured: 80 KiB stored against a
+    // 50 KiB ceiling, from two requests.
+    arriving.also_count_under(scope_key(room.scope));
     let mut body = body;
     let mut buffered: Vec<u8> = Vec::new();
     let mut size_bytes: u64 = 0;
-    let mut key: Option<String> = None;
+    // Until a backend is chosen there is nothing to exceed.
+    let mut backend_limit = u64::MAX;
+    let mut backend_key: Option<String> = None;
 
-    let stall = state.config.server.upload_stall();
+    let stall = state.config().server.upload_stall();
 
     while let Some(frame) = next_frame(&mut body, stall).await? {
         let Ok(chunk) = frame.into_data() else {
@@ -944,16 +1564,23 @@ async fn ingest_into(
         if size_bytes > limit {
             return Err(Error::PayloadTooLarge);
         }
-        // Checked as it arrives rather than at the end: a paste ten times the
-        // limit should stop at the limit, not be read in full and then refused.
+        // Checked as it arrives: a paste ten times the limit should stop at the
+        // limit, not be read in full and then refused.
         if !stream_to_object && size_bytes > u64::try_from(text_limit).unwrap_or(u64::MAX) {
             return Err(Error::bad_request(
                 "that is larger than this instance keeps as text; send it as a file instead",
             ));
         }
-        if size_bytes > budget {
-            return Err(Error::InsufficientStorage);
-        }
+        arriving.reached(size_bytes);
+        enforce_ceiling(
+            state,
+            owner,
+            size_bytes,
+            part_size,
+            &mut room,
+            &mut re_read_at,
+        )
+        .await?;
         buffered.extend_from_slice(&chunk);
 
         if !stream_to_object {
@@ -967,66 +1594,141 @@ async fn ingest_into(
         // Past the threshold: start the upload the first time, then keep the
         // buffer drained in whole blocks.
         if upload.is_none() {
-            let object_key = object_key(id, now);
-            let started = state
-                .storage
-                .put_multipart(&ObjectPath::from(object_key.as_str()))
-                .await?;
-            key = Some(object_key);
-            *upload = Some(started);
+            let started = open_object(state, id, now, expected_bytes, arriving).await?;
+            backend_limit = started.limit;
+            backend_key = Some(started.ledger_key);
+            *upload = Some(started.writer);
         }
-        if let Some(upload) = upload.as_mut() {
-            flush_full_parts(upload.as_mut(), &mut buffered, part_size).await?;
+        // The chosen backend's own ceiling, checked as the bytes arrive, for
+        // the same reason the quota is. Past the line here means the provider
+        // refuses mid-upload, worse than a 507.
+        if let Some(backend_key) = backend_key.as_deref()
+            && would_pass(state, backend_key, size_bytes, backend_limit)
+        {
+            return Err(Error::InsufficientStorage(Tier::Instance));
+        }
+        if let Some(writer) = upload.as_mut() {
+            writer.write(&std::mem::take(&mut buffered)).await?;
         }
     }
 
-    match key {
-        Some(key) => {
-            let mut started = upload.take().ok_or_else(|| {
+    finish(
+        state,
+        Finish {
+            id,
+            now,
+            stream_to_object,
+            size_bytes,
+        },
+        buffered,
+        upload,
+    )
+    .await
+}
+
+/// What `finish` needs that is not the buffer or the upload handle.
+struct Finish {
+    id: ShareId,
+    now: OffsetDateTime,
+    /// Whether the content is a file. That decides between an object and a
+    /// row.
+    stream_to_object: bool,
+    /// How much arrived.
+    size_bytes: u64,
+}
+
+/// Turns what the read loop ended with into the record of where the bytes went.
+///
+/// Three endings, because the loop stops in three places: past the threshold
+/// with a multipart upload open, under it with a file in hand, and under it
+/// with text.
+///
+/// # Errors
+///
+/// Returns [`Error`] if the store will not take what is left.
+async fn finish(
+    state: &AppState,
+    request: Finish,
+    buffered: Vec<u8>,
+    upload: &mut Option<crate::upload::segments::Writer<'_>>,
+) -> Result<Ingested> {
+    let Finish {
+        id,
+        now,
+        stream_to_object,
+        size_bytes,
+    } = request;
+    let mut buffered = buffered;
+    match upload.take() {
+        Some(mut writer) => {
+            if !buffered.is_empty() {
+                writer.write(&std::mem::take(&mut buffered)).await?;
+            }
+            let pieces = writer.finish().await?;
+            let first = pieces.first().ok_or_else(|| {
                 Error::bad_request("upload state was lost part-way through the body")
             })?;
-            if !buffered.is_empty() {
-                started
-                    .put_part(PutPayload::from(std::mem::take(&mut buffered)))
-                    .await?;
-            }
-            started.complete().await?;
             Ok(Ingested {
-                storage: StorageLocation::Object { key },
+                // The legacy column keeps the first piece, all one column can
+                // hold. Every read uses `segments`.
+                storage: StorageLocation::Object {
+                    backend: first.backend.clone(),
+                    key: first.object_key.clone(),
+                },
                 size_bytes,
                 inline: None,
+                // Only recorded when there is more than one. A single-object
+                // file is what it was before splitting existed, and a one-row
+                // list would change every existing upload's shape for nothing.
+                segments: if pieces.len() > 1 {
+                    pieces
+                        .iter()
+                        .map(|piece| crate::db::repository::share::NewSegment {
+                            backend: piece.backend.clone(),
+                            object_key: piece.object_key.clone(),
+                            offset_bytes: piece.offset,
+                            length_bytes: piece.length,
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
+                },
             })
         }
         // A file small enough that the multipart upload never started. It still
-        // becomes an object — one `put` rather than a multipart, because a
-        // multipart upload of nine bytes is three round trips to say one thing.
+        // becomes an object, with one `put`: a multipart upload of nine bytes
+        // is three round trips to say one thing.
         None if stream_to_object => {
             let object_key = object_key(id, now);
-            state
-                .storage
-                .put(
-                    &ObjectPath::from(object_key.as_str()),
-                    PutPayload::from(buffered),
-                )
-                .await?;
+            // The file is in hand, so the size is known before a byte is
+            // written and the placer can be asked. The streaming path above is
+            // already writing by the time it knows how much there is.
+            let backend = place(state, size_bytes).await?;
+            let store = state.backend(&backend).ok_or(Error::Unavailable)?;
+            put_whole(state, &store, &backend, &object_key, buffered).await?;
             Ok(Ingested {
-                storage: StorageLocation::Object { key: object_key },
+                storage: StorageLocation::Object {
+                    backend,
+                    key: object_key,
+                },
                 size_bytes,
                 inline: None,
+                segments: Vec::new(),
             })
         }
         None => Ok(Ingested {
             storage: StorageLocation::Inline,
             size_bytes,
             inline: Some(buffered),
+            segments: Vec::new(),
         }),
     }
 }
 
 /// The next piece of a body's data, or `None` at its end.
 ///
-/// Trailers carry no content, so they are skipped rather than returned. The
-/// wait is bounded the same way `next_frame` bounds it — see there.
+/// Trailers carry no content, so they are skipped, not returned. The
+/// wait is bounded as `next_frame` bounds it.
 ///
 /// # Errors
 ///
@@ -1045,9 +1747,9 @@ pub(crate) async fn next_chunk(body: &mut Body, stall: Duration) -> Result<Optio
 ///
 /// The wait is bounded by how long the connection may go silent, not by how
 /// long the upload may take: a large file over a slow line is answering all the
-/// way through, and a client that stopped sending is not answering at all. This
-/// is the only place that can tell those apart — by the time a request-wide
-/// budget expires, both look the same.
+/// way through, and a client that stopped sending is not answering at all. Only
+/// here can those be told apart, since a request-wide budget expires the same
+/// way for both.
 ///
 /// See `api::timeout` for why the wall-clock budget is not applied here.
 async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body::Frame<Bytes>>> {
@@ -1060,36 +1762,46 @@ async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body
     }
 }
 
-/// Pushes as many whole blocks as the buffer holds, leaving the remainder.
+/// Writes a whole object, holding back the write that creates its location.
 ///
-/// `part_size` is `server.part_size_bytes`. It is fixed rather than following
-/// whatever chunk sizes the network delivered, because most object stores
-/// require every part but the last to be at least 5 MiB and some require them
-/// all to be the same size.
+/// WebDAV answers a write into a directory that does not exist with `409`, and
+/// `object_store` retries after MKCOL exactly once, not enough when
+/// several uploads are creating the same month at once. Everything after the
+/// first takes no lock, so this costs one serialised write per backend per
+/// month. See [`FirstWrites`](crate::storage::first_write::FirstWrites).
 ///
-/// **It is also the memory an in-flight upload holds** — one block per upload,
-/// not one per connection, because a block goes out as soon as it fills.
-async fn flush_full_parts(
-    upload: &mut dyn MultipartUpload,
-    buffered: &mut Vec<u8>,
-    part_size: usize,
+/// The streamed path needs no equivalent: it opens a multipart upload, and the
+/// only store here with directories cannot do that at all, so `place_streamed`
+/// keeps it off that path.
+///
+/// # Errors
+///
+/// Whatever the store answers.
+async fn put_whole(
+    state: &AppState,
+    store: &std::sync::Arc<dyn object_store::ObjectStore>,
+    backend: &str,
+    object_key: &str,
+    bytes: Vec<u8>,
 ) -> Result<()> {
-    while buffered.len() >= part_size {
-        let rest = buffered.split_off(part_size);
-        let part = std::mem::replace(buffered, rest);
-        upload.put_part(PutPayload::from(Bytes::from(part))).await?;
-    }
+    state
+        .first_writes
+        .once(
+            backend,
+            crate::storage::first_write::location_of(object_key),
+            store.put(&ObjectPath::from(object_key), PutPayload::from(bytes)),
+        )
+        .await?;
     Ok(())
 }
 
-/// `{yyyy}/{mm}/{id}`.
+/// `shares/{yyyy}/{mm}/{id}`.
 ///
-/// Sharded by date rather than flat: a personal instance running for years would
-/// otherwise put every object in one directory, and a local filesystem handles
-/// that badly. Sharding on the identifier's leading characters would not help —
-/// a ULID starts with a timestamp, so those characters are almost the same for
-/// everything written in the same era. Dates are also what an operator wants to
-/// see when deciding what to back up or what is old.
+/// Sharded by date, not flat. A personal instance running for years
+/// would otherwise put every object in one directory, which a local filesystem
+/// handles badly. Sharding on the identifier's leading characters would not
+/// help, since a ULID starts with a timestamp. Dates are also what an operator
+/// wants to see when deciding what to back up.
 pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
     format!(
         "shares/{:04}/{:02}/{id}",
@@ -1101,25 +1813,26 @@ pub(crate) fn object_key(id: ShareId, created_at: OffsetDateTime) -> String {
 /// Makes a share whose one file arrived through a resumable upload.
 ///
 /// Separate from [`create`] because the bytes are already in the store: this
-/// only writes the rows and picks a code. Everything a `POST /shares` decides
-/// from its query — password, expiry, use limit — is not available to an upload
-/// session, so those take their defaults and the uploader adjusts the share
-/// afterwards.
+/// only writes the rows and picks a code. An upload session has no query to
+/// carry a password, expiry or use limit, so those take their defaults and the
+/// uploader adjusts the share afterwards.
 ///
 /// # Errors
 ///
 /// Returns [`Error`] if no unused code can be found or the insert fails.
 pub(crate) async fn create_from_file(
     state: &AppState,
-    user_id: Option<tessera_core::UserId>,
+    user_id: Option<UserId>,
     file: NewFile,
     now: OffsetDateTime,
 ) -> Result<ShareResponse> {
     let management_secret = user_id.is_none().then(Secret::generate_session);
+    let role_id = charged_role(state, user_id).await?;
     let share = Share {
         id: ShareId::generate(),
         code: RetrievalCode::parse("0000").unwrap_or_else(|_| unreachable!("four zeroes parse")),
         user_id,
+        role_id,
         kind: ShareKind::File,
         password_hash: None,
         use_limit: None,
@@ -1175,14 +1888,13 @@ async fn insert_with_fresh_code(
     content: &NewContent,
 ) -> Result<Share> {
     for _ in 0..CODE_ATTEMPTS {
-        share.code = generate_code(state.config.share.code_length)?;
+        share.code = generate_code(state.config().share.code_length)?;
         match state.shares.insert(&share, content).await {
             Ok(()) => return Ok(share),
             Err(error) => {
-                // Distinguish "that code is taken" from a database that is
-                // unwell by looking, rather than assuming every failure is a
-                // collision — that would retry through an outage and then
-                // report it as a conflict.
+                // Look, do not assume every failure is a collision:
+                // assuming would retry through an outage and then report it as
+                // a conflict.
                 if state.shares.find_by_code(&share.code).await?.is_none() {
                     return Err(error.into());
                 }
@@ -1202,11 +1914,10 @@ fn generate_code(length: usize) -> Result<RetrievalCode> {
 
 /// Checks a caller-supplied label: length, and that it cannot break a header.
 ///
-/// Control characters are refused rather than stripped. `filename` is echoed in
-/// `Content-Disposition` when the share is downloaded, and a value containing
-/// CR or LF would end the header and let the caller append one of their own.
-/// Stripping would work, but silently changing what somebody named their file is
-/// worse than telling them it is not a name.
+/// Control characters are refused, not stripped. `filename` is echoed in
+/// `Content-Disposition` when the share is downloaded, and a CR or LF would end
+/// the header and let the caller append one of their own. Stripping would also
+/// work, but silently renaming an upload is worse than refusing it.
 fn checked_label(value: Option<String>, field: &'static str, max: usize) -> Result<Option<String>> {
     let Some(value) = value else {
         return Ok(None);
@@ -1230,7 +1941,7 @@ fn checked_label(value: Option<String>, field: &'static str, max: usize) -> Resu
 
 /// Reads the optional share password from `X-Share-Password`.
 ///
-/// A header rather than a query parameter: query strings end up in access logs,
+/// A header, not a query parameter. Query strings end up in access logs,
 /// in shell history and in the `Referer` sent to whatever the page links to
 /// next.
 fn share_password(headers: &HeaderMap) -> Result<Option<Password>> {
@@ -1267,15 +1978,12 @@ fn resolve_expiry(
     requested_hours: Option<u64>,
     now: OffsetDateTime,
 ) -> Result<Option<OffsetDateTime>> {
-    let ceiling = state.config.share.max_expiry();
+    let ceiling = state.config().share.max_expiry();
     let Some(hours) = requested_hours else {
-        // Most shares arrive without a lifetime, so this is the figure that
-        // decides how much an instance holds. It used to be the ceiling itself,
-        // which meant the *longest* life anyone was allowed was also what
-        // everyone got by default — thirty days of uploads held to serve links
-        // that are almost all collected within hours.
+        // Most shares arrive without a lifetime, so this figure decides how
+        // much an instance holds. See `share.default_expiry_hours`.
         return Ok(state
-            .config
+            .config()
             .share
             .default_expiry()
             .map(|limit| now.saturating_add(duration_of(limit))));
@@ -1290,7 +1998,7 @@ fn resolve_expiry(
     if ceiling.is_some_and(|limit| requested > limit) {
         return Err(Error::bad_request(format!(
             "`expires_in_hours` must be at most {}",
-            state.config.share.max_expiry_hours
+            state.config().share.max_expiry_hours
         )));
     }
     Ok(Some(now.saturating_add(duration_of(requested))))
@@ -1308,8 +2016,8 @@ mod tests {
     use super::*;
 
     /// `sea-query` unwraps the `u64` -> `i64` conversion, so an offset above
-    /// `i64::MAX` panicked inside the driver and came back as a `500` — from a
-    /// query parameter, on a route any signed-in caller can reach. Found by the
+    /// `i64::MAX` panicked inside the driver and came back as a `500`, from a
+    /// query parameter on a route any signed-in caller can reach. Found by the
     /// contract fuzzer.
     #[test]
     fn a_figure_past_what_the_driver_can_carry_is_refused() {
@@ -1338,7 +2046,7 @@ mod tests {
         assert_eq!(limit, MAX_SHARE_PAGE, "still capped");
     }
 
-    /// The cap is the whole reason the listing is bounded.
+    /// The cap is why the listing is bounded.
     #[test]
     fn a_limit_past_the_cap_comes_back_as_the_cap() {
         let (limit, offset) = page_bounds(&SharePageParams {
@@ -1369,9 +2077,9 @@ mod tests {
 /// A share as a public visitor sees it.
 ///
 /// Everything but `code`, `kind` and `has_password` is withheld until the share
-/// is unlocked. A file name and a size are a description of the content, and a
-/// password-protected share should not describe itself to somebody who has not
-/// presented the password — the same reason its link preview must not.
+/// is unlocked. A file name and a size describe the content, and a
+/// password-protected share should not describe itself before the password is
+/// presented. Its link preview is withheld for the same reason.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PublicShareResponse {
     /// The retrieval code.
@@ -1467,7 +2175,7 @@ pub struct TicketResponse {
     operation_id = "describe_share",
     tag = SHARES_TAG,
     params(
-        ("code" = String, Path, description = "The retrieval code"),
+        ("code" = String, Path, description = "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share."),
         ("X-Share-Password" = Option<String>, Header, description = "The share's password, if it has one"),
     ),
     responses(
@@ -1491,15 +2199,13 @@ pub async fn describe(
         return Ok(Json(PublicShareResponse::unlocked(&share, &content)));
     }
     // A locked share still answers, so the page can render a password prompt
-    // rather than a dead end. What it answers is only "this exists and wants a
-    // password".
+    // instead of a dead end. It answers only "this exists and wants one".
     if headers.get(gate::PASSWORD_HEADER).is_none() {
         return Ok(Json(PublicShareResponse::locked(&share)));
     }
     gate::unlock(&state, &share, &headers, &source).await?;
-    // Read only once the password is right: a locked share answers without
-    // touching its content, so a wrong guess costs a gate check and nothing
-    // more.
+    // Read only once the password is right, so a wrong guess costs a gate check
+    // and nothing more.
     let content = state.shares.content_of(&share).await?;
     Ok(Json(PublicShareResponse::unlocked(&share, &content)))
 }
@@ -1508,10 +2214,10 @@ pub async fn describe(
 ///
 /// # Why this is a separate step
 ///
-/// One authorisation costs one retrieval; the ticket it returns is then good for
-/// every request the transfer needs — each `Range`, each resumption, each retry.
-/// Counting requests instead would let a resumed download spend three uses of a
-/// share that allows three.
+/// One authorisation costs one retrieval; the ticket it returns is then good
+/// for every request the transfer needs, each `Range`, resumption and retry.
+/// Counting requests instead would let a resumed download spend all three uses
+/// of a share that allows three.
 ///
 /// # Errors
 ///
@@ -1523,7 +2229,7 @@ pub async fn describe(
     operation_id = "unlock_share",
     tag = SHARES_TAG,
     params(
-        ("code" = String, Path, description = "The retrieval code"),
+        ("code" = String, Path, description = "The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share."),
         ("X-Share-Password" = Option<String>, Header, description = "The share's password, if it has one"),
     ),
     responses(
@@ -1546,7 +2252,7 @@ pub async fn unlock(
 
     let secret = gate::spend(&state, &share).await?;
     let expires_at = OffsetDateTime::now_utc().saturating_add(
-        time::Duration::try_from(state.config.share.ticket_ttl())
+        time::Duration::try_from(state.config().share.ticket_ttl())
             .unwrap_or_else(|_| time::Duration::days(1)),
     );
 
@@ -1565,7 +2271,7 @@ pub async fn unlock(
 pub struct ShareEventRequest {
     /// What happened: `view` or `copy`.
     ///
-    /// Retrieval is deliberately not one of these — see [`record_event`].
+    /// Retrieval is not one of these. See [`record_event`].
     #[schema(example = "view")]
     pub kind: String,
 }
@@ -1579,18 +2285,16 @@ pub struct ShareEventRequest {
 /// `/s/{code}/raw` would walk past it. The server counts that itself, on the
 /// transfer path, where it cannot be skipped.
 ///
-/// These two are the opposite case: nothing reaches the server when somebody
-/// reads a note on screen or presses a copy button, so a client is the only
-/// thing that can see them at all. The price is that anybody who can call this
-/// can inflate them, which is tolerable precisely because nothing depends on
-/// them.
+/// These two are the opposite case. Nothing reaches the server when a note is
+/// read on screen or a copy button is pressed, so only a client can see
+/// them. Anybody who can call this can inflate them, and that is tolerable
+/// because nothing depends on them.
 ///
 /// # Why it does not say whether the share exists
 ///
 /// `204` whatever happens, including for a code that names nothing. Answering
-/// `404` would make an unauthenticated endpoint into a way to ask which codes
-/// are real — the same oracle the retrieval throttle exists to close, reached
-/// through a door nobody was watching.
+/// `404` would turn an unauthenticated endpoint into a way to ask which codes
+/// are real, the same oracle the retrieval throttle exists to close.
 ///
 /// # Errors
 ///
@@ -1619,9 +2323,9 @@ pub async fn record_event(
     let kind = match body.kind.as_str() {
         "view" => ShareEvent::View,
         "copy" => ShareEvent::Copy,
-        // Named rather than listed as "invalid": a client sending `download`
-        // has misread what this endpoint is for, and saying so is more use than
-        // a list of two words.
+        // Named, not listed as invalid. A client sending `download` has
+        // misread what this endpoint is for, and saying so helps more than
+        // repeating the two words it accepts.
         "download" | "retrieval" => {
             return Err(Error::bad_request(
                 "retrievals are counted by the server on the transfer path, not reported here",
@@ -1653,25 +2357,24 @@ pub async fn record_event(
 ///
 /// # Why files arrive one at a time
 ///
-/// One request carrying five files is one request that loses five when it drops
-/// at the fourth — which is the case somebody uploading a folder of photographs
-/// on a home connection hits, not a theoretical one. A file that fails here is
-/// retried on its own.
+/// One request carrying five files loses five when it drops at the fourth,
+/// exactly what uploading a folder of photographs over a home connection hits.
+/// A file that fails here is retried on its own.
 ///
 /// # Why the share exists before its second file
 ///
 /// There is no draft state. A share is created by its first file and grown by
-/// the rest, so nothing has to remember to finish, and an upload interrupted
-/// half way leaves a share holding what did arrive rather than nothing at all.
+/// the rest, so nothing has to remember to finish, and an interrupted upload
+/// leaves a share holding what did arrive, not nothing.
 ///
-/// The cost is that somebody who opened the link during the upload would see
-/// part of it. The link is handed out after the upload, by the person doing it.
+/// The cost is that a link opened mid-upload shows part of the share. The link
+/// is handed out afterwards, by the person doing the upload.
 ///
 /// # Errors
 ///
 /// `403` when the caller cannot show it is theirs, `404` when no share has that
 /// code, `409` when the share holds text, `413` when the body is too large,
-/// `507` when the instance is out of room.
+/// `507` when something is out of room. The body says whose ceiling that was.
 #[utoipa::path(
     post,
     path = "/shares/{code}/files",
@@ -1685,7 +2388,7 @@ pub async fn record_event(
         (status = 404, description = "No such share", body = crate::error::ErrorBody),
         (status = 409, description = "That share holds text", body = crate::error::ErrorBody),
         (status = 413, description = "Body exceeds the configured limit", body = crate::error::ErrorBody),
-        (status = 507, description = "This instance is out of room", body = crate::error::ErrorBody),
+        (status = 507, description = "Out of room; the body says whether that is the account's quota, its role's, or the instance's", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -1704,8 +2407,8 @@ pub async fn add_file(
         .await?
         .ok_or(Error::NotFound)?;
 
-    // Adding to somebody else's share would let a stranger put content behind
-    // their link. The same two proofs the delete route accepts: the management
+    // Adding to another account's share would let a stranger put content behind
+    // its link. The same two proofs the delete route accepts: the management
     // token the uploader was handed, or being the account that owns it.
     let owns = current.as_ref().is_some_and(|user| {
         share.user_id == Some(user.user.id) && user.permissions.allows(Permission::SharesCreate)
@@ -1714,8 +2417,8 @@ pub async fn add_file(
         management_token(&headers).is_some_and(|presented| presented.digest() == *stored)
     });
     if !owns && !holds_token {
-        // The same answer as a share that is not there, for the same reason the
-        // delete route gives it: otherwise this endpoint says which codes exist.
+        // The same answer as a share that is not there, for the same reason
+        // `delete` gives it: otherwise this says which codes exist.
         return Err(Error::NotFound);
     }
 
@@ -1727,17 +2430,40 @@ pub async fn add_file(
 
     let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;
     let now = OffsetDateTime::now_utc();
-    let Ingested {
-        storage,
-        size_bytes,
-        inline: _,
-    } = ingest(&state, ShareId::generate(), ShareKind::File, now, body).await?;
+    // The share's owner, not the caller. A management token lets an
+    // account-less uploader append to a member's share, and the bytes land
+    // there,
+    // so it is the owner's ceiling that has to allow them.
+    let owner = match share.user_id {
+        Some(id) => state.users.find_by_id(id).await?,
+        None => None,
+    };
+    let (
+        Ingested {
+            storage,
+            size_bytes,
+            inline: _,
+            segments,
+        },
+        _arriving,
+    ) = ingest(
+        &state,
+        Ingest {
+            id: ShareId::generate(),
+            kind: ShareKind::File,
+            owner: owner.as_ref(),
+            now,
+        },
+        body,
+    )
+    .await?;
 
     state
         .shares
         .append_file(
             share.id,
             &NewFile {
+                segments,
                 filename,
                 content_type: claimed_content_type(&headers),
                 size_bytes,

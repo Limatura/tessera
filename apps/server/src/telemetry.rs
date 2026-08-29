@@ -16,7 +16,7 @@ pub enum TelemetryError {
 ///
 /// The filter directive has already been validated by
 /// [`crate::config::Config::validate`], so a parse failure here would be a bug
-/// rather than an operator error; it degrades to the directive's default instead
+/// and not an operator error, so it degrades to the directive's default instead
 /// of aborting start-up.
 ///
 /// # Errors

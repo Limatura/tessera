@@ -10,11 +10,13 @@
     clippy::panic,
     reason = "test fixture; see module docs"
 )]
-// `allow` rather than `expect`: each test binary that includes this module uses
+// `allow`, not `expect`. Each test binary that includes this module uses
 // a different subset of the fixtures, so `dead_code` fires in some and not
-// others — an `#[expect]` would go unfulfilled in the binaries that use
-// everything, which is a warning of its own.
+// others, and an `#[expect]` would go unfulfilled in the binaries that use
+// everything, and that is a warning of its own.
 #![allow(dead_code, reason = "each test binary uses a different subset")]
+
+pub(crate) mod brimming;
 
 use std::sync::Arc;
 
@@ -29,14 +31,15 @@ use tessera_server::{
     api,
     config::{Config, DatabaseConfig, StorageConfig},
     db,
-    state::{AppState, ServiceStatus},
+    state::{AppState, ServiceStatus, Storage},
     storage,
+    storage::{Backends, DEFAULT_BACKEND, Pool, secret::Sealer},
 };
 use tower::ServiceExt as _;
 
 /// A fully assembled app plus the temporary directory its blob store lives in.
 ///
-/// The directory is held here rather than dropped at construction time: dropping
+/// The directory is held here, not dropped at construction time. Dropping
 /// a [`TempDir`] deletes it, which would pull the storage root out from under the
 /// running app.
 pub(crate) struct TestApp {
@@ -61,14 +64,14 @@ impl TestApp {
         Self::with_database(IN_MEMORY_SQLITE, status).await
     }
 
-    /// Same, but with the configuration adjusted first — for tests that need a
+    /// Same, but with the configuration adjusted first, for tests that need a
     /// feature switched on, since the fixture otherwise mirrors the shipped
     /// defaults.
     pub(crate) async fn with_config(adjust: impl FnOnce(&mut Config)) -> Self {
         Self::build_with(IN_MEMORY_SQLITE, ServiceStatus::Ready, adjust).await
     }
 
-    /// Same, against an arbitrary database URL — used by the backend suite,
+    /// Same, against an arbitrary database URL, used by the backend suite,
     /// which has to prove the *other* backends serve identical responses.
     pub(crate) async fn with_database(url: &str, status: ServiceStatus) -> Self {
         Self::build_with(url, status, |_| {}).await
@@ -96,12 +99,28 @@ impl TestApp {
 
         let db = db::connect(&config.database).await.expect("database pool");
         db::migrate(&db).await.expect("migrations");
-        let (store, multipart) =
-            storage::build_with_multipart(&config.storage).expect("local store");
+        let default = storage::build_with_multipart(&config.storage).expect("local store");
 
         let assets =
             tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets_dir");
-        let state = AppState::new(Arc::new(config), db, store, multipart, assets);
+        // The one backend the fixture has, under the name every file records.
+        let pool = Pool {
+            open: Backends::from([(DEFAULT_BACKEND.to_owned(), default.clone())]),
+            configured: Vec::new(),
+        };
+        // Built before the configuration is moved, from the same value `main`
+        // reads, or a test that sets a key gets a fixture that ignores it.
+        let sealer = Sealer::new(&config.storage.secret_key).expect("a usable key");
+        let state = AppState::new(
+            Arc::new(config),
+            db,
+            Storage {
+                default,
+                pool,
+                sealer,
+            },
+            assets,
+        );
         state.set_status(status);
 
         Self {
@@ -172,7 +191,7 @@ impl Auth<'_> {
 }
 
 /// Reads the session cookie a response sets, as `name=value` ready to be sent
-/// back — which is what a browser would do with it.
+/// back, as a browser would.
 pub(crate) fn session_cookie(response: &Response<Body>) -> String {
     let raw = response
         .headers()
@@ -203,8 +222,8 @@ pub(crate) async fn body_json(response: Response<Body>) -> serde_json::Value {
     serde_json::from_str(&body_string(response).await).expect("json body")
 }
 
-/// Asserts on a status code with the body included in the failure message —
-/// otherwise a failing assertion says only "expected 200, got 500".
+/// Asserts on a status code with the body included in the failure message, or a
+/// failing assertion says only "expected 200, got 500".
 pub(crate) async fn expect_status(
     response: Response<Body>,
     expected: StatusCode,
@@ -219,11 +238,12 @@ pub(crate) async fn expect_status(
 
 /// Walks an account from registration through to a revoked token and a logout.
 ///
-/// Lives here rather than in one test binary because the cross-backend suite has
+/// Lives here, not in one test binary, because the cross-backend suite has
 /// to run exactly this scenario: it is the only thing that proves the entities
-/// and the hand-written per-dialect SQL agree about every column — timestamps,
-/// booleans, nullability, the unique indexes and the foreign keys. Unit tests
-/// against `sqlite::memory:` cannot prove any of that for Postgres or MySQL.
+/// and the hand-written per-dialect SQL agree about every column, meaning
+/// timestamps, booleans, nullability, the unique indexes and the foreign keys.
+/// Unit tests against `sqlite::memory:` cannot prove that for Postgres or
+/// MySQL.
 ///
 /// `suffix` keeps the account names unique, because the networked backends run
 /// against a database that survives the run.
@@ -346,14 +366,13 @@ impl<'a> Scenario<'a> {
         .await;
     }
 
-    /// Signing in by address rather than name, and getting a session of its own.
     /// Signs in with a `User-Agent` far longer than the column allows.
     ///
-    /// Here rather than in the SQLite-only suite because SQLite has no column
-    /// width to exceed. MySQL does — `VARCHAR(512)` — so a bound that drifted
+    /// Here, not in the SQLite-only suite, because SQLite has no column
+    /// width to exceed. MySQL does, at `VARCHAR(512)`, so a bound that drifted
     /// from it would fail there and nowhere else, on a header any caller sets.
     ///
-    /// Deliberately ASCII: a header value that is not visible ASCII never
+    /// ASCII on purpose: a header value that is not visible ASCII never
     /// reaches the column at all (see `session_origin`), so a multi-byte one
     /// would store `NULL` and quietly prove nothing.
     async fn records_a_long_user_agent(&self) {
@@ -557,8 +576,8 @@ impl<'a> Scenario<'a> {
     }
 }
 
-/// `value[key]`, without the panicking index operator — a missing field should
-/// fail the assertion that uses it, not the line that reads it.
+/// `value[key]`, without the panicking index operator, so a missing field fails
+/// the assertion that uses it, not the line that reads it.
 fn field(value: &serde_json::Value, key: &str) -> serde_json::Value {
     value.get(key).cloned().unwrap_or(serde_json::Value::Null)
 }
@@ -591,7 +610,7 @@ pub(crate) async fn force_password_change(app: &TestApp, username: &str) {
 ///
 /// Lives here so the cross-backend suite runs the same scenario: the tables are
 /// hand-written per dialect, and only writing rows and reading them back proves
-/// the entity and the schema agree about every column — Postgres `TIMESTAMPTZ`
+/// the entity and the schema agree about every column: Postgres `TIMESTAMPTZ`
 /// against SQLite's TEXT, MySQL's `MEDIUMBLOB`, the nullable owner foreign key,
 /// and the atomic use-count update.
 ///
@@ -631,7 +650,7 @@ impl<'a> Shares<'a> {
             // and no backend stores that: Postgres `TIMESTAMPTZ` and MySQL
             // `TIMESTAMP(6)` are both microseconds. Writing nanoseconds and then
             // asserting the row reads back unchanged would fail on the precision
-            // rather than on anything this test is about.
+            // and not on anything this test is about.
             now: truncate_to_microseconds(OffsetDateTime::now_utc()),
         }
     }
@@ -648,6 +667,7 @@ impl<'a> Shares<'a> {
     /// cares about.
     fn blank(&self, n: u8) -> Share {
         Share {
+            role_id: None,
             id: ShareId::generate(),
             code: self.code(n),
             user_id: None,
@@ -743,10 +763,12 @@ impl<'a> Shares<'a> {
             .insert(
                 &share,
                 &NewContent::File(NewFile {
+                    segments: Vec::new(),
                     filename: Some("專案.zip".to_owned()),
                     content_type: Some("application/zip".to_owned()),
                     size_bytes: 1_048_576,
                     storage: StorageLocation::Object {
+                        backend: DEFAULT_BACKEND.to_owned(),
                         key: format!("2026/08/{}", self.suffix),
                     },
                 }),
@@ -803,7 +825,7 @@ impl<'a> Shares<'a> {
     }
 
     /// A share with three uses must yield exactly three, however many callers
-    /// ask — and the refusal has to come from the `WHERE` clause, not from a
+    /// ask, and the refusal has to come from the `WHERE` clause, not from a
     /// check the handler could forget.
     async fn the_use_count_is_spent_in_the_database(&self) {
         let share = Share {
@@ -895,12 +917,14 @@ impl<'a> Shares<'a> {
         );
     }
 
-    /// Dead shares have to be findable *before* their rows go, so whatever is in
-    /// the blob store can be removed first — no database action reaches it.
+    /// Dead shares have to be findable *before* their rows go, so whatever is
+    /// in the blob store can be removed first, since no database action reaches
+    /// it.
     ///
-    /// Two ways to be dead, and both have to be found. Cleaning only the expired
-    /// ones would leave every burn-after-reading share accumulating forever:
-    /// they are dead the moment they are read and have no expiry to notice.
+    /// Two ways to be dead, and both have to be found. Cleaning only the
+    /// expired ones would leave every burn-after-reading share accumulating for
+    /// ever: they are dead the moment they are read and have no expiry to
+    /// notice.
     async fn dead_shares_are_listed_for_cleanup(&self) {
         let expired = Share {
             expires_at: Some(self.now - Duration::days(1)),
@@ -971,7 +995,7 @@ pub(crate) async fn share_retrieval_lifecycle(app: &TestApp) {
     let Retrieval { code, ticket } = Retrieval::create(app).await;
 
     // `create` already spent one of the two retrievals, at `unlock`. The
-    // metadata endpoint spends none — a link preview, a prefetch or a mail
+    // metadata endpoint spends none: a link preview, a prefetch or a mail
     // scanner following the URL must not destroy a one-time share.
     let before = field(
         &Retrieval::describe(app, &code, Some("1234")).await,

@@ -1,8 +1,8 @@
 //! End-to-end tests over the assembled router.
 //!
-//! These drive the real middleware stack — request ids, compression, body limits,
-//! the SPA fallback — rather than calling handlers directly, because most of what
-//! this round delivers *is* the stack.
+//! These drive the real middleware stack (request ids, compression, body
+//! limits, the SPA fallback) instead of calling handlers directly, because
+//! most of what this round delivers *is* the stack.
 
 mod common;
 
@@ -29,7 +29,7 @@ async fn admin_session(app: &TestApp) -> String {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");
@@ -129,8 +129,8 @@ async fn capabilities_report_what_this_instance_exposes() {
 }
 
 /// How much room is left is the operator's capacity planning, not the visitor's
-/// business — telling every anonymous uploader how close the disk is to full
-/// invites somebody to close the gap.
+/// business: telling every anonymous uploader how close the disk is to full
+/// invites them to finish it off.
 #[tokio::test]
 async fn only_an_administrator_is_told_how_much_room_is_left() {
     let quota = 50 * 1024 * 1024;
@@ -201,8 +201,8 @@ async fn contract_is_served_as_json() {
 
     assert_eq!(document["info"]["title"], "Tessera API");
     assert!(document["paths"]["/health"]["get"].is_object());
-    // Nesting must rewrite the path in the document, not just in the router —
-    // otherwise a generated client would call `/capabilities` and get the SPA.
+    // Nesting must rewrite the path in the document, not just in the router, or
+    // a generated client would call `/capabilities` and get the SPA.
     assert!(
         document["paths"]["/api/v1/capabilities"]["get"].is_object(),
         "versioned paths must appear with their prefix"
@@ -214,7 +214,7 @@ async fn the_api_reference_is_off_by_default() {
     // A development convenience, so the shipped defaults do not serve it.
     //
     // It used to fall through to the SPA, which answered `200` with the app
-    // shell — so the default instance claimed there was a page at `/docs` and
+    // shell, so the default instance claimed there was a page at `/docs` and
     // then showed nothing. Now the path answers for itself.
     let app = TestApp::ready().await;
     let response = expect_status(app.get("/docs").await, StatusCode::NOT_FOUND).await;
@@ -238,8 +238,8 @@ async fn the_api_reference_is_served_when_enabled() {
 
 /// Scalar serves the page directly, with no redirect. The previous UI answered
 /// `/docs` with a redirect to `/docs/`, which became an infinite loop the first
-/// time this stack ran behind trailing-slash normalisation — so the absence of a
-/// redirect is worth asserting rather than assuming.
+/// time this stack ran behind trailing-slash normalisation, so the absence of a
+/// redirect is worth asserting, not assuming.
 #[tokio::test]
 async fn the_api_reference_does_not_redirect() {
     let app = TestApp::with_config(|config| config.features.docs = true).await;
@@ -354,7 +354,7 @@ async fn a_named_origin_may_carry_credentials() {
 }
 
 /// The Fetch standard refuses credentials alongside a wildcard origin, and a
-/// browser drops the entire response rather than explaining why.
+/// browser drops the entire response instead of explaining why.
 #[tokio::test]
 async fn a_wildcard_origin_does_not_claim_to_carry_credentials() {
     let app = TestApp::with_config(|config| {
@@ -386,12 +386,12 @@ async fn a_wildcard_origin_does_not_claim_to_carry_credentials() {
 }
 
 /// Compressing a download would drop `Content-Length` in favour of chunked
-/// encoding, so the browser loses the progress bar and the estimated time — on
-/// exactly the transfers where somebody is watching them. And a ZIP does not get
-/// smaller anyway.
+/// encoding, so the browser loses the progress bar and the estimated time, on
+/// exactly the transfers being watched. And a ZIP does not
+/// get smaller anyway.
 ///
 /// Asserted on the predicate directly. The alternative is inferring the policy
-/// from response headers, which tests the plumbing rather than the decision.
+/// from response headers, which tests the plumbing and not the decision.
 #[test]
 fn the_compression_predicate_skips_opaque_media_types() {
     use axum::http::Response;
@@ -496,8 +496,40 @@ async fn a_locked_share_gives_nothing_away_in_its_preview() {
     let page =
         body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
             .await;
+    assert!(!page.contains("payroll"), "the file name leaked: {page}");
+    // The title does appear, and that is the decision, not an oversight:
+    // the uploader typed it as a label for other people. It is also the sharp
+    // edge, since a share titled "Salaries" announces that to the channel,
+    // so nothing else about a locked share is shown, and the
+    // default with no title says nothing at all.
+    assert!(page.contains("Salaries"), "the title was dropped: {page}");
+}
+
+/// With no title, a locked share still gives nothing away.
+#[tokio::test]
+async fn a_locked_share_without_a_title_gives_nothing_away() {
+    let app = TestApp::ready().await;
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=payroll.xlsx")
+                .header("x-share-password", "1234"),
+            Body::from("secret"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
+            .await;
     assert!(!page.contains("payroll"), "{page}");
-    assert!(!page.contains("Salaries"), "{page}");
     assert!(page.contains("Password-protected share"), "{page}");
 }
 
@@ -532,7 +564,7 @@ async fn a_title_cannot_inject_script_into_the_page() {
 /// With the docs off, `/docs` says so instead of looking like a typo.
 ///
 /// It used to reach the SPA fallback, which answers every unknown path the same
-/// way — so an operator who had turned the page off and one who had misspelt it
+/// way, so an operator who had turned the page off and one who had misspelt it
 /// got the identical "page not found".
 #[tokio::test]
 async fn the_docs_path_says_when_it_has_been_turned_off() {
@@ -551,7 +583,7 @@ async fn the_docs_path_says_when_it_has_been_turned_off() {
 
     let body = body_string(response).await;
     assert!(body.contains("features.docs"), "{body}");
-    // The contract is served either way, and somebody who wanted the docs page
+    // The contract is served either way, and a reader who wanted the docs page
     // wants that next.
     assert!(body.contains(api::OPENAPI_PATH), "{body}");
 
@@ -568,7 +600,7 @@ async fn the_docs_path_serves_the_page_when_it_is_on() {
     assert!(!body_string(response).await.contains("features.docs"));
 }
 
-/// Serving the frontend from a directory, which is what makes changing one line
+/// Serving the frontend from a directory. That is what makes changing one line
 /// of CSS not mean waiting for a Rust build.
 #[tokio::test]
 async fn a_configured_directory_is_served_instead_of_the_bundle() {
@@ -608,7 +640,7 @@ async fn the_embedded_bundle_is_still_cached_forever() {
     let app = TestApp::ready().await;
     let response = app.get("/assets/does-not-exist.js").await;
     // Whatever the bundle actually contains, the policy is decided by the source
-    // rather than the file, so a hit on any non-index path proves it.
+    // and not the file, so a hit on any non-index path proves it.
     if response.status() == StatusCode::OK {
         assert_eq!(
             response
@@ -623,8 +655,8 @@ async fn the_embedded_bundle_is_still_cached_forever() {
 /// A symbolic link out of the directory is not a way out of the directory.
 ///
 /// `normalize_asset_path` removes `..`, and against the compiled-in bundle that
-/// was the whole of it — there was no filesystem to escape to. A directory has
-/// one, and a link is a path with no `..` in it at all.
+/// was enough, since there was no filesystem to escape to. A directory
+/// has one, and a link is a path with no `..` in it at all.
 #[tokio::test]
 async fn a_symlink_cannot_lead_out_of_the_assets_directory() {
     let dir = tempfile::tempdir().expect("a directory");
@@ -644,12 +676,12 @@ async fn a_symlink_cannot_lead_out_of_the_assets_directory() {
         StatusCode::NOT_FOUND,
         "a link out of the directory was followed"
     );
-    // And the ordinary path still works, so this is confinement rather than the
+    // And the ordinary path still works, so this is confinement and not the
     // directory being broken.
     assert_eq!(app.get("/").await.status(), StatusCode::OK);
 }
 
-/// A directory with no entry point stops the server rather than falling back.
+/// A directory with no entry point stops the server instead of falling back.
 #[test]
 fn a_directory_without_an_index_is_refused() {
     let dir = tempfile::tempdir().expect("a directory");

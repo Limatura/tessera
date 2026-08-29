@@ -103,7 +103,14 @@ jobs:
       # The module docs carry this project's architectural reasoning, so a broken
       # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
       # this is what actually runs rustdoc to find out.
+      #
+      # `RUSTDOCFLAGS` and not the job-wide `RUSTFLAGS`: rustdoc's own lints are
+      # not reached by the latter, so this step printed warnings and passed for
+      # as long as it has existed. Six had accumulated by the time somebody read
+      # a doc comment and found it describing a type that no longer exists.
       - name: rustdoc
+        env:
+          RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
 
       # The contract is generated, never hand-edited. Regenerating it here and
@@ -314,6 +321,64 @@ jobs:
       # `--single-node --default-bucket` creates the key and the bucket from the
       # variables below, which is what makes this nine lines instead of the
       # layout/bucket/key/allow dance. Both flags need v2.3.0 or newer.
+      # Two things this job can check for itself rather than fail mysteriously
+      # on. The disk floor is the same one the image job carries — the runner
+      # went offline once because a PR of ours grew the base image, and this
+      # adds another store's worth of images to the same machine.
+      - name: Check the runner has room and free ports
+        run: |
+          # Twelve, from the three measurements there are rather than from
+          # taste: the disk is 55 GB, a run with about 10 GB free had every
+          # SeaweedFS write fail, and a run with 17 GB was stopped by the old
+          # floor of 20 having done nothing wrong. The cap in
+          # `.github/actions/rust` is what keeps the disk out of that region;
+          # this only catches what the cap cannot see.
+          FLOOR_GB=12
+          free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+          echo "root filesystem ${free_gb} GB free (floor ${FLOOR_GB} GB)"
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "short on room; clearing unused images"
+            timeout 300 docker system prune -a -f || true
+            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+            echo "after clearing: ${free_gb} GB free"
+          fi
+          # Checked again, and this time it stops. Carrying on without room does
+          # not produce a message about room: the stores come up, accept
+          # connections, and then answer writes with an error their gateways
+          # report as a 500 — so the run fails three minutes later in whichever
+          # test happened to write first, saying nothing about the cause.
+          # Measured on 2026-08-28: 6 GB free, 10 after pruning, and every
+          # SeaweedFS test failed with `internal error`.
+          #
+          # What was filling the disk was not the stores — they use tens of
+          # megabytes — but the shared cargo target directory, which reaches
+          # 64 GB on a 55 GB runner. That is bounded in `.github/actions/rust`,
+          # which runs before this and can hand the space back. This is the
+          # backstop for everything else on a shared machine.
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor; the object stores need room to write"
+            exit 1
+          fi
+          # Our own leftovers first. A cancelled job does not reach its cleanup
+          # step — cancellation skips what has not started — so a run that was
+          # superseded by a new push leaves its containers holding these ports,
+          # and the next run fails the check below on a port that is ours.
+          # Removing them by name is safe: nothing else on the machine is called
+          # this, and a container from a finished job has nothing left to say.
+          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+            tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
+
+          # High and unusual on purpose: 9000 and 10000 are the defaults these
+          # images ship with, and they are exactly the ports something else on a
+          # shared machine is likely to already hold. What is left holding one
+          # after the line above is genuinely somebody else's.
+          for port in 3900 39002 31000 38080 39100 38333 38111 38090; do
+            if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
+              echo "::error::port $port is already in use on this runner"
+              exit 1
+            fi
+          done
+
       - name: Start Garage
         run: |
           mkdir -p /tmp/garage
@@ -344,6 +409,50 @@ jobs:
           docker logs tessera-garage || true
           exit 1
 
+      # A second bucket, because a file records which backend holds it and
+      # nothing but two real ones proves the reader opens the recorded name.
+      # Against a single bucket, "used the name" and "used whichever store it
+      # had" are indistinguishable — and the second is what shipped before
+      # backends existed.
+      #
+      # `--default-bucket` only makes the first, so this one goes through
+      # Garage's own CLI. It is in the image already, which is why this needs no
+      # S3 client on the runner.
+      - name: Create the second bucket
+        run: |
+          for _ in $(seq 1 60); do
+            docker exec tessera-garage /garage status >/dev/null 2>&1 && break
+            sleep 1
+          done
+          docker exec tessera-garage /garage bucket create tessera-cold
+          docker exec tessera-garage /garage bucket allow \
+            --read --write --owner tessera-cold --key tesseratest
+
+      # A second S3 implementation, because Garage is deliberately permissive:
+      # `config.rs` records that it enforces neither S3's 5 MiB floor nor R2's
+      # equal-part rule, "which is why the CI job cannot catch a mistake here".
+      # RustFS is stricter, and it is also what the self-hosting audience moved
+      # to after MinIO's repository was archived — so this doubles as a
+      # compatibility statement, the same reason Garage was chosen over MinIO.
+      #
+      # `mc` rather than a hand-rolled signature: RustFS has no `--default-bucket`
+      # equivalent, creating one takes sigv4, and the client that does it is a
+      # 30 MB one-shot container rather than thirty lines of `openssl` in YAML.
+      - name: Start RustFS
+        run: |
+          docker run -d --name tessera-rustfs -p 39002:9000 \
+            -e RUSTFS_ACCESS_KEY=tesseratest \
+            -e RUSTFS_SECRET_KEY=tesseratestsecret \
+            rustfs/rustfs:latest
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:39002 && break
+            sleep 1
+          done
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+            mc alias set t http://127.0.0.1:39002 tesseratest tesseratestsecret &&
+            mc mb --ignore-existing t/tessera &&
+            mc mb --ignore-existing t/tessera-cold'
+
       # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
       # demand an object store; `--run-ignored all` is what opts into them.
       #
@@ -352,9 +461,79 @@ jobs:
       # repository knows these names, which is why they are also the answer an
       # operator needs, and why this job doubles as the source for that
       # documentation.
+      # Azure, because it is the second backend people actually name and
+      # nothing here had ever spoken its protocol. Azurite is the only emulator
+      # for it, and it needs its containers created first — which is a Shared
+      # Key signature, not a request you can just curl. Signing it here rather
+      # than pulling `azure-cli` keeps a ~700 MB image off a runner that has run
+      # out of disk before; the whole thing is `openssl dgst`.
+      #
+      # `LC_ALL=C` is not decoration. `date` obeys the runner's locale, and a
+      # localised day name goes into the string that gets signed — the signature
+      # then fails to match and the store answers 403 with no hint why.
+      - name: Start Azurite
+        run: |
+          docker run -d --name tessera-azurite -p 31000:10000 \
+            mcr.microsoft.com/azure-storage/azurite:3.36.0 \
+            azurite-blob --blobHost 0.0.0.0 --skipApiVersionCheck
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:31000/devstoreaccount1 && break
+            sleep 1
+          done
+          # The account and key every Azurite ships with; they are in its README,
+          # not a secret.
+          acc=devstoreaccount1
+          key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='
+          ver=2021-08-06
+          # `od` rather than `xxd`: the runner has no `xxd`, and an empty hex key
+          # does not fail here — it reaches the store and comes back as a bare
+          # `403`, which says nothing about where it went wrong.
+          hexkey=$(printf '%s' "$key" | openssl base64 -d -A | od -An -v -tx1 | tr -d ' \n')
+          [ -n "$hexkey" ] || { echo "::error::could not decode the Azurite key"; exit 1; }
+          for name in tessera tessera-cold; do
+            d=$(LC_ALL=C TZ=GMT date '+%a, %d %b %Y %H:%M:%S GMT')
+            sts="PUT\n\n\n\n\n\n\n\n\n\n\n\nx-ms-date:$d\nx-ms-version:$ver\n/$acc/$acc/$name\nrestype:container"
+            sig=$(printf '%b' "$sts" | openssl dgst -sha256 -mac HMAC \
+              -macopt "hexkey:$hexkey" -binary | openssl base64 -A)
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X PUT \
+              "http://127.0.0.1:31000/$acc/$name?restype=container" \
+              -H "x-ms-date: $d" -H "x-ms-version: $ver" \
+              -H "Authorization: SharedKey $acc:$sig")
+            echo "container $name: $code"
+            [ "$code" = 201 ] || { echo "::error::could not create container $name"; exit 1; }
+          done
+
+      # WebDAV, the one backend here that is not object storage at all. It has
+      # no multipart, which is the whole reason `object_store_multipart` is its
+      # own binary — this is the first store that proves the split does
+      # something rather than just tidying tests into two files.
+      #
+      # `rclone serve webdav` with no `--user`, because a URL cannot carry
+      # credentials: `reqwest` rejects `http://user:pass@host` outright with
+      # `BadScheme`. Basic auth would have to arrive as options, which is a
+      # separate thing to build and not what this job is checking.
+      - name: Start a WebDAV server
+        run: |
+          docker run -d --name tessera-webdav -p 38080:8080 \
+            rclone/rclone:1.75.0 serve webdav /data --addr :8080
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38080/ && break
+            sleep 1
+          done
+          # WebDAV does not create parent collections on PUT, so the two the
+          # suite writes into have to exist first. MKCOL is the whole protocol
+          # here — no client needed.
+          for name in tessera tessera-cold; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X MKCOL \
+              "http://127.0.0.1:38080/$name")
+            echo "collection $name: $code"
+            [ "$code" = 201 ] || { echo "::error::could not create $name"; exit 1; }
+          done
+
       - name: Run the object store suite
         env:
           TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
           AWS_ACCESS_KEY_ID: tesseratest
           AWS_SECRET_ACCESS_KEY: tesseratestsecret
           AWS_REGION: garage
@@ -363,13 +542,263 @@ jobs:
           AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
         run: |
           cargo nextest run --profile ci --all-features \
-            --run-ignored all -E 'binary(object_store)'
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # The same suite against the stricter implementation. Separate step so a
+      # failure names which store disagreed with us rather than "the object
+      # store job".
+      - name: Run the object store suite against RustFS
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:39002
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # The same suite again over Azure's protocol rather than S3's. Same
+      # reason as RustFS: one implementation is one opinion, and this one is a
+      # different wire format entirely.
+      - name: Run the object store suite against Azurite
+        env:
+          TESSERA_TEST_STORAGE_URL: azure://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: azure://tessera-cold
+          AZURE_STORAGE_ACCOUNT_NAME: devstoreaccount1
+          AZURE_STORAGE_ACCOUNT_KEY: Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+          # The account goes in the path: Azurite serves one account off one
+          # port, where the real service gives each its own host name.
+          AZURE_STORAGE_ENDPOINT: http://127.0.0.1:31000/devstoreaccount1
+          AZURE_ALLOW_HTTP: "true"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # Only the first binary: WebDAV has no multipart, and the other binary is
+      # exactly the tests that need one.
+      #
+      # `allow_http` has to come through the config rather than the environment.
+      # `is_backend_option` asks the S3, GCS and Azure key sets whether a name is
+      # a real option, and the HTTP store's keys are in none of them — so a
+      # WebDAV backend is configurable through the config file and the admin API
+      # and nowhere else.
+      - name: Run the object store suite against WebDAV
+        env:
+          TESSERA_TEST_STORAGE_URL: http://127.0.0.1:38080/tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: http://127.0.0.1:38080/tessera-cold
+          TESSERA_TEST_STORAGE_OPTIONS: allow_http=true
+        run: |
+          # One at a time, because of how the suite runs rather than because of
+          # anything the server does. WebDAV answers a write into a directory
+          # that does not exist with `409`, and `object_store` retries after
+          # MKCOL exactly once — not enough when several uploads are creating
+          # `shares/YYYY/MM` at the same moment. The server holds the first
+          # write into a location alone so that cannot happen, but that gate
+          # lives in one process, and `nextest` gives every test its own: each
+          # of these is a first write with no sibling to wait for. Measured —
+          # in parallel this suite is flaky here even with the gate in place.
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all --test-threads 1 -E 'binary(object_store)'
+
+      # Three more S3 implementations, and not because they disagree with the two
+      # above — measured, they do not. They are here because the compatibility
+      # table in the README names them, and a name in that table that nothing
+      # runs is a promise rather than a fact.
+      - name: Start MinIO
+        run: |
+          docker run -d --name tessera-minio -p 39100:9000 \
+            -e MINIO_ROOT_USER=tesseratest -e MINIO_ROOT_SECRET=tesseratestsecret \
+            -e MINIO_ROOT_PASSWORD=tesseratestsecret \
+            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:39100 && break
+            sleep 1
+          done
+
+      # `-s3.config` is not optional: without an identities file `SeaweedFS`
+      # answers every write with `PermissionDenied`, whatever credentials are
+      # sent. Measured — this is the whole reason it looked incompatible at
+      # first.
+      - name: Start SeaweedFS
+        run: |
+          cat > /tmp/seaweed-s3.json <<'JSON'
+          {"identities":[{"name":"tessera",
+            "credentials":[{"accessKey":"tesseratest","secretKey":"tesseratestsecret"}],
+            "actions":["Admin","Read","Write","List","Tagging"]}]}
+          JSON
+          docker run -d --name tessera-seaweed -p 38333:8333 \
+            -v /tmp/seaweed-s3.json:/s3.json:ro \
+            chrislusf/seaweedfs:4.44 \
+            server -s3 -s3.port=8333 -s3.config=/s3.json -dir=/data
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38333 && break
+            sleep 1
+          done
+
+      - name: Start VersityGW
+        run: |
+          docker run -d --name tessera-versity -p 38111:7070 \
+            -e ROOT_ACCESS_KEY_ID=tesseratest \
+            -e ROOT_SECRET_ACCESS_KEY=tesseratestsecret \
+            versity/versitygw:v1.7.0 posix /tmp/vgw
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38111 && break
+            sleep 1
+          done
+
+      # An S3 face over something that is not S3 — a filesystem here, but the
+      # point of it is fronting a provider that speaks something else. Pinned by
+      # digest rather than tag because the newest *release*, 2.6.0, answers
+      # `POST ?delete` with `501`: it has no bulk delete, which is how
+      # `object_store` deletes anything. Master implements it, and this is that
+      # build. Measured, not assumed — 2.6.0 fails one test and this passes nine.
+      - name: Start s3proxy
+        run: |
+          docker run -d --name tessera-s3proxy -p 38090:80 \
+            -e S3PROXY_AUTHORIZATION=none -e S3PROXY_ENDPOINT=http://0.0.0.0:80 \
+            -e JCLOUDS_PROVIDER=filesystem -e JCLOUDS_FILESYSTEM_BASEDIR=/data \
+            andrewgaul/s3proxy@sha256:22e177554702ce8f60278f1f327b5267cbdb63bf058e7846b2c8795161af8f39
+          for _ in $(seq 1 60); do
+            curl -s -o /dev/null http://127.0.0.1:38090 && break
+            sleep 1
+          done
+
+      # One client for all four, because none of them has a `--default-bucket`
+      # and creating one takes sigv4 either way.
+      #
+      # The credentials are not decorative even where the store ignores them:
+      # `mc` refuses an access key shorter than three characters, and it says so
+      # on stderr while still reporting the bucket as created.
+      - name: Create their buckets
+        run: |
+          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+            for host in 39100 38333 38111 38090; do
+              mc alias set "s$host" "http://127.0.0.1:$host" tesseratest tesseratestsecret &&
+              mc mb --ignore-existing "s$host/tessera" &&
+              mc mb --ignore-existing "s$host/tessera-cold"
+            done'
+
+      - name: Run the object store suite against MinIO
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:39100
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against SeaweedFS
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38333
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      - name: Run the object store suite against VersityGW
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38111
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # Credentials rather than `aws_skip_signature`, even though s3proxy is
+      # configured to ignore them. `skip_signature` is honoured on the plain
+      # path and *not* on the multipart one, which then falls through to the EC2
+      # metadata service and spends twelve seconds timing out per test. Same
+      # shape as the GCS gap recorded in `object_store.rs`.
+      - name: Run the object store suite against s3proxy
+        env:
+          TESSERA_TEST_STORAGE_URL: s3://tessera
+          TESSERA_TEST_STORAGE_URL_SECOND: s3://tessera-cold
+          AWS_ACCESS_KEY_ID: tesseratest
+          AWS_SECRET_ACCESS_KEY: tesseratestsecret
+          AWS_REGION: us-east-1
+          AWS_ENDPOINT: http://127.0.0.1:38090
+          AWS_ALLOW_HTTP: "true"
+          AWS_VIRTUAL_HOSTED_STYLE_REQUEST: "false"
+        run: |
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
+
+      # The one thing no emulator can check: whether the rules we encode about
+      # real providers are the rules they actually have. `config.rs` says
+      # Cloudflare R2 requires every part but the last to be the same size —
+      # nothing here can confirm that, because no emulator enforces it.
+      #
+      # Gated on a secret so it costs nothing until somebody adds credentials,
+      # and skips rather than fails when they have not. `continue-on-error`
+      # because a provider being down is their outage, not our regression — the
+      # step still goes red in the log, it just does not block a merge.
+      - name: Run the object store suite against a real provider
+        if: vars.STORAGE_PROVIDER_URL != ''
+        continue-on-error: true
+        env:
+          TESSERA_TEST_STORAGE_URL: ${{ vars.STORAGE_PROVIDER_URL }}
+          TESSERA_TEST_STORAGE_URL_SECOND: ${{ vars.STORAGE_PROVIDER_URL_SECOND }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.STORAGE_PROVIDER_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.STORAGE_PROVIDER_SECRET }}
+          AWS_REGION: ${{ vars.STORAGE_PROVIDER_REGION }}
+          AWS_ENDPOINT: ${{ vars.STORAGE_PROVIDER_ENDPOINT }}
+        run: |
+          # Only the first binary unless a second bucket is configured: the
+          # cross-bucket test needs somewhere to point at that is not the first.
+          filter='binary(object_store) + binary(object_store_multipart)'
+          if [ -z "${TESSERA_TEST_STORAGE_URL_SECOND}" ]; then
+            echo "no second bucket configured; skipping the cross-bucket test"
+            filter="${filter} - test(a_file_is_read_from_the_bucket_it_names)"
+          fi
+          cargo nextest run --profile ci --all-features \
+            --run-ignored all -E "$filter"
+
+      # A store that will not take a write answers with an error its gateway
+      # reports as a plain `500`, so the test says `internal error` and nothing
+      # about why. The store itself says why, and this is the only place that
+      # record survives the job — the next step removes the containers.
+      #
+      # After every suite rather than beside each one: a step guarded by
+      # `if: failure()` runs wherever the failure was, and which store broke is
+      # not known until one does.
+      - name: What the stores said, if a suite failed
+        if: failure()
+        run: |
+          for name in tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+                      tessera-minio tessera-seaweed tessera-versity tessera-s3proxy; do
+            if docker inspect "$name" > /dev/null 2>&1; then
+              echo "::group::$name"
+              docker logs --tail 80 "$name" 2>&1 || true
+              echo "::endgroup::"
+            fi
+          done
+          df -h /
 
       # The runner keeps running after the job ends, so a container started here
       # outlives it and the next run finds the name and the port taken.
-      - name: Stop Garage
+      - name: Stop the stores
         if: always()
-        run: docker rm -f tessera-garage 2>/dev/null || true
+        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \ tessera-minio tessera-seaweed tessera-versity 2>/dev/null || true
 
   workflows:
     name: workflow lint
@@ -463,7 +892,8 @@ jobs:
           # 1.4 GB. It stopped being enough when the musl cross toolchain
           # replaced it at 3.5 GB, and the runner filled up mid-build and went
           # offline.
-          FLOOR_GB=20
+          # See the note on the other copy of this check.
+          FLOOR_GB=12
           free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
           used_pct=$(df --output=pcent / | tail -1 | tr -dc '0-9')
           echo "root filesystem ${used_pct}% full, ${free_gb} GB free (floor ${FLOOR_GB} GB)"
@@ -471,6 +901,13 @@ jobs:
             echo "short on room; clearing images and caches too"
             timeout 300 docker system prune -a --volumes -f || true
             rm -rf /tmp/tessera-buildx-cache
+            free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
+            echo "after clearing: ${free_gb} GB free"
+          fi
+          # As above: stop rather than fail later saying something else.
+          if [ "$free_gb" -lt "$FLOOR_GB" ]; then
+            echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor"
+            exit 1
           fi
           df -h / | tail -1
 
@@ -522,8 +959,16 @@ jobs:
           #
           # These leave about half. That is loose enough to sit still through
           # ordinary work and tight enough that a doubling still says something.
-          BINARY_BUDGET_MB=28
-          ROOTFS_BUDGET_MB=32
+          #
+          # Raised on 2026-08-29 for the link-preview cards. Measured on the
+          # release profile, the same build with and without `og-images`:
+          # 19.8 MB against 28.2 MB, so the feature costs 8.4 MB — takumi 5.0
+          # and five embedded font faces 3.3. That left the old budget passing
+          # by 218 KB, which is the state the paragraph above says is worse than
+          # useless, so the budgets move with it rather than being squeaked
+          # under. These again leave about half.
+          BINARY_BUDGET_MB=40
+          ROOTFS_BUDGET_MB=44
 
           cid=$(docker create tessera-server:ci)
           docker cp "$cid:/usr/local/bin/tessera-server" /tmp/tessera-server

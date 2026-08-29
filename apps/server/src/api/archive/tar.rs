@@ -2,9 +2,9 @@
 //!
 //! # Why tar as well as zip
 //!
-//! It has no four-gigabyte ceiling, it keeps names as bytes rather than in a
+//! It has no four-gigabyte ceiling, it keeps names as bytes and not in a
 //! code page, and on Linux and macOS it is what a person already has a command
-//! for. Nothing is compressed here either — see [`super`] for why.
+//! for. Nothing is compressed here either; see [`super`] for why.
 //!
 //! # What is implemented
 //!
@@ -15,7 +15,7 @@
 
 // Fixed-size arrays with indices bounded by constants a few lines above. The
 // lint is right in general and wrong for a header whose every field is at a
-// literal offset the format defines — writing each one through `get_mut` would
+// literal offset the format defines, where writing each one through `get_mut` would
 // bury the layout under unwraps.
 #![expect(
     clippy::indexing_slicing,
@@ -43,7 +43,7 @@ pub fn header(name: &str, size: u64) -> Bytes {
     if name.len() > SHORT_NAME {
         // GNU's long name: a record whose *data* is the real name, typed `L`,
         // followed by the entry it belongs to. Readers that do not know the type
-        // skip it and see a file called `././@LongLink`, which is ugly but not
+        // skip it and see a file called `././@LongLink`: ugly, but not
         // wrong.
         let bytes = name.as_bytes();
         let length = u64::try_from(bytes.len()).unwrap_or(0);
@@ -59,24 +59,24 @@ pub fn header(name: &str, size: u64) -> Bytes {
 /// One 512-byte header.
 fn block(name: &str, size: u64, kind: u8) -> Bytes {
     let mut header = [0u8; 512];
-    // `get` rather than a slice: a name longer than the field is truncated
-    // here and carried in full by the long-name record above, and a panic on the
-    // boundary would be a crash on somebody's filename.
+    // `get`, not a slice. A name longer than the field is truncated
+    // here and carried in full by the long-name record above, and a panic on
+    // the boundary would be a crash triggered by a filename.
     let truncated = name
         .as_bytes()
         .get(..name.len().min(SHORT_NAME))
         .unwrap_or(b"");
     header[..truncated.len()].copy_from_slice(truncated);
 
-    // Mode, owner and group are fixed: this is content somebody uploaded over
-    // HTTP, so there is no real answer, and inventing one would put a stranger's
+    // Mode, owner and group are fixed. This is content uploaded over HTTP, so
+    // there is no real answer, and inventing one would put a stranger's
     // idea of ownership on a file the recipient unpacks.
     write_octal(&mut header[100..108], 0o644);
     write_octal(&mut header[108..116], 0);
     write_octal(&mut header[116..124], 0);
     write_octal(&mut header[124..136], size);
-    // A fixed timestamp rather than "now": the archive of a given share is then
-    // the same bytes every time, which is what makes the size predictable and a
+    // A fixed timestamp, not "now", so the archive of a given share is
+    // the same bytes every time. That is what makes the size predictable and a
     // retry identical.
     write_octal(&mut header[136..148], 0);
     header[156] = kind;
@@ -84,7 +84,7 @@ fn block(name: &str, size: u64, kind: u8) -> Bytes {
     header[263..265].copy_from_slice(b"00");
 
     // The checksum is computed with its own field read as spaces, then written
-    // into it — the format's own circular definition.
+    // into it, per the format's own circular definition.
     header[148..156].fill(b' ');
     let sum: u32 = header.iter().map(|byte| u32::from(*byte)).sum();
     write_octal(&mut header[148..155], u64::from(sum));
@@ -99,7 +99,7 @@ fn write_octal(field: &mut [u8], value: u64) {
     let text = format!("{value:o}");
     let text = if text.len() > width {
         // Wider than the field: out of range for this shape, and zeros are a
-        // visible wrong rather than a silent truncation.
+        // visibly wrong instead of silently truncated.
         "0".repeat(width)
     } else {
         format!("{text:0>width$}")

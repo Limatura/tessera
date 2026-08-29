@@ -15,7 +15,7 @@ pub struct Model {
     pub position: i64,
     /// The name the uploader gave it.
     pub filename: Option<String>,
-    /// Recorded, never echoed — see the migration.
+    /// Recorded, never echoed; see the migration.
     pub content_type: Option<String>,
     /// Size of the content.
     pub size_bytes: i64,

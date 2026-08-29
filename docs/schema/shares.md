@@ -2,7 +2,7 @@
 
 ## Description
 
-一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
+一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。role_id 是上傳當下的角色快照,匿名上傳是 guest——事後改一個人的角色不會回溯改變舊分享算在誰頭上,而 user_id 是空同時代表「匿名」和「上傳者帳號被刪了」,分不出來。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -43,7 +43,7 @@ CREATE TABLE shares (
 
     created_at     TEXT    NOT NULL,
     updated_at     TEXT    NOT NULL
-, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0)
+, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
 ```
 
 </details>
@@ -70,13 +70,15 @@ CREATE TABLE shares (
 | updated_at | TEXT |  | false |  |  |  |
 | copy_count | INTEGER | 0 | false |  |  |  |
 | bytes_served | INTEGER | 0 | false |  |  |  |
+| role_id | TEXT |  | true |  | [roles](roles.md) |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | id | PRIMARY KEY | PRIMARY KEY (id) |
-| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (role_id) REFERENCES roles (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
 | sqlite_autoindex_shares_2 | UNIQUE | UNIQUE (code) |
 | sqlite_autoindex_shares_1 | PRIMARY KEY | PRIMARY KEY (id) |
 
@@ -84,6 +86,7 @@ CREATE TABLE shares (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_shares_role | CREATE INDEX idx_shares_role ON shares (role_id) |
 | idx_shares_created | CREATE INDEX idx_shares_created ON shares (created_at) |
 | idx_shares_user_created | CREATE INDEX idx_shares_user_created ON shares (user_id, created_at) |
 | idx_shares_expires_at | CREATE INDEX idx_shares_expires_at ON shares (expires_at) |
@@ -101,6 +104,7 @@ erDiagram
 "uploads" }o--o| "shares" : ""
 "access_events" }o--|| "shares" : ""
 "shares" }o--o| "users" : ""
+"shares" }o--o| "roles" : ""
 
 "shares" {
   TEXT id PK
@@ -121,6 +125,7 @@ erDiagram
   TEXT updated_at
   INTEGER copy_count
   INTEGER bytes_served
+  TEXT role_id FK
 }
 "share_tickets" {
   TEXT id PK
@@ -154,11 +159,10 @@ erDiagram
   TEXT content_type
   INTEGER declared_bytes
   INTEGER offset_bytes
-  TEXT object_key
-  TEXT multipart_id
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
 }
 "access_events" {
   TEXT id PK
@@ -171,7 +175,6 @@ erDiagram
   TEXT id PK
   TEXT username
   TEXT email
-  TEXT password_hash
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at
@@ -179,6 +182,19 @@ erDiagram
   TEXT state
   TEXT deleted_at
   TEXT deleted_by FK
+  TEXT role_id FK
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
+}
+"roles" {
+  TEXT id PK
+  TEXT name
+  TEXT description
+  INTEGER is_system
+  TEXT created_at
+  TEXT updated_at
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 ```
 

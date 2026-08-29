@@ -2,7 +2,7 @@
 //!
 //! The bug these were written for: the wall-clock budget covered the time spent
 //! receiving the body, so an upload's real ceiling was that budget times the
-//! caller's line speed rather than `server.max_body_bytes`. On the defaults, a
+//! caller's line speed, not `server.max_body_bytes`. On the defaults, a
 //! 100 MiB file needed 28 Mbit/s of sustained upload to arrive at all, and the
 //! `408` said nothing about why.
 
@@ -38,9 +38,9 @@ async fn post(app: &TestApp, uri: &str, content_type: &str, body: Body) -> Statu
     .status()
 }
 
-/// The bug. A file arriving slower than the request budget is not a failure —
-/// it is a file arriving over a slow line, which is the ordinary case for
-/// somebody uploading from home.
+/// The bug. A file arriving slower than the request budget is not a failure but
+/// a file arriving over a slow line, the ordinary case for an upload from
+/// home.
 #[tokio::test]
 async fn an_upload_slower_than_the_request_budget_still_finishes() {
     let app = TestApp::with_config(|config| {
@@ -97,7 +97,7 @@ async fn an_upload_that_stops_sending_is_dropped() {
 
 /// The exemption is for the two routes that receive a file, not for everything
 /// that shares their prefix. `POST /shares/{code}/events` is an ordinary request
-/// and keeps its budget — exempting it would hand an anonymous caller a socket
+/// and keeps its budget: exempting it would hand an anonymous caller a socket
 /// nothing reclaims.
 #[tokio::test]
 async fn a_neighbouring_route_still_has_a_wall_clock_budget() {
@@ -110,7 +110,7 @@ async fn a_neighbouring_route_still_has_a_wall_clock_budget() {
     let status = post(
         &app,
         "/api/v1/shares/abcdefgh/events",
-        // JSON, so the extractor reads the body rather than refusing the type
+        // JSON, so the extractor reads the body instead of refusing the type
         // before it gets there.
         "application/json",
         dribble(8, Duration::from_millis(500)),

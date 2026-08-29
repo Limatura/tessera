@@ -11,7 +11,7 @@ pub struct Model {
     pub id: String,
     /// Whose password this would set.
     pub user_id: String,
-    /// SHA-256 of the token. Never the token itself — the link in the email is
+    /// SHA-256 of the token. Never the token itself: the link in the email is
     /// the only copy that ever exists.
     #[sea_orm(unique)]
     pub secret_hash: String,
@@ -21,9 +21,9 @@ pub struct Model {
     pub expires_at: TimeDateTimeWithTimeZone,
     /// When it was spent, if it was.
     ///
-    /// Kept rather than deleted so that "already used" and "never existed" stay
+    /// Kept, not deleted, so "already used" and "never existed" stay
     /// distinguishable: the first means look for a newer mail, the second means
-    /// somebody is guessing.
+    /// the link is being guessed at.
     pub used_at: Option<TimeDateTimeWithTimeZone>,
 }
 

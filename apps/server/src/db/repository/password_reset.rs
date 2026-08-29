@@ -63,9 +63,10 @@ impl PasswordResetRepository {
 
     /// Records a link and returns the secret to put in the email.
     ///
-    /// The secret is returned rather than stored: only its digest reaches the
+    /// The secret is returned, never stored. Only its digest reaches the
     /// database, so this is the one moment it exists in a form anyone can use.
-    /// If the mail fails to send, nobody can follow the link — including us.
+    /// If the mail fails to send, the link becomes unfollowable, by us as much
+    /// as by anyone.
     ///
     /// # Errors
     ///
@@ -91,9 +92,9 @@ impl PasswordResetRepository {
 
     /// Finds the link a secret refers to, used or not.
     ///
-    /// Returning spent and expired links rather than filtering them out is what
-    /// lets the caller tell "this link is finished with" from "no such link",
-    /// which are different things to say to somebody.
+    /// Spent and expired links are returned, not filtered out, so the caller
+    /// can tell "this link is finished with" from "no such link",
+    /// which are different things to report.
     ///
     /// # Errors
     ///
@@ -115,8 +116,8 @@ impl PasswordResetRepository {
     /// Marks a link as spent, and only if it was not already.
     ///
     /// Returns whether this call was the one that spent it. The decision is the
-    /// database's, so two clicks arriving together produce one winner — without
-    /// that, a link forwarded to somebody else could be used twice.
+    /// database's, so two clicks arriving together produce one winner. Without
+    /// that, a forwarded link could be used twice.
     ///
     /// # Errors
     ///
@@ -138,9 +139,9 @@ impl PasswordResetRepository {
     /// Invalidates every outstanding link for an account.
     ///
     /// Called after a successful reset. Without it, a second link sitting in
-    /// the same mailbox stays a working key — and the usual reason there are
-    /// two is that the first mail went astray, which is exactly when the older
-    /// one is most likely to be in somebody else's hands.
+    /// the same mailbox stays a working key, and the usual reason there are two
+    /// is that the first mail went astray, exactly when the older one
+    /// is most likely to be in the wrong hands.
     ///
     /// # Errors
     ///

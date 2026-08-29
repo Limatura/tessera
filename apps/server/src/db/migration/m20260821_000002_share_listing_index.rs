@@ -1,6 +1,6 @@
 //! Indexes for the queries that draw a list of shares.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the SQLite one for why
+//! The SQL lives in `sql/`, one file per dialect. See the SQLite one for why
 //! there are two indexes and why the drop comes last.
 
 use sea_orm_migration::prelude::*;
@@ -16,13 +16,27 @@ const DOWN: &str = "DROP INDEX IF EXISTS idx_shares_user_created;\n\
                     DROP INDEX IF EXISTS idx_shares_created;\n\
                     CREATE INDEX IF NOT EXISTS idx_shares_user ON shares (user_id);\n";
 
+/// The same, spelled the way MySQL takes it, and in the other order.
+///
+/// Neither guard exists there: `DROP INDEX` has no `IF EXISTS` and needs an
+/// `ON <table>`, and `CREATE INDEX` has no `IF NOT EXISTS`. The order matters
+/// for a third reason: `InnoDB` uses `idx_shares_user_created` to satisfy the
+/// foreign key on `shares.user_id` and refuses to drop the last index a key
+/// depends on. So the replacement goes in first and the old ones go after.
+///
+/// Checked against a real MySQL, not reasoned about. See
+/// `a_full_rollback_runs_on_this_dialect`.
+const DOWN_MYSQL: &str = "CREATE INDEX idx_shares_user ON shares (user_id);\n\
+                          DROP INDEX idx_shares_user_created ON shares;\n\
+                          DROP INDEX idx_shares_created ON shares;\n";
+
 #[derive(Debug, DeriveMigrationName)]
 pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -33,7 +47,7 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        super::execute_portable(manager, DOWN).await
+        super::execute_for_backend(manager, DOWN, DOWN, DOWN_MYSQL).await
     }
 }
 

@@ -2,7 +2,7 @@
 //!
 //! # The protocol
 //!
-//! tus's offset model, which is the one every resumable-upload client already
+//! tus's offset model, the one every resumable-upload client already
 //! speaks:
 //!
 //! ```text
@@ -11,13 +11,13 @@
 //! PATCH /uploads/{id}    Upload-Offset: k   → 204 + Upload-Offset
 //! ```
 //!
-//! Three rules from the specification are load-bearing rather than decorative:
+//! Three rules from the specification are load-bearing, not decorative:
 //!
 //! - A `PATCH` whose `Upload-Offset` does not match answers **409 and changes nothing**. Without it
 //!   two clients writing the same upload interleave, and the file that comes out is neither of
 //!   theirs.
 //! - `HEAD` must answer `Cache-Control: no-store`. A cached offset is a corrupted upload, and it is
-//!   a proxy rather than the client that would cache it.
+//!   a proxy, not the client, that would cache it.
 //! - The last part is the only one allowed to be short. That lives in [`crate::upload::sink`],
 //!   because it is arithmetic and belongs with a test.
 //!
@@ -25,46 +25,43 @@
 //!
 //! A chunk that does not end on a part boundary leaves bytes that cannot become
 //! a part yet. tusd parks them in a sibling object and prepends them on resume;
-//! this does not, and answers with the offset of the last **whole** part
-//! instead. The client re-sends the tail, which the protocol already expects of
-//! it — the offset a server reports is what the server accepted.
+//! this answers with the offset of the last **whole** part instead, and the
+//! client re-sends the tail. The protocol already expects that: the offset a
+//! server reports is what the server accepted.
 //!
-//! The cost is bounded: at most one part is re-sent, and only when a transfer
-//! was interrupted. What it buys is that there is no second object with its own
-//! lifetime to create, find, prepend and clean up. The final chunk is exempt,
-//! because there the remainder *is* the last part and is allowed to be short.
+//! At most one part is re-sent, and only after an interruption. In exchange
+//! there is no second object with its own lifetime to create, find, prepend and
+//! clean up. The final chunk is exempt, since there the remainder *is* the last
+//! part and may be short.
 //!
-//! One consequence has to be answered rather than absorbed: a client that
-//! *always* sends less than a part would advance nothing and re-send from the
-//! same offset forever. So a request that was not the last and moved the offset
-//! by nothing is refused, naming the size it needed. A tus client left at its
-//! default sends the whole file in one `PATCH` and never meets this; one
-//! configured with a small chunk size does, and gets told so instead of
-//! looping. Only a multipart store has the floor at all — a local file takes
-//! whatever arrives.
+//! One consequence needs answering: a client that *always* sends less than a
+//! part would advance nothing and re-send from the same offset for ever. So a
+//! request that was not the last and moved the offset by nothing is refused,
+//! naming the size it needed. A tus client left at its default sends the whole
+//! file in one `PATCH` and never meets this. Only a multipart store has the
+//! floor at all; a local file takes whatever arrives.
 //!
 //! # Why the destination is chosen at creation
 //!
 //! `?code=` says "append to that share when this finishes"; leaving it off says
-//! "make a new one". Deciding here rather than at completion means the finish
-//! step needs nothing the client has to have remembered — the last `PATCH`
-//! already knows what to do.
+//! "make a new one". Deciding here, not at completion, means the finish
+//! step needs nothing the client had to remember.
 //!
 //! # Who may continue one
 //!
 //! An account continues its own uploads with the credential it already has. An
-//! anonymous uploader is handed a token at creation and presents it after,
-//! which is the same shape as the management token an anonymous *share* gets.
+//! anonymous uploader is handed a token at creation and presents it after, the
+//! same shape as the management token an anonymous *share* gets.
 //!
-//! tusd, the reference implementation, has no answer here at all — its
-//! documentation says so: the upload URL is random and that is the whole of it.
-//! A URL is not a good secret, though, because URLs end up in access logs, in
-//! proxy logs and in `Referer`; a header does not. So the identifier stays
-//! guessable-in-principle and the token is what actually authorises.
+//! tusd, the reference implementation, has no answer here and says so in its
+//! documentation: the upload URL is random and that is all. A URL is a poor
+//! secret, because URLs end up in access logs, proxy logs and `Referer`, where
+//! a header does not. So the identifier stays guessable in principle and the
+//! token is what authorises.
 
 // `params(CreateUploadParams)` makes utoipa emit a fully-qualified path to the
-// type, and the generated code lands outside the function it decorates — so the
-// suppression is module-wide, the same as in `shares`.
+// type, and the generated code lands outside the function it decorates, so the
+// suppression is module-wide, as in `shares`.
 #![expect(
     unused_qualifications,
     reason = "emitted by utoipa's params(..), not written here"
@@ -139,9 +136,9 @@ pub struct UploadResponse {
     /// Proof that a later request is the same uploader, for an anonymous one.
     ///
     /// **Store this.** It is shown once, and without it the upload cannot be
-    /// resumed after the page is closed — which is the situation resuming
-    /// exists for. `null` when the uploader is signed in, because their own
-    /// credential already answers the question.
+    /// resumed after the page is closed, the situation resuming exists for.
+    /// `null`
+    /// when the uploader is signed in, since their credential already answers.
     pub token: Option<String>,
 }
 
@@ -151,7 +148,7 @@ pub struct UploadResponse {
 ///
 /// `400` when `Upload-Length` is missing or unusable, `403` when the caller may
 /// not upload, `404` when `code` names no share, `507` when the declared length
-/// does not fit in what is left of the instance.
+/// does not fit in what is left. The body says whose ceiling ran out.
 #[utoipa::path(
     post,
     path = "/uploads",
@@ -163,7 +160,7 @@ pub struct UploadResponse {
         (status = 400, description = "`Upload-Length` missing or unusable", body = crate::error::ErrorBody),
         (status = 403, description = "Not allowed to upload", body = crate::error::ErrorBody),
         (status = 404, description = "No share has that code", body = crate::error::ErrorBody),
-        (status = 507, description = "This instance has no room for it", body = crate::error::ErrorBody),
+        (status = 507, description = "No room for it — the body says whether that is the account's quota, its role's, or the instance's", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -173,7 +170,7 @@ pub async fn create(
     ApiQuery(params): ApiQuery<CreateUploadParams>,
     headers: HeaderMap,
 ) -> Result<Response> {
-    if current.is_none() && !state.config.features.anonymous_upload {
+    if current.is_none() && !state.config().features.anonymous_upload {
         return Err(Error::Unauthorized);
     }
     if let Some(user) = current.as_ref() {
@@ -181,11 +178,24 @@ pub async fn create(
     }
 
     let declared = declared_length(&headers)?;
-    // Checked before a byte is accepted rather than as they arrive: an upload
-    // that cannot possibly fit should be refused while the client can still act
+    // Their own limit, not the instance's: an operator who raised
+    // `server.max_body_bytes` for themselves has not raised it for strangers.
+    // Refused here, not at the first `PATCH`, so the client learns before it
+    // starts sending.
+    if declared
+        > crate::api::shares::max_file_bytes(&state, current.as_ref().map(|current| &current.user))
+            .await?
+    {
+        return Err(Error::PayloadTooLarge);
+    }
+    // Checked before a byte is accepted, not as they arrive. An upload that
+    // cannot possibly fit should be refused while the client can still act
     // on it, not after it has spent an hour sending.
-    if declared > crate::api::shares::remaining_room(&state).await? {
-        return Err(Error::InsufficientStorage);
+    let room =
+        crate::api::shares::remaining_room(&state, current.as_ref().map(|current| &current.user))
+            .await?;
+    if declared > room.bytes {
+        return Err(Error::InsufficientStorage(room.tier));
     }
 
     let share_id = match params.code.as_deref() {
@@ -199,10 +209,25 @@ pub async fn create(
     // next day wrote somewhere else, and the merge could not find yesterday.
     let key = object_key(ShareId::generate(), now);
 
+    // Placed on the declared length, which a resumable upload always has,
+    // unlike a direct one whose body may be chunked. So this path can always
+    // choose well.
+    let backend = crate::api::shares::place_resumable(&state, declared).await?;
+    let store = state.backend(&backend).ok_or(Error::Unavailable)?;
     let sink = Sink::open(
-        &state.storage,
-        state.multipart.as_ref().map(|handle| &handle.0),
-        local_root(&state).as_ref(),
+        &store,
+        state
+            .backend_multipart(&backend)
+            .as_ref()
+            .map(|handle| &handle.0),
+        // The local directory only exists for the backend built from
+        // `storage.url`. Anywhere else is a remote store, and one that cannot
+        // hold a multipart open cannot hold a resumable upload either; see
+        // `Sink::open`.
+        (backend == crate::storage::DEFAULT_BACKEND)
+            .then(|| local_root(&state))
+            .flatten()
+            .as_ref(),
         &key,
     )
     .await?;
@@ -218,15 +243,19 @@ pub async fn create(
             &NewUpload {
                 share_id,
                 user_id: current.as_ref().map(|user| user.user.id),
+                role_id: crate::api::shares::charged_role_of(
+                    current.as_ref().map(|current| &current.user),
+                ),
                 token_hash: secret.digest(),
                 filename: crate::api::shares::checked_filename(params.filename)?,
                 content_type: None,
                 declared_bytes: declared,
                 object_key: key,
+                backend,
                 multipart_id,
             },
             now,
-            now + state.config.share.upload_session_ttl(),
+            now + state.config().share.upload_session_ttl(),
         )
         .await?;
 
@@ -237,7 +266,7 @@ pub async fn create(
             id: upload.id.to_string(),
             offset: 0,
             length: declared,
-            part_size: u64::try_from(state.config.server.part_size_bytes).unwrap_or(u64::MAX),
+            part_size: u64::try_from(state.config().server.part_size_bytes).unwrap_or(u64::MAX),
             token: current.is_none().then(|| secret.expose().to_owned()),
         }),
     )
@@ -246,10 +275,16 @@ pub async fn create(
 
 /// Answers how much has arrived.
 ///
+/// # The answer must not be cached
+///
+/// It carries `Cache-Control: no-store`. A client that caches it anyway will
+/// corrupt the upload: a stale offset sends the next chunk to the wrong place.
+/// This is the one header on this endpoint that is not politeness.
+///
 /// # Errors
 ///
-/// `404` when there is no such session, or the caller may not continue it —
-/// the same answer, so that a stranger cannot tell one from the other.
+/// `404` when there is no such session, or the caller may not continue it. The
+/// same answer, so a stranger cannot tell one from the other.
 #[utoipa::path(
     head,
     path = "/uploads/{id}",
@@ -257,8 +292,8 @@ pub async fn create(
     tag = UPLOADS_TAG,
     params(("id" = String, Path, description = "The session")),
     // No bodies declared: a `HEAD` response never has one, so promising an
-    // error body here would be the contract saying something the protocol
-    // forbids — and a contract test is right to call that a lie.
+    // error body here would put something in the contract the protocol
+    // forbids, and a contract test is right to fail on it.
     responses(
         (status = 200, description = "`Upload-Offset` says how much has arrived"),
         (status = 404, description = "No such session"),
@@ -278,10 +313,23 @@ pub async fn offset(
 
 /// Applies bytes at the given offset.
 ///
+/// # Every chunk but the last must be a whole part
+///
+/// `part_size` from the `POST` is a floor, not a suggestion: a chunk that is
+/// not the last and carries fewer bytes is refused with `400`. The object
+/// stores this streams to will not take a part below their own minimum, five
+/// mebibytes on S3, so a short chunk cannot be written anywhere and the offset
+/// does not move. A client that kept sending one would loop for ever.
+///
+/// The last chunk is exempt, because there is nothing after it to make it whole.
+///
+/// A client that sends `declared_bytes` in one request never meets this at all.
+///
 /// # Errors
 ///
-/// `409` when the offset does not match, `404` when there is no such session,
-/// `415` when the content type is not the one the specification names.
+/// `400` when a chunk that is not the last is shorter than `part_size`, `409`
+/// when the offset does not match, `404` when there is no such session, `415`
+/// when the content type is not the one the specification names.
 #[utoipa::path(
     patch,
     path = "/uploads/{id}",
@@ -310,7 +358,8 @@ pub async fn append(
     }
     let upload = continuable(&state, &id, current.as_ref(), &headers).await?;
 
-    // The specification is explicit that a mismatch changes nothing, which is
+    // The specification is explicit that a mismatch changes nothing, and that
+    // is
     // what keeps two clients from interleaving into a file that is neither of
     // theirs.
     if header_number(&headers, UPLOAD_OFFSET) != Some(upload.offset_bytes) {
@@ -320,8 +369,8 @@ pub async fn append(
         )));
     }
 
-    let part_size = state.config.server.part_size_bytes;
-    let stall = state.config.server.upload_stall();
+    let part_size = state.config().server.part_size_bytes;
+    let stall = state.config().server.upload_stall();
     let sink = sink_for(&state, &upload)?;
 
     let mut pending: Vec<u8> = Vec::new();
@@ -339,8 +388,8 @@ pub async fn append(
         }
         pending.extend_from_slice(&chunk);
 
-        // Flushed as it arrives rather than at the end, so the memory an
-        // upload holds is one part and not one file.
+        // Flushed as it arrives, not at the end, so the memory an upload holds
+        // is one part and not one file.
         let is_final = offset.saturating_add(u64::try_from(pending.len()).unwrap_or(u64::MAX))
             == upload.declared_bytes;
         // A local file takes whatever arrives; only a multipart store needs
@@ -360,8 +409,8 @@ pub async fn append(
             let was = offset;
             offset = offset.saturating_add(written.accepted);
             taken += written.parts.len();
-            // Conditional on the offset we believed. Somebody else moving it
-            // first means this request is writing into a file it no longer
+            // Conditional on the offset we believed. Another request moving it
+            // first means this one is writing into a file it no longer
             // understands, and carrying on would interleave the two.
             if !state
                 .uploads
@@ -382,11 +431,10 @@ pub async fn append(
         pending = rest;
     }
 
-    // A chunk too short to fill a part advances nothing, and a client that
-    // keeps sending the same short chunk would never finish — it would re-send
-    // from the same offset forever, and nothing would say why. So a request
-    // that was not the last and moved nothing is refused with the number it
-    // needed, which is also what the `POST` already told it.
+    // A chunk too short to fill a part advances nothing, so a client sending
+    // the same short chunk would re-send from the same offset for ever with
+    // nothing to say why. A request that was not the last and moved nothing is
+    // refused with the number it needed, which the `POST` already told it.
     if sink.buffers() && offset == upload.offset_bytes && offset < upload.declared_bytes {
         return Err(Error::bad_request(format!(
             "a chunk that is not the last must carry at least {part_size} bytes"
@@ -406,9 +454,8 @@ pub async fn append(
 
 /// Turns a finished upload into a file, and answers with the share.
 ///
-/// The session row goes in the same breath: it has nothing left to describe,
-/// and leaving it would make the sweep abort a multipart upload that has
-/// already completed.
+/// The session row goes with it: it has nothing left to describe, and leaving
+/// it would make the sweep abort an already-completed multipart upload.
 async fn finish(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Response> {
     let sink = sink_for(state, &upload)?;
     let parts = state.uploads.parts_of(upload.id).await?;
@@ -431,7 +478,7 @@ async fn finish(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
     Ok((StatusCode::CREATED, axum::Json(response)).into_response())
 }
 
-/// Reads `Upload-Length`, which is how much the client says it will send.
+/// Reads `Upload-Length`: how much the client says it will send.
 fn declared_length(headers: &HeaderMap) -> Result<u64> {
     header_number(headers, UPLOAD_LENGTH)
         .ok_or_else(|| Error::bad_request("`Upload-Length` must be a number of bytes"))
@@ -460,8 +507,8 @@ fn content_type(headers: &HeaderMap) -> Option<String> {
 
 /// The session, if this caller may continue it.
 ///
-/// Answers `404` rather than `403` when they may not: a stranger probing
-/// identifiers learns nothing from "that exists but is not yours".
+/// Answers `404`, not `403`, when they may not. A stranger probing identifiers
+/// learns nothing from "that exists but is not yours".
 async fn continuable(
     state: &AppState,
     id: &str,
@@ -492,10 +539,10 @@ async fn continuable(
     }
 }
 
-/// The `HEAD` answer, which is also what a `PATCH` returns.
+/// The `HEAD` answer, and also what a `PATCH` returns.
 ///
 /// `no-store` is not politeness: a cached offset sends the next chunk to the
-/// wrong place, and it is a proxy rather than the client that would cache it.
+/// wrong place, and it is a proxy, not the client, that would cache it.
 fn offset_headers(upload: &Upload) -> impl IntoResponse {
     (
         StatusCode::OK,
@@ -516,7 +563,7 @@ fn offset_headers(upload: &Upload) -> impl IntoResponse {
 /// The share `code` names, if this caller may add to it.
 ///
 /// The same two proofs `shares::add_file` accepts, and the same `404` when
-/// neither holds — otherwise this endpoint answers which codes exist.
+/// neither holds, or this endpoint would answer which codes exist.
 async fn resolve_target(
     state: &AppState,
     code: &str,
@@ -552,26 +599,51 @@ async fn resolve_target(
 }
 
 /// The sink for a session, or the error a caller should answer with.
+///
+/// `503`, not `400`. The session and its parts are probably fine, and
+/// what is missing is the backend it named, because an operator changed the
+/// configuration under an open upload and can change it back. A `400` would
+/// tell the client it had done something wrong.
 fn sink_for(state: &AppState, upload: &Upload) -> Result<Sink> {
-    crate::upload::reopen(state, upload)
-        .ok_or_else(|| Error::bad_request("this instance's store cannot continue that upload"))
+    // The segment the next bytes belong in. One today; the write path is what
+    // will have to choose between several. The sweep already walks them all,
+    // because cleaning up is the half that cannot wait.
+    let segment = upload.segments.first().ok_or_else(|| {
+        tracing::error!(%upload.id, "an open upload has no segment");
+        Error::Unavailable
+    })?;
+    crate::upload::reopen(state, segment).ok_or_else(|| {
+        tracing::error!(
+            backend = upload.backend,
+            "an open upload names a backend that is not configured"
+        );
+        Error::Unavailable
+    })
 }
 
 /// Where partial files live when the store is a local filesystem.
 ///
 /// `None` when it is not one, in which case there is a multipart handle to use
-/// instead. The two are exclusive by construction — see `storage`.
+/// instead. The two are exclusive by construction; see `storage`.
 fn local_root(state: &AppState) -> Option<std::path::PathBuf> {
-    crate::storage::local_path(&state.config.storage.url).map(std::path::PathBuf::from)
+    crate::storage::local_path(&state.config().storage.url).map(std::path::PathBuf::from)
 }
 
 /// A `NewFile` for a finished upload.
 pub(crate) fn finished_file(upload: &Upload) -> NewFile {
     NewFile {
+        // A resumable session writes one object; the split planner is only asked
+        // on the direct path so far.
+        segments: Vec::new(),
         filename: upload.filename.clone(),
         content_type: upload.content_type.clone(),
         size_bytes: upload.offset_bytes,
         storage: StorageLocation::Object {
+            // Where the session actually wrote. Reading the configuration here
+            // instead would record the *current* default for a file that went
+            // somewhere else, and the share would stop being deliverable the
+            // moment an operator moved the default.
+            backend: upload.backend.clone(),
             key: upload.object_key.clone(),
         },
     }

@@ -6,22 +6,22 @@ use serde::{Deserialize, Serialize};
 
 use crate::DomainError;
 
-/// Names the service needs for itself, or that would mislead if a stranger held
-/// them.
-///
 /// The prefix a deleted account's name is rebuilt from.
 ///
-/// Reserved as a prefix rather than as a name, because what follows it is an
-/// identifier — and identifiers are public. Every response that names an
-/// account carries one, so without this a person could read somebody else's,
-/// rename themselves to the tombstone that account will one day need, and the
-/// unique index would then refuse the deletion. The account becomes
-/// undeletable, by its owner and by an administrator alike.
+/// Reserved as a prefix, not as a name, because what follows it is an
+/// identifier and identifiers are public. Every response naming an account
+/// carries one, so without this an account's identifier could be read, its
+/// future tombstone name claimed, and the unique
+/// index would then refuse the deletion. The account becomes undeletable, by
+/// its owner and by an administrator alike.
 ///
 /// Declared here and used by `tombstone` so the two cannot drift apart; a test
 /// there checks that what it produces is refused by this.
 pub(crate) const TOMBSTONE_PREFIX: &str = "gone-";
 
+/// Names the service needs for itself, or that would mislead if a stranger held
+/// them.
+///
 /// Compared after normalisation, so `Admin` and `ADMIN` are caught too.
 const RESERVED: [&str; 12] = [
     "admin",
@@ -41,8 +41,8 @@ const RESERVED: [&str; 12] = [
 /// A validated account name.
 ///
 /// Constructing one is the only way to have it, so any function taking a
-/// `Username` knows the value has been through [`Username::parse`] — the check
-/// happens once, at the edge, rather than defensively at every call site.
+/// `Username` knows the value has been through [`Username::parse`]: the check
+/// happens once, at the edge, and not at every call site.
 ///
 /// Stored lowercased. Two people cannot register `Alice` and `alice`: to a human
 /// those are the same name, and an account system where they are not is a
@@ -63,8 +63,8 @@ impl Username {
     /// Validates and normalises a username.
     ///
     /// Accepts ASCII letters, digits, `_` and `-`, and must start with a letter
-    /// or digit. The alphabet is deliberately narrow: usernames appear in URLs,
-    /// in logs and next to other people's names, and Unicode look-alikes are how
+    /// or digit. The alphabet is narrow because usernames appear in URLs, in
+    /// logs and next to other people's names, and Unicode look-alikes are how
     /// one account impersonates another.
     ///
     /// # Errors
@@ -81,10 +81,10 @@ impl Username {
     ///
     /// For the administrator an instance creates for itself at first run, and
     /// nothing else. The reserved list exists to stop a *stranger* claiming a
-    /// name that would mislead — `admin`, `support`, `security`. The operator's
+    /// misleading name such as `admin`, `support` or `security`. The operator's
     /// own administrator account is the one case where holding such a name is
-    /// accurate rather than misleading, and refusing it would mean the shipped
-    /// default configuration cannot start.
+    /// accurate, and refusing it would stop the shipped default configuration
+    /// starting.
     ///
     /// Every other rule still applies, so this cannot produce a name that is
     /// unrepresentable, unroutable or a Unicode look-alike.
@@ -258,7 +258,7 @@ mod tests {
         );
     }
 
-    /// Unicode look-alikes are the classic impersonation trick — `аlice` with a
+    /// Unicode look-alikes are the classic impersonation trick: `аlice` with a
     /// Cyrillic а renders identically to `alice` in most fonts.
     #[test]
     fn rejects_unicode_lookalikes() {

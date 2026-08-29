@@ -31,7 +31,7 @@ CREATE TABLE file_shares (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false |  |  |  |
+| id | TEXT |  | false | [file_segments](file_segments.md) |  |  |
 | share_id | TEXT |  | false |  | [shares](shares.md) |  |
 | position | INTEGER | 0 | false |  |  |  |
 | filename | TEXT |  | true |  |  |  |
@@ -61,6 +61,7 @@ CREATE TABLE file_shares (
 ```mermaid
 erDiagram
 
+"file_segments" |o--|| "file_shares" : ""
 "file_shares" }o--|| "shares" : ""
 
 "file_shares" {
@@ -72,6 +73,15 @@ erDiagram
   INTEGER size_bytes
   TEXT storage
   TEXT object_key
+  TEXT created_at
+}
+"file_segments" {
+  TEXT file_id PK
+  INTEGER seq PK
+  TEXT backend
+  TEXT object_key
+  INTEGER offset_bytes
+  INTEGER length_bytes
   TEXT created_at
 }
 "shares" {
@@ -93,6 +103,7 @@ erDiagram
   TEXT updated_at
   INTEGER copy_count
   INTEGER bytes_served
+  TEXT role_id FK
 }
 ```
 

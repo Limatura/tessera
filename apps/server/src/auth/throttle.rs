@@ -2,17 +2,17 @@
 //!
 //! # Why in memory
 //!
-//! Failed-attempt counters are worthless data: losing them on restart costs an
-//! attacker one restart's worth of guesses, while storing them means a database
-//! write on every wrong password — turning the login endpoint into a way to make
-//! an unauthenticated stranger generate disk I/O.
+//! Failed-attempt counters are worthless data. Losing them on restart costs an
+//! attacker one restart's worth of guesses; storing them means a database write
+//! on every wrong password, which turns the login endpoint into a way for an
+//! unauthenticated stranger to generate disk I/O.
 //!
 //! The trade is that a multi-process deployment throttles per process. This
-//! software ships as one process by design, so that is not a case it needs to
-//! serve.
+//! software ships as one process by design. See `docs/auth.md`.
 
 use std::{
     collections::HashMap,
+    sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering},
     time::{Duration, Instant},
 };
 
@@ -29,8 +29,8 @@ pub const WINDOW: Duration = Duration::from_mins(15);
 /// How many keys to track before old ones are swept.
 ///
 /// A bound, not a target: without one, an attacker cycling usernames turns the
-/// login endpoint into unbounded memory growth. That is why it has its own
-/// ceiling in [`ThrottleConfig::validate`] — raising it is spending memory an
+/// login endpoint into unbounded memory growth. It has its own ceiling in
+/// `ThrottleConfig`'s validation, because raising it spends memory an
 /// unauthenticated stranger gets to fill.
 pub const MAX_TRACKED_KEYS: usize = 10_000;
 
@@ -54,20 +54,24 @@ struct Attempts {
 
 /// Counts failed attempts per key.
 ///
-/// The key is chosen by the caller and should combine the account being targeted
-/// with where the request came from. Keying on the account alone lets anyone lock
-/// a known user out by guessing at them; keying on the address alone lets a
-/// botnet spread its guesses and never trip the limit.
+/// The key is chosen by the caller and should combine the account being
+/// targeted with where the request came from. The account alone lets anyone
+/// lock a known user out by guessing at them; the address alone lets a botnet
+/// spread its guesses and never trip the limit.
 #[derive(Debug)]
 pub struct Throttle {
     // `parking_lot::Mutex` and not an async lock: the critical section is a
-    // hash-map lookup, so an await point here would cost more than it saves. It
-    // is never held across an await — see `check` and `record_failure`, both of
-    // which are synchronous by construction.
+    // hash-map lookup, so an await point would cost more than it saves. Never
+    // held across an await, since `check` and `record_failure` are both
+    // synchronous by construction.
     attempts: Mutex<HashMap<String, Attempts>>,
-    max_attempts: u32,
-    window: Duration,
-    max_tracked_keys: usize,
+    // Atomics, not plain fields, so the limits can change while the
+    // counters keep counting. Rebuilding the throttle to apply a new limit
+    // would empty the map, making any unrelated setting change a reset button
+    // for whoever is guessing at passwords.
+    max_attempts: AtomicU32,
+    window_secs: AtomicU64,
+    max_tracked_keys: AtomicUsize,
 }
 
 impl Default for Throttle {
@@ -82,10 +86,30 @@ impl Throttle {
     pub fn new(max_attempts: u32, window: Duration, max_tracked_keys: usize) -> Self {
         Self {
             attempts: Mutex::new(HashMap::new()),
-            max_attempts,
-            window,
-            max_tracked_keys,
+            max_attempts: AtomicU32::new(max_attempts),
+            window_secs: AtomicU64::new(window.as_secs()),
+            max_tracked_keys: AtomicUsize::new(max_tracked_keys),
         }
+    }
+
+    /// Changes the limits without touching who has failed how many times.
+    ///
+    /// `Relaxed` throughout: three independent numbers read on a path that
+    /// already takes a mutex, where seeing the old limit for one more moment is
+    /// not worth ordering for.
+    pub fn apply(&self, max_attempts: u32, window: Duration, max_tracked_keys: usize) {
+        self.max_attempts.store(max_attempts, Ordering::Relaxed);
+        self.window_secs.store(window.as_secs(), Ordering::Relaxed);
+        self.max_tracked_keys
+            .store(max_tracked_keys, Ordering::Relaxed);
+    }
+
+    fn max_attempts(&self) -> u32 {
+        self.max_attempts.load(Ordering::Relaxed)
+    }
+
+    fn window(&self) -> Duration {
+        Duration::from_secs(self.window_secs.load(Ordering::Relaxed))
     }
 
     /// Whether an attempt for `key` may proceed.
@@ -115,11 +139,11 @@ impl Throttle {
         };
 
         let elapsed = now.saturating_duration_since(entry.first_seen);
-        if elapsed >= self.window || entry.count < self.max_attempts {
+        if elapsed >= self.window() || entry.count < self.max_attempts() {
             Decision::Allow
         } else {
             Decision::Deny {
-                retry_after: self.window.saturating_sub(elapsed),
+                retry_after: self.window().saturating_sub(elapsed),
             }
         }
     }
@@ -128,9 +152,9 @@ impl Throttle {
     pub fn record_failure_at(&self, key: &str, now: Instant) {
         let mut attempts = self.attempts.lock();
 
-        if attempts.len() >= self.max_tracked_keys {
+        if attempts.len() >= self.max_tracked_keys.load(Ordering::Relaxed) {
             attempts
-                .retain(|_, entry| now.saturating_duration_since(entry.first_seen) < self.window);
+                .retain(|_, entry| now.saturating_duration_since(entry.first_seen) < self.window());
         }
 
         let entry = attempts.entry(key.to_owned()).or_insert(Attempts {
@@ -138,10 +162,10 @@ impl Throttle {
             first_seen: now,
         });
 
-        // A window that has run out starts again rather than accumulating,
+        // A window that has run out starts again instead of accumulating,
         // otherwise a key would be blocked forever after enough scattered
         // mistakes.
-        if now.saturating_duration_since(entry.first_seen) >= self.window {
+        if now.saturating_duration_since(entry.first_seen) >= self.window() {
             entry.count = 0;
             entry.first_seen = now;
         }
@@ -202,8 +226,8 @@ mod tests {
         assert_eq!(throttle.check("alice"), Decision::Allow);
     }
 
-    /// Nobody should be locked out permanently because of mistakes spread over
-    /// months.
+    /// A run of mistakes spread over months should not lock an account out for
+    /// good.
     #[test]
     fn the_window_expires() {
         let throttle = throttle();
@@ -237,10 +261,10 @@ mod tests {
         assert_eq!(throttle.check_at("alice", later), Decision::Allow);
     }
 
-    /// The hole the source counter exists to close: keying only on the target
-    /// means the key changes when the target does, so naming a different
-    /// account each time is never refused. Measured against a running server
-    /// before this existed — two hundred attempts, none blocked.
+    /// The hole the source counter closes: keying only on the target means the
+    /// key changes when the target does, so naming a different account each
+    /// time is never refused. Measured before this existed: two hundred
+    /// attempts, none blocked.
     #[test]
     fn rotating_the_target_does_not_escape_the_limit() {
         let throttles = Throttles::default();
@@ -301,8 +325,8 @@ mod tests {
         );
     }
 
-    /// Same reason, for the setting that is a memory ceiling rather than a
-    /// limit: a configured bound that the sweep ignores is not a bound.
+    /// Same reason, for the setting that is a memory ceiling and not a limit.
+    /// A configured bound that the sweep ignores is not a bound.
     #[test]
     fn the_configured_key_bound_is_the_one_swept_at() {
         let config = ThrottleConfig {
@@ -353,16 +377,16 @@ mod tests {
 ///
 /// # Why more than one
 ///
-/// A single counter keyed on "who is being targeted" is the obvious design and
-/// it has a hole: the key changes when the target does. Someone guessing at
-/// `alice`, then `bob`, then `carol` gets a fresh key every time and is never
-/// refused — which was measurable, not theoretical. Two hundred sign-in
-/// attempts from one address, each naming a different account, were all
-/// answered.
+/// A single counter keyed on "who is being targeted" has a hole: the key
+/// changes when the target does, so an attacker guessing at `alice`, then
+/// `bob`, then `carol` gets a fresh key every time. Measured, not theoretical:
+/// two
+/// hundred sign-in attempts from one address, each naming a different account,
+/// were all answered.
 ///
-/// So there is a second counter keyed on the source alone. It is deliberately
-/// looser: shared addresses are normal — an office, a school, a mobile carrier —
-/// and only *failures* count, which a real person rarely produces sixty of.
+/// So there is a second counter keyed on the source alone, and it is looser.
+/// Shared addresses are normal (an office, a school, a mobile carrier), and
+/// only *failures* count, which a real person rarely produces sixty of.
 #[derive(Debug)]
 pub struct Throttles {
     /// Failed sign-ins, keyed on the account *and* the source. Stops one
@@ -372,41 +396,40 @@ pub struct Throttles {
     pub source: Throttle,
     /// Retrieval codes tried and not found, keyed on the source alone.
     ///
-    /// Keyed on the source because the *code* is what varies — that is what
-    /// walking the code space means, so counting per code would count nothing.
+    /// Keyed on the source because the *code* is what varies, and varying it is
+    /// what walking the code space means. Counting per code counts nothing.
     ///
-    /// Deliberately not routed through [`Throttles::check`]: a lookup is one
-    /// indexed `SELECT`, nothing like the cost of a hash, and letting a few
-    /// mistyped codes eat into the budget that protects the hasher would mean a
-    /// visitor guessing at links could stop somebody else signing in.
+    /// Not routed through [`Throttles::check`]. A lookup is one indexed
+    /// `SELECT`, nothing like the cost of a hash, and spending the
+    /// hasher's budget on mistyped codes would let a visitor guessing at links
+    /// block an unrelated sign-in.
     pub lookup: Throttle,
     /// Password reset requests, keyed on the address asked about.
     ///
-    /// Keyed on the address rather than the source, because the thing being
-    /// protected is somebody's inbox: without this, one request per second at
-    /// the same address is a mail flood that the account holder experiences and
-    /// cannot stop. Keying on the source instead would let an attacker rotate
-    /// addresses and still bury one victim.
+    /// Keyed on the address, not the source, because what is protected is an
+    /// inbox. One request per second at the same address is a mail flood the
+    /// account holder suffers and cannot stop. Keying on the
+    /// source would let an attacker rotate addresses and still bury one victim.
     ///
-    /// Counted on *success*, not failure — see the handler. Every request looks
+    /// Counted on *success*, not failure; see the handler. Every request looks
     /// successful from outside by design, so there is no failure to count, and
-    /// what needs limiting is how often a message is actually sent.
+    /// what needs limiting is how often a message is sent.
     pub reset: Throttle,
     /// Registration attempts, keyed on the address asked about.
     ///
-    /// Its own counter rather than sharing [`Throttles::reset`], and that is the
-    /// whole reason it exists. Sharing would mean anyone could spend somebody
-    /// else's reset budget just by typing their address into the registration
-    /// form — three attempts and the account holder can no longer ask for a
-    /// password reset. Losing access to a recovery route is a worse outcome than
-    /// the six messages an hour that two counters allow instead of three.
+    /// Its own counter, not a share of [`Throttles::reset`], and that is why it
+    /// exists. Sharing would let anyone spend another account's reset budget by
+    /// typing its address into the registration form: three
+    /// attempts and the account holder can no longer ask for a reset. Losing a
+    /// recovery route is worse than the six messages an hour two counters allow
+    /// instead of three.
     pub registration: Throttle,
 
     /// Failed share-password attempts, keyed on the code and the source.
     ///
-    /// A share password may be as short as four characters, which is the right
-    /// trade for something read out over the phone — and worthless without
-    /// this: unthrottled, ten thousand combinations fall in under a minute.
+    /// A share password may be as short as four characters, which suits
+    /// something read out over the phone and is worthless without this:
+    /// unthrottled, ten thousand combinations fall in under a minute.
     pub share: Throttle,
 }
 
@@ -417,11 +440,28 @@ impl Default for Throttles {
 }
 
 impl Throttles {
+    /// Applies new limits to the counters already running.
+    ///
+    /// The counters are the point: a change to any setting must not be a way to
+    /// forget who has been failing to sign in. See [`Throttle::apply`].
+    pub fn apply(&self, config: &ThrottleConfig) {
+        let keys = config.max_tracked_keys;
+        for (throttle, limit) in [
+            (&self.login, &config.login),
+            (&self.source, &config.source),
+            (&self.lookup, &config.lookup),
+            (&self.reset, &config.reset),
+            (&self.registration, &config.registration),
+            (&self.share, &config.share),
+        ] {
+            throttle.apply(limit.max_attempts, limit.window(), keys);
+        }
+    }
+
     /// Builds the six counters an instance keeps from its configuration.
     ///
-    /// The key bound is shared rather than per-counter: it is a memory ceiling,
-    /// and an operator sizing a container wants one number to reason about
-    /// rather than six that multiply.
+    /// The key bound is shared, not per-counter. It is a memory ceiling, and an
+    /// operator sizing a container wants one number, not six that multiply.
     #[must_use]
     pub fn from_config(config: &ThrottleConfig) -> Self {
         let keys = config.max_tracked_keys;
@@ -439,26 +479,25 @@ impl Throttles {
 
 /// Failures from one address before it is refused, whatever it was aiming at.
 ///
-/// Higher than the per-target limit, and over a much shorter window, because it
-/// catches a different thing. The per-target counters are what stop a password
-/// being guessed; the hasher's own concurrency limit is what stops memory being
-/// exhausted. All this adds is a ceiling on how fast one source can *try*.
+/// Higher than the per-target limit and over a much shorter window, because it
+/// catches a different thing. The per-target counters stop a password being
+/// guessed and the hasher's concurrency limit stops memory being exhausted;
+/// this only caps how fast one source can *try*.
 ///
-/// That means it can afford to be forgiving, and it needs to be: an address is
-/// shared — an office, a school, a mobile carrier — so refusing one refuses
-/// everybody behind it. A minute of that is a nuisance; fifteen would be a
-/// support ticket.
+/// So it can afford to be forgiving, and needs to be: an address is shared, so
+/// refusing one refuses everybody behind it. A minute of that is a nuisance,
+/// fifteen would be a support ticket.
 pub const SOURCE_MAX_ATTEMPTS: u32 = 120;
 
-/// How long a source is refused for. Deliberately much shorter than
-/// [`WINDOW`] — see [`SOURCE_MAX_ATTEMPTS`].
+/// How long a source is refused for. Much shorter than [`WINDOW`]; see
+/// [`SOURCE_MAX_ATTEMPTS`].
 pub const SOURCE_WINDOW: Duration = Duration::from_mins(1);
 
 /// Mails to one address before further requests are refused, counted separately
 /// for resets and registrations.
 ///
-/// Three is enough for somebody who did not receive the first one and tried
-/// again, and few enough that the inbox is not a place to hide an attack.
+/// Three covers a message that did not arrive and a second attempt, and is few
+/// enough that the inbox is not a place to hide an attack.
 pub const RESET_MAX_REQUESTS: u32 = 3;
 
 /// How long that limit lasts. Longer than the link itself, so asking again
@@ -470,10 +509,10 @@ pub const RESET_WINDOW: Duration = Duration::from_hours(1);
 /// A person who mistypes a code they were given tries two or three times. Sixty
 /// in a minute is not that.
 ///
-/// The default eight-character code is 32^8 — about 1.1 x 10^12 — so walking it
-/// was never going to work at any rate. This matters for the instance that sets
-/// `share.code_length` to four: a million combinations fall in minutes without a
-/// limit, and in about eleven days with one.
+/// The default eight-character code is 32^8, about 1.1 x 10^12, so walking it
+/// was never going to work at any rate. This matters for an instance that sets
+/// `share.code_length` to four: a million combinations fall in minutes without
+/// a limit, and in about eleven days with one.
 pub const LOOKUP_MAX_ATTEMPTS: u32 = 60;
 
 impl Throttles {
@@ -498,5 +537,63 @@ impl Throttles {
     pub fn record_failure(&self, counter: &Throttle, specific: &str, source: &str) {
         counter.record_failure(specific);
         self.source.record_failure(source);
+    }
+}
+
+#[cfg(test)]
+mod hot_change_tests {
+    use super::*;
+
+    /// Changing a limit must not forget who has been failing. If applying a
+    /// setting rebuilt the throttle, any unrelated change in the admin panel
+    /// would clear every counter: a reset button for whoever is guessing.
+    #[test]
+    fn a_new_limit_keeps_the_counters() {
+        let throttles = Throttles::default();
+        for _ in 0..MAX_ATTEMPTS {
+            throttles.login.record_failure("alice");
+        }
+        assert!(matches!(
+            throttles.login.check("alice"),
+            Decision::Deny { .. }
+        ));
+
+        let mut config = ThrottleConfig::default();
+        config.login.max_attempts = MAX_ATTEMPTS + 5;
+        throttles.apply(&config);
+
+        assert_eq!(
+            throttles.login.check("alice"),
+            Decision::Allow,
+            "the raised limit should apply to the count that was already there"
+        );
+        assert_eq!(
+            throttles
+                .login
+                .attempts
+                .lock()
+                .get("alice")
+                .map(|e| e.count),
+            Some(MAX_ATTEMPTS),
+            "and the count itself must have survived"
+        );
+    }
+
+    /// The other direction: tightening takes effect at once, on people already
+    /// being counted.
+    #[test]
+    fn a_lowered_limit_applies_immediately() {
+        let throttles = Throttles::default();
+        throttles.login.record_failure("alice");
+        assert_eq!(throttles.login.check("alice"), Decision::Allow);
+
+        let mut config = ThrottleConfig::default();
+        config.login.max_attempts = 1;
+        throttles.apply(&config);
+
+        assert!(
+            matches!(throttles.login.check("alice"), Decision::Deny { .. }),
+            "one failure against a limit of one should now refuse"
+        );
     }
 }

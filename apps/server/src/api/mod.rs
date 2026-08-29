@@ -1,16 +1,16 @@
 //! Route assembly, middleware stack and the OpenAPI document.
 //!
-//! The OpenAPI document is derived from the handlers rather than written by hand,
-//! and `openapi.json` at the repository root is a build artefact of this module
-//! (see the `tessera-openapi` binary). The frontend and the Discord bot generate
-//! their clients from that file; the server emits no TypeScript.
+//! The OpenAPI document is derived from the handlers, not written by hand, and
+//! `openapi.json` at the repository root is a build artefact of this
+//! module (see the `tessera-openapi` binary). The frontend and the Discord bot
+//! generate their clients from that file; the server emits no TypeScript.
 //!
 //! # Why the contract is OpenAPI and not a Rust-to-TypeScript exporter
 //!
-//! Rust is already the single source of truth either way: `utoipa` derives the
+//! Rust is the single source of truth either way, since `utoipa` derives the
 //! document from the same structs the handlers use, doc comments included. The
-//! choice is only about the intermediate artefact — `openapi.json`, or `.ts`
-//! files written straight into the frontend tree by something like `specta`.
+//! choice is only about the intermediate artefact: `openapi.json`, or `.ts`
+//! files written into the frontend tree by something like `specta`.
 //!
 //! Three things settle it:
 //!
@@ -20,20 +20,21 @@
 //!   `/s/{code}/download` answers `206 Partial Content` with `Range`, `If-Range` and
 //!   `Content-Disposition`. Those are HTTP contracts, not return types; a type exporter has nothing
 //!   to say about them, and an RPC framework cannot express them at all.
-//! - **The browsable docs need it.** Scalar renders this document, which is what makes the API
+//! - **The browsable docs need it.** Scalar renders this document, and that is what makes the API
 //!   explorable by pasting values into a page.
 //!
 //! What a type exporter would buy is tighter modelling of data-carrying enums.
-//! Nothing on this API is one today — every enum here is a plain string union in
-//! the generated client, which is what a caller wants. If that changes, adding
-//! `specta` alongside is possible: both would derive from the same structs, so
-//! they cannot disagree about a type, and a CI check catches a struct that grew
-//! one derive and not the other. It is not worth the second artefact before
-//! there is a type that needs it.
+//! Nothing on this API is one today: every enum here is a plain string union in
+//! the generated client, and that is what a caller wants. If that changes,
+//! adding
+//! `specta` alongside is possible, since both derive from the same structs and
+//! a CI check catches a struct that grew one derive and not the other. Not
+//! worth a second artefact before there is a type that needs it.
 
 pub mod admin;
 pub mod archive;
 pub mod auth;
+pub mod backends;
 pub mod capabilities;
 pub mod extract;
 pub mod gate;
@@ -42,6 +43,7 @@ pub mod meter;
 pub mod preview;
 pub mod public;
 pub mod sessions;
+pub mod settings;
 pub mod shares;
 pub mod timeout;
 pub mod tokens;
@@ -70,6 +72,27 @@ use utoipa_axum::{router::OpenApiRouter, routes};
 use utoipa_scalar::{Scalar, Servable as _};
 
 use crate::{assets, config::Config, state::AppState};
+
+/// One field of a partial update: absent, explicitly `null`, or a value.
+///
+/// `Option<T>` cannot say this. serde hands back `None` both for "the caller
+/// did not mention it" and for "the caller sent `null`", which in a `PATCH` are
+/// opposite instructions. Every field that can be cleared carries this instead.
+pub(crate) type Patch<T> = Option<Option<T>>;
+
+/// Deserialises a present field into [`Patch`], so that absent stays `None`.
+///
+/// `#[serde(default)]` supplies `None` when the key is missing; this runs only
+/// when it is there. That is what makes `null` land as `Some(None)`.
+pub(crate) fn patched<'de, D, T>(deserializer: D) -> Result<Patch<T>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    use serde::Deserialize as _;
+
+    Option::<T>::deserialize(deserializer).map(Some)
+}
 
 /// Tag grouping infrastructure endpoints in the generated document.
 pub const SYSTEM_TAG: &str = "system";
@@ -106,10 +129,10 @@ pub const DOCS_PATH: &str = "/docs";
 
 /// Prefix every versioned endpoint sits behind.
 ///
-/// `/health` and `/docs` stay at the root: orchestrators and humans expect them
-/// there, and neither is part of the contract third parties generate clients
-/// from. Everything that *is* carries a version, because the frontend, a Discord
-/// bot and a CLI will each generate against it independently and cannot all be
+/// `/health` and `/docs` stay at the root, where orchestrators and people
+/// expect them, and neither is part of the contract third parties generate
+/// clients from. Everything that is carries a version, because the frontend, a
+/// Discord bot and a CLI generate against it independently and cannot all be
 /// updated at once.
 pub const API_PREFIX: &str = "/api/v1";
 
@@ -137,11 +160,10 @@ pub struct ApiDoc;
 
 /// Declares the two ways a caller can prove who they are.
 ///
-/// Written as a modifier rather than in the attribute because utoipa's derive has
-/// no syntax for an `apiKey` scheme in a cookie. Both are declared so the docs UI
-/// offers each: a browser gets the cookie for free after signing in, while a
-/// script pastes a token into the bearer field and can exercise the same
-/// endpoints from the same page.
+/// Written as a modifier, not in the attribute, because utoipa's derive has no
+/// syntax for an `apiKey` scheme in a cookie. Both are declared so the
+/// docs UI offers each: a browser gets the cookie after signing in, and a
+/// script pastes a token into the bearer field.
 #[derive(Debug)]
 struct SecurityAddon;
 
@@ -194,18 +216,17 @@ pub fn openapi() -> utoipa::openapi::OpenApi {
 /// specification spells them.
 ///
 /// utoipa's `Link` derives `Serialize` with no rename, so it emits
-/// `operation_id`, `operation_ref` and `request_body`, while OpenAPI names those
+/// `operation_id`, `operation_ref` and `request_body` where OpenAPI names those
 /// `operationId`, `operationRef` and `requestBody`. Anything reading the
-/// document to the specification therefore sees a link with no target and skips
-/// it — which costs the one statement in here about how these operations
-/// connect: that the code `POST /shares` returns is what the three `{code}`
-/// operations take.
+/// document to the specification sees a link with no target and skips it,
+/// losing the one statement here about how these operations connect: the code
+/// `POST /shares` returns is what the three `{code}` operations take.
 ///
-/// Repairing the keys is the narrow fix. The alternative, dropping links
-/// altogether, would keep the document valid by making it say less.
+/// Repairing the keys is the narrow fix. Dropping links altogether would keep
+/// the document valid by making it say less.
 ///
-/// This is what both the served document and the file on disk go through, so
-/// that "the contract" means one thing.
+/// Both the served document and the file on disk go through this, so "the
+/// contract" means one thing.
 #[must_use]
 pub fn openapi_json() -> serde_json::Value {
     /// `(what utoipa writes, what the specification calls it)`.
@@ -251,12 +272,14 @@ fn api_routes() -> OpenApiRouter<AppState> {
         .nest(API_PREFIX, versioned_routes())
 }
 
-/// Endpoints under [`API_PREFIX`]. Nesting rewrites their paths in the generated
-/// document too, so a handler declares the path it owns and not the prefix.
+/// Endpoints under [`API_PREFIX`]. Nesting rewrites their paths in the
+/// generated document too, so a handler declares the path it owns, not the
+/// prefix.
+///
 /// Every endpoint is mounted on every instance, including ones whose feature is
-/// switched off — those answer `404` from inside the handler instead. Mounting
+/// switched off; those answer `404` from inside the handler. Mounting
 /// conditionally would make the served document depend on the instance, and the
-/// whole point of `/capabilities` is that it does not.
+/// point of `/capabilities` is that it does not.
 fn versioned_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(capabilities::capabilities))
@@ -285,7 +308,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
 /// The share endpoints.
 ///
 /// Grouped for the same reason `admin_routes` and `upload_routes` are: five
-/// lines is five lines somebody scanning [`versioned_routes`] has to read past.
+/// more lines to scan past in [`versioned_routes`].
 fn share_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(shares::list, shares::create))
@@ -297,10 +320,10 @@ fn share_routes() -> OpenApiRouter<AppState> {
 
 /// Everything under `/admin`.
 ///
-/// Its own function because it is its own surface — an operator can switch it
-/// off with `features.admin`, and the frontend for it is a separate application
-/// that somebody may never deploy. Keeping the list here rather than inline also
-/// keeps [`versioned_routes`] readable as one page.
+/// Its own function because it is its own surface: an operator can switch it
+/// off with `features.admin`, and its frontend is a separate application that
+/// may never be deployed. Keeping the list here also leaves
+/// [`versioned_routes`] readable as one page.
 fn admin_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(admin::list_users))
@@ -315,14 +338,35 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::list_shares))
         .routes(routes!(admin::delete_share))
         .routes(routes!(admin::share_access_log))
+        .routes(routes!(backends::list, backends::add))
+        .routes(routes!(backends::remove))
+        .routes(routes!(backends::set_default))
+        .routes(routes!(settings::list, settings::update))
+        .routes(routes!(settings::preview))
         .routes(routes!(admin::remove_user_shares))
+        .merge(card_routes())
+}
+
+/// Drawing a card, which only exists when cards are compiled in.
+///
+/// Its own function, not a `cfg` inside the chain above. A conditional in the
+/// middle of a builder has to produce a router either way, and the empty
+/// one reads like a mistake in the list.
+fn card_routes() -> OpenApiRouter<AppState> {
+    #[cfg(feature = "og-images")]
+    {
+        OpenApiRouter::new().routes(routes!(settings::og_preview))
+    }
+    #[cfg(not(feature = "og-images"))]
+    {
+        OpenApiRouter::new()
+    }
 }
 
 /// The resumable-upload endpoints.
 ///
 /// Kept out of [`versioned_routes`] for the same reason `admin_routes` is: that
-/// function reads as one page, and three more lines in it is three more lines
-/// somebody has to scan past to find what they came for.
+/// function should read as one page.
 fn upload_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(uploads::create))
@@ -332,7 +376,10 @@ fn upload_routes() -> OpenApiRouter<AppState> {
 /// Assembles the complete application: API routes, contract, docs, embedded SPA
 /// and the middleware stack.
 pub fn build(state: AppState) -> Router {
-    let config = Arc::clone(&state.config);
+    // A snapshot, by design. Everything read from it below is baked into a
+    // middleware layer or a mounted route, so those keys are
+    // on `settings::FIXED_AT_BOOT` and the panel does not offer them.
+    let config = Arc::clone(&state.config());
     // Cloned before the router takes ownership: the meter is a `from_fn_with_state`
     // layer applied after `with_state`, so it needs its own handle.
     let metering_state = state.clone();
@@ -340,14 +387,13 @@ pub fn build(state: AppState) -> Router {
     let (routes, api) = api_routes().split_for_parts();
 
     // The contract is served unconditionally. Turning the browsable docs off is
-    // about not shipping a UI, not about hiding the API — client generators and
-    // the CI drift check both read this, and the spec is in the repository
-    // anyway.
+    // about not shipping a UI, not hiding the API: client generators and the CI
+    // drift check both read this, and the spec is in the repository anyway.
     let contract = openapi_json();
     let mut app = Router::new()
         .merge(routes)
-        // Outside the contract on purpose: these are where a link points, not
-        // an API. See `public` for why that means their shape is frozen.
+        // Outside the contract by design: these are where a link points, not
+        // an API. See `public` for why that freezes their shape.
         .nest(public::SHARE_PREFIX, public::routes())
         .route(
             OPENAPI_PATH,
@@ -362,15 +408,13 @@ pub fn build(state: AppState) -> Router {
     if config.features.docs {
         app = app.merge(Scalar::with_url(DOCS_PATH, api));
     } else {
-        // Answered rather than left to the fallback. Without this `/docs` is a
+        // Answered here, not left to the fallback. Without this, `/docs` is a
         // path the router does not know, so it reaches the SPA and comes back
-        // as the same "page not found" a typo produces — and the person reading
-        // it has no way to tell "this instance turned the docs off" from "I
-        // spelt it wrong".
+        // as the "page not found" a typo produces, with no way to tell "the
+        // docs are off" from "I spelt it wrong".
         //
-        // Still a 404, because from outside there is no docs page here; what
-        // changes is that the body says so, and says where the contract is. The
-        // contract is served whether or not the browsable page is.
+        // Still a 404, because from outside there is no docs page here. What
+        // changes is that the body says so, and says where the contract is.
         app = app.route(DOCS_PATH, axum::routing::get(docs_are_off));
     }
 
@@ -382,22 +426,22 @@ pub fn build(state: AppState) -> Router {
         // final body exactly once.
         .layer(CompressionLayer::new().compress_when(compression_predicate()))
         // Outside compression, so it counts the bytes that go on the wire
-        // rather than the ones the handler produced. Measured: for a 64 KiB run
-        // of one character those differ by a factor of six hundred.
+        // and not the ones the handler produced. Measured: for a 64 KiB run of
+        // one character those differ by a factor of six hundred.
         .layer(axum::middleware::from_fn_with_state(
             metering_state,
             meter::count_bytes_served,
         ))
         .layer(DefaultBodyLimit::max(config.server.max_body_bytes))
         .layer(cors(&config))
-        // Reads the budget per request rather than holding the value it was
-        // built with, and exempts the routes that receive a file — a wall-clock
-        // budget answers the wrong question about those. See `timeout`.
+        // Reads the budget per request instead of holding the value it was
+        // built with, and exempts the routes that receive a file, where a
+        // wall-clock budget answers the wrong question. See `timeout`.
         .layer(axum::middleware::from_fn_with_state(
             timeout_state,
             timeout::enforce,
         ))
-        // Outside the timeout, so a panicking handler becomes a 500 rather than a
+        // Outside the timeout, so a panicking handler becomes a 500 and not a
         // dropped connection.
         .layer(CatchPanicLayer::new())
         .layer(PropagateRequestIdLayer::new(request_id_header.clone()))
@@ -409,9 +453,9 @@ pub fn build(state: AppState) -> Router {
 
 /// The answer at `/docs` when `features.docs` is off.
 ///
-/// Plain text rather than the JSON every other error uses: this is a path
-/// somebody typed into a browser, and a person looking for documentation is
-/// better served by a sentence than by a machine-readable envelope.
+/// Plain text, not the JSON every other error uses. This is a path typed into a
+/// browser, and a sentence reads better there than a machine-readable
+/// envelope.
 async fn docs_are_off() -> impl axum::response::IntoResponse {
     (
         axum::http::StatusCode::NOT_FOUND,
@@ -427,24 +471,21 @@ async fn docs_are_off() -> impl axum::response::IntoResponse {
 
 /// What is worth compressing.
 ///
-/// Public so the test suite can assert on it directly; the alternative is
-/// inferring the policy from response headers, which tests the plumbing rather
-/// than the decision.
+/// Public so the test suite can assert on it directly; inferring the policy
+/// from response headers would test the plumbing, not the decision.
 ///
 /// The default already skips gRPC, images and server-sent events. Added here is
-/// everything that arrives as opaque or already-compressed bytes, which matters
-/// for one route in particular.
+/// everything arriving as opaque or already-compressed bytes.
 ///
-/// `GET /s/{code}/download` always sends `application/octet-stream` — not the
-/// media type the uploader claimed, which is never echoed. That fixed type is
-/// what makes a single exclusion cover every download, whatever was uploaded.
+/// `GET /s/{code}/download` always sends `application/octet-stream`, never the
+/// media type the uploader claimed, and that fixed type is what lets one
+/// exclusion cover every download.
 ///
-/// Compressing a download would be worse than pointless. A ZIP or an MP4 does
-/// not get smaller, and compressing the response drops `Content-Length` in
-/// favour of chunked encoding — so the browser loses the progress bar and the
-/// estimated time remaining on exactly the transfers where a person is watching
-/// them. Range responses are already exempt: tower-http skips anything carrying
-/// `Content-Range`, so only the first, unranged request was ever at risk.
+/// Compressing a download is worse than pointless. A ZIP or an MP4 does not get
+/// smaller, and compressing drops `Content-Length` in favour of chunked
+/// encoding, so the browser loses the progress bar and the estimated time on
+/// exactly the transfers being watched. Range responses are already exempt,
+/// since tower-http skips anything carrying `Content-Range`.
 #[must_use]
 pub fn compression_predicate() -> impl Predicate {
     DefaultPredicate::new()
@@ -456,8 +497,8 @@ pub fn compression_predicate() -> impl Predicate {
         .and(NotForContentType::const_new("font/"))
 }
 
-/// Correlation ids are ULIDs rather than UUIDv4: equivalent collision resistance
-/// for this purpose, but lexicographically sortable, so grepping a log file
+/// Correlation ids are ULIDs, not UUIDv4. Equivalent collision resistance for
+/// this purpose, but lexicographically sortable, so grepping a log file
 /// yields chronological order for free.
 #[derive(Debug, Clone, Copy)]
 struct UlidRequestId;
@@ -507,10 +548,10 @@ fn cors(config: &Config) -> CorsLayer {
     CorsLayer::new()
         .allow_origin(allow_origin)
         // Without this a browser will not send the session cookie to another
-        // origin, so a front-end running on its own dev server can log in and
-        // then find itself logged out on the next request. Named origins only:
-        // the Fetch standard refuses credentials alongside `*`, and a browser
-        // would drop the whole response rather than tell anyone why.
+        // origin, so a front-end on its own dev server logs in and finds itself
+        // logged out on the next request. Named origins only: the Fetch
+        // standard refuses credentials alongside `*`, and a browser drops the
+        // whole response instead of saying why.
         .allow_credentials(!wildcard)
         .allow_methods([Method::GET, Method::POST, Method::DELETE, Method::OPTIONS])
         .allow_headers([

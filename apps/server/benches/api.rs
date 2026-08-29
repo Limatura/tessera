@@ -1,6 +1,6 @@
 //! Benchmark skeleton.
 //!
-//! Deliberately thin for now: it exists so that the harness, the profile and the
+//! Thin for now. It exists so the harness, the profile and the
 //! CI entry point are already in place when there is something worth measuring
 //! (retrieval-code lookup, streaming upload throughput, expiry sweeps).
 //!
@@ -57,12 +57,19 @@ fn router_assembly(c: &mut Criterion) {
     let db = runtime
         .block_on(db::connect(&config.database))
         .expect("sqlite pool");
-    let (store, multipart) = storage::build_with_multipart(&config.storage).expect("local store");
+    let default = storage::build_with_multipart(&config.storage).expect("local store");
+    let pool = storage::Pool {
+        open: storage::Backends::from([(storage::DEFAULT_BACKEND.to_owned(), default.clone())]),
+        configured: Vec::new(),
+    };
     let state = AppState::new(
         Arc::new(config),
         db,
-        store,
-        multipart,
+        tessera_server::state::Storage {
+            default,
+            pool,
+            sealer: storage::secret::Sealer::new("").expect("no key"),
+        },
         tessera_server::assets::Source::Embedded,
     );
     state.set_status(ServiceStatus::Ready);

@@ -37,6 +37,23 @@ Table api_tokens {
   Note: '給程式用的憑證。只存摘要,原始值發出去之後就不再存在。'
 }
 
+Table credentials {
+  user_id text [pk, not null]
+  password_hash text [not null]
+  created_at text [not null]
+  updated_at text [not null]
+}
+
+Table file_segments {
+  file_id text [pk, not null]
+  seq integer [pk, not null]
+  backend text [not null]
+  object_key text [not null]
+  offset_bytes integer [not null]
+  length_bytes integer [not null]
+  created_at text [not null]
+}
+
 Table file_shares {
   id text [pk, not null]
   share_id text [not null]
@@ -51,6 +68,13 @@ Table file_shares {
   Note: '檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。'
 }
 
+Table identities {
+  provider text [pk, not null]
+  subject text [pk, not null]
+  user_id text [not null]
+  created_at text [not null]
+}
+
 Table invites {
   id text [pk, not null]
   code_hash text [not null, unique]
@@ -61,6 +85,17 @@ Table invites {
   expires_at text
 
   Note: '邀請碼。同樣只存摘要。'
+}
+
+Table oidc_flows {
+  state text [pk, not null]
+  nonce text [not null]
+  verifier text [not null]
+  purpose text [not null]
+  user_id text
+  invite_code text
+  created_at text [not null]
+  expires_at text [not null]
 }
 
 Table password_reset_tokens {
@@ -101,6 +136,8 @@ Table roles {
   is_system integer [not null]
   created_at text [not null]
   updated_at text [not null]
+  quota_bytes integer
+  max_file_bytes integer
 
   Note: '一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。'
 }
@@ -123,8 +160,17 @@ Table sessions {
   created_ip text
   created_user_agent text
   ended_reason text
+  origin text [not null]
 
   Note: '一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。'
+}
+
+Table settings {
+  name text [pk, not null]
+  value text [not null]
+  updated_at text [not null]
+
+  Note: '從後台改過的設定,一列一個。載入順序是 預設 → 設定檔 → 環境變數 → 這裡,這裡贏——因為它是唯一一層有人在這台機器上刻意改過的,其他都跟著部署來(image 自己就設了六個環境變數)。只放能熱改的東西:socket 已經 bind 的、pool 已經建好的(而且讀這張表需要它)、log subscriber 開機裝一次的,都不在這裡,那些走環境變數。所以後台永遠不用說「存好了請重啟」。機密也不放,會明文躺在這裡而且會被 API 回出去。欄位叫 name 不叫 key,因為 key 是 MySQL 保留字。'
 }
 
 Table share_tickets {
@@ -156,8 +202,20 @@ Table shares {
   updated_at text [not null]
   copy_count integer [not null]
   bytes_served integer [not null]
+  role_id text
 
-  Note: '一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。'
+  Note: '一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。role_id 是上傳當下的角色快照,匿名上傳是 guest——事後改一個人的角色不會回溯改變舊分享算在誰頭上,而 user_id 是空同時代表「匿名」和「上傳者帳號被刪了」,分不出來。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。'
+}
+
+Table storage_backends {
+  name text [pk, not null]
+  url text [not null]
+  options text [not null]
+  is_default integer [not null]
+  created_at text [not null]
+  updated_at text [not null]
+  capacity_bytes integer
+  read_only integer [not null]
 }
 
 Table text_shares {
@@ -170,10 +228,24 @@ Table text_shares {
 
 Table upload_parts {
   upload_id text [pk, not null]
+  seq integer [pk, not null]
   part_number integer [pk, not null]
   content_id text [not null]
 
   Note: '分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。'
+}
+
+Table upload_segments {
+  upload_id text [pk, not null]
+  seq integer [pk, not null]
+  backend text [not null]
+  object_key text [not null]
+  offset_bytes integer [not null]
+  length_bytes integer [not null]
+  multipart_id text
+  state text [not null]
+  created_at text [not null]
+  updated_at text [not null]
 }
 
 Table uploads {
@@ -185,28 +257,18 @@ Table uploads {
   content_type text
   declared_bytes integer [not null]
   offset_bytes integer [not null]
-  object_key text [not null]
-  multipart_id text
   created_at text [not null]
   updated_at text [not null]
   expires_at text [not null]
+  role_id text
 
   Note: '還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。'
-}
-
-Table user_roles {
-  user_id text [pk, not null]
-  role_id text [pk, not null]
-  granted_at text [not null]
-
-  Note: '誰在哪些角色裡。沒有任何一列 = 登入了但什麼都不能做,那是真的狀態不是錯誤。'
 }
 
 Table users {
   id text [pk, not null]
   username text [not null, unique]
   email text [not null, unique]
-  password_hash text [not null]
   must_change_password integer [not null]
   email_verified_at text
   created_at text [not null]
@@ -214,23 +276,32 @@ Table users {
   state text [not null]
   deleted_at text
   deleted_by text
+  role_id text
+  quota_bytes integer
+  max_file_bytes integer
 
-  Note: '帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。'
+  Note: '帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。'
 }
 
 Ref: access_events.share_id > shares.id [delete: cascade]
 Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
 Ref: api_tokens.user_id > users.id [delete: cascade]
+Ref: credentials.user_id > users.id [delete: cascade]
+Ref: file_segments.file_id > file_shares.id [delete: cascade]
 Ref: file_shares.share_id > shares.id [delete: cascade]
+Ref: identities.user_id > users.id [delete: cascade]
+Ref: oidc_flows.user_id > users.id [delete: cascade]
 Ref: password_reset_tokens.user_id > users.id [delete: cascade]
 Ref: role_permissions.role_id > roles.id [delete: cascade]
 Ref: sessions.user_id > users.id [delete: cascade]
 Ref: share_tickets.share_id > shares.id [delete: cascade]
+Ref: shares.role_id > roles.id
 Ref: shares.user_id > users.id
 Ref: text_shares.share_id > shares.id [delete: cascade]
 Ref: upload_parts.upload_id > uploads.id [delete: cascade]
+Ref: upload_segments.upload_id > uploads.id [delete: cascade]
+Ref: uploads.role_id > roles.id
 Ref: uploads.share_id > shares.id [delete: cascade]
 Ref: uploads.user_id > users.id [delete: cascade]
-Ref: user_roles.role_id > roles.id [delete: cascade]
-Ref: user_roles.user_id > users.id [delete: cascade]
 Ref: users.deleted_by > users.id
+Ref: users.role_id > roles.id

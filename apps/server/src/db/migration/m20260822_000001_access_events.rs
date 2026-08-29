@@ -1,7 +1,7 @@
 //! Access events: a row per retrieval, off unless the operator turns it on.
 //!
-//! The SQL lives in `sql/`, one file per dialect — see the SQLite one for why
-//! this is a table rather than columns, and why it defaults to writing nothing.
+//! The SQL lives in `sql/`, one file per dialect. See the SQLite one for why
+//! this is a table and not columns, and why it defaults to writing nothing.
 
 use sea_orm_migration::prelude::*;
 
@@ -20,8 +20,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -42,9 +42,9 @@ mod tests {
 
     /// A share's events must not outlive the share. `InnoDB` silently ignores a
     /// `REFERENCES` written on a column and honours only a table-level
-    /// `FOREIGN KEY`, so the column form would leave MySQL with no cascade —
-    /// and this is the table where that means keeping a record of somebody's
-    /// visit to something that no longer exists.
+    /// `FOREIGN KEY`, so the column form would leave MySQL with no cascade, and
+    /// this is the table where that means keeping a record of a visit to
+    /// something that no longer exists.
     #[test]
     fn mysql_declares_the_cascade_where_innodb_reads_it() {
         assert_eq!(MYSQL.matches("FOREIGN KEY").count(), 1);
@@ -61,7 +61,7 @@ mod tests {
     }
 
     /// One row per download is the fastest-growing table here, and both of its
-    /// readers — the sweep by age, the listing by share — miss the primary key.
+    /// readers miss the primary key: the sweep by age, the listing by share.
     #[test]
     fn every_dialect_indexes_both_readers() {
         for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {

@@ -3,7 +3,7 @@
 //! The bytes are produced here the way the download path produces them, written
 //! to a file, and handed to a tool with its own idea of the format: Python's
 //! `zipfile` and `tarfile`, and 7-Zip itself in a container. A format written by
-//! hand and checked only by the code that wrote it is a format nobody has
+//! hand and checked only by the code that wrote it is a format nothing has
 //! checked.
 
 // A test panics to report, and every `expect` here is on something the setup
@@ -147,7 +147,7 @@ async fn one_file_is_not_packed() {
 /// 7z x                -> contents byte-for-byte what was uploaded
 /// ```
 ///
-/// They land under `target/` rather than a temporary directory: a failure is
+/// They land under `target/`, not a temporary directory. A failure is
 /// easier to look into when the bytes are still there afterwards.
 #[tokio::test]
 async fn every_format_is_written_out_for_inspection() {
@@ -166,7 +166,7 @@ async fn every_format_is_written_out_for_inspection() {
 /// Two files with one name must not unpack to one file.
 ///
 /// A share is built from several separate additions, and those come from
-/// wherever the uploader had them — two folders each holding a `photo.jpg` is
+/// wherever the uploader had them: two folders each holding a `photo.jpg` is
 /// ordinary, and so is one phone's `IMG_0001.jpg` beside another's. Measured
 /// before the names were made different: two files in, one file out, and
 /// nothing anywhere said so.
@@ -214,7 +214,7 @@ async fn files_sharing_a_name_all_survive_the_archive() {
     }
 }
 
-/// A folder somebody picked keeps its shape inside the archive.
+/// A folder the uploader picked keeps its shape inside the archive.
 ///
 /// `<input webkitdirectory>` gives the browser a flat list where every file
 /// carries its `webkitRelativePath`, so a folder upload is several ordinary
@@ -244,7 +244,7 @@ async fn a_folder_survives_the_round_trip() {
             // Same folder, same name: this one is the repeat.
             ("holiday/notes.txt", b"fourth".to_vec()),
             // Relative after cleaning, and it must stay under the extraction
-            // directory rather than beside it.
+            // directory instead of beside it.
             ("../../escape.txt", b"fifth".to_vec()),
         ],
     )
@@ -290,7 +290,7 @@ async fn a_folder_survives_the_round_trip() {
 
 /// The download header names a file, never a path.
 ///
-/// A stored name is what the uploader sent — it can carry the folder it came
+/// A stored name is what the uploader sent, so it can carry the folder it came
 /// from, and nothing stops it being separators and nothing else.
 #[tokio::test]
 async fn the_disposition_names_a_file_and_not_a_path() {

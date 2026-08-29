@@ -6,28 +6,34 @@
 //! only one of them works for us on every backend.
 //!
 //! [`MultipartStore`] hands out an identifier that outlives the call, so the
-//! parts of one object can be written by separate HTTP requests — which is the
-//! whole of what a resumable upload needs. `aws`, `azure` and `gcp` implement
-//! it. **`LocalFileSystem` does not**, and there is nothing to work around: a
-//! local store has no multipart concept to expose.
+//! parts of one object can be written by separate HTTP requests, all a
+//! resumable upload needs. `aws`, `azure` and `gcp` implement it.
+//! **`LocalFileSystem` does not**, and there is nothing to work around: a local
+//! store has no multipart concept to expose.
 //!
-//! So local disk gets its own path, and it is the simpler of the two — a file
-//! opened for appending *is* a resumable upload, and its length *is* the
-//! offset. No parts to remember, no minimum size, nothing to abort but an
-//! `unlink`.
+//! So local disk gets its own path, the simpler of the two. A file opened for
+//! appending *is* a resumable upload and its length *is* the offset: no parts
+//! to remember, no minimum size, nothing to abort but an `unlink`.
 //!
 //! # The minimum part size, and the remainder
 //!
 //! S3 refuses every part but the last below 5 MiB. A client that sends 2 MiB
-//! and pauses leaves us holding bytes that cannot become a part yet, so they
-//! are parked in a sibling object and prepended when the upload resumes. tusd
-//! does the same thing with a `.part` file, and its documentation is where the
-//! shape came from.
+//! and pauses leaves us holding bytes that cannot become a part yet.
 //!
-//! Garage enforces neither the floor nor equal sizes — measured against
-//! `dxflrs/garage:v2.3.0` — so the CI job cannot catch a mistake here. That is
-//! why the arithmetic is pinned by unit tests below rather than by the run
-//! against a real store.
+//! tusd parks those in a sibling `.part` object and prepends them on resume.
+//! This does not: only whole parts are written, and the offset reported back is
+//! the end of the last whole part. The client re-sends the tail, which the
+//! protocol already expects, since the offset a server reports is what it
+//! accepted. At most one part is re-sent, and only after an interruption.
+//!
+//! (`REMAINDER_SUFFIX` below is `.part` too, and that is confusing enough to
+//! say out loud: it names the file the *local-disk* sink appends to, a
+//! different mechanism with the same conventional extension.)
+//!
+//! Garage enforces neither the floor nor equal sizes, measured against
+//! `dxflrs/garage:v2.3.0`, so the CI job cannot catch a mistake here. The
+//! arithmetic is pinned by the unit tests below instead of by the run against a
+//! real store.
 
 use std::{path::PathBuf, sync::Arc};
 
@@ -44,14 +50,14 @@ use crate::error::{Error, Result};
 const FIRST_PART: i32 = 1;
 
 /// Suffix of the object holding bytes too few to be a part.
-const REMAINDER_SUFFIX: &str = ".part";
+pub(crate) const REMAINDER_SUFFIX: &str = ".part";
 
 /// One part the store has taken, as it needs handing back at completion.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TakenPart {
     /// Its position, from one.
     pub number: i32,
-    /// The store's identifier for it — an `ETag` on S3.
+    /// The store's identifier for it, an `ETag` on S3.
     pub content_id: String,
 }
 
@@ -77,12 +83,12 @@ pub enum Sink {
 pub struct Written {
     /// Parts the store took, in order, to be recorded.
     pub parts: Vec<TakenPart>,
-    /// Bytes accepted, which is all of them or the call failed.
+    /// Bytes accepted: all of them, or the call failed.
     pub accepted: u64,
 }
 
 // `dyn MultipartStore` is not `Debug`, and a store in a log line would be its
-// configuration rather than anything about this upload.
+// configuration, not anything about this upload.
 impl core::fmt::Debug for Sink {
     fn fmt(&self, formatter: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -134,11 +140,11 @@ impl Sink {
 
 /// Splits `pending` into whole parts and what is left over.
 ///
-/// Returned rather than written so the arithmetic can be tested without a
+/// Returned, not written, so the arithmetic can be tested without a
 /// store: it is the half that Garage will not catch being wrong.
 #[must_use]
 pub fn split_into_parts(pending: &[u8], part_size: usize, is_final: bool) -> (Vec<Bytes>, Vec<u8>) {
-    // `chunks_exact` rather than arithmetic on indices: it cannot slice past
+    // `chunks_exact`, not arithmetic on indices. It cannot slice past
     // the end, and its `remainder` is exactly the tail that is too short.
     let mut parts: Vec<Bytes> = pending
         .chunks_exact(part_size)
@@ -147,7 +153,7 @@ pub fn split_into_parts(pending: &[u8], part_size: usize, is_final: bool) -> (Ve
     let remainder = pending.chunks_exact(part_size).remainder().to_vec();
     if is_final && !remainder.is_empty() {
         // The last part is the one allowed to be short, so on the final write
-        // the remainder becomes a part rather than being parked.
+        // the remainder becomes a part instead of being parked.
         parts.push(Bytes::from(remainder));
         return (parts, Vec::new());
     }
@@ -157,7 +163,7 @@ pub fn split_into_parts(pending: &[u8], part_size: usize, is_final: bool) -> (Ve
 /// The part number that follows `taken` parts.
 #[must_use]
 pub fn next_part_number(taken: usize) -> i32 {
-    // Saturating rather than wrapping: an upload with more parts than an `i32`
+    // Saturating, not wrapping. An upload with more parts than an `i32`
     // holds was refused long before this, and a wrapped part number would be
     // accepted by the database and rejected by the store.
     FIRST_PART.saturating_add(i32::try_from(taken).unwrap_or(i32::MAX))
@@ -200,11 +206,10 @@ impl Sink {
                 use tokio::io::{AsyncSeekExt as _, AsyncWriteExt as _};
                 let file = tokio::fs::OpenOptions::new().write(true).open(path).await?;
                 // Cut back to what is recorded before adding to it. Two
-                // requests can both append before either records its offset;
-                // the one that loses the race has already put its bytes in the
-                // file, and without this the next legitimate write would land
-                // after them. Truncating makes the write idempotent about where
-                // it starts, so a loser leaves nothing behind.
+                // requests can both append before either records its offset,
+                // and the loser has already put its bytes in the file, so
+                // without this the next legitimate write lands after them.
+                // Truncating makes the write idempotent about where it starts.
                 file.set_len(at).await?;
                 let mut file = file;
                 file.seek(std::io::SeekFrom::End(0)).await?;
@@ -225,10 +230,10 @@ impl Sink {
     /// Whether bytes have to accumulate before any of them can be written.
     ///
     /// Only a multipart store does. The block size exists because S3 refuses
-    /// every part but the last below 5 MiB — a file on disk takes a byte at a
-    /// time, so buffering for it would be pure loss: a local upload sending one
+    /// every part but the last below 5 MiB. A file on disk takes a byte at a
+    /// time, so buffering for it is pure loss: a local upload sending one
     /// megabyte at a time would never reach a block boundary, never advance its
-    /// offset, and re-send the same megabyte forever.
+    /// offset, and re-send the same megabyte for ever.
     #[must_use]
     pub const fn buffers(&self) -> bool {
         matches!(self, Self::Multipart { .. })
@@ -257,8 +262,7 @@ impl Sink {
             Self::Appending { path } => {
                 // The partial file becomes the object by losing its suffix. A
                 // rename within one directory is atomic, so a reader either
-                // finds the finished object or does not find it at all —
-                // never half of one.
+                // finds the finished object or finds nothing, never half.
                 let finished = path.with_extension("");
                 tokio::fs::rename(path, &finished).await?;
             }
@@ -270,14 +274,12 @@ impl Sink {
     ///
     /// Reports whether it worked, because the caller must not forget an upload
     /// it failed to free. S3 does not clean up abandoned multipart uploads on
-    /// its own — AWS recommends a bucket lifecycle rule for exactly that — so
-    /// the parts stay, and stay billed, until somebody aborts them. Dropping
-    /// our row would throw away the identifier, and with it the only way to
-    /// ever try again.
+    /// its own (AWS recommends a bucket lifecycle rule), so the parts stay
+    /// billed until they are aborted, and dropping our row would throw away the
+    /// identifier and with it any way to try again.
     ///
-    /// Errors are returned as `false` rather than propagated: this runs from
-    /// the sweep, and one store that will not co-operate must not stop the rest
-    /// of the pass.
+    /// Errors come back as `false`, not propagated. This runs from the
+    /// sweep, and one uncooperative store must not stop the rest of the pass.
     pub async fn discard(&self, key: &str) -> bool {
         match self {
             Self::Multipart { store, id } => {
@@ -329,7 +331,7 @@ mod tests {
     }
 
     /// The last part is the one allowed to be short, so the remainder goes out
-    /// rather than being parked forever.
+    /// instead of being parked for ever.
     #[test]
     fn the_final_write_sends_the_remainder_as_a_part() {
         let (parts, remainder) = split_into_parts(&[7; 1024], PART, true);
@@ -348,7 +350,7 @@ mod tests {
         }
     }
 
-    /// Nothing in, nothing out — a `PATCH` with an empty body is legal and must
+    /// Nothing in, nothing out: a `PATCH` with an empty body is legal and must
     /// not produce a zero-length part, which S3 refuses.
     #[test]
     fn nothing_produces_no_part() {
@@ -365,5 +367,103 @@ mod tests {
     fn part_numbers_start_at_one() {
         assert_eq!(next_part_number(0), 1);
         assert_eq!(next_part_number(3), 4);
+    }
+}
+
+/// The rules the stores impose on a multipart upload, as our own invariant.
+///
+/// # Why these are tested here and not against a store
+///
+/// `config.rs` already records that S3 refuses every part but the last below
+/// 5 MiB, that Cloudflare R2 additionally requires every part but the last to
+/// be the *same* size, and that **Garage enforces neither, so the CI job cannot
+/// catch a mistake here**. Waiting for a store to reject us means the first
+/// report comes from an operator on an untested backend, halfway through a
+/// large upload.
+///
+/// They are ours to satisfy, so they are asserted where they are produced.
+#[cfg(test)]
+mod part_rules {
+    use proptest::prelude::*;
+
+    use super::split_into_parts;
+
+    /// S3's floor. A part below this is refused unless it is the last one.
+    const S3_MINIMUM_PART: usize = 5 * 1024 * 1024;
+
+    proptest! {
+        /// Every part but the last is exactly `part_size`.
+        ///
+        /// That satisfies both rules at once: equal to each other for R2, and
+        /// at or above the floor whenever `part_size` is, for S3.
+        #[test]
+        fn non_final_parts_are_all_one_size(
+            len in 0_usize..70_000,
+            part_size in 1_usize..9_000,
+            is_final in any::<bool>(),
+        ) {
+            let pending = vec![7_u8; len];
+            let (parts, remainder) = split_into_parts(&pending, part_size, is_final);
+
+            let last_may_be_short = usize::from(is_final);
+            for (index, part) in parts.iter().enumerate() {
+                if index + last_may_be_short < parts.len() {
+                    prop_assert_eq!(
+                        part.len(),
+                        part_size,
+                        "part {} of {} is not the agreed size",
+                        index,
+                        parts.len()
+                    );
+                }
+            }
+            prop_assert!(remainder.len() < part_size);
+        }
+
+        /// Nothing is dropped and nothing is duplicated: the parts and whatever
+        /// is parked add up to what came in.
+        #[test]
+        fn everything_that_came_in_comes_out(
+            len in 0_usize..70_000,
+            part_size in 1_usize..9_000,
+            is_final in any::<bool>(),
+        ) {
+            let pending = vec![7_u8; len];
+            let (parts, remainder) = split_into_parts(&pending, part_size, is_final);
+            let total: usize = parts.iter().map(bytes::Bytes::len).sum::<usize>() + remainder.len();
+            prop_assert_eq!(total, len);
+        }
+
+        /// A finished upload parks nothing: whatever is left has to become the
+        /// last part, or those bytes are never written.
+        #[test]
+        fn a_final_write_leaves_nothing_parked(
+            len in 0_usize..70_000,
+            part_size in 1_usize..9_000,
+        ) {
+            let (_, remainder) = split_into_parts(&vec![7_u8; len], part_size, true);
+            prop_assert!(remainder.is_empty());
+        }
+
+        /// With a part size at or above S3's floor, every part this produces is
+        /// one a store will take, except the last, which may be short and only
+        /// exists on the final write.
+        #[test]
+        fn a_conforming_part_size_produces_conforming_parts(
+            len in 0_usize..(24 * 1024 * 1024),
+            extra in 0_usize..(3 * 1024 * 1024),
+        ) {
+            let part_size = S3_MINIMUM_PART + extra;
+            let (parts, _) = split_into_parts(&vec![7_u8; len], part_size, true);
+            for (index, part) in parts.iter().enumerate() {
+                if index + 1 < parts.len() {
+                    prop_assert!(
+                        part.len() >= S3_MINIMUM_PART,
+                        "S3 refuses a non-final part of {} bytes",
+                        part.len()
+                    );
+                }
+            }
+        }
     }
 }

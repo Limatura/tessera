@@ -3,7 +3,7 @@
 //! One error type crosses every layer, and exactly one place decides what a given
 //! failure looks like on the wire ([`Error::into_response`]). Handlers therefore
 //! never construct status codes by hand, and the response body shape is part of
-//! the OpenAPI contract rather than an accident of whatever each handler returned.
+//! the OpenAPI contract, not an accident of whatever each handler returned.
 
 use axum::{
     Json,
@@ -31,14 +31,19 @@ pub enum Error {
     #[error("payload too large")]
     PayloadTooLarge,
 
-    /// Accepting this would take the instance past `storage.max_total_bytes`.
+    /// Accepting this would take some storage ceiling past its figure.
     ///
     /// Distinct from [`PayloadTooLarge`](Self::PayloadTooLarge) because the two
     /// call for different actions: that one says the file is too big and always
-    /// will be, this one says the *instance* is full and a smaller file, or the
+    /// will be, this one says something is *full* and a smaller file, or the
     /// same file later, may well fit.
+    ///
+    /// It carries which ceiling refused, because the answer decides who can do
+    /// anything about it: "the disk is full" is the operator's problem, "your
+    /// quota is full" is the caller's, and a bare 507 leaves them unable to tell
+    /// whether deleting their own shares would help.
     #[error("insufficient storage")]
-    InsufficientStorage,
+    InsufficientStorage(Tier),
 
     /// The caller did not prove who they are, or the proof is no longer good.
     #[error("unauthorized")]
@@ -103,7 +108,7 @@ pub enum Error {
     /// The caller stopped sending, or took longer than this route allows.
     ///
     /// For an upload it means no byte arrived within `server.upload_stall_secs`,
-    /// which is a statement about the connection rather than about how long the
+    /// which is a statement about the connection, not about how long the
     /// transfer was going to take. For everything else it is
     /// `server.request_timeout_secs`.
     #[error("timeout")]
@@ -113,7 +118,7 @@ pub enum Error {
     #[error("service unavailable")]
     Unavailable,
 
-    /// A relational store operation failed. Covers migrations too — SeaORM
+    /// A relational store operation failed. Covers migrations too, since SeaORM
     /// reports both through `DbErr`.
     #[error("database error")]
     Database(#[from] sea_orm::DbErr),
@@ -122,8 +127,8 @@ pub enum Error {
     #[error("storage error")]
     Storage(#[from] object_store::Error),
 
-    /// Hashing or verifying a password failed. Never means "wrong password" —
-    /// that is a `bool`, not an error.
+    /// Hashing or verifying a password failed. Never means "wrong password",
+    /// which is a `bool`, not an error.
     #[error("password hashing error")]
     Password(#[from] crate::auth::password::PasswordError),
 
@@ -170,7 +175,7 @@ pub enum ErrorCode {
     Timeout,
     /// See [`Error::Unavailable`].
     Unavailable,
-    /// Any failure whose cause is deliberately not exposed to the caller.
+    /// Any failure whose cause is withheld from the caller.
     Internal,
 }
 
@@ -219,7 +224,9 @@ impl ErrorCode {
             Self::Conflict => "that already exists",
             Self::TooManyRequests => "too many attempts; wait a little and try again",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
-            Self::InsufficientStorage => "this instance has no room for more content",
+            // The generic answer for the code. A real refusal says which
+            // ceiling it was, through `Error::public_message`.
+            Self::InsufficientStorage => "there is no room for more content",
             Self::UnsupportedMediaType => "that content type is not accepted here",
             Self::Timeout => "nothing arrived for a while, so the request was dropped; try again",
             Self::Unavailable => "the service is not accepting requests right now",
@@ -252,7 +259,7 @@ impl Error {
             Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
-            Self::InsufficientStorage => ErrorCode::InsufficientStorage,
+            Self::InsufficientStorage(_) => ErrorCode::InsufficientStorage,
             Self::UnsupportedMediaType => ErrorCode::UnsupportedMediaType,
             Self::Timeout => ErrorCode::Timeout,
             Self::Unavailable => ErrorCode::Unavailable,
@@ -286,6 +293,7 @@ impl Error {
                 message.clone()
             }
             Self::Domain(error) => error.to_string(),
+            Self::InsufficientStorage(tier) => tier.message().to_owned(),
             other => other.code().message().to_owned(),
         }
     }
@@ -302,7 +310,7 @@ impl Error {
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        // The full error, including the source chain, goes to the log — the
+        // The full error, including the source chain, goes to the log, so the
         // operator gets everything the client does not.
         if self.status().is_server_error() {
             tracing::error!(error = ?self, "request failed");
@@ -331,6 +339,32 @@ impl IntoResponse for Error {
             response.headers_mut().insert(name, value);
         }
         response
+    }
+}
+
+/// Which storage ceiling a [`Error::InsufficientStorage`] hit.
+///
+/// No figures: how full the instance is is not the caller's business, and how
+/// full a role is would let one member watch another's usage.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tier {
+    /// The caller's own quota.
+    Account,
+    /// The quota on the role the caller is in, or the guest role for an
+    /// anonymous caller.
+    Role,
+    /// `storage.max_total_bytes`.
+    Instance,
+}
+
+impl Tier {
+    /// What to tell the caller.
+    const fn message(self) -> &'static str {
+        match self {
+            Self::Account => "your storage quota is full",
+            Self::Role => "the storage quota for your role is full",
+            Self::Instance => "this instance has no room for more content",
+        }
     }
 }
 

@@ -10,10 +10,12 @@
 ```sql
 CREATE TABLE upload_parts (
     upload_id   TEXT NOT NULL REFERENCES uploads (id) ON DELETE CASCADE,
+    -- Position of the segment in the file. Zero until a file is split.
+    seq         INTEGER NOT NULL DEFAULT 0,
     part_number INTEGER NOT NULL,
     -- The store's identifier for the part, its ETag on S3.
     content_id  TEXT NOT NULL,
-    PRIMARY KEY (upload_id, part_number)
+    PRIMARY KEY (upload_id, seq, part_number)
 )
 ```
 
@@ -24,6 +26,7 @@ CREATE TABLE upload_parts (
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
 | upload_id | TEXT |  | false |  | [uploads](uploads.md) |  |
+| seq | INTEGER | 0 | false |  |  |  |
 | part_number | INTEGER |  | false |  |  |  |
 | content_id | TEXT |  | false |  |  |  |
 
@@ -32,15 +35,16 @@ CREATE TABLE upload_parts (
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | upload_id | PRIMARY KEY | PRIMARY KEY (upload_id) |
+| seq | PRIMARY KEY | PRIMARY KEY (seq) |
 | part_number | PRIMARY KEY | PRIMARY KEY (part_number) |
 | - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (upload_id) REFERENCES uploads (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
-| sqlite_autoindex_upload_parts_1 | PRIMARY KEY | PRIMARY KEY (upload_id, part_number) |
+| sqlite_autoindex_upload_parts_1 | PRIMARY KEY | PRIMARY KEY (upload_id, seq, part_number) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
-| sqlite_autoindex_upload_parts_1 | PRIMARY KEY (upload_id, part_number) |
+| sqlite_autoindex_upload_parts_1 | PRIMARY KEY (upload_id, seq, part_number) |
 
 ## Relations
 
@@ -51,6 +55,7 @@ erDiagram
 
 "upload_parts" {
   TEXT upload_id PK
+  INTEGER seq PK
   INTEGER part_number PK
   TEXT content_id
 }
@@ -63,11 +68,10 @@ erDiagram
   TEXT content_type
   INTEGER declared_bytes
   INTEGER offset_bytes
-  TEXT object_key
-  TEXT multipart_id
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
 }
 ```
 

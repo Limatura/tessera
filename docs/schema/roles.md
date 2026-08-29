@@ -18,7 +18,7 @@ CREATE TABLE roles (
     is_system   INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT NOT NULL,
     updated_at  TEXT NOT NULL
-)
+, quota_bytes INTEGER, max_file_bytes INTEGER)
 ```
 
 </details>
@@ -27,12 +27,14 @@ CREATE TABLE roles (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [role_permissions](role_permissions.md) [user_roles](user_roles.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [shares](shares.md) [role_permissions](role_permissions.md) [uploads](uploads.md) |  |  |
 | name | TEXT |  | false |  |  |  |
 | description | TEXT |  | true |  |  |  |
 | is_system | INTEGER | 0 | false |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
+| quota_bytes | INTEGER |  | true |  |  |  |
+| max_file_bytes | INTEGER |  | true |  |  |  |
 
 ## Constraints
 
@@ -53,8 +55,10 @@ CREATE TABLE roles (
 ```mermaid
 erDiagram
 
+"users" }o--o| "roles" : ""
+"shares" }o--o| "roles" : ""
 "role_permissions" |o--|| "roles" : ""
-"user_roles" |o--|| "roles" : ""
+"uploads" }o--o| "roles" : ""
 
 "roles" {
   TEXT id PK
@@ -63,15 +67,62 @@ erDiagram
   INTEGER is_system
   TEXT created_at
   TEXT updated_at
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
+}
+"users" {
+  TEXT id PK
+  TEXT username
+  TEXT email
+  INTEGER must_change_password
+  TEXT email_verified_at
+  TEXT created_at
+  TEXT updated_at
+  TEXT state
+  TEXT deleted_at
+  TEXT deleted_by FK
+  TEXT role_id FK
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
+}
+"shares" {
+  TEXT id PK
+  TEXT code
+  TEXT user_id FK
+  TEXT kind
+  TEXT password_hash
+  INTEGER use_limit
+  INTEGER use_count
+  TEXT expires_at
+  TEXT disabled_at
+  TEXT title
+  TEXT og_config
+  TEXT management_token_hash
+  INTEGER view_count
+  TEXT last_accessed_at
+  TEXT created_at
+  TEXT updated_at
+  INTEGER copy_count
+  INTEGER bytes_served
+  TEXT role_id FK
 }
 "role_permissions" {
   TEXT role_id PK
   TEXT permission PK
 }
-"user_roles" {
-  TEXT user_id PK
-  TEXT role_id PK
-  TEXT granted_at
+"uploads" {
+  TEXT id PK
+  TEXT share_id FK
+  TEXT user_id FK
+  TEXT token_hash
+  TEXT filename
+  TEXT content_type
+  INTEGER declared_bytes
+  INTEGER offset_bytes
+  TEXT created_at
+  TEXT updated_at
+  TEXT expires_at
+  TEXT role_id FK
 }
 ```
 

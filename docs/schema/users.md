@@ -2,7 +2,7 @@
 
 ## Description
 
-帳號。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
+帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -12,7 +12,6 @@ CREATE TABLE users (
     id            TEXT    NOT NULL PRIMARY KEY,
     username      TEXT    NOT NULL,
     email         TEXT    NOT NULL,
-    password_hash TEXT    NOT NULL,
     must_change_password INTEGER NOT NULL DEFAULT 0,
     -- TEXT rather than INTEGER: sqlx encodes an `OffsetDateTime` as RFC 3339
     -- text for SQLite, and a column declared INTEGER would take it anyway
@@ -22,7 +21,7 @@ CREATE TABLE users (
     email_verified_at    TEXT,
     created_at    TEXT NOT NULL,
     updated_at    TEXT NOT NULL
-, state TEXT NOT NULL DEFAULT 'active', deleted_at TEXT, deleted_by TEXT REFERENCES users (id) ON DELETE SET NULL)
+, state TEXT NOT NULL DEFAULT 'active', deleted_at TEXT, deleted_by TEXT REFERENCES users (id) ON DELETE SET NULL, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, quota_bytes INTEGER, max_file_bytes INTEGER)
 ```
 
 </details>
@@ -31,10 +30,9 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [user_roles](user_roles.md) [uploads](uploads.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [oidc_flows](oidc_flows.md) [credentials](credentials.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
-| password_hash | TEXT |  | false |  |  |  |
 | must_change_password | INTEGER | 0 | false |  |  |  |
 | email_verified_at | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
@@ -42,19 +40,24 @@ CREATE TABLE users (
 | state | TEXT | 'active' | false |  |  |  |
 | deleted_at | TEXT |  | true |  |  |  |
 | deleted_by | TEXT |  | true |  | [users](users.md) |  |
+| role_id | TEXT |  | true |  | [roles](roles.md) |  |
+| quota_bytes | INTEGER |  | true |  |  |  |
+| max_file_bytes | INTEGER |  | true |  |  |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | id | PRIMARY KEY | PRIMARY KEY (id) |
-| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (deleted_by) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (role_id) REFERENCES roles (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (deleted_by) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
 | sqlite_autoindex_users_1 | PRIMARY KEY | PRIMARY KEY (id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_users_role | CREATE INDEX idx_users_role ON users (role_id) |
 | idx_users_state | CREATE INDEX idx_users_state ON users (state) |
 | idx_users_email | CREATE UNIQUE INDEX idx_users_email ON users (email) |
 | idx_users_username | CREATE UNIQUE INDEX idx_users_username ON users (username) |
@@ -70,14 +73,16 @@ erDiagram
 "api_tokens" }o--|| "users" : ""
 "shares" }o--o| "users" : ""
 "password_reset_tokens" }o--|| "users" : ""
-"user_roles" |o--|| "users" : ""
 "uploads" }o--o| "users" : ""
+"identities" }o--|| "users" : ""
+"oidc_flows" }o--o| "users" : ""
+"credentials" |o--|| "users" : ""
+"users" }o--o| "roles" : ""
 
 "users" {
   TEXT id PK
   TEXT username
   TEXT email
-  TEXT password_hash
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at
@@ -85,6 +90,9 @@ erDiagram
   TEXT state
   TEXT deleted_at
   TEXT deleted_by FK
+  TEXT role_id FK
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 "sessions" {
   TEXT id PK
@@ -96,6 +104,7 @@ erDiagram
   TEXT created_ip
   TEXT created_user_agent
   TEXT ended_reason
+  TEXT origin
 }
 "api_tokens" {
   TEXT id PK
@@ -127,6 +136,7 @@ erDiagram
   TEXT updated_at
   INTEGER copy_count
   INTEGER bytes_served
+  TEXT role_id FK
 }
 "password_reset_tokens" {
   TEXT id PK
@@ -135,11 +145,6 @@ erDiagram
   TEXT created_at
   TEXT expires_at
   TEXT used_at
-}
-"user_roles" {
-  TEXT user_id PK
-  TEXT role_id PK
-  TEXT granted_at
 }
 "uploads" {
   TEXT id PK
@@ -150,11 +155,42 @@ erDiagram
   TEXT content_type
   INTEGER declared_bytes
   INTEGER offset_bytes
-  TEXT object_key
-  TEXT multipart_id
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
+}
+"identities" {
+  TEXT provider PK
+  TEXT subject PK
+  TEXT user_id FK
+  TEXT created_at
+}
+"oidc_flows" {
+  TEXT state PK
+  TEXT nonce
+  TEXT verifier
+  TEXT purpose
+  TEXT user_id FK
+  TEXT invite_code
+  TEXT created_at
+  TEXT expires_at
+}
+"credentials" {
+  TEXT user_id PK
+  TEXT password_hash
+  TEXT created_at
+  TEXT updated_at
+}
+"roles" {
+  TEXT id PK
+  TEXT name
+  TEXT description
+  INTEGER is_system
+  TEXT created_at
+  TEXT updated_at
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 ```
 

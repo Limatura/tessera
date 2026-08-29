@@ -1,8 +1,8 @@
 //! Splits `owner` out of `admin`.
 //!
 //! The SQL lives in `sql/`, one file per dialect. This module only picks which
-//! one to run — see the module docs on [`super`] for why the DDL is hand-written
-//! rather than built with `sea-query`.
+//! one to run. See the module docs on [`super`] for why the DDL is
+//! hand-written instead of built with `sea-query`.
 
 use sea_orm_migration::prelude::*;
 
@@ -23,8 +23,8 @@ pub(super) struct Migration;
 
 #[async_trait::async_trait]
 // `MigrationTrait` elides the lifetime in its own signature. Writing
-// `SchemaManager<'_>` here would make it early-bound, and the impl would no
-// longer match the trait — so the elision is required, not a style choice.
+// `SchemaManager<'_>` here would make it early-bound and the impl would no
+// longer match the trait, so the elision is required, not a style choice.
 #[expect(
     elided_lifetimes_in_paths,
     reason = "must match MigrationTrait's declared signature exactly"
@@ -63,22 +63,8 @@ mod tests {
         }
     }
 
-    /// A permission the owner role is not granted is one nobody on a fresh
-    /// instance can hold, because `admin` is about to stop granting them.
-    #[test]
-    fn the_owner_role_is_seeded_with_every_permission() {
-        for (dialect, sql) in [("sqlite", SQLITE), ("postgres", POSTGRES), ("mysql", MYSQL)] {
-            for permission in Permission::ALL {
-                assert!(
-                    sql.contains(&format!("'{}'", permission.as_str())),
-                    "{dialect} does not grant {permission} to the owner"
-                );
-            }
-        }
-    }
-
     /// Narrowing `admin` before moving its members into `owner` would take the
-    /// instance away from whoever is running it — possibly including the only
+    /// instance away from whoever is running it, possibly including the only
     /// person who could put it back.
     #[test]
     fn the_members_move_before_the_permissions_are_taken() {

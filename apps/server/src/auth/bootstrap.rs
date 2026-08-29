@@ -3,7 +3,7 @@
 //! # Why this is needed at all
 //!
 //! Registration is open by default and the first account to register becomes the
-//! administrator — which is the right shape for someone setting up their own
+//! administrator: the right shape for someone setting up their own
 //! instance, and the wrong shape for anything else. An instance with registration
 //! closed has no way to create its first account, and an instance exposed to the
 //! internet before its owner reaches the login page hands administration to a
@@ -26,9 +26,9 @@ use crate::{
 
 /// Creates the first administrator if the instance has no accounts at all.
 ///
-/// Does nothing once any account exists — including one created by registration,
+/// Does nothing once any account exists, including one from registration,
 /// since that account is already an administrator. This is therefore safe to run
-/// on every start-up, which is the only way it can be correct: a flag file or a
+/// on every start-up, the only way it can be correct. A flag file or a
 /// separate `init` command is one more thing to lose.
 ///
 /// # Errors
@@ -40,8 +40,8 @@ pub async fn ensure_admin(
     roles: &RoleRepository,
     auth: &AuthConfig,
 ) -> Result<()> {
-    // Checked whether or not an administrator is created below: the setting is
-    // read at every registration, so a name nobody seeded turns the first
+    // Checked whether or not an administrator is created below. The setting is
+    // read at every registration, so an unseeded name turns the first
     // stranger's sign-up into a refusal with no explanation anywhere they can
     // see. Refusing to start says it once, to the person who can fix it.
     if roles.find_by_name(&auth.default_role).await?.is_none() {
@@ -55,8 +55,8 @@ pub async fn ensure_admin(
         return Ok(());
     }
 
-    // Privileged parsing: the shipped default is `admin`, which is on the
-    // reserved list precisely so that nobody *else* can register it.
+    // Privileged parsing: the shipped default is `admin`, which sits on the
+    // reserved list precisely so no stranger can register it.
     let username = Username::parse_privileged(&auth.admin_username)
         .map_err(|error| Error::bad_request(format!("auth.admin_username: {error}")))?;
     let email = EmailAddress::parse(&auth.admin_email)
@@ -69,7 +69,12 @@ pub async fn ensure_admin(
         id: UserId::generate(),
         username: username.clone(),
         email,
-        password_hash: password::hash(password, auth.hashing).await?,
+        // The first account on the instance owns it: `owner` and not `admin`,
+        // because `admin` cannot grant roles, and an instance whose only
+        // account cannot admit a second one is stuck.
+        role_id: Some(RoleId::parse(RoleId::OWNER)?),
+        quota_bytes: None,
+        max_file_bytes: None,
         // Only when we chose the password. One the operator set is one they
         // already know, and forcing a change on it is a pointless step; one we
         // printed has been through a log file and should not stay in force.
@@ -81,13 +86,14 @@ pub async fn ensure_admin(
         created_at: now,
         updated_at: now,
     };
-    // The first account administers the instance, which is the whole point of
-    // this function — so it goes straight into the role that says so.
-    users.insert(&user, RoleId::parse(RoleId::OWNER)?).await?;
+    // The first account administers the instance. That is what this function
+    // decides, so it goes straight into the role that says so.
+    let hash = password::hash(password, auth.hashing).await?;
+    users.insert(&user, Some(&hash)).await?;
 
     if let Some(printed) = generated {
         // Printed once, at `warn` so it survives a default log filter, and never
-        // again — the digest is all that is stored, so this is the only moment
+        // again, since the digest is all that is stored, so this is the only moment
         // the value exists.
         tracing::warn!(
             username = %username,
@@ -106,8 +112,8 @@ fn admin_password(auth: &AuthConfig) -> Result<(Password, Option<String>)> {
     if auth.admin_password.is_empty() {
         let generated = Secret::generate_session().expose().to_owned();
         // Parsed against a policy that only has to accept our own output: an
-        // operator who set `min_length` to 64 should not make start-up fail on a
-        // password nobody types.
+        // operator who set `min_length` to 64 should not make start-up fail on
+        // a generated password that is never typed.
         let password = Password::parse(generated.clone(), PasswordPolicy::default())
             .map_err(|_| Error::bad_request("could not generate an administrator password"))?;
         return Ok((password, Some(generated)));

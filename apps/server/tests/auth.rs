@@ -1,7 +1,7 @@
 //! Accounts, sessions and API tokens, over HTTP.
 //!
-//! The whole lifecycle lives in [`common::account_lifecycle`] rather than here,
-//! because the cross-backend suite has to run exactly the same scenario. What is
+//! The full lifecycle lives in [`common::account_lifecycle`], not here, because
+//! the cross-backend suite has to run the same scenario. What is
 //! left in this file is the behaviour that does not depend on the dialect:
 //! configuration switches, credential separation and the things that must *not*
 //! work.
@@ -16,7 +16,7 @@ use common::{
     Auth, TestApp, account_lifecycle, body_json, expect_status, force_password_change,
     session_cookie,
 };
-use tessera_server::config::RegistrationPolicy;
+use tessera_server::{config::RegistrationPolicy, db::repository::role::RoleFields};
 
 /// Password used wherever the value itself does not matter.
 const PASSWORD: &str = "a perfectly adequate passphrase";
@@ -61,7 +61,7 @@ async fn an_anonymous_caller_has_no_session() {
 }
 
 /// The session secret is what turns an XSS into a stolen account, so the
-/// attributes that keep it out of JavaScript are asserted rather than assumed.
+/// attributes that keep it out of JavaScript are asserted, not assumed.
 #[tokio::test]
 async fn the_session_cookie_is_http_only_and_same_site_lax() {
     let app = TestApp::ready().await;
@@ -139,8 +139,9 @@ async fn a_closed_instance_refuses_registration() {
     .await;
 }
 
-/// With accounts switched off the endpoints are still routed — the contract
-/// describes the software, not the instance — but they refuse to exist.
+/// With accounts switched off the endpoints are still routed, since the
+/// contract describes the software and not the instance, but they refuse to
+/// exist.
 #[tokio::test]
 async fn an_instance_without_accounts_reports_the_endpoints_as_absent() {
     let app = TestApp::with_config(|config| {
@@ -426,7 +427,7 @@ async fn a_nonsense_token_id_is_not_found_rather_than_a_bad_request() {
     let app = TestApp::ready().await;
     let cookie = register(&app, "curious").await;
 
-    // Telling an unparsable id apart from somebody else's would confirm which
+    // Telling an unparsable id apart from another account's would confirm which
     // identifiers exist.
     expect_status(
         app.empty(
@@ -480,7 +481,7 @@ async fn repeated_failures_are_throttled_with_a_retry_after() {
 async fn an_expired_session_is_refused() {
     let app = TestApp::with_config(|config| {
         // The shortest a session can be configured to last. Expiry is then forced
-        // by writing the row's timestamp into the past rather than by waiting.
+        // by writing the row's timestamp into the past instead of waiting.
         config.auth.session_ttl_hours = 1;
     })
     .await;
@@ -488,7 +489,7 @@ async fn an_expired_session_is_refused() {
 
     // Moved into the past directly. The repository has no "set expiry" call, and
     // adding one only for a test would put a footgun in the production API.
-    // SQLite-only SQL, which is what this binary runs against.
+    // SQLite-only SQL, and that is what this binary runs against.
     let past = time::OffsetDateTime::now_utc() - time::Duration::hours(2);
     let statement = sea_orm::Statement::from_string(
         sea_orm::ConnectionTrait::get_database_backend(&app.state.db),
@@ -512,10 +513,10 @@ async fn an_expired_session_is_refused() {
 
 /// The account every instance starts with must be able to sign in.
 ///
-/// It is called `admin` by default, which is on the reserved list — so the
+/// It is called `admin` by default, a name on the reserved list, so the
 /// lookup path has to accept a name the registration path refuses. This is the
-/// regression test for getting that backwards, which locks every operator out of
-/// their own instance on first run.
+/// regression test for getting that backwards, which locks every operator out
+/// of their own instance on first run.
 #[tokio::test]
 async fn the_bootstrapped_administrator_can_sign_in() {
     let app = TestApp::with_config(|config| {
@@ -526,7 +527,7 @@ async fn the_bootstrapped_administrator_can_sign_in() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");
@@ -573,7 +574,7 @@ async fn a_generated_administrator_password_must_be_changed() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");
@@ -582,7 +583,7 @@ async fn a_generated_administrator_password_must_be_changed() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("idempotent");
@@ -597,7 +598,7 @@ async fn a_generated_administrator_password_must_be_changed() {
         .expect("the administrator should exist");
 
     // Over the roles, not a column: `users.is_admin` is gone, and what
-    // decides whether somebody administers the instance is `roles:write`.
+    // decides whether an account administers the instance is `roles:write`.
     let roles = app.state.roles.of_user(admin.id).await.expect("roles");
     assert!(
         roles.iter().any(|role| role
@@ -612,12 +613,12 @@ async fn a_generated_administrator_password_must_be_changed() {
 }
 
 /// A flag the server reports but does not enforce is a request that the client
-/// please behave — and the account carrying it administers the instance.
+/// please behave, and the account carrying it administers the instance.
 #[tokio::test]
 async fn an_account_owing_a_password_change_can_only_fix_itself() {
     // A configured password, then the flag set by hand. The bootstrap only sets
     // the flag for a password it generated, and that password exists nowhere a
-    // test could read it — which is exactly why the flag has to be enforced.
+    // test could read it, and that is exactly why the flag has to be enforced.
     let app = TestApp::with_config(|config| {
         config.auth.admin_password = PASSWORD.to_owned();
     })
@@ -625,7 +626,7 @@ async fn an_account_owing_a_password_change_can_only_fix_itself() {
     tessera_server::auth::bootstrap::ensure_admin(
         &app.state.users,
         &app.state.roles,
-        &app.state.config.auth,
+        &app.state.config().auth,
     )
     .await
     .expect("bootstrap");
@@ -644,8 +645,8 @@ async fn an_account_owing_a_password_change_can_only_fix_itself() {
     .await;
     let cookie = session_cookie(&response);
 
-    // Reading its own identity still works — a client has to be able to see why
-    // it is being refused.
+    // Reading its own identity still works, so a client can see why it is being
+    // refused.
     let body = body_json(
         expect_status(
             app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
@@ -767,9 +768,9 @@ async fn the_sweep_removes_sessions_older_than_the_history_window() {
 
 /// An instance with a relay configured.
 ///
-/// The host points nowhere on purpose: every test here asserts on what the
+/// The host points nowhere by design: every test here asserts on what the
 /// *API* does, and sending must not be what decides that. A relay that cannot
-/// be reached is also the honest case to pin — the response has to be identical
+/// be reached is also the honest case to pin: the response has to be identical
 /// whether the mail went out or not.
 async fn app_with_mail() -> TestApp {
     TestApp::with_config(|config| {
@@ -791,7 +792,7 @@ async fn ask_for_reset(app: &TestApp, email: &str) -> StatusCode {
     .status()
 }
 
-/// The property the whole endpoint exists to have: the response says nothing
+/// The property this endpoint exists to have: the response says nothing
 /// about whether the address belongs to anybody.
 ///
 /// Anything else turns this into "does this person have an account here",
@@ -817,8 +818,8 @@ async fn a_reset_request_answers_the_same_for_strangers_and_members() {
     );
 }
 
-/// The relay here is unreachable, so this also pins that a send failure does not
-/// change the answer — otherwise a broken relay would leak membership.
+/// The relay here is unreachable, so this also pins that a send failure does
+/// not change the answer, or a broken relay would leak membership.
 #[tokio::test]
 async fn a_failed_send_is_still_accepted() {
     let app = app_with_mail().await;
@@ -854,8 +855,8 @@ async fn an_instance_with_mail_says_so() {
 
 /// The regression this pins was live and CI was green for it: the throttle used
 /// to count only when a message was actually sent, so the fourth request
-/// answered `429` for a member and `202` for a stranger — four calls to `curl`
-/// and you knew who had an account here. Exactly the question the `202` exists
+/// answered `429` for a member and `202` for a stranger: four calls to `curl`
+/// and you knew who had an account here. That is the question the `202` exists
 /// to refuse.
 #[tokio::test]
 async fn being_throttled_says_nothing_about_membership() {
@@ -897,7 +898,7 @@ async fn reset_requests_are_limited_per_address() {
         StatusCode::TOO_MANY_REQUESTS
     );
 
-    // A different address is unaffected, which is what keying on the address
+    // A different address is unaffected, and that is what keying on the address
     // means.
     register_verified(&app, "other").await;
     assert_eq!(
@@ -906,7 +907,7 @@ async fn reset_requests_are_limited_per_address() {
     );
 }
 
-/// One address being at its limit must not affect another, which is what
+/// One address being at its limit must not affect another, and that is what
 /// keying on the address means.
 #[tokio::test]
 async fn one_address_at_its_limit_does_not_refuse_another() {
@@ -938,10 +939,10 @@ async fn confirm(app: &TestApp, token: &str, password: &str) -> StatusCode {
     .status()
 }
 
-/// Unknown, spent and expired all answer the same way. They differ to us — which
-/// is why the row survives being used — but saying which would tell somebody
-/// holding a spent link that it was once real, and that is a fact about
-/// another person's account.
+/// Unknown, spent and expired all answer the same way. They differ to us, which
+/// is why the row survives being used, but saying which would tell the holder
+/// of a spent link that it was once real, a fact about another person's
+/// account.
 #[tokio::test]
 async fn an_unusable_link_says_only_that() {
     let app = app_with_mail().await;
@@ -951,8 +952,8 @@ async fn an_unusable_link_says_only_that() {
     );
 }
 
-/// The end-to-end path, driven through the repository because the token only
-/// ever exists in the email otherwise — which is the point of storing a digest.
+/// The end-to-end path, driven through the repository because the token
+/// otherwise exists only in the email, the point of storing a digest.
 #[tokio::test]
 async fn a_link_sets_the_password_once_and_ends_every_session() {
     let app = app_with_mail().await;
@@ -986,7 +987,7 @@ async fn a_link_sets_the_password_once_and_ends_every_session() {
     );
 
     // The session that existed before is gone: asking for a reset is usually
-    // somebody saying they have lost control of the account.
+    // a report that control of the account has been lost.
     assert_eq!(
         app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
             .await
@@ -1014,8 +1015,8 @@ async fn a_link_sets_the_password_once_and_ends_every_session() {
     .await;
 }
 
-/// A password that fails the policy must leave the link usable — otherwise a
-/// typo costs somebody the whole round trip through their inbox.
+/// A password that fails the policy must leave the link usable, or a typo costs
+/// the entire round trip through the inbox.
 #[tokio::test]
 async fn a_rejected_password_does_not_burn_the_link() {
     let app = app_with_mail().await;
@@ -1049,7 +1050,7 @@ async fn a_rejected_password_does_not_burn_the_link() {
     );
 }
 
-/// A second outstanding link is a key somebody may still be holding, and the
+/// A second outstanding link is a key still in circulation, and the
 /// usual reason there are two is that the first mail went astray.
 #[tokio::test]
 async fn using_one_link_invalidates_the_others() {
@@ -1152,13 +1153,13 @@ async fn confirm_registration(app: &TestApp, token: &str) -> axum::response::Res
 /// Waits for the row the handler writes after it has answered.
 ///
 /// Everything that depends on whether the address is known happens off the
-/// request path on purpose — hashing a password takes about a tenth of a second
-/// and a taken address skips it, which is a membership oracle anyone can read
-/// with a stopwatch. The cost of that decision is paid here: a test cannot look
-/// straight after the response and expect the row to be there.
+/// request path by design. Hashing a password takes about a tenth of a second
+/// and a taken address skips it: a membership oracle anyone can read with a
+/// stopwatch. The cost is paid here, because a test cannot look straight
+/// after the response and expect the row to be there.
 // `clippy.toml`'s test exemptions only reach code inside a `#[test]` body, and
-// this is a helper. Failing is the only thing a fixture that cannot find what it
-// is waiting for has to report.
+// this is a helper. Failing is all a fixture that cannot find what it is
+// waiting for has to report.
 #[expect(
     clippy::expect_used,
     clippy::panic,
@@ -1187,9 +1188,9 @@ async fn wait_for_pending(
 /// Registers and follows the link, for tests that need an account to exist on an
 /// instance that sends mail.
 ///
-/// The link is re-minted from the recorded row rather than read out of the
-/// message, because the token exists nowhere else — that is what storing only a
-/// digest buys. What is asserted along the way is that the handler recorded the
+/// The link is re-minted from the recorded row, not read out of the message,
+/// because the token exists nowhere else. That is what storing only a digest
+/// buys. What is asserted along the way is that the handler recorded the
 /// registration it was asked for, so the only part not covered here is the two
 /// lines that put the secret into the letter.
 #[expect(
@@ -1233,7 +1234,7 @@ async fn register_verified(app: &TestApp, username: &str) -> String {
 
 /// The property the `202` exists to have. A registration form that says "that
 /// address is taken" is the same membership question `POST /auth/password-reset`
-/// refuses to answer, reachable through a different door — and this one needs no
+/// refuses to answer, reachable through a different door, and this one needs no
 /// account and no code, just the form every visitor can see.
 #[tokio::test]
 async fn registering_answers_the_same_for_a_free_and_a_taken_address() {
@@ -1251,8 +1252,8 @@ async fn registering_answers_the_same_for_a_free_and_a_taken_address() {
     );
 }
 
-/// Being refused must not answer it either — the same hole that was live in the
-/// reset handler, where the limit was only ever reached by addresses that had an
+/// Being refused must not answer it either. The same hole was live in the reset
+/// handler, where the limit was only ever reached by addresses that had an
 /// account behind them.
 #[tokio::test]
 async fn being_throttled_says_nothing_about_membership_either() {
@@ -1275,10 +1276,11 @@ async fn being_throttled_says_nothing_about_membership_either() {
     );
 }
 
-/// Registration must not spend the reset budget. If it did, typing somebody's
-/// address into the registration form three times would take away their way back
-/// into the account — a worse outcome than the six messages an hour that two
-/// counters allow.
+/// Registration must not spend the reset budget. If it did, typing another
+/// account's
+/// address into the registration form three times would take away their way
+/// back into the account, a worse outcome than the six messages an hour that
+/// two counters allow.
 #[tokio::test]
 async fn registering_at_an_address_does_not_use_up_its_resets() {
     let app = app_with_mail().await;
@@ -1300,9 +1302,9 @@ async fn registering_at_an_address_does_not_use_up_its_resets() {
 }
 
 /// A name is answered plainly where an address is not, and the asymmetry is
-/// deliberate: a name is already half public — a share page names whoever
-/// uploaded it — and a form that cannot say "try another one" is a form nobody
-/// can complete.
+/// deliberate: a name is already half public, since a share page names whoever
+/// uploaded it, and a form that cannot say "try another one" cannot be
+/// completed.
 #[tokio::test]
 async fn a_taken_name_is_refused_outright() {
     let app = app_with_mail().await;
@@ -1314,8 +1316,8 @@ async fn a_taken_name_is_refused_outright() {
     );
 }
 
-/// The point of the whole change: until the link is followed there is nothing to
-/// sign in to, so an address somebody does not control never becomes an account.
+/// What this change is for: until the link is followed there is nothing to sign
+/// in to, so an uncontrolled address never becomes an account.
 #[tokio::test]
 async fn nothing_exists_until_the_link_is_followed() {
     let app = app_with_mail().await;
@@ -1356,8 +1358,8 @@ async fn nothing_exists_until_the_link_is_followed() {
     );
 }
 
-/// Following the link is what creates the account, and it arrives verified —
-/// that is the whole of what was waited for.
+/// Following the link is what creates the account, and it arrives verified,
+/// all that was waited for.
 #[tokio::test]
 async fn the_link_creates_a_verified_account_and_signs_it_in() {
     let app = app_with_mail().await;
@@ -1388,7 +1390,7 @@ async fn the_link_creates_a_verified_account_and_signs_it_in() {
 }
 
 /// Unknown, spent and expired all answer the same way, for the same reason the
-/// reset links do: saying which would tell somebody holding a stale link that it
+/// reset links do. Saying which would tell the holder of a stale link that it
 /// was once real.
 #[tokio::test]
 async fn an_unusable_registration_link_says_only_that() {
@@ -1467,7 +1469,7 @@ async fn a_registration_link_works_once() {
     );
 }
 
-/// Asking again replaces the link rather than adding one. Two live links in one
+/// Asking again replaces the link instead of adding one. Two live links in one
 /// mailbox means the older keeps working after the newer has been used, and
 /// there is no reason for that to be possible.
 #[tokio::test]
@@ -1521,9 +1523,9 @@ async fn asking_again_replaces_the_earlier_link() {
 }
 
 /// Nothing was reserved while the message sat in an inbox, so the name is
-/// checked against today's accounts. Somebody can be told at this point that it
-/// went to another person — rare, recoverable, and a much smaller problem than
-/// a registration form that hands out permanent holds on names.
+/// checked against today's accounts. A confirmation can fail here because it
+/// went to another person: rare, recoverable, and a much smaller problem than a
+/// registration form that hands out permanent holds on names.
 #[tokio::test]
 async fn a_name_taken_while_waiting_is_refused_at_confirmation() {
     let app = app_with_mail().await;
@@ -1553,8 +1555,8 @@ async fn a_name_taken_while_waiting_is_refused_at_confirmation() {
 }
 
 /// An address that gained an account while the link was waiting is answered like
-/// an unusable link rather than as a conflict. The address is not this caller's
-/// to be told about — and whoever they are, they have a working password for it
+/// an unusable link, not a conflict. The address is not this caller's
+/// to be told about, and whoever they are, they have a working password for it
 /// either way.
 #[tokio::test]
 async fn an_address_that_gained_an_account_while_waiting_is_refused() {
@@ -1611,7 +1613,7 @@ async fn an_instance_without_mail_creates_the_account_outright() {
 
 /// Which of the two an instance does is not something a client can guess from a
 /// `201`, so it is declared. A client that reads this wrong shows "welcome" to
-/// somebody who has to go and read their mail first.
+/// a caller who has to go and read their mail first.
 #[tokio::test]
 async fn capabilities_says_whether_registration_waits_on_the_address() {
     let plain = TestApp::ready().await;
@@ -1645,7 +1647,7 @@ async fn closed_registration_sends_nothing() {
     );
 }
 
-/// A registration nobody confirmed is swept, so an abandoned attempt does not
+/// An unconfirmed registration is swept, so an abandoned attempt does not
 /// hold an address against a later one for ever.
 #[tokio::test]
 async fn abandoned_registrations_are_swept() {
@@ -1674,8 +1676,8 @@ async fn abandoned_registrations_are_swept() {
 }
 
 /// The limit protects a mailbox, not an identity. `Alice@` and `alice@` stay
-/// separate accounts on purpose — the local part is case-sensitive by the
-/// standard — but every mail provider delivers both to the same inbox, so
+/// separate accounts by design, because the local part is case-sensitive by
+/// the standard, but every mail provider delivers both to the same inbox, so
 /// counting them apart made the limit walkable by changing case.
 ///
 /// Measured against a running instance before this was fixed: thirty-two
@@ -1730,9 +1732,9 @@ async fn spelling_an_address_differently_does_not_buy_more_reset_messages() {
 }
 
 /// Closing registration has to mean no more accounts. Without this check it
-/// would mean "no more accounts except from the links already sent" — a day of
-/// them by default, which an operator cannot see, count or cancel. Somebody
-/// closing registration is usually reacting to something.
+/// would mean "no more accounts except from the links already sent", a day of
+/// them by default, which an operator cannot see, count or cancel. Registration
+/// is usually closed in reaction to something.
 #[tokio::test]
 async fn closing_registration_stops_links_that_were_already_sent() {
     let app = TestApp::with_config(|config| {
@@ -1740,7 +1742,7 @@ async fn closing_registration_stops_links_that_were_already_sent() {
         "tessera@example.com".clone_into(&mut config.mail.from);
         "https://tessera.example.com".clone_into(&mut config.mail.public_url);
         // The link went out while registration was open; this is the instance
-        // as it stands when somebody opens it.
+        // as it stands when it is opened.
         config.auth.registration = RegistrationPolicy::Closed;
     })
     .await;
@@ -1780,7 +1782,7 @@ async fn closing_registration_stops_links_that_were_already_sent() {
 
 /// Two links asking for the same name, opened at the same moment, both read a
 /// free name before either writes. The unique index is what actually decides it,
-/// and the loser must be told that rather than shown a server error.
+/// and the loser must be told so, not shown a server error.
 #[tokio::test]
 async fn two_links_racing_for_one_name_do_not_produce_a_server_error() {
     let app = app_with_mail().await;
@@ -1882,8 +1884,7 @@ async fn sign_in_as(app: &TestApp, username: &str, agent: &str) -> String {
 }
 
 /// Without this, a list of sessions is five rows of timestamps and no way to
-/// tell which one is not yours — which is the only question the list exists to
-/// answer.
+/// tell which one is not yours, the only question the list exists to answer.
 #[tokio::test]
 async fn a_session_remembers_the_browser_that_started_it() {
     let app = TestApp::ready().await;
@@ -1902,7 +1903,7 @@ async fn a_session_remembers_the_browser_that_started_it() {
 /// The design decision this table exists to hold: written once, never updated.
 ///
 /// A row that followed the current request would show a stolen session wearing
-/// the thief's latest address — or the owner's own, if they happened to use it
+/// the thief's latest address, or the owner's own if they happened to use it
 /// last. What identifies a session is where it began.
 #[tokio::test]
 async fn later_requests_do_not_rewrite_where_a_session_began() {
@@ -1940,8 +1941,8 @@ async fn an_address_we_cannot_place_is_stored_as_nothing() {
     let app = TestApp::ready().await;
     register(&app, "member").await;
 
-    // The test harness calls the router directly, so there is no peer address —
-    // exactly the case this is about.
+    // The test harness calls the router directly, so there is no peer address,
+    // precisely the case this is about.
     let cookie = sign_in_as(&app, "member", "a browser").await;
     assert_eq!(session_behind(&app, &cookie).await.created_ip, None);
 }
@@ -1961,8 +1962,8 @@ async fn an_enormous_user_agent_is_cut_rather_than_refused() {
     assert_eq!(stored.chars().count(), 512);
 }
 
-/// A session started by something that sends no `User-Agent` — curl with the
-/// header stripped, a script — is still a session.
+/// A session started by something that sends no `User-Agent`, such as curl with
+/// the header stripped or a script, is still a session.
 #[tokio::test]
 async fn a_caller_that_names_no_browser_still_gets_a_session() {
     let app = TestApp::ready().await;
@@ -1970,9 +1971,9 @@ async fn a_caller_that_names_no_browser_still_gets_a_session() {
     assert_eq!(session_behind(&app, &cookie).await.created_user_agent, None);
 }
 
-/// A header value outside visible ASCII is dropped rather than mangled. Every
-/// real browser sends ASCII, so this is a client that went out of its way — and
-/// a session showing no browser is truthful, where a repaired string would not
+/// A header value outside visible ASCII is dropped, not mangled. Every
+/// real browser sends ASCII, so this is a client that went out of its way, and
+/// a session showing no browser is truthful where a repaired string would not
 /// be.
 #[tokio::test]
 async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
@@ -2004,7 +2005,7 @@ async fn a_user_agent_that_is_not_ascii_is_stored_as_nothing() {
 }
 
 /// The row is the record of a login, so presenting a session that is over must
-/// not remove it. This is the moment it matters most: somebody using a cookie
+/// not remove it. This is the moment it matters most: a cookie in use
 /// the owner revoked is the thing the list exists to show.
 #[tokio::test]
 async fn presenting_a_session_that_is_over_does_not_erase_it() {
@@ -2053,8 +2054,8 @@ async fn presenting_a_session_that_is_over_does_not_erase_it() {
     );
 }
 
-/// The owner is in the `WHERE` clause, not in a check beforehand. Somebody
-/// else's identifier must do nothing at all — not fail differently, not fail
+/// The owner is in the `WHERE` clause, not in a check beforehand. Another
+/// account's identifier must do nothing at all: not fail differently, not fail
 /// later, nothing.
 #[tokio::test]
 async fn revoking_reaches_only_your_own_sessions() {
@@ -2223,7 +2224,7 @@ async fn the_list_says_which_one_you_are_reading_it_from() {
     assert_eq!(current[0]["active"], true);
 }
 
-/// The sessions that are over stay on the list. Somebody reading it is asking
+/// The sessions that are over stay on the list. A person reading it is asking
 /// whether anybody else has been in, and one that was revoked last week is the
 /// answer they came for.
 #[tokio::test]
@@ -2296,7 +2297,7 @@ async fn ending_the_others_leaves_you_signed_in() {
     assert_eq!(rows.iter().filter(|row| row["active"] == true).count(), 1);
 }
 
-/// Somebody else's identifier answers the same as one that never existed and
+/// Another account's identifier answers the same as one that never existed and
 /// one that is not an identifier at all. Anything else makes this a way to ask
 /// which sessions exist and whose they are.
 #[tokio::test]
@@ -2519,7 +2520,7 @@ async fn every_unusable_code_says_the_same_thing() {
 }
 
 /// One code with several places is the case this exists for: something to send
-/// to a group chat rather than a code per person.
+/// to a group chat instead of a code per person.
 #[tokio::test]
 async fn a_code_admits_as_many_as_it_says_and_no_more() {
     let app = app_with_invites().await;
@@ -2557,7 +2558,7 @@ async fn two_people_cannot_take_the_same_last_place() {
     assert_eq!(invite[0].used, 1, "the code must not have been overdrawn");
 }
 
-/// An open instance ignores a code rather than refusing it, so a client can send
+/// An open instance ignores a code instead of refusing it, so a client can send
 /// the same body whichever kind of instance it is talking to.
 #[tokio::test]
 async fn an_open_instance_ignores_a_code() {
@@ -2583,9 +2584,9 @@ async fn a_closed_instance_refuses_even_a_real_code() {
 }
 
 /// The decision this feature turns on when mail is configured: a place is not
-/// taken until an account exists. Charging at submission would let somebody burn
-/// every place on a code by filling the form in five times and never opening
-/// their inbox — and there would be nothing to show for it.
+/// taken until an account exists. Charging at submission would let one visitor
+/// burn every place on a code by filling the form in five times and never
+/// opening their inbox, with nothing to show for it.
 #[tokio::test]
 async fn filling_in_the_form_does_not_spend_a_place() {
     let app = TestApp::with_config(|config| {
@@ -2662,7 +2663,7 @@ async fn following_the_link_spends_the_place() {
 /// A token minted without saying what it is for may upload and nothing else.
 ///
 /// The other default would hand every screenshot tool the ability to delete
-/// everything its owner has, and nobody would notice until one leaked.
+/// everything its owner has, and that surfaces only when one leaks.
 #[tokio::test]
 async fn a_token_defaults_to_uploading_and_nothing_else() {
     let app = TestApp::ready().await;
@@ -2703,7 +2704,7 @@ async fn a_token_defaults_to_uploading_and_nothing_else() {
         StatusCode::CREATED
     );
 
-    // Listing what the account has uploaded does not — that is `shares:read`.
+    // Listing what the account has uploaded does not; that is `shares:read`.
     assert_eq!(
         app.empty(Method::GET, "/api/v1/shares", Auth::Bearer(&secret))
             .await
@@ -2730,11 +2731,11 @@ async fn a_token_cannot_be_given_a_permission_its_owner_lacks() {
     assert_eq!(response.status(), StatusCode::FORBIDDEN);
 }
 
-/// Demoting somebody narrows every token they hold, at that moment.
+/// Demoting an account narrows every token it holds, at that moment.
 ///
 /// Without the intersection at the request, a token minted while its owner was
 /// an administrator would keep administering the instance after the owner
-/// stopped being one — which is the state nobody would think to check.
+/// stopped being one: the state no one would think to check.
 #[tokio::test]
 async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
     let app = TestApp::ready().await;
@@ -2777,18 +2778,22 @@ async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
         .state
         .roles
         .create(
-            "narrow".to_owned(),
-            None,
-            &[tessera_core::Permission::TokensManage]
-                .into_iter()
-                .collect(),
+            RoleFields {
+                name: "narrow",
+                description: None,
+                quota_bytes: None,
+                max_file_bytes: None,
+                permissions: &[tessera_core::Permission::TokensManage]
+                    .into_iter()
+                    .collect(),
+            },
             time::OffsetDateTime::now_utc(),
         )
         .await
         .expect("create the role");
     app.state
         .roles
-        .set_roles_of(user.id, &[narrow.id], time::OffsetDateTime::now_utc())
+        .set_role_of(user.id, Some(narrow.id), time::OffsetDateTime::now_utc())
         .await
         .expect("demote them");
 
@@ -2803,9 +2808,9 @@ async fn demoting_an_owner_narrows_the_tokens_they_already_hold() {
 
 /// Changing the address has to un-verify it.
 ///
-/// Carrying the old flag over would mean an address nobody has proven reachable
-/// wearing a verified one's badge — and on an instance that trusts that flag,
-/// that is the whole of the check.
+/// Carrying the old flag over would mean an unproven address
+/// wearing a verified one's badge, and on an instance that trusts that flag,
+/// that flag is the entire check.
 #[tokio::test]
 async fn moving_the_address_clears_the_verification() {
     let app = TestApp::ready().await;
@@ -2917,7 +2922,7 @@ async fn changing_the_address_needs_the_password() {
     );
 }
 
-/// Nobody renames themselves into a reserved name.
+/// No account renames itself into a reserved name.
 #[tokio::test]
 async fn a_rename_cannot_claim_a_reserved_name() {
     let app = TestApp::ready().await;
@@ -3052,11 +3057,11 @@ async fn the_only_administrator_cannot_remove_themselves() {
     );
 }
 
-/// Somebody must not be able to take the name a deletion will need.
+/// The name a deletion will need must not be claimable.
 ///
-/// A tombstone is `gone-<the account's own ulid>`, and identifiers are public —
+/// A tombstone is `gone-<the account's own ulid>`, and identifiers are public:
 /// every response that names an account carries one. So a person can read
-/// somebody else's, rename themselves to the tombstone that account will one
+/// another account's, rename themselves to the tombstone that account will one
 /// day need, and the unique index then refuses the deletion.
 #[tokio::test]
 async fn a_rename_cannot_take_a_tombstone_that_is_not_yours() {
@@ -3102,7 +3107,7 @@ async fn a_rename_cannot_take_a_tombstone_that_is_not_yours() {
     );
 }
 
-/// The same door, reached by registering rather than renaming.
+/// The same door, reached by registering instead of renaming.
 #[tokio::test]
 async fn registration_cannot_take_a_tombstone_either() {
     let app = TestApp::ready().await;
@@ -3148,5 +3153,109 @@ async fn registration_cannot_take_a_tombstone_either() {
         .status(),
         StatusCode::BAD_REQUEST,
         "the address a deletion needs must not be claimable either"
+    );
+}
+
+/// An account can exist with no password at all.
+///
+/// That is what signing in through an identity provider will create: no row
+/// in `credentials`. Written against the repository because no endpoint makes
+/// one yet.
+#[tokio::test]
+async fn an_account_can_have_no_password() {
+    let app = TestApp::ready().await;
+    let user = tessera_server::db::repository::user::User {
+        id: tessera_core::UserId::generate(),
+        username: tessera_core::Username::parse("provider-only").expect("a name"),
+        email: tessera_core::EmailAddress::parse("provider-only@example.com").expect("mail"),
+        role_id: None,
+        quota_bytes: None,
+        max_file_bytes: None,
+        must_change_password: false,
+        state: tessera_core::AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
+        email_verified_at: None,
+        created_at: time::OffsetDateTime::now_utc(),
+        updated_at: time::OffsetDateTime::now_utc(),
+    };
+    // No password: this is what a provider-created account looks like.
+    app.state.users.insert(&user, None).await.expect("store it");
+
+    // The account is there, and has no credential row.
+    app.state
+        .users
+        .find_by_id(user.id)
+        .await
+        .expect("query")
+        .expect("the account");
+    assert!(
+        app.state
+            .users
+            .password_of(user.id)
+            .await
+            .expect("query")
+            .is_none(),
+        "an account created without a password has one"
+    );
+}
+
+/// Signing in as an account with no password costs the same as signing in as an
+/// account that does not exist.
+///
+/// Returning early for "this one has no password" would answer, to anyone who
+/// can time a request, which addresses belong to single sign-on users.
+#[tokio::test]
+async fn an_account_with_no_password_cannot_be_told_apart_by_timing() {
+    let app = TestApp::ready().await;
+    let user = tessera_server::db::repository::user::User {
+        id: tessera_core::UserId::generate(),
+        username: tessera_core::Username::parse("provider-only").expect("a name"),
+        email: tessera_core::EmailAddress::parse("provider-only@example.com").expect("mail"),
+        role_id: None,
+        quota_bytes: None,
+        max_file_bytes: None,
+        must_change_password: false,
+        state: tessera_core::AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
+        email_verified_at: None,
+        created_at: time::OffsetDateTime::now_utc(),
+        updated_at: time::OffsetDateTime::now_utc(),
+    };
+    // No password: this is what a provider-created account looks like.
+    app.state.users.insert(&user, None).await.expect("store it");
+
+    let attempt = async |identifier: &str| {
+        let at = std::time::Instant::now();
+        let status = app
+            .json(
+                Method::POST,
+                "/api/v1/auth/login",
+                Auth::None,
+                &serde_json::json!({ "identifier": identifier, "password": "hunter2hunter2" }),
+            )
+            .await
+            .status();
+        (status, at.elapsed())
+    };
+
+    let (no_password, took_existing) = attempt("provider-only").await;
+    let (no_account, took_missing) = attempt("nobody-at-all").await;
+
+    assert_eq!(no_password, StatusCode::UNAUTHORIZED);
+    assert_eq!(no_account, StatusCode::UNAUTHORIZED);
+
+    // Both pay for a hash, so neither is an order of magnitude faster. A loose
+    // bound on purpose: this is a check that the dummy verification still
+    // happens, not a timing measurement.
+    let (quick, slow) = if took_existing < took_missing {
+        (took_existing, took_missing)
+    } else {
+        (took_missing, took_existing)
+    };
+    assert!(
+        slow < quick * 5 + std::time::Duration::from_millis(20),
+        "one answer was far faster than the other: {took_existing:?} vs {took_missing:?}"
     );
 }

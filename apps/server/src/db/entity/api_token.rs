@@ -25,8 +25,8 @@ pub struct Model {
     pub last_used_at: Option<TimeDateTimeWithTimeZone>,
     /// When it stops being accepted, or `None` to live until revoked.
     pub expires_at: Option<TimeDateTimeWithTimeZone>,
-    /// When it was revoked. Recorded rather than deleted, so an audit still
-    /// shows the token existed.
+    /// When it was revoked. Recorded, not deleted, so an audit still shows the
+    /// token existed.
     pub revoked_at: Option<TimeDateTimeWithTimeZone>,
 }
 

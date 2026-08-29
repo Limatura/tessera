@@ -51,17 +51,16 @@ pub struct AccountResponse {
     pub email: String,
     /// Whether the account holds the seeded administrator role.
     ///
-    /// Kept because clients read it. It is now derived rather than stored, and
-    /// it answers a narrower question than `permissions` does — somebody in a
-    /// role that grants `users:read` and nothing else is not an administrator
-    /// but can still reach one administrative endpoint. New clients should read
-    /// `permissions`.
+    /// Kept because clients read it, but derived and not stored, and narrower
+    /// than `permissions`. An account in a role granting `users:read`
+    /// and nothing else is not an administrator, yet reaches one administrative
+    /// endpoint. New clients should read `permissions`.
     pub is_admin: bool,
     /// Everything this account is allowed to do.
     ///
-    /// `resource:verb` strings. The set a client should decide what to show
-    /// from — a screen that guesses from `is_admin` will be wrong for every
-    /// role between "member" and "everything".
+    /// `resource:verb` strings, and what a client should decide from. A screen
+    /// guessing from `is_admin` is wrong for every role between "member" and
+    /// "everything".
     #[schema(example = json!(["shares:create", "shares:read"]))]
     pub permissions: Vec<String>,
     /// The roles it is in, by name.
@@ -72,15 +71,21 @@ pub struct AccountResponse {
     /// Set on the administrator generated at first run. A client seeing this
     /// should send the user to a change-password screen and nowhere else.
     pub must_change_password: bool,
+    /// A storage quota set on this one account, overriding its role's.
+    ///
+    /// `null` means the role's applies; `0` means this account has no ceiling
+    /// of its own. What is actually left is `storage_remaining_bytes` on
+    /// `/capabilities`, which accounts for what has been used.
+    #[schema(example = 10_737_418_240_u64)]
+    pub quota_bytes: Option<u64>,
 }
 
 impl AccountResponse {
     /// Builds the response from the account and the roles it is in.
     ///
-    /// Computed from the roles, because the roles are the only place the
-    /// answer lives. `users.is_admin` was a mirror of this and has been
-    /// dropped; a response that read it would have reported whatever the
-    /// column said rather than what the account can actually do.
+    /// Computed from the roles, the only place the answer lives.
+    /// `users.is_admin` mirrored this and has been dropped: reading it reported
+    /// whatever the column said, not what the account can do.
     #[must_use]
     pub fn build(user: &User, roles: &[Role]) -> Self {
         let permissions: PermissionSet = roles
@@ -91,10 +96,9 @@ impl AccountResponse {
             id: user.id.to_string(),
             username: user.username.to_string(),
             email: user.email.to_string(),
-            // Either seeded role that administers the instance. The field is
-            // kept for clients that still read it; `permissions` is what a
-            // screen should decide from, because neither of these two answers
-            // "may they delete an account".
+            // Either seeded role that administers the instance. Kept for
+            // clients that still read it; neither role answers "may they
+            // delete an account". That is what `permissions` is for.
             is_admin: roles.iter().any(|role| {
                 let id = role.id.to_string();
                 id == RoleId::OWNER || id == RoleId::ADMIN
@@ -105,6 +109,7 @@ impl AccountResponse {
                 .collect(),
             roles: roles.iter().map(|role| role.name.clone()).collect(),
             must_change_password: user.must_change_password,
+            quota_bytes: user.quota_bytes,
         }
     }
 }
@@ -115,8 +120,8 @@ pub struct RegisterRequest {
     /// 3–32 characters: letters, digits, `_` and `-`, starting with a letter or
     /// digit. Stored lowercased.
     // The bounds and the pattern are `Username`'s own, so a generated client
-    // rejects what the server would have rejected — and a fuzzer driven by this
-    // document stops spending its budget on inputs that cannot be usernames.
+    // rejects what the server would, and a fuzzer driven by this document stops
+    // spending its budget on inputs that cannot be usernames.
     #[schema(
         example = "alice",
         min_length = 3,
@@ -127,12 +132,11 @@ pub struct RegisterRequest {
     /// Address to reach the account at.
     #[schema(example = "alice@example.com", format = Email)]
     pub email: String,
-    /// At least `password_min_length` characters — see `/capabilities`.
-    // 8 and 1024 are `PasswordPolicy`'s floor and ceiling: no instance can be
-    // configured to accept anything outside them, so they are true of every
-    // deployment. The *configured* minimum is usually higher and is not
-    // knowable here — the document is generated at build time — which is why
-    // `/capabilities` exists and why 400 is a documented response.
+    /// At least `password_min_length` characters. See `/capabilities`.
+    // 8 and 1024 are `PasswordPolicy`'s floor and ceiling, so they hold for
+    // every deployment. The *configured* minimum is usually higher and cannot
+    // be known here, since the document is generated at build time. That is
+    // why `/capabilities` exists and 400 is a documented response.
     #[schema(
         example = "correct horse battery staple",
         min_length = 8,
@@ -157,8 +161,8 @@ pub struct LoginRequest {
     pub identifier: String,
     /// The account's password.
     ///
-    /// Bounded by what any instance could ever have accepted rather than by the
-    /// policy in force, so that raising the minimum cannot lock out an account
+    /// Bounded by what any instance could ever have accepted, not by the policy
+    /// in force, so that raising the minimum cannot lock out an account
     /// whose password was valid when it was chosen.
     #[schema(
         example = "correct horse battery staple",
@@ -182,26 +186,24 @@ pub struct ChangePasswordRequest {
 
 /// The key a per-address limit counts under.
 ///
-/// Folded, where [`EmailAddress`] deliberately is not: the local part is
-/// case-sensitive by the standard, so `Alice@example.com` and `alice@example.com`
-/// stay separate accounts. A limit is not about identity though — it is about
-/// one mailbox, and in practice every provider delivers both to the same one.
+/// Folded, where [`EmailAddress`] is not. The local part is case-sensitive by
+/// the standard, so `Alice@example.com` and `alice@example.com` stay separate
+/// accounts. A limit is about one mailbox
+/// and not identity, and every provider delivers both to the same one.
 ///
-/// Counting the unfolded address means the limit can be walked around by
-/// changing case, which is not a small margin: measured against a running
-/// instance, thirty-two attempts at eight spellings of a six-letter local part
-/// were answered twenty-four times against a stated limit of three, and a longer
-/// local part doubles that for every extra letter.
+/// Counting the unfolded address lets the limit be walked around by changing
+/// case. Measured against a running instance: thirty-two attempts at eight
+/// spellings of a six-letter local part were answered twenty-four times against
+/// a stated limit of three, and every extra letter doubles that.
 fn address_limit_key(email: &EmailAddress) -> String {
     email.as_str().to_lowercase()
 }
 
 /// The one answer an invite ever gets wrong.
 ///
-/// Unknown, spent and expired are one message. Telling them apart would let
-/// somebody holding a code they were never given learn that it was real once,
-/// and would turn a registration form into a way to test codes for validity
-/// rather than to use one.
+/// Unknown, spent and expired are one message. Telling them apart would let the
+/// holder of a code they were never given learn that it was once real, turning
+/// the registration form into a way to test codes instead of use one.
 fn invite_refused() -> Error {
     Error::bad_request("that invite code is not usable")
 }
@@ -210,23 +212,22 @@ fn invite_refused() -> Error {
 ///
 /// # Why the place is not taken here
 ///
-/// The invite is only looked at. Charging a place at this point would mean
-/// somebody can spend every place on a code by submitting the form five times
-/// and never confirming an address — and on an instance that sends mail, no
-/// account would exist to show for it. So the code is checked now, remembered
-/// on the pending row, and charged when there is an account.
+/// The invite is only looked at. Charging a place here would let one visitor
+/// spend every place on a code by submitting the form five times without ever
+/// confirming an address, with no account to show for it. So the code is
+/// checked now, remembered on the pending row, and charged once an account
+/// exists.
 ///
-/// The check still has to happen here: telling somebody their invite was no good
-/// after they have chosen a password and gone to their inbox is a worse way to
-/// find out.
+/// The check still belongs here. Reporting a bad invite after the password is
+/// chosen and the inbox checked is worse.
 ///
 /// # Errors
 ///
 /// `400` when the instance asks for a code and the one given is unknown, spent,
 /// expired or absent.
 async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Invite>> {
-    if state.config.auth.registration != RegistrationPolicy::Invite {
-        // An open instance ignores one rather than refusing it, so a client can
+    if state.config().auth.registration != RegistrationPolicy::Invite {
+        // An open instance ignores one instead of refusing it, so a client can
         // send the same body to either kind.
         return Ok(None);
     }
@@ -249,12 +250,12 @@ async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Inv
 
 /// Refuses everything when the instance has no accounts.
 ///
-/// `404`, not `403`. The endpoint genuinely is not part of this deployment, and
-/// the contract still describes it because the contract describes the software
-/// rather than one instance's configuration — `/capabilities` is what tells a
-/// client which half it is talking to.
+/// `404`, not `403`: the endpoint genuinely is not part of this deployment. The
+/// contract still describes it, because it describes the software and not one
+/// instance's configuration. `/capabilities` tells a client which half
+/// it is talking to.
 fn require_accounts(state: &AppState) -> Result<()> {
-    if state.config.features.accounts {
+    if state.config().features.accounts {
         Ok(())
     } else {
         Err(Error::NotFound)
@@ -263,29 +264,28 @@ fn require_accounts(state: &AppState) -> Result<()> {
 
 /// Which role a brand-new account goes into.
 ///
-/// The only place the choice is made, so "what can somebody do the moment they
-/// sign up" is one function rather than a property of whichever registration
-/// path they came through.
+/// The only place the choice is made, so "what can a new account do" is one
+/// function instead of a property of whichever registration path it came
+/// through.
 ///
-/// The first account administers the instance whatever the configuration says:
-/// an instance whose first account cannot administer it has nobody who can fix
+/// The first account administers the instance whatever the configuration says.
+/// An instance whose first account cannot administer it has no way to fix
 /// that.
 ///
 /// # Errors
 ///
 /// `500` when `auth.default_role` names a role that is not there. Startup
 /// refuses that configuration, so reaching it means the role was deleted while
-/// the server was running — and quietly putting somebody in `member` instead
-/// would be the server overruling a stated policy.
+/// the server ran, and quietly using `member` instead would overrule a stated
+/// policy.
 async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
     if first {
-        // The owner role, not `admin`: the first account is the person whose
-        // instance this is, and `admin` deliberately cannot grant permissions —
-        // an instance whose only account cannot hand out roles has nobody who
-        // can bring anybody else in.
+        // The owner role, not `admin`. The first account belongs to whoever
+        // runs the instance, and `admin` cannot grant permissions, so an
+        // instance without an owner can never admit a second account.
         return Ok(RoleId::parse(RoleId::OWNER)?);
     }
-    let wanted = &state.config.auth.default_role;
+    let wanted = &state.config().auth.default_role;
     let Some(role) = state.roles.find_by_name(wanted).await? else {
         tracing::error!(role = %wanted, "auth.default_role names a role that is not there");
         return Err(Error::Conflict(
@@ -325,31 +325,27 @@ pub async fn register(
 
     // Checked before anything is parsed, so a closed instance says so without
     // reading what was sent.
-    if state.config.auth.registration == RegistrationPolicy::Closed {
+    if state.config().auth.registration == RegistrationPolicy::Closed {
         return Err(Error::Forbidden);
     }
 
     let username = Username::parse(&body.username)?;
     let email = EmailAddress::parse(&body.email)?;
-    let password = Password::parse(body.password, state.config.auth.password)?;
+    let password = Password::parse(body.password, state.config().auth.password)?;
 
     // Checked before inserting so the caller gets "that name is taken" rather
-    // than a constraint violation. The unique index is still what guarantees it
-    // — this check races, and losing the race lands on the same 409 below.
+    // than a constraint violation. The unique index is still the guarantee;
+    // this check races, and losing the race lands on the same 409 below.
     //
-    // A name is answered plainly, unlike an address, and that asymmetry is a
-    // decision rather than an oversight. It does mean this endpoint will tell
-    // anyone whether a given name is taken — but a form that cannot say "try
-    // another one" is a form nobody can complete, so the alternative is finding
-    // out after a round trip through an inbox, or not at all.
+    // A name is answered plainly where an address is not, which does tell any
+    // caller whether a given name is taken. A form that cannot say "try another
+    // one" cannot be completed.
     //
-    // What makes it an acceptable trade and an address not: a name is a handle
-    // somebody chose for this instance, while an address identifies a person
-    // outside it. "alice has an account here" is a smaller fact than "the person
-    // reachable at this address has an account here", and only the second is a
-    // question strangers get to ask. An instance that does not want even the
-    // first one asked closes registration, which is refused above before any of
-    // this is reached.
+    // A name is a handle chosen for this instance; an address identifies a
+    // person outside it. "alice has an account here" is a smaller fact than
+    // "the person reachable at this address has an account here", and
+    // only the second is a question strangers get to ask. An instance that does
+    // not want even the first asked closes registration, refused above.
     if state.users.find_by_username(&username).await?.is_some() {
         return Err(Error::Conflict("that username is taken".to_owned()));
     }
@@ -357,13 +353,12 @@ pub async fn register(
     let invite = check_invite(&state, body.invite_code.as_deref()).await?;
 
     // With a relay configured, nothing is created until the address answers.
-    if state.mailer.is_some() {
+    if state.mailer().is_some() {
         return start_verified_registration(&state, username, email, password, invite);
     }
 
-    // Without one there is nothing to verify with, so this is the whole of it.
-    // That is the ordinary case for the instance this was built for: one person
-    // on a NAS, who is also the one who set the address.
+    // Without one there is nothing to verify with, so this is all of it.
+    // The ordinary case here: one person on a NAS who set the address.
     if state.users.find_by_email(&email).await?.is_some() {
         return Err(Error::Conflict(
             "an account already exists for that address".to_owned(),
@@ -371,25 +366,26 @@ pub async fn register(
     }
 
     let now = OffsetDateTime::now_utc();
-    // Taken before the account is written rather than after: a place that is
-    // charged only once everything else succeeded is a place two people can be
-    // holding at the same moment. If the insert then fails the place is gone,
-    // which costs the operator one slot on a code they can reissue — the other
-    // way round costs them a code that admits more people than it says.
+    // Taken before the account is written: a place charged only once everything
+    // else succeeded is a place two people can hold at once. If the insert then
+    // fails, the operator loses one slot on a code they can reissue. Cheaper
+    // than a code that admits more people than it says.
     if let Some(invite) = invite
         && !state.invites.spend(invite.id, now).await?
     {
         return Err(invite_refused());
     }
 
-    // The first account to exist becomes the administrator. On an instance
-    // where nobody bootstrapped one, that is the person who set it up.
+    // The first account to exist becomes the administrator. Where none was
+    // bootstrapped, that is whoever set the instance up.
     let first = !state.users.any_exist().await?;
     let user = User {
         id: UserId::generate(),
         username,
         email,
-        password_hash: password::hash(password, state.config.auth.hashing).await?,
+        role_id: Some(seed_role(&state, first).await?),
+        quota_bytes: None,
+        max_file_bytes: None,
         must_change_password: false,
         state: AccountState::Active,
         deleted_at: None,
@@ -399,15 +395,11 @@ pub async fn register(
         updated_at: now,
     };
 
-    if let Err(error) = state
-        .users
-        .insert(&user, seed_role(&state, first).await?)
-        .await
-    {
+    let hash = password::hash(password, state.config().auth.hashing).await?;
+    if let Err(error) = state.users.insert(&user, Some(&hash)).await {
         // The check above raced with another registration, or something else
-        // went wrong. Which one is decided by looking, rather than by assuming
-        // every insert failure is a conflict — that would report a database
-        // outage as "that name is taken".
+        // went wrong. Decided by looking, not by assuming every insert failure
+        // is a conflict, which would report an outage as a taken name.
         if state
             .users
             .find_by_username(&user.username)
@@ -461,10 +453,10 @@ pub async fn login(
     require_accounts(&state)?;
 
     // Keyed on the account *and* where the request came from. Account alone
-    // would let anyone lock a known user out by guessing at them; address alone
-    // would let a botnet spread its guesses and never trip the limit. A second
-    // counter watches the address by itself, because otherwise naming a
-    // different account each time produces a fresh key and no limit at all.
+    // lets anyone lock a known user out by guessing at them; address alone lets
+    // a botnet spread its guesses and never trip the limit. A second counter
+    // watches the address by itself, since naming a different account each time
+    // otherwise produces a fresh key and no limit at all.
     let key = format!("{}|{}", body.identifier.to_lowercase(), origin.source);
     let throttles = &state.throttles;
     if let Decision::Deny { retry_after } = throttles.check(&throttles.login, &key, &origin.source)
@@ -474,30 +466,35 @@ pub async fn login(
         });
     }
 
-    // Parsed against the widest bounds rather than this instance's policy: the
+    // Parsed against the widest bounds, not this instance's policy. The
     // password being presented was chosen under whatever policy was in force
     // then, and rejecting it here would show "wrong password" for a password
     // that is right. See `PasswordPolicy::widest`.
     let password = Password::parse(body.password, PasswordPolicy::widest()).ok();
     let user = find_by_identifier(&state, &body.identifier).await?;
 
-    let authenticated = if let (Some(user), Some(password)) = (user.as_ref(), password) {
+    let stored = match user.as_ref() {
+        Some(found) => state.users.password_of(found.id).await?,
+        None => None,
+    };
+    let authenticated = if let (Some(stored), Some(password)) = (stored, password) {
         // The hash is cloned because verification moves it onto the blocking
         // pool, and `user` is still needed to build the response.
-        password::verify(password, user.password_hash.clone()).await?
+        password::verify(password, stored).await?
     } else {
-        // No account, or a password the policy would not even accept. Both still
-        // pay for a hash: returning early would make "no such user" measurably
-        // faster than "wrong password", which is a free account-enumeration
-        // oracle on an endpoint anyone can call.
+        // No account, a password the policy would not accept, or an account
+        // that has only ever signed in through a provider. All three pay for a
+        // hash: returning early would make any of them measurably faster than
+        // "wrong password", which is an account-enumeration oracle. The third
+        // case is the one that is easy to miss and would answer "is this
+        // address one of your single sign-on users".
         verify_against_nothing().await?;
         false
     };
 
-    // The state is checked here rather than before the hash, and answers the
-    // same `401` as a wrong password. Checking earlier would return faster for a
-    // suspended account than for a wrong password, which tells anybody who asks
-    // that the account exists — the oracle the work above exists to close.
+    // The state is checked here, not before the hash, and answers the same
+    // `401` as a wrong password. Checking earlier returns faster for a
+    // suspended account, which reopens the oracle the work above closes.
     let Some(user) = user.filter(|found| authenticated && found.state.may_sign_in()) else {
         throttles.record_failure(&throttles.login, &key, &origin.source);
         return Err(Error::Unauthorized);
@@ -539,7 +536,7 @@ pub async fn logout(
     SelfServiceUser(current): SelfServiceUser,
 ) -> Result<Response> {
     // Only a session can be logged out of. A bearer token is revoked, not
-    // signed out — treating logout as revocation would let a stolen token
+    // signed out: treating logout as revocation would let a stolen token
     // destroy the owner's automation by calling this.
     if let Some(id) = current.credential.session_id() {
         state
@@ -549,7 +546,7 @@ pub async fn logout(
     }
 
     let secure = state
-        .config
+        .config()
         .auth
         .cookie_secure
         .applies(&headers, origin.via_trusted_proxy);
@@ -588,9 +585,9 @@ pub async fn session(
 
 /// Changes the caller's password.
 ///
-/// Every other session is ended, and a fresh one is issued so the caller stays
-/// signed in where they are. Whoever knew the old password may be holding a
-/// session, and changing a password is how a person says they want that to stop.
+/// Every other session is ended, and a fresh one issued so the caller stays
+/// signed in where they are. Changing a password is how a person says that
+/// whoever knew the old one should stop being signed in.
 ///
 /// # Errors
 ///
@@ -617,8 +614,7 @@ pub async fn change_password(
     ApiJson(body): ApiJson<ChangePasswordRequest>,
 ) -> Result<Response> {
     // A leaked API token must not be able to take the account. Requiring the
-    // browser credential keeps the blast radius of a leaked token to what the
-    // token can do, rather than everything.
+    // browser credential keeps a leaked token to what the token can do.
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
@@ -628,12 +624,21 @@ pub async fn change_password(
     // everyone below it unable to log in and unable to fix it.
     let supplied = Password::parse(body.current_password, PasswordPolicy::widest())
         .map_err(|_| Error::Unauthorized)?;
-    if !password::verify(supplied, current.user.password_hash.clone()).await? {
+    // An account with no password cannot confirm one. `Unauthorized` rather
+    // than a distinct answer: the caller is already signed in, so there is
+    // nothing to enumerate, and the route that fixes this is setting a password
+    // rather than guessing again.
+    let stored = state
+        .users
+        .password_of(current.user.id)
+        .await?
+        .ok_or(Error::Unauthorized)?;
+    if !password::verify(supplied, stored).await? {
         return Err(Error::Unauthorized);
     }
 
-    let replacement = Password::parse(body.new_password, state.config.auth.password)?;
-    let hash = password::hash(replacement, state.config.auth.hashing).await?;
+    let replacement = Password::parse(body.new_password, state.config().auth.password)?;
+    let hash = password::hash(replacement, state.config().auth.hashing).await?;
 
     let now = OffsetDateTime::now_utc();
     // `false`: this password was chosen by the person who owns the account,
@@ -642,9 +647,8 @@ pub async fn change_password(
         .users
         .set_password(current.user.id, hash, false, now)
         .await?;
-    // Every one of them, this one included: the browser gets a fresh session
-    // below, and "I changed my password" should not leave the old credential
-    // working anywhere, including here.
+    // Every one of them, this one included. The browser gets a fresh session
+    // below, and the old credential should work nowhere.
     state
         .sessions
         .end_all_for_user(current.user.id, None, SessionEnding::PasswordChanged, now)
@@ -686,10 +690,10 @@ async fn find_by_identifier(state: &AppState, identifier: &str) -> Result<Option
     if let Ok(email) = EmailAddress::parse(identifier) {
         return Ok(state.users.find_by_email(&email).await?);
     }
-    // Privileged parsing: this is a *lookup*, not a claim. The bootstrap
-    // administrator is called `admin`, which the reserved list refuses — so the
-    // ordinary parser would make the one account every instance has unable to
-    // sign in.
+    // Privileged parsing, because this is a *lookup* and not a claim. The
+    // bootstrap administrator is called `admin`, which the reserved list
+    // refuses, so the ordinary parser would lock out the one account every
+    // instance has.
     if let Ok(username) = Username::parse_privileged(identifier) {
         return Ok(state.users.find_by_username(&username).await?);
     }
@@ -703,11 +707,11 @@ async fn start_session(
     origin: &Origin,
     now: OffsetDateTime,
 ) -> Result<Cookie<'static>> {
-    // `std::time::Duration` is unsigned and `time::Duration` is not, so the
-    // conversion is fallible only for a TTL beyond any calendar. Falling back to
-    // the default rather than failing keeps an absurd configuration from
-    // breaking sign-in; start-up validation already refuses zero.
-    let ttl = time::Duration::try_from(state.config.auth.session_ttl())
+    // `std::time::Duration` is unsigned and `time::Duration` is not, so this
+    // fails only for a TTL beyond any calendar. Falling back to the default
+    // keeps an absurd configuration from breaking sign-in; start-up validation
+    // already refuses zero.
+    let ttl = time::Duration::try_from(state.config().auth.session_ttl())
         .unwrap_or_else(|_| time::Duration::days(30));
 
     let (_, secret) = state
@@ -723,7 +727,7 @@ async fn start_session(
     // The cookie's `Max-Age` matches the row's expiry, so a browser stops
     // sending a session at the same moment the server stops accepting it.
     let secure = state
-        .config
+        .config()
         .auth
         .cookie_secure
         .applies(headers, origin.via_trusted_proxy);
@@ -734,18 +738,17 @@ async fn start_session(
 ///
 /// # Why the address can be absent
 ///
-/// [`Origin::source`] always has something in it, because a throttle needs a key
-/// even when there is no address to be had — it says `unknown` then. A stored
-/// value is read by a person deciding whether a session is theirs, and
-/// `unknown` written in a column reads like a place. Nothing is a better answer
-/// than a word that looks like an answer.
+/// [`Origin::source`] always holds something, since a throttle needs a key even
+/// with no address to be had, and says `unknown` then. A person reads this
+/// column to decide whether a session is theirs, and `unknown` there reads like
+/// a place. Nothing beats a word that looks like an answer.
 ///
 /// # Why a user agent can be absent too
 ///
 /// `to_str` refuses a header value outside visible ASCII, and nothing is stored
-/// when it does. Every real browser sends ASCII, so what this drops is a client
-/// that went out of its way — and a session showing no browser is a truthful
-/// thing to show, where a mangled string would not be.
+/// when it does. Every real browser sends ASCII, so this only drops a client
+/// that went out of its way, and a session showing no browser is truthful where
+/// a mangled string would not be.
 fn session_origin(headers: &HeaderMap, origin: &Origin) -> SessionOrigin {
     SessionOrigin {
         ip: (origin.source != UNPLACEABLE).then(|| origin.source.clone()),
@@ -771,21 +774,17 @@ pub struct RegisterConfirmRequest {
 /// # Why the answer is the same whichever it is
 ///
 /// `202` whether or not the address already has an account. Saying "that
-/// address is taken" would make the registration form a way of asking whether
-/// somebody has an account here — the same question `POST /auth/password-reset`
-/// is careful to refuse, reachable through a different door.
+/// address is taken" would make the registration form a way to ask who has an
+/// account here, the same question `POST /auth/password-reset` refuses.
 ///
-/// The person who owns the address still finds out: they get a message saying
-/// somebody tried, which is also where they learn that repeated attempts are
-/// worth noticing. That is the one place the fact is disclosed, and it goes
-/// only to the one person entitled to it.
+/// The owner of the address still finds out, by mail. That is the one place
+/// the fact is disclosed, and it reaches only the person entitled to it.
 ///
 /// # Why this is not `async`
 ///
-/// Nothing here awaits, and that is the property worth keeping rather than an
-/// accident: every step whose cost depends on whether the address is known runs
-/// in the detached task below. If this ever needs an `await`, that is the moment
-/// to ask what it is waiting for and whether a stopwatch could tell.
+/// Nothing here awaits. Every step whose cost depends on whether the address is
+/// known runs in the detached task below. If this ever needs an `await`, ask
+/// what it is waiting for and whether a stopwatch could tell.
 fn start_verified_registration(
     state: &AppState,
     username: Username,
@@ -793,7 +792,7 @@ fn start_verified_registration(
     password: Password,
     invite: Option<Invite>,
 ) -> Result<Response> {
-    let Some(mailer) = state.mailer.clone() else {
+    let Some(mailer) = state.mailer().as_ref().clone() else {
         return Err(Error::NotFound);
     };
 
@@ -804,24 +803,20 @@ fn start_verified_registration(
             retry_after_secs: retry_after.as_secs(),
         });
     }
-    // Counted here, before anything is looked up, and not after a message goes
-    // out. Counting on send would mean the limit is only ever reached by
-    // addresses that have one — so the fourth attempt would answer `429` for a
-    // member and `202` for a stranger, which is the membership question this
-    // endpoint refuses to answer, asked four times instead of once. The same
-    // mistake was live in the reset handler and CI was green for it.
+    // Counted before anything is looked up, not after a message goes out.
+    // Counting on send means only addresses that get one ever reach the limit,
+    // so the fourth attempt answers `429` for a member and `202` for a
+    // stranger: the membership question this endpoint refuses, asked four times
+    // instead of once. The reset handler had the same bug with CI green.
     counter.record_failure(&limit_key);
 
-    // Detached, so the response goes out before any of it. Everything below is
-    // work a free address does and a taken one skips — hashing a password, and
-    // handing a message to a relay — so leaving it in the request path would
-    // make the two answer at measurably different speeds. That is the same
-    // membership question the `202` refuses, read with a stopwatch instead.
+    // Detached, so the response goes out first. Everything below is work a free
+    // address does and a taken one skips (hashing a password, handing a message
+    // to a relay), so leaving it in the request path lets a stopwatch ask the
+    // membership question the `202` refuses.
     //
-    // Not a theoretical margin. The instance that still does this synchronously
-    // (the one with no relay, where there is nothing to hide) answers in 22 ms
-    // for a free address and 0.6 ms for a taken one. With the work detached,
-    // both answer in 0.4 ms and the medians differ by 0.03 ms — noise.
+    // Measured. Done synchronously, a free address answers in 22 ms and a taken
+    // one in 0.6 ms; detached, both answer in 0.4 ms with medians 0.03 ms apart.
     let detached = state.clone();
     tokio::spawn(async move {
         let taken = match detached.users.find_by_email(&email).await {
@@ -835,11 +830,11 @@ fn start_verified_registration(
         let letter = if taken {
             let reset = format!(
                 "{}/reset-password",
-                detached.config.mail.public_url.trim_end_matches('/')
+                detached.config().mail.public_url.trim_end_matches('/')
             );
             crate::mail::already_registered_letter(email.as_str(), &reset)
         } else {
-            let hash = match password::hash(password, detached.config.auth.hashing).await {
+            let hash = match password::hash(password, detached.config().auth.hashing).await {
                 Ok(hash) => hash,
                 Err(error) => {
                     tracing::error!(?error, "could not hash a password during registration");
@@ -847,7 +842,7 @@ fn start_verified_registration(
                 }
             };
             let now = OffsetDateTime::now_utc();
-            let ttl = time::Duration::try_from(detached.config.mail.registration_ttl())
+            let ttl = time::Duration::try_from(detached.config().mail.registration_ttl())
                 .unwrap_or_else(|_| time::Duration::hours(24));
             let secret = match detached
                 .pending
@@ -871,13 +866,13 @@ fn start_verified_registration(
             };
             let link = format!(
                 "{}/register/confirm?token={}",
-                detached.config.mail.public_url.trim_end_matches('/'),
+                detached.config().mail.public_url.trim_end_matches('/'),
                 secret.expose()
             );
             crate::mail::registration_letter(
                 email.as_str(),
                 &link,
-                detached.config.mail.registration_ttl_hours,
+                detached.config().mail.registration_ttl_hours,
             )
         };
 
@@ -894,17 +889,16 @@ fn start_verified_registration(
 /// # Why the checks happen here and not when the link was sent
 ///
 /// Nothing was reserved while the message sat in an inbox. Reserving the name
-/// would have made "register and never confirm" a free way to lock every good
-/// name away, with nothing an operator could do about it. The price is this:
-/// the name is checked against today's accounts, and somebody can be told at
-/// this point that it went to another person. That is rare, it is recoverable,
-/// and it is a much smaller problem than the alternative.
+/// would make "register and never confirm" a free way to lock every good name
+/// away. The price is that the name is checked against today's accounts, so a
+/// confirmation can fail here because the name went elsewhere. Rare, and
+/// recoverable.
 ///
 /// # Errors
 ///
 /// `400` when the link is unknown, spent or expired, `403` when registration was
-/// closed while this was waiting, `409` when the name went to somebody else in
-/// the meantime, `404` when this instance sends no mail.
+/// closed while this was waiting, `409` when the name was taken in the
+/// meantime, `404` when this instance sends no mail.
 #[utoipa::path(
     post,
     path = "/auth/register/confirm",
@@ -925,26 +919,18 @@ pub async fn confirm_registration(
     ApiJson(body): ApiJson<RegisterConfirmRequest>,
 ) -> Result<Response> {
     require_accounts(&state)?;
-    if state.mailer.is_none() {
+    if state.mailer().is_none() {
         return Err(Error::NotFound);
     }
 
-    // Read again here, and not only where the link was sent. Closing
-    // registration has to mean no more accounts, and without this it would mean
-    // "no more accounts except from the links already in inboxes" — up to
-    // `registration_ttl_hours` of them, which an operator cannot see, cannot
-    // count and cannot cancel. Somebody closing registration is usually reacting
-    // to something, and a day of accounts still arriving is the opposite of what
-    // they asked for.
-    // Read again here, and not only where the link was sent. Closing
-    // registration has to mean no more accounts, and without this it would mean
-    // "no more accounts except from the links already in inboxes" — up to
-    // `registration_ttl_hours` of them, which an operator cannot see, count or
-    // cancel. Somebody closing registration is usually reacting to something.
+    // Read again here, not only where the link was sent. Closing registration
+    // has to mean no more accounts; without this it means "none except from the
+    // links already in inboxes", up to `registration_ttl_hours` of them, which
+    // an operator cannot see, count or cancel.
     //
-    // `Invite` still passes: the code was checked when the link was sent and is
-    // charged below, so this link is one somebody was actually given.
-    if state.config.auth.registration == RegistrationPolicy::Closed {
+    // `Invite` still passes. The code was checked when the link was sent and is
+    // charged below, so this link was genuinely issued.
+    if state.config().auth.registration == RegistrationPolicy::Closed {
         return Err(Error::Forbidden);
     }
 
@@ -952,8 +938,8 @@ pub async fn confirm_registration(
     let secret = crate::auth::secret::Secret::from_client(body.token);
     let found = state.pending.find_by_secret(&secret).await?;
 
-    // One message for unknown and expired alike: telling them apart would let
-    // somebody holding a stale link learn that it was once real.
+    // One message for unknown and expired alike. Telling them apart would let
+    // the holder of a stale link learn that it was once real.
     let Some(pending) = found.filter(|pending| pending.is_usable_at(now)) else {
         return Err(Error::bad_request(
             "this confirmation link is not usable; register again",
@@ -971,10 +957,9 @@ pub async fn confirm_registration(
                 .to_owned(),
         ));
     }
-    // Somebody else confirmed the same address first, or an account was made
-    // for it by other means. Answered like an unusable link rather than as a
-    // conflict: the address is not this caller's to be told about, and they
-    // have a working password for it either way.
+    // The address was confirmed first by another registration, or an account
+    // was made for it another way. Answered like an unusable link, not a
+    // conflict, since the address is not this caller's to be told about.
     if state.users.find_by_email(&pending.email).await?.is_some() {
         state.pending.finish(pending.id).await?;
         return Err(Error::bad_request(
@@ -997,14 +982,14 @@ pub async fn confirm_registration(
         id: UserId::generate(),
         username: pending.username.clone(),
         email: pending.email.clone(),
-        password_hash: pending.password_hash.clone(),
-        // Decided here rather than when the link was sent, because "first
+        role_id: Some(seed_role(&state, first).await?),
+        quota_bytes: None,
+        max_file_bytes: None,
+        // Decided here, not when the link was sent, because "first
         // account" has to mean first to *exist*. Two people confirming at once
-        // both read no accounts and both claim it — which the unique index does
-        // not prevent, since it is not a uniqueness question. It is also not
-        // worth a transaction: an instance whose first two accounts are created
-        // in the same instant is one nobody has bootstrapped, and both of those
-        // people are its operator.
+        // both read no accounts and both claim it, which no unique index
+        // prevents. Not worth a transaction either: an instance whose first two
+        // accounts arrive in the same instant belongs to both of them.
         must_change_password: false,
         state: AccountState::Active,
         deleted_at: None,
@@ -1016,14 +1001,13 @@ pub async fn confirm_registration(
     };
     if let Err(error) = state
         .users
-        .insert(&user, seed_role(&state, first).await?)
+        .insert(&user, Some(&pending.password_hash))
         .await
     {
         // The checks above raced with another confirmation. Decided by looking
-        // rather than by assuming every insert failure is a conflict, which
-        // would report a database outage as "that name is taken" — and the
-        // window is real: two links naming the same username, opened at the same
-        // moment, both read a free name.
+        // and not by assuming every insert failure is a conflict, which
+        // would report an outage as a taken name. The window is real: two links
+        // naming the same username, opened together, both read a free name.
         if state
             .users
             .find_by_username(&user.username)
@@ -1077,20 +1061,18 @@ pub struct PasswordResetConfirmRequest {
 /// # Why this always answers the same way
 ///
 /// `202` whether or not the address belongs to an account, and whether or not
-/// the mail could be handed to the relay. Any other shape turns this endpoint
-/// into a way of asking "does this person have an account here" — which for a
-/// file courier is a question about who uses it, answerable by anyone, at any
+/// the mail reached the relay. Any other shape turns this into a way to ask
+/// "does this person have an account here", answerable by anyone at whatever
 /// rate the throttle allows.
 ///
-/// The cost is that a typo produces no feedback. That is the right way round:
-/// somebody who mistyped their own address will notice when no mail arrives,
-/// and nobody learns anything from the response either way.
+/// The cost is that a typo produces no feedback. A mistyped address is noticed
+/// when no mail arrives.
 ///
 /// # Errors
 ///
-/// `404` when this instance sends no mail — the route is not mounted at all, so
-/// this is the router's answer rather than the handler's. `429` when this
-/// address has already been sent as many links as the window allows.
+/// `404` when this instance sends no mail. The route is not mounted, so that is
+/// the router's answer. `429` when this address has already been sent as
+/// many links as the window allows.
 #[utoipa::path(
     post,
     path = "/auth/password-reset",
@@ -1107,7 +1089,7 @@ pub async fn request_password_reset(
     State(state): State<AppState>,
     ApiJson(body): ApiJson<PasswordResetRequest>,
 ) -> Result<Response> {
-    let Some(mailer) = state.mailer.clone() else {
+    let Some(mailer) = state.mailer().as_ref().clone() else {
         // Unreachable in practice: the route is only mounted when a relay
         // exists. Kept so that a future caller cannot turn it into a panic.
         return Err(Error::NotFound);
@@ -1116,9 +1098,8 @@ pub async fn request_password_reset(
     // Normalised before it is used as a throttle key, or `A@b.com` and
     // `a@b.com` would each get their own budget.
     let Ok(email) = EmailAddress::parse(&body.email) else {
-        // A malformed address is answered like every other case. Saying "that
-        // is not an address" is harmless on its own, but it is one more way for
-        // the responses to differ from each other.
+        // A malformed address is answered like every other case: saying "that
+        // is not an address" is one more way for the responses to differ.
         return Ok((StatusCode::ACCEPTED, ()).into_response());
     };
 
@@ -1132,26 +1113,20 @@ pub async fn request_password_reset(
     // Counted before the account is looked up, so that being refused says
     // nothing about whether the address is known.
     //
-    // Counting only when a message was actually sent looks more careful — it
-    // keeps a stranger's address from spending somebody else's budget — and it
-    // is exactly the mistake this endpoint exists to avoid: four requests would
-    // then answer `429` for a member and `202` for everyone else, which is the
-    // membership oracle the `202` was supposed to close. Measured, not
-    // reasoned: it took one loop of `curl` to read the difference.
+    // Counting only when a message was sent looks more careful, and is the
+    // mistake this endpoint exists to avoid: four requests then answer `429`
+    // for a member and `202` for everyone else: the membership oracle the
+    // `202` closes. One loop of `curl` reads the difference.
     //
-    // The cost of counting always is that somebody who knows an address can
-    // stop it being reset for an hour. That is a nuisance with a way out (the
-    // `reset-password` subcommand, which needs no mail at all), whereas the
-    // oracle would be a property of the service nobody could work around.
+    // The cost is that anyone who knows an address can block its reset for an
+    // hour. That is a nuisance with a way out, the `reset-password` subcommand;
+    // the oracle would have none.
     throttles.reset.record_failure(&limit_key);
 
-    // Everything that depends on the account happening to exist runs detached,
-    // and the response goes out before any of it.
-    //
-    // Not tidiness — the same defence again. Handing a message to a relay takes
-    // an SMTP handshake, so doing it inline makes a request for a real address
-    // measurably slower than one for a stranger's: a clean read of who has an
-    // account here, from the outside, with a stopwatch. Even against a relay
+    // Everything that depends on the account existing runs detached, and the
+    // response goes out first. The same defence as above: handing a message to
+    // a relay takes an SMTP handshake, so inline it makes a request for a real
+    // address measurably slower than one for a stranger's. Even against a relay
     // that fails instantly the difference was consistently double.
     let detached = state.clone();
     tokio::spawn(async move {
@@ -1160,7 +1135,7 @@ pub async fn request_password_reset(
         };
 
         let now = OffsetDateTime::now_utc();
-        let ttl = time::Duration::try_from(detached.config.mail.reset_ttl())
+        let ttl = time::Duration::try_from(detached.config().mail.reset_ttl())
             .unwrap_or_else(|_| time::Duration::minutes(30));
         let secret = match detached
             .resets
@@ -1176,18 +1151,18 @@ pub async fn request_password_reset(
 
         let link = format!(
             "{}/reset-password?token={}",
-            detached.config.mail.public_url.trim_end_matches('/'),
+            detached.config().mail.public_url.trim_end_matches('/'),
             secret.expose()
         );
         let letter = password_reset_letter(
-            user.email.as_str(),
+            email.as_str(),
             &link,
-            detached.config.mail.reset_ttl_minutes,
+            detached.config().mail.reset_ttl_minutes,
         );
 
         if let Err(error) = mailer.send(letter).await {
-            // Logged, not returned — the caller is already gone, and the relay
-            // being down is the operator's problem to find in the logs.
+            // Logged, not returned: the caller is already gone, and a relay
+            // that is down is the operator's problem to find in the logs.
             tracing::error!(?error, "could not send a password reset link");
         }
     });
@@ -1197,8 +1172,8 @@ pub async fn request_password_reset(
 
 /// Sets a new password from a reset link.
 ///
-/// Every session belonging to the account is ended. Somebody asking to reset a
-/// password is usually saying they have lost control of it, and leaving the
+/// Every session belonging to the account is ended. A reset request usually
+/// means control of the password has been lost, and leaving the
 /// sessions alone would leave whoever had it signed in.
 ///
 /// # Errors
@@ -1220,7 +1195,7 @@ pub async fn confirm_password_reset(
     State(state): State<AppState>,
     ApiJson(body): ApiJson<PasswordResetConfirmRequest>,
 ) -> Result<Response> {
-    if state.mailer.is_none() {
+    if state.mailer().is_none() {
         return Err(Error::NotFound);
     }
 
@@ -1228,20 +1203,19 @@ pub async fn confirm_password_reset(
     let secret = crate::auth::secret::Secret::from_client(body.token);
     let found = state.resets.find_by_secret(&secret).await?;
 
-    // One message for unknown, spent and expired alike. They are different to
-    // us — which is why the row survives being used — but telling them apart
-    // out loud would let somebody with a spent link learn that it was once
-    // real, and that is a fact about somebody else's account.
+    // One message for unknown, spent and expired alike. The three differ here,
+    // and that is why the row survives being used, but saying so would let the
+    // holder of a spent link learn it was once real.
     let Some(token) = found.filter(|token| token.is_usable_at(now)) else {
         return Err(Error::bad_request(
             "this reset link is not usable; ask for a new one",
         ));
     };
 
-    // Parsed before the token is spent: a password that fails the policy should
-    // leave the link usable, or a typo costs somebody the whole round trip
-    // through their inbox.
-    let password = Password::parse(body.password, state.config.auth.password)?;
+    // Parsed before the token is spent. A password that fails the policy should
+    // leave the link usable, or a typo costs the whole round trip through the
+    // inbox.
+    let password = Password::parse(body.password, state.config().auth.password)?;
 
     // The database decides who wins, so two clicks arriving together set the
     // password once.
@@ -1251,7 +1225,7 @@ pub async fn confirm_password_reset(
         ));
     }
 
-    let hash = password::hash(password, state.config.auth.hashing).await?;
+    let hash = password::hash(password, state.config().auth.hashing).await?;
     // `false`: the person just chose this one, so there is nothing to force a
     // change of.
     state
@@ -1259,8 +1233,8 @@ pub async fn confirm_password_reset(
         .set_password(token.user_id, hash, false, now)
         .await?;
 
-    // Both, and in this order. Any other outstanding link is a key somebody may
-    // still be holding; any existing session belongs to whoever had the old
+    // Both, in this order. Any other outstanding link is a key still in
+    // circulation; any existing session belongs to whoever had the old
     // password.
     state.resets.spend_all_for(token.user_id, now).await?;
     state
@@ -1325,18 +1299,16 @@ pub struct DeleteAccountRequest {
     pub current_password: String,
     /// Whether to end everything this account uploaded.
     ///
-    /// Defaults to ending it. For a file courier, "delete my account" usually
-    /// means "and the things I sent" — and somebody who wants the links they
-    /// handed out to keep working is the rarer case, worth one explicit `false`.
+    /// Defaults to ending it. "Delete my account" usually means "and the things
+    /// I sent"; wanting the handed-out links to keep working is the rarer case,
+    /// worth one explicit `false`.
     ///
     /// # What "delete" means here
     ///
     /// Every link stops working the moment this returns. The bytes go later,
-    /// when the housekeeping pass reaches them — removing hundreds of objects
-    /// inside one request is a request that times out half way through with no
-    /// record of where it got to.
-    ///
-    /// So the content does go, and nothing serves it in the meantime; what
+    /// when the housekeeping pass reaches them, because removing hundreds of
+    /// objects inside one request times out half way through with no record of
+    /// where it got to. Nothing serves the content in the meantime; what
     /// arrives after the answer is the disk space.
     #[serde(default = "delete_shares_by_default")]
     pub delete_shares: bool,
@@ -1351,16 +1323,20 @@ const fn delete_shares_by_default() -> bool {
 /// # Errors
 ///
 /// `401` when it is wrong, `403` when the caller used an API token.
-async fn reconfirm(current: &CurrentUser, supplied: String) -> Result<()> {
-    // A leaked API token must not be able to rename or remove the account. The
-    // same reasoning as changing a password: the blast radius of a token stays
-    // what the token can do.
+async fn reconfirm(state: &AppState, current: &CurrentUser, supplied: String) -> Result<()> {
+    // A leaked API token must not be able to rename or remove the account, for
+    // the same reason as changing a password.
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
     let supplied =
         Password::parse(supplied, PasswordPolicy::widest()).map_err(|_| Error::Unauthorized)?;
-    if password::verify(supplied, current.user.password_hash.clone()).await? {
+    let stored = state
+        .users
+        .password_of(current.user.id)
+        .await?
+        .ok_or(Error::Unauthorized)?;
+    if password::verify(supplied, stored).await? {
         Ok(())
     } else {
         Err(Error::Unauthorized)
@@ -1393,11 +1369,11 @@ pub async fn update_account(
     current: CurrentUser,
     ApiJson(body): ApiJson<UpdateAccountRequest>,
 ) -> Result<Json<AccountResponse>> {
-    reconfirm(&current, body.current_password).await?;
+    reconfirm(&state, &current, body.current_password).await?;
 
     let username = match body.username {
-        // Not `parse_privileged`: nobody renames themselves to `admin`. The
-        // reserved list exists for exactly this door as well as registration.
+        // Not `parse_privileged`. No account may rename itself to `admin`; the
+        // reserved list guards this door as well as registration.
         Some(wanted) => Username::parse(&wanted)?,
         None => current.user.username.clone(),
     };
@@ -1415,8 +1391,8 @@ pub async fn update_account(
         return Err(Error::Conflict("that address is taken".to_owned()));
     }
 
-    // Cleared when the address moves, kept otherwise. Somebody correcting a
-    // typo in their name should not have to prove their address again.
+    // Cleared when the address moves, kept otherwise. Correcting a typo in a
+    // name should not mean proving the address again.
     let verified_at = if moved {
         None
     } else {
@@ -1449,10 +1425,9 @@ pub async fn update_account(
 ///
 /// # Why the shares are the caller's decision and not an administrator's
 ///
-/// They are the person's own uploads. An administrator removing somebody else
-/// does not touch their content — that is a separate, explicit act — but
-/// somebody removing themselves is entitled to say what happens to what they
-/// sent.
+/// They are the account's own uploads. An administrator removing another
+/// account does not touch its content, a separate and explicit act,
+/// but an account removing itself may say what happens to what it sent.
 ///
 /// # Errors
 ///
@@ -1479,11 +1454,11 @@ pub async fn delete_account(
     current: CurrentUser,
     ApiJson(body): ApiJson<DeleteAccountRequest>,
 ) -> Result<Response> {
-    reconfirm(&current, body.current_password).await?;
+    reconfirm(&state, &current, body.current_password).await?;
 
-    // The same guard the administrative route has, reached from the other side:
-    // an instance whose last administrator removes themselves is one nobody can
-    // administer, and nothing can undo that.
+    // The same guard the administrative route has, from the other side: an
+    // instance whose last administrator removes themselves cannot be
+    // administered, and nothing undoes that.
     if current.permissions.allows(Permission::RolesWrite)
         && state.roles.holders_of(Permission::RolesWrite).await? <= 1
     {
@@ -1512,13 +1487,12 @@ pub async fn delete_account(
 
     tracing::info!(account = %current.user.id, "an account removed itself");
 
-    // The rows are gone, so the cookie is already dead — but leaving it in the
-    // browser means the next request carries a credential for an account that
+    // The rows are gone, so the cookie is already dead, but leaving it in the
+    // browser makes the next request carry a credential for an account that
     // does not exist, and the client has to work out that `401` means "you are
-    // finished" rather than "sign in again". `logout` clears it for the same
-    // reason.
+    // finished" and not "sign in again". `logout` clears it too.
     let secure = state
-        .config
+        .config()
         .auth
         .cookie_secure
         .applies(&headers, origin.via_trusted_proxy);

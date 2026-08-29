@@ -1,9 +1,9 @@
 //! The one place that decides whether a share may be handed out.
 //!
 //! Four routes read a share: the page, its metadata, `/raw` and `/download`.
-//! They must not be able to disagree — a `/raw` that skipped the password check
-//! would make the password decorative. So the checks live here, and the routes
-//! differ only in what they are allowed to do with the result.
+//! They must not be able to disagree, since a `/raw` that skipped the password
+//! check would make the password decorative. The checks live here, and the
+//! routes differ only in what they may do with the result.
 //!
 //! # Authorising and spending are separate steps
 //!
@@ -11,27 +11,26 @@
 //! the share one of its permitted retrievals, and it hands back a ticket that
 //! can be presented as many times as the transfer needs.
 //!
-//! That split is the whole reason the counting works. A download is not one
-//! request: `Range` makes it several, a dropped connection makes it several
-//! more, and a browser may prefetch before anyone clicks. Counting requests
-//! would mean a resumed download burning three uses of a share that allows
-//! three, and an interrupted one destroying a burn-after-reading share before
-//! its reader ever saw it.
+//! That split is why the counting works. A download is not one request:
+//! `Range` makes it several, a dropped connection several more, and a browser
+//! may prefetch before anyone clicks. Counting requests would let a resumed
+//! download burn all three uses of a share that allows three, and an
+//! interrupted one destroy a burn-after-reading share before its reader saw it.
 //!
 //! # A ticket outlives the count, and only the count
 //!
 //! Spending the last retrieval leaves the share [`Availability::Exhausted`]
 //! *before* the bytes have moved. Refusing on that would make a one-use share
-//! impossible to collect at all — the download that paid for it would be turned
+//! impossible to collect, since the download that paid for it would be turned
 //! away by the payment. So [`admit`] lets a held ticket through that one state,
-//! which is the same rule that lets a resumed transfer continue.
+//! the same rule that lets a resumed transfer continue.
 //!
 //! It does not extend to [`Availability::Expired`] or
 //! [`Availability::Disabled`], and the difference is who decided. Exhaustion is
 //! this reader's own retrieval coming back around; an expiry is the uploader
-//! having said "not after this", and a disable is an operator having said "not
-//! any more". A ticket must not outrank either of them, so a transfer still
-//! running when the share expires stops there.
+//! saying "not after this" and a disable is an operator saying "not any more".
+//! A ticket must not outrank either, so a transfer still running when the share
+//! expires stops there.
 
 use axum::http::HeaderMap;
 use tessera_core::{Password, PasswordPolicy, RetrievalCode};
@@ -46,7 +45,7 @@ use crate::{
 
 /// Header carrying a share's password.
 ///
-/// A header rather than a query parameter: query strings reach access logs,
+/// A header, not a query parameter. Query strings reach access logs,
 /// shell history, and the `Referer` a page sends to whatever it links to next.
 pub const PASSWORD_HEADER: &str = "x-share-password";
 
@@ -55,11 +54,10 @@ pub const TICKET_HEADER: &str = "x-share-ticket";
 
 /// What a share's password must satisfy to be *chosen*.
 ///
-/// Lower than an account's minimum on purpose. A share password is a second
-/// factor on a link that is already unguessable, and it gets read out over the
-/// phone — a four-digit code is a reasonable thing to want. An account password
-/// is the only thing between a stranger and the account, which is a different
-/// job.
+/// Lower than an account's minimum by design. A share password is a second
+/// factor on a link that is already unguessable and often read out over the
+/// phone, so a four-digit code is reasonable. An account password is the only
+/// thing between a stranger and the account: a different job.
 pub const CHOOSING: PasswordPolicy = PasswordPolicy {
     min_length: 4,
     max_length: PasswordPolicy::CEILING,
@@ -72,8 +70,8 @@ pub const CHOOSING: PasswordPolicy = PasswordPolicy {
 /// four-character share password against it rejects the right password before
 /// it ever reaches the hash.
 ///
-/// Wider than [`CHOOSING`] for the same reason accounts have the distinction —
-/// a share's password was chosen under whatever rule was in force then, and
+/// Wider than [`CHOOSING`] for the same reason accounts have the distinction: a
+/// share's password was chosen under whatever rule was in force then, and
 /// tightening the rule must not make existing shares unopenable.
 const PRESENTING: PasswordPolicy = PasswordPolicy {
     min_length: 1,
@@ -82,7 +80,7 @@ const PRESENTING: PasswordPolicy = PasswordPolicy {
 
 /// Whether the request arrived holding a live authorisation for this share.
 ///
-/// A named pair rather than a `bool`, because the call it feeds reads
+/// A named pair, not a `bool`, because the call it feeds reads
 /// `admit(&share, Ticket::Held)` at every site, and `admit(&share, true)` would
 /// not say what the `true` was about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -95,8 +93,8 @@ pub enum Ticket {
 
 /// Finds a live share, or says why it is not one.
 ///
-/// Does **not** check the password — that costs an Argon2 verification, and
-/// there is no reason to pay it for a share that has already expired.
+/// Does **not** check the password, which costs an Argon2 verification not
+/// worth paying for a share that has already expired.
 ///
 /// # Errors
 ///
@@ -136,13 +134,12 @@ pub async fn find(state: &AppState, code: &str, source: &str) -> Result<Share> {
         Err(_) => None,
     };
     let Some(share) = found else {
-        // Only a miss counts. A share that exists but has expired is somebody
-        // returning to a link they were given, not somebody guessing.
+        // Only a miss counts. A share that exists but has expired is a return
+        // visit to a link that was given out, not a guess.
         //
-        // A hit deliberately does *not* reset the count either: an enumerator
-        // holding one code they know is real could otherwise clear the counter
-        // between batches and guess without limit. The window forgives it
-        // instead, which is slower to recover from and impossible to game.
+        // A hit does *not* reset the count either: an enumerator holding one
+        // code they know is real could otherwise clear the counter between
+        // batches. The window forgives it instead, which cannot be gamed.
         throttles.lookup.record_failure(source);
         return Err(Error::NotFound);
     };
@@ -162,7 +159,7 @@ pub fn admit(share: &Share, ticket: Ticket) -> Result<()> {
         Availability::Available => Ok(()),
         // Disabled reads as "never existed": an operator switching a share off
         // has decided it should stop being a thing, and confirming it was real
-        // serves nobody.
+        // serves no one.
         Availability::Disabled => Err(Error::NotFound),
         Availability::Expired => Err(Error::Gone("this share has expired".to_owned())),
         // The retrieval this ticket paid for is the one that emptied the share,
@@ -178,12 +175,11 @@ pub fn admit(share: &Share, ticket: Ticket) -> Result<()> {
 ///
 /// # Why this is throttled
 ///
-/// A share password may be four characters, which is the right trade for
-/// something read out over the phone and worthless without a limit on guesses:
-/// measured, an unthrottled endpoint answered 246 attempts a second, so ten
-/// thousand combinations fell in under a minute. Each attempt also costs a full
-/// Argon2 verification, so the same requests are a way to make the server
-/// allocate.
+/// A share password may be four characters, which suits something read out over
+/// the phone and is worthless without a limit on guesses. Measured: an
+/// unthrottled endpoint answered 246 attempts a second, so ten thousand
+/// combinations fell in under a minute. Each attempt also costs a full Argon2
+/// verification, so the same requests make the server allocate.
 ///
 /// # Errors
 ///
@@ -232,7 +228,7 @@ pub async fn unlock(
 ///
 /// # Errors
 ///
-/// `410` when the limit was reached between [`open`] and here — the count is
+/// `410` when the limit was reached between [`open`] and here. The count is
 /// decided by the database, so two callers racing for the last retrieval get
 /// one winner.
 pub async fn spend(state: &AppState, share: &Share) -> Result<Secret> {
@@ -243,18 +239,28 @@ pub async fn spend(state: &AppState, share: &Share) -> Result<Secret> {
         ));
     }
 
-    let ttl = time::Duration::try_from(state.config.share.ticket_ttl())
-        .unwrap_or_else(|_| time::Duration::days(1));
+    // Issued with the idle window, not the ceiling. The ticket is renewed by
+    // being used, so starting it at its maximum leaves the renewal nothing to
+    // do and the whole life becomes the fixed one this replaced.
+    //
+    // Still capped by the ceiling, since an instance may configure an idle
+    // window longer than the total life, and the ticket must not be born past
+    // the limit its renewals are checked against.
+    let config = state.config();
+    let first = Ord::min(
+        duration_of(config.share.ticket_idle()),
+        duration_of(config.share.ticket_ttl()),
+    );
     let (_, secret) = state
         .tickets
-        .issue(share.id, now, now.saturating_add(ttl))
+        .issue(share.id, now, now.saturating_add(first))
         .await?;
     Ok(secret)
 }
 
 /// Whether the request already holds an authorisation for this share.
 ///
-/// A ticket is bound to one share, so presenting somebody else's is the same as
+/// A ticket is bound to one share, so presenting another share's is the same as
 /// presenting none.
 ///
 /// # Errors
@@ -272,16 +278,47 @@ pub async fn holds_ticket(
     let Some(ticket) = state.tickets.find_by_secret(&secret).await? else {
         return Ok(Ticket::Absent);
     };
-    if ticket.share_id == share.id && ticket.is_valid_at(OffsetDateTime::now_utc()) {
-        Ok(Ticket::Held)
-    } else {
-        Ok(Ticket::Absent)
+    let now = OffsetDateTime::now_utc();
+    if ticket.share_id != share.id || !ticket.is_valid_at(now) {
+        return Ok(Ticket::Absent);
     }
+
+    // Presenting it keeps it alive. A transfer still going, whether a resumed
+    // download, a run of `Range` requests or a client retrying with backoff,
+    // holds its authorisation as long as it needs, and one that finished is
+    // gone within `share.ticket_idle_hours`.
+    //
+    // That is what makes a ticket not worth passing on: its value decays while
+    // it sits in a message, instead of lasting the whole day a fixed lifetime
+    // would have to allow for.
+    //
+    // A failure here is logged, not returned. The caller has a valid ticket and
+    // is owed the content; refusing over a failed bookkeeping write would turn
+    // a slipped expiry into an outage.
+    let config = state.config();
+    if let Err(error) = state
+        .tickets
+        .touch(
+            &ticket,
+            now,
+            duration_of(config.share.ticket_idle()),
+            duration_of(config.share.ticket_ttl()),
+        )
+        .await
+    {
+        tracing::warn!(?error, "could not extend a download authorisation");
+    }
+    Ok(Ticket::Held)
+}
+
+/// A `std::time::Duration` as `time`'s, saturating instead of panicking.
+fn duration_of(value: std::time::Duration) -> time::Duration {
+    time::Duration::try_from(value).unwrap_or(time::Duration::MAX)
 }
 
 /// Reads a ticket from the header or, failing that, the `t` query parameter.
 ///
-/// The query form exists because a download is an `<a href>` — a browser
+/// The query form exists because a download is an `<a href>`, and a browser
 /// navigation cannot carry a custom header. It is the weaker of the two, so it
 /// is only consulted when the header is absent.
 fn ticket_secret(headers: &HeaderMap, from_query: Option<&str>) -> Option<Secret> {

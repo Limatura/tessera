@@ -24,14 +24,10 @@ CREATE TABLE uploads (
     -- How much has landed. The answer to a `HEAD`.
     offset_bytes   INTEGER NOT NULL DEFAULT 0,
     -- Decided once, at creation. See above.
-    object_key     TEXT NOT NULL,
-    -- The store's own multipart identifier, for the backends that have one.
-    -- NULL on a local filesystem, which appends to a file instead.
-    multipart_id   TEXT,
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL,
     expires_at     TEXT NOT NULL
-)
+, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
 ```
 
 </details>
@@ -40,7 +36,7 @@ CREATE TABLE uploads (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [upload_parts](upload_parts.md) |  |  |
+| id | TEXT |  | false | [upload_segments](upload_segments.md) [upload_parts](upload_parts.md) |  |  |
 | share_id | TEXT |  | true |  | [shares](shares.md) |  |
 | user_id | TEXT |  | true |  | [users](users.md) |  |
 | token_hash | TEXT |  | false |  |  |  |
@@ -48,25 +44,26 @@ CREATE TABLE uploads (
 | content_type | TEXT |  | true |  |  |  |
 | declared_bytes | INTEGER |  | false |  |  |  |
 | offset_bytes | INTEGER | 0 | false |  |  |  |
-| object_key | TEXT |  | false |  |  |  |
-| multipart_id | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | updated_at | TEXT |  | false |  |  |  |
 | expires_at | TEXT |  | false |  |  |  |
+| role_id | TEXT |  | true |  | [roles](roles.md) |  |
 
 ## Constraints
 
 | Name | Type | Definition |
 | ---- | ---- | ---------- |
 | id | PRIMARY KEY | PRIMARY KEY (id) |
-| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
-| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (share_id) REFERENCES shares (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (role_id) REFERENCES roles (id) ON UPDATE NO ACTION ON DELETE SET NULL MATCH NONE |
+| - (Foreign key ID: 1) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
+| - (Foreign key ID: 2) | FOREIGN KEY | FOREIGN KEY (share_id) REFERENCES shares (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
 | sqlite_autoindex_uploads_1 | PRIMARY KEY | PRIMARY KEY (id) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_uploads_role | CREATE INDEX idx_uploads_role ON uploads (role_id) |
 | idx_uploads_expires | CREATE INDEX idx_uploads_expires ON uploads (expires_at) |
 | sqlite_autoindex_uploads_1 | PRIMARY KEY (id) |
 
@@ -75,9 +72,11 @@ CREATE TABLE uploads (
 ```mermaid
 erDiagram
 
+"upload_segments" |o--|| "uploads" : ""
 "upload_parts" |o--|| "uploads" : ""
 "uploads" }o--o| "shares" : ""
 "uploads" }o--o| "users" : ""
+"uploads" }o--o| "roles" : ""
 
 "uploads" {
   TEXT id PK
@@ -88,14 +87,26 @@ erDiagram
   TEXT content_type
   INTEGER declared_bytes
   INTEGER offset_bytes
-  TEXT object_key
-  TEXT multipart_id
   TEXT created_at
   TEXT updated_at
   TEXT expires_at
+  TEXT role_id FK
+}
+"upload_segments" {
+  TEXT upload_id PK
+  INTEGER seq PK
+  TEXT backend
+  TEXT object_key
+  INTEGER offset_bytes
+  INTEGER length_bytes
+  TEXT multipart_id
+  TEXT state
+  TEXT created_at
+  TEXT updated_at
 }
 "upload_parts" {
   TEXT upload_id PK
+  INTEGER seq PK
   INTEGER part_number PK
   TEXT content_id
 }
@@ -118,12 +129,12 @@ erDiagram
   TEXT updated_at
   INTEGER copy_count
   INTEGER bytes_served
+  TEXT role_id FK
 }
 "users" {
   TEXT id PK
   TEXT username
   TEXT email
-  TEXT password_hash
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at
@@ -131,6 +142,19 @@ erDiagram
   TEXT state
   TEXT deleted_at
   TEXT deleted_by FK
+  TEXT role_id FK
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
+}
+"roles" {
+  TEXT id PK
+  TEXT name
+  TEXT description
+  INTEGER is_system
+  TEXT created_at
+  TEXT updated_at
+  INTEGER quota_bytes
+  INTEGER max_file_bytes
 }
 ```
 
