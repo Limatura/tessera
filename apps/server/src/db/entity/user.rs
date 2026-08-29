@@ -26,8 +26,6 @@ pub struct Model {
     /// Domain half already lowercased; local part left exactly as typed.
     #[sea_orm(unique)]
     pub email: String,
-    /// PHC-format Argon2 string. Never a plaintext password.
-    pub password_hash: String,
     /// Which role the account is in, or `None` for one in no role: signed in
     /// and allowed nothing: a real state, not a fault.
     pub role_id: Option<String>,

@@ -15,7 +15,7 @@ CREATE TABLE sessions (
     created_at   TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
     expires_at   TEXT NOT NULL
-, created_ip TEXT, created_user_agent TEXT, ended_reason TEXT)
+, created_ip TEXT, created_user_agent TEXT, ended_reason TEXT, origin TEXT NOT NULL DEFAULT 'password')
 ```
 
 </details>
@@ -33,6 +33,7 @@ CREATE TABLE sessions (
 | created_ip | TEXT |  | true |  |  |  |
 | created_user_agent | TEXT |  | true |  |  |  |
 | ended_reason | TEXT |  | true |  |  |  |
+| origin | TEXT | 'password' | false |  |  |  |
 
 ## Constraints
 
@@ -69,12 +70,12 @@ erDiagram
   TEXT created_ip
   TEXT created_user_agent
   TEXT ended_reason
+  TEXT origin
 }
 "users" {
   TEXT id PK
   TEXT username
   TEXT email
-  TEXT password_hash
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at

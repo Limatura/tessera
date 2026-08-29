@@ -28,6 +28,13 @@ pub struct Model {
     pub created_ip: Option<String>,
     /// The `User-Agent` the session was started with, as it arrived.
     pub created_user_agent: Option<String>,
+    /// Which way of signing in started this session: `password` or `oidc`.
+    ///
+    /// A provider can disable somebody, and a session that outlives that is
+    /// what single sign-on exists to prevent. What can be done about it depends
+    /// on what the provider supports, so the session has to know where it came
+    /// from.
+    pub origin: String,
     /// Why this session was ended early, if it was.
     ///
     /// `None` means it simply ran out. See the migration for why this decides

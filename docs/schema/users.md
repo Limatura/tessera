@@ -12,7 +12,6 @@ CREATE TABLE users (
     id            TEXT    NOT NULL PRIMARY KEY,
     username      TEXT    NOT NULL,
     email         TEXT    NOT NULL,
-    password_hash TEXT    NOT NULL,
     must_change_password INTEGER NOT NULL DEFAULT 0,
     -- TEXT rather than INTEGER: sqlx encodes an `OffsetDateTime` as RFC 3339
     -- text for SQLite, and a column declared INTEGER would take it anyway
@@ -31,10 +30,9 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [oidc_flows](oidc_flows.md) [credentials](credentials.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
-| password_hash | TEXT |  | false |  |  |  |
 | must_change_password | INTEGER | 0 | false |  |  |  |
 | email_verified_at | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
@@ -76,13 +74,15 @@ erDiagram
 "shares" }o--o| "users" : ""
 "password_reset_tokens" }o--|| "users" : ""
 "uploads" }o--o| "users" : ""
+"identities" }o--|| "users" : ""
+"oidc_flows" }o--o| "users" : ""
+"credentials" |o--|| "users" : ""
 "users" }o--o| "roles" : ""
 
 "users" {
   TEXT id PK
   TEXT username
   TEXT email
-  TEXT password_hash
   INTEGER must_change_password
   TEXT email_verified_at
   TEXT created_at
@@ -104,6 +104,7 @@ erDiagram
   TEXT created_ip
   TEXT created_user_agent
   TEXT ended_reason
+  TEXT origin
 }
 "api_tokens" {
   TEXT id PK
@@ -158,6 +159,28 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+}
+"identities" {
+  TEXT provider PK
+  TEXT subject PK
+  TEXT user_id FK
+  TEXT created_at
+}
+"oidc_flows" {
+  TEXT state PK
+  TEXT nonce
+  TEXT verifier
+  TEXT purpose
+  TEXT user_id FK
+  TEXT invite_code
+  TEXT created_at
+  TEXT expires_at
+}
+"credentials" {
+  TEXT user_id PK
+  TEXT password_hash
+  TEXT created_at
+  TEXT updated_at
 }
 "roles" {
   TEXT id PK

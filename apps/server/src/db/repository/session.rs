@@ -28,6 +28,13 @@ pub struct Session {
     pub last_seen_at: OffsetDateTime,
     /// When it stops being accepted.
     pub expires_at: OffsetDateTime,
+    /// Which way of signing in started this session: `password` or `oidc`.
+    ///
+    /// A provider can disable somebody, and a session that outlives that is
+    /// what single sign-on exists to prevent. What can be done about that
+    /// depends on what the provider supports, so the session has to say where
+    /// it came from.
+    pub origin: String,
     /// Where the session started, when that could be established.
     ///
     /// `None` covers two cases worth keeping apart from a fabricated value: a
@@ -153,6 +160,7 @@ impl Session {
             created_at: model.created_at,
             last_seen_at: model.last_seen_at,
             expires_at: model.expires_at,
+            origin: model.origin.clone(),
             created_ip: model.created_ip.clone(),
             created_user_agent: model.created_user_agent.clone(),
             ended_reason: model.ended_reason.as_deref().and_then(SessionEnding::parse),
@@ -210,12 +218,15 @@ impl SessionRepository {
             created_ip: origin.ip.clone(),
             created_user_agent: origin.bounded_user_agent(),
             ended_reason: None,
+            // Password until a provider starts one; see the migration.
+            origin: "password".to_owned(),
         };
 
         SessionEntity::insert(session::ActiveModel {
             id: Set(session.id.to_string()),
             user_id: Set(session.user_id.to_string()),
             secret_hash: Set(secret.digest()),
+            origin: Set(session.origin.clone()),
             created_at: Set(session.created_at),
             last_seen_at: Set(session.last_seen_at),
             expires_at: Set(session.expires_at),

@@ -60,6 +60,7 @@ mod m20260901_000001_backend_capacity;
 mod m20260902_000001_upload_backend;
 mod m20260903_000001_upload_segments;
 mod m20260904_000001_parts_per_segment;
+mod m20260905_000001_oidc;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -110,6 +111,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260902_000001_upload_backend::Migration),
             Box::new(m20260903_000001_upload_segments::Migration),
             Box::new(m20260904_000001_parts_per_segment::Migration),
+            Box::new(m20260905_000001_oidc::Migration),
         ]
     }
 }

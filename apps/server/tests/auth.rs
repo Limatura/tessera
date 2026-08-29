@@ -3155,3 +3155,107 @@ async fn registration_cannot_take_a_tombstone_either() {
         "the address a deletion needs must not be claimable either"
     );
 }
+
+/// An account can exist with no password at all.
+///
+/// That is what signing in through an identity provider will create: no row
+/// in `credentials`. Written against the repository because no endpoint makes
+/// one yet.
+#[tokio::test]
+async fn an_account_can_have_no_password() {
+    let app = TestApp::ready().await;
+    let user = tessera_server::db::repository::user::User {
+        id: tessera_core::UserId::generate(),
+        username: tessera_core::Username::parse("provider-only").expect("a name"),
+        email: tessera_core::EmailAddress::parse("provider-only@example.com").expect("mail"),
+        role_id: None,
+        quota_bytes: None,
+        max_file_bytes: None,
+        must_change_password: false,
+        state: tessera_core::AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
+        email_verified_at: None,
+        created_at: time::OffsetDateTime::now_utc(),
+        updated_at: time::OffsetDateTime::now_utc(),
+    };
+    // No password: this is what a provider-created account looks like.
+    app.state.users.insert(&user, None).await.expect("store it");
+
+    // The account is there, and has no credential row.
+    app.state
+        .users
+        .find_by_id(user.id)
+        .await
+        .expect("query")
+        .expect("the account");
+    assert!(
+        app.state
+            .users
+            .password_of(user.id)
+            .await
+            .expect("query")
+            .is_none(),
+        "an account created without a password has one"
+    );
+}
+
+/// Signing in as an account with no password costs the same as signing in as an
+/// account that does not exist.
+///
+/// Returning early for "this one has no password" would answer, to anyone who
+/// can time a request, which addresses belong to single sign-on users.
+#[tokio::test]
+async fn an_account_with_no_password_cannot_be_told_apart_by_timing() {
+    let app = TestApp::ready().await;
+    let user = tessera_server::db::repository::user::User {
+        id: tessera_core::UserId::generate(),
+        username: tessera_core::Username::parse("provider-only").expect("a name"),
+        email: tessera_core::EmailAddress::parse("provider-only@example.com").expect("mail"),
+        role_id: None,
+        quota_bytes: None,
+        max_file_bytes: None,
+        must_change_password: false,
+        state: tessera_core::AccountState::Active,
+        deleted_at: None,
+        deleted_by: None,
+        email_verified_at: None,
+        created_at: time::OffsetDateTime::now_utc(),
+        updated_at: time::OffsetDateTime::now_utc(),
+    };
+    // No password: this is what a provider-created account looks like.
+    app.state.users.insert(&user, None).await.expect("store it");
+
+    let attempt = async |identifier: &str| {
+        let at = std::time::Instant::now();
+        let status = app
+            .json(
+                Method::POST,
+                "/api/v1/auth/login",
+                Auth::None,
+                &serde_json::json!({ "identifier": identifier, "password": "hunter2hunter2" }),
+            )
+            .await
+            .status();
+        (status, at.elapsed())
+    };
+
+    let (no_password, took_existing) = attempt("provider-only").await;
+    let (no_account, took_missing) = attempt("nobody-at-all").await;
+
+    assert_eq!(no_password, StatusCode::UNAUTHORIZED);
+    assert_eq!(no_account, StatusCode::UNAUTHORIZED);
+
+    // Both pay for a hash, so neither is an order of magnitude faster. A loose
+    // bound on purpose: this is a check that the dummy verification still
+    // happens, not a timing measurement.
+    let (quick, slow) = if took_existing < took_missing {
+        (took_existing, took_missing)
+    } else {
+        (took_missing, took_existing)
+    };
+    assert!(
+        slow < quick * 5 + std::time::Duration::from_millis(20),
+        "one answer was far faster than the other: {took_existing:?} vs {took_missing:?}"
+    );
+}

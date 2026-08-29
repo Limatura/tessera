@@ -386,7 +386,6 @@ pub async fn register(
         role_id: Some(seed_role(&state, first).await?),
         quota_bytes: None,
         max_file_bytes: None,
-        password_hash: password::hash(password, state.config().auth.hashing).await?,
         must_change_password: false,
         state: AccountState::Active,
         deleted_at: None,
@@ -396,7 +395,8 @@ pub async fn register(
         updated_at: now,
     };
 
-    if let Err(error) = state.users.insert(&user).await {
+    let hash = password::hash(password, state.config().auth.hashing).await?;
+    if let Err(error) = state.users.insert(&user, Some(&hash)).await {
         // The check above raced with another registration, or something else
         // went wrong. Decided by looking, not by assuming every insert failure
         // is a conflict, which would report an outage as a taken name.
@@ -473,14 +473,21 @@ pub async fn login(
     let password = Password::parse(body.password, PasswordPolicy::widest()).ok();
     let user = find_by_identifier(&state, &body.identifier).await?;
 
-    let authenticated = if let (Some(user), Some(password)) = (user.as_ref(), password) {
+    let stored = match user.as_ref() {
+        Some(found) => state.users.password_of(found.id).await?,
+        None => None,
+    };
+    let authenticated = if let (Some(stored), Some(password)) = (stored, password) {
         // The hash is cloned because verification moves it onto the blocking
         // pool, and `user` is still needed to build the response.
-        password::verify(password, user.password_hash.clone()).await?
+        password::verify(password, stored).await?
     } else {
-        // No account, or a password the policy would not accept. Both still pay
-        // for a hash: returning early makes "no such user" measurably faster
-        // than "wrong password", an account-enumeration oracle.
+        // No account, a password the policy would not accept, or an account
+        // that has only ever signed in through a provider. All three pay for a
+        // hash: returning early would make any of them measurably faster than
+        // "wrong password", which is an account-enumeration oracle. The third
+        // case is the one that is easy to miss and would answer "is this
+        // address one of your single sign-on users".
         verify_against_nothing().await?;
         false
     };
@@ -617,7 +624,16 @@ pub async fn change_password(
     // everyone below it unable to log in and unable to fix it.
     let supplied = Password::parse(body.current_password, PasswordPolicy::widest())
         .map_err(|_| Error::Unauthorized)?;
-    if !password::verify(supplied, current.user.password_hash.clone()).await? {
+    // An account with no password cannot confirm one. `Unauthorized` rather
+    // than a distinct answer: the caller is already signed in, so there is
+    // nothing to enumerate, and the route that fixes this is setting a password
+    // rather than guessing again.
+    let stored = state
+        .users
+        .password_of(current.user.id)
+        .await?
+        .ok_or(Error::Unauthorized)?;
+    if !password::verify(supplied, stored).await? {
         return Err(Error::Unauthorized);
     }
 
@@ -966,7 +982,6 @@ pub async fn confirm_registration(
         id: UserId::generate(),
         username: pending.username.clone(),
         email: pending.email.clone(),
-        password_hash: pending.password_hash.clone(),
         role_id: Some(seed_role(&state, first).await?),
         quota_bytes: None,
         max_file_bytes: None,
@@ -984,7 +999,11 @@ pub async fn confirm_registration(
         created_at: now,
         updated_at: now,
     };
-    if let Err(error) = state.users.insert(&user).await {
+    if let Err(error) = state
+        .users
+        .insert(&user, Some(&pending.password_hash))
+        .await
+    {
         // The checks above raced with another confirmation. Decided by looking
         // and not by assuming every insert failure is a conflict, which
         // would report an outage as a taken name. The window is real: two links
@@ -1136,7 +1155,7 @@ pub async fn request_password_reset(
             secret.expose()
         );
         let letter = password_reset_letter(
-            user.email.as_str(),
+            email.as_str(),
             &link,
             detached.config().mail.reset_ttl_minutes,
         );
@@ -1304,7 +1323,7 @@ const fn delete_shares_by_default() -> bool {
 /// # Errors
 ///
 /// `401` when it is wrong, `403` when the caller used an API token.
-async fn reconfirm(current: &CurrentUser, supplied: String) -> Result<()> {
+async fn reconfirm(state: &AppState, current: &CurrentUser, supplied: String) -> Result<()> {
     // A leaked API token must not be able to rename or remove the account, for
     // the same reason as changing a password.
     if !current.credential.is_session() {
@@ -1312,7 +1331,12 @@ async fn reconfirm(current: &CurrentUser, supplied: String) -> Result<()> {
     }
     let supplied =
         Password::parse(supplied, PasswordPolicy::widest()).map_err(|_| Error::Unauthorized)?;
-    if password::verify(supplied, current.user.password_hash.clone()).await? {
+    let stored = state
+        .users
+        .password_of(current.user.id)
+        .await?
+        .ok_or(Error::Unauthorized)?;
+    if password::verify(supplied, stored).await? {
         Ok(())
     } else {
         Err(Error::Unauthorized)
@@ -1345,7 +1369,7 @@ pub async fn update_account(
     current: CurrentUser,
     ApiJson(body): ApiJson<UpdateAccountRequest>,
 ) -> Result<Json<AccountResponse>> {
-    reconfirm(&current, body.current_password).await?;
+    reconfirm(&state, &current, body.current_password).await?;
 
     let username = match body.username {
         // Not `parse_privileged`. No account may rename itself to `admin`; the
@@ -1430,7 +1454,7 @@ pub async fn delete_account(
     current: CurrentUser,
     ApiJson(body): ApiJson<DeleteAccountRequest>,
 ) -> Result<Response> {
-    reconfirm(&current, body.current_password).await?;
+    reconfirm(&state, &current, body.current_password).await?;
 
     // The same guard the administrative route has, from the other side: an
     // instance whose last administrator removes themselves cannot be

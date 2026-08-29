@@ -17,13 +17,16 @@
 
 use sea_orm::{
     ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
-    QueryFilter as _, QueryOrder as _, QuerySelect as _,
+    QueryFilter as _, QueryOrder as _, QuerySelect as _, sea_query,
 };
 use tessera_core::{AccountState, DomainError, EmailAddress, RoleId, UserId, Username};
 use time::OffsetDateTime;
 
 use crate::db::{
-    entity::user::{self, Entity as UserEntity},
+    entity::{
+        credential::{self, Entity as CredentialEntity},
+        user::{self, Entity as UserEntity},
+    },
     repository::quota,
 };
 
@@ -36,8 +39,6 @@ pub struct User {
     pub username: Username,
     /// Normalised address.
     pub email: EmailAddress,
-    /// PHC-format Argon2 string.
-    pub password_hash: String,
     /// The role this account is in.
     ///
     /// `None` means no role: signed in and allowed nothing. That was
@@ -85,7 +86,7 @@ impl User {
     /// # Errors
     ///
     /// Returns [`CorruptRow`] if any column fails the rule its type enforces.
-    pub fn from_model(model: user::Model) -> Result<Self, CorruptRow> {
+    pub fn from_model(model: &user::Model) -> Result<Self, CorruptRow> {
         let fail = |source: DomainError| CorruptRow {
             id: model.id.clone(),
             source,
@@ -111,7 +112,6 @@ impl User {
                 .map_err(fail)?,
             quota_bytes: quota::from_column(model.quota_bytes),
             max_file_bytes: quota::from_column(model.max_file_bytes),
-            password_hash: model.password_hash,
             must_change_password: model.must_change_password,
             state: model.state.parse().map_err(fail)?,
             deleted_at: model.deleted_at,
@@ -134,7 +134,6 @@ impl User {
             id: Set(self.id.to_string()),
             username: Set(self.username.as_str().to_owned()),
             email: Set(self.email.as_str().to_owned()),
-            password_hash: Set(self.password_hash.clone()),
             role_id: Set(self.role_id.map(|id| id.to_string())),
             quota_bytes: Set(quota::to_column(self.quota_bytes)),
             max_file_bytes: Set(quota::to_column(self.max_file_bytes)),
@@ -193,8 +192,73 @@ impl UserRepository {
     ///
     /// Returns [`UserRepositoryError`] if the username or address is already
     /// taken, or the insert otherwise fails.
-    pub async fn insert(&self, user: &User) -> Result<(), UserRepositoryError> {
+    pub async fn insert(
+        &self,
+        user: &User,
+        password_hash: Option<&str>,
+    ) -> Result<(), UserRepositoryError> {
         UserEntity::insert(user.to_active_model())
+            .exec(&self.connection)
+            .await?;
+        if let Some(hash) = password_hash {
+            self.set_password_hash(user.id, hash, user.created_at)
+                .await?;
+        }
+        Ok(())
+    }
+
+    /// This account's password hash, or `None` when it has never had one.
+    ///
+    /// A separate query rather than a field on [`User`]: the hash is wanted on
+    /// two paths — signing in and confirming a password — and joined onto every
+    /// other read of an account for nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn password_of(&self, id: UserId) -> Result<Option<String>, UserRepositoryError> {
+        Ok(CredentialEntity::find_by_id(id.to_string())
+            .one(&self.connection)
+            .await?
+            .map(|row| row.password_hash))
+    }
+
+    /// Writes or replaces this account's password hash.
+    async fn set_password_hash(
+        &self,
+        id: UserId,
+        hash: &str,
+        now: OffsetDateTime,
+    ) -> Result<(), UserRepositoryError> {
+        let row = credential::ActiveModel {
+            user_id: Set(id.to_string()),
+            password_hash: Set(hash.to_owned()),
+            created_at: Set(now),
+            updated_at: Set(now),
+        };
+        // Upsert: an account may be setting its first password or replacing an
+        // existing one, and the caller does not care which.
+        CredentialEntity::insert(row)
+            .on_conflict(
+                sea_query::OnConflict::column(credential::Column::UserId)
+                    .update_columns([
+                        credential::Column::PasswordHash,
+                        credential::Column::UpdatedAt,
+                    ])
+                    .to_owned(),
+            )
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// Removes this account's password, leaving whatever else it signs in with.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the delete fails.
+    pub async fn clear_password(&self, id: UserId) -> Result<(), UserRepositoryError> {
+        CredentialEntity::delete_by_id(id.to_string())
             .exec(&self.connection)
             .await?;
         Ok(())
@@ -210,7 +274,8 @@ impl UserRepository {
         convert(
             UserEntity::find_by_id(id.to_string())
                 .one(&self.connection)
-                .await?,
+                .await?
+                .as_ref(),
         )
     }
 
@@ -231,7 +296,8 @@ impl UserRepository {
             UserEntity::find()
                 .filter(user::Column::Username.eq(username.as_str()))
                 .one(&self.connection)
-                .await?,
+                .await?
+                .as_ref(),
         )
     }
 
@@ -248,7 +314,8 @@ impl UserRepository {
             UserEntity::find()
                 .filter(user::Column::Email.eq(email.as_str()))
                 .one(&self.connection)
-                .await?,
+                .await?
+                .as_ref(),
         )
     }
 
@@ -271,7 +338,7 @@ impl UserRepository {
         let models = query.all(&self.connection).await?;
         models
             .into_iter()
-            .map(|model| User::from_model(model).map_err(UserRepositoryError::from))
+            .map(|model| User::from_model(&model).map_err(UserRepositoryError::from))
             .collect()
     }
 
@@ -373,11 +440,10 @@ impl UserRepository {
             .col_expr(user::Column::State, AccountState::Deleted.as_str().into())
             .col_expr(user::Column::Username, name.as_str().into())
             .col_expr(user::Column::Email, email.as_str().into())
-            // Not emptied: the column is `NOT NULL`, and a value nothing can
-            // ever verify against is what "there is no password here" has to
-            // look like. `verify` treats an unparsable hash as a failure.
-            .col_expr(user::Column::PasswordHash, "".into())
-            .col_expr(user::Column::EmailVerifiedAt, Option::<OffsetDateTime>::None.into())
+            .col_expr(
+                user::Column::EmailVerifiedAt,
+                Option::<OffsetDateTime>::None.into(),
+            )
             .col_expr(user::Column::MustChangePassword, false.into())
             .col_expr(user::Column::DeletedAt, now.into())
             .col_expr(user::Column::DeletedBy, by.to_string().into())
@@ -532,8 +598,8 @@ impl UserRepository {
         must_change: bool,
         now: OffsetDateTime,
     ) -> Result<(), UserRepositoryError> {
+        self.set_password_hash(id, &password_hash, now).await?;
         UserEntity::update_many()
-            .col_expr(user::Column::PasswordHash, password_hash.into())
             .col_expr(user::Column::MustChangePassword, must_change.into())
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
@@ -558,7 +624,7 @@ impl UserRepository {
 
 /// Turns an optional row into an optional account, surfacing a row today's rules
 /// reject, instead of hiding it as "not found".
-fn convert(model: Option<user::Model>) -> Result<Option<User>, UserRepositoryError> {
+fn convert(model: Option<&user::Model>) -> Result<Option<User>, UserRepositoryError> {
     model.map(User::from_model).transpose().map_err(Into::into)
 }
 
@@ -584,7 +650,6 @@ mod tests {
             username: Username::parse(username).unwrap(),
             email: EmailAddress::parse(email).unwrap(),
             // Not a real hash; hashing arrives with the endpoints that need it.
-            password_hash: "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
             must_change_password: false,
             state: AccountState::Active,
             deleted_at: None,
@@ -613,7 +678,10 @@ mod tests {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
 
-        repository.insert(&user).await.unwrap();
+        repository
+            .insert(&user, Some("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA"))
+            .await
+            .unwrap();
 
         // Every lookup path must return the same account, with the domain types
         // intact, not the strings the columns hold.
@@ -659,7 +727,10 @@ mod tests {
     async fn lookup_is_insensitive_to_how_the_name_was_typed() {
         let repository = repository().await;
         let user = sample("alice", "alice@example.com");
-        repository.insert(&user).await.unwrap();
+        repository
+            .insert(&user, Some("$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA"))
+            .await
+            .unwrap();
 
         let typed = Username::parse("  ALICE ").unwrap();
         assert_eq!(
@@ -672,24 +743,24 @@ mod tests {
     async fn the_unique_index_rejects_a_duplicate_username() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "a@example.com"))
+            .insert(&sample("alice", "a@example.com"), None)
             .await
             .unwrap();
 
         let clash = sample("alice", "different@example.com");
-        assert!(repository.insert(&clash).await.is_err());
+        assert!(repository.insert(&clash, None).await.is_err());
     }
 
     #[tokio::test]
     async fn the_unique_index_rejects_a_duplicate_email() {
         let repository = repository().await;
         repository
-            .insert(&sample("alice", "shared@example.com"))
+            .insert(&sample("alice", "shared@example.com"), None)
             .await
             .unwrap();
 
         let clash = sample("bob", "shared@example.com");
-        assert!(repository.insert(&clash).await.is_err());
+        assert!(repository.insert(&clash, None).await.is_err());
     }
 
     #[tokio::test]
@@ -697,7 +768,7 @@ mod tests {
         let repository = repository().await;
         assert!(!repository.any_exist().await.unwrap());
         repository
-            .insert(&sample("alice", "alice@example.com"))
+            .insert(&sample("alice", "alice@example.com"), None)
             .await
             .unwrap();
         assert!(repository.any_exist().await.unwrap());
@@ -716,7 +787,6 @@ mod tests {
             id: UserId::generate().to_string(),
             username: "no spaces allowed".to_owned(),
             email: "alice@example.com".to_owned(),
-            password_hash: String::new(),
             must_change_password: false,
             state: "active".to_owned(),
             deleted_at: None,
@@ -726,19 +796,25 @@ mod tests {
             updated_at: now,
         };
 
-        let error = User::from_model(model).unwrap_err();
+        let error = User::from_model(&model).unwrap_err();
         assert!(matches!(error.source, DomainError::Malformed { .. }));
         // The message must name the row, or an operator cannot go and fix it.
         assert!(error.to_string().contains(&error.id));
     }
 
-    /// Passwords never reach the database in the clear. This is a reminder in
-    /// test form: `User` has no plaintext field for one to occupy.
+    /// Passwords never reach the database in the clear, and since the move to
+    /// `credentials` an account does not carry one at all: the only thing that
+    /// can be written is a hash, through `set_password_hash`.
     #[test]
-    fn the_stored_account_has_nowhere_to_put_a_plaintext_password() {
+    fn an_account_carries_no_password_of_any_kind() {
         let password = Password::parse("a passphrase here", PasswordPolicy::default()).unwrap();
         let rendered = format!("{:?}", sample("alice", "alice@example.com"));
+
         assert!(!rendered.contains(password.expose()));
-        assert!(rendered.contains("password_hash"));
+        assert!(
+            !rendered.contains("password_hash"),
+            "an account should carry no hash either, since passwords moved to \
+             `credentials`: {rendered}"
+        );
     }
 }

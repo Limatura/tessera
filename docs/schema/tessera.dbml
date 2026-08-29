@@ -37,6 +37,13 @@ Table api_tokens {
   Note: '給程式用的憑證。只存摘要,原始值發出去之後就不再存在。'
 }
 
+Table credentials {
+  user_id text [pk, not null]
+  password_hash text [not null]
+  created_at text [not null]
+  updated_at text [not null]
+}
+
 Table file_segments {
   file_id text [pk, not null]
   seq integer [pk, not null]
@@ -61,6 +68,13 @@ Table file_shares {
   Note: '檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。'
 }
 
+Table identities {
+  provider text [pk, not null]
+  subject text [pk, not null]
+  user_id text [not null]
+  created_at text [not null]
+}
+
 Table invites {
   id text [pk, not null]
   code_hash text [not null, unique]
@@ -71,6 +85,17 @@ Table invites {
   expires_at text
 
   Note: '邀請碼。同樣只存摘要。'
+}
+
+Table oidc_flows {
+  state text [pk, not null]
+  nonce text [not null]
+  verifier text [not null]
+  purpose text [not null]
+  user_id text
+  invite_code text
+  created_at text [not null]
+  expires_at text [not null]
 }
 
 Table password_reset_tokens {
@@ -135,6 +160,7 @@ Table sessions {
   created_ip text
   created_user_agent text
   ended_reason text
+  origin text [not null]
 
   Note: '一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。'
 }
@@ -243,7 +269,6 @@ Table users {
   id text [pk, not null]
   username text [not null, unique]
   email text [not null, unique]
-  password_hash text [not null]
   must_change_password integer [not null]
   email_verified_at text
   created_at text [not null]
@@ -261,8 +286,11 @@ Table users {
 Ref: access_events.share_id > shares.id [delete: cascade]
 Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
 Ref: api_tokens.user_id > users.id [delete: cascade]
+Ref: credentials.user_id > users.id [delete: cascade]
 Ref: file_segments.file_id > file_shares.id [delete: cascade]
 Ref: file_shares.share_id > shares.id [delete: cascade]
+Ref: identities.user_id > users.id [delete: cascade]
+Ref: oidc_flows.user_id > users.id [delete: cascade]
 Ref: password_reset_tokens.user_id > users.id [delete: cascade]
 Ref: role_permissions.role_id > roles.id [delete: cascade]
 Ref: sessions.user_id > users.id [delete: cascade]
