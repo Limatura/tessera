@@ -55,6 +55,7 @@
   "upload_button_done": "Done",
   "code_editor_expand": "Expand editor",
   "code_editor_collapse": "Collapse editor",
+  "code_language_guessed": "auto-detected",
   "upload_settings_expiry_label": "Expires in",
   "upload_settings_expiry_1h": "1 hour",
   "upload_settings_expiry_24h": "24 hours",

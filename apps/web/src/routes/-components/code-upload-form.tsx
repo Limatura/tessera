@@ -27,11 +27,12 @@ import {
   SelectValue,
 } from "@tessera/ui/components/select";
 import { vscodeDark, vscodeLight } from "@uiw/codemirror-theme-vscode";
-import CodeMirror from "@uiw/react-codemirror";
-import type { Extension } from "@uiw/react-codemirror";
-import { Maximize2 } from "lucide-react";
+import CodeMirror, { ExternalChange } from "@uiw/react-codemirror";
+import type { Extension, ViewUpdate } from "@uiw/react-codemirror";
+import { Maximize2, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import { detectLanguage } from "@/lib/detect-language";
 import * as m from "@/paraglide/messages";
 
 import { QuickSubmitButton } from "./quick-submit-button";
@@ -52,6 +53,8 @@ const LANGUAGES = [
   { label: "Rust", value: "rust" },
   { label: "Go", value: "go" },
   { label: "YAML", value: "yaml" },
+  { label: "PHP", value: "php" },
+  { label: "Shell", value: "shellscript" },
 ] as const;
 
 const LANGUAGE_EXTENSIONS: Record<string, Extension> = {
@@ -109,10 +112,36 @@ export function CodeUploadForm({
   const [language, setLanguage] = useState("plaintext");
   const [code, setCode] = useState("");
   const [expanded, setExpanded] = useState(false);
+  // 目前的語言是猜的還是使用者選的。
+  // 使用者自己選過之後就永久停止猜測,免得之後再貼一次又被蓋掉(tessera#228)。
+  const [wasGuessed, setWasGuessed] = useState(false);
+  const [userPickedLanguage, setUserPickedLanguage] = useState(false);
   const isDark = useIsDarkMode();
 
   const handleLanguageChange = (value: string | null) => {
     setLanguage(value ?? "plaintext");
+    setWasGuessed(false);
+    setUserPickedLanguage(true);
+  };
+
+  const handleCodeChange = (value: string, viewUpdate: ViewUpdate) => {
+    setCode(value);
+    if (userPickedLanguage) {
+      return;
+    }
+    // 套件對「從 value prop 推回編輯器」的更新會標上 ExternalChange,
+    // 跳過這種,只對使用者真正的編輯做猜測。
+    const isExternal = viewUpdate.transactions.some((tr) =>
+      tr.annotation(ExternalChange)
+    );
+    if (isExternal) {
+      return;
+    }
+    const guess = detectLanguage(value);
+    if (guess) {
+      setLanguage(guess);
+      setWasGuessed(true);
+    }
   };
 
   const extensions = LANGUAGE_EXTENSIONS[language]
@@ -128,7 +157,17 @@ export function CodeUploadForm({
 
   const renderLanguageSelect = (id: string) => (
     <Select onValueChange={handleLanguageChange} value={language}>
-      <SelectTrigger id={id} size="sm">
+      <SelectTrigger
+        aria-describedby={wasGuessed ? `${id}-guessed` : undefined}
+        id={id}
+        size="sm"
+      >
+        {wasGuessed && (
+          <Sparkles
+            aria-hidden="true"
+            className="size-3.5 text-muted-foreground"
+          />
+        )}
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -144,7 +183,17 @@ export function CodeUploadForm({
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
-        <Label htmlFor="code-language">Language</Label>
+        <div className="flex items-baseline gap-2">
+          <Label htmlFor="code-language">Language</Label>
+          {wasGuessed && (
+            <span
+              className="text-muted-foreground text-xs"
+              id="code-language-guessed"
+            >
+              {m.code_language_guessed()}
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1">
           {renderLanguageSelect("code-language")}
           <Button
@@ -162,7 +211,7 @@ export function CodeUploadForm({
         className="rounded-md border font-mono text-sm"
         extensions={extensions}
         height="300px"
-        onChange={setCode}
+        onChange={handleCodeChange}
         placeholder="paste your snippet..."
         theme={isDark ? vscodeDark : vscodeLight}
         value={code}
@@ -183,14 +232,24 @@ export function CodeUploadForm({
             <DialogTitle>{m.upload_tab_code()}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-between gap-2">
-            <Label htmlFor="code-language-expanded">Language</Label>
+            <div className="flex items-baseline gap-2">
+              <Label htmlFor="code-language-expanded">Language</Label>
+              {wasGuessed && (
+                <span
+                  className="text-muted-foreground text-xs"
+                  id="code-language-expanded-guessed"
+                >
+                  {m.code_language_guessed()}
+                </span>
+              )}
+            </div>
             {renderLanguageSelect("code-language-expanded")}
           </div>
           <CodeMirror
             className="rounded-md border font-mono text-sm"
             extensions={extensions}
             height="65vh"
-            onChange={setCode}
+            onChange={handleCodeChange}
             placeholder="paste your snippet..."
             theme={isDark ? vscodeDark : vscodeLight}
             value={code}

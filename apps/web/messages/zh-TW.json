@@ -55,6 +55,7 @@
   "upload_button_done": "完成",
   "code_editor_expand": "展開編輯器",
   "code_editor_collapse": "收合編輯器",
+  "code_language_guessed": "自動偵測",
   "upload_settings_expiry_label": "過期時間",
   "upload_settings_expiry_1h": "1 小時",
   "upload_settings_expiry_24h": "24 小時",

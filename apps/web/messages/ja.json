@@ -55,6 +55,7 @@
   "upload_button_done": "完了",
   "code_editor_expand": "エディタを展開",
   "code_editor_collapse": "エディタを閉じる",
+  "code_language_guessed": "自動判定",
   "upload_settings_expiry_label": "有効期限",
   "upload_settings_expiry_1h": "1時間",
   "upload_settings_expiry_24h": "24時間",
