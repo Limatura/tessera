@@ -450,6 +450,28 @@ mod tests {
         assert_eq!(left[0].provider, "keycloak");
     }
 
+    /// The way back into an instance whose provider went away: `reset-password`
+    /// on an account that never had one creates the credential row rather than
+    /// finding nothing to update.
+    #[tokio::test]
+    async fn an_account_with_no_password_can_be_given_one() {
+        let (_oidc, users) = repositories().await;
+        let user_id = account(&users, "alice").await;
+        assert!(users.password_of(user_id).await.expect("a query").is_none());
+
+        users
+            .set_password(
+                user_id,
+                "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA".to_owned(),
+                true,
+                now(),
+            )
+            .await
+            .expect("the password");
+
+        assert!(users.password_of(user_id).await.expect("a query").is_some());
+    }
+
     /// Unlinking is scoped to the account asking, so one person cannot detach
     /// another person's provider by naming it.
     #[tokio::test]

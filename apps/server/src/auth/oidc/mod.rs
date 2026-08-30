@@ -10,5 +10,8 @@
 //! do**. An account admitted here lands in `auth.default_role`, exactly as one
 //! that registered with a password, and is moved by an administrator.
 
+pub mod admit;
+pub mod claims;
 pub mod discovery;
 pub mod flow;
+pub mod token;

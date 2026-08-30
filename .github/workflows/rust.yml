@@ -1222,10 +1222,29 @@ jobs:
           # a request for is not one it can test. The resumable upload path is
           # covered by `tests/resumable.rs` and `tests/object_store.rs`
           # instead, both of which do drive it end to end.
+          # `start` and `callback` are excluded because both answer `303` to a
+          # `Location` outside this API: the identity provider, or a client-side
+          # route. Neither end of that is the fuzzer's to check, and both ways
+          # of letting it try are wrong. Followed, the redirect to a client-side
+          # route lands on the SPA fallback and returns `200 text/html`, which
+          # it reports as an undocumented status on the endpoint that
+          # redirected — it measured `index.html`, not the handler. Capping the
+          # follow count instead turns the redirect itself into "Exceeded 0
+          # redirects", a network error on a response that was correct. Both
+          # were measured on this suite; each replaced one false failure with
+          # another. Measured again against a local instance on 2026-08-30:
+          # following redirects exits 1 with two "Received: 200", excluding the
+          # two exits 0, and the selection goes from 59 operations to 57.
+          #
+          # What is lost is small: those two are `303` or `404` and nothing
+          # else, and `tests/auth.rs` drives the flow end to end. `link` stays
+          # in, because it refuses an API token before it can redirect.
           uvx schemathesis --config-file /tmp/fuzz/run.toml \
             run http://127.0.0.1:13999/openapi.json \
             -w 4 --suppress-health-check=filter_too_much \
             --exclude-operation-id append_to_upload \
+            --exclude-operation-id start \
+            --exclude-operation-id callback \
             --report-junit-path /tmp/fuzz/report.xml
 
       # The runner is one machine that keeps running after the job ends, so a

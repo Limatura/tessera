@@ -101,6 +101,31 @@ impl SessionEnding {
     }
 }
 
+/// Which way of signing in started a session.
+///
+/// Stored because a provider can disable somebody, and a session that outlives
+/// that is exactly what single sign-on exists to prevent. What can be done
+/// about it depends on what the provider supports, so the session has to know
+/// where it came from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SignedInWith {
+    /// A password held here.
+    Password,
+    /// An identity provider.
+    Provider,
+}
+
+impl SignedInWith {
+    /// How it is stored.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Password => "password",
+            Self::Provider => "oidc",
+        }
+    }
+}
+
 /// What is known about the request that started a session.
 ///
 /// A type, not two more arguments, because they are the same fact from two
@@ -205,6 +230,7 @@ impl SessionRepository {
         &self,
         user_id: UserId,
         origin: &SessionOrigin,
+        started_by: SignedInWith,
         now: OffsetDateTime,
         expires_at: OffsetDateTime,
     ) -> Result<(Session, Secret), SessionRepositoryError> {
@@ -218,8 +244,7 @@ impl SessionRepository {
             created_ip: origin.ip.clone(),
             created_user_agent: origin.bounded_user_agent(),
             ended_reason: None,
-            // Password until a provider starts one; see the migration.
-            origin: "password".to_owned(),
+            origin: started_by.as_str().to_owned(),
         };
 
         SessionEntity::insert(session::ActiveModel {

@@ -40,6 +40,7 @@ pub mod extract;
 pub mod gate;
 pub mod health;
 pub mod meter;
+pub mod oidc;
 pub mod preview;
 pub mod public;
 pub mod sessions;
@@ -286,6 +287,12 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::register))
         .routes(routes!(auth::confirm_registration))
         .routes(routes!(auth::login))
+        .routes(routes!(oidc::provider))
+        .routes(routes!(oidc::start))
+        .routes(routes!(oidc::callback))
+        .routes(routes!(oidc::identities))
+        .routes(routes!(oidc::link))
+        .routes(routes!(oidc::unlink))
         .routes(routes!(auth::logout))
         .routes(routes!(auth::session))
         .routes(routes!(auth::change_password))

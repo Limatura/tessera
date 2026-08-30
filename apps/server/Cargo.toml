@@ -171,6 +171,11 @@ url = "2"
 # other crates; named here because this code reaches for it directly.
 base64 = "0.23"
 
+# The two halves of a basic authentication header have to be form-urlencoded
+# before they are joined. Re-exported by `url`, but named here so a `url`
+# upgrade cannot quietly take it away.
+form_urlencoded = "1"
+
 # Talking to an identity provider: fetching its configuration and exchanging an
 # authorisation code. Already in the tree through `object_store`, so it brings
 # no TLS stack of its own — the same reasoning as `lettre` above.
@@ -178,7 +183,10 @@ base64 = "0.23"
 # `aws-lc-rs` by sqlx, and cargo features are additive, so asking for the other
 # one here would put both implementations in the binary. Same note as the data
 # backends above.
+# `form` is the token exchange: an authorisation code is traded with a
+# form-encoded body, not JSON.
 reqwest = { version = "0.13", default-features = false, features = [
+  "form",
   "json",
   "rustls",
 ] }

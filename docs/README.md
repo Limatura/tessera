@@ -21,6 +21,7 @@ Reasoning that does not fit next to the code. Module docs carry the _why_ for a 
 | --- | --- |
 | [`resumable.md`](resumable.md) | tus uploads, the part-size floor, the two sinks |
 | [`splitting.md`](splitting.md) | One file across several backends. Off by default |
+| [`oidc.md`](oidc.md) | Signing in through an identity provider. Off by default |
 | [`link-previews.md`](link-previews.md) | Open Graph tags and the card image |
 | [`maintenance.md`](maintenance.md) | Sweeps, orphan reconciliation |
 | [`migrations.md`](migrations.md) | Hand-written per-dialect SQL, and the traps in each dialect |

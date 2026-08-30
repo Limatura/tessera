@@ -689,6 +689,30 @@
         ],
         "type": "object"
       },
+      "IdentityResponse": {
+        "description": "One way an account signs in through a provider.",
+        "properties": {
+          "created_at": {
+            "description": "When it was attached.",
+            "format": "date-time",
+            "type": "string"
+          },
+          "is_last_way_in": {
+            "description": "Whether removing this one would leave the account with no way in.\n\nSent rather than left for the client to work out: the client would need\nto know whether a password exists, which nothing else tells it.",
+            "type": "boolean"
+          },
+          "provider": {
+            "description": "Which provider vouched for this.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "created_at",
+          "is_last_way_in"
+        ],
+        "type": "object"
+      },
       "InviteResponse": {
         "description": "One invite code, as an administrator sees it.\n\nNever carries the code. Only its digest is stored, so there is nothing to\nshow; see [`CreatedInviteResponse`] for the one moment there is.",
         "properties": {
@@ -884,6 +908,24 @@
         },
         "required": [
           "consequences"
+        ],
+        "type": "object"
+      },
+      "ProviderResponse": {
+        "description": "What a sign-in page needs to know before it draws anything.",
+        "properties": {
+          "display_name": {
+            "description": "What to write on the button.",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Whether an identity provider is configured and usable.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled",
+          "display_name"
         ],
         "type": "object"
       },
@@ -3921,6 +3963,279 @@
           }
         ],
         "summary": "Ends the current session.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc": {
+      "get": {
+        "description": "Answered whether or not one is configured, because a sign-in page has to ask\nbefore it can know.\n\n# Errors\n\n`404` when accounts are switched off.",
+        "operationId": "provider",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderResponse"
+                }
+              }
+            },
+            "description": "Whether a provider is configured"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Accounts are switched off"
+          }
+        },
+        "summary": "Whether this instance has an identity provider.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/callback": {
+      "get": {
+        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect, see the\nmodule documentation.",
+        "operationId": "callback",
+        "parameters": [
+          {
+            "description": "The authorisation code",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The value that ties this to a redirect we sent",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Set instead of `code` when the provider refused",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Redirect back to the application, signed in or with a reason"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Accounts are switched off"
+          }
+        },
+        "summary": "Where the provider sends the browser back.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/identities": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "operationId": "identities",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/IdentityResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "What is attached"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "What this account signs in through.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/identities/{provider}": {
+      "delete": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with an API\ntoken, `404` when nothing was attached, `409` when this is the only way\nleft into the account.",
+        "operationId": "unlink",
+        "parameters": [
+          {
+            "description": "Which provider to detach",
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Detached"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not permitted with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Nothing was attached"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This is the only way left into the account"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Detaches a provider from this account.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/link": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with an API\ntoken. Everything else is a redirect, because a browser is following this.",
+        "operationId": "link",
+        "responses": {
+          "303": {
+            "description": "Redirect to the identity provider"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not permitted with an API token"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Sends the browser to the provider to attach it to this account.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/start": {
+      "get": {
+        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect back to\nthe sign-in page with a reason, because a browser is following this.",
+        "operationId": "start",
+        "parameters": [
+          {
+            "description": "An invitation to spend on success",
+            "in": "query",
+            "name": "invite",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Redirect to the identity provider"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Accounts are switched off"
+          }
+        },
+        "summary": "Sends the browser to the identity provider.",
         "tags": [
           "auth"
         ]

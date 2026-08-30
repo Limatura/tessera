@@ -29,7 +29,7 @@ use crate::{
         invite::Invite,
         pending_registration::Waiting,
         role::Role,
-        session::{SessionEnding, SessionOrigin},
+        session::{SessionEnding, SessionOrigin, SignedInWith},
         user::User,
     },
     error::{Error, Result},
@@ -204,7 +204,7 @@ fn address_limit_key(email: &EmailAddress) -> String {
 /// Unknown, spent and expired are one message. Telling them apart would let the
 /// holder of a code they were never given learn that it was once real, turning
 /// the registration form into a way to test codes instead of use one.
-fn invite_refused() -> Error {
+pub(super) fn invite_refused() -> Error {
     Error::bad_request("that invite code is not usable")
 }
 
@@ -225,7 +225,7 @@ fn invite_refused() -> Error {
 ///
 /// `400` when the instance asks for a code and the one given is unknown, spent,
 /// expired or absent.
-async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Invite>> {
+pub(super) async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Invite>> {
     if state.config().auth.registration != RegistrationPolicy::Invite {
         // An open instance ignores one instead of refusing it, so a client can
         // send the same body to either kind.
@@ -254,7 +254,7 @@ async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Inv
 /// contract still describes it, because it describes the software and not one
 /// instance's configuration. `/capabilities` tells a client which half
 /// it is talking to.
-fn require_accounts(state: &AppState) -> Result<()> {
+pub(super) fn require_accounts(state: &AppState) -> Result<()> {
     if state.config().features.accounts {
         Ok(())
     } else {
@@ -278,7 +278,7 @@ fn require_accounts(state: &AppState) -> Result<()> {
 /// refuses that configuration, so reaching it means the role was deleted while
 /// the server ran, and quietly using `member` instead would overrule a stated
 /// policy.
-async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
+pub(super) async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
     if first {
         // The owner role, not `admin`. The first account belongs to whoever
         // runs the instance, and `admin` cannot grant permissions, so an
@@ -414,7 +414,15 @@ pub async fn register(
         return Err(error.into());
     }
 
-    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
+    let cookie = start_session(
+        &state,
+        &user,
+        &headers,
+        &origin,
+        SignedInWith::Password,
+        now,
+    )
+    .await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
@@ -502,7 +510,15 @@ pub async fn login(
 
     throttles.login.reset(&key);
     let now = OffsetDateTime::now_utc();
-    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
+    let cookie = start_session(
+        &state,
+        &user,
+        &headers,
+        &origin,
+        SignedInWith::Password,
+        now,
+    )
+    .await?;
 
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
@@ -654,7 +670,15 @@ pub async fn change_password(
         .end_all_for_user(current.user.id, None, SessionEnding::PasswordChanged, now)
         .await?;
 
-    let cookie = start_session(&state, &current.user, &headers, &origin, now).await?;
+    let cookie = start_session(
+        &state,
+        &current.user,
+        &headers,
+        &origin,
+        SignedInWith::Password,
+        now,
+    )
+    .await?;
     let roles = state.roles.of_user(current.user.id).await?;
     let mut account = AccountResponse::build(&current.user, &roles);
     account.must_change_password = false;
@@ -700,11 +724,12 @@ async fn find_by_identifier(state: &AppState, identifier: &str) -> Result<Option
     Ok(None)
 }
 
-async fn start_session(
+pub(super) async fn start_session(
     state: &AppState,
     user: &User,
     headers: &HeaderMap,
     origin: &Origin,
+    started_by: SignedInWith,
     now: OffsetDateTime,
 ) -> Result<Cookie<'static>> {
     // `std::time::Duration` is unsigned and `time::Duration` is not, so this
@@ -719,6 +744,7 @@ async fn start_session(
         .create(
             user.id,
             &session_origin(headers, origin),
+            started_by,
             now,
             now.saturating_add(ttl),
         )
@@ -1025,7 +1051,15 @@ pub async fn confirm_registration(
     }
     state.pending.finish(pending.id).await?;
 
-    let cookie = start_session(&state, &user, &headers, &origin, now).await?;
+    let cookie = start_session(
+        &state,
+        &user,
+        &headers,
+        &origin,
+        SignedInWith::Password,
+        now,
+    )
+    .await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
