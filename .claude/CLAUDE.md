@@ -70,6 +70,25 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Prefer simple conditionals over nested ternary operators
 - Group related code together and separate concerns
 
+### State Management — Prop Drilling 的層數界線
+
+用「這個值從擁有它的元件,到真正用它的元件,中間隔了幾層」來決定要不要改用 `zustand`。中間層只是把 prop 往下傳、自己根本沒用到,那一層就算數。
+
+| 層數 | 做法 |
+| --- | --- |
+| 1 層 | 直接傳 prop,不要為了這個開 store |
+| 2 層 | **要停下來評估**。同一組值會不會再往下傳?中間層是不是被迫接一堆用不到的 prop?會的話就換 store |
+| 3 層以上 | **一定要用 `zustand`**,不要再往下傳 |
+
+**為什麼**:中間層被迫宣告自己用不到的 prop,型別會跟著擴散,之後改一個欄位要動整條鏈上的每個檔案;而且中間任一層 re-render 都會連帶重畫下游。
+
+**注意**:
+
+- 層數是看**傳遞深度**,不是元件巢狀深度。父元件直接把值傳給孫元件(中間沒有轉手)只算一層
+- 用 selector 訂閱(`useStore((s) => s.field)`)而不是整包拿,不然等於沒解決 re-render
+- 只在單一元件內部用的狀態就留在 `useState`,不要什麼都塞進 store
+- 伺服器資料歸 TanStack Query,不要複製一份進 zustand
+
 ### Security
 
 - Add `rel="noopener"` when using `target="_blank"` on links
