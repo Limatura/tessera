@@ -108,6 +108,158 @@ pub struct Config {
     pub og: OgConfig,
 }
 
+/// Signing in through an identity provider.
+///
+/// An empty `issuer` is the default and turns everything off: nothing is
+/// mounted, nothing is advertised, and start-up says nothing. The same shape as
+/// [`MailConfig`], for the same reason — an instance that does not use this
+/// should not have to think about it.
+///
+/// # What this decides and what it does not
+///
+/// The provider decides **who may sign in**. tessera decides **what they may
+/// do**: an account admitted here lands in `auth.default_role` and is moved by
+/// an administrator, exactly as one that registered with a password.
+///
+/// Group claims are read for one purpose only, [`OidcConfig::required_group`],
+/// and never mapped onto roles. Mapping would need a table of group names to
+/// roles, a rule for somebody in two of them, an answer for a group being
+/// renamed, and a way to keep an administrator's manual change from being
+/// overwritten on the next sign-in. On an instance with a handful of accounts
+/// that is a great deal of machinery to save setting a menu once per person.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct OidcConfig {
+    /// The provider's issuer URL, from which everything else is discovered.
+    ///
+    /// Empty turns this off. Otherwise it must be `https`, and it is compared
+    /// against the `iss` claim by exact string equality, which is what the
+    /// specification requires.
+    pub issuer: String,
+
+    /// This instance, as registered with the provider.
+    pub client_id: String,
+
+    /// The secret issued alongside `client_id`.
+    ///
+    /// In [`SECRETS`](crate::settings), so the admin panel can write it and
+    /// never read it back.
+    pub client_secret: String,
+
+    /// What to ask the provider for.
+    ///
+    /// `openid` is required by the specification and is added if it is missing.
+    /// `email` is required by us: an account needs an address, and a sign-in
+    /// that arrives without one is refused rather than making the column
+    /// nullable — see the `m20260905` migration.
+    pub scopes: Vec<String>,
+
+    /// Only admit people in this group. Empty admits everybody the provider
+    /// authenticates.
+    ///
+    /// This is the answer to the sharpest problem with single sign-on on a
+    /// small instance: a provider serving several applications authenticates
+    /// everybody who has an account with it, and "the provider knows them" is
+    /// not "they should have an account here". With only Google configured it
+    /// would otherwise be every Google account there is.
+    pub required_group: String,
+
+    /// Which claim carries the groups. `groups` for Authentik and Authelia,
+    /// `realm_access.roles` for Keycloak, `memberOf` for some LDAP bridges.
+    ///
+    /// Dots select nested fields.
+    pub group_claim: String,
+
+    /// What the sign-in button says. Empty uses the issuer's host.
+    pub display_name: String,
+
+    /// Whether a provider identity may attach itself to an existing account
+    /// with the same address.
+    ///
+    /// Off by default, and even on it requires the provider to have said
+    /// `email_verified`. A provider that lets anybody register an address
+    /// without proving it would otherwise be a way to take over an account by
+    /// registering its owner's address there.
+    pub link_by_verified_email: bool,
+}
+
+impl Default for OidcConfig {
+    fn default() -> Self {
+        Self {
+            issuer: String::new(),
+            client_id: String::new(),
+            client_secret: String::new(),
+            scopes: vec![
+                "openid".to_owned(),
+                "email".to_owned(),
+                "profile".to_owned(),
+            ],
+            required_group: String::new(),
+            group_claim: "groups".to_owned(),
+            display_name: String::new(),
+            link_by_verified_email: false,
+        }
+    }
+}
+
+impl OidcConfig {
+    /// Whether this instance signs anybody in through a provider.
+    #[must_use]
+    pub fn is_configured(&self) -> bool {
+        !self.issuer.trim().is_empty()
+    }
+
+    /// Rejects a configuration this binary cannot honour.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] naming the field and what is wrong with it.
+    fn validate(&self) -> Result<(), ConfigError> {
+        if !self.is_configured() {
+            return Ok(());
+        }
+        // `http` would put the authorisation code and the client secret on the
+        // wire in the clear, and the specification's exemption from verifying
+        // the token's signature is *only* available because the channel is TLS.
+        if !self.issuer.starts_with("https://") {
+            return Err(ConfigError::Invalid {
+                field: "auth.oidc.issuer",
+                reason: "must be an https URL".to_owned(),
+            });
+        }
+        for (field, value) in [
+            ("auth.oidc.client_id", &self.client_id),
+            ("auth.oidc.client_secret", &self.client_secret),
+        ] {
+            if value.trim().is_empty() {
+                return Err(ConfigError::Invalid {
+                    field,
+                    reason: "is required when an issuer is set".to_owned(),
+                });
+            }
+        }
+        if self.group_claim.trim().is_empty() {
+            return Err(ConfigError::Invalid {
+                field: "auth.oidc.group_claim",
+                reason: "cannot be empty; the default is `groups`".to_owned(),
+            });
+        }
+        Ok(())
+    }
+
+    /// The scopes to ask for, with the two this cannot work without.
+    #[must_use]
+    pub fn effective_scopes(&self) -> Vec<String> {
+        let mut scopes = self.scopes.clone();
+        for required in ["openid", "email"] {
+            if !scopes.iter().any(|scope| scope == required) {
+                scopes.push(required.to_owned());
+            }
+        }
+        scopes
+    }
+}
+
 /// The link-preview card, as the operator wants it.
 ///
 /// One design for the whole instance, not one per share. See
@@ -302,6 +454,10 @@ impl MailConfig {
 pub struct AuthConfig {
     /// Who may create an account.
     pub registration: RegistrationPolicy,
+
+    /// Signing in through an identity provider.
+    #[serde(default)]
+    pub oidc: OidcConfig,
 
     /// How long a browser session stays valid, in hours.
     pub session_ttl_hours: u64,
@@ -1010,6 +1166,7 @@ impl ThrottleConfig {
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
+            oidc: OidcConfig::default(),
             // Open by default, for an instance set up among people who know
             // each other. An internet-facing one should close it.
             registration: RegistrationPolicy::Open,
@@ -1770,6 +1927,7 @@ impl AuthConfig {
         }
         self.hashing.validate()?;
         self.throttle.validate()?;
+        self.oidc.validate()?;
         // The policy's own bounds live in the domain crate, so the rule is the
         // same whether it arrives from a file or from a test.
         self.password

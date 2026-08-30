@@ -166,6 +166,18 @@ object_store = { version = "0.14", features = ["fs"] }
 # depends on, so naming it here costs nothing beyond the import.
 url = "2"
 
+# Talking to an identity provider: fetching its configuration and exchanging an
+# authorisation code. Already in the tree through `object_store`, so it brings
+# no TLS stack of its own — the same reasoning as `lettre` above.
+# `rustls` rather than the default TLS: the crypto provider is already pinned to
+# `aws-lc-rs` by sqlx, and cargo features are additive, so asking for the other
+# one here would put both implementations in the binary. Same note as the data
+# backends above.
+reqwest = { version = "0.13", default-features = false, features = [
+  "json",
+  "rustls",
+] }
+
 # --- contract ---
 utoipa = { workspace = true }
 utoipa-axum = "0.2"

@@ -57,6 +57,9 @@ const FIXED_AT_BOOT: &[&str] = &[
     // Changing it at runtime would leave the process holding backends it can no
     // longer re-seal, and the panel reporting a key that opens nothing.
     "storage.secret_key",
+    // The provider's own secret. The panel may write it and must never be able
+    // to read it back, which is what this list means.
+    "auth.oidc.client_secret",
     // Whether the browsable docs are mounted is decided while building the
     // router. The contract at `/openapi.json` is served either way.
     "features.docs",

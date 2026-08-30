@@ -19,6 +19,7 @@
 pub mod bootstrap;
 pub mod cookie;
 pub mod extract;
+pub mod oidc;
 pub mod password;
 pub mod proxy;
 pub mod secret;

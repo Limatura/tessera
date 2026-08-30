@@ -149,6 +149,11 @@ pub struct AppState {
     pub uploads: UploadRepository,
     /// Where the frontend is read from: the compiled-in bundle, or a directory.
     pub assets: Arc<crate::assets::Source>,
+    /// What the identity provider says about itself, fetched once a day.
+    ///
+    /// Held here rather than built per request so that one sign-in pays for the
+    /// fetch and the rest of the day's do not.
+    pub oidc: Arc<crate::auth::oidc::discovery::Discovery>,
     /// Fonts for link-preview cards, decoded once at start-up.
     ///
     /// `None` when the embedded faces would not decode. That is a build fault
@@ -243,6 +248,12 @@ impl AppState {
     /// The throttles are updated, not rebuilt, because they hold the
     /// count of who has been failing to sign in. See [`Throttles::apply`].
     pub fn replace_config(&self, config: Arc<Config>) {
+        // The cached document belongs to the issuer it was fetched from. A new
+        // issuer means the endpoints, and the name we check `iss` against, are
+        // somebody else's.
+        if config.auth.oidc.issuer != self.config().auth.oidc.issuer {
+            self.oidc.forget();
+        }
         self.throttles.apply(&config.auth.throttle);
         self.proxies.store(Arc::new(config.server.proxy_trust()));
         match Mailer::from_config(&config.mail) {
@@ -311,6 +322,7 @@ impl AppState {
             uploads: UploadRepository::new(db.clone()),
             multipart,
             assets: Arc::new(assets),
+            oidc: Arc::new(crate::auth::oidc::discovery::Discovery::default()),
             #[cfg(feature = "og-images")]
             cards: match crate::og::Cards::new() {
                 Ok(cards) => Some(Arc::new(cards)),
