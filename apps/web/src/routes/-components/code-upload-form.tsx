@@ -38,41 +38,35 @@ import * as m from "@/paraglide/messages";
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
 
-const LANGUAGES = [
+// value 要跟 lib/detect-language.ts 的 id 一致。mode 可省略,
+// 省略就沒有編輯器高亮,但分享頁的 shiki 仍然正常。
+const LANGUAGES: readonly {
+  label: string;
+  value: string;
+  mode?: Extension;
+}[] = [
   { label: "Plain text", value: "plaintext" },
-  { label: "JavaScript", value: "javascript" },
-  { label: "TypeScript", value: "typescript" },
-  { label: "Python", value: "python" },
-  { label: "HTML", value: "html" },
-  { label: "CSS", value: "css" },
-  { label: "JSON", value: "json" },
-  { label: "Markdown", value: "markdown" },
-  { label: "SQL", value: "sql" },
-  { label: "Java", value: "java" },
-  { label: "C++", value: "cpp" },
-  { label: "Rust", value: "rust" },
-  { label: "Go", value: "go" },
-  { label: "YAML", value: "yaml" },
-  { label: "PHP", value: "php" },
+  { label: "JavaScript", value: "javascript", mode: javascript({ jsx: true }) },
+  {
+    label: "TypeScript",
+    value: "typescript",
+    mode: javascript({ jsx: true, typescript: true }),
+  },
+  { label: "Python", value: "python", mode: python() },
+  { label: "HTML", value: "html", mode: html() },
+  { label: "CSS", value: "css", mode: css() },
+  { label: "JSON", value: "json", mode: json() },
+  { label: "Markdown", value: "markdown", mode: markdown() },
+  { label: "SQL", value: "sql", mode: sql() },
+  { label: "Java", value: "java", mode: java() },
+  { label: "C++", value: "cpp", mode: cpp() },
+  { label: "Rust", value: "rust", mode: rust() },
+  { label: "Go", value: "go", mode: go() },
+  { label: "YAML", value: "yaml", mode: yaml() },
+  { label: "PHP", value: "php", mode: php() },
+  // Shell 的高亮要另外裝 @codemirror/legacy-modes。
   { label: "Shell", value: "shellscript" },
-] as const;
-
-const LANGUAGE_EXTENSIONS: Record<string, Extension> = {
-  cpp: cpp(),
-  css: css(),
-  go: go(),
-  html: html(),
-  java: java(),
-  javascript: javascript({ jsx: true }),
-  json: json(),
-  markdown: markdown(),
-  php: php(),
-  python: python(),
-  rust: rust(),
-  sql: sql(),
-  typescript: javascript({ jsx: true, typescript: true }),
-  yaml: yaml(),
-};
+];
 
 interface CodeUploadFormProps {
   status: SubmitStatus;
@@ -112,8 +106,7 @@ export function CodeUploadForm({
   const [language, setLanguage] = useState("plaintext");
   const [code, setCode] = useState("");
   const [expanded, setExpanded] = useState(false);
-  // 目前的語言是猜的還是使用者選的。
-  // 使用者自己選過之後就永久停止猜測,免得之後再貼一次又被蓋掉(tessera#228)。
+  // 使用者自己選過就永久停止猜測,免得再貼一次又被蓋掉。
   const [wasGuessed, setWasGuessed] = useState(false);
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
   const isDark = useIsDarkMode();
@@ -129,8 +122,7 @@ export function CodeUploadForm({
     if (userPickedLanguage) {
       return;
     }
-    // 套件對「從 value prop 推回編輯器」的更新會標上 ExternalChange,
-    // 跳過這種,只對使用者真正的編輯做猜測。
+    // ExternalChange 是套件推回編輯器的更新,不是使用者打的。
     const isExternal = viewUpdate.transactions.some((tr) =>
       tr.annotation(ExternalChange)
     );
@@ -144,9 +136,8 @@ export function CodeUploadForm({
     }
   };
 
-  const extensions = LANGUAGE_EXTENSIONS[language]
-    ? [LANGUAGE_EXTENSIONS[language]]
-    : [];
+  const mode = LANGUAGES.find((lang) => lang.value === language)?.mode;
+  const extensions = mode ? [mode] : [];
 
   const submitFrom = (origin: HTMLButtonElement | null) => {
     if (code.trim().length > 0) {
