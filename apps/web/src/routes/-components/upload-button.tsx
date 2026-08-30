@@ -89,43 +89,15 @@ export const UploadButton = forwardRef<HTMLButtonElement, UploadButtonProps>(
     const [isDragging, setIsDragging] = useState(false);
 
     const openPicker = (folderMode: boolean) => {
-      // biome-ignore lint: temp debug
-      console.log("[upload-button] openPicker", {
-        folderMode,
-        hasInput: !!inputRef.current,
-        status,
-      });
       if (status !== "idle" || !inputRef.current) {
         return;
       }
       inputRef.current.webkitdirectory = folderMode;
       inputRef.current.multiple = folderMode;
-      // biome-ignore lint: temp debug
-      console.log("[upload-button] calling input.click()", {
-        multiple: inputRef.current.multiple,
-        webkitdirectory: inputRef.current.webkitdirectory,
-      });
       inputRef.current.click();
     };
 
-    const handleClick = () => {
-      // biome-ignore lint: temp debug
-      console.log("[upload-button] main button clicked");
-      openPicker(false);
-    };
-
-    const handleChooseFolder = () => {
-      // biome-ignore lint: temp debug
-      console.log("[upload-button] folder link clicked");
-      openPicker(true);
-    };
-
     const handleInputChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-      // biome-ignore lint: temp debug
-      console.log(
-        "[upload-button] handleInputChange fired",
-        event.target.files?.length
-      );
       const { files } = event.target;
       const entries = files ? filesToEntries(files) : [];
       event.target.value = "";
@@ -174,7 +146,7 @@ export const UploadButton = forwardRef<HTMLButtonElement, UploadButtonProps>(
             isDragging && "scale-[1.05]"
           )}
           disabled={status !== "idle"}
-          onClick={handleClick}
+          onClick={() => openPicker(false)}
           onDragLeave={handleDragLeave}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
@@ -211,7 +183,7 @@ export const UploadButton = forwardRef<HTMLButtonElement, UploadButtonProps>(
         {status === "idle" && (
           <button
             className="text-muted-foreground text-xs underline underline-offset-2 hover:text-foreground"
-            onClick={handleChooseFolder}
+            onClick={() => openPicker(true)}
             type="button"
           >
             {m.upload_button_choose_folder()}

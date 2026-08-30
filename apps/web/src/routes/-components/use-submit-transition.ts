@@ -2,6 +2,7 @@ import { toast } from "@tessera/ui/components/toast";
 import { useState } from "react";
 
 import type { UploadResultData } from "@/lib/upload";
+import * as m from "@/paraglide/messages";
 
 export type SubmitStatus = "idle" | "uploading" | "done";
 
@@ -45,17 +46,7 @@ export function useSubmitTransition() {
     el: HTMLElement | null,
     run: (onProgress: (percent: number) => void) => Promise<UploadResultData>
   ) => {
-    // biome-ignore lint: temp debug
-    console.log("[use-submit-transition] start called", {
-      hasEl: !!el,
-      status,
-    });
     if (status !== "idle" || !el) {
-      // biome-ignore lint: temp debug
-      console.log("[use-submit-transition] start bailed out early", {
-        hasEl: !!el,
-        status,
-      });
       return;
     }
     setOrigin(getExpandOrigin(el));
@@ -74,8 +65,8 @@ export function useSubmitTransition() {
       if (!(error instanceof DOMException && error.name === "AbortError")) {
         toast.add({
           description:
-            error instanceof Error ? error.message : "Please try again.",
-          title: "Upload failed",
+            error instanceof Error ? error.message : m.common_try_again(),
+          title: m.upload_failed(),
           type: "error",
         });
       }

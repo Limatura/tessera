@@ -32,11 +32,6 @@ export function UploadPanel() {
   const fileButtonRef = useRef<HTMLButtonElement>(null);
 
   const handleSelectFiles = (files: FileEntry[]) => {
-    // biome-ignore lint: temp debug
-    console.log("[upload-panel] handleSelectFiles", {
-      count: files.length,
-      hasButtonRef: !!fileButtonRef.current,
-    });
     start(fileButtonRef.current, (onProgress) =>
       upload({ files, type: "file" }, { onProgress })
     );

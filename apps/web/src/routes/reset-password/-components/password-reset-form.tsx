@@ -82,7 +82,7 @@ export function PasswordResetForm({
   const refinedSchema = resetSchema.refine(
     (data) => data.password === data.confirmPassword,
     {
-      message: m.auth_password_mismatch?.() ?? "Passwords do not match",
+      message: m.auth_password_mismatch(),
       path: ["confirmPassword"],
     }
   );
@@ -118,10 +118,8 @@ export function PasswordResetForm({
         },
         onSuccess: () => {
           toast.add({
-            description:
-              m.auth_password_reset_success?.() ??
-              "Password has been reset. Please sign in with your new password.",
-            title: m.auth_success?.() ?? "Success",
+            description: m.auth_password_reset_success(),
+            title: m.auth_success(),
             type: "success",
           });
           navigate({ to: "/login" });
@@ -148,8 +146,7 @@ export function PasswordResetForm({
                 </motion.div>
                 <motion.div variants={itemVariants}>
                   <CardDescription>
-                    {m.auth_password_reset_invalid_link?.() ??
-                      "The password reset link is invalid or missing."}
+                    {m.auth_password_reset_invalid_link()}
                   </CardDescription>
                 </motion.div>
               </CardHeader>
@@ -188,14 +185,11 @@ export function PasswordResetForm({
               </motion.div>
               <motion.div variants={itemVariants}>
                 <CardTitle className="font-medium text-xl tracking-tight">
-                  {m.auth_reset_password?.() ?? "Reset Password"}
+                  {m.auth_reset_password()}
                 </CardTitle>
               </motion.div>
               <motion.div variants={itemVariants}>
-                <CardDescription>
-                  {m.auth_enter_new_password?.() ??
-                    "Enter your new password below."}
-                </CardDescription>
+                <CardDescription>{m.auth_enter_new_password()}</CardDescription>
               </motion.div>
             </CardHeader>
             <CardContent>
@@ -214,9 +208,7 @@ export function PasswordResetForm({
                             {...field}
                             aria-invalid={fieldState.invalid}
                             id="password"
-                            placeholder={
-                              m.auth_enter_password?.() ?? "Enter password"
-                            }
+                            placeholder={m.auth_enter_password()}
                             type="password"
                           />
                           {fieldState.invalid && (
@@ -233,15 +225,13 @@ export function PasswordResetForm({
                       render={({ field, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
                           <FieldLabel htmlFor="confirmPassword">
-                            {m.auth_confirm_password?.() ?? "Confirm Password"}
+                            {m.auth_confirm_password()}
                           </FieldLabel>
                           <Input
                             {...field}
                             aria-invalid={fieldState.invalid}
                             id="confirmPassword"
-                            placeholder={
-                              m.auth_confirm_password?.() ?? "Confirm password"
-                            }
+                            placeholder={m.auth_confirm_password()}
                             type="password"
                           />
                           {fieldState.invalid && (
@@ -263,8 +253,8 @@ export function PasswordResetForm({
                           type="submit"
                         >
                           {resetMutation.isPending
-                            ? (m.auth_resetting?.() ?? "Resetting...")
-                            : (m.auth_reset_password?.() ?? "Reset Password")}
+                            ? m.auth_resetting()
+                            : m.auth_reset_password()}
                         </Button>
                       </motion.div>
                       <FieldDescription className="text-center">
@@ -272,7 +262,7 @@ export function PasswordResetForm({
                           className="underline-offset-4 hover:underline"
                           href="/login"
                         >
-                          {m.auth_back_to_login?.() ?? "Back to login"}
+                          {m.auth_back_to_login()}
                         </a>
                       </FieldDescription>
                     </Field>

@@ -16,6 +16,16 @@ interface LanguageRules {
 // 分數相同時排前面的贏,所以 TypeScript 要在 JavaScript 前、C++ 在 Java 前。
 const LANGUAGES: readonly LanguageRules[] = [
   {
+    // 圖表宣告只會出現在第一個非空行,而且是 mermaid 獨有的關鍵字。
+    // 放在最前面,免得 `graph TD` 這種內容被 yaml 或 markdown 搶走。
+    id: "mermaid",
+    unique: [
+      /^[ \t]*(?:graph|flowchart)[ \t]+(?:TB|TD|BT|RL|LR)\b/mu,
+      /^[ \t]*(?:sequenceDiagram|classDiagram(?:-v2)?|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|quadrantChart|requirementDiagram|gitGraph|mindmap|timeline|sankey-beta|xychart-beta|block-beta|packet-beta|architecture-beta|kanban|radar-beta|treemap-beta)\b/mu,
+    ],
+    hints: [],
+  },
+  {
     id: "rust",
     unique: [/\blet\s+mut\s+/u, /#\[derive\(/u, /\bfn\s+\w+\s*\([^)]*\)\s*->/u],
     hints: [

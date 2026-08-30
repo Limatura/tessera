@@ -26,12 +26,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@tessera/ui/components/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@tessera/ui/components/tabs";
 import { vscodeDark, vscodeLight } from "@uiw/codemirror-theme-vscode";
 import CodeMirror, { ExternalChange } from "@uiw/react-codemirror";
 import type { Extension, ViewUpdate } from "@uiw/react-codemirror";
 import { Maximize2, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  EDITOR_DEBOUNCE_MS,
+  MermaidDiagram,
+} from "@/components/mermaid/mermaid-diagram";
 import { detectLanguage } from "@/lib/detect-language";
 import * as m from "@/paraglide/messages";
 
@@ -66,7 +76,13 @@ const LANGUAGES: readonly {
   { label: "PHP", value: "php", mode: php() },
   // Shell 的高亮要另外裝 @codemirror/legacy-modes。
   { label: "Shell", value: "shellscript" },
+  // Mermaid 沒有 CodeMirror 語法包,編輯器維持純文字;
+  // 分享頁會直接把它渲染成圖,不走 shiki(tessera#227)。
+  { label: "Mermaid", value: "mermaid" },
 ];
+
+const MERMAID = "mermaid";
+const EXPANDED_EDITOR_HEIGHT = "65vh";
 
 interface CodeUploadFormProps {
   status: SubmitStatus;
@@ -109,6 +125,7 @@ export function CodeUploadForm({
   // 使用者自己選過就永久停止猜測,免得再貼一次又被蓋掉。
   const [wasGuessed, setWasGuessed] = useState(false);
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
+  const [mermaidPane, setMermaidPane] = useState<"edit" | "preview">("edit");
   const isDark = useIsDarkMode();
 
   const handleLanguageChange = (value: string | null) => {
@@ -138,6 +155,28 @@ export function CodeUploadForm({
 
   const mode = LANGUAGES.find((lang) => lang.value === language)?.mode;
   const extensions = mode ? [mode] : [];
+  const isMermaid = language === MERMAID;
+
+  const renderEditor = (height: string) => (
+    <CodeMirror
+      className="h-full overflow-hidden rounded-md border font-mono text-sm"
+      extensions={extensions}
+      height={height}
+      onChange={handleCodeChange}
+      placeholder={m.upload_code_placeholder()}
+      theme={isDark ? vscodeDark : vscodeLight}
+      value={code}
+    />
+  );
+
+  const renderPreview = () => (
+    <MermaidDiagram
+      className="h-full min-h-0"
+      code={code}
+      debounceMs={EDITOR_DEBOUNCE_MS}
+      title={m.mermaid_diagram()}
+    />
+  );
 
   const submitFrom = (origin: HTMLButtonElement | null) => {
     if (code.trim().length > 0) {
@@ -175,7 +214,7 @@ export function CodeUploadForm({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-2">
-          <Label htmlFor="code-language">Language</Label>
+          <Label htmlFor="code-language">{m.common_language()}</Label>
           {wasGuessed && (
             <span
               className="text-muted-foreground text-xs"
@@ -203,13 +242,13 @@ export function CodeUploadForm({
         extensions={extensions}
         height="300px"
         onChange={handleCodeChange}
-        placeholder="paste your snippet..."
+        placeholder={m.upload_code_placeholder()}
         theme={isDark ? vscodeDark : vscodeLight}
         value={code}
       />
       <div className="flex justify-end">
         <QuickSubmitButton
-          label="Send snippet"
+          label={m.upload_send_snippet()}
           onClick={() => submitFrom(buttonRef.current)}
           progress={progress}
           ref={buttonRef}
@@ -218,13 +257,22 @@ export function CodeUploadForm({
       </div>
 
       <Dialog onOpenChange={setExpanded} open={expanded}>
-        <DialogContent className="w-[92vw] max-w-4xl sm:max-w-4xl">
+        {/* 並排時要更寬,不然編輯器跟圖各自都太窄。 */}
+        <DialogContent
+          className={
+            isMermaid
+              ? "w-[95vw] max-w-6xl sm:max-w-6xl"
+              : "w-[92vw] max-w-4xl sm:max-w-4xl"
+          }
+        >
           <DialogHeader>
             <DialogTitle>{m.upload_tab_code()}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-baseline gap-2">
-              <Label htmlFor="code-language-expanded">Language</Label>
+              <Label htmlFor="code-language-expanded">
+                {m.common_language()}
+              </Label>
               {wasGuessed && (
                 <span
                   className="text-muted-foreground text-xs"
@@ -236,18 +284,41 @@ export function CodeUploadForm({
             </div>
             {renderLanguageSelect("code-language-expanded")}
           </div>
-          <CodeMirror
-            className="rounded-md border font-mono text-sm"
-            extensions={extensions}
-            height="65vh"
-            onChange={handleCodeChange}
-            placeholder="paste your snippet..."
-            theme={isDark ? vscodeDark : vscodeLight}
-            value={code}
-          />
+          {isMermaid ? (
+            <>
+              {/* 寬螢幕:編輯器跟圖並排,邊改邊看。 */}
+              <div className="hidden gap-3 sm:grid sm:grid-cols-2">
+                {renderEditor(EXPANDED_EDITOR_HEIGHT)}
+                <div className="h-[65vh]">{renderPreview()}</div>
+              </div>
+              {/* 窄螢幕塞不下兩欄,退回分頁。 */}
+              <Tabs
+                className="sm:hidden"
+                onValueChange={(value) =>
+                  setMermaidPane(value === "preview" ? "preview" : "edit")
+                }
+                value={mermaidPane}
+              >
+                <TabsList>
+                  <TabsTrigger value="edit">{m.code_tab_edit()}</TabsTrigger>
+                  <TabsTrigger value="preview">
+                    {m.code_tab_preview()}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="edit">
+                  {renderEditor(EXPANDED_EDITOR_HEIGHT)}
+                </TabsContent>
+                <TabsContent className="h-[65vh]" value="preview">
+                  {renderPreview()}
+                </TabsContent>
+              </Tabs>
+            </>
+          ) : (
+            renderEditor(EXPANDED_EDITOR_HEIGHT)
+          )}
           <div className="flex justify-end">
             <QuickSubmitButton
-              label="Send snippet"
+              label={m.upload_send_snippet()}
               onClick={() => submitFrom(dialogButtonRef.current)}
               progress={progress}
               ref={dialogButtonRef}

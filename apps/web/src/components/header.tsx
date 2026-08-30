@@ -26,7 +26,7 @@ import { cn } from "@tessera/ui/lib/utils";
 import { Logo } from "@/components/logo";
 import { useSession, useLogout } from "@/hooks/use-auth";
 import { getLocale, setLocale } from "@/lib/locale";
-import { m } from "@/paraglide/messages.js";
+import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";
 
 function getInitials(username: string): string {
@@ -88,7 +88,7 @@ export default function Header() {
               />
               <DropdownMenuContent align="end">
                 <DropdownMenuItem variant="destructive" onClick={handleLogout}>
-                  Logout
+                  {m.common_logout()}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

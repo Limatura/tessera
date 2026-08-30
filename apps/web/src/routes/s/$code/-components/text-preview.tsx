@@ -1,18 +1,22 @@
 import { Button } from "@tessera/ui/components/button";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import { cn } from "@tessera/ui/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { MermaidDiagram } from "@/components/mermaid/mermaid-diagram";
 import { useTheme } from "@/components/theme-provider";
 import * as m from "@/paraglide/messages";
 
 const MAX_PREVIEW_BYTES = 200_000;
+const MERMAID = "mermaid";
 
 type PreviewState =
   | { status: "loading" }
   | { status: "too-large" }
   | { status: "error" }
-  | { status: "ready"; code: string; html: string };
+  // Mermaid 要渲染成圖,不上色,所以沒有 html。
+  | { status: "ready"; code: string; html: string | null };
 
 async function highlight(code: string, language: string, theme: string) {
   const { codeToHtml } = await import("@/lib/shiki");
@@ -33,6 +37,7 @@ export function TextPreview({
   url: string;
 }) {
   const { resolvedTheme } = useTheme();
+  const isMermaid = language === MERMAID;
   const tooLarge =
     sizeBytes !== null &&
     sizeBytes !== undefined &&
@@ -57,7 +62,9 @@ export function TextPreview({
           throw new Error(response.statusText);
         }
         const code = await response.text();
-        const html = await highlight(code, language || "plaintext", theme);
+        const html = isMermaid
+          ? null
+          : await highlight(code, language || "plaintext", theme);
         setState({ code, html, status: "ready" });
       } catch {
         if (!controller.signal.aborted) {
@@ -67,7 +74,7 @@ export function TextPreview({
     })();
 
     return () => controller.abort();
-  }, [url, language, resolvedTheme, tooLarge]);
+  }, [url, language, resolvedTheme, tooLarge, isMermaid]);
 
   const handleCopy = async () => {
     if (state.status !== "ready") {
@@ -96,7 +103,11 @@ export function TextPreview({
     <div className="group relative">
       <Button
         aria-label={m.share_copy()}
-        className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+        // Mermaid 的放大鈕佔了 right-2,複製往左讓一格。
+        className={cn(
+          "absolute top-2 z-10 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100",
+          state.html === null ? "right-11" : "right-2"
+        )}
         onClick={handleCopy}
         size="icon-sm"
         type="button"
@@ -104,13 +115,21 @@ export function TextPreview({
       >
         {copied ? <Check /> : <Copy />}
       </Button>
-      {/* Shiki HTML-escapes the tokenized source when it serializes, so this
-          can't be used to inject markup — that's what makes it safe here. */}
-      <div
-        className="max-h-96 overflow-auto rounded-md border border-border/60 text-xs [&_pre]:bg-transparent! [&_pre]:p-4"
-        // oxlint-disable-next-line react/no-danger -- trusted output of the Shiki highlighter, not user-supplied HTML
-        dangerouslySetInnerHTML={{ __html: state.html }}
-      />
+      {state.html === null ? (
+        <MermaidDiagram
+          className="h-96"
+          code={state.code}
+          title={m.mermaid_diagram()}
+        />
+      ) : (
+        /* Shiki HTML-escapes the tokenized source when it serializes, so this
+           can't be used to inject markup — that's what makes it safe here. */
+        <div
+          className="max-h-96 overflow-auto rounded-md border border-border/60 text-xs [&_pre]:bg-transparent! [&_pre]:p-4"
+          // oxlint-disable-next-line react/no-danger -- trusted output of the Shiki highlighter, not user-supplied HTML
+          dangerouslySetInnerHTML={{ __html: state.html }}
+        />
+      )}
     </div>
   );
 }

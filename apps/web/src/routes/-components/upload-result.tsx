@@ -82,7 +82,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
       rollback();
       toast.add({
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : m.common_try_again(),
         title: m.upload_result_update_failed(),
         type: "error",
       });
@@ -129,7 +129,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
     } catch (error) {
       toast.add({
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : m.common_try_again(),
         title: m.upload_result_update_failed(),
         type: "error",
       });
@@ -152,7 +152,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
     } catch (error) {
       toast.add({
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : m.common_try_again(),
         title: m.upload_result_update_failed(),
         type: "error",
       });
@@ -175,7 +175,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
     } catch (error) {
       toast.add({
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : m.common_try_again(),
         title: m.upload_result_delete_failed(),
         type: "error",
       });
@@ -199,7 +199,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
         <p className="font-medium text-neutral-900 text-sm">
           {result.fileName}
         </p>
-        <p className="text-neutral-900/70 text-xs">Ready to share</p>
+        <p className="text-neutral-900/70 text-xs">{m.upload_result_ready()}</p>
       </div>
 
       <div className="flex w-full items-center gap-2 rounded-lg border border-neutral-900/15 bg-neutral-900/5 px-3 py-2">
@@ -355,7 +355,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
           variant="outline"
         >
           <RotateCcw />
-          Upload another
+          {m.upload_result_upload_another()}
         </Button>
 
         <AlertDialog>
