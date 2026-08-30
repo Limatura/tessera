@@ -22,6 +22,11 @@ on:
       # of them with actionlint and zizmor, and it is the only place that does.
       # Without this a change to `web.yml` would ship unchecked.
       - ".github/workflows/**"
+      # The composite action every Rust job here starts with. It sets up the
+      # toolchain and clears what previous runs left on the machine, so a change
+      # to it changes how all nine jobs behave — and without this line it was
+      # the one thing in the build that could ship without CI running at all.
+      - ".github/actions/**"
   pull_request:
     paths: *rust-paths
   workflow_dispatch:
@@ -630,10 +635,28 @@ jobs:
             "credentials":[{"accessKey":"tesseratest","secretKey":"tesseratestsecret"}],
             "actions":["Admin","Read","Write","List","Tagging"]}]}
           JSON
+          # `-volume.max` is not tuning. Left at the default, SeaweedFS sets the
+          # number of volume slots from *free disk space in gigabytes*, and it
+          # grows seven volumes at a time for each collection it has never
+          # written to. An S3 bucket is a collection, and there are three here:
+          # the filer's own default, `tessera`, and `tessera-cold`. That is
+          # twenty-one slots wanted.
+          #
+          # This runner's disk sits around fourteen gigabytes free during a run,
+          # so the budget is thirteen. The default collection takes 1-7,
+          # `tessera` takes 8-13, and `tessera-cold` gets none: every write to
+          # the second bucket fails with "No writable volumes and no free
+          # volumes left", and the split test is the only one that uses it.
+          #
+          # Reproduced locally on 2026-08-30 by giving the container a 14 GB
+          # tmpfs: the master reported `Max: 13, Free: 0` with 71 MB of 14 GB
+          # actually used, so this was never about running out of room. Pinning
+          # the count to thirty makes all three collections fit, and the same
+          # suite goes from one failure to ten passes.
           docker run -d --name tessera-seaweed -p 38333:8333 \
             -v /tmp/seaweed-s3.json:/s3.json:ro \
             chrislusf/seaweedfs:4.44 \
-            server -s3 -s3.port=8333 -s3.config=/s3.json -dir=/data
+            server -s3 -s3.port=8333 -s3.config=/s3.json -dir=/data -volume.max=30
           for _ in $(seq 1 60); do
             curl -s -o /dev/null http://127.0.0.1:38333 && break
             sleep 1

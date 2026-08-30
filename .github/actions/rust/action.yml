@@ -31,6 +31,35 @@ runs:
         done <<< "$(ps -eo pid=,ppid=,etimes=,comm=)"
         [ "$reaped" -eq 0 ] || echo "reaped ${reaped} orphaned compilers"
 
+    # Same class of problem as the orphaned compilers above, and a bigger one.
+    #
+    # `docker buildx` runs its builder in a container. The image job removes its
+    # own at both ends, but neither of those steps runs when the job is
+    # cancelled or when the runner goes away mid-job, and then the builder
+    # outlives the whole run.
+    #
+    # Measured on 2026-08-29: one left over that way, holding 2.25 GB of a
+    # 4.9 GB machine and still at 100% CPU with no job attached. That leaves
+    # about 2.4 GB for a compiler, and an `--all-features` build of this
+    # workspace does not fit in it, so `rustc` is killed and the job reports
+    # exit 143 with nothing in the log saying why.
+    #
+    # The image job cannot clear it in time: it is one job among nine, and the
+    # ones that compile come before it. So the cleanup goes where the memory is
+    # needed instead of where the builder was made. The layer cache lives on
+    # disk under `/tmp/tessera-buildx-cache`, so taking the builder away loses
+    # nothing.
+    #
+    # There is one runner and its jobs are serial, so no live build owns a
+    # builder while this runs. The image job creates its own afterwards.
+    - name: Take back what an interrupted image build is still holding
+      shell: bash
+      run: |
+        command -v docker >/dev/null 2>&1 || exit 0
+        timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
+          | grep -v '^default$' \
+          | xargs -r -I{} timeout 60 docker buildx rm --force {} 2>/dev/null || true
+
     # The shared target directory is what actually fills the disk, and nothing
     # was bounding it.
     #
