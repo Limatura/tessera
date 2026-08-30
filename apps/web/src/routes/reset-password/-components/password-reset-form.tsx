@@ -20,30 +20,14 @@ import { Input } from "@tessera/ui/components/input";
 import { toast } from "@tessera/ui/components/toast";
 import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
-import type { Variants } from "motion/react";
 import { useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { usePasswordReset } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
+import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
-
-const containerVariants: Variants = {
-  hidden: {},
-  visible: {
-    transition: { delayChildren: 0.1, staggerChildren: 0.06 },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: {
-    opacity: 1,
-    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-    y: 0,
-  },
-};
 
 interface ResetFormValues {
   confirmPassword: string;

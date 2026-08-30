@@ -19,29 +19,13 @@ import {
 import { Input } from "@tessera/ui/components/input";
 import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
-import type { Variants } from "motion/react";
 import { Controller, useForm } from "react-hook-form";
 
 import { useLogin } from "@/hooks/use-auth";
 import { loginSchema } from "@/lib/api/auth-schema";
 import type { LoginFormValues } from "@/lib/api/auth-schema";
+import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
-
-const containerVariants: Variants = {
-  hidden: {},
-  visible: {
-    transition: { delayChildren: 0.1, staggerChildren: 0.06 },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 10 },
-  visible: {
-    opacity: 1,
-    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-    y: 0,
-  },
-};
 
 export function LoginForm({
   className,

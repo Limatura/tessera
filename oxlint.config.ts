@@ -18,6 +18,17 @@ export default defineConfig({
   ],
   overrides: [
     {
+      // 測試檔專用:靜態抓「忘記 await 的非同步斷言」和「整個 it 沒有斷言」。
+      // 這兩種寫法在執行時都是綠的,只有 lint 能抓到。
+      files: ["**/*.test.ts", "**/*.test.tsx"],
+      plugins: ["vitest"],
+      rules: {
+        "vitest/expect-expect": "error",
+        "vitest/no-identical-title": "error",
+        "vitest/valid-expect": "error",
+      },
+    },
+    {
       files: ["packages/ui/src/components/**", "packages/ui/src/hooks/**"],
       rules: {
         "eslint/complexity": "off",

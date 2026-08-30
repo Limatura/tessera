@@ -48,8 +48,12 @@ import * as m from "@/paraglide/messages";
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
 
-// value 要跟 lib/detect-language.ts 的 id 一致。mode 可省略,
-// 省略就沒有編輯器高亮,但分享頁的 shiki 仍然正常。
+// 加一個語言要改三個地方,漏掉不會報錯,只會靜默少一塊功能:
+//   1. 這裡的 LANGUAGES —— 選單選項,mode 給了才有編輯器高亮
+//   2. lib/detect-language.ts —— 貼上內容時的自動偵測(id 要跟這裡的 value 一致)
+//   3. lib/shiki.ts 的 bundledLanguages —— 分享頁的語法高亮,
+//      漏掉的話分享頁會靜默 fallback 成純文字
+// Mermaid 是例外:它在分享頁走渲染而不是高亮,所以不進 shiki(見 tessera#227)。
 const LANGUAGES: readonly {
   label: string;
   value: string;

@@ -1,4 +1,6 @@
 // 貼上程式碼時猜語言(tessera#228)。加語言就在 LANGUAGES 加一筆。
+// 這只是三處之一:另外兩處是 routes/-components/code-upload-form.tsx 的選單
+// 和 lib/shiki.ts 的 bundledLanguages(分享頁高亮)。
 // 注意 \s 會跨行,只想吃空白用 [ \t]。
 
 const MIN_CHARS_TO_GUESS = 12;
