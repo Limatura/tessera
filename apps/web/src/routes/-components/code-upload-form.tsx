@@ -32,6 +32,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@tessera/ui/components/tabs";
+import { cn } from "@tessera/ui/lib/utils";
 import { vscodeDark, vscodeLight } from "@uiw/codemirror-theme-vscode";
 import CodeMirror, { ExternalChange } from "@uiw/react-codemirror";
 import type { Extension, ViewUpdate } from "@uiw/react-codemirror";
@@ -87,6 +88,12 @@ const LANGUAGES: readonly {
 
 const MERMAID = "mermaid";
 const EXPANDED_EDITOR_HEIGHT = "65vh";
+
+// className 只落在最外層 .cm-theme,但真正被長行撐開的是內層的 .cm-editor
+// (它自己沒有 min-width:0,會被 .cm-content 由內往外推寬),所以外層歸零不夠,
+// 要一路把 .cm-editor 也釘在容器寬度,.cm-scroller 才會接管水平捲動。
+const EDITOR_CLIP =
+  "min-w-0 overflow-hidden [&_.cm-editor]:w-full [&_.cm-editor]:min-w-0 [&_.cm-scroller]:min-w-0";
 
 interface CodeUploadFormProps {
   status: SubmitStatus;
@@ -163,7 +170,7 @@ export function CodeUploadForm({
 
   const renderEditor = (height: string) => (
     <CodeMirror
-      className="h-full overflow-hidden rounded-md border font-mono text-sm"
+      className={cn(EDITOR_CLIP, "h-full rounded-md border font-mono text-sm")}
       extensions={extensions}
       height={height}
       onChange={handleCodeChange}
@@ -242,7 +249,7 @@ export function CodeUploadForm({
         </div>
       </div>
       <CodeMirror
-        className="rounded-md border font-mono text-sm"
+        className={cn(EDITOR_CLIP, "rounded-md border font-mono text-sm")}
         extensions={extensions}
         height="300px"
         onChange={handleCodeChange}
@@ -291,13 +298,13 @@ export function CodeUploadForm({
           {isMermaid ? (
             <>
               {/* 寬螢幕:編輯器跟圖並排,邊改邊看。 */}
-              <div className="hidden gap-3 sm:grid sm:grid-cols-2">
+              <div className="hidden min-w-0 gap-3 sm:grid sm:grid-cols-2">
                 {renderEditor(EXPANDED_EDITOR_HEIGHT)}
-                <div className="h-[65vh]">{renderPreview()}</div>
+                <div className="h-[65vh] min-w-0">{renderPreview()}</div>
               </div>
               {/* 窄螢幕塞不下兩欄,退回分頁。 */}
               <Tabs
-                className="sm:hidden"
+                className="min-w-0 sm:hidden"
                 onValueChange={(value) =>
                   setMermaidPane(value === "preview" ? "preview" : "edit")
                 }
@@ -309,10 +316,10 @@ export function CodeUploadForm({
                     {m.code_tab_preview()}
                   </TabsTrigger>
                 </TabsList>
-                <TabsContent value="edit">
+                <TabsContent className="min-w-0" value="edit">
                   {renderEditor(EXPANDED_EDITOR_HEIGHT)}
                 </TabsContent>
-                <TabsContent className="h-[65vh]" value="preview">
+                <TabsContent className="h-[65vh] min-w-0" value="preview">
                   {renderPreview()}
                 </TabsContent>
               </Tabs>

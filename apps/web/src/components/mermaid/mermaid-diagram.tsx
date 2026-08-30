@@ -20,7 +20,7 @@ function ErrorBanner({ error }: { error: string }) {
         <p className="font-medium text-destructive text-xs">
           {m.mermaid_render_failed()}
         </p>
-        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] text-muted-foreground">
+        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap wrap-break-word font-mono text-[11px] text-muted-foreground">
           {error}
         </pre>
       </div>
@@ -81,9 +81,12 @@ export function MermaidDiagram({
             那顆按鈕觸發,這層純粹是容器。 */}
         {/* mermaid 會在 <svg> 上寫死 style="max-width: <圖寬>px",inline style
             贏過 class,所以複雜的大圖會把卡片撐爆。用 [&_svg]:max-w-full! 的
-            !important 蓋掉它,再讓 SVG 自己縮到容器寬度(tessera#227)。 */}
+            !important 蓋掉它,再讓 SVG 自己縮到容器寬度(tessera#227)。
+            不要加 w-full:SVG 有自己的長寬比,強制撐滿寬度會讓寬圖(例如
+            participant 很多的 sequenceDiagram)被壓扁變形。max-w-full 就夠擋
+            溢出,真的塞不下時由外層 overflow-auto 捲動。 */}
         <div
-          className="flex max-h-full w-full items-center justify-center overflow-auto rounded-md border border-border/60 bg-muted/20 p-4 [&_svg]:h-auto! [&_svg]:max-w-full! [&_svg]:w-full"
+          className="flex max-h-full w-full items-center justify-center overflow-auto rounded-md border border-border/60 bg-muted/20 p-4 [&_svg]:h-auto! [&_svg]:max-w-full!"
           // oxlint-disable-next-line react/no-danger -- SVG produced by mermaid with securityLevel "strict"
           dangerouslySetInnerHTML={{ __html: svg }}
         />

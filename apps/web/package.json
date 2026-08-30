@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "@inlang/plugin-message-format": "^4.4.1",
+    "@playwright/test": "^1.62.1",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",
     "@tessera/config": "workspace:*",
