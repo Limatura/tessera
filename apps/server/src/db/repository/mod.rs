@@ -9,6 +9,7 @@
 pub mod access_event;
 pub mod api_token;
 pub mod invite;
+pub mod oidc;
 pub mod password_reset;
 pub mod pending_registration;
 pub mod quota;

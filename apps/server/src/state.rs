@@ -17,6 +17,7 @@ use crate::{
         access_event::AccessEventRepository,
         api_token::ApiTokenRepository,
         invite::InviteRepository,
+        oidc::OidcRepository,
         password_reset::PasswordResetRepository,
         pending_registration::PendingRegistrationRepository,
         role::RoleRepository,
@@ -96,6 +97,8 @@ pub struct AppState {
     pub invites: InviteRepository,
     /// Registrations waiting on their address to be confirmed.
     pub pending: PendingRegistrationRepository,
+    /// Provider identities, and the sign-ins that are away at the provider.
+    pub identities: OidcRepository,
     /// The relay, when this instance has one.
     ///
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
@@ -312,6 +315,7 @@ impl AppState {
             resets: PasswordResetRepository::new(db.clone()),
             invites: InviteRepository::new(db.clone()),
             pending: PendingRegistrationRepository::new(db.clone()),
+            identities: OidcRepository::new(db.clone()),
             mailer: Arc::new(ArcSwap::from_pointee(mailer)),
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),

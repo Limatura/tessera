@@ -273,6 +273,13 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         "unconfirmed registrations",
         state.pending.delete_expired(now).await,
     );
+    // A browser closed on the provider's login page leaves a row nothing will
+    // ever come back for. It holds no credential, only the values the callback
+    // would have been checked against, but it is unbounded growth otherwise.
+    report(
+        "abandoned provider sign-ins",
+        state.identities.sweep_expired(now).await,
+    );
     // Content first, rows second, and not only for tidiness: the row is what
     // records which object to delete, so releasing the bytes has to happen while
     // there is still something pointing at them.

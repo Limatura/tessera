@@ -166,6 +166,11 @@ object_store = { version = "0.14", features = ["fs"] }
 # depends on, so naming it here costs nothing beyond the import.
 url = "2"
 
+# PKCE and the parts of an ID token are base64url without padding, which is
+# also what the JOSE specifications use everywhere. Already in the tree behind
+# other crates; named here because this code reaches for it directly.
+base64 = "0.23"
+
 # Talking to an identity provider: fetching its configuration and exchanging an
 # authorisation code. Already in the tree through `object_store`, so it brings
 # no TLS stack of its own — the same reasoning as `lettre` above.

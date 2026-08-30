@@ -17,6 +17,7 @@ pub mod file_segment;
 pub mod file_share;
 pub mod identity;
 pub mod invite;
+pub mod oidc_flow;
 pub mod password_reset_token;
 pub mod pending_registration;
 pub mod role;
