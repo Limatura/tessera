@@ -43,8 +43,11 @@ CREATE TABLE IF NOT EXISTS auth_flows (
     -- Carried through the provider and back, so an invitation can be spent by
     -- somebody who has never had a password here. The provider never sees it.
     invite_code TEXT,
-    created_at  TEXT NOT NULL,
-    expires_at  TEXT NOT NULL
+    -- The types the OIDC migration used for the same columns. A time in a
+    -- `text` column is a string, and `expires_at <= now` would then be a
+    -- lexicographic comparison rather than a comparison of times.
+    created_at  TIMESTAMPTZ NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_auth_flows_expires ON auth_flows (expires_at);

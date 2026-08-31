@@ -26,15 +26,21 @@ use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use sha2::{Digest as _, Sha256};
 use url::Url;
 
-use super::discovery::Provider;
 use crate::config::Config;
 
 /// Bytes behind each random value. 32 is what the rest of the server uses for
 /// anything that must not be guessed.
 const RANDOM_BYTES: usize = 32;
 
-/// The path the provider sends the browser back to.
-pub const CALLBACK_PATH: &str = "/api/v1/auth/oidc/callback";
+/// The path a provider sends the browser back to.
+///
+/// One per provider, because a provider matches this by exact string equality
+/// against what was registered with it, and two of them sharing an address
+/// would leave the callback guessing which one answered.
+#[must_use]
+pub fn callback_path(provider: &str) -> String {
+    format!("/api/v1/auth/{provider}/callback")
+}
 
 /// What a sign-in that has left for the provider is for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,8 +124,8 @@ pub struct Start {
     pub url: String,
     /// Proves the callback belongs to a redirect we sent.
     pub state: String,
-    /// Binds the returned token to this attempt.
-    pub nonce: String,
+    /// Binds the returned token to this attempt, when there is a token.
+    pub nonce: Option<String>,
     /// The PKCE secret, which never leaves this server.
     pub verifier: String,
 }
@@ -130,27 +136,33 @@ pub struct Start {
 ///
 /// Returns [`StartError::NoPublicUrl`] when there is no configured address for
 /// the provider to come back to.
-pub fn start(provider: &Provider, config: &Config) -> Result<Start, StartError> {
-    let redirect_uri = redirect_uri(config)?;
+pub fn start(leaving: Leaving<'_>) -> Result<Start, StartError> {
+    let redirect_uri = redirect_uri(leaving.config, leaving.provider)?;
     let pkce = Pkce::generate();
     let state = random_token();
-    let nonce = random_token();
+    // Generated for every provider and sent only to the ones that will echo it
+    // back. A provider with no ID token has nothing to put it in, and storing
+    // one it was never given would make the callback compare against a value
+    // that could never match.
+    let nonce = leaving.wants_nonce.then(random_token);
 
     // Appending to the parsed URL rather than to the string: an authorisation
     // endpoint is allowed to carry a query of its own, and at least one
     // provider uses it to select a tenant. Building the string by hand would
     // have to get the separator right and escape every value.
-    let mut url = Url::parse(&provider.authorization_endpoint)
+    let mut url = Url::parse(leaving.authorize)
         .map_err(|error| StartError::BadEndpoint(error.to_string()))?;
     url.query_pairs_mut()
         .append_pair("response_type", "code")
-        .append_pair("client_id", config.auth.oidc.client_id.trim())
+        .append_pair("client_id", leaving.client_id.trim())
         .append_pair("redirect_uri", &redirect_uri)
-        .append_pair("scope", &config.auth.oidc.effective_scopes().join(" "))
+        .append_pair("scope", &leaving.scopes.join(" "))
         .append_pair("state", &state)
-        .append_pair("nonce", &nonce)
         .append_pair("code_challenge", &pkce.challenge)
         .append_pair("code_challenge_method", "S256");
+    if let Some(nonce) = nonce.as_deref() {
+        url.query_pairs_mut().append_pair("nonce", nonce);
+    }
 
     Ok(Start {
         url: url.into(),
@@ -160,34 +172,58 @@ pub fn start(provider: &Provider, config: &Config) -> Result<Start, StartError> 
     })
 }
 
+/// What a sign-in needs to know before it can leave.
+///
+/// A struct because the pieces come from three places: the provider's name,
+/// its endpoints (a constant for some, discovered for others), and this
+/// instance's own configuration.
+#[derive(Debug, Clone, Copy)]
+pub struct Leaving<'a> {
+    /// Which provider, as it is stored and as it appears in the callback path.
+    pub provider: &'a str,
+    /// Where the browser is sent.
+    pub authorize: &'a str,
+    /// This installation's identifier at the provider.
+    pub client_id: &'a str,
+    /// What to ask for.
+    pub scopes: &'a [String],
+    /// This instance's configuration, for the address to come back to.
+    pub config: &'a Config,
+    /// Whether the provider will echo a nonce back inside a token.
+    pub wants_nonce: bool,
+}
+
 /// The address the provider sends the browser back to.
 ///
 /// # Errors
 ///
 /// Returns [`StartError::NoPublicUrl`] when `server.public_url` is empty.
-pub fn redirect_uri(config: &Config) -> Result<String, StartError> {
+pub fn redirect_uri(config: &Config, provider: &str) -> Result<String, StartError> {
     let base = config.server.public_url.trim().trim_end_matches('/');
     if base.is_empty() {
         return Err(StartError::NoPublicUrl);
     }
-    Ok(format!("{base}{CALLBACK_PATH}"))
+    Ok(format!("{base}{}", callback_path(provider)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn provider(authorization_endpoint: &str) -> Provider {
-        Provider {
-            issuer: "https://id.example".to_owned(),
-            authorization_endpoint: authorization_endpoint.to_owned(),
-            token_endpoint: "https://id.example/token".to_owned(),
-            userinfo_endpoint: None,
-            end_session_endpoint: None,
-            jwks_uri: None,
-            backchannel_logout_supported: false,
-            code_challenge_methods_supported: vec!["S256".to_owned()],
+    /// An OIDC sign-in leaving for the given endpoint.
+    fn leaving<'a>(authorize: &'a str, config: &'a Config, scopes: &'a [String]) -> Leaving<'a> {
+        Leaving {
+            provider: "oidc",
+            authorize,
+            client_id: "tessera",
+            scopes,
+            config,
+            wants_nonce: true,
         }
+    }
+
+    fn scopes() -> Vec<String> {
+        vec!["openid".to_owned(), "email".to_owned()]
     }
 
     fn config() -> Config {
@@ -211,8 +247,18 @@ mod tests {
 
     #[test]
     fn two_flows_share_nothing() {
-        let first = start(&provider("https://id.example/authorize"), &config()).expect("a start");
-        let second = start(&provider("https://id.example/authorize"), &config()).expect("a start");
+        let first = start(leaving(
+            "https://id.example/authorize",
+            &config(),
+            &scopes(),
+        ))
+        .expect("a start");
+        let second = start(leaving(
+            "https://id.example/authorize",
+            &config(),
+            &scopes(),
+        ))
+        .expect("a start");
 
         assert_ne!(first.state, second.state);
         assert_ne!(first.nonce, second.nonce);
@@ -221,7 +267,12 @@ mod tests {
 
     #[test]
     fn the_redirect_carries_everything_the_provider_needs() {
-        let start = start(&provider("https://id.example/authorize"), &config()).expect("a start");
+        let start = start(leaving(
+            "https://id.example/authorize",
+            &config(),
+            &scopes(),
+        ))
+        .expect("a start");
 
         for pair in [
             "response_type=code",
@@ -236,7 +287,8 @@ mod tests {
             );
         }
         assert!(start.url.contains(&format!("state={}", start.state)));
-        assert!(start.url.contains(&format!("nonce={}", start.nonce)));
+        let nonce = start.nonce.as_deref().expect("an OIDC start carries one");
+        assert!(start.url.contains(&format!("nonce={nonce}")));
         // The verifier is the half that stays here.
         assert!(!start.url.contains(&start.verifier));
     }
@@ -244,10 +296,11 @@ mod tests {
     /// An endpoint that already carries a query keeps it.
     #[test]
     fn an_endpoint_with_a_query_keeps_it() {
-        let start = start(
-            &provider("https://id.example/authorize?tenant=acme"),
+        let start = start(leaving(
+            "https://id.example/authorize?tenant=acme",
             &config(),
-        )
+            &scopes(),
+        ))
         .expect("a start");
 
         assert!(start.url.contains("tenant=acme"));
@@ -262,7 +315,7 @@ mod tests {
         config.server.public_url = String::new();
 
         assert!(matches!(
-            start(&provider("https://id.example/authorize"), &config),
+            start(leaving("https://id.example/authorize", &config, &scopes())),
             Err(StartError::NoPublicUrl)
         ));
     }
@@ -273,9 +326,33 @@ mod tests {
         config.server.public_url = "https://tessera.example/".to_owned();
 
         assert_eq!(
-            redirect_uri(&config).expect("a redirect uri"),
+            redirect_uri(&config, "oidc").expect("a redirect uri"),
             "https://tessera.example/api/v1/auth/oidc/callback"
         );
+    }
+
+    /// A provider with no ID token gets no nonce, and the redirect does not
+    /// carry one. Sending it anyway would be asking for an echo that cannot
+    /// come back.
+    #[test]
+    fn a_provider_with_no_token_gets_no_nonce() {
+        let config = config();
+        let scopes = scopes();
+        let mut leaving = leaving("https://github.com/login/oauth/authorize", &config, &scopes);
+        leaving.provider = "github";
+        leaving.wants_nonce = false;
+
+        let start = start(leaving).expect("a start");
+
+        assert!(start.nonce.is_none());
+        assert!(!start.url.contains("nonce="), "{}", start.url);
+        // The state and the verifier are still there: they are what is left
+        // tying the callback to this sign-in.
+        assert!(start.url.contains(&format!("state={}", start.state)));
+        assert!(start.url.contains("code_challenge_method=S256"));
+        assert!(start.url.contains(
+            "redirect_uri=https%3A%2F%2Ftessera.example%2Fapi%2Fv1%2Fauth%2Fgithub%2Fcallback"
+        ));
     }
 
     #[test]

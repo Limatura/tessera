@@ -38,10 +38,12 @@ use common::{
 };
 use sea_orm::{ConnectionTrait as _, Statement};
 use tessera_server::{
+    auth::oidc::flow::Purpose,
     config::DatabaseConfig,
-    db::{self, Backend},
+    db::{self, Backend, repository::oidc::Flow},
     state::ServiceStatus,
 };
+use time::OffsetDateTime;
 
 /// Overridable so the suite can point at an existing instance instead of the
 /// throwaway container the docs describe.
@@ -189,7 +191,7 @@ async fn quotas_round_trip() {
     use tessera_server::db::repository::role::{RoleFields, RoleRepository};
 
     let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
-    let now = time::OffsetDateTime::now_utc();
+    let now = OffsetDateTime::now_utc();
     let suffix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
@@ -287,7 +289,7 @@ async fn the_scoped_totals_run_on_this_dialect() {
     };
 
     let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
-    let now = time::OffsetDateTime::now_utc();
+    let now = OffsetDateTime::now_utc();
     let suffix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
@@ -402,4 +404,98 @@ async fn a_full_rollback_runs_on_this_dialect() {
     // rollback and fails here.
     db::migrate(&conn).await.expect("up again");
     db::close(conn).await;
+}
+
+/// A sign-in that has left for a provider, written and read back on this
+/// dialect.
+///
+/// This exists because it was missing. `auth_flows` was added with its columns
+/// typed as `TEXT` on every dialect, copied from the SQLite file, and the suite
+/// went green: MySQL rejected the index and said so, but Postgres accepted a
+/// table nothing here ever wrote to. A time in a `text` column is a string, and
+/// `expires_at <= now` would have been a lexicographic comparison.
+///
+/// So the round trip matters more than the migration running. Anything that
+/// writes a column of the wrong type fails here rather than in a sweep that
+/// quietly stops collecting.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn a_provider_sign_in_round_trips_on_this_dialect() {
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    let now = OffsetDateTime::now_utc();
+    let flow = Flow {
+        state: format!("state-{}", now.unix_timestamp_nanos()),
+        provider: "github".to_owned(),
+        // Absent, which is the case a `NOT NULL` column would have refused.
+        nonce: None,
+        verifier: "a-verifier".to_owned(),
+        purpose: Purpose::Login,
+        user_id: None,
+        invite_code: Some("an-invite".to_owned()),
+        expires_at: now + time::Duration::minutes(15),
+    };
+
+    app.state
+        .identities
+        .begin(&flow, now)
+        .await
+        .expect("the flow should be storable on this dialect");
+
+    let taken = app
+        .state
+        .identities
+        .consume(&flow.state)
+        .await
+        .expect("a query")
+        .expect("the row this test just wrote");
+    assert_eq!(taken.provider, "github");
+    assert!(taken.nonce.is_none());
+    assert_eq!(taken.invite_code.as_deref(), Some("an-invite"));
+
+    // The one that a `text` column would get wrong: a comparison of times, not
+    // of strings. An expired row goes and a live one stays.
+    let expired = Flow {
+        state: format!("expired-{}", now.unix_timestamp_nanos()),
+        expires_at: now - time::Duration::minutes(1),
+        ..flow.clone()
+    };
+    let live = Flow {
+        state: format!("live-{}", now.unix_timestamp_nanos()),
+        ..flow
+    };
+    app.state
+        .identities
+        .begin(&expired, now)
+        .await
+        .expect("stored");
+    app.state
+        .identities
+        .begin(&live, now)
+        .await
+        .expect("stored");
+
+    app.state
+        .identities
+        .sweep_expired(now)
+        .await
+        .expect("a sweep");
+
+    assert!(
+        app.state
+            .identities
+            .consume(&expired.state)
+            .await
+            .expect("a query")
+            .is_none(),
+        "the expired flow should have been swept"
+    );
+    assert!(
+        app.state
+            .identities
+            .consume(&live.state)
+            .await
+            .expect("a query")
+            .is_some(),
+        "the live flow should have been left alone"
+    );
 }

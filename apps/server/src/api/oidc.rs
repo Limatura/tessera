@@ -37,6 +37,7 @@ use crate::{
     },
     auth::{
         extract::{ClientAddress, SelfServiceUser},
+        oauth::{Identity as OauthIdentity, Provider as OauthProvider},
         oidc::{admit, claims, flow, logout, token},
     },
     db::repository::{
@@ -51,8 +52,12 @@ use crate::{
 ///
 /// One provider today. The column exists so a second one is configuration
 /// rather than a migration, and this is the placeholder that becomes a
-/// configured name when that happens.
-const PROVIDER: &str = "oidc";
+/// The provider back-channel logout belongs to.
+///
+/// Only `OpenID` Connect has one: it is the mechanism by which a provider tells
+/// us somebody signed out, and neither GitHub nor Discord has anything like
+/// it. Everywhere else the provider comes from the flow row or the path.
+const PROVIDER: &str = OauthProvider::Oidc.as_str();
 
 /// How long a sign-in may take before the flow row stops being answerable.
 ///
@@ -66,10 +71,13 @@ const SIGN_IN_PAGE: &str = "/login";
 /// Where a link attempt is sent when it comes back, signed in already.
 const ACCOUNT_PAGE: &str = "/account";
 
-/// What a sign-in page needs to know before it draws anything.
+/// One provider a sign-in page may offer.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct ProviderResponse {
-    /// Whether an identity provider is configured and usable.
+    /// Which one, and the segment to put in the start and link paths.
+    #[schema(example = "github")]
+    pub provider: String,
+    /// Whether it is configured and usable.
     pub enabled: bool,
     /// What to write on the button.
     pub display_name: String,
@@ -160,6 +168,51 @@ fn to(page: &str, query: Option<Rejection>) -> Response {
         .into_response()
 }
 
+/// Resolves where to send the browser, for whichever provider was asked for.
+///
+/// OIDC's endpoints come out of the document its issuer publishes; the other
+/// two are constants in their adapters. Both arrive here as the same thing.
+async fn leaving_for(
+    state: &AppState,
+    config: &crate::config::Config,
+    provider: OauthProvider,
+    now: OffsetDateTime,
+) -> Option<flow::Start> {
+    match provider {
+        OauthProvider::Oidc => {
+            let document = state
+                .oidc
+                .provider(&config.auth.oidc.issuer, now)
+                .await
+                .ok()?;
+            flow::start(flow::Leaving {
+                provider: provider.as_str(),
+                authorize: &document.authorization_endpoint,
+                client_id: config.auth.oidc.client_id.trim(),
+                scopes: &config.auth.oidc.effective_scopes(),
+                config,
+                wants_nonce: true,
+            })
+            .ok()
+        }
+        OauthProvider::GitHub | OauthProvider::Discord => {
+            let oauth = provider.oauth(config)?;
+            let endpoints = provider.endpoints(config)?;
+            flow::start(flow::Leaving {
+                provider: provider.as_str(),
+                authorize: &endpoints.authorize,
+                client_id: oauth.client_id.trim(),
+                scopes: &oauth.scopes,
+                config,
+                // No ID token to carry one. `state` is what ties the callback
+                // to this sign-in, and the flow table makes it single-use.
+                wants_nonce: false,
+            })
+            .ok()
+        }
+    }
+}
+
 /// Whether this instance has an identity provider.
 ///
 /// Answered whether or not one is configured, because a sign-in page has to ask
@@ -170,10 +223,10 @@ fn to(page: &str, query: Option<Rejection>) -> Response {
 /// `404` when accounts are switched off.
 #[utoipa::path(
     get,
-    path = "/auth/oidc",
+    path = "/auth/providers",
     tag = AUTH_TAG,
     responses(
-        (status = 200, description = "Whether a provider is configured", body = ProviderResponse),
+        (status = 200, description = "Every provider, and whether it is configured", body = Vec<ProviderResponse>),
         (status = 404, description = "Accounts are switched off", body = crate::error::ErrorBody),
     ),
 )]
@@ -181,20 +234,18 @@ pub async fn provider(State(state): State<AppState>) -> Result<Response> {
     require_accounts(&state)?;
     let config = state.config();
 
-    // A name is what goes on the button, so an empty one is a button with
-    // nothing written on it. `auth.oidc.display_name` is left empty by default
-    // because there is no good guess at what an operator calls their provider,
-    // and this is the fallback for having not guessed.
-    let display_name = config.auth.oidc.display_name.trim();
-    Ok(axum::Json(ProviderResponse {
-        enabled: config.auth.oidc.is_configured(),
-        display_name: if display_name.is_empty() {
-            "Single sign-on".to_owned()
-        } else {
-            display_name.to_owned()
-        },
-    })
-    .into_response())
+    // Every provider, including the ones that are off. A sign-in page has to
+    // ask before it can know, and an instance that configures none gets a list
+    // of three `enabled: false` rather than an empty one it has to interpret.
+    let listed: Vec<_> = OauthProvider::ALL
+        .into_iter()
+        .map(|provider| ProviderResponse {
+            provider: provider.as_str().to_owned(),
+            enabled: provider.is_configured(&config),
+            display_name: provider.display_name(&config),
+        })
+        .collect();
+    Ok(axum::Json(listed).into_response())
 }
 
 /// Sends the browser to the identity provider.
@@ -205,9 +256,12 @@ pub async fn provider(State(state): State<AppState>) -> Result<Response> {
 /// the sign-in page with a reason, because a browser is following this.
 #[utoipa::path(
     get,
-    path = "/auth/oidc/start",
+    path = "/auth/{provider}/start",
     tag = AUTH_TAG,
-    params(("invite" = Option<String>, Query, description = "An invitation to spend on success")),
+    params(
+        ("provider" = String, Path, description = "`oidc`, `github` or `discord`"),
+        ("invite" = Option<String>, Query, description = "An invitation to spend on success"),
+    ),
     responses(
         (status = 303, description = "Redirect to the identity provider"),
         (status = 404, description = "Accounts are switched off", body = crate::error::ErrorBody),
@@ -215,19 +269,17 @@ pub async fn provider(State(state): State<AppState>) -> Result<Response> {
 )]
 pub async fn start(
     State(state): State<AppState>,
+    axum::extract::Path(name): axum::extract::Path<String>,
     Query(query): Query<StartQuery>,
 ) -> Result<Response> {
     require_accounts(&state)?;
     let config = state.config();
-    if !config.auth.oidc.is_configured() {
-        return Ok(back(Some(Rejection::Unavailable)));
-    }
-
-    let now = OffsetDateTime::now_utc();
-    let Ok(provider) = state.oidc.provider(&config.auth.oidc.issuer, now).await else {
+    let Some(provider) = OauthProvider::parse(&name).filter(|it| it.is_configured(&config)) else {
         return Ok(back(Some(Rejection::Unavailable)));
     };
-    let Ok(leaving) = flow::start(&provider, &config) else {
+
+    let now = OffsetDateTime::now_utc();
+    let Some(leaving) = leaving_for(&state, &config, provider, now).await else {
         return Ok(back(Some(Rejection::Unavailable)));
     };
 
@@ -236,8 +288,8 @@ pub async fn start(
         .begin(
             &crate::db::repository::oidc::Flow {
                 state: leaving.state,
-                provider: PROVIDER.to_owned(),
-                nonce: Some(leaving.nonce),
+                provider: provider.as_str().to_owned(),
+                nonce: leaving.nonce,
                 verifier: leaving.verifier,
                 purpose: flow::Purpose::Login,
                 user_id: None,
@@ -263,9 +315,10 @@ pub async fn start(
 /// module documentation.
 #[utoipa::path(
     get,
-    path = "/auth/oidc/callback",
+    path = "/auth/{provider}/callback",
     tag = AUTH_TAG,
     params(
+        ("provider" = String, Path, description = "`oidc`, `github` or `discord`"),
         ("code" = Option<String>, Query, description = "The authorisation code"),
         ("state" = Option<String>, Query, description = "The value that ties this to a redirect we sent"),
         ("error" = Option<String>, Query, description = "Set instead of `code` when the provider refused"),
@@ -277,6 +330,10 @@ pub async fn start(
 )]
 pub async fn callback(
     State(state): State<AppState>,
+    // Accepted so each provider has its own registered redirect URI, and then
+    // ignored: the flow row says which provider this belongs to, and that was
+    // written by the redirect rather than by whoever is calling now.
+    axum::extract::Path(_name): axum::extract::Path<String>,
     ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
     Query(query): Query<CallbackQuery>,
@@ -340,6 +397,139 @@ impl From<crate::db::repository::user::UserRepositoryError> for Outcome {
     }
 }
 
+/// What the provider handed back, and what it has to be checked against.
+#[derive(Debug, Clone, Copy)]
+struct ComingBack<'a> {
+    /// The row the redirect wrote, holding the verifier and the nonce.
+    waiting: &'a crate::db::repository::oidc::Flow,
+    /// The authorisation code.
+    code: &'a str,
+    /// The address the provider was told to come back to, which the token
+    /// endpoint checks against what it saw.
+    redirect_uri: &'a str,
+}
+
+/// Turns an authorisation code into who just signed in.
+///
+/// The one step where the two kinds of provider differ. An `OpenID` Connect
+/// exchange comes back with an ID token that already says who this is; a plain
+/// OAuth 2.0 one comes back with an access token and nothing else, so the
+/// answer has to be fetched from an API whose shape belongs to that provider.
+///
+/// Both leave as an [`OauthIdentity`], and nothing after this knows which it
+/// was.
+async fn identify(
+    state: &AppState,
+    config: &crate::config::Config,
+    provider: OauthProvider,
+    coming_back: ComingBack<'_>,
+    now: OffsetDateTime,
+) -> std::result::Result<(OauthIdentity, Option<String>), Outcome> {
+    let ComingBack {
+        waiting,
+        code,
+        redirect_uri,
+    } = coming_back;
+    match provider {
+        OauthProvider::Oidc => {
+            let document = state
+                .oidc
+                .provider(&config.auth.oidc.issuer, now)
+                .await
+                .map_err(|_ignored| Outcome::Rejected(Rejection::Unavailable))?;
+            let tokens = token::exchange(&document, config, code, &waiting.verifier, redirect_uri)
+                .await
+                .map_err(|error| {
+                    // Worth a log line: a wrong secret and an expired code
+                    // look the same to whoever is signing in, and different
+                    // to whoever set this up.
+                    tracing::warn!(%error, "the token exchange failed");
+                    Outcome::Rejected(Rejection::Refused)
+                })?;
+
+            // An OIDC flow always stored one. A row without it is one this
+            // version did not write, and there is nothing to check against.
+            let nonce = waiting
+                .nonce
+                .as_deref()
+                .ok_or(Outcome::Rejected(Rejection::Stale))?;
+            let mut claims = claims::verify(
+                &tokens.id_token,
+                &config.auth.oidc.issuer,
+                config.auth.oidc.client_id.trim(),
+                nonce,
+                now,
+            )
+            .map_err(|error| {
+                tracing::warn!(%error, "the id token could not be believed");
+                Outcome::Rejected(Rejection::Refused)
+            })?;
+
+            // A provider that keeps the address and the groups out of the token
+            // releases them here instead. Asked for only when something is
+            // missing, so the ordinary case is one round trip rather than two.
+            let wants_groups = !config.auth.oidc.required_group.trim().is_empty()
+                && !admit::is_in_required_group(&claims, &config.auth.oidc);
+            if (claims.email.is_none() || wants_groups)
+                && let Some(access_token) = tokens.access_token.as_deref()
+                && let Some(extra) = token::userinfo(&document, access_token).await
+            {
+                merge(&mut claims, extra);
+            }
+
+            // The only provider with groups, so the only one this applies to.
+            if !admit::is_in_required_group(&claims, &config.auth.oidc) {
+                return Err(Outcome::Rejected(Rejection::NotPermitted));
+            }
+
+            let sid = claims.sid.clone();
+            Ok((
+                OauthIdentity {
+                    subject: claims.sub,
+                    email: claims.email,
+                    email_verified: claims.email_verified == Some(true),
+                    preferred_username: claims.preferred_username,
+                    name: claims.name,
+                },
+                sid,
+            ))
+        }
+        OauthProvider::GitHub | OauthProvider::Discord => {
+            let (Some(oauth), Some(endpoints), Some(api)) = (
+                provider.oauth(config),
+                provider.endpoints(config),
+                provider.api(config),
+            ) else {
+                return Err(Outcome::Rejected(Rejection::Unavailable));
+            };
+            let token = crate::auth::oauth::exchange(
+                provider,
+                &endpoints,
+                oauth,
+                code,
+                &waiting.verifier,
+                redirect_uri,
+            )
+            .await
+            .map_err(|error| {
+                tracing::warn!(%error, "the token exchange failed");
+                Outcome::Rejected(Rejection::Refused)
+            })?;
+
+            let identity = provider
+                .identify(&api, &token.access_token)
+                .await
+                .map_err(|error| {
+                    tracing::warn!(%error, "the provider would not say who signed in");
+                    Outcome::Rejected(Rejection::Refused)
+                })?;
+            // No session identifier: neither of these tells us about its own
+            // session, so a back-channel logout naming one could never match.
+            Ok((identity, None))
+        }
+    }
+}
+
 /// Everything after the callback has been matched to a sign-in we started.
 async fn finish(
     state: &AppState,
@@ -350,61 +540,27 @@ async fn finish(
     now: OffsetDateTime,
 ) -> std::result::Result<Response, Outcome> {
     let config = state.config();
-    let provider = state
-        .oidc
-        .provider(&config.auth.oidc.issuer, now)
-        .await
-        .map_err(|_ignored| Outcome::Rejected(Rejection::Unavailable))?;
-    let redirect_uri = flow::redirect_uri(&config)
+    let provider =
+        OauthProvider::parse(&waiting.provider).ok_or(Outcome::Rejected(Rejection::Stale))?;
+    let redirect_uri = flow::redirect_uri(&config, provider.as_str())
         .map_err(|_ignored| Outcome::Rejected(Rejection::Unavailable))?;
 
-    let tokens = token::exchange(&provider, &config, code, &waiting.verifier, &redirect_uri)
-        .await
-        .map_err(|error| {
-            // Worth a log line: a wrong secret and an expired code look the
-            // same to whoever is signing in, and different to whoever set this
-            // up.
-            tracing::warn!(%error, "the token exchange failed");
-            Outcome::Rejected(Rejection::Refused)
-        })?;
-
-    // An OIDC flow always stored one. A row without it is one this version did
-    // not write, and there is nothing to check the token against.
-    let nonce = waiting
-        .nonce
-        .as_deref()
-        .ok_or(Outcome::Rejected(Rejection::Stale))?;
-    let mut claims = claims::verify(
-        &tokens.id_token,
-        &config.auth.oidc.issuer,
-        config.auth.oidc.client_id.trim(),
-        nonce,
+    let (identity, session_sid) = identify(
+        state,
+        &config,
+        provider,
+        ComingBack {
+            waiting,
+            code,
+            redirect_uri: &redirect_uri,
+        },
         now,
     )
-    .map_err(|error| {
-        tracing::warn!(%error, "the id token could not be believed");
-        Outcome::Rejected(Rejection::Refused)
-    })?;
-
-    // A provider that keeps the address and the groups out of the token
-    // releases them here instead. Asked for only when something is missing, so
-    // the ordinary case is one round trip rather than two.
-    let wants_groups = !config.auth.oidc.required_group.trim().is_empty()
-        && !admit::is_in_required_group(&claims, &config.auth.oidc);
-    if (claims.email.is_none() || wants_groups)
-        && let Some(access_token) = tokens.access_token.as_deref()
-        && let Some(extra) = token::userinfo(&provider, access_token).await
-    {
-        merge(&mut claims, extra);
-    }
-
-    if !admit::is_in_required_group(&claims, &config.auth.oidc) {
-        return Err(Outcome::Rejected(Rejection::NotPermitted));
-    }
+    .await?;
 
     let existing = state
         .identities
-        .find_identity(PROVIDER, &claims.sub)
+        .find_identity(provider.as_str(), &identity.subject)
         .await?;
 
     // A link attempt ends here. The account is already signed in, so there is
@@ -415,14 +571,14 @@ async fn finish(
         return match existing {
             // Already attached to this very account. Nothing to do, and saying
             // so as a failure would be wrong.
-            Some(identity) if identity.user_id == owner => Ok(to(ACCOUNT_PAGE, None)),
+            Some(attached) if attached.user_id == owner => Ok(to(ACCOUNT_PAGE, None)),
             // Attached to somebody else. Refused rather than moved: two people
             // are being told they are the same one.
             Some(_taken) => Err(Outcome::Rejected(Rejection::AlreadyLinked)),
             None => {
                 state
                     .identities
-                    .link(PROVIDER, &claims.sub, owner, now)
+                    .link(provider.as_str(), &identity.subject, owner, now)
                     .await?;
                 Ok(to(ACCOUNT_PAGE, None))
             }
@@ -430,12 +586,12 @@ async fn finish(
     }
 
     let user = match existing {
-        Some(identity) => state
+        Some(attached) => state
             .users
-            .find_by_id(identity.user_id)
+            .find_by_id(attached.user_id)
             .await?
             .ok_or(Outcome::Rejected(Rejection::Stale))?,
-        None => attach(state, &claims, waiting, now).await?,
+        None => attach(state, provider, &identity, waiting, now).await?,
     };
 
     if !user.state.may_sign_in() {
@@ -449,7 +605,8 @@ async fn finish(
         origin,
         StartedBy {
             credential: SignedInWith::Provider,
-            provider_sid: claims.sid.as_deref(),
+            provider: provider.as_str(),
+            provider_sid: session_sid.as_deref(),
         },
         now,
     )
@@ -468,12 +625,13 @@ async fn finish(
 /// identity to it.
 async fn attach(
     state: &AppState,
-    claims: &claims::Claims,
+    provider: OauthProvider,
+    identity: &OauthIdentity,
     waiting: &crate::db::repository::oidc::Flow,
     now: OffsetDateTime,
 ) -> std::result::Result<User, Outcome> {
     let config = state.config();
-    let address = claims
+    let address = identity
         .email
         .as_deref()
         .and_then(|raw| EmailAddress::parse(raw).ok())
@@ -487,23 +645,24 @@ async fn attach(
         // their shares. It is also how a stranger takes over that account if
         // the provider does not check addresses, which is why both the switch
         // and the provider's own verification have to agree.
-        if !config.auth.oidc.link_by_verified_email || claims.email_verified != Some(true) {
+        if !provider.links_by_verified_email(&config) || !identity.email_verified {
             return Err(Outcome::Rejected(Rejection::AddressTaken));
         }
         state
             .identities
-            .link(PROVIDER, &claims.sub, found.id, now)
+            .link(provider.as_str(), &identity.subject, found.id, now)
             .await?;
         return Ok(found);
     }
 
-    register(state, claims, address, waiting, now).await
+    register(state, provider, identity, address, waiting, now).await
 }
 
 /// Creates an account for a subject nobody here has seen.
 async fn register(
     state: &AppState,
-    claims: &claims::Claims,
+    provider: OauthProvider,
+    identity: &OauthIdentity,
     email: EmailAddress,
     waiting: &crate::db::repository::oidc::Flow,
     now: OffsetDateTime,
@@ -521,7 +680,7 @@ async fn register(
 
     // Collisions are settled by asking, one candidate at a time, so this
     // cannot be the pure function the rest of `admit` is.
-    let username = pick_username(state, claims)
+    let username = pick_username(state, identity)
         .await?
         .ok_or(Outcome::Rejected(Rejection::AddressTaken))?;
 
@@ -546,7 +705,7 @@ async fn register(
         deleted_by: None,
         // The provider says it checked; that is the whole reason to trust it
         // enough to have got this far.
-        email_verified_at: (claims.email_verified == Some(true)).then_some(now),
+        email_verified_at: identity.email_verified.then_some(now),
         created_at: now,
         updated_at: now,
     };
@@ -556,7 +715,7 @@ async fn register(
     state.users.insert(&user, None).await?;
     state
         .identities
-        .link(PROVIDER, &claims.sub, user.id, now)
+        .link(provider.as_str(), &identity.subject, user.id, now)
         .await?;
     Ok(user)
 }
@@ -564,13 +723,13 @@ async fn register(
 /// Asks the database whether each candidate name is free.
 async fn pick_username(
     state: &AppState,
-    claims: &claims::Claims,
+    identity: &OauthIdentity,
 ) -> std::result::Result<Option<tessera_core::Username>, Outcome> {
     // `username_for` wants a synchronous predicate, so the names it would try
     // are collected first and looked up together.
     let mut taken = std::collections::BTreeSet::new();
     for _round in 0..8 {
-        let chosen = admit::username_for(claims, |candidate| taken.contains(candidate.as_str()));
+        let chosen = admit::username_for(identity, |candidate| taken.contains(candidate.as_str()));
         let Some(candidate) = chosen else {
             return Ok(None);
         };
@@ -672,8 +831,9 @@ pub async fn identities(
 /// token. Everything else is a redirect, because a browser is following this.
 #[utoipa::path(
     get,
-    path = "/auth/oidc/link",
+    path = "/auth/{provider}/link",
     tag = AUTH_TAG,
+    params(("provider" = String, Path, description = "`oidc`, `github` or `discord`")),
     responses(
         (status = 303, description = "Redirect to the identity provider"),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
@@ -683,6 +843,7 @@ pub async fn identities(
 )]
 pub async fn link(
     State(state): State<AppState>,
+    axum::extract::Path(name): axum::extract::Path<String>,
     SelfServiceUser(current): SelfServiceUser,
 ) -> Result<Response> {
     require_accounts(&state)?;
@@ -693,16 +854,13 @@ pub async fn link(
     }
 
     let config = state.config();
-    if !config.auth.oidc.is_configured() {
-        return Ok(back(Some(Rejection::Unavailable)));
-    }
+    let Some(provider) = OauthProvider::parse(&name).filter(|it| it.is_configured(&config)) else {
+        return Ok(to(ACCOUNT_PAGE, Some(Rejection::Unavailable)));
+    };
 
     let now = OffsetDateTime::now_utc();
-    let Ok(provider) = state.oidc.provider(&config.auth.oidc.issuer, now).await else {
-        return Ok(back(Some(Rejection::Unavailable)));
-    };
-    let Ok(leaving) = flow::start(&provider, &config) else {
-        return Ok(back(Some(Rejection::Unavailable)));
+    let Some(leaving) = leaving_for(&state, &config, provider, now).await else {
+        return Ok(to(ACCOUNT_PAGE, Some(Rejection::Unavailable)));
     };
 
     state
@@ -710,8 +868,8 @@ pub async fn link(
         .begin(
             &crate::db::repository::oidc::Flow {
                 state: leaving.state,
-                provider: PROVIDER.to_owned(),
-                nonce: Some(leaving.nonce),
+                provider: provider.as_str().to_owned(),
+                nonce: leaving.nonce,
                 verifier: leaving.verifier,
                 purpose: flow::Purpose::Link,
                 user_id: Some(current.user.id),

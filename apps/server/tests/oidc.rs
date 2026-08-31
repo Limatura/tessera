@@ -445,21 +445,31 @@ async fn a_closed_instance_does_not_register_from_the_provider() {
 async fn an_instance_with_no_provider_says_so() {
     let app = TestApp::ready().await;
 
-    let body = common::body_json(
-        expect_status(
-            app.empty(Method::GET, "/api/v1/auth/oidc", Auth::None)
-                .await,
-            StatusCode::OK,
-        )
-        .await,
-    )
-    .await;
-    assert_eq!(common::field(&body, "enabled"), serde_json::json!(false));
+    // Every provider is listed, the off ones included: a page has to ask
+    // before it can know, and an empty list would have to be interpreted.
+    let listed = providers(&app).await;
+    assert_eq!(listed.len(), 3, "{listed:?}");
+    assert!(
+        listed
+            .iter()
+            .all(|entry| entry["enabled"] == serde_json::json!(false)),
+        "{listed:?}"
+    );
 
-    let response = app
-        .empty(Method::GET, "/api/v1/auth/oidc/start", Auth::None)
-        .await;
-    assert_eq!(rejection(&response).as_deref(), Some("unavailable"));
+    for provider in ["oidc", "github", "discord"] {
+        let response = app
+            .empty(
+                Method::GET,
+                &format!("/api/v1/auth/{provider}/start"),
+                Auth::None,
+            )
+            .await;
+        assert_eq!(
+            rejection(&response).as_deref(),
+            Some("unavailable"),
+            "for {provider}"
+        );
+    }
 }
 
 /// Configured, and the sign-in page is told what to write on the button.
@@ -468,22 +478,33 @@ async fn a_configured_instance_advertises_its_provider() {
     let provider = FakeProvider::start(CLIENT_ID).await;
     let app = instance(&provider).await;
 
-    let body = common::body_json(
-        expect_status(
-            app.empty(Method::GET, "/api/v1/auth/oidc", Auth::None)
-                .await,
-            StatusCode::OK,
-        )
-        .await,
-    )
-    .await;
+    let listed = providers(&app).await;
+    let oidc = listed
+        .iter()
+        .find(|entry| entry["provider"] == "oidc")
+        .expect("oidc should be listed");
 
-    assert_eq!(common::field(&body, "enabled"), serde_json::json!(true));
+    assert_eq!(oidc["enabled"], serde_json::json!(true));
     assert!(
-        common::field(&body, "display_name")
+        oidc["display_name"]
             .as_str()
-            .is_some_and(|name| !name.is_empty())
+            .is_some_and(|it| !it.is_empty()),
+        "a button with nothing written on it: {oidc}"
     );
+    // The other two are listed and off, because nothing configured them, and a
+    // name either way so a page never draws a blank button.
+    for name in ["github", "discord"] {
+        let entry = listed
+            .iter()
+            .find(|entry| entry["provider"] == name)
+            .unwrap_or_else(|| panic!("{name} should be listed"));
+        assert_eq!(entry["enabled"], serde_json::json!(false));
+        assert!(
+            entry["display_name"]
+                .as_str()
+                .is_some_and(|it| !it.is_empty())
+        );
+    }
 }
 
 /// Attaching a provider is a way into the account, so a leaked API token must
@@ -641,9 +662,11 @@ async fn an_instance_without_accounts_has_none_of_this() {
     .await;
 
     for uri in [
-        "/api/v1/auth/oidc",
+        "/api/v1/auth/providers",
         "/api/v1/auth/oidc/start",
         "/api/v1/auth/oidc/callback?code=c&state=s",
+        "/api/v1/auth/github/start",
+        "/api/v1/auth/discord/start",
     ] {
         assert_eq!(
             app.empty(Method::GET, uri, Auth::None).await.status(),
@@ -651,6 +674,22 @@ async fn an_instance_without_accounts_has_none_of_this() {
             "for {uri}"
         );
     }
+}
+
+/// Every provider this instance knows about.
+async fn providers(app: &TestApp) -> Vec<serde_json::Value> {
+    common::body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/auth/providers", Auth::None)
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await
+    .as_array()
+    .expect("a list")
+    .clone()
 }
 
 /// What an account signs in through.

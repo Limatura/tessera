@@ -39,8 +39,11 @@ pub fn is_in_required_group(claims: &Claims, config: &OidcConfig) -> bool {
 /// `taken` decides collisions. It is asked in order, so the first free name
 /// wins, and the suffix is a number because a name with a random tail is one
 /// nobody recognises as theirs.
-pub fn username_for(claims: &Claims, mut taken: impl FnMut(&Username) -> bool) -> Option<Username> {
-    let email_local = claims
+pub fn username_for(
+    identity: &crate::auth::oauth::Identity,
+    mut taken: impl FnMut(&Username) -> bool,
+) -> Option<Username> {
+    let email_local = identity
         .email
         .as_deref()
         .and_then(|address| address.split('@').next())
@@ -48,9 +51,9 @@ pub fn username_for(claims: &Claims, mut taken: impl FnMut(&Username) -> bool) -
         .to_owned();
 
     let candidates = [
-        claims.preferred_username.clone().unwrap_or_default(),
+        identity.preferred_username.clone().unwrap_or_default(),
         email_local,
-        claims.name.clone().unwrap_or_default(),
+        identity.name.clone().unwrap_or_default(),
         "user".to_owned(),
     ];
 
@@ -132,6 +135,19 @@ mod tests {
         OidcConfig::default()
     }
 
+    /// What the claims above look like once they are the one shape everything
+    /// after the provider understands.
+    fn identity(fields: &serde_json::Value) -> crate::auth::oauth::Identity {
+        let claims = claims(fields);
+        crate::auth::oauth::Identity {
+            subject: claims.sub,
+            email: claims.email,
+            email_verified: claims.email_verified.unwrap_or(false),
+            preferred_username: claims.preferred_username,
+            name: claims.name,
+        }
+    }
+
     fn free(_name: &Username) -> bool {
         false
     }
@@ -203,7 +219,7 @@ mod tests {
     #[test]
     fn the_providers_own_name_is_preferred() {
         let name = username_for(
-            &claims(&serde_json::json!({
+            &identity(&serde_json::json!({
                 "preferred_username": "alice",
                 "email": "someone.else@example.com",
             })),
@@ -217,7 +233,7 @@ mod tests {
     #[test]
     fn the_address_is_the_next_best_thing() {
         let name = username_for(
-            &claims(&serde_json::json!({"email": "alice.smith@example.com"})),
+            &identity(&serde_json::json!({"email": "alice.smith@example.com"})),
             free,
         )
         .expect("a name");
@@ -238,7 +254,7 @@ mod tests {
             ("王小明", "user"),
         ] {
             let name = username_for(
-                &claims(&serde_json::json!({"preferred_username": raw})),
+                &identity(&serde_json::json!({"preferred_username": raw})),
                 free,
             )
             .expect("a name");
@@ -251,7 +267,7 @@ mod tests {
     #[test]
     fn a_reserved_name_is_not_handed_out() {
         let name = username_for(
-            &claims(&serde_json::json!({
+            &identity(&serde_json::json!({
                 "preferred_username": "admin",
                 "email": "someone@example.com",
             })),
@@ -270,7 +286,7 @@ mod tests {
             .collect();
 
         let name = username_for(
-            &claims(&serde_json::json!({"preferred_username": "alice"})),
+            &identity(&serde_json::json!({"preferred_username": "alice"})),
             |candidate| existing.contains(candidate.as_str()),
         )
         .expect("a name");
@@ -285,7 +301,7 @@ mod tests {
         let existing: BTreeSet<String> = ["a".repeat(Username::MAX_LENGTH)].into_iter().collect();
 
         let name = username_for(
-            &claims(&serde_json::json!({"preferred_username": long})),
+            &identity(&serde_json::json!({"preferred_username": long})),
             |candidate| existing.contains(candidate.as_str()),
         )
         .expect("a name");
@@ -298,7 +314,7 @@ mod tests {
     /// would mean a person who cannot sign in and cannot do anything about it.
     #[test]
     fn there_is_always_a_last_resort() {
-        let name = username_for(&claims(&serde_json::json!({})), free).expect("a name");
+        let name = username_for(&identity(&serde_json::json!({})), free).expect("a name");
 
         assert_eq!(name.as_str(), "user");
     }
@@ -307,6 +323,6 @@ mod tests {
     /// than a name handed to the wrong person.
     #[test]
     fn everything_taken_yields_nothing() {
-        assert!(username_for(&claims(&serde_json::json!({})), |_taken| true).is_none());
+        assert!(username_for(&identity(&serde_json::json!({})), |_taken| true).is_none());
     }
 }

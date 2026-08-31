@@ -256,3 +256,95 @@ impl FakeProvider {
         claims
     }
 }
+
+/// A stand-in GitHub or Discord, on a loopback port.
+///
+/// Enough of one to drive a plain OAuth 2.0 sign-in: a token endpoint and the
+/// API call that says who just signed in. Neither publishes a discovery
+/// document, so there is nothing else to serve.
+pub(crate) struct FakeOauth {
+    pub(crate) base: String,
+    answers: Arc<Mutex<serde_json::Value>>,
+    addresses: Arc<Mutex<serde_json::Value>>,
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for FakeOauth {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
+
+#[derive(Clone)]
+struct OauthShared {
+    answers: Arc<Mutex<serde_json::Value>>,
+    addresses: Arc<Mutex<serde_json::Value>>,
+}
+
+impl FakeOauth {
+    /// Starts one on a port the operating system picks.
+    pub(crate) async fn start() -> Self {
+        let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .await
+            .expect("a loopback port");
+        let base = format!(
+            "http://127.0.0.1:{}",
+            listener.local_addr().expect("an address").port()
+        );
+        let answers = Arc::new(Mutex::new(serde_json::json!({})));
+        let addresses = Arc::new(Mutex::new(serde_json::json!([])));
+        let shared = OauthShared {
+            answers: Arc::clone(&answers),
+            addresses: Arc::clone(&addresses),
+        };
+
+        // The paths the real ones use, so a test exercises the same strings
+        // production builds. GitHub Enterprise Server serves its API under
+        // `/api/v3`; github.com puts it on its own hostname, and that
+        // difference is the whole reason `auth.github.base_url` exists.
+        let router = Router::new()
+            .route("/login/oauth/access_token", post(oauth_token))
+            .route("/api/v3/user", get(oauth_user))
+            .route("/api/v3/user/emails", get(oauth_addresses))
+            // Discord, for a test that drives its adapter directly.
+            .route("/api/oauth2/token", post(oauth_token))
+            .route("/api/users/@me", get(oauth_user))
+            .with_state(shared);
+        let handle = tokio::spawn(async move {
+            let _ignored = axum::serve(listener, router).await;
+        });
+
+        Self {
+            base,
+            answers,
+            addresses,
+            handle,
+        }
+    }
+
+    /// What the API will say about whoever signs in next.
+    pub(crate) fn is(&self, user: serde_json::Value) {
+        *self.answers.lock() = user;
+    }
+
+    /// What `GET /user/emails` will return. GitHub only; Discord carries the
+    /// address on the user itself.
+    pub(crate) fn addresses(&self, addresses: serde_json::Value) {
+        *self.addresses.lock() = addresses;
+    }
+}
+
+async fn oauth_token() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "access_token": "an-access-token",
+        "token_type": "bearer",
+    }))
+}
+
+async fn oauth_user(State(shared): State<OauthShared>) -> Json<serde_json::Value> {
+    Json(shared.answers.lock().clone())
+}
+
+async fn oauth_addresses(State(shared): State<OauthShared>) -> Json<serde_json::Value> {
+    Json(shared.addresses.lock().clone())
+}

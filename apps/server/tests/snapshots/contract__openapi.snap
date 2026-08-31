@@ -916,18 +916,24 @@ expression: document
         "type": "object"
       },
       "ProviderResponse": {
-        "description": "What a sign-in page needs to know before it draws anything.",
+        "description": "One provider a sign-in page may offer.",
         "properties": {
           "display_name": {
             "description": "What to write on the button.",
             "type": "string"
           },
           "enabled": {
-            "description": "Whether an identity provider is configured and usable.",
+            "description": "Whether it is configured and usable.",
             "type": "boolean"
+          },
+          "provider": {
+            "description": "Which one, and the segment to put in the start and link paths.",
+            "example": "github",
+            "type": "string"
           }
         },
         "required": [
+          "provider",
           "enabled",
           "display_name"
         ],
@@ -3977,38 +3983,6 @@ expression: document
         ]
       }
     },
-    "/api/v1/auth/oidc": {
-      "get": {
-        "description": "Answered whether or not one is configured, because a sign-in page has to ask\nbefore it can know.\n\n# Errors\n\n`404` when accounts are switched off.",
-        "operationId": "provider",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProviderResponse"
-                }
-              }
-            },
-            "description": "Whether a provider is configured"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Accounts are switched off"
-          }
-        },
-        "summary": "Whether this instance has an identity provider.",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
     "/api/v1/auth/oidc/backchannel-logout": {
       "post": {
         "description": "# Why this answers in the OAuth error shape\n\nEvery other endpoint here answers `{\"code\": ..., \"message\": ...}`. This one\nanswers `{\"error\": ..., \"error_description\": ...}`, because the caller is\nnot a client of this API. It is an identity provider following `OpenID`\nConnect Back-Channel Logout 1.0, and section 2.8 says what it expects to\nread when it is refused. A provider that cannot parse the refusal will keep\nretrying a token that will never work.\n\n# Why it is unauthenticated\n\nThe caller is a server with no account here. What stands in for a credential\nis the token's signature, checked against keys fetched from the configured\nissuer. See `auth::oidc::logout`.\n\n# Errors\n\n`404` when accounts are switched off. A token that cannot be believed is a\n`400` with the reason, never a `500`.",
@@ -4042,60 +4016,6 @@ expression: document
           }
         },
         "summary": "Ends the sessions a provider says are over.",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/oidc/callback": {
-      "get": {
-        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect, see the\nmodule documentation.",
-        "operationId": "callback",
-        "parameters": [
-          {
-            "description": "The authorisation code",
-            "in": "query",
-            "name": "code",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "The value that ties this to a redirect we sent",
-            "in": "query",
-            "name": "state",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "description": "Set instead of `code` when the provider refused",
-            "in": "query",
-            "name": "error",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "303": {
-            "description": "Redirect back to the application, signed in or with a reason"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Accounts are switched off"
-          }
-        },
-        "summary": "Where the provider sends the browser back.",
         "tags": [
           "auth"
         ]
@@ -4207,82 +4127,6 @@ expression: document
           }
         ],
         "summary": "Detaches a provider from this account.",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/oidc/link": {
-      "get": {
-        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with an API\ntoken. Everything else is a redirect, because a browser is following this.",
-        "operationId": "link",
-        "responses": {
-          "303": {
-            "description": "Redirect to the identity provider"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Not signed in"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Not permitted with an API token"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "summary": "Sends the browser to the provider to attach it to this account.",
-        "tags": [
-          "auth"
-        ]
-      }
-    },
-    "/api/v1/auth/oidc/start": {
-      "get": {
-        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect back to\nthe sign-in page with a reason, because a browser is following this.",
-        "operationId": "start",
-        "parameters": [
-          {
-            "description": "An invitation to spend on success",
-            "in": "query",
-            "name": "invite",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "303": {
-            "description": "Redirect to the identity provider"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Accounts are switched off"
-          }
-        },
-        "summary": "Sends the browser to the identity provider.",
         "tags": [
           "auth"
         ]
@@ -4450,6 +4294,41 @@ expression: document
           }
         },
         "summary": "Sets a new password from a reset link.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/providers": {
+      "get": {
+        "description": "Answered whether or not one is configured, because a sign-in page has to ask\nbefore it can know.\n\n# Errors\n\n`404` when accounts are switched off.",
+        "operationId": "provider",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ProviderResponse"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Every provider, and whether it is configured"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Accounts are switched off"
+          }
+        },
+        "summary": "Whether this instance has an identity provider.",
         "tags": [
           "auth"
         ]
@@ -4644,6 +4523,165 @@ expression: document
           }
         ],
         "summary": "Reports who the caller is.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/{provider}/callback": {
+      "get": {
+        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect, see the\nmodule documentation.",
+        "operationId": "callback",
+        "parameters": [
+          {
+            "description": "`oidc`, `github` or `discord`",
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The authorisation code",
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The value that ties this to a redirect we sent",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Set instead of `code` when the provider refused",
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Redirect back to the application, signed in or with a reason"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Accounts are switched off"
+          }
+        },
+        "summary": "Where the provider sends the browser back.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/{provider}/link": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with an API\ntoken. Everything else is a redirect, because a browser is following this.",
+        "operationId": "link",
+        "parameters": [
+          {
+            "description": "`oidc`, `github` or `discord`",
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Redirect to the identity provider"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not permitted with an API token"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Sends the browser to the provider to attach it to this account.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/{provider}/start": {
+      "get": {
+        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect back to\nthe sign-in page with a reason, because a browser is following this.",
+        "operationId": "start",
+        "parameters": [
+          {
+            "description": "`oidc`, `github` or `discord`",
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "An invitation to spend on success",
+            "in": "query",
+            "name": "invite",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Redirect to the identity provider"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Accounts are switched off"
+          }
+        },
+        "summary": "Sends the browser to the identity provider.",
         "tags": [
           "auth"
         ]

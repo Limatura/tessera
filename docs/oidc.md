@@ -16,6 +16,7 @@ Code: `auth/oidc/`, `api/oidc.rs`, `db/repository/oidc.rs`. Passwords moved to t
 | Reading and checking the token | `auth::oidc::claims` |
 | Group admission, choosing a name | `auth::oidc::admit` |
 | The endpoints | `api::oidc` |
+| GitHub and Discord | `auth::oauth` |
 | Identities and flows, as rows | `db::repository::oidc` |
 | Tables | migration `m20260905_000001_oidc` |
 | The provider's signing keys | `auth::oidc::jwks` |
@@ -274,6 +275,26 @@ last-way-in guard, skipping the group check, dropping the issuer and audience
 checks, dropping the `origin` filter, and dropping the replay bound on each of
 the two queries separately.
 
+### GitHub and Discord
+
+`tests/oauth.rs` drives GitHub end to end against a server it runs, which
+`auth.github.base_url` makes possible. Covered: the sign-in, a renamed account
+being the same account, two ids being two accounts, a private address found
+through `/user/emails`, an unverified address refused, a verified address that
+is not primary refused, a token that cannot read addresses reported as
+`no_address`, a redirect with no nonce, a state that works once, and a closed
+instance.
+
+Discord is exercised at its adapter rather than through the endpoint, because
+it has no self-hosted edition and so no setting pointing at one. Inventing a
+knob to make a test easier would be configuration that lies about why it
+exists. Everything Discord-specific is in the answers it gives, and that is
+what those tests read.
+
+Broken on purpose, and each turned tests red: keying on the login instead of
+the id, dropping the primary-and-verified rule, ignoring `verified` on Discord,
+and sending a nonce to a provider that has no token to echo it back in.
+
 ### Why the provider speaks `http`
 
 A test cannot obtain a certificate a client would trust, so `is_private_or_tls`
@@ -327,7 +348,65 @@ The check lives in the handler rather than the repository because it needs the c
 
 That is the recovery path for an instance whose provider went away, and the reason detaching can afford to be strict.
 
+## Providers that are not OpenID Connect
+
+GitHub and Discord publish no discovery document and issue no ID token, so each
+is a hand-written adapter in `auth::oauth` rather than a row of configuration.
+Adding a third means writing a third.
+
+Everything after "who is this" is shared: the flow row, the one-shot `state`,
+PKCE, the registration policy, choosing a username, attaching to an account
+that already exists. What differs is one step.
+
+| | OpenID Connect | GitHub and Discord |
+| --- | --- | --- |
+| Endpoints | discovered | constants in the adapter |
+| Who signed in | the ID token | an API call, shaped per provider |
+| Replay | `nonce` and `state` | `state` alone |
+| Groups | `required_group` | not read |
+
+### What is keyed on
+
+The provider's numeric identifier, never a name. Discord's own documentation
+says a username is "not unique across the platform". A GitHub login can be
+changed, and a released one can be claimed by somebody else. Keying on either
+hands an account to whoever picks the name up.
+
+### The address, which is the part with teeth
+
+Both refuse to release a verified address without a scope, and both have a way
+of looking like they released one when they did not.
+
+**GitHub** answers `email: null` on `/user` whenever the address is private,
+which is the default for plenty of accounts. The address comes from
+`/user/emails` instead, which needs `user:email`, and the entry to take is the
+one that is both `primary` and `verified`. Taking the first entry, or taking
+`primary` without `verified`, hands out accounts to whoever added an
+unconfirmed address.
+
+**Discord** carries `email` and `verified` on `/users/@me`, both behind the
+`email` scope, and `email` can be null even with it. An unverified address is
+dropped here rather than carried with a flag, because a flag is something every
+later caller has to remember to check.
+
+The scopes are validated at start-up. Removing one leaves an instance that
+refuses every sign-in with `no_address`, and it is better to be told than to
+find out.
+
+### Why there is no nonce
+
+There is no token to put one in. What ties the callback to the sign-in that
+asked for it is `state`, and the flow row makes that single-use by being
+deleted. The redirect carries no `nonce` parameter at all, because asking for
+an echo that cannot come back would only look like a check.
+
+### `auth.github.base_url`
+
+For GitHub Enterprise Server, which serves the same endpoints under an
+organisation's own name and its API at `/api/v3`. Empty means github.com.
+Discord ignores it: there is no self-hosted Discord.
+
 ## Not built
 
 - **Role mapping from a claim.** The stopping point is deliberate; see above.
-- **A second provider.** `identities.provider` exists so that this is configuration rather than a migration, but only one is read.
+- **A third kind of provider.** `identities.provider` and the adapter layer make one more a matter of writing an adapter rather than a migration.

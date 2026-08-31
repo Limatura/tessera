@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS oidc_flows (
     purpose     TEXT NOT NULL,
     user_id     TEXT REFERENCES users (id) ON DELETE CASCADE,
     invite_code TEXT,
-    created_at  TEXT NOT NULL,
-    expires_at  TEXT NOT NULL
+    created_at  TIMESTAMPTZ NOT NULL,
+    expires_at  TIMESTAMPTZ NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_oidc_flows_expires ON oidc_flows (expires_at);

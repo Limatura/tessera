@@ -148,6 +148,11 @@ impl SignedInWith {
 pub struct StartedBy<'a> {
     /// Which way of signing in.
     pub credential: SignedInWith,
+    /// Which provider, when one started it.
+    ///
+    /// Stored in `origin`, matching `identities.provider`, so a logout token
+    /// from one provider cannot end a session another one started.
+    pub provider: &'a str,
     /// The provider's own identifier for its side, when it released one.
     pub provider_sid: Option<&'a str>,
 }
@@ -158,6 +163,7 @@ impl StartedBy<'_> {
     pub const fn password() -> Self {
         Self {
             credential: SignedInWith::Password,
+            provider: SignedInWith::Password.as_str(),
             provider_sid: None,
         }
     }
@@ -282,7 +288,9 @@ impl SessionRepository {
             created_ip: origin.ip.clone(),
             created_user_agent: origin.bounded_user_agent(),
             ended_reason: None,
-            origin: started_by.credential.as_str().to_owned(),
+            // The provider's name, not the word `oidc`, so that a second
+            // provider's sessions are distinguishable from the first's.
+            origin: started_by.provider.to_owned(),
             provider_sid: started_by.provider_sid.map(str::to_owned),
         };
 

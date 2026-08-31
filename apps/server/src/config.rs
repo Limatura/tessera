@@ -137,6 +137,14 @@ pub struct OauthConfig {
     pub client_secret: String,
     /// What to ask the provider for.
     pub scopes: Vec<String>,
+    /// Where the provider lives, when it is not where it usually lives.
+    ///
+    /// For GitHub Enterprise Server, which serves the same endpoints under an
+    /// organisation's own name. Empty means github.com.
+    ///
+    /// Discord ignores this: there is no self-hosted Discord, so there is
+    /// nowhere else for it to be.
+    pub base_url: String,
     /// What to write on the button. Empty falls back to the provider's name.
     pub display_name: String,
     /// Whether an address the provider says it checked may attach to an

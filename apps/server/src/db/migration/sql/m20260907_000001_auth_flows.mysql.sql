@@ -28,28 +28,29 @@
 DROP TABLE IF EXISTS oidc_flows;
 
 CREATE TABLE IF NOT EXISTS auth_flows (
-    -- MySQL cannot make a `TEXT` column a primary key without a prefix
-    -- length, and a state is a fixed-width base64url token.
-    state       VARCHAR(255) NOT NULL PRIMARY KEY,
+    -- The types the OIDC migration used for the same columns. `TEXT` cannot be
+    -- a key or an index here without a prefix length, and `DATETIME(6)` is what
+    -- every other table in this schema stores a time as.
+    state       VARCHAR(191) NOT NULL PRIMARY KEY,
     -- Which provider this flow is for, matching `identities.provider`. The
     -- callback is one endpoint for all of them and this is how it knows whose
     -- token endpoint to go to.
-    provider    VARCHAR(64) NOT NULL,
-    -- Absent for a provider that issues no ID token. See above.
+    provider    VARCHAR(64)  NOT NULL,
+    -- Absent for a provider that issues no ID token. See the SQLite file.
     nonce       TEXT,
-    verifier    TEXT NOT NULL,
+    verifier    TEXT         NOT NULL,
     -- `login` or `link`.
-    purpose     TEXT NOT NULL,
+    purpose     VARCHAR(32)  NOT NULL,
     -- Set when `purpose` is `link`: whose account this will be attached to.
-    -- A column-level `REFERENCES` is parsed and ignored by InnoDB, so the
-    -- constraint is written out.
-    user_id     VARCHAR(64),
-    CONSTRAINT fk_auth_flows_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    user_id     VARCHAR(191),
     -- Carried through the provider and back, so an invitation can be spent by
     -- somebody who has never had a password here. The provider never sees it.
     invite_code TEXT,
-    created_at  TEXT NOT NULL,
-    expires_at  TEXT NOT NULL
+    created_at  DATETIME(6)  NOT NULL,
+    expires_at  DATETIME(6)  NOT NULL,
+    -- A column-level `REFERENCES` is parsed and ignored by InnoDB.
+    CONSTRAINT fk_auth_flows_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE
 );
 
 -- MySQL has no `CREATE INDEX IF NOT EXISTS`.
