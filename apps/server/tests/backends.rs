@@ -371,6 +371,50 @@ async fn the_scoped_totals_run_on_this_dialect() {
 ///
 /// Rolling forward again afterwards is half the point: a `down` that leaves the
 /// schema subtly different from where it started is a rollback that works once.
+/// The same, on SQLite, and not `#[ignore]`d.
+///
+/// The one above needs a server and so runs only where CI starts one, which is
+/// Postgres and MySQL. SQLite needs nothing, and it is the database this ships
+/// with by default, so the dialect most installations roll back on was the one
+/// nothing checked.
+///
+/// It was broken when this was written: `m20260824_000001_single_role`'s
+/// rollback dropped `users.role_id` while `idx_users_role` still named it, and
+/// SQLite refuses that. Postgres drops the index along with the column and
+/// never noticed.
+#[tokio::test]
+async fn a_rollback_runs_on_sqlite() {
+    use sea_orm_migration::MigratorTrait as _;
+
+    let conn = db::connect(&DatabaseConfig {
+        url: "sqlite::memory:".to_owned(),
+        // One connection: `sqlite::memory:` gives each connection its own
+        // database, so a larger pool would roll back an empty copy.
+        max_connections: 1,
+        ..Default::default()
+    })
+    .await
+    .expect("pool");
+    db::migrate(&conn).await.expect("up");
+
+    db::migration::Migrator::down(&conn, None)
+        .await
+        .expect("every rollback");
+    let left = db::migration::Migrator::get_applied_migrations(&conn)
+        .await
+        .expect("what is applied");
+    assert!(
+        left.is_empty(),
+        "{} migrations would not roll back",
+        left.len()
+    );
+
+    // And back up on what the rollback left, which is where a `down` that
+    // restores the wrong type or forgets an index fails.
+    db::migrate(&conn).await.expect("up again");
+    db::close(conn).await;
+}
+
 #[tokio::test]
 #[ignore = "needs a live database; see the module docs"]
 async fn a_full_rollback_runs_on_this_dialect() {
