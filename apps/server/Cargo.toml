@@ -171,6 +171,22 @@ url = "2"
 # other crates; named here because this code reaches for it directly.
 base64 = "0.23"
 
+# Back-channel logout tokens are pushed to us by the provider rather than
+# fetched from it, so the exemption in `auth::oidc::claims` does not cover them
+# and the signature has to be checked. `aws_lc_rs` rather than the default
+# backend: that provider is already pinned by sqlx, and cargo features are
+# additive, so asking for the other one would put two implementations in the
+# binary.
+jsonwebtoken = { version = "11", default-features = false, features = [
+  "aws_lc_rs",
+  # For the tests, not the server: `tests/common/provider.rs` signs a logout
+  # token with a PEM key, because the endpoint that reads one verifies the
+  # signature and a fixture that cannot sign proves nothing. Cargo unifies
+  # features across normal and dev dependencies, so declaring it separately
+  # would enable it here anyway; this says so instead of hiding it.
+  "use_pem",
+] }
+
 # The two halves of a basic authentication header have to be form-urlencoded
 # before they are joined. Re-exported by `url`, but named here so a `url`
 # upgrade cannot quietly take it away.

@@ -14,6 +14,8 @@ pub mod admit;
 pub mod claims;
 pub mod discovery;
 pub mod flow;
+pub mod jwks;
+pub mod logout;
 pub mod token;
 
 /// Whether a URL may carry an authorisation code and a client secret.

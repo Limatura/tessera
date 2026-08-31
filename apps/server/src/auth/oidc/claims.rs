@@ -56,6 +56,13 @@ pub struct Claims {
     /// Ties the token to the sign-in that asked for it.
     #[serde(default)]
     pub nonce: Option<String>,
+    /// The provider's own identifier for the session it just started.
+    ///
+    /// Optional, and only some providers release it. Recorded against the
+    /// session so a back-channel logout naming this `sid` can end that one
+    /// session rather than everything the account has open.
+    #[serde(default)]
+    pub sid: Option<String>,
     /// The address, when the provider released one.
     #[serde(default)]
     pub email: Option<String>,

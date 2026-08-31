@@ -184,6 +184,7 @@ mod tests {
             token_endpoint: "https://id.example/token".to_owned(),
             userinfo_endpoint: None,
             end_session_endpoint: None,
+            jwks_uri: None,
             backchannel_logout_supported: false,
             code_challenge_methods_supported: vec!["S256".to_owned()],
         }

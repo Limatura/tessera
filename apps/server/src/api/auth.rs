@@ -29,7 +29,7 @@ use crate::{
         invite::Invite,
         pending_registration::Waiting,
         role::Role,
-        session::{SessionEnding, SessionOrigin, SignedInWith},
+        session::{SessionEnding, SessionOrigin, StartedBy},
         user::User,
     },
     error::{Error, Result},
@@ -414,15 +414,8 @@ pub async fn register(
         return Err(error.into());
     }
 
-    let cookie = start_session(
-        &state,
-        &user,
-        &headers,
-        &origin,
-        SignedInWith::Password,
-        now,
-    )
-    .await?;
+    let cookie =
+        start_session(&state, &user, &headers, &origin, StartedBy::password(), now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],
@@ -510,15 +503,8 @@ pub async fn login(
 
     throttles.login.reset(&key);
     let now = OffsetDateTime::now_utc();
-    let cookie = start_session(
-        &state,
-        &user,
-        &headers,
-        &origin,
-        SignedInWith::Password,
-        now,
-    )
-    .await?;
+    let cookie =
+        start_session(&state, &user, &headers, &origin, StartedBy::password(), now).await?;
 
     Ok((
         [(header::SET_COOKIE, cookie.to_string())],
@@ -675,7 +661,7 @@ pub async fn change_password(
         &current.user,
         &headers,
         &origin,
-        SignedInWith::Password,
+        StartedBy::password(),
         now,
     )
     .await?;
@@ -729,7 +715,7 @@ pub(super) async fn start_session(
     user: &User,
     headers: &HeaderMap,
     origin: &Origin,
-    started_by: SignedInWith,
+    started_by: StartedBy<'_>,
     now: OffsetDateTime,
 ) -> Result<Cookie<'static>> {
     // `std::time::Duration` is unsigned and `time::Duration` is not, so this
@@ -1051,15 +1037,8 @@ pub async fn confirm_registration(
     }
     state.pending.finish(pending.id).await?;
 
-    let cookie = start_session(
-        &state,
-        &user,
-        &headers,
-        &origin,
-        SignedInWith::Password,
-        now,
-    )
-    .await?;
+    let cookie =
+        start_session(&state, &user, &headers, &origin, StartedBy::password(), now).await?;
     Ok((
         StatusCode::CREATED,
         [(header::SET_COOKIE, cookie.to_string())],

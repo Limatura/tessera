@@ -804,6 +804,10 @@ jobs:
       # After every suite rather than beside each one: a step guarded by
       # `if: failure()` runs wherever the failure was, and which store broke is
       # not known until one does.
+      # What a store said is half of it. The other half is what else was on the
+      # machine, because the failure that keeps happening here is something
+      # outside this job holding a port or a gigabyte. `docker run` reports
+      # `address already in use` and names nothing.
       - name: What the stores said, if a suite failed
         if: failure()
         run: |
@@ -816,6 +820,12 @@ jobs:
             fi
           done
           df -h /
+          echo '::group::what else is on this machine'
+          # Named because `docker run` says `address already in use`
+          # and nothing about who is using it.
+          ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null || true
+          docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Ports}}' || true
+          echo '::endgroup::'
 
       # The runner keeps running after the job ends, so a container started here
       # outlives it and the next run finds the name and the port taken.
@@ -1160,6 +1170,33 @@ jobs:
       - name: Start an instance and seed it
         id: instance
         run: |
+          # The step that stops this instance runs `if: always()`, but a
+          # cancelled job runs neither step and a runner that goes away mid-job
+          # runs nothing at all. What is left is a server on 13999 answering
+          # `/health`, and the wait below is satisfied by *any* server on that
+          # port, so the fuzz would report on a binary this job did not build.
+          #
+          # The comment on the stop step below has said this happens since
+          # before this was written. What was missing was anything that made it
+          # visible: the run goes red on an assertion about the API rather than
+          # on the port, and the two look nothing alike.
+          #
+          # Killing by port rather than by pid file, since the pid file goes
+          # with `/tmp/fuzz` and the process that outlived it did not.
+          if command -v fuser >/dev/null 2>&1; then
+            fuser -k 13999/tcp 2>/dev/null || true
+          else
+            pkill -f 'tessera-server' 2>/dev/null || true
+          fi
+          for _ in $(seq 1 20); do
+            ss -ltn 'sport = :13999' 2>/dev/null | grep -q LISTEN || break
+            sleep 0.5
+          done
+          if ss -ltn 'sport = :13999' 2>/dev/null | grep -q LISTEN; then
+            echo "::error::port 13999 is still held by something this job did not start"
+            exit 1
+          fi
+
           mkdir -p /tmp/fuzz
           TESSERA_DATABASE__URL='sqlite:///tmp/fuzz/fuzz.db?mode=rwc' \
           TESSERA_STORAGE__URL=/tmp/fuzz/blobs \
@@ -1240,12 +1277,24 @@ jobs:
           # else, and `tests/oidc.rs` drives the whole flow against a provider
           # that is actually running. `link` stays in, because it refuses an API
           # token before it can redirect.
+          #
+          # `backchannel_logout` is excluded for the `append_to_upload` reason:
+          # the fuzzer cannot construct a request that reaches anything. Its
+          # body is a token signed by the identity provider, and a generated
+          # string is a `400` every time, so every example exercises one branch.
+          # It also has no credential to strip, being a server-to-server
+          # endpoint, so `ignored_auth` re-sends it without one, sees the same
+          # answer, and can decide nothing. Enough of those and the
+          # `filter_too_much` health check trips anyway, which is seed-dependent
+          # and is why this went red on one push and green on the same code
+          # locally.
           uvx schemathesis --config-file /tmp/fuzz/run.toml \
             run http://127.0.0.1:13999/openapi.json \
             -w 4 --suppress-health-check=filter_too_much \
             --exclude-operation-id append_to_upload \
             --exclude-operation-id start \
             --exclude-operation-id callback \
+            --exclude-operation-id backchannel_logout \
             --report-junit-path /tmp/fuzz/report.xml
 
       # The runner is one machine that keeps running after the job ends, so a

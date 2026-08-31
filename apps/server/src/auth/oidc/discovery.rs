@@ -53,6 +53,12 @@ pub struct Provider {
     /// exists. See `docs/oidc.md`.
     #[serde(default)]
     pub end_session_endpoint: Option<String>,
+    /// Where the signing keys are published.
+    ///
+    /// Only back-channel logout reads them: an ID token arrives over a channel
+    /// this server opened, and a logout token does not. See `claims.rs`.
+    #[serde(default)]
+    pub jwks_uri: Option<String>,
     /// Whether the provider will tell us when it signs somebody out.
     #[serde(default)]
     pub backchannel_logout_supported: bool,
@@ -223,6 +229,7 @@ mod tests {
             token_endpoint: format!("{issuer}/token"),
             userinfo_endpoint: None,
             end_session_endpoint: None,
+            jwks_uri: None,
             backchannel_logout_supported: false,
             code_challenge_methods_supported: vec!["S256".to_owned()],
         }

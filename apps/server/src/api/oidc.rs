@@ -37,9 +37,12 @@ use crate::{
     },
     auth::{
         extract::{ClientAddress, SelfServiceUser},
-        oidc::{admit, claims, flow, token},
+        oidc::{admit, claims, flow, logout, token},
     },
-    db::repository::{session::SignedInWith, user::User},
+    db::repository::{
+        session::{SignedInWith, StartedBy},
+        user::User,
+    },
     error::{Error, Result},
     state::AppState,
 };
@@ -432,7 +435,18 @@ async fn finish(
         return Err(Outcome::Rejected(Rejection::Disabled));
     }
 
-    let cookie = start_session(state, &user, headers, origin, SignedInWith::Provider, now).await?;
+    let cookie = start_session(
+        state,
+        &user,
+        headers,
+        origin,
+        StartedBy {
+            credential: SignedInWith::Provider,
+            provider_sid: claims.sid.as_deref(),
+        },
+        now,
+    )
+    .await?;
     Ok((
         axum::http::StatusCode::SEE_OTHER,
         [
@@ -762,4 +776,152 @@ pub async fn unlink(
 
     state.identities.unlink(current.user.id, &provider).await?;
     Ok(axum::http::StatusCode::NO_CONTENT.into_response())
+}
+
+/// Reads `logout_token` out of a form-encoded body.
+///
+/// Parsed here rather than with `Form<T>`, which answers its own `422` in its
+/// own words when a field is missing. This endpoint answers a provider, and a
+/// provider reads `{"error", "error_description"}` or nothing; a `422` carrying
+/// `Failed to deserialize form body` is neither documented nor parseable by
+/// one, and it would keep retrying.
+fn logout_token_in(body: &str) -> Option<String> {
+    form_urlencoded::parse(body.as_bytes())
+        .find(|(key, _value)| key == "logout_token")
+        .map(|(_key, value)| value.into_owned())
+        .filter(|token| !token.trim().is_empty())
+}
+
+/// Ends the sessions a provider says are over.
+///
+/// # Why this answers in the OAuth error shape
+///
+/// Every other endpoint here answers `{"code": ..., "message": ...}`. This one
+/// answers `{"error": ..., "error_description": ...}`, because the caller is
+/// not a client of this API. It is an identity provider following `OpenID`
+/// Connect Back-Channel Logout 1.0, and section 2.8 says what it expects to
+/// read when it is refused. A provider that cannot parse the refusal will keep
+/// retrying a token that will never work.
+///
+/// # Why it is unauthenticated
+///
+/// The caller is a server with no account here. What stands in for a credential
+/// is the token's signature, checked against keys fetched from the configured
+/// issuer. See `auth::oidc::logout`.
+///
+/// # Errors
+///
+/// `404` when accounts are switched off. A token that cannot be believed is a
+/// `400` with the reason, never a `500`.
+#[utoipa::path(
+    post,
+    path = "/auth/oidc/backchannel-logout",
+    tag = AUTH_TAG,
+    request_body(content = String, content_type = "application/x-www-form-urlencoded"),
+    responses(
+        (status = 200, description = "The sessions it named are over"),
+        (status = 400, description = "The token could not be believed, or the body carried none"),
+        (status = 404, description = "Accounts are switched off", body = crate::error::ErrorBody),
+    ),
+)]
+pub async fn backchannel_logout(State(state): State<AppState>, body: String) -> Response {
+    if !state.config().features.accounts {
+        return Error::NotFound.into_response();
+    }
+    let Some(token) = logout_token_in(&body) else {
+        return refused("the body carries no `logout_token`");
+    };
+    match end_sessions(&state, &token).await {
+        Ok(()) => (
+            axum::http::StatusCode::OK,
+            [(header::CACHE_CONTROL, "no-store")],
+        )
+            .into_response(),
+        Err(reason) => refused(&reason),
+    }
+}
+
+/// The refusal shape section 2.8 says a provider reads.
+fn refused(reason: &str) -> Response {
+    // Logged, because a provider that cannot log anybody out is a silent
+    // failure of the thing single sign-on is for, and the operator has to be
+    // able to see why.
+    tracing::warn!(%reason, "refused a back-channel logout");
+    (
+        axum::http::StatusCode::BAD_REQUEST,
+        [(header::CACHE_CONTROL, "no-store")],
+        axum::Json(serde_json::json!({
+            "error": "invalid_request",
+            "error_description": reason,
+        })),
+    )
+        .into_response()
+}
+
+/// Verifies a logout token and ends what it names.
+///
+/// The error is a string rather than a type because every one of them leaves
+/// here as the same `400` with the same shape, and the provider reads it as
+/// prose.
+async fn end_sessions(state: &AppState, token: &str) -> std::result::Result<(), String> {
+    let config = state.config();
+    if !config.auth.oidc.is_configured() {
+        return Err("no identity provider is configured".to_owned());
+    }
+    let now = OffsetDateTime::now_utc();
+
+    let provider = state
+        .oidc
+        .provider(&config.auth.oidc.issuer, now)
+        .await
+        .map_err(|error| error.to_string())?;
+    let kid = logout::key_id(token).map_err(|error| error.to_string())?;
+    let key = state
+        .oidc_keys
+        .key_for(provider.jwks_uri.as_deref(), &kid, now)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let claims = logout::verify(
+        token,
+        &key,
+        &config.auth.oidc.issuer,
+        config.auth.oidc.client_id.trim(),
+        now,
+    )
+    .map_err(|error| error.to_string())?;
+
+    let issued_at = OffsetDateTime::from_unix_timestamp(claims.iat)
+        .map_err(|_ignored| "the logout token's `iat` is not a time".to_owned())?;
+
+    // A `sid` names one session; a `sub` names everything that person has open.
+    // A token may carry both, and then the narrower one is what was meant.
+    let ended = if let Some(sid) = claims.sid.as_deref().filter(|sid| !sid.trim().is_empty()) {
+        state
+            .sessions
+            .end_provider_session(PROVIDER, sid, issued_at, now)
+            .await
+            .map_err(|error| error.to_string())?
+    } else {
+        let subject = claims.sub.as_deref().unwrap_or_default();
+        let Some(identity) = state
+            .identities
+            .find_identity(PROVIDER, subject)
+            .await
+            .map_err(|error| error.to_string())?
+        else {
+            // Nobody here has ever signed in as that subject. Reported as
+            // success: the provider asked for a state that already holds, and
+            // a refusal would have it retry something that cannot change.
+            return Ok(());
+        };
+        state
+            .sessions
+            .end_provider_sessions(identity.user_id, PROVIDER, issued_at, now)
+            .await
+            .map_err(|error| error.to_string())?
+    };
+
+    tracing::info!(ended, "a provider signed somebody out");
+    Ok(())
 }

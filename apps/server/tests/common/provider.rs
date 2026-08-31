@@ -91,6 +91,7 @@ impl FakeProvider {
             .route("/.well-known/openid-configuration", get(document))
             .route("/token", post(token))
             .route("/userinfo", get(userinfo))
+            .route("/jwks", get(jwks))
             .with_state(shared);
         let handle = tokio::spawn(async move {
             let _ignored = axum::serve(listener, router).await;
@@ -132,6 +133,8 @@ async fn document(State(shared): State<Shared>) -> Json<serde_json::Value> {
         "authorization_endpoint": format!("{}/authorize", shared.issuer),
         "token_endpoint": format!("{}/token", shared.issuer),
         "userinfo_endpoint": format!("{}/userinfo", shared.issuer),
+        "jwks_uri": format!("{}/jwks", shared.issuer),
+        "backchannel_logout_supported": true,
         "code_challenge_methods_supported": ["S256"],
     }))
 }
@@ -177,4 +180,79 @@ fn id_token(claims: &serde_json::Value) -> String {
     let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#);
     let body = URL_SAFE_NO_PAD.encode(claims.to_string());
     format!("{header}.{body}.not-checked")
+}
+
+/// The key this fixture signs logout tokens with, and the JWKS that describes
+/// it. A fixed pair rather than a generated one: generating RSA takes long
+/// enough to notice, and a test key is not a secret.
+const SIGNING_KEY: &str = include_str!("keys/logout-signing.pem");
+
+/// A key the provider never published, for the case that matters most: a token
+/// whose `kid` names a real key but whose signature was made with another one.
+/// Nothing but verifying the signature catches that.
+const IMPOSTOR_KEY: &str = include_str!("keys/impostor.pem");
+const SIGNING_JWK: &str = include_str!("keys/logout-signing.jwk.json");
+
+/// The key id in the JWK above.
+pub(crate) const SIGNING_KID: &str = "test-key-1";
+
+async fn jwks() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "keys": [serde_json::from_str::<serde_json::Value>(SIGNING_JWK).expect("a jwk")],
+    }))
+}
+
+impl FakeProvider {
+    /// A signed back-channel logout token, as this provider would send one.
+    ///
+    /// The caller supplies the claims so that a test can leave one out, or put
+    /// in one that must be refused.
+    pub(crate) fn logout_token(claims: &serde_json::Value) -> String {
+        Self::sign_with(claims, SIGNING_KID, SIGNING_KEY)
+    }
+
+    /// The same, signed as if by a key the provider does not publish.
+    ///
+    /// The signature is real; the key id is not one the JWKS names, which is
+    /// what an unknown key looks like from the outside.
+    pub(crate) fn logout_token_with_unknown_key(claims: &serde_json::Value) -> String {
+        Self::sign_with(claims, "a-key-that-was-never-published", SIGNING_KEY)
+    }
+
+    /// A token claiming the published key id, signed with a different key.
+    ///
+    /// The one forgery that a key lookup cannot catch: the `kid` resolves, the
+    /// key is found, and only checking the signature says no.
+    pub(crate) fn forged_logout_token(claims: &serde_json::Value) -> String {
+        Self::sign_with(claims, SIGNING_KID, IMPOSTOR_KEY)
+    }
+
+    fn sign_with(claims: &serde_json::Value, kid: &str, pem: &str) -> String {
+        let mut header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::RS256);
+        header.kid = Some(kid.to_owned());
+        let key = jsonwebtoken::EncodingKey::from_rsa_pem(pem.as_bytes()).expect("a signing key");
+        jsonwebtoken::encode(&header, claims, &key).expect("a signed token")
+    }
+
+    /// The claims a provider puts in a logout token, with `iss` and `aud`
+    /// filled in so a test cannot accidentally agree with itself.
+    pub(crate) fn logout_claims(
+        &self,
+        client_id: &str,
+        named: &serde_json::Value,
+    ) -> serde_json::Value {
+        let mut claims = serde_json::json!({
+            "iss": self.issuer,
+            "aud": client_id,
+            "iat": time::OffsetDateTime::now_utc().unix_timestamp(),
+            "jti": "a-logout-token",
+            "events": { "http://schemas.openid.net/event/backchannel-logout": {} },
+        });
+        if let (Some(fields), Some(extra)) = (claims.as_object_mut(), named.as_object()) {
+            for (key, value) in extra {
+                fields.insert(key.clone(), value.clone());
+            }
+        }
+        claims
+    }
 }

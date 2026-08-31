@@ -18,6 +18,8 @@ Code: `auth/oidc/`, `api/oidc.rs`, `db/repository/oidc.rs`. Passwords moved to t
 | The endpoints | `api::oidc` |
 | Identities and flows, as rows | `db::repository::oidc` |
 | Tables | migration `m20260905_000001_oidc` |
+| The provider's signing keys | `auth::oidc::jwks` |
+| Reading a logout token | `auth::oidc::logout` |
 | The flow, end to end | `tests/oidc.rs`, against a provider that runs |
 
 ## Who this is for
@@ -163,17 +165,65 @@ A person signing in for the first time cannot fix a name the provider chose, so 
 
 Collisions take a number, not a random tail. `alice2` is recognisably the same person's account; `alice-x7f2` is not.
 
-## Sessions know where they came from
+## When the provider signs somebody out
 
-`sessions.origin` is `password` or `oidc`, written from the first day rather than added later in case it is wanted.
+A provider can disable somebody, and a session that outlives that is exactly what single sign-on exists to prevent.
 
-A provider can disable somebody, and a session that outlives that is exactly what single sign-on exists to prevent. What can be done about it depends on what the provider supports, and the options differ:
+`sessions.origin` is `password` or `oidc`. It is also what `identities.provider` holds, because there is one provider and that is its name; the day a second one is configured, both have to carry its name, because a logout token from one must not end sessions another started.
 
-- **`end_session_endpoint`** is where somebody is sent to sign out of the provider itself. Google's document does not have one, so nothing can assume it exists.
-- **Back-channel logout** is the provider telling us. It arrives as a token pushed to us unprompted, which is the case the signature exemption above explicitly does not cover.
-- **Revalidating on use** costs a round trip per request and is the only option that works with every provider.
+`sessions.provider_sid` holds the provider's own identifier for its side of the session, taken from the ID token's `sid` when the provider released one. Most rows have none: every password sign-in, and every provider that does not send it.
 
-None of those is built. The column is, so that whichever is chosen does not need a migration first, and so that a provider session is already distinguishable from a password one in the session list.
+### The endpoint
+
+`POST /api/v1/auth/oidc/backchannel-logout` takes a form-encoded `logout_token`. The provider pushes it; nobody signs in to call it.
+
+```mermaid
+flowchart TD
+    A[provider posts a logout token] --> B[read kid, refuse none and shared secrets]
+    B --> C[find the key in the cached JWKS]
+    C -->|missing| D[refetch, at most once every five minutes]
+    D --> C
+    C --> E[verify signature, iss, aud]
+    E --> F{events says backchannel-logout}
+    F -->|no| G[400]
+    F -->|yes| H{nonce present}
+    H -->|yes| G
+    H -->|no| I{sid or sub}
+    I -->|sid| J[end that one session]
+    I -->|sub| K[end that account's provider sessions]
+    J --> L[200]
+    K --> L
+```
+
+**Two answers, two shapes.** This endpoint alone answers `{"error", "error_description"}` rather than tessera's `{"code", "message"}`, because the caller is an identity provider following the specification, not a client of this API. A provider that cannot parse the refusal retries a token that will never work.
+
+**A subject nobody here knows is a success.** The provider asked for a state that already holds. Refusing would have it retry something that cannot change.
+
+**Password sessions are left alone.** The provider has no say over a credential it did not issue, which is what the `origin` filter is for.
+
+### Why this token's signature is checked
+
+An ID token arrives over a channel this server opened, which is why `claims.rs` may skip the signature. A logout token arrives the other way round: somebody posts it to a public endpoint and says it is from the provider. Nothing about the connection says who sent it.
+
+So this is the one place that fetches the provider's keys. `alg: none` is refused, and so is anything symmetric: the client secret is a shared secret, and accepting one would let whoever can read the configuration mint logouts.
+
+### Replay, without remembering every token
+
+The specification makes `jti` tracking optional, and a table of spent identifiers is a table to sweep.
+
+Instead, both queries only end sessions **created before the token's `iat`**. A kept copy cannot end a session made since, which is the only thing replaying one would achieve, and a token older than five minutes is refused outright.
+
+### The key cache has no expiry
+
+A key that is in the set is the same key however old the copy is, so fetching on a timer buys nothing. A rotation arrives as a key id that is not there, and that is what triggers a fetch.
+
+That fetch is floored at one every five minutes. The endpoint is unauthenticated by necessity, so anyone can post a token naming a key id that will never exist; without the floor, each one would be a request to the provider.
+
+### What is still not built
+
+**`end_session_endpoint`**, where somebody is sent to sign out of the provider itself. Google's document does not have one, so nothing can assume it exists.
+
+**A shorter lifetime for provider sessions**, as a backstop for a provider that does not support back-channel logout at all.
 
 ## Failures are redirects, not responses
 
@@ -193,6 +243,8 @@ So every outcome, refusals included, is a `303` to the sign-in page with a stabl
 | `disabled` | The account exists here but may not sign in |
 | `already_linked` | That provider identity belongs to another account |
 
+Back-channel logout is not in that table: it answers a provider, not a browser, and never redirects.
+
 The codes are deliberately coarse. "Your provider did not release an address" is worth saying because somebody can act on it. The difference between a wrong nonce and an expired token is not, and spelling it out tells whoever is probing which of their guesses was closer.
 
 ## How this is tested
@@ -209,9 +261,18 @@ released, an address released from userinfo instead, the group requirement in
 both directions, a closed instance, attaching and detaching, the last-way-in
 guard, and a subject already claimed by somebody else.
 
+Back-channel logout is covered against real signatures: the fixture holds two
+keys, so a token whose key id resolves but whose signature was made with the
+other one is a case the tests can actually produce. Also covered: an unsigned
+token, another issuer, another client, no logout event, a `nonce` where there
+must not be one, a token naming nobody, one kept too long, and one kept just
+long enough to be valid but older than the session it names.
+
 Each of those was checked by breaking the thing it covers and watching it fail:
 removing the nonce comparison, making `consume` stop deleting, dropping the
-last-way-in guard, and skipping the group check each turned tests red.
+last-way-in guard, skipping the group check, dropping the issuer and audience
+checks, dropping the `origin` filter, and dropping the replay bound on each of
+the two queries separately.
 
 ### Why the provider speaks `http`
 
@@ -268,6 +329,5 @@ That is the recovery path for an instance whose provider went away, and the reas
 
 ## Not built
 
-- **Anything that acts on the provider disabling somebody.** See the section on session origin above.
 - **Role mapping from a claim.** The stopping point is deliberate; see above.
 - **A second provider.** `identities.provider` exists so that this is configuration rather than a migration, but only one is read.

@@ -35,6 +35,12 @@ pub struct Model {
     /// on what the provider supports, so the session has to know where it came
     /// from.
     pub origin: String,
+    /// The provider's own identifier for its side of this session.
+    ///
+    /// Written from the ID token's `sid` when the provider released one. It is
+    /// how a back-channel logout naming one session finds it, rather than
+    /// ending everything the account has open.
+    pub provider_sid: Option<String>,
     /// Why this session was ended early, if it was.
     ///
     /// `None` means it simply ran out. See the migration for why this decides

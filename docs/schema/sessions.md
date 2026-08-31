@@ -15,7 +15,7 @@ CREATE TABLE sessions (
     created_at   TEXT NOT NULL,
     last_seen_at TEXT NOT NULL,
     expires_at   TEXT NOT NULL
-, created_ip TEXT, created_user_agent TEXT, ended_reason TEXT, origin TEXT NOT NULL DEFAULT 'password')
+, created_ip TEXT, created_user_agent TEXT, ended_reason TEXT, origin TEXT NOT NULL DEFAULT 'password', provider_sid TEXT)
 ```
 
 </details>
@@ -34,6 +34,7 @@ CREATE TABLE sessions (
 | created_user_agent | TEXT |  | true |  |  |  |
 | ended_reason | TEXT |  | true |  |  |  |
 | origin | TEXT | 'password' | false |  |  |  |
+| provider_sid | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -48,6 +49,7 @@ CREATE TABLE sessions (
 
 | Name | Definition |
 | ---- | ---------- |
+| idx_sessions_provider_sid | CREATE INDEX idx_sessions_provider_sid ON sessions (provider_sid) |
 | idx_sessions_expires_at | CREATE INDEX idx_sessions_expires_at ON sessions (expires_at) |
 | idx_sessions_user | CREATE INDEX idx_sessions_user ON sessions (user_id) |
 | sqlite_autoindex_sessions_2 | UNIQUE (secret_hash) |
@@ -71,6 +73,7 @@ erDiagram
   TEXT created_user_agent
   TEXT ended_reason
   TEXT origin
+  TEXT provider_sid
 }
 "users" {
   TEXT id PK

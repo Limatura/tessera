@@ -157,6 +157,12 @@ pub struct AppState {
     /// Held here rather than built per request so that one sign-in pays for the
     /// fetch and the rest of the day's do not.
     pub oidc: Arc<crate::auth::oidc::discovery::Discovery>,
+    /// The provider's signing keys, for back-channel logout only.
+    ///
+    /// Separate from [`Self::oidc`] because they are fetched for a different
+    /// reason and from a different URL, and because most instances never touch
+    /// them at all.
+    pub oidc_keys: Arc<crate::auth::oidc::jwks::Keys>,
     /// Fonts for link-preview cards, decoded once at start-up.
     ///
     /// `None` when the embedded faces would not decode. That is a build fault
@@ -256,6 +262,7 @@ impl AppState {
         // somebody else's.
         if config.auth.oidc.issuer != self.config().auth.oidc.issuer {
             self.oidc.forget();
+            self.oidc_keys.forget();
         }
         self.throttles.apply(&config.auth.throttle);
         self.proxies.store(Arc::new(config.server.proxy_trust()));
@@ -327,6 +334,7 @@ impl AppState {
             multipart,
             assets: Arc::new(assets),
             oidc: Arc::new(crate::auth::oidc::discovery::Discovery::default()),
+            oidc_keys: Arc::new(crate::auth::oidc::jwks::Keys::default()),
             #[cfg(feature = "og-images")]
             cards: match crate::og::Cards::new() {
                 Ok(cards) => Some(Arc::new(cards)),

@@ -4005,6 +4005,44 @@
         ]
       }
     },
+    "/api/v1/auth/oidc/backchannel-logout": {
+      "post": {
+        "description": "# Why this answers in the OAuth error shape\n\nEvery other endpoint here answers `{\"code\": ..., \"message\": ...}`. This one\nanswers `{\"error\": ..., \"error_description\": ...}`, because the caller is\nnot a client of this API. It is an identity provider following `OpenID`\nConnect Back-Channel Logout 1.0, and section 2.8 says what it expects to\nread when it is refused. A provider that cannot parse the refusal will keep\nretrying a token that will never work.\n\n# Why it is unauthenticated\n\nThe caller is a server with no account here. What stands in for a credential\nis the token's signature, checked against keys fetched from the configured\nissuer. See `auth::oidc::logout`.\n\n# Errors\n\n`404` when accounts are switched off. A token that cannot be believed is a\n`400` with the reason, never a `500`.",
+        "operationId": "backchannel_logout",
+        "requestBody": {
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The sessions it named are over"
+          },
+          "400": {
+            "description": "The token could not be believed, or the body carried none"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Accounts are switched off"
+          }
+        },
+        "summary": "Ends the sessions a provider says are over.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/oidc/callback": {
       "get": {
         "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect, see the\nmodule documentation.",

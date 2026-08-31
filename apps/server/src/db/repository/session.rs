@@ -43,6 +43,11 @@ pub struct Session {
     pub created_ip: Option<String>,
     /// The `User-Agent` it started with, unparsed and truncated.
     pub created_user_agent: Option<String>,
+    /// The provider's own identifier for its side of this session.
+    ///
+    /// Written when the provider released a `sid`, which is what lets a
+    /// back-channel logout end one session rather than all of them.
+    pub provider_sid: Option<String>,
     /// Why it was ended early, if it was.
     pub ended_reason: Option<SessionEnding>,
 }
@@ -62,6 +67,11 @@ pub enum SessionEnding {
     PasswordChanged,
     /// A password reset did, which usually means the account was in trouble.
     PasswordReset,
+    /// The provider said this person has signed out.
+    ///
+    /// Its own reason rather than `Revoked`: somebody reading their session
+    /// list wants to know single sign-on ended it, not that they did.
+    ProviderLogout,
     /// The account was suspended.
     ///
     /// Its own reason, not `Revoked`, which reads as "this session was ended".
@@ -79,6 +89,7 @@ impl SessionEnding {
             Self::Revoked => "revoked",
             Self::PasswordChanged => "password_changed",
             Self::PasswordReset => "password_reset",
+            Self::ProviderLogout => "provider_logout",
             Self::AccountDisabled => "account_disabled",
         }
     }
@@ -95,6 +106,7 @@ impl SessionEnding {
             "revoked" => Some(Self::Revoked),
             "password_changed" => Some(Self::PasswordChanged),
             "password_reset" => Some(Self::PasswordReset),
+            "provider_logout" => Some(Self::ProviderLogout),
             "account_disabled" => Some(Self::AccountDisabled),
             _ => None,
         }
@@ -122,6 +134,31 @@ impl SignedInWith {
         match self {
             Self::Password => "password",
             Self::Provider => "oidc",
+        }
+    }
+}
+
+/// How a session came to exist.
+///
+/// A type rather than two more arguments, because they are one fact: the
+/// provider's session identifier only means anything for a session a provider
+/// started, and pairing them keeps a caller from supplying one without the
+/// other.
+#[derive(Debug, Clone, Copy)]
+pub struct StartedBy<'a> {
+    /// Which way of signing in.
+    pub credential: SignedInWith,
+    /// The provider's own identifier for its side, when it released one.
+    pub provider_sid: Option<&'a str>,
+}
+
+impl StartedBy<'_> {
+    /// A password held here.
+    #[must_use]
+    pub const fn password() -> Self {
+        Self {
+            credential: SignedInWith::Password,
+            provider_sid: None,
         }
     }
 }
@@ -188,6 +225,7 @@ impl Session {
             origin: model.origin.clone(),
             created_ip: model.created_ip.clone(),
             created_user_agent: model.created_user_agent.clone(),
+            provider_sid: model.provider_sid.clone(),
             ended_reason: model.ended_reason.as_deref().and_then(SessionEnding::parse),
         })
     }
@@ -230,7 +268,7 @@ impl SessionRepository {
         &self,
         user_id: UserId,
         origin: &SessionOrigin,
-        started_by: SignedInWith,
+        started_by: StartedBy<'_>,
         now: OffsetDateTime,
         expires_at: OffsetDateTime,
     ) -> Result<(Session, Secret), SessionRepositoryError> {
@@ -244,7 +282,8 @@ impl SessionRepository {
             created_ip: origin.ip.clone(),
             created_user_agent: origin.bounded_user_agent(),
             ended_reason: None,
-            origin: started_by.as_str().to_owned(),
+            origin: started_by.credential.as_str().to_owned(),
+            provider_sid: started_by.provider_sid.map(str::to_owned),
         };
 
         SessionEntity::insert(session::ActiveModel {
@@ -257,6 +296,7 @@ impl SessionRepository {
             expires_at: Set(session.expires_at),
             created_ip: Set(session.created_ip.clone()),
             created_user_agent: Set(session.created_user_agent.clone()),
+            provider_sid: Set(session.provider_sid.clone()),
             ended_reason: Set(None),
         })
         .exec(&self.connection)
@@ -463,6 +503,79 @@ impl SessionRepository {
             update = update.filter(session::Column::Id.ne(keep.to_string()));
         }
         let result = update.exec(&self.connection).await?;
+        Ok(result.rows_affected)
+    }
+
+    /// Ends every live session an account started through a provider.
+    ///
+    /// For a logout token that named a subject and no session. Sessions this
+    /// account signed into with a password are left alone: the provider has no
+    /// say over a credential it did not issue.
+    ///
+    /// Only sessions started before `issued_at`, so a logout token somebody
+    /// kept cannot end a session created after it. That is what stands in for
+    /// remembering every `jti` this has already seen.
+    ///
+    /// Returns how many were ended.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the update fails.
+    pub async fn end_provider_sessions(
+        &self,
+        user_id: UserId,
+        provider: &str,
+        issued_at: OffsetDateTime,
+        now: OffsetDateTime,
+    ) -> Result<u64, SessionRepositoryError> {
+        let result = SessionEntity::update_many()
+            .col_expr(session::Column::ExpiresAt, now.into())
+            .col_expr(
+                session::Column::EndedReason,
+                SessionEnding::ProviderLogout.as_str().into(),
+            )
+            .filter(session::Column::UserId.eq(user_id.to_string()))
+            .filter(session::Column::Origin.eq(provider))
+            .filter(session::Column::ExpiresAt.gt(now))
+            .filter(session::Column::CreatedAt.lt(issued_at))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected)
+    }
+
+    /// Ends the one session a provider named.
+    ///
+    /// For a logout token carrying a `sid`, which is how a provider says "this
+    /// browser" rather than "everything they have open".
+    ///
+    /// Scoped to the provider as well as the identifier: two providers may use
+    /// the same string for unrelated sessions, and one has no business ending
+    /// the other's.
+    ///
+    /// Returns how many were ended, which is zero or one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionRepositoryError`] if the update fails.
+    pub async fn end_provider_session(
+        &self,
+        provider: &str,
+        provider_sid: &str,
+        issued_at: OffsetDateTime,
+        now: OffsetDateTime,
+    ) -> Result<u64, SessionRepositoryError> {
+        let result = SessionEntity::update_many()
+            .col_expr(session::Column::ExpiresAt, now.into())
+            .col_expr(
+                session::Column::EndedReason,
+                SessionEnding::ProviderLogout.as_str().into(),
+            )
+            .filter(session::Column::Origin.eq(provider))
+            .filter(session::Column::ProviderSid.eq(provider_sid))
+            .filter(session::Column::ExpiresAt.gt(now))
+            .filter(session::Column::CreatedAt.lt(issued_at))
+            .exec(&self.connection)
+            .await?;
         Ok(result.rows_affected)
     }
 

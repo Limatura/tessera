@@ -293,6 +293,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(oidc::identities))
         .routes(routes!(oidc::link))
         .routes(routes!(oidc::unlink))
+        .routes(routes!(oidc::backchannel_logout))
         .routes(routes!(auth::logout))
         .routes(routes!(auth::session))
         .routes(routes!(auth::change_password))

@@ -105,6 +105,7 @@ erDiagram
   TEXT created_user_agent
   TEXT ended_reason
   TEXT origin
+  TEXT provider_sid
 }
 "api_tokens" {
   TEXT id PK
