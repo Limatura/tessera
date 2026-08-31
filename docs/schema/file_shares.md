@@ -2,7 +2,7 @@
 
 ## Description
 
-檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。
+One file of a file share. One row per share today; `position` is there for when a share can hold several.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

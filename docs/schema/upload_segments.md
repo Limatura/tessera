@@ -2,6 +2,8 @@
 
 ## Description
 
+Where a resumable upload is putting each piece, when it is spread over more than one backend. A `complete` segment is holding real space in a real bucket while its share does not exist yet, and nothing else could see that: the space was spent, the planner could not count it, and a free-tier bucket filled up with no query able to explain why. Cleaning up means aborting every `open` row and deleting the object behind every `complete` one.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

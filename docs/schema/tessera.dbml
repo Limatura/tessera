@@ -13,14 +13,14 @@ Table access_events {
   ip_address text
   user_agent text
 
-  Note: '誰在什麼時候取走了哪一份分享。預設不寫——計數器是一個整數,不會透露誰去過哪裡;這裡的一列是位址加瀏覽器字串,關於一個拿到連結、什麼都沒答應過的人。匿名是有人選這套軟體的理由之一,所以把它關掉是操作者的決定,不是預設值幫他做的。開了要在頁面上講,被記錄的人是最後一個知道的。ip_address 可以是 NULL——前面掛著不受信任的 proxy 時,看得到的位址是 proxy 的,記下去等於記錯人。'
+  Note: 'Who fetched which share, and when. Off by default. A counter is one integer and says nothing about who went where; a row here is an address and a browser string about somebody who followed a link and agreed to nothing. Anonymity is part of why people choose this software, so turning it on is the operator''s decision rather than one a default made for them, and it needs saying on the page, because the people being recorded are the last to know. `ip_address` can be null: behind an untrusted proxy the visible address is the proxy''s, and recording it would be recording the wrong party.'
 }
 
 Table api_token_permissions {
   token_id text [pk, not null]
   permission text [pk, not null]
 
-  Note: '一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。'
+  Note: 'What one token may do. What it can actually do is the intersection of this and its owner''s permissions, so demoting a person narrows every token they hold at the same moment.'
 }
 
 Table api_tokens {
@@ -34,7 +34,7 @@ Table api_tokens {
   expires_at text
   revoked_at text
 
-  Note: '給程式用的憑證。只存摘要,原始值發出去之後就不再存在。'
+  Note: 'Credentials for programs. Only a digest is stored; the value itself stops existing the moment it is handed over.'
 }
 
 Table credentials {
@@ -42,6 +42,8 @@ Table credentials {
   password_hash text [not null]
   created_at text [not null]
   updated_at text [not null]
+
+  Note: 'One password, for an account that has one. A side table rather than a column on `users`, because `identities` is already one row per way of signing in and a password as a column would make one method a column and the other a row. No row means no password, which is exactly what an account that has only ever used a provider is.'
 }
 
 Table file_segments {
@@ -52,6 +54,8 @@ Table file_segments {
   offset_bytes integer [not null]
   length_bytes integer [not null]
   created_at text [not null]
+
+  Note: 'Where the bytes of one file actually are: a backend, a key, an offset and a length. A list rather than a column pair, because a file too large for any single backend has to be spread across several. Every row has one segment until splitting is turned on. `backend` is a name rather than a foreign key on purpose: the set of backends is configuration, and a row naming one nobody configures any more has to be readable enough to say so instead of failing at start-up.'
 }
 
 Table file_shares {
@@ -65,7 +69,7 @@ Table file_shares {
   object_key text
   created_at text [not null]
 
-  Note: '檔案分享的每一個檔案。現在一次分享一列,#42 之後會是多列,`position` 就是為此存在的。'
+  Note: 'One file of a file share. One row per share today; `position` is there for when a share can hold several.'
 }
 
 Table identities {
@@ -73,6 +77,8 @@ Table identities {
   subject text [pk, not null]
   user_id text [not null]
   created_at text [not null]
+
+  Note: 'One way an account signs in through a provider. Keyed on `(provider, subject)` because the subject is the provider''s own identifier for the person: stable, and never reused within one issuer. An address is not, since providers let people change theirs and some never check it. The `provider` column exists so a second provider is configuration rather than a migration.'
 }
 
 Table invites {
@@ -84,7 +90,7 @@ Table invites {
   created_at text [not null]
   expires_at text
 
-  Note: '邀請碼。同樣只存摘要。'
+  Note: 'Invitation codes. Digests only, as above.'
 }
 
 Table oidc_flows {
@@ -96,6 +102,8 @@ Table oidc_flows {
   invite_code text
   created_at text [not null]
   expires_at text [not null]
+
+  Note: 'A sign-in that has left for the provider and has not come back. Holds the CSRF token, the nonce and the PKCE secret until the callback arrives, then the row is deleted. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error.'
 }
 
 Table password_reset_tokens {
@@ -106,7 +114,7 @@ Table password_reset_tokens {
   expires_at text [not null]
   used_at text
 
-  Note: '重設密碼的一次性連結。'
+  Note: 'One-shot links for setting a password.'
 }
 
 Table pending_registrations {
@@ -119,14 +127,14 @@ Table pending_registrations {
   expires_at text [not null]
   invite_id text
 
-  Note: '還沒驗證的註冊。帳號在信件被點開之前不存在,所以資料先放這裡——這樣「這個 email 註冊了沒」問不出來。'
+  Note: 'A registration waiting on its address. The account does not exist until the mail is opened, so what would become one waits here instead. That is also what keeps "is this address registered" from being a question anyone can ask.'
 }
 
 Table role_permissions {
   role_id text [pk, not null]
   permission text [pk, not null]
 
-  Note: '角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。'
+  Note: 'Which permissions a role holds. The permissions themselves are defined in code rather than stored, because granting one nothing checks grants nothing.'
 }
 
 Table roles {
@@ -139,7 +147,7 @@ Table roles {
   quota_bytes integer
   max_file_bytes integer
 
-  Note: '一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。'
+  Note: 'The name of a set of permissions. Nothing else decides who may do what.'
 }
 
 Table schema_metadata {
@@ -147,7 +155,7 @@ Table schema_metadata {
   value text [not null]
   updated_at integer [not null]
 
-  Note: '這個資料庫是哪一版寫的。降版啟動時用來擋下來。'
+  Note: 'Which version wrote this database. Read at start-up to refuse a downgrade.'
 }
 
 Table sessions {
@@ -163,7 +171,7 @@ Table sessions {
   origin text [not null]
   provider_sid text
 
-  Note: '一次登入。過期了也留著,因為這張表同時是登入紀錄——使用者要看得出有沒有別人進來過。真正的清除靠 `auth.login_history_days`。'
+  Note: 'One sign-in. Expired rows stay, because this table is also the sign-in history and a person needs to be able to see whether somebody else got in. Real removal is `auth.login_history_days`. `origin` says which credential started it, so a provider signing somebody out can end the sessions it issued and leave password ones alone. `provider_sid` is the provider''s own identifier for its side, when it released one.'
 }
 
 Table settings {
@@ -171,7 +179,7 @@ Table settings {
   value text [not null]
   updated_at text [not null]
 
-  Note: '從後台改過的設定,一列一個。載入順序是 預設 → 設定檔 → 環境變數 → 這裡,這裡贏——因為它是唯一一層有人在這台機器上刻意改過的,其他都跟著部署來(image 自己就設了六個環境變數)。只放能熱改的東西:socket 已經 bind 的、pool 已經建好的(而且讀這張表需要它)、log subscriber 開機裝一次的,都不在這裡,那些走環境變數。所以後台永遠不用說「存好了請重啟」。機密也不放,會明文躺在這裡而且會被 API 回出去。欄位叫 name 不叫 key,因為 key 是 MySQL 保留字。'
+  Note: 'Settings changed from the panel, one row each. The load order is defaults, then the file, then the environment, then this, and this wins: it is the only layer somebody deliberately changed on this machine. Only what can take effect without a restart is here. A bound socket, a built connection pool and an installed log subscriber cannot, so those live in the environment, and the panel never has to say "saved, now restart". Secrets are excluded too: a stored one is plaintext in a table and comes back out of whatever endpoint reads settings. The column is `name` rather than `key` because `key` is reserved in MySQL.'
 }
 
 Table share_tickets {
@@ -181,7 +189,7 @@ Table share_tickets {
   created_at text [not null]
   expires_at text [not null]
 
-  Note: '輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。'
+  Note: 'The pass handed out after a correct password. It exists so that seeing and fetching stay separate: a preview should not spend one of a share''s downloads.'
 }
 
 Table shares {
@@ -205,7 +213,7 @@ Table shares {
   bytes_served integer [not null]
   role_id text
 
-  Note: '一次分享,不管內容是什麼。取用碼、密碼、次數、到期都在這裡,因為那些規則跟內容是什麼無關。內容完全不在這裡——它在 file_shares 和 text_shares,因為一份分享可以有好幾個檔案,而欄位裝不下「好幾個」。role_id 是上傳當下的角色快照,匿名上傳是 guest——事後改一個人的角色不會回溯改變舊分享算在誰頭上,而 user_id 是空同時代表「匿名」和「上傳者帳號被刪了」,分不出來。bytes_served 是「離開這個 process 的位元組」,不是「到達使用者的」——前面掛 proxy 的話它握著的那一小段會被多算,而 CDN 快取掉的請求根本不會被看到。'
+  Note: 'One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody''s role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all.'
 }
 
 Table storage_backends {
@@ -217,6 +225,8 @@ Table storage_backends {
   updated_at text [not null]
   capacity_bytes integer
   read_only integer [not null]
+
+  Note: 'A blob store this instance can write to, added from the panel. The credentials are sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone.'
 }
 
 Table text_shares {
@@ -224,7 +234,7 @@ Table text_shares {
   language text
   content blob [not null]
 
-  Note: '文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。'
+  Note: 'The text of a text share. `content` cannot be null, because "the text is somewhere else" is the state this table exists to make impossible.'
 }
 
 Table upload_parts {
@@ -233,7 +243,7 @@ Table upload_parts {
   part_number integer [pk, not null]
   content_id text [not null]
 
-  Note: '分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。'
+  Note: 'Each part a store has accepted for a multipart upload. Kept because completing one means handing every part back exactly as it was, and no way of listing them is agreed on by all three clouds. A local filesystem has no rows here; it appends.'
 }
 
 Table upload_segments {
@@ -247,6 +257,8 @@ Table upload_segments {
   state text [not null]
   created_at text [not null]
   updated_at text [not null]
+
+  Note: 'Where a resumable upload is putting each piece, when it is spread over more than one backend. A `complete` segment is holding real space in a real bucket while its share does not exist yet, and nothing else could see that: the space was spent, the planner could not count it, and a free-tier bucket filled up with no query able to explain why. Cleaning up means aborting every `open` row and deleting the object behind every `complete` one.'
 }
 
 Table uploads {
@@ -263,7 +275,7 @@ Table uploads {
   expires_at text [not null]
   role_id text
 
-  Note: '還在傳的檔案。一份還沒傳完的東西不是 file_shares 的一列——那張表的每一列都代表「拿得到的內容」,而這裡的東西還拿不到。object_key 開檔時就決定,之後不再重算,因為續傳要能接回同一個位置。declared_bytes 是客戶端宣告的大小,配額算的是這個而不是已經到的,不然兩個人可以同時宣告用光同一份空間。'
+  Note: 'A file still arriving. A half-uploaded thing is not a `file_shares` row, because every row of that table is content somebody can fetch and this is not yet. `object_key` is chosen when the upload opens and never recomputed, so a resumed upload writes back to the same place. `declared_bytes` is what the client said, and quota counts that rather than what has arrived, or two people could claim the same free space at once.'
 }
 
 Table users {
@@ -281,7 +293,7 @@ Table users {
   quota_bytes integer
   max_file_bytes integer
 
-  Note: '帳號。role_id 是空的代表登入了但什麼都不能做,那是真的狀態不是錯誤。刪掉的不會消失,只會變成一列洗乾淨的殘骸——因為 shares.user_id 指著它,而「沒有人上傳過」和「上傳的人不在了」是兩件不同的事。'
+  Note: 'Accounts. An empty `role_id` means signed in and allowed nothing, which is a real state rather than a fault. A deleted account leaves a scrubbed row behind rather than disappearing, because `shares.user_id` points at it and "nobody uploaded this" is a different fact from "whoever uploaded it is gone".'
 }
 
 Ref: access_events.share_id > shares.id [delete: cascade]

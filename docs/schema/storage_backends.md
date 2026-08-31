@@ -2,6 +2,8 @@
 
 ## Description
 
+A blob store this instance can write to, added from the panel. The credentials are sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

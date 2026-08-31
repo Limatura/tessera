@@ -2,7 +2,7 @@
 
 ## Description
 
-邀請碼。同樣只存摘要。
+Invitation codes. Digests only, as above.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

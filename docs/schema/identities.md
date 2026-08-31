@@ -2,6 +2,8 @@
 
 ## Description
 
+One way an account signs in through a provider. Keyed on `(provider, subject)` because the subject is the provider's own identifier for the person: stable, and never reused within one issuer. An address is not, since providers let people change theirs and some never check it. The `provider` column exists so a second provider is configuration rather than a migration.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

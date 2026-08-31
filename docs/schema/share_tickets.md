@@ -2,7 +2,7 @@
 
 ## Description
 
-輸對密碼之後拿到的通行證。存在的理由是「看得到」和「拿得到」要分開——預覽頁不該花掉一次取用次數。
+The pass handed out after a correct password. It exists so that seeing and fetching stay separate: a preview should not spend one of a share's downloads.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

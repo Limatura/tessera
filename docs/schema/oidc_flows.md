@@ -2,6 +2,8 @@
 
 ## Description
 
+A sign-in that has left for the provider and has not come back. Holds the CSRF token, the nonce and the PKCE secret until the callback arrives, then the row is deleted. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

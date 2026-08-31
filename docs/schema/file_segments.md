@@ -2,6 +2,8 @@
 
 ## Description
 
+Where the bytes of one file actually are: a backend, a key, an offset and a length. A list rather than a column pair, because a file too large for any single backend has to be spread across several. Every row has one segment until splitting is turned on. `backend` is a name rather than a foreign key on purpose: the set of backends is configuration, and a row naming one nobody configures any more has to be readable enough to say so instead of failing at start-up.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

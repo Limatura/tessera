@@ -2,7 +2,7 @@
 
 ## Description
 
-這個資料庫是哪一版寫的。降版啟動時用來擋下來。
+Which version wrote this database. Read at start-up to refuse a downgrade.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

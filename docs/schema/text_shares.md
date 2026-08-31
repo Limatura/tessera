@@ -2,7 +2,7 @@
 
 ## Description
 
-文字分享的內容本身。`content` 不可為空——「文字的內容在別的地方」正是這張表要消滅的狀態。
+The text of a text share. `content` cannot be null, because "the text is somewhere else" is the state this table exists to make impossible.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

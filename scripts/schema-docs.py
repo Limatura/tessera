@@ -142,6 +142,19 @@ def columns_of(connection: sqlite3.Connection, index: str) -> list[str]:
     return [row["name"] for row in connection.execute(f"PRAGMA index_info('{index}')")]
 
 
+def unquote(value: str) -> str:
+    """Reads a single-quoted YAML scalar.
+
+    The notes have to be quoted, because an unquoted scalar cannot contain
+    `: ` and several of them do. Doubling is how YAML escapes a quote inside
+    one, and this is the other half of what `write_dbml` does when it writes
+    them back out.
+    """
+    if len(value) >= 2 and value.startswith("'") and value.endswith("'"):
+        return value[1:-1].replace("''", "'")
+    return value
+
+
 def table_notes() -> dict[str, str]:
     """The per-table descriptions from `.tbls.yml`, so they are written once.
 
@@ -155,7 +168,7 @@ def table_notes() -> dict[str, str]:
         if stripped.startswith("- table:"):
             table = stripped.removeprefix("- table:").strip()
         elif stripped.startswith("tableComment:") and table:
-            notes[table] = stripped.removeprefix("tableComment:").strip()
+            notes[table] = unquote(stripped.removeprefix("tableComment:").strip())
             table = None
     return notes
 

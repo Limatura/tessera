@@ -2,7 +2,7 @@
 
 ## Description
 
-角色包含哪些權限。權限本身是程式定義的,不是資料——沒有人檢查的權限給了也是空的。
+Which permissions a role holds. The permissions themselves are defined in code rather than stored, because granting one nothing checks grants nothing.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

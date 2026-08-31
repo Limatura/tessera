@@ -2,7 +2,7 @@
 
 ## Description
 
-重設密碼的一次性連結。
+One-shot links for setting a password.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

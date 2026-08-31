@@ -2,7 +2,7 @@
 
 ## Description
 
-一組權限的名字。誰能做什麼只由這裡決定,沒有別的地方。
+The name of a set of permissions. Nothing else decides who may do what.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

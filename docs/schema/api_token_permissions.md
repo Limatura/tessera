@@ -2,7 +2,7 @@
 
 ## Description
 
-一張 token 能做什麼。實際生效的是這裡跟主人權限的交集,所以主人被降權,他手上的 token 同時就窄了。
+What one token may do. What it can actually do is the intersection of this and its owner's permissions, so demoting a person narrows every token they hold at the same moment.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

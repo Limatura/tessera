@@ -2,7 +2,7 @@
 
 ## Description
 
-分片上傳裡 store 已經收下的每一片。存著是因為 complete_multipart 要把每一片原封不動交回去,而沒有一種列法是三家雲端都同意的。本地檔案系統不會有這裡的列——它用 append。
+Each part a store has accepted for a multipart upload. Kept because completing one means handing every part back exactly as it was, and no way of listing them is agreed on by all three clouds. A local filesystem has no rows here; it appends.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

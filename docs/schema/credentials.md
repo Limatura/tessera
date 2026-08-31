@@ -2,6 +2,8 @@
 
 ## Description
 
+One password, for an account that has one. A side table rather than a column on `users`, because `identities` is already one row per way of signing in and a password as a column would make one method a column and the other a row. No row means no password, which is exactly what an account that has only ever used a provider is.
+
 <details>
 <summary><strong>Table Definition</strong></summary>
 

@@ -2,7 +2,7 @@
 
 ## Description
 
-還沒驗證的註冊。帳號在信件被點開之前不存在,所以資料先放這裡——這樣「這個 email 註冊了沒」問不出來。
+A registration waiting on its address. The account does not exist until the mail is opened, so what would become one waits here instead. That is also what keeps "is this address registered" from being a question anyone can ask.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

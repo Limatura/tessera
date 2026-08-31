@@ -2,7 +2,7 @@
 
 ## Description
 
-給程式用的憑證。只存摘要,原始值發出去之後就不再存在。
+Credentials for programs. Only a digest is stored; the value itself stops existing the moment it is handed over.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
