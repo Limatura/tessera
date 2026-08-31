@@ -30,7 +30,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [oidc_flows](oidc_flows.md) [credentials](credentials.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [credentials](credentials.md) [auth_flows](auth_flows.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | must_change_password | INTEGER | 0 | false |  |  |  |
@@ -75,8 +75,8 @@ erDiagram
 "password_reset_tokens" }o--|| "users" : ""
 "uploads" }o--o| "users" : ""
 "identities" }o--|| "users" : ""
-"oidc_flows" }o--o| "users" : ""
 "credentials" |o--|| "users" : ""
+"auth_flows" }o--o| "users" : ""
 "users" }o--o| "roles" : ""
 
 "users" {
@@ -167,8 +167,15 @@ erDiagram
   TEXT user_id FK
   TEXT created_at
 }
-"oidc_flows" {
+"credentials" {
+  TEXT user_id PK
+  TEXT password_hash
+  TEXT created_at
+  TEXT updated_at
+}
+"auth_flows" {
   TEXT state PK
+  TEXT provider
   TEXT nonce
   TEXT verifier
   TEXT purpose
@@ -176,12 +183,6 @@ erDiagram
   TEXT invite_code
   TEXT created_at
   TEXT expires_at
-}
-"credentials" {
-  TEXT user_id PK
-  TEXT password_hash
-  TEXT created_at
-  TEXT updated_at
 }
 "roles" {
   TEXT id PK

@@ -108,6 +108,47 @@ pub struct Config {
     pub og: OgConfig,
 }
 
+/// What one plain OAuth 2.0 provider needs.
+///
+/// Derived rather than written out: every field's empty value is the right
+/// one, and `Config::default` fills in the scopes and the name per provider,
+/// because those are the only two that differ between them.
+///
+/// # Why this is not [`OidcConfig`] with fields left empty
+///
+/// An OIDC provider is configured by naming it: one issuer, and everything
+/// else comes out of a document it publishes. GitHub and Discord publish no
+/// such document, so their endpoints are written into the adapter that speaks
+/// to them and there is nothing here to configure. What is left is the pair of
+/// values that identify this installation to them.
+///
+/// The scopes are here too, and they are not decoration. GitHub will not
+/// release a verified address without `user:email`, and Discord will not
+/// release one without `email`, so an operator who narrows these has an
+/// instance that refuses every sign-in with `no_address`. Defaulted to what
+/// works, and validated so that removing one is refused at start-up rather
+/// than discovered by the first person to try.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct OauthConfig {
+    /// This installation's identifier at the provider.
+    pub client_id: String,
+    /// Its secret. Sealed before it is stored; see `settings.rs`.
+    pub client_secret: String,
+    /// What to ask the provider for.
+    pub scopes: Vec<String>,
+    /// What to write on the button. Empty falls back to the provider's name.
+    pub display_name: String,
+    /// Whether an address the provider says it checked may attach to an
+    /// account that already has it.
+    ///
+    /// Off by default, and the reason is the same as for OIDC: anybody can
+    /// obtain an account at either of these in under a minute, so an instance
+    /// that both registers strangers and matches on an address is handing out
+    /// other people's accounts.
+    pub link_by_verified_email: bool,
+}
+
 /// Signing in through an identity provider.
 ///
 /// An empty `issuer` is the default and turns everything off: nothing is
@@ -181,6 +222,36 @@ pub struct OidcConfig {
     /// without proving it would otherwise be a way to take over an account by
     /// registering its owner's address there.
     pub link_by_verified_email: bool,
+}
+
+impl OauthConfig {
+    /// Whether enough is set to offer this provider.
+    #[must_use]
+    pub fn is_configured(&self) -> bool {
+        !self.client_id.trim().is_empty() && !self.client_secret.trim().is_empty()
+    }
+
+    /// Refuses a configuration that cannot work.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError`] when a scope the provider needs to release a
+    /// verified address has been removed.
+    fn validate(&self, field: &'static str, required: &str) -> Result<(), ConfigError> {
+        if !self.is_configured() {
+            return Ok(());
+        }
+        if !self.scopes.iter().any(|scope| scope == required) {
+            return Err(ConfigError::Invalid {
+                field,
+                reason: format!(
+                    "must include the `{required}` scope, or the provider releases no address \
+                     and every sign-in is refused"
+                ),
+            });
+        }
+        Ok(())
+    }
 }
 
 impl Default for OidcConfig {
@@ -461,6 +532,14 @@ pub struct AuthConfig {
     /// Signing in through an identity provider.
     #[serde(default)]
     pub oidc: OidcConfig,
+
+    /// Signing in with a GitHub account.
+    #[serde(default)]
+    pub github: OauthConfig,
+
+    /// Signing in with a Discord account.
+    #[serde(default)]
+    pub discord: OauthConfig,
 
     /// How long a browser session stays valid, in hours.
     pub session_ttl_hours: u64,
@@ -1170,6 +1249,22 @@ impl Default for AuthConfig {
     fn default() -> Self {
         Self {
             oidc: OidcConfig::default(),
+            // The scopes each provider needs to release a *verified* address,
+            // which is the whole reason to ask for one. GitHub answers
+            // `email: null` on `/user` when the address is private, so the
+            // address has to be read from `/user/emails`, and that needs
+            // `user:email`. Discord returns `email` and `verified` on
+            // `/users/@me`, both behind `email`.
+            github: OauthConfig {
+                scopes: vec!["read:user".to_owned(), "user:email".to_owned()],
+                display_name: "GitHub".to_owned(),
+                ..OauthConfig::default()
+            },
+            discord: OauthConfig {
+                scopes: vec!["identify".to_owned(), "email".to_owned()],
+                display_name: "Discord".to_owned(),
+                ..OauthConfig::default()
+            },
             // Open by default, for an instance set up among people who know
             // each other. An internet-facing one should close it.
             registration: RegistrationPolicy::Open,
@@ -1931,6 +2026,8 @@ impl AuthConfig {
         self.hashing.validate()?;
         self.throttle.validate()?;
         self.oidc.validate()?;
+        self.github.validate("auth.github.scopes", "user:email")?;
+        self.discord.validate("auth.discord.scopes", "email")?;
         // The policy's own bounds live in the domain crate, so the rule is the
         // same whether it arrives from a file or from a test.
         self.password

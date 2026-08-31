@@ -14,10 +14,10 @@ use crate::{
     auth::oidc::flow::Purpose,
     db::{
         entity::{
+            auth_flow::{ActiveModel as FlowActive, Column as FlowColumn, Entity as FlowEntity},
             identity::{
                 ActiveModel as IdentityActive, Column as IdentityColumn, Entity as IdentityEntity,
             },
-            oidc_flow::{ActiveModel as FlowActive, Column as FlowColumn, Entity as FlowEntity},
         },
         repository::user::{CorruptRow, UserRepositoryError},
     },
@@ -28,8 +28,14 @@ use crate::{
 pub struct Flow {
     /// What the callback proved it belongs to.
     pub state: String,
+    /// Which provider this is for, matching `identities.provider`.
+    pub provider: String,
     /// Expected inside the returned token.
-    pub nonce: String,
+    ///
+    /// Absent for a provider that issues no ID token, which is every plain
+    /// OAuth 2.0 one. What is left is `state`, made one-shot by
+    /// [`OidcRepository::consume`], and the PKCE verifier below.
+    pub nonce: Option<String>,
     /// The PKCE secret to send to the token endpoint.
     pub verifier: String,
     /// Signing in, or attaching a provider to an account.
@@ -76,6 +82,7 @@ impl OidcRepository {
     pub async fn begin(&self, flow: &Flow, now: OffsetDateTime) -> Result<(), UserRepositoryError> {
         let row = FlowActive {
             state: Set(flow.state.clone()),
+            provider: Set(flow.provider.clone()),
             nonce: Set(flow.nonce.clone()),
             verifier: Set(flow.verifier.clone()),
             purpose: Set(flow.purpose.as_str().to_owned()),
@@ -125,6 +132,7 @@ impl OidcRepository {
             })?;
         Ok(Some(Flow {
             state: model.state,
+            provider: model.provider,
             nonce: model.nonce,
             verifier: model.verifier,
             purpose: Purpose::from_stored(&model.purpose),
@@ -311,7 +319,8 @@ mod tests {
     fn flow(state: &str) -> Flow {
         Flow {
             state: state.to_owned(),
-            nonce: "nonce".to_owned(),
+            provider: "oidc".to_owned(),
+            nonce: Some("nonce".to_owned()),
             verifier: "verifier".to_owned(),
             purpose: Purpose::Login,
             user_id: None,
@@ -327,7 +336,7 @@ mod tests {
 
         let taken = oidc.consume("state-1").await.expect("a query").expect("it");
 
-        assert_eq!(taken.nonce, "nonce");
+        assert_eq!(taken.nonce.as_deref(), Some("nonce"));
         assert_eq!(taken.verifier, "verifier");
         assert_eq!(taken.purpose, Purpose::Login);
     }
@@ -470,6 +479,27 @@ mod tests {
             .expect("the password");
 
         assert!(users.password_of(user_id).await.expect("a query").is_some());
+    }
+
+    /// A provider that issues no ID token stores no nonce, and that reads back
+    /// as absent rather than as an empty string. The two are different: one is
+    /// "there was never anything to check", the other is "the provider sent
+    /// nothing", and the second has to be refused.
+    #[tokio::test]
+    async fn a_flow_without_a_nonce_reads_back_as_absent() {
+        let (oidc, _users) = repositories().await;
+        let mut without = flow("state-oauth");
+        without.provider = "github".to_owned();
+        without.nonce = None;
+        oidc.begin(&without, now()).await.expect("begun");
+
+        let taken = oidc
+            .consume("state-oauth")
+            .await
+            .expect("a query")
+            .expect("it");
+        assert_eq!(taken.provider, "github");
+        assert!(taken.nonce.is_none());
     }
 
     /// Unlinking is scoped to the account asking, so one person cannot detach

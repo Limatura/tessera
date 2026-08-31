@@ -1,20 +1,23 @@
-# oidc_flows
+# auth_flows
 
 ## Description
 
-A sign-in that has left for the provider and has not come back. Holds the CSRF token, the nonce and the PKCE secret until the callback arrives, then the row is deleted. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error.
+A sign-in that has left for a provider and has not come back. Holds the CSRF token, the PKCE secret, and the nonce when the provider issues one, until the callback arrives; then the row is deleted, which is what makes a callback answerable once. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. `nonce` is null for a plain OAuth 2.0 provider, which issues no token to put one in.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
 
 ```sql
-CREATE TABLE oidc_flows (
+CREATE TABLE auth_flows (
     state       TEXT NOT NULL PRIMARY KEY,
-    nonce       TEXT NOT NULL,
+    -- Which provider this flow is for, matching `identities.provider`. The
+    -- callback is one endpoint for all of them and this is how it knows whose
+    -- token endpoint to go to.
+    provider    TEXT NOT NULL,
+    -- Absent for a provider that issues no ID token. See above.
+    nonce       TEXT,
     verifier    TEXT NOT NULL,
-    -- `login` or `link`. The callback is one endpoint and this is how it knows
-    -- whether it is signing somebody in or attaching a provider to the account
-    -- that is already signed in.
+    -- `login` or `link`.
     purpose     TEXT NOT NULL,
     -- Set when `purpose` is `link`: whose account this will be attached to.
     user_id     TEXT REFERENCES users (id) ON DELETE CASCADE,
@@ -33,7 +36,8 @@ CREATE TABLE oidc_flows (
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
 | state | TEXT |  | false |  |  |  |
-| nonce | TEXT |  | false |  |  |  |
+| provider | TEXT |  | false |  |  |  |
+| nonce | TEXT |  | true |  |  |  |
 | verifier | TEXT |  | false |  |  |  |
 | purpose | TEXT |  | false |  |  |  |
 | user_id | TEXT |  | true |  | [users](users.md) |  |
@@ -47,24 +51,25 @@ CREATE TABLE oidc_flows (
 | ---- | ---- | ---------- |
 | state | PRIMARY KEY | PRIMARY KEY (state) |
 | - (Foreign key ID: 0) | FOREIGN KEY | FOREIGN KEY (user_id) REFERENCES users (id) ON UPDATE NO ACTION ON DELETE CASCADE MATCH NONE |
-| sqlite_autoindex_oidc_flows_1 | PRIMARY KEY | PRIMARY KEY (state) |
+| sqlite_autoindex_auth_flows_1 | PRIMARY KEY | PRIMARY KEY (state) |
 
 ## Indexes
 
 | Name | Definition |
 | ---- | ---------- |
-| idx_oidc_flows_expires | CREATE INDEX idx_oidc_flows_expires ON oidc_flows (expires_at) |
-| sqlite_autoindex_oidc_flows_1 | PRIMARY KEY (state) |
+| idx_auth_flows_expires | CREATE INDEX idx_auth_flows_expires ON auth_flows (expires_at) |
+| sqlite_autoindex_auth_flows_1 | PRIMARY KEY (state) |
 
 ## Relations
 
 ```mermaid
 erDiagram
 
-"oidc_flows" }o--o| "users" : ""
+"auth_flows" }o--o| "users" : ""
 
-"oidc_flows" {
+"auth_flows" {
   TEXT state PK
+  TEXT provider
   TEXT nonce
   TEXT verifier
   TEXT purpose

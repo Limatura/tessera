@@ -62,6 +62,7 @@ mod m20260903_000001_upload_segments;
 mod m20260904_000001_parts_per_segment;
 mod m20260905_000001_oidc;
 mod m20260906_000001_backchannel_logout;
+mod m20260907_000001_auth_flows;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -114,6 +115,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260904_000001_parts_per_segment::Migration),
             Box::new(m20260905_000001_oidc::Migration),
             Box::new(m20260906_000001_backchannel_logout::Migration),
+            Box::new(m20260907_000001_auth_flows::Migration),
         ]
     }
 }

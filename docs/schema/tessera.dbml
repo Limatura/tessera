@@ -37,6 +37,20 @@ Table api_tokens {
   Note: 'Credentials for programs. Only a digest is stored; the value itself stops existing the moment it is handed over.'
 }
 
+Table auth_flows {
+  state text [pk, not null]
+  provider text [not null]
+  nonce text
+  verifier text [not null]
+  purpose text [not null]
+  user_id text
+  invite_code text
+  created_at text [not null]
+  expires_at text [not null]
+
+  Note: 'A sign-in that has left for a provider and has not come back. Holds the CSRF token, the PKCE secret, and the nonce when the provider issues one, until the callback arrives; then the row is deleted, which is what makes a callback answerable once. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. `nonce` is null for a plain OAuth 2.0 provider, which issues no token to put one in.'
+}
+
 Table credentials {
   user_id text [pk, not null]
   password_hash text [not null]
@@ -91,19 +105,6 @@ Table invites {
   expires_at text
 
   Note: 'Invitation codes. Digests only, as above.'
-}
-
-Table oidc_flows {
-  state text [pk, not null]
-  nonce text [not null]
-  verifier text [not null]
-  purpose text [not null]
-  user_id text
-  invite_code text
-  created_at text [not null]
-  expires_at text [not null]
-
-  Note: 'A sign-in that has left for the provider and has not come back. Holds the CSRF token, the nonce and the PKCE secret until the callback arrives, then the row is deleted. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error.'
 }
 
 Table password_reset_tokens {
@@ -299,11 +300,11 @@ Table users {
 Ref: access_events.share_id > shares.id [delete: cascade]
 Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
 Ref: api_tokens.user_id > users.id [delete: cascade]
+Ref: auth_flows.user_id > users.id [delete: cascade]
 Ref: credentials.user_id > users.id [delete: cascade]
 Ref: file_segments.file_id > file_shares.id [delete: cascade]
 Ref: file_shares.share_id > shares.id [delete: cascade]
 Ref: identities.user_id > users.id [delete: cascade]
-Ref: oidc_flows.user_id > users.id [delete: cascade]
 Ref: password_reset_tokens.user_id > users.id [delete: cascade]
 Ref: role_permissions.role_id > roles.id [delete: cascade]
 Ref: sessions.user_id > users.id [delete: cascade]

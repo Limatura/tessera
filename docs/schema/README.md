@@ -26,8 +26,8 @@
 | [upload_segments](upload_segments.md) | 10 | Where a resumable upload is putting each piece, when it is spread over more than one backend. A `complete` segment is holding real space in a real bucket while its share does not exist yet, and nothing else could see that: the space was spent, the planner could not count it, and a free-tier bucket filled up with no query able to explain why. Cleaning up means aborting every `open` row and deleting the object behind every `complete` one. | table |
 | [upload_parts](upload_parts.md) | 4 | Each part a store has accepted for a multipart upload. Kept because completing one means handing every part back exactly as it was, and no way of listing them is agreed on by all three clouds. A local filesystem has no rows here; it appends. | table |
 | [identities](identities.md) | 4 | One way an account signs in through a provider. Keyed on `(provider, subject)` because the subject is the provider's own identifier for the person: stable, and never reused within one issuer. An address is not, since providers let people change theirs and some never check it. The `provider` column exists so a second provider is configuration rather than a migration. | table |
-| [oidc_flows](oidc_flows.md) | 8 | A sign-in that has left for the provider and has not come back. Holds the CSRF token, the nonce and the PKCE secret until the callback arrives, then the row is deleted. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. | table |
 | [credentials](credentials.md) | 4 | One password, for an account that has one. A side table rather than a column on `users`, because `identities` is already one row per way of signing in and a password as a column would make one method a column and the other a row. No row means no password, which is exactly what an account that has only ever used a provider is. | table |
+| [auth_flows](auth_flows.md) | 9 | A sign-in that has left for a provider and has not come back. Holds the CSRF token, the PKCE secret, and the nonce when the provider issues one, until the callback arrives; then the row is deleted, which is what makes a callback answerable once. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. `nonce` is null for a plain OAuth 2.0 provider, which issues no token to put one in. | table |
 
 ## Relations
 
@@ -54,8 +54,8 @@ erDiagram
 "upload_segments" |o--|| "uploads" : ""
 "upload_parts" |o--|| "uploads" : ""
 "identities" }o--|| "users" : ""
-"oidc_flows" }o--o| "users" : ""
 "credentials" |o--|| "users" : ""
+"auth_flows" }o--o| "users" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -259,8 +259,15 @@ erDiagram
   TEXT user_id FK
   TEXT created_at
 }
-"oidc_flows" {
+"credentials" {
+  TEXT user_id PK
+  TEXT password_hash
+  TEXT created_at
+  TEXT updated_at
+}
+"auth_flows" {
   TEXT state PK
+  TEXT provider
   TEXT nonce
   TEXT verifier
   TEXT purpose
@@ -268,12 +275,6 @@ erDiagram
   TEXT invite_code
   TEXT created_at
   TEXT expires_at
-}
-"credentials" {
-  TEXT user_id PK
-  TEXT password_hash
-  TEXT created_at
-  TEXT updated_at
 }
 ```
 

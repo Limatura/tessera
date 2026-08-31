@@ -12,12 +12,12 @@
 pub mod access_event;
 pub mod api_token;
 pub mod api_token_permission;
+pub mod auth_flow;
 pub mod credential;
 pub mod file_segment;
 pub mod file_share;
 pub mod identity;
 pub mod invite;
-pub mod oidc_flow;
 pub mod password_reset_token;
 pub mod pending_registration;
 pub mod role;

@@ -236,7 +236,8 @@ pub async fn start(
         .begin(
             &crate::db::repository::oidc::Flow {
                 state: leaving.state,
-                nonce: leaving.nonce,
+                provider: PROVIDER.to_owned(),
+                nonce: Some(leaving.nonce),
                 verifier: leaving.verifier,
                 purpose: flow::Purpose::Login,
                 user_id: None,
@@ -367,11 +368,17 @@ async fn finish(
             Outcome::Rejected(Rejection::Refused)
         })?;
 
+    // An OIDC flow always stored one. A row without it is one this version did
+    // not write, and there is nothing to check the token against.
+    let nonce = waiting
+        .nonce
+        .as_deref()
+        .ok_or(Outcome::Rejected(Rejection::Stale))?;
     let mut claims = claims::verify(
         &tokens.id_token,
         &config.auth.oidc.issuer,
         config.auth.oidc.client_id.trim(),
-        &waiting.nonce,
+        nonce,
         now,
     )
     .map_err(|error| {
@@ -703,7 +710,8 @@ pub async fn link(
         .begin(
             &crate::db::repository::oidc::Flow {
                 state: leaving.state,
-                nonce: leaving.nonce,
+                provider: PROVIDER.to_owned(),
+                nonce: Some(leaving.nonce),
                 verifier: leaving.verifier,
                 purpose: flow::Purpose::Link,
                 user_id: Some(current.user.id),

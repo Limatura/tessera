@@ -110,6 +110,9 @@ const SEALED: &[&str] = &[
     // `SECRETS`.
     "mail.username",
     "mail.password",
+    // The same thing for the two providers that have no discovery document.
+    "auth.github.client_secret",
+    "auth.discord.client_secret",
 ];
 
 /// Whether a key's value is encrypted at rest and withheld from the panel.
