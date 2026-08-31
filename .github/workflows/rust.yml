@@ -27,6 +27,13 @@ on:
       # to it changes how all nine jobs behave — and without this line it was
       # the one thing in the build that could ship without CI running at all.
       - ".github/actions/**"
+      # The schema pages are generated from the migrations and committed, and
+      # the drift check that keeps them honest lives in `checks`. Without these
+      # three, a change to the notes or to the generator fires nothing, and the
+      # only thing that would have caught a stale page never runs.
+      - ".tbls.yml"
+      - "docs/schema/**"
+      - "scripts/schema-docs.py"
   pull_request:
     paths: *rust-paths
   workflow_dispatch:
@@ -47,6 +54,35 @@ env:
   # from every branch fills a disk. Measured locally: 28 GB of incremental
   # artefacts against 4.5 GB of actual output.
   CARGO_INCREMENTAL: "0"
+  # The runner has ten cores and eight gigabytes, and cargo's default `-j` is
+  # the core count. Ten rustc processes at once is what the OOM killer has been
+  # answering, and `exit 143` with nothing in the log is what that looks like
+  # from here.
+  #
+  # Measured on 2026-08-31, peak total resident across every rustc at once,
+  # building `tessera-server --all-features`:
+  #
+  #   -j 10   64s   2212 MB
+  #   -j 4    88s   1780 MB
+  #   -j 1   353s   3541 MB
+  #
+  # Four, because the failure being bought off is "killed" rather than "slow".
+  # One is on the list because it is the obvious answer and it is the worst
+  # one: a single rustc has no other crate to interleave with, so the largest
+  # one reaches its own peak alone.
+  CARGO_BUILD_JOBS: "4"
+  # Line tables, not full debug info. CI reads a panic message and a line
+  # number; nothing here opens a debugger.
+  #
+  # Measured the same day, building the workspace with `--all-features
+  # --tests`: 11 GB of target directory against 5.4 GB, for the same time
+  # within noise. That directory shares a disk with the image build's layer
+  # cache and eight object stores, and the composite action deletes the whole
+  # thing when it passes its cap, which costs every job after it a cold build.
+  #
+  # Here rather than in `[profile.dev]`, so that a local `cargo test` keeps the
+  # debug info somebody stepping through a test needs.
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
   # Lint levels in Cargo.toml are `warn` so that local development is never
   # blocked mid-experiment. This is where they become blocking.
   RUSTFLAGS: -D warnings
@@ -79,13 +115,107 @@ jobs:
   #
   # A step keeps its own status inside the job, so a red build still says which
   # check failed. What is lost is five tick marks on the pull request.
+  # What a change can and cannot break, worked out once so that eight jobs do
+  # not each have to decide.
+  #
+  # This runner has one slot and the whole suite is about twenty minutes of it,
+  # serial. Most of that is unreachable from most changes: a pull request that
+  # edited only `.tbls.yml` and the schema pages it generates still ran the
+  # object store suite against eight blob stores, both database backends, a
+  # cross-compiled image build and a feature powerset. Eighteen of its twenty
+  # minutes could not have failed.
+  #
+  # Ten seconds here buys that back. The jobs below stay listed either way, so
+  # a skipped one reads as skipped rather than as missing.
+  changes:
+    name: what changed
+    runs-on: [self-hosted, Linux, X64]
+    # `contents: read` comes from the workflow. On a pull request the filter
+    # asks the API which files changed, and that needs the pull-request scope;
+    # without it the job fails with "Resource not accessible by integration"
+    # and every job behind it skips. Granted here rather than at the top so no
+    # other job in this file can read pull requests.
+    permissions:
+      contents: read
+      pull-requests: read
+    timeout-minutes: 5
+    if: >-
+      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    outputs:
+      rust: ${{ steps.filter.outputs.rust }}
+      features: ${{ steps.filter.outputs.features }}
+      contract: ${{ steps.filter.outputs.contract }}
+      schema: ${{ steps.filter.outputs.schema }}
+      image: ${{ steps.filter.outputs.image }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: filter
+        with:
+          filters: |
+            # Anything that changes what the server does. The wide one, and the
+            # gate on everything that compiles or runs it.
+            rust: &rust
+              - "apps/server/**"
+              - "crates/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "clippy.toml"
+              - "rustfmt.toml"
+              - "deny.toml"
+              - "rust-toolchain.toml"
+              - ".cargo/**"
+              - ".config/**"
+              - ".github/actions/**"
+              - ".github/workflows/**"
+            # The powerset is the most expensive job in the suite and the
+            # narrowest in what it can find: a feature combination that does not
+            # build. That needs the feature list or something behind a `cfg` to
+            # have moved.
+            features:
+              - "Cargo.toml"
+              - "apps/server/Cargo.toml"
+              - "crates/*/Cargo.toml"
+              - "Cargo.lock"
+              - ".github/actions/**"
+              - ".github/workflows/**"
+            # The fuzzer reads `openapi.json` from a running instance, so it
+            # cares about the same things the server does.
+            contract: *rust
+            # The image build. `apps/web` is in it and is not in `rust`.
+            image:
+              - "apps/server/**"
+              - "apps/web/**"
+              - "crates/**"
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - "rust-toolchain.toml"
+              - ".github/actions/**"
+              - ".github/workflows/**"
+            # `checks` regenerates the schema pages and fails on drift, so it
+            # has to run when the notes or the generator move, not only when
+            # the migrations do.
+            schema:
+              - ".tbls.yml"
+              - "docs/schema/**"
+              - "scripts/schema-docs.py"
+            # Linted by this workflow and nothing else.
+            workflows:
+              - ".github/workflows/**"
+              - ".github/actions/**"
+
   checks:
     name: checks
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      (needs.changes.outputs.rust == 'true' || needs.changes.outputs.schema == 'true') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -182,8 +312,10 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      needs.changes.outputs.features == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -208,8 +340,10 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      needs.changes.outputs.rust == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -240,8 +374,10 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      needs.changes.outputs.rust == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     # Without this job, `postgres` and `mysql` are only ever proven to *compile*.
     # The hand-written per-dialect migration SQL especially needs a real server:
     # "sqlite was updated and the others were forgotten" is the failure mode that
@@ -300,8 +436,10 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      needs.changes.outputs.rust == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     # Without this job, `storage-s3` is only ever proven to *compile*. Nothing
     # had put a byte into a bucket and read it back, so "we support S3" rested
     # on the options being spelled right and nothing checking that.
@@ -838,8 +976,10 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      needs.changes.outputs.workflows == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -882,8 +1022,10 @@ jobs:
       packages: write
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      needs.changes.outputs.image == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1153,8 +1295,10 @@ jobs:
     runs-on: [self-hosted, Linux, X64]
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
+    needs: changes
     if: >-
-      github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+      needs.changes.outputs.contract == 'true' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
