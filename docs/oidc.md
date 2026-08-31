@@ -32,6 +32,8 @@ Three shapes of instance, and the settings that separate them.
 
 The middle row is the one worth explaining. An instance whose friends already have accounts wants the provider attached to those accounts rather than a second set beside them, and that only works if an address can be matched. The last row is the opposite case: the provider is the authority on who belongs, so registration can be open, and the group claim is what keeps it from being open to the whole directory.
 
+`client_secret` is set from the panel like the rest, encrypted at rest. It needs `storage.secret_key` in the environment first; see `configuration.md`.
+
 ## The flow
 
 ```mermaid
@@ -266,7 +268,6 @@ That is the recovery path for an instance whose provider went away, and the reas
 
 ## Not built
 
-- **`client_secret` in the admin panel.** It is a secret, and secrets are excluded from the settings table on purpose; see `configuration.md`. Configuring it means an environment variable today.
 - **Anything that acts on the provider disabling somebody.** See the section on session origin above.
 - **Role mapping from a claim.** The stopping point is deliberate; see above.
 - **A second provider.** `identities.provider` exists so that this is configuration rather than a migration, but only one is read.

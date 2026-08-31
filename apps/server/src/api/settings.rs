@@ -47,6 +47,13 @@ pub struct SettingResponse {
     /// explain instead of only greying the field out.
     #[schema(example = "fixed_at_boot")]
     pub refusal: Option<String>,
+    /// Whether this holds a credential this endpoint will write and never
+    /// return.
+    ///
+    /// When true, `value` is a boolean saying whether one is set, never the
+    /// credential itself. A screen draws "configured" beside an empty field
+    /// rather than pre-filling it with something it cannot read back.
+    pub secret: bool,
 }
 
 /// Everything this instance can be configured with.
@@ -103,6 +110,7 @@ fn describe(stored: &BTreeMap<String, serde_json::Value>) -> SettingsResponse {
                 source: view.source,
                 editable: view.editable,
                 refusal: view.refusal.map(refusal_name).map(ToOwned::to_owned),
+                secret: view.secret,
             })
             .collect(),
     }
@@ -290,6 +298,16 @@ async fn resolve(
                      the environment"
                 ),
             }));
+        }
+        // Refused here rather than at the write, which would report an internal
+        // error for a configuration problem the operator can fix. Sealing is
+        // the only reason these are storable at all, so without a key there is
+        // no version of this that is safe to do.
+        if settings::is_sealed(key) && state.config().storage.secret_key.trim().is_empty() {
+            return Err(Error::bad_request(format!(
+                "`{key}` holds a credential, so it is encrypted before it is stored. Set \
+                 `storage.secret_key` in the environment first."
+            )));
         }
     }
 

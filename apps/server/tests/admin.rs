@@ -2386,7 +2386,95 @@ async fn the_settings_list_marks_what_cannot_be_changed() {
     assert_eq!(port["editable"], false);
     assert_eq!(port["refusal"], "fixed_at_boot");
 
-    assert_eq!(find("mail.password")["refusal"], "secret");
+    // Never storable, and named as such.
+    assert_eq!(find("storage.url")["refusal"], "secret");
+
+    // The other kind: writable, encrypted at rest, and reported as a boolean
+    // saying whether one is set rather than as the credential.
+    let relay = find("mail.password");
+    assert_eq!(relay["editable"], true);
+    assert_eq!(relay["secret"], true);
+    assert_eq!(relay["value"], false, "nothing is configured yet");
+    assert!(relay["refusal"].is_null());
+}
+
+/// A credential set from the panel comes back as "configured" and never as
+/// itself, and the value in the table is not the value that was sent.
+#[tokio::test]
+async fn a_credential_set_from_the_panel_is_never_handed_back() {
+    // Sealing is the only reason a credential may be stored, so the fixture
+    // needs the key the real thing takes from the environment.
+    let app = TestApp::with_config(|config| {
+        config.storage.secret_key = "11".repeat(32);
+    })
+    .await;
+    let (owner, _) = register(&app, "first").await;
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            &serde_json::json!({
+                "changes": { "mail.password": "a-relay-password" },
+            }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let body = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/settings", Auth::Cookie(&owner))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+
+    let listed = body["settings"].as_array().expect("a list");
+    let relay = listed
+        .iter()
+        .find(|entry| entry["key"] == "mail.password")
+        .expect("the setting");
+    assert_eq!(relay["value"], true, "it should read as configured");
+    assert!(
+        !body.to_string().contains("a-relay-password"),
+        "the credential came back out of the settings endpoint"
+    );
+
+    // And the process is using it, which is the point of storing it at all.
+    assert_eq!(app.state.config().mail.password, "a-relay-password");
+}
+
+/// Without a key there is nowhere safe to put one. Reported as the
+/// configuration problem it is, not as an internal error.
+#[tokio::test]
+async fn setting_a_credential_without_a_sealing_key_says_why() {
+    let app = TestApp::ready().await;
+    let (owner, _) = register(&app, "first").await;
+
+    let response = app
+        .json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&owner),
+            &serde_json::json!({
+                "changes": { "mail.password": "a-relay-password" },
+            }),
+        )
+        .await;
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    let body = body_json(response).await;
+    assert!(
+        body["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("storage.secret_key")),
+        "the message has to name what to set: {body}"
+    );
 }
 
 /// What the feature is for: change it here and the next request uses it,

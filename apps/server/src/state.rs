@@ -293,7 +293,7 @@ impl AppState {
         let storage_backends =
             crate::db::repository::storage_backend::StorageBackendRepository::new(
                 db.clone(),
-                sealer,
+                sealer.clone(),
             );
         // A relay that will not build is reported and then treated as absent.
         // Refusing to start would take the service down over the one feature
@@ -321,7 +321,7 @@ impl AppState {
             tokens: ApiTokenRepository::new(db.clone()),
             shares: ShareRepository::new(db.clone()),
             tickets: ShareTicketRepository::new(db.clone()),
-            settings: SettingRepository::new(db.clone()),
+            settings: SettingRepository::new(db.clone(), sealer),
             events: AccessEventRepository::new(db.clone()),
             uploads: UploadRepository::new(db.clone()),
             multipart,

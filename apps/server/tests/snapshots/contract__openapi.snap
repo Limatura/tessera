@@ -1324,6 +1324,10 @@ expression: document
               "null"
             ]
           },
+          "secret": {
+            "description": "Whether this holds a credential this endpoint will write and never\nreturn.\n\nWhen true, `value` is a boolean saying whether one is set, never the\ncredential itself. A screen draws \"configured\" beside an empty field\nrather than pre-filling it with something it cannot read back.",
+            "type": "boolean"
+          },
           "source": {
             "$ref": "#/components/schemas/Source",
             "description": "Which layer supplied it."
@@ -1337,7 +1341,8 @@ expression: document
           "key",
           "value",
           "source",
-          "editable"
+          "editable",
+          "secret"
         ],
         "type": "object"
       },

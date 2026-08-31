@@ -26,7 +26,23 @@ That is a promise about the list, not about the settings. A setting is excluded 
 
 Those live in the environment, which is where a deployment sets them anyway.
 
-Secrets are excluded too. A stored secret is plaintext in a table and comes back out of whatever endpoint reads settings.
+## Two kinds of secret
+
+A stored secret is plaintext in a table and comes back out of whatever endpoint reads settings. That is true of a value stored as it stands, and it is why most credentials are not offered.
+
+Some are, because the alternative is worse. `mail.host` is changeable and `mail.password` was not, so configuring a relay meant doing half of it in the panel and half in the environment, then restarting for the half the panel could not do.
+
+| | Never stored | Stored, encrypted |
+| --- | --- | --- |
+| Which | `auth.admin_password`, `database.url`, `storage.url`, `storage.secret_key` | `mail.username`, `mail.password`, `auth.oidc.client_secret` |
+| Why | Read once at start-up, or carries credentials inside a URL that is also a connection string | An operator has every reason to set it from the panel |
+| The panel sees | nothing | whether one is set, never the value |
+
+The second column is sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, storing one is refused rather than written in plaintext, and the refusal names what to set.
+
+`storage.secret_key` can never be in the second column itself: it is what opens the others.
+
+A stored value carries a `sealed:` marker. Without one, ciphertext and plaintext are indistinguishable both to somebody reading the table and to the code reading it back, and a value that will not open would be as likely to be a corrupt row as a changed key. Those send an operator to different places.
 
 ## The settings list is derived, not written down
 

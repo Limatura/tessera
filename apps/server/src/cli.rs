@@ -779,7 +779,13 @@ pub async fn settings(config: &Config, action: SettingsAction) -> anyhow::Result
     // that quietly rewrites the schema is the last thing to run against a
     // database you are unsure about. On an instance that has never started,
     // the table does not exist and the error says so.
-    let store = SettingRepository::new(db.clone());
+    // The same sealer the server builds, from the same value, so a credential
+    // written here opens there and the other way round. An instance with no
+    // `storage.secret_key` gets one that refuses rather than one that stores
+    // plaintext.
+    let sealer = crate::storage::secret::Sealer::new(&config.storage.secret_key)
+        .context("storage.secret_key is not usable")?;
+    let store = SettingRepository::new(db.clone(), sealer);
 
     let outcome = run_settings(&store, action).await;
     db::close(db).await;
