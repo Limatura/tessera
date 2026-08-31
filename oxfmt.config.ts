@@ -14,6 +14,13 @@ export default defineConfig({
     // emitter) and compared against the committed copy. Formatting it makes one
     // of the two checks fail whichever way round anybody runs them.
     "docs/schema/**",
+    // Prose, not code — formatting it here fights whatever wrapping/style the
+    // authors actually used. `pull_request` CI checks out PR head merged into
+    // `main`, so any pre-existing formatting drift on `main` under this path
+    // would fail every PR's job regardless of what that PR touches.
+    "docs/**",
+    ".tbls.yml",
+    ".github/workflows/rust.yml",
     ".agents/**",
     ".claude/**",
     ".codex/**",

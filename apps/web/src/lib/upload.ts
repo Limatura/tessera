@@ -53,6 +53,7 @@ export type UploadPayload =
   | LinkUploadPayload;
 
 type ShareResponse = components["schemas"]["ShareResponse"];
+type PatchShareRequest = components["schemas"]["PatchShareRequest"];
 type ErrorBody = components["schemas"]["ErrorBody"];
 
 export function upload(
@@ -239,22 +240,57 @@ export async function deleteShare(
 }
 
 /**
- * 讓使用者在上傳完成後調整過期時間、下載即焚、密碼。
+ * `PATCH /api/v1/shares/{code}` 的授權方式跟 DELETE 一樣:登入的 session,
+ * 或匿名上傳時拿到的 `management_token`。
  *
- * 後端目前只有 `POST /shares`（建立）跟 `DELETE /shares/{code}`（刪除），
- * 沒有可以修改既有分享設定的 endpoint，也沒有密碼參數。等後端補上
- * `PATCH /api/v1/shares/{code}` 後，把下面換成真正的 fetch 呼叫；在那之前
- * 直接視為成功，讓畫面上的互動可以測試。
+ * 三個欄位都是「省略 = 不動這項設定」,跟「送 null = 清掉」不一樣,所以下面
+ * 只把呼叫端真的有指定的欄位放進 body。
+ *
+ * 密碼是特例:設定密碼走 `X-Share-Password` header(不進 query string、
+ * access log 和 Referer),移除密碼才走 body 的 `remove_password`。後端明講
+ * 兩個一起送會被拒絕,所以這裡二選一。
  */
-export function updateShare(
+export async function updateShare(
   code: string,
   settings: ShareSettings,
   managementToken?: string
 ): Promise<void> {
-  void code;
-  void settings;
-  void managementToken;
-  return Promise.resolve();
+  const body: PatchShareRequest = {};
+  if ("expiresInHours" in settings) {
+    // 0 小時在建立時代表「永不過期」,PATCH 這邊要用 null 表達。
+    body.expires_in_hours =
+      settings.expiresInHours === undefined || settings.expiresInHours === 0
+        ? null
+        : settings.expiresInHours;
+  }
+  if ("maxUses" in settings) {
+    body.max_uses = settings.maxUses ?? null;
+  }
+
+  const headers: HeadersInit = { "Content-Type": "application/json" };
+  if (managementToken) {
+    headers["X-Share-Management-Token"] = managementToken;
+  }
+  if ("password" in settings) {
+    if (settings.password === undefined) {
+      body.remove_password = true;
+    } else {
+      headers["X-Share-Password"] = settings.password;
+    }
+  }
+
+  const response = await fetch(`/api/v1/shares/${encodeURIComponent(code)}`, {
+    body: JSON.stringify(body),
+    credentials: "include",
+    headers,
+    method: "PATCH",
+  });
+  if (!response.ok) {
+    const errorBody = (await response
+      .json()
+      .catch(() => null)) as ErrorBody | null;
+    throw new Error(errorBody?.message ?? `Update failed: ${response.status}`);
+  }
 }
 
 function buildShareUrl(query: ShareQuery, basePath = "/api/v1/shares"): string {

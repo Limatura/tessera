@@ -112,5 +112,20 @@
   "share_preview_failed": "プレビューを読み込めませんでした",
   "share_copy": "コピー",
   "share_copied": "コピーしました",
-  "share_back_home": "ホームに戻る"
+  "share_back_home": "ホームに戻る",
+  "mermaid_render_failed": "図の構文エラー",
+  "mermaid_expand": "拡大表示",
+  "mermaid_zoom_in": "拡大",
+  "mermaid_zoom_out": "縮小",
+  "mermaid_reset_zoom": "ズームをリセット",
+  "mermaid_diagram": "図",
+  "code_tab_edit": "コード",
+  "code_tab_preview": "プレビュー",
+  "common_logout": "ログアウト",
+  "common_try_again": "もう一度お試しください。",
+  "upload_code_placeholder": "コードを貼り付けてください…",
+  "upload_send_snippet": "コードを送信",
+  "upload_failed": "アップロードに失敗しました",
+  "upload_result_ready": "共有できます",
+  "upload_result_upload_another": "別のファイルを送る"
 }

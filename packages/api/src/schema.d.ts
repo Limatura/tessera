@@ -18,10 +18,9 @@ export interface paths {
          * Removes the caller's own account.
          * @description # Why the shares are the caller's decision and not an administrator's
          *
-         *     They are the person's own uploads. An administrator removing somebody else
-         *     does not touch their content — that is a separate, explicit act — but
-         *     somebody removing themselves is entitled to say what happens to what they
-         *     sent.
+         *     They are the account's own uploads. An administrator removing another
+         *     account does not touch its content, a separate and explicit act,
+         *     but an account removing itself may say what happens to what it sent.
          *
          *     # Errors
          *
@@ -62,9 +61,9 @@ export interface paths {
          * Mints an invite code and returns it, once.
          * @description # Why this exists when the CLI already does it
          *
-         *     The command line is the rescue path — it works with the service stopped and
-         *     needs nothing but the database file. This is the ordinary path: somebody
-         *     letting a friend in should not have to reach a shell on the box.
+         *     The command line is the rescue path: it works with the service stopped and
+         *     needs nothing but the database file. This is the ordinary path, because
+         *     inviting a friend should not need a shell on the box.
          *
          *     # Errors
          *
@@ -91,10 +90,9 @@ export interface paths {
         post?: never;
         /**
          * Revokes an invite.
-         * @description The accounts it already admitted stay: an account created through a code does
-         *     not depend on the code still existing. What this stops is the code letting
-         *     anybody else in, which is what somebody who posted one in the wrong chat
-         *     window wants.
+         * @description The accounts it already admitted stay, since an account does not depend on
+         *     its code still existing. This only stops the code letting anyone else in,
+         *     what an operator who posted it in the wrong chat window wants.
          *
          *     # Errors
          *
@@ -103,6 +101,41 @@ export interface paths {
          *     identifier.
          */
         delete: operations["revoke_invite"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/og/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Draws a card layout without storing it.
+         * @description # Why this is a server endpoint and not a preview in the browser
+         *
+         *     The original plan was to render the preview in the browser with takumi's
+         *     wasm build, so an operator edits against the engine that draws the real
+         *     card. Measured, that costs the browser 3.41 MB of wasm and 3.43 MB of fonts,
+         *     and still leaves a second implementation for parsing HTML.
+         *
+         *     This is the same engine for both halves, because it is not a second engine:
+         *     it is the code that draws the real card, with the real fonts, behind the
+         *     same check the real layout goes through. It costs a round trip and about
+         *     three milliseconds.
+         *
+         *     # Errors
+         *
+         *     `400` for a layout this instance will not draw, carrying the reason so the
+         *     editor can show it. `401`, `403` and `404` as for [`preview`].
+         */
+        post: operations["preview_og_card"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -151,10 +184,9 @@ export interface paths {
          * Creates a role.
          * @description # Why a caller cannot grant what they do not hold
          *
-         *     Otherwise `roles:write` is every permission: somebody holding only that
-         *     could mint a role granting `users:delete`, put themselves in it, and have
-         *     it. The check makes `roles:write` mean "may hand out what I have" rather
-         *     than "may hand out anything".
+         *     Otherwise `roles:write` is every permission. An account holding only that
+         *     could mint a role granting `users:delete` and join it. The check makes it
+         *     mean "may hand out what I have".
          *
          *     # Errors
          *
@@ -185,16 +217,16 @@ export interface paths {
          *     `400` when the name or a permission is not usable, `401` when nothing was
          *     signed in, `403` when the caller may not write roles, used a bearer token,
          *     or asked for a permission they do not hold, `404` when no role has that
-         *     identifier, `409` when the name is taken or the change would leave nobody
-         *     able to administer the instance.
+         *     identifier, `409` when the name is taken or the change would leave no
+         *     account able to administer the instance.
          */
         put: operations["update_role"];
         post?: never;
         /**
          * Removes a role.
-         * @description Anybody in it stops being in it, which can leave somebody in no role at all
-         *     — signed in and allowed nothing. That is a real state and not an error; the
-         *     listing shows how many people it would affect.
+         * @description Every member stops being one, which can leave an account in no role at all,
+         *     signed in and allowed nothing. That is a real state, not an error, and the
+         *     listing shows how many accounts it would affect.
          *
          *     # Errors
          *
@@ -203,6 +235,82 @@ export interface paths {
          *     it is a seeded role or the last one able to administer the instance.
          */
         delete: operations["delete_role"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lists every setting, with its value and where that value came from.
+         * @description # Why the ones that cannot be changed are here too
+         *
+         *     Leaving them out prompts the question of where the port setting went. They
+         *     come back marked `editable: false` with a reason: a screen that explains
+         *     itself instead of one with a hole in it.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not read
+         *     settings or used a bearer token, `404` when this instance has no
+         *     administration.
+         */
+        get: operations["list_settings"];
+        /**
+         * Changes settings, and applies them.
+         * @description # Why the change is tried before it is stored
+         *
+         *     A value this binary will not accept is refused here, with the key named,
+         *     instead of written and quietly dropped at the next start-up. The start-up
+         *     fallback exists so a bad row cannot make an instance unbootable: a safety
+         *     net, not the validation path, and letting the panel lean on it would mean a
+         *     save that reports success and reverts on restart.
+         *
+         *     # Why one request can carry several
+         *
+         *     Settings that only make sense together, such as turning the access log on
+         *     and setting its retention, should not have a moment where one is applied and
+         *     the other is not. They are validated as a set and stored only if the set
+         *     loads.
+         *
+         *     # Errors
+         *
+         *     `400` for an unknown key, one that cannot be changed, or a value the
+         *     configuration will not accept. `401`, `403` and `404` as for [`list`].
+         */
+        put: operations["update_settings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/settings/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Says what a change would destroy, without making it.
+         * @description # Errors
+         *
+         *     `400` for a key or value this instance will not accept, the same answers
+         *     [`update`] gives, so a client cannot get a clean preview for a change that
+         *     would then be refused.
+         */
+        post: operations["preview_settings"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -247,10 +355,9 @@ export interface paths {
          * @description # Why this exists
          *
          *     The ordinary delete route asks whether the caller owns the share. An upload
-         *     from an account that has since been deleted is owned by nobody, so nothing
-         *     could remove it — it kept serving its content, kept its place in the storage
-         *     quota, and was never swept if it had no expiry and no use limit. This is the
-         *     only way to reach one.
+         *     from a since-deleted account has no owner, so nothing could remove it. It
+         *     kept serving, kept its place in the storage quota, and was never swept if it
+         *     had no expiry and no use limit. This is the only way to reach one.
          *
          *     # Errors
          *
@@ -258,6 +365,40 @@ export interface paths {
          *     share or used a bearer token, `404` when no share has that identifier.
          */
         delete: operations["delete_any_share"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/shares/{id}/access-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reads who has fetched one share.
+         * @description # Why this is administrative and not the uploader's
+         *
+         *     The switch belongs to whoever runs the instance, so the record does too.
+         *     Handing visitor addresses to every uploader would be a second decision about
+         *     a visitor's privacy, made on behalf of an operator who agreed only to the
+         *     first. On a shared instance the uploader is not the operator.
+         *
+         *     Letting uploaders see their own is a deliberate change to make, not one to
+         *     arrive at by leaving this open.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not read every
+         *     share or used a bearer token, `404` when there is no such share or this
+         *     instance has no administration.
+         */
+        get: operations["read_share_access_log"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -280,6 +421,92 @@ export interface paths {
          */
         get: operations["instance_stats"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage/backends": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every configured backend, with what it is holding.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not read
+         *     settings, `404` when this instance has no administration.
+         */
+        get: operations["list_storage_backends"];
+        put?: never;
+        /**
+         * Adds a backend, or replaces one of the same name.
+         * @description The new one is opened and reachable to the next request. The pool is rebuilt
+         *     here, not at the next restart, because "add a bucket, then restart"
+         *     is what this feature exists to avoid.
+         *
+         *     # Errors
+         *
+         *     `400` when the URL will not open or the name is the environment's, `401`
+         *     when nothing was signed in, `403` when the caller may not write settings,
+         *     `404` when this instance has no administration, `409` when no
+         *     `storage.secret_key` is set.
+         */
+        post: operations["add_storage_backend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage/backends/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Removes a backend.
+         * @description # Errors
+         *
+         *     `400` when the name is the environment's, `401` when nothing was signed in,
+         *     `403` when the caller may not write settings, `404` when no backend has that
+         *     name, `409` when it still holds content.
+         */
+        delete: operations["remove_storage_backend"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/storage/backends/{name}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Sends new uploads to one backend.
+         * @description Existing files stay where they are, since each records its own backend, so
+         *     this changes what happens next and nothing about what already happened.
+         *
+         *     # Errors
+         *
+         *     `401` when nothing was signed in, `403` when the caller may not write
+         *     settings, `404` when no backend has that name.
+         */
+        put: operations["set_default_storage_backend"];
         post?: never;
         delete?: never;
         options?: never;
@@ -326,10 +553,9 @@ export interface paths {
          * @description # What goes with it and what does not
          *
          *     Sessions and API tokens are deleted by the database. Shares are not: their
-         *     owner column is `ON DELETE SET NULL`, so what somebody uploaded becomes an
-         *     anonymous share and keeps working for whoever holds the code. Deleting an
-         *     account is about the account, and taking somebody's files off the internet in
-         *     the same motion would be a second decision made silently.
+         *     owner column is `ON DELETE SET NULL`, so their uploads become anonymous
+         *     shares and keep working for whoever holds the code. Taking those files off
+         *     the internet in the same motion would be a second decision made silently.
          *
          *     # Errors
          *
@@ -344,14 +570,13 @@ export interface paths {
          * Grants or removes the administrator flag.
          * @description # Why the last one cannot be removed
          *
-         *     An instance with no administrator cannot be repaired through the API — there
-         *     is no endpoint left that would let anybody grant the flag back. The way out
-         *     is the command line against the database file, which an operator who locked
-         *     themselves out of a container may not have. So the case is refused rather
-         *     than allowed and regretted.
+         *     An instance with no administrator cannot be repaired through the API: no
+         *     endpoint is left that would grant the flag back. The way out is the command
+         *     line against the database file, which an operator locked out of a container
+         *     may not have.
          *
-         *     Removing your own flag while somebody else still has it is allowed: that is
-         *     a person stepping down, not an accident.
+         *     Removing your own flag while another administrator still holds it is
+         *     allowed. That is stepping down, not an accident.
          *
          *     # Errors
          *
@@ -377,7 +602,7 @@ export interface paths {
          *     `400` when a role identifier is not one, `401` when nothing was signed in,
          *     `403` when the caller may not write roles, used a bearer token, or would be
          *     granting a permission they do not hold, `404` when no such account or role,
-         *     `409` when it would leave nobody able to administer the instance.
+         *     `409` when it would leave no account able to administer the instance.
          */
         put: operations["set_user_roles"];
         post?: never;
@@ -401,14 +626,13 @@ export interface paths {
          * Ends every share one account uploaded.
          * @description # Why this is not part of deleting the account
          *
-         *     Removing somebody and destroying what they uploaded are different acts. An
+         *     Removing an account and destroying what it uploaded are different acts. An
          *     operator clearing space wants this and not that; one removing a person who
-         *     has left wants that and not this. Welding them together would make one of
-         *     those two impossible and the other a surprise.
+         *     has left wants the reverse. Welding them together makes one impossible and
+         *     the other a surprise.
          *
-         *     It works on an account in any state, including one still in use — an
-         *     operator reclaiming space from somebody who is still here should not have to
-         *     suspend them first.
+         *     It works on an account in any state, including one still in use. Reclaiming
+         *     space from an active account should not require suspending it first.
          *
          *     # Errors
          *
@@ -481,9 +705,9 @@ export interface paths {
         head?: never;
         /**
          * Changes the caller's password.
-         * @description Every other session is ended, and a fresh one is issued so the caller stays
-         *     signed in where they are. Whoever knew the old password may be holding a
-         *     session, and changing a password is how a person says they want that to stop.
+         * @description Every other session is ended, and a fresh one issued so the caller stays
+         *     signed in where they are. Changing a password is how a person says that
+         *     whoever knew the old one should stop being signed in.
          *
          *     # Errors
          *
@@ -507,20 +731,18 @@ export interface paths {
          * @description # Why this always answers the same way
          *
          *     `202` whether or not the address belongs to an account, and whether or not
-         *     the mail could be handed to the relay. Any other shape turns this endpoint
-         *     into a way of asking "does this person have an account here" — which for a
-         *     file courier is a question about who uses it, answerable by anyone, at any
+         *     the mail reached the relay. Any other shape turns this into a way to ask
+         *     "does this person have an account here", answerable by anyone at whatever
          *     rate the throttle allows.
          *
-         *     The cost is that a typo produces no feedback. That is the right way round:
-         *     somebody who mistyped their own address will notice when no mail arrives,
-         *     and nobody learns anything from the response either way.
+         *     The cost is that a typo produces no feedback. A mistyped address is noticed
+         *     when no mail arrives.
          *
          *     # Errors
          *
-         *     `404` when this instance sends no mail — the route is not mounted at all, so
-         *     this is the router's answer rather than the handler's. `429` when this
-         *     address has already been sent as many links as the window allows.
+         *     `404` when this instance sends no mail. The route is not mounted, so that is
+         *     the router's answer. `429` when this address has already been sent as
+         *     many links as the window allows.
          */
         post: operations["request_password_reset"];
         delete?: never;
@@ -540,8 +762,8 @@ export interface paths {
         put?: never;
         /**
          * Sets a new password from a reset link.
-         * @description Every session belonging to the account is ended. Somebody asking to reset a
-         *     password is usually saying they have lost control of it, and leaving the
+         * @description Every session belonging to the account is ended. A reset request usually
+         *     means control of the password has been lost, and leaving the
          *     sessions alone would leave whoever had it signed in.
          *
          *     # Errors
@@ -593,17 +815,16 @@ export interface paths {
          * @description # Why the checks happen here and not when the link was sent
          *
          *     Nothing was reserved while the message sat in an inbox. Reserving the name
-         *     would have made "register and never confirm" a free way to lock every good
-         *     name away, with nothing an operator could do about it. The price is this:
-         *     the name is checked against today's accounts, and somebody can be told at
-         *     this point that it went to another person. That is rare, it is recoverable,
-         *     and it is a much smaller problem than the alternative.
+         *     would make "register and never confirm" a free way to lock every good name
+         *     away. The price is that the name is checked against today's accounts, so a
+         *     confirmation can fail here because the name went elsewhere. Rare, and
+         *     recoverable.
          *
          *     # Errors
          *
          *     `400` when the link is unknown, spent or expired, `403` when registration was
-         *     closed while this was waiting, `409` when the name went to somebody else in
-         *     the meantime, `404` when this instance sends no mail.
+         *     closed while this was waiting, `409` when the name was taken in the
+         *     meantime, `404` when this instance sends no mail.
          */
         post: operations["confirm_registration"];
         delete?: never;
@@ -643,13 +864,13 @@ export interface paths {
         };
         /**
          * Reports which optional parts of the service this instance exposes.
-         * @description Answers to everyone, signed in or not — a client needs this before it can
-         *     know whether logging in is even possible. An administrator gets one extra
+         * @description Answers to everyone, signed in or not, since a client needs this before it
+         *     can know whether logging in is possible. An administrator gets one extra
          *     field; see [`Capabilities::storage_remaining_bytes`].
          *
          *     # Errors
          *
-         *     Only when the storage total cannot be read, which is an administrator's
+         *     Only when the storage total cannot be read: an administrator's
          *     request against a database that is not answering.
          */
         get: operations["capabilities"];
@@ -680,8 +901,8 @@ export interface paths {
         post?: never;
         /**
          * Ends every session except the one asking.
-         * @description The button somebody presses when they think another person is signed in as
-         *     them. It spares the browser doing the asking, because being logged out by
+         * @description The button to press on suspecting that another person is signed in as you.
+         *     It spares the browser doing the asking, because being logged out by
          *     your own attempt to log everybody else out is a poor way to find out it
          *     worked.
          *
@@ -740,7 +961,13 @@ export interface paths {
         };
         /**
          * Lists the caller's shares, newest first.
-         * @description # Errors
+         * @description # Why this is paged
+         *
+         *     One person's shares are bounded by what one person uploaded, which holds for
+         *     the web page and not for a script. An account with fifty thousand shares made
+         *     every visit read fifty thousand rows and build fifty thousand responses.
+         *
+         *     # Errors
          *
          *     `401` when nothing was signed in.
          */
@@ -785,18 +1012,40 @@ export interface paths {
         /**
          * Deletes a share, and whatever it put in the blob store.
          * @description Accepts either the owning account or, for an anonymous share, the management
-         *     token from creation — sent as `X-Share-Management-Token`.
+         *     token from creation, sent as `X-Share-Management-Token`.
          *
          *     # Errors
          *
-         *     `404` when no share of the caller's has that code. Deliberately the same
-         *     answer as "somebody else's": distinguishing them would confirm which codes
-         *     exist.
+         *     `404` when no share of the caller's has that code. The same answer as one
+         *     belonging to another account, because telling them apart would confirm
+         *     which codes exist.
          */
         delete: operations["delete_share"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Changes a share's settings after it exists.
+         * @description # Why this exists
+         *
+         *     This replaces deciding everything at creation, which does not survive
+         *     contact with how people share a file. The link goes out, and then the
+         *     meeting moves, or the recipient asks for another day, or the wrong person
+         *     was in the thread and the password has to change now.
+         *
+         *     # Who may
+         *
+         *     The same two answers as `DELETE`: the owning account, or the holder of the
+         *     management token an anonymous upload was given. The permission checked is
+         *     `shares:delete`. There is no `shares:update` today, and gating a change
+         *     behind the right to delete outright is the conservative reading.
+         *
+         *     # Errors
+         *
+         *     `400` for a value the instance will not accept, `404` when no share of the
+         *     caller's has that code. The same answer as one belonging to another account,
+         *     because telling them apart would confirm which codes exist.
+         */
+        patch: operations["update_share"];
         trace?: never;
     };
     "/api/v1/shares/{code}/events": {
@@ -817,18 +1066,16 @@ export interface paths {
          *     `/s/{code}/raw` would walk past it. The server counts that itself, on the
          *     transfer path, where it cannot be skipped.
          *
-         *     These two are the opposite case: nothing reaches the server when somebody
-         *     reads a note on screen or presses a copy button, so a client is the only
-         *     thing that can see them at all. The price is that anybody who can call this
-         *     can inflate them, which is tolerable precisely because nothing depends on
-         *     them.
+         *     These two are the opposite case. Nothing reaches the server when a note is
+         *     read on screen or a copy button is pressed, so only a client can see
+         *     them. Anybody who can call this can inflate them, and that is tolerable
+         *     because nothing depends on them.
          *
          *     # Why it does not say whether the share exists
          *
          *     `204` whatever happens, including for a code that names nothing. Answering
-         *     `404` would make an unauthenticated endpoint into a way to ask which codes
-         *     are real — the same oracle the retrieval throttle exists to close, reached
-         *     through a door nobody was watching.
+         *     `404` would turn an unauthenticated endpoint into a way to ask which codes
+         *     are real, the same oracle the retrieval throttle exists to close.
          *
          *     # Errors
          *
@@ -855,25 +1102,24 @@ export interface paths {
          * Adds another file to a share.
          * @description # Why files arrive one at a time
          *
-         *     One request carrying five files is one request that loses five when it drops
-         *     at the fourth — which is the case somebody uploading a folder of photographs
-         *     on a home connection hits, not a theoretical one. A file that fails here is
-         *     retried on its own.
+         *     One request carrying five files loses five when it drops at the fourth,
+         *     exactly what uploading a folder of photographs over a home connection hits.
+         *     A file that fails here is retried on its own.
          *
          *     # Why the share exists before its second file
          *
          *     There is no draft state. A share is created by its first file and grown by
-         *     the rest, so nothing has to remember to finish, and an upload interrupted
-         *     half way leaves a share holding what did arrive rather than nothing at all.
+         *     the rest, so nothing has to remember to finish, and an interrupted upload
+         *     leaves a share holding what did arrive, not nothing.
          *
-         *     The cost is that somebody who opened the link during the upload would see
-         *     part of it. The link is handed out after the upload, by the person doing it.
+         *     The cost is that a link opened mid-upload shows part of the share. The link
+         *     is handed out afterwards, by the person doing the upload.
          *
          *     # Errors
          *
          *     `403` when the caller cannot show it is theirs, `404` when no share has that
          *     code, `409` when the share holds text, `413` when the body is too large,
-         *     `507` when the instance is out of room.
+         *     `507` when something is out of room. The body says whose ceiling that was.
          */
         post: operations["add_share_file"];
         delete?: never;
@@ -895,10 +1141,10 @@ export interface paths {
          * Spends one retrieval and returns a ticket for the transfer.
          * @description # Why this is a separate step
          *
-         *     One authorisation costs one retrieval; the ticket it returns is then good for
-         *     every request the transfer needs — each `Range`, each resumption, each retry.
-         *     Counting requests instead would let a resumed download spend three uses of a
-         *     share that allows three.
+         *     One authorisation costs one retrieval; the ticket it returns is then good
+         *     for every request the transfer needs, each `Range`, resumption and retry.
+         *     Counting requests instead would let a resumed download spend all three uses
+         *     of a share that allows three.
          *
          *     # Errors
          *
@@ -923,9 +1169,9 @@ export interface paths {
          * Lists the caller's tokens, newest first.
          * @description # Errors
          *
-         *     `401` when nothing was signed in — which is also what an instance with
-         *     accounts turned off answers, since there is nobody to be. `403` when the
-         *     account still owes a password change.
+         *     `401` when nothing was signed in. An instance with accounts turned off
+         *     answers the same, having no account to be. `403` when the account
+         *     still owes a password change.
          */
         get: operations["list_tokens"];
         put?: never;
@@ -934,7 +1180,7 @@ export interface paths {
          * @description # Errors
          *
          *     `401` when nothing was signed in, `403` when authenticated with a token
-         *     rather than a session, `400` when the name or lifetime is unusable.
+         *     and not a session, `400` when the name or lifetime is unusable.
          */
         post: operations["create_token"];
         delete?: never;
@@ -966,6 +1212,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Opens a session.
+         * @description # Errors
+         *
+         *     `400` when `Upload-Length` is missing or unusable, `403` when the caller may
+         *     not upload, `404` when `code` names no share, `507` when the declared length
+         *     does not fit in what is left. The body says whose ceiling ran out.
+         */
+        post: operations["create_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        /**
+         * Answers how much has arrived.
+         * @description # The answer must not be cached
+         *
+         *     It carries `Cache-Control: no-store`. A client that caches it anyway will
+         *     corrupt the upload: a stale offset sends the next chunk to the wrong place.
+         *     This is the one header on this endpoint that is not politeness.
+         *
+         *     # Errors
+         *
+         *     `404` when there is no such session, or the caller may not continue it. The
+         *     same answer, so a stranger cannot tell one from the other.
+         */
+        head: operations["upload_offset"];
+        /**
+         * Applies bytes at the given offset.
+         * @description # Every chunk but the last must be a whole part
+         *
+         *     `part_size` from the `POST` is a floor, not a suggestion: a chunk that is
+         *     not the last and carries fewer bytes is refused with `400`. The object
+         *     stores this streams to will not take a part below their own minimum, five
+         *     mebibytes on S3, so a short chunk cannot be written anywhere and the offset
+         *     does not move. A client that kept sending one would loop for ever.
+         *
+         *     The last chunk is exempt, because there is nothing after it to make it whole.
+         *
+         *     A client that sends `declared_bytes` in one request never meets this at all.
+         *
+         *     # Errors
+         *
+         *     `400` when a chunk that is not the last is shorter than `part_size`, `409`
+         *     when the offset does not match, `404` when there is no such session, `415`
+         *     when the content type is not the one the specification names.
+         */
+        patch: operations["append_to_upload"];
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -975,7 +1294,7 @@ export interface paths {
         };
         /**
          * Reports whether the service is ready to take traffic.
-         * @description Deliberately both a liveness and a readiness probe: the process only reaches
+         * @description Both a liveness and a readiness probe. The process only reaches
          *     [`ServiceStatus::Ready`] once migrations have run, and it flips to
          *     [`ServiceStatus::Draining`] the moment a shutdown signal arrives, so an
          *     orchestrator can stop routing before the listener actually closes.
@@ -998,6 +1317,41 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description One recorded retrieval, as an administrator sees it. */
+        AccessEventResponse: {
+            /**
+             * @description Where the request came from, or `null` when there was no honest answer.
+             *
+             *     Behind a proxy this instance does not trust, the visible address is the
+             *     proxy's. A null says so; recording the proxy's address would record the
+             *     wrong person.
+             * @example 203.0.113.9
+             */
+            ip_address?: string | null;
+            /**
+             * @description When the content was handed over, RFC 3339.
+             * @example 2026-08-22T09:41:00Z
+             */
+            occurred_at: string;
+            /**
+             * @description What the client called itself, as presented and truncated.
+             * @example Mozilla/5.0
+             */
+            user_agent?: string | null;
+        };
+        /** @description A share's recorded retrievals. */
+        AccessLogResponse: {
+            /**
+             * @description Whether this instance is recording at all.
+             *
+             *     An empty list means the share was never fetched, or that recording is
+             *     off. A screen that cannot tell those apart reports the second as the
+             *     first.
+             */
+            enabled: boolean;
+            /** @description The events, most recent first. */
+            events: components["schemas"]["AccessEventResponse"][];
+        };
         /** @description An account, as the API describes it. Never carries a hash. */
         AccountResponse: {
             /**
@@ -1013,11 +1367,10 @@ export interface components {
             /**
              * @description Whether the account holds the seeded administrator role.
              *
-             *     Kept because clients read it. It is now derived rather than stored, and
-             *     it answers a narrower question than `permissions` does — somebody in a
-             *     role that grants `users:read` and nothing else is not an administrator
-             *     but can still reach one administrative endpoint. New clients should read
-             *     `permissions`.
+             *     Kept because clients read it, but derived and not stored, and narrower
+             *     than `permissions`. An account in a role granting `users:read`
+             *     and nothing else is not an administrator, yet reaches one administrative
+             *     endpoint. New clients should read `permissions`.
              */
             is_admin: boolean;
             /**
@@ -1030,15 +1383,25 @@ export interface components {
             /**
              * @description Everything this account is allowed to do.
              *
-             *     `resource:verb` strings. The set a client should decide what to show
-             *     from — a screen that guesses from `is_admin` will be wrong for every
-             *     role between "member" and "everything".
+             *     `resource:verb` strings, and what a client should decide from. A screen
+             *     guessing from `is_admin` is wrong for every role between "member" and
+             *     "everything".
              * @example [
              *       "shares:create",
              *       "shares:read"
              *     ]
              */
             permissions: string[];
+            /**
+             * Format: int64
+             * @description A storage quota set on this one account, overriding its role's.
+             *
+             *     `null` means the role's applies; `0` means this account has no ceiling
+             *     of its own. What is actually left is `storage_remaining_bytes` on
+             *     `/capabilities`, which accounts for what has been used.
+             * @example 10737418240
+             */
+            quota_bytes?: number | null;
             /**
              * @description The roles it is in, by name.
              * @example [
@@ -1065,11 +1428,10 @@ export interface components {
         /**
          * @description One share, as an administrator sees it.
          *
-         *     Deliberately not the same shape a person sees of their own: this listing
-         *     exists to find things that need removing, so it carries who uploaded it and
-         *     how big it is, and it never carries the retrieval code. An administrator who
-         *     can read every code can open every share, and that is a different power from
-         *     being able to delete one.
+         *     Not the shape a person sees of their own. This listing exists to find things
+         *     that need removing, so it carries who uploaded it and how big
+         *     it is, and never the retrieval code: an administrator who can read every
+         *     code can open every share, a different power from deleting one.
          */
         AdminShareResponse: {
             /** @description Whether a visitor could still open it. */
@@ -1079,10 +1441,9 @@ export interface components {
              * @description How many bytes it has sent out, over its whole life.
              *
              *     The instance-wide figure in `StatsResponse` answers "what is this
-             *     costing me"; this answers the question that follows it, which is which
-             *     share to do something about. One link posted somewhere busy is the way
-             *     an operator finds out their transfer is being spent, and the total
-             *     cannot say which one.
+             *     costing me"; this answers which share to do something about. One link
+             *     posted somewhere busy is usually where the transfer went, and the total
+             *     cannot say which.
              *
              *     Not `size_bytes` times `use_count`: a range request, a resumed download
              *     and an abandoned one all send some other amount.
@@ -1100,7 +1461,7 @@ export interface components {
             /**
              * @description What the uploader called it, when the share holds exactly one file.
              *
-             *     `null` for text and for a share with several — see `file_count`.
+             *     `null` for text and for a share with several. See `file_count`.
              */
             filename?: string | null;
             /**
@@ -1114,11 +1475,11 @@ export interface components {
              */
             kind: string;
             /**
-             * @description Who uploaded it, or `null` when nobody was signed in.
+             * @description Who uploaded it, or `null` for an anonymous upload.
              *
-             *     An account that has since been deleted still appears here — the row it
-             *     left behind is what keeps this answerable. `null` means the upload was
-             *     anonymous, which is a different fact and worth telling apart.
+             *     An account deleted since still appears here, because the row it left
+             *     keeps this answerable. `null` means the upload was anonymous, a
+             *     different fact worth telling apart.
              */
             owner_id?: string | null;
             /**
@@ -1130,33 +1491,121 @@ export interface components {
         /**
          * @description One account, as an administrator sees it.
          *
-         *     The same shape a person sees of themselves. There is nothing extra to show:
-         *     this service stores no profile, and the one thing an administrator can change
-         *     is already a field.
+         *     The same shape a person sees of themselves. This service stores no profile,
+         *     and the one thing an administrator can change is already a field.
          */
         AdminUserResponse: components["schemas"]["AccountResponse"];
+        /** @description Body of `POST /admin/storage/backends`. */
+        BackendRequest: {
+            /**
+             * Format: int64
+             * @description How much it may hold. Omit or send `null` for no limit.
+             * @example 10737418240
+             */
+            capacity_bytes?: number | null;
+            /**
+             * @description What to call it. Reusing an existing name replaces that backend.
+             * @example cold
+             */
+            name: string;
+            /** @description Backend-specific options, passed to `object_store` unchanged. */
+            options?: {
+                [key: string]: string;
+            };
+            /** @description Whether it should stop taking new content. */
+            read_only?: boolean;
+            /**
+             * @description Where it is, credentials and all. Sealed before it is stored.
+             * @example s3://my-bucket/tessera
+             */
+            url: string;
+        };
+        /**
+         * @description One backend, as the panel draws it.
+         *
+         *     Four booleans answering four unrelated questions: where new uploads go,
+         *     whether this one still takes them, whether the process can reach it, and
+         *     whether it comes from the environment. Collapsing any pair into an enum
+         *     would invent a state the system does not have, since a read-only backend can
+         *     be the default and an unreachable one can be either.
+         */
+        BackendResponse: {
+            /**
+             * Format: int64
+             * @description How much it may hold, or `null` for no limit.
+             *
+             *     Typed in by the operator: object stores have no capacity API, and on a
+             *     free tier the limit belongs to the account's plan, which no API reports.
+             * @example 10737418240
+             */
+            capacity_bytes?: number | null;
+            /**
+             * @description Whether it comes from `storage.url` instead of this table.
+             *
+             *     The one that does cannot be edited or removed from here: it is where
+             *     everything written before backends existed lives, and it is configured
+             *     in the environment.
+             */
+            from_environment: boolean;
+            /** @description Whether new uploads go here. */
+            is_default: boolean;
+            /**
+             * @description What `file_segments.backend` records. Stable, and how everything else
+             *     refers to it.
+             * @example cold
+             */
+            name: string;
+            /**
+             * @description Whether the process could open it.
+             *
+             *     `false` means shares held there answer `503` until the operator fixes
+             *     the credentials or the address. Worth showing prominently, because
+             *     nothing else about the row looks wrong.
+             */
+            reachable: boolean;
+            /** @description Whether it still takes new content. Reads are unaffected. */
+            read_only: boolean;
+            /**
+             * Format: int64
+             * @description How much it is holding.
+             *
+             *     Not typed in and not asked of the store, but summed from the segments
+             *     this instance wrote.
+             * @example 4294967296
+             */
+            used_bytes: number;
+        };
         /**
          * @description Body of `GET /api/v1/capabilities`.
          *
          *     # Why this endpoint exists
          *
-         *     `openapi.json` is a build artefact: it describes every endpoint the software
+         *     `openapi.json` is a build artefact describing every endpoint the software
          *     has. Which of them an *instance* exposes is a runtime decision its operator
-         *     made. A single-page app generated from the contract therefore cannot know
-         *     whether to render a login button — the contract says login exists, and on
-         *     this deployment it may not.
+         *     made, so a single-page app generated from the contract cannot know whether
+         *     to render a login button: the contract says login exists, and on this
+         *     deployment it may not.
          *
          *     So the contract describes the whole surface and this reports the subset in
-         *     force. It is deliberately unauthenticated: a client needs the answer before
-         *     it can know whether logging in is even possible.
+         *     force. It is unauthenticated, because a client needs the answer before it
+         *     can know whether logging in is possible at all.
          */
         Capabilities: {
             /**
-             * @description Shortest *account* password this instance accepts, so a client can say so
-             *     before the round trip rather than after it.
+             * @description Whether this instance writes down who fetches a share.
              *
-             *     Named for what it governs because there are two minimums and they are
-             *     deliberately different — see
+             *     `false` by default. When `true`, every retrieval records the visitor's
+             *     address and browser string, and the visitor is the person it happens to,
+             *     so a client should say so on the page where the share is collected.
+             *     Nothing else will.
+             */
+            access_log: boolean;
+            /**
+             * @description Shortest *account* password this instance accepts, so a client can say so
+             *     before the round trip, not after it.
+             *
+             *     Named for what it governs, because there are two minimums and they
+             *     differ. See
              *     [`share_password_min_length`](Self::share_password_min_length).
              * @example 12
              */
@@ -1164,8 +1613,8 @@ export interface components {
             /**
              * @description Whether accounts exist at all on this instance.
              *
-             *     `false` means there is no registration, no login and no session — the
-             *     shape for a personal instance behind a VPN.
+             *     `false` means no registration, no login and no session: the shape for a
+             *     personal instance behind a VPN.
              */
             accounts: boolean;
             /**
@@ -1179,7 +1628,7 @@ export interface components {
              * @description Whether a caller without a session may upload.
              *
              *     Independent of [`accounts`](Self::accounts): an instance can have
-             *     accounts *and* accept anonymous uploads, which is the default.
+             *     accounts *and* accept anonymous uploads, the default.
              */
             anonymous_upload: boolean;
             /**
@@ -1196,22 +1645,27 @@ export interface components {
              * @description The longest lifetime an uploader may ask for, in hours.
              *
              *     `null` when there is no ceiling. A form that knows this can bound its own
-             *     control instead of letting somebody pick a date the server will refuse.
+             *     control instead of offering a date the server will refuse.
              * @example 8760
              */
             max_expiry_hours?: number | null;
             /**
              * Format: int64
-             * @description Longest accepted request body, in bytes.
+             * @description Largest single file *this caller* may send, in bytes.
+             *
+             *     The narrowest of their own limit, their role's and
+             *     `server.max_body_bytes`. So an operator who raised the instance figure
+             *     for themselves does not have it reported to every stranger, and a client
+             *     is never shown a number bigger than what it may send.
              * @example 104857600
              */
             max_upload_bytes: number;
             /**
              * @description Whether this instance can send a password reset link.
              *
-             *     `false` when no relay is configured, which is the default. A client that
-             *     draws the "forgot password" link regardless would send people to an
-             *     endpoint that answers 404 — so this is the difference between a missing
+             *     `false` when no relay is configured, the default. A client that
+             *     drew the "forgot password" link regardless would send people to an
+             *     endpoint answering 404, so this is the difference between a missing
              *     feature and a broken one.
              */
             password_reset: boolean;
@@ -1221,20 +1675,19 @@ export interface components {
              */
             registration: components["schemas"]["RegistrationPolicy"];
             /**
-             * @description Whether registering sends a confirmation link rather than creating the
+             * @description Whether registering sends a confirmation link instead of creating the
              *     account outright.
              *
              *     `true` means `POST /auth/register` answers `202` and nothing exists
-             *     until the address is confirmed — so a client must show "check your
-             *     inbox" rather than treating the response as a sign-in. `false` means it
-             *     answers `201` with a session, which is what an instance that sends no
-             *     mail does.
+             *     until the address is confirmed, so a client must show "check your inbox"
+             *     instead of treating the response as a sign-in. `false` means it answers
+             *     `201` with a session, as an instance sending no mail does.
              */
             registration_requires_confirmation: boolean;
             /**
              * @description Shortest password an uploader may put on a share.
              *
-             *     Lower than the account minimum on purpose: a share password is a second
+             *     Lower than the account minimum by design. A share password is a second
              *     factor on a link that is already unguessable, and it gets read out over
              *     the phone. A form that validated share passwords against the account
              *     rule would refuse the four-digit code the server would have accepted.
@@ -1243,16 +1696,17 @@ export interface components {
             share_password_min_length: number;
             /**
              * Format: int64
-             * @description How much of the instance's storage quota is left, in bytes.
+             * @description How much room the caller has left, in bytes.
              *
-             *     `null` for everyone but an administrator, and also for an administrator
-             *     when the instance has no quota set.
+             *     Whichever ceiling refuses them first: their own quota, then their
+             *     role's. Callers who may read instance statistics also see the instance
+             *     ceiling. `null` if none applies.
              *
-             *     Only an administrator, because on a public instance this is the
-             *     operator's capacity planning and not the visitor's business: telling
-             *     every anonymous uploader how close the disk is to full invites somebody
-             *     to close the gap. An uploader who exceeds it gets a `507` naming the
-             *     limit, which is the moment they actually need to know.
+             *     `storage.max_total_bytes` is not in everybody's answer because on a
+             *     public instance it is the operator's capacity planning, and telling
+             *     every anonymous uploader how close the disk is to full invites them to
+             *     finish it off. Their own quota is theirs to know, and a client holding
+             *     it can say so before they pick a file.
              * @example 53687091200
              */
             storage_remaining_bytes?: number | null;
@@ -1273,6 +1727,42 @@ export interface components {
             /** @description The replacement. */
             new_password: string;
         };
+        /**
+         * @description What a setting change would destroy the next time the sweep runs.
+         *
+         *     # Why this exists
+         *
+         *     Three settings are retention periods, and shortening one means the next
+         *     sweep removes things that were going to be kept. Nothing warns about it and
+         *     nothing brings them back.
+         *
+         *     An empty "are you sure?" does not help, because everyone clicks it. A number
+         *     does: "this removes 23 shares, 4.2 GB" is a sentence that gives pause.
+         */
+        Consequence: {
+            /**
+             * Format: int64
+             * @description How many bytes of stored content go with them, when that applies.
+             * @example 4500000000
+             */
+            bytes?: number | null;
+            /**
+             * Format: int64
+             * @description How many.
+             * @example 23
+             */
+            count: number;
+            /**
+             * @description Which setting causes it.
+             * @example share.retain_after_death_hours
+             */
+            key: string;
+            /**
+             * @description What would go, as a plural noun a screen can print.
+             * @example shares
+             */
+            subject: string;
+        };
         /** @description Body of `POST /admin/invites`. */
         CreateInviteRequest: {
             /**
@@ -1290,8 +1780,8 @@ export interface components {
              * Format: int64
              * @description How many accounts this code may create.
              *
-             *     One code with several places is what the feature is for: something to
-             *     send to a group rather than a code per person. `1` makes it single-use.
+             *     One code with several places is the point: something to send to a group
+             *     instead of a code per person. `1` makes it single-use.
              * @example 3
              */
             uses: number;
@@ -1313,10 +1803,10 @@ export interface components {
             /**
              * @description What the token may do, as `resource:verb` strings.
              *
-             *     Omitted means `shares:create` and nothing else — a token exists to
-             *     upload, and the default that is wrong in the safe direction is the one
-             *     that has to be widened on purpose. The other default would hand every
-             *     screenshot tool the ability to delete everything its owner has.
+             *     Omitted means `shares:create` and nothing else, since a token exists to
+             *     upload, and a default that errs safe has to be widened explicitly. The
+             *     other default would hand every screenshot tool the ability to delete
+             *     everything its owner has.
              *
              *     A permission the caller does not hold is refused: a token cannot be a
              *     way to exceed the account that minted it.
@@ -1327,7 +1817,7 @@ export interface components {
         CreatedInviteResponse: components["schemas"]["InviteResponse"] & {
             /**
              * @description **Shown once.** Only its SHA-256 digest is stored, so this value cannot
-             *     be read back afterwards — not by an administrator, not by anybody.
+             *     be read back afterwards, not even by an administrator.
              * @example 3f9a1c…
              */
             code: string;
@@ -1338,7 +1828,7 @@ export interface components {
              * @description The secret, in full.
              *
              *     **Shown once.** Only its SHA-256 digest is stored, so this value cannot be
-             *     recovered — a client that does not keep it has to issue another token.
+             *     recovered, so a client that does not keep it must issue another token.
              * @example tsk_a1b2c3d4e5f6...
              */
             secret: string;
@@ -1350,18 +1840,16 @@ export interface components {
             /**
              * @description Whether to end everything this account uploaded.
              *
-             *     Defaults to ending it. For a file courier, "delete my account" usually
-             *     means "and the things I sent" — and somebody who wants the links they
-             *     handed out to keep working is the rarer case, worth one explicit `false`.
+             *     Defaults to ending it. "Delete my account" usually means "and the things
+             *     I sent"; wanting the handed-out links to keep working is the rarer case,
+             *     worth one explicit `false`.
              *
              *     # What "delete" means here
              *
              *     Every link stops working the moment this returns. The bytes go later,
-             *     when the housekeeping pass reaches them — removing hundreds of objects
-             *     inside one request is a request that times out half way through with no
-             *     record of where it got to.
-             *
-             *     So the content does go, and nothing serves it in the meantime; what
+             *     when the housekeeping pass reaches them, because removing hundreds of
+             *     objects inside one request times out half way through with no record of
+             *     where it got to. Nothing serves the content in the meantime; what
              *     arrives after the answer is the disk space.
              */
             delete_shares?: boolean;
@@ -1379,7 +1867,7 @@ export interface components {
          *     Clients branch on this; the human-readable `message` is free to change.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "bad_request" | "payload_too_large" | "unauthorized" | "forbidden" | "password_change_required" | "gone" | "range_not_satisfiable" | "conflict" | "too_many_requests" | "insufficient_storage" | "timeout" | "unavailable" | "internal";
+        ErrorCode: "not_found" | "bad_request" | "payload_too_large" | "unauthorized" | "forbidden" | "password_change_required" | "gone" | "range_not_satisfiable" | "conflict" | "too_many_requests" | "insufficient_storage" | "unsupported_media_type" | "timeout" | "unavailable" | "internal";
         /** @description Body of a successful `GET /health`. */
         HealthResponse: {
             /**
@@ -1411,14 +1899,14 @@ export interface components {
          * @description One invite code, as an administrator sees it.
          *
          *     Never carries the code. Only its digest is stored, so there is nothing to
-         *     show — see [`CreatedInviteResponse`] for the one moment there is.
+         *     show; see [`CreatedInviteResponse`] for the one moment there is.
          */
         InviteResponse: {
             /**
-             * @description Whether it would still admit somebody.
+             * @description Whether it would still admit an account.
              *
-             *     Sent rather than left to the client to work out from `used`, `max_uses`
-             *     and `expires_at` against its own clock — the same reason a session says
+             *     Sent, not left to the client to work out from `used`, `max_uses`
+             *     and `expires_at` against its own clock, the same reason a session says
              *     whether it is active.
              */
             active: boolean;
@@ -1454,13 +1942,25 @@ export interface components {
             /**
              * @description The account's password.
              *
-             *     Bounded by what any instance could ever have accepted rather than by the
-             *     policy in force, so that raising the minimum cannot lock out an account
+             *     Bounded by what any instance could ever have accepted, not by the policy
+             *     in force, so that raising the minimum cannot lock out an account
              *     whose password was valid when it was chosen.
              * @example correct horse battery staple
              */
             password: string;
         };
+        /** @description A card layout to draw, and which share to draw it for. */
+        OgPreviewRequest: {
+            /** @description Which state to draw. Defaults to an ordinary file share. */
+            card?: components["schemas"]["SampleCard"];
+            /**
+             * @description The layout, as it would be stored in `og.layout`. Empty draws the
+             *     built-in card, what an operator sees before they change
+             *     anything and what they are comparing against.
+             */
+            layout?: string;
+        };
+        Option_u64: null | number;
         /** @description Body of `POST /auth/password-reset/confirm`. */
         PasswordResetConfirmRequest: {
             /** @description What to set the password to. */
@@ -1477,11 +1977,45 @@ export interface components {
             email: string;
         };
         /**
+         * @description Body of `PATCH /shares/{code}`.
+         *
+         *     Every field is optional and omitting one leaves that setting alone. Sending
+         *     `null` clears it: absent and null are different instructions here.
+         *
+         *     The password travels in `X-Share-Password`, as everywhere else in this API,
+         *     because a header stays out of the query string, the access log and the
+         *     `Referer`. Only the instruction to remove it lives here, and that is not a
+         *     secret.
+         */
+        PatchShareRequest: {
+            /**
+             * Format: int64
+             * @description How long from now the share should last. `null` means it stops expiring.
+             * @example 24
+             */
+            expires_in_hours?: number | null;
+            /**
+             * Format: int32
+             * @description How many more times it may be retrieved. `null` means unlimited.
+             *
+             *     Counted against the retrievals it has already had, so lowering this
+             *     below `use_count` retires the share instead of reviving it.
+             * @example 1
+             */
+            max_uses?: number | null;
+            /**
+             * @description Removes the share's password.
+             *
+             *     Setting one is `X-Share-Password`; this is the other direction. Sending
+             *     both is refused, not guessed at.
+             */
+            remove_password?: boolean;
+        };
+        /**
          * @description Every permission this version has, so a screen can offer them.
          *
-         *     Sent rather than hard-coded in the client: a client listing permissions it
-         *     was built against would silently stop offering ones added since, and the
-         *     operator would have no way to grant them.
+         *     Sent, not hard-coded in the client, which would stop offering any
+         *     permission added since it was built and leave no way to grant them.
          */
         PermissionResponse: {
             /**
@@ -1492,18 +2026,23 @@ export interface components {
             /**
              * @description Whether it reaches beyond the holder's own things.
              *
-             *     The question an operator is actually asking of a role they are about to
-             *     grant: does this let them touch other people?
+             *     What an operator is really asking of a role they are about to grant:
+             *     does this let them touch other people?
              */
             privileged: boolean;
+        };
+        /** @description What `POST /admin/settings/preview` answers. */
+        PreviewResponse: {
+            /** @description What the change would destroy. Empty when it destroys nothing. */
+            consequences: components["schemas"]["Consequence"][];
         };
         /**
          * @description A share as a public visitor sees it.
          *
          *     Everything but `code`, `kind` and `has_password` is withheld until the share
-         *     is unlocked. A file name and a size are a description of the content, and a
-         *     password-protected share should not describe itself to somebody who has not
-         *     presented the password — the same reason its link preview must not.
+         *     is unlocked. A file name and a size describe the content, and a
+         *     password-protected share should not describe itself before the password is
+         *     presented. Its link preview is withheld for the same reason.
          */
         PublicShareResponse: {
             /**
@@ -1564,7 +2103,7 @@ export interface components {
              */
             invite_code?: string | null;
             /**
-             * @description At least `password_min_length` characters — see `/capabilities`.
+             * @description At least `password_min_length` characters. See `/capabilities`.
              * @example correct horse battery staple
              */
             password: string;
@@ -1586,8 +2125,8 @@ export interface components {
              * Format: int64
              * @description How many were still live and are now finished.
              *
-             *     The bytes go as the reaper reaches them, so this number is not how much
-             *     space came back yet.
+             *     The bytes go as the reaper reaches them, so this is not how much space
+             *     has come back.
              */
             removed: number;
         };
@@ -1595,16 +2134,36 @@ export interface components {
         RoleRequest: {
             /** @description What it is for. */
             description?: string | null;
+            /**
+             * Format: int64
+             * @description Largest single file accounts in this role may send.
+             *
+             *     Omit or send `null` to fall back to `server.max_body_bytes`; send `0`
+             *     for no limit of its own. `server.max_body_bytes` still applies on top,
+             *     so this can only lower it.
+             * @example 5368709120
+             */
+            max_file_bytes?: number | null;
             /** @description What to call it. */
             name: string;
             /**
              * @description Everything it should allow, as `resource:verb` strings.
              *
-             *     The whole set, not a change to it. Two operators editing the same role
-             *     from two screens cannot interleave their edits into a set neither of
-             *     them chose — the last one to press save wins, visibly.
+             *     The whole set, not a change to it, so two operators editing the same
+             *     role cannot interleave their edits into a set neither chose. The last
+             *     one to press save wins, visibly.
              */
             permissions: string[];
+            /**
+             * Format: int64
+             * @description How much storage each account in this role may hold.
+             *
+             *     Omit or send `null` to fall back to the instance-wide ceiling; send `0`
+             *     for no ceiling at all. Those are different: `null` follows
+             *     `storage.max_total_bytes` as it changes, `0` ignores it.
+             * @example 10737418240
+             */
+            quota_bytes?: number | null;
         };
         /** @description One role, as the API describes it. */
         RoleResponse: {
@@ -1620,16 +2179,24 @@ export interface components {
             /**
              * @description Whether it is one of the two the instance was seeded with.
              *
-             *     Those cannot be deleted — an instance whose administrator role has been
-             *     removed has nobody who can create one. They can still be edited.
+             *     Those cannot be deleted: an instance whose administrator role was
+             *     removed has no account left that could create one. They can be edited.
              */
             is_system: boolean;
             /**
              * Format: int64
+             * @description Largest single file each account in it may send.
+             *
+             *     `null` means `server.max_body_bytes` applies; `0` means no limit here.
+             * @example 5368709120
+             */
+            max_file_bytes?: number | null;
+            /**
+             * Format: int64
              * @description How many accounts are in it.
              *
-             *     The number an operator wants before editing one: changing a role that
-             *     nobody holds is free, and changing one that forty people hold is not.
+             *     What an operator wants before editing. Changing an empty role is free;
+             *     changing one held by forty accounts is not.
              */
             members: number;
             /**
@@ -1644,9 +2211,22 @@ export interface components {
              *     ]
              */
             permissions: string[];
+            /**
+             * Format: int64
+             * @description How much storage each account in it may hold.
+             *
+             *     `null` means the instance ceiling applies; `0` means no ceiling.
+             * @example 10737418240
+             */
+            quota_bytes?: number | null;
             /** @description When its permissions last changed, RFC 3339. */
             updated_at: string;
         };
+        /**
+         * @description Which sample card to draw.
+         * @enum {string}
+         */
+        SampleCard: "open" | "locked" | "gone";
         /**
          * @description Where the process is in its lifecycle.
          *
@@ -1658,18 +2238,19 @@ export interface components {
         /**
          * @description One sign-in, as the API describes it.
          *
-         *     Covers sessions that are over as well as the ones that work. Somebody reading
-         *     this list is usually asking whether anybody else has been in, and a session
+         *     Covers sessions that are over as well as the ones that work. A person
+         *     reading this is usually asking whether anyone else has been in, and a
+         *     session
          *     that was revoked last Tuesday is exactly what they need to see.
          */
         SessionResponse: {
             /**
              * @description Whether it still works.
              *
-             *     Sent rather than left to the client to derive from `expires_at`: a
-             *     browser's clock can be wrong by more than a session's remaining life, and
-             *     being told "this is still live" by a machine with a fast clock is how
-             *     somebody decides not to revoke something they should have.
+             *     Sent, not left to the client to derive from `expires_at`. A browser's
+             *     clock can be wrong by more than a session's remaining life, and
+             *     being told "this is still live" by a machine with a fast clock is how a
+             *     session that should have been revoked survives.
              */
             active: boolean;
             /** @description When the sign-in happened. */
@@ -1685,8 +2266,8 @@ export interface components {
             /**
              * @description The `User-Agent` the sign-in arrived with, exactly as it was sent.
              *
-             *     Not parsed into "Chrome on macOS": doing that reliably is famously hard,
-             *     and getting it wrong tells somebody a session is theirs when it is not.
+             *     Not parsed into "Chrome on macOS". Doing that reliably is famously hard,
+             *     and getting it wrong marks a session as yours when it is not.
              * @example Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15
              */
             created_user_agent?: string | null;
@@ -1698,7 +2279,7 @@ export interface components {
              */
             current: boolean;
             /**
-             * @description Why it ended early, if somebody ended it.
+             * @description Why it ended early, if it was ended.
              *
              *     `null` means it simply ran out. The values are `signed_out`, `revoked`,
              *     `password_changed`, `password_reset` and `account_disabled`.
@@ -1715,20 +2296,47 @@ export interface components {
             /** @description When this session was last used. */
             last_seen_at: string;
         };
+        /** @description One setting, as the panel draws it. */
+        SettingResponse: {
+            /** @description Whether this endpoint will change it. */
+            editable: boolean;
+            /**
+             * @description Dotted key, the same spelling the file and the environment use.
+             * @example share.code_length
+             */
+            key: string;
+            /**
+             * @description Why it will not, when it will not.
+             *
+             *     `fixed_at_boot` for something the running process cannot pick up,
+             *     `secret` for something that holds a credential. Present so a screen can
+             *     explain instead of only greying the field out.
+             * @example fixed_at_boot
+             */
+            refusal?: string | null;
+            /** @description Which layer supplied it. */
+            source: components["schemas"]["Source"];
+            /** @description The value in force. */
+            value: Record<string, never>;
+        };
+        /** @description Everything this instance can be configured with. */
+        SettingsResponse: {
+            /** @description Every setting, editable or not. */
+            settings: components["schemas"]["SettingResponse"][];
+        };
         /**
          * Format: binary
          * @description The request body of `POST /shares`: the content itself, as bytes.
          *
          *     A named type only so the contract can say `format: binary`. Declaring the
          *     body as `Vec<u8>` makes utoipa emit an *array of integers*, which a docs UI
-         *     renders as a JSON array editor and a generated client types as `number[]` —
-         *     neither of which can carry a file.
+         *     renders as a JSON array editor and a generated client types as `number[]`.
          *
-         *     An empty body is refused with a `400`, and that rule is *not* expressible
-         *     here: `min_length` is a field-level attribute, and the field's own schema is
-         *     overridden by the `value_type` above — which has to stay, or the body stops
-         *     being binary. So the constraint lives in the handler and is documented as a
-         *     response, and a generator reading this will believe an empty body is valid.
+         *     An empty body is refused with a `400`, and that cannot be expressed here.
+         *     `min_length` is field-level, and the `value_type` above overrides the
+         *     field's schema; drop it and the body stops being binary. So the handler
+         *     enforces it, and a generator reading this will think an empty body is
+         *     valid.
          */
         ShareBody: string;
         /** @description Body of `POST /shares/{code}/events`. */
@@ -1736,10 +2344,20 @@ export interface components {
             /**
              * @description What happened: `view` or `copy`.
              *
-             *     Retrieval is deliberately not one of these — see [`record_event`].
+             *     Retrieval is not one of these. See [`record_event`].
              * @example view
              */
             kind: string;
+        };
+        /** @description A page of the caller's shares. */
+        SharePage: {
+            /** @description The shares on this page. */
+            shares: components["schemas"]["ShareResponse"][];
+            /**
+             * Format: int64
+             * @description How many the caller has in total, so a client can render pagination.
+             */
+            total: number;
         };
         /** @description A share as the API describes it. Never carries the content. */
         ShareResponse: {
@@ -1776,24 +2394,24 @@ export interface components {
             /**
              * @description When it was last retrieved, RFC 3339.
              *
-             *     The answer to the question somebody actually asks of their own share:
-             *     has the person I sent this to picked it up yet?
+             *     Answers the question people ask of their own share: has it been picked
+             *     up yet?
              */
             last_accessed_at?: string | null;
             /**
              * @description Token that lets an anonymous uploader delete this share.
              *
-             *     **Shown once, at creation, and only when nobody was signed in.** Only its
-             *     digest is stored. Without it a mistaken anonymous upload could never be
+             *     **Shown once, at creation, and only for an anonymous upload.** Only its
+             *     digest is stored. Without it, a mistaken anonymous upload could never be
              *     taken back.
              */
             management_token?: string | null;
             /**
              * @description Where the share lives, relative to this instance's origin.
              *
-             *     Relative on purpose: the server does not know what host it is reached
-             *     through, and guessing wrong behind a reverse proxy produces links that
-             *     do not work. Whoever calls this already knows the origin they called.
+             *     Relative by design. The server does not know what host it is reached
+             *     through, and guessing wrong behind a reverse proxy produces broken
+             *     links. The caller already knows the origin it called.
              * @example /s/0ZPQ4M7K
              */
             path: string;
@@ -1809,8 +2427,8 @@ export interface components {
              * Format: int32
              * @description How many times it has been retrieved.
              *
-             *     Counted by the server on the transfer path, so it is the number to
-             *     trust — the two below are what a client told us.
+             *     Counted by the server on the transfer path, so this is the number to
+             *     trust. The two below are what a client reported.
              */
             use_count: number;
             /**
@@ -1835,8 +2453,8 @@ export interface components {
              * Format: int32
              * @description Its position in the share, from zero.
              *
-             *     Sent rather than left to the array's order: a client that sorts or
-             *     filters the list still has the uploader's order to put it back in.
+             *     Sent explicitly, so a client that sorts or filters the list can still
+             *     restore the uploader's order.
              */
             position: number;
             /**
@@ -1846,15 +2464,18 @@ export interface components {
             size_bytes: number;
         };
         /**
+         * @description Which layer a setting's value came from.
+         * @enum {string}
+         */
+        Source: "default" | "environment" | "panel";
+        /**
          * @description What one instance is holding, at a glance.
          *
          *     # Why this is not a metrics endpoint
          *
-         *     Four numbers an operator can act on, not a time series. "Am I near the
-         *     quota", "how many people are on here", "is the sweep keeping up" — the
-         *     questions somebody asks before deciding whether to change a setting. Anything
-         *     that wants graphs wants Prometheus, and that is a different endpoint with a
-         *     different shape.
+         *     Four numbers an operator can act on, not a time series: "am I near the
+         *     quota", "how many people are on here", "is the sweep keeping up". Anything
+         *     wanting graphs wants Prometheus, a different endpoint.
          */
         StatsResponse: {
             /**
@@ -1871,40 +2492,39 @@ export interface components {
              * Format: int64
              * @description How many bytes this instance has sent out.
              *
-             *     Bytes that left the process, not bytes that reached anybody — a proxy in
+             *     Bytes that left the process, not bytes that reached anybody: a proxy in
              *     front holds some, and a caching CDN answers requests this never sees.
-             *     For what crossed the network, a reverse proxy's own log is the authority.
+             *     For what crossed the network, a reverse proxy's log is the authority.
              *
-             *     Counted over the shares still here: a swept share takes its tally with
-             *     it, so this falls when one goes.
+             *     Counted over the shares still here, so a swept share takes its tally
+             *     with it and this falls when one goes.
              */
             bytes_served: number;
             /**
              * Format: int64
-             * @description How many invites could still admit somebody.
+             * @description How many invites could still admit an account.
              */
             live_invites: number;
             /**
              * Format: int64
              * @description How many a visitor could still open.
              *
-             *     The gap between this and `shares` is what the sweep has not reached yet,
-             *     which is worth seeing: a large one means retention is longer than
-             *     somebody expected, or the sweep is not running.
+             *     The gap between this and `shares` is what the sweep has not reached. A
+             *     large one means retention is longer than expected, or the sweep is not
+             *     running.
              */
             live_shares: number;
             /**
              * Format: int64
              * @description The ceiling from `storage.max_total_bytes`, or `null` when unset.
              *
-             *     `null` is not "unlimited" so much as "nobody said" — and on an instance
-             *     that takes anonymous uploads, that is the combination the start-up
-             *     warning is about.
+             *     `null` means unset, not unlimited. On an instance taking anonymous
+             *     uploads, that combination is what the start-up warning is about.
              */
             quota_bytes?: number | null;
             /**
              * Format: int64
-             * @description How many shares exist, including ones nobody can open any more.
+             * @description How many shares exist, including ones that can no longer be opened.
              */
             shares: number;
             /**
@@ -1955,7 +2575,7 @@ export interface components {
             /**
              * @description What it may do, as `resource:verb` strings.
              *
-             *     What it was minted with, not what it can do right now — those differ
+             *     What it was minted with, not what it can do right now. Those differ
              *     when the owner has since been demoted, and the owner is who this list is
              *     for. Sending the narrowed set instead would make a token look as though
              *     it had been quietly edited.
@@ -1993,22 +2613,101 @@ export interface components {
              */
             username?: string | null;
         };
+        /** @description Body of `PUT /admin/settings`. */
+        UpdateSettingsRequest: {
+            /**
+             * @description The changes to apply, by dotted key.
+             *
+             *     `null` clears a setting, so it falls back to whichever layer comes next:
+             *     the environment, or the default. That is the only way back to a value
+             *     the panel did not choose, and why clearing is a value and not a second
+             *     endpoint.
+             */
+            changes: Record<string, never>;
+            /**
+             * @description Go ahead even though the change destroys something.
+             *
+             *     Without it, a change that would remove things is refused and the answer
+             *     says what and how many. Two round trips by design: an empty "are you
+             *     sure?" is a button everyone clicks, and a number gives pause.
+             */
+            confirm?: boolean;
+        };
         /** @description Body of `PATCH /admin/users/{id}`. */
         UpdateUserRequest: {
             /** @description Whether this account administers the instance. */
             is_admin: boolean;
             /**
+             * @description Largest single file this one account may send, overriding its role's.
+             *
+             *     Absent leaves it alone, `null` clears it so the role's applies again,
+             *     and `0` gives this account no limit of its own.
+             *
+             *     `server.max_body_bytes` still applies on top; this cannot raise it.
+             */
+            max_file_bytes?: components["schemas"]["Option_u64"];
+            /**
+             * @description A storage quota for this one account, overriding its role's.
+             *
+             *     Absent leaves it alone, `null` clears it so the role's applies again,
+             *     and `0` gives this account no ceiling of its own. Three instructions,
+             *     so absent and `null` are not the same here.
+             *
+             *     For raising or lowering one account without inventing a role for it.
+             *     `storage.max_total_bytes` still applies on top, so this cannot grant an
+             *     account more room than the instance has.
+             */
+            quota_bytes?: components["schemas"]["Option_u64"];
+            /**
              * @description `active` to let it in, `disabled` to suspend it.
              *
-             *     Omitted leaves it as it is. `deleted` is refused here — removing an
-             *     account scrubs it, and that is `DELETE` rather than a field on a patch.
+             *     Omitted leaves it as it is. `deleted` is refused here: removing an
+             *     account scrubs it: `DELETE`, not a field on a patch.
              */
             state?: string | null;
         };
+        /** @description A session that has just been opened. */
+        UploadResponse: {
+            /** @description Identifier, and the last segment of the URL to continue at. */
+            id: string;
+            /**
+             * Format: int64
+             * @description How much was declared.
+             */
+            length: number;
+            /**
+             * Format: int64
+             * @description How much has arrived. Zero, here.
+             */
+            offset: number;
+            /**
+             * Format: int64
+             * @description How much to send per chunk, in bytes.
+             *
+             *     A chunk that is not the last is accepted only up to a multiple of this;
+             *     the rest comes back as a lower offset and has to be re-sent. Sending
+             *     exact multiples avoids that entirely.
+             */
+            part_size: number;
+            /**
+             * @description Proof that a later request is the same uploader, for an anonymous one.
+             *
+             *     **Store this.** It is shown once, and without it the upload cannot be
+             *     resumed after the page is closed, the situation resuming exists for.
+             *     `null`
+             *     when the uploader is signed in, since their credential already answers.
+             */
+            token?: string | null;
+        };
         /** @description Body of `PUT /admin/users/{id}/roles`. */
         UserRolesRequest: {
-            /** @description The roles this account should be in. The whole list, not a change to it. */
-            roles: string[];
+            /**
+             * @description The role this account should be in, or `null` for none.
+             *
+             *     `null` is signed in and allowed nothing: a real state, and what an empty
+             *     list used to mean.
+             */
+            role?: string | null;
         };
     };
     responses: never;
@@ -2273,6 +2972,66 @@ export interface operations {
                 };
             };
             /** @description No invite has that id */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    preview_og_card: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OgPreviewRequest"];
+            };
+        };
+        responses: {
+            /** @description The card, as a PNG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": number[];
+                };
+            };
+            /** @description A layout this instance will not draw */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not change settings, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -2575,16 +3334,192 @@ export interface operations {
             };
         };
     };
-    list_all_shares: {
+    list_settings: {
         parameters: {
             query?: never;
             header?: never;
-            path: {
-                /** @description How many to return. Capped, and defaulted when omitted. */
-                limit: number | null;
-                /** @description How many to skip. */
-                offset: number | null;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every setting */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
             };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read settings, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Every setting, as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsResponse"];
+                };
+            };
+            /** @description A key or value this instance will not accept */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not change settings, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The change destroys something; the message says what, and `confirm` goes ahead */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    preview_settings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description What the change would destroy */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewResponse"];
+                };
+            };
+            /** @description A key or value this instance will not accept */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not change settings, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    list_all_shares: {
+        parameters: {
+            query?: {
+                /** @description How many to return. Capped, and defaulted when omitted. */
+                limit?: number;
+                /** @description How many to skip. */
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
@@ -2596,6 +3531,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminSharePage"];
+                };
+            };
+            /** @description `limit` or `offset` is not a number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Not signed in */
@@ -2675,6 +3619,70 @@ export interface operations {
             };
         };
     };
+    read_share_access_log: {
+        parameters: {
+            query?: {
+                /** @description How many to return. Capped, and defaulted when omitted. */
+                limit?: number;
+                /** @description How many to skip. */
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Which share */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What has been recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessLogResponse"];
+                };
+            };
+            /** @description `limit` or `offset` is not a number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read every share, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such share */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     instance_stats: {
         parameters: {
             query?: never;
@@ -2722,6 +3730,240 @@ export interface operations {
             };
         };
     };
+    list_storage_backends: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What is configured, without the credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not read settings */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    add_storage_backend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackendRequest"];
+            };
+        };
+        responses: {
+            /** @description The backend as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendResponse"];
+                };
+            };
+            /** @description The URL will not open, or the name is reserved */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write settings */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No storage.secret_key, so credentials cannot be stored */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    remove_storage_backend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which backend */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description The name is the environment's */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write settings */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such backend */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description It still holds content; move it off first */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    set_default_storage_backend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which backend */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The backend as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write settings */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such backend */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     list_users: {
         parameters: {
             query?: never;
@@ -2730,9 +3972,8 @@ export interface operations {
                 /**
                  * @description Include accounts that have been deleted.
                  *
-                 *     Off by default: what is left of one identifies nobody and cannot be
-                 *     acted on, so it belongs in an answer somebody asked for rather than in
-                 *     every listing.
+                 *     Off by default. What is left of one identifies no person and cannot be
+                 *     acted on, so it belongs only in an answer that asked for it.
                  */
                 include_deleted: boolean;
             };
@@ -3531,20 +4772,34 @@ export interface operations {
     };
     list_shares: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description How many to return. Capped, and defaulted when omitted. */
+                limit?: number;
+                /** @description How many to skip. */
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The caller's shares */
+            /** @description A page of the caller's shares */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ShareResponse"][];
+                    "application/json": components["schemas"]["SharePage"];
+                };
+            };
+            /** @description `limit` or `offset` is not a number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Not signed in */
@@ -3602,7 +4857,7 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        /** @description The content itself. Send the file as the raw body — no wrapper, no encoding. */
+        /** @description The content itself. Send the file as the raw body: no wrapper, no encoding. */
         requestBody: {
             content: {
                 "application/octet-stream": components["schemas"]["ShareBody"];
@@ -3654,7 +4909,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description This instance is out of room */
+            /** @description Out of room; the body says whether that is the account's quota, its role's, or the instance's */
             507: {
                 headers: {
                     [name: string]: unknown;
@@ -3673,7 +4928,7 @@ export interface operations {
                 "X-Share-Password"?: string | null;
             };
             path: {
-                /** @description The retrieval code */
+                /** @description The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share. */
                 code: string;
             };
             cookie?: never;
@@ -3732,7 +4987,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description The retrieval code */
+                /** @description The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share. */
                 code: string;
             };
             cookie?: never;
@@ -3745,6 +5000,65 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No share of yours has that code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_share: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The token an anonymous upload was given */
+                "X-Share-Management-Token"?: string | null;
+                /** @description A new password for the share */
+                "X-Share-Password"?: string | null;
+            };
+            path: {
+                /** @description The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share. */
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchShareRequest"];
+            };
+        };
+        responses: {
+            /** @description The share as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description A setting the instance will not accept */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
             };
             /** @description Not signed in */
             401: {
@@ -3877,7 +5191,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description This instance is out of room */
+            /** @description Out of room; the body says whether that is the account's quota, its role's, or the instance's */
             507: {
                 headers: {
                     [name: string]: unknown;
@@ -3896,7 +5210,7 @@ export interface operations {
                 "X-Share-Password"?: string | null;
             };
             path: {
-                /** @description The retrieval code */
+                /** @description The retrieval code. Normalised before lookup: O reads as 0, I and L read as 1, case is folded, spaces and hyphens are dropped, so `0ZPQ4M7K`, `ozpq-4m7k` and `OZPQ4M7K` are the same share. */
                 code: string;
             };
             cookie?: never;
@@ -4078,6 +5392,172 @@ export interface operations {
             };
             /** @description No live token of yours has that id */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    create_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description What to call the file.
+                 * @example holiday.mp4
+                 */
+                filename: string | null;
+                /**
+                 * @description Retrieval code of the share to append to.
+                 *
+                 *     Omit to make a new share when the upload finishes.
+                 * @example 4GSVV6QT
+                 */
+                code: string | null;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description `Upload-Length` missing or unusable */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not allowed to upload */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No share has that code */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No room for it — the body says whether that is the account's quota, its role's, or the instance's */
+            507: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    upload_offset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description `Upload-Offset` says how much has arrived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such session */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description That session was abandoned */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    append_to_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /** @description The next bytes */
+        requestBody: {
+            content: {
+                "application/offset+octet-stream": number[];
+            };
+        };
+        responses: {
+            /** @description That was the last of it */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description Accepted; `Upload-Offset` says the new total */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No such session */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The offset does not match */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Wrong content type */
+            415: {
                 headers: {
                     [name: string]: unknown;
                 };

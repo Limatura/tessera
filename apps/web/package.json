@@ -8,7 +8,11 @@
     "build": "vite build",
     "serve": "vite preview",
     "start": "vite",
-    "check-types": "vite build && tsc --noEmit"
+    "check-types": "vite build && tsc --noEmit",
+    "test": "vitest run",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -43,6 +47,7 @@
     "dotenv": "catalog:",
     "input-otp": "^1.4.2",
     "lucide-react": "catalog:",
+    "mermaid": "^11.17.2",
     "motion": "^13.1.0",
     "next-themes": "catalog:",
     "qrcode.react": "^4.2.0",
@@ -55,6 +60,7 @@
   },
   "devDependencies": {
     "@inlang/plugin-message-format": "^4.4.1",
+    "@playwright/test": "^1.62.1",
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",
     "@tessera/config": "workspace:*",
@@ -62,11 +68,13 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.11",
     "postcss": "^8.5.24",
     "rollup-plugin-visualizer": "^7.1.1",
     "shiki": "^4.4.3",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vitest": "^4.1.11"
   }
 }

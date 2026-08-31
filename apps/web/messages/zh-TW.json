@@ -112,5 +112,20 @@
   "share_preview_failed": "預覽載入失敗",
   "share_copy": "複製",
   "share_copied": "已複製",
-  "share_back_home": "回到首頁"
+  "share_back_home": "回到首頁",
+  "mermaid_render_failed": "圖表語法錯誤",
+  "mermaid_expand": "放大檢視",
+  "mermaid_zoom_in": "放大",
+  "mermaid_zoom_out": "縮小",
+  "mermaid_reset_zoom": "重設縮放",
+  "mermaid_diagram": "圖表",
+  "code_tab_edit": "程式碼",
+  "code_tab_preview": "預覽",
+  "common_logout": "登出",
+  "common_try_again": "請再試一次。",
+  "upload_code_placeholder": "貼上你的程式碼…",
+  "upload_send_snippet": "送出程式碼",
+  "upload_failed": "上傳失敗",
+  "upload_result_ready": "可以分享了",
+  "upload_result_upload_another": "再傳一個"
 }

@@ -26,53 +26,74 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@tessera/ui/components/select";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@tessera/ui/components/tabs";
+import { cn } from "@tessera/ui/lib/utils";
 import { vscodeDark, vscodeLight } from "@uiw/codemirror-theme-vscode";
 import CodeMirror, { ExternalChange } from "@uiw/react-codemirror";
 import type { Extension, ViewUpdate } from "@uiw/react-codemirror";
 import { Maximize2, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import {
+  EDITOR_DEBOUNCE_MS,
+  MermaidDiagram,
+} from "@/components/mermaid/mermaid-diagram";
 import { detectLanguage } from "@/lib/detect-language";
 import * as m from "@/paraglide/messages";
 
 import { QuickSubmitButton } from "./quick-submit-button";
 import type { SubmitStatus } from "./use-submit-transition";
 
-const LANGUAGES = [
+// 加一個語言要改三個地方,漏掉不會報錯,只會靜默少一塊功能:
+//   1. 這裡的 LANGUAGES —— 選單選項,mode 給了才有編輯器高亮
+//   2. lib/detect-language.ts —— 貼上內容時的自動偵測(id 要跟這裡的 value 一致)
+//   3. lib/shiki.ts 的 bundledLanguages —— 分享頁的語法高亮,
+//      漏掉的話分享頁會靜默 fallback 成純文字
+// Mermaid 是例外:它在分享頁走渲染而不是高亮,所以不進 shiki(見 tessera#227)。
+const LANGUAGES: readonly {
+  label: string;
+  value: string;
+  mode?: Extension;
+}[] = [
   { label: "Plain text", value: "plaintext" },
-  { label: "JavaScript", value: "javascript" },
-  { label: "TypeScript", value: "typescript" },
-  { label: "Python", value: "python" },
-  { label: "HTML", value: "html" },
-  { label: "CSS", value: "css" },
-  { label: "JSON", value: "json" },
-  { label: "Markdown", value: "markdown" },
-  { label: "SQL", value: "sql" },
-  { label: "Java", value: "java" },
-  { label: "C++", value: "cpp" },
-  { label: "Rust", value: "rust" },
-  { label: "Go", value: "go" },
-  { label: "YAML", value: "yaml" },
-  { label: "PHP", value: "php" },
+  { label: "JavaScript", value: "javascript", mode: javascript({ jsx: true }) },
+  {
+    label: "TypeScript",
+    value: "typescript",
+    mode: javascript({ jsx: true, typescript: true }),
+  },
+  { label: "Python", value: "python", mode: python() },
+  { label: "HTML", value: "html", mode: html() },
+  { label: "CSS", value: "css", mode: css() },
+  { label: "JSON", value: "json", mode: json() },
+  { label: "Markdown", value: "markdown", mode: markdown() },
+  { label: "SQL", value: "sql", mode: sql() },
+  { label: "Java", value: "java", mode: java() },
+  { label: "C++", value: "cpp", mode: cpp() },
+  { label: "Rust", value: "rust", mode: rust() },
+  { label: "Go", value: "go", mode: go() },
+  { label: "YAML", value: "yaml", mode: yaml() },
+  { label: "PHP", value: "php", mode: php() },
+  // Shell 的高亮要另外裝 @codemirror/legacy-modes。
   { label: "Shell", value: "shellscript" },
-] as const;
+  // Mermaid 沒有 CodeMirror 語法包,編輯器維持純文字;
+  // 分享頁會直接把它渲染成圖,不走 shiki(tessera#227)。
+  { label: "Mermaid", value: "mermaid" },
+];
 
-const LANGUAGE_EXTENSIONS: Record<string, Extension> = {
-  cpp: cpp(),
-  css: css(),
-  go: go(),
-  html: html(),
-  java: java(),
-  javascript: javascript({ jsx: true }),
-  json: json(),
-  markdown: markdown(),
-  php: php(),
-  python: python(),
-  rust: rust(),
-  sql: sql(),
-  typescript: javascript({ jsx: true, typescript: true }),
-  yaml: yaml(),
-};
+const MERMAID = "mermaid";
+const EXPANDED_EDITOR_HEIGHT = "65vh";
+
+// className 只落在最外層 .cm-theme,但真正被長行撐開的是內層的 .cm-editor
+// (它自己沒有 min-width:0,會被 .cm-content 由內往外推寬),所以外層歸零不夠,
+// 要一路把 .cm-editor 也釘在容器寬度,.cm-scroller 才會接管水平捲動。
+const EDITOR_CLIP =
+  "min-w-0 overflow-hidden [&_.cm-editor]:w-full [&_.cm-editor]:min-w-0 [&_.cm-scroller]:min-w-0";
 
 interface CodeUploadFormProps {
   status: SubmitStatus;
@@ -112,10 +133,10 @@ export function CodeUploadForm({
   const [language, setLanguage] = useState("plaintext");
   const [code, setCode] = useState("");
   const [expanded, setExpanded] = useState(false);
-  // 目前的語言是猜的還是使用者選的。
-  // 使用者自己選過之後就永久停止猜測,免得之後再貼一次又被蓋掉(tessera#228)。
+  // 使用者自己選過就永久停止猜測,免得再貼一次又被蓋掉。
   const [wasGuessed, setWasGuessed] = useState(false);
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
+  const [mermaidPane, setMermaidPane] = useState<"edit" | "preview">("edit");
   const isDark = useIsDarkMode();
 
   const handleLanguageChange = (value: string | null) => {
@@ -129,8 +150,7 @@ export function CodeUploadForm({
     if (userPickedLanguage) {
       return;
     }
-    // 套件對「從 value prop 推回編輯器」的更新會標上 ExternalChange,
-    // 跳過這種,只對使用者真正的編輯做猜測。
+    // ExternalChange 是套件推回編輯器的更新,不是使用者打的。
     const isExternal = viewUpdate.transactions.some((tr) =>
       tr.annotation(ExternalChange)
     );
@@ -144,9 +164,30 @@ export function CodeUploadForm({
     }
   };
 
-  const extensions = LANGUAGE_EXTENSIONS[language]
-    ? [LANGUAGE_EXTENSIONS[language]]
-    : [];
+  const mode = LANGUAGES.find((lang) => lang.value === language)?.mode;
+  const extensions = mode ? [mode] : [];
+  const isMermaid = language === MERMAID;
+
+  const renderEditor = (height: string) => (
+    <CodeMirror
+      className={cn(EDITOR_CLIP, "h-full rounded-md border font-mono text-sm")}
+      extensions={extensions}
+      height={height}
+      onChange={handleCodeChange}
+      placeholder={m.upload_code_placeholder()}
+      theme={isDark ? vscodeDark : vscodeLight}
+      value={code}
+    />
+  );
+
+  const renderPreview = () => (
+    <MermaidDiagram
+      className="h-full min-h-0"
+      code={code}
+      debounceMs={EDITOR_DEBOUNCE_MS}
+      title={m.mermaid_diagram()}
+    />
+  );
 
   const submitFrom = (origin: HTMLButtonElement | null) => {
     if (code.trim().length > 0) {
@@ -184,7 +225,7 @@ export function CodeUploadForm({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <div className="flex items-baseline gap-2">
-          <Label htmlFor="code-language">Language</Label>
+          <Label htmlFor="code-language">{m.common_language()}</Label>
           {wasGuessed && (
             <span
               className="text-muted-foreground text-xs"
@@ -208,17 +249,17 @@ export function CodeUploadForm({
         </div>
       </div>
       <CodeMirror
-        className="rounded-md border font-mono text-sm"
+        className={cn(EDITOR_CLIP, "rounded-md border font-mono text-sm")}
         extensions={extensions}
         height="300px"
         onChange={handleCodeChange}
-        placeholder="paste your snippet..."
+        placeholder={m.upload_code_placeholder()}
         theme={isDark ? vscodeDark : vscodeLight}
         value={code}
       />
       <div className="flex justify-end">
         <QuickSubmitButton
-          label="Send snippet"
+          label={m.upload_send_snippet()}
           onClick={() => submitFrom(buttonRef.current)}
           progress={progress}
           ref={buttonRef}
@@ -227,13 +268,22 @@ export function CodeUploadForm({
       </div>
 
       <Dialog onOpenChange={setExpanded} open={expanded}>
-        <DialogContent className="w-[92vw] max-w-4xl sm:max-w-4xl">
+        {/* 並排時要更寬,不然編輯器跟圖各自都太窄。 */}
+        <DialogContent
+          className={
+            isMermaid
+              ? "w-[95vw] max-w-6xl sm:max-w-6xl"
+              : "w-[92vw] max-w-4xl sm:max-w-4xl"
+          }
+        >
           <DialogHeader>
             <DialogTitle>{m.upload_tab_code()}</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-baseline gap-2">
-              <Label htmlFor="code-language-expanded">Language</Label>
+              <Label htmlFor="code-language-expanded">
+                {m.common_language()}
+              </Label>
               {wasGuessed && (
                 <span
                   className="text-muted-foreground text-xs"
@@ -245,18 +295,41 @@ export function CodeUploadForm({
             </div>
             {renderLanguageSelect("code-language-expanded")}
           </div>
-          <CodeMirror
-            className="rounded-md border font-mono text-sm"
-            extensions={extensions}
-            height="65vh"
-            onChange={handleCodeChange}
-            placeholder="paste your snippet..."
-            theme={isDark ? vscodeDark : vscodeLight}
-            value={code}
-          />
+          {isMermaid ? (
+            <>
+              {/* 寬螢幕:編輯器跟圖並排,邊改邊看。 */}
+              <div className="hidden min-w-0 gap-3 sm:grid sm:grid-cols-2">
+                {renderEditor(EXPANDED_EDITOR_HEIGHT)}
+                <div className="h-[65vh] min-w-0">{renderPreview()}</div>
+              </div>
+              {/* 窄螢幕塞不下兩欄,退回分頁。 */}
+              <Tabs
+                className="min-w-0 sm:hidden"
+                onValueChange={(value) =>
+                  setMermaidPane(value === "preview" ? "preview" : "edit")
+                }
+                value={mermaidPane}
+              >
+                <TabsList>
+                  <TabsTrigger value="edit">{m.code_tab_edit()}</TabsTrigger>
+                  <TabsTrigger value="preview">
+                    {m.code_tab_preview()}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent className="min-w-0" value="edit">
+                  {renderEditor(EXPANDED_EDITOR_HEIGHT)}
+                </TabsContent>
+                <TabsContent className="h-[65vh] min-w-0" value="preview">
+                  {renderPreview()}
+                </TabsContent>
+              </Tabs>
+            </>
+          ) : (
+            renderEditor(EXPANDED_EDITOR_HEIGHT)
+          )}
           <div className="flex justify-end">
             <QuickSubmitButton
-              label="Send snippet"
+              label={m.upload_send_snippet()}
               onClick={() => submitFrom(dialogButtonRef.current)}
               progress={progress}
               ref={dialogButtonRef}

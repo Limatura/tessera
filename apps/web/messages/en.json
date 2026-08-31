@@ -112,5 +112,20 @@
   "share_preview_failed": "Couldn't load a preview",
   "share_copy": "Copy",
   "share_copied": "Copied",
-  "share_back_home": "Back to home"
+  "share_back_home": "Back to home",
+  "mermaid_render_failed": "Diagram syntax error",
+  "mermaid_expand": "View larger",
+  "mermaid_zoom_in": "Zoom in",
+  "mermaid_zoom_out": "Zoom out",
+  "mermaid_reset_zoom": "Reset zoom",
+  "mermaid_diagram": "Diagram",
+  "code_tab_edit": "Code",
+  "code_tab_preview": "Preview",
+  "common_logout": "Logout",
+  "common_try_again": "Please try again.",
+  "upload_code_placeholder": "paste your snippet...",
+  "upload_send_snippet": "Send snippet",
+  "upload_failed": "Upload failed",
+  "upload_result_ready": "Ready to share",
+  "upload_result_upload_another": "Upload another"
 }

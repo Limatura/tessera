@@ -11,12 +11,6 @@ import {
   AlertDialogTrigger,
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@tessera/ui/components/collapsible";
-import { Input } from "@tessera/ui/components/input";
 import { Label } from "@tessera/ui/components/label";
 import {
   Select,
@@ -27,24 +21,16 @@ import {
 } from "@tessera/ui/components/select";
 import { Switch } from "@tessera/ui/components/switch";
 import { toast } from "@tessera/ui/components/toast";
-import {
-  Check,
-  ChevronDown,
-  Copy,
-  Eye,
-  EyeOff,
-  Flame,
-  Lock,
-  RotateCcw,
-  Trash2,
-} from "lucide-react";
+import { Check, Copy, Flame, RotateCcw, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { deleteShare, updateShare } from "@/lib/upload";
 import type { ShareSettings, UploadResultData } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
+
+import { SharePasswordField } from "./share-password-field";
 
 const EXPIRY_OPTIONS = [
   { hours: 1, label: () => m.upload_settings_expiry_1h() },
@@ -65,12 +51,6 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
   const [burnAfterReading, setBurnAfterReading] = useState(
     result.maxUses === 1
   );
-  const [hasPassword, setHasPassword] = useState(result.hasPassword);
-  const [passwordOpen, setPasswordOpen] = useState(false);
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
-  const passwordInputRef = useRef<HTMLInputElement>(null);
 
   const applySettings = async (
     settings: ShareSettings,
@@ -82,7 +62,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
       rollback();
       toast.add({
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : m.common_try_again(),
         title: m.upload_result_update_failed(),
         type: "error",
       });
@@ -104,63 +84,6 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
     );
   };
 
-  const handlePasswordOpenChange = (open: boolean) => {
-    setPasswordOpen(open);
-    setPassword("");
-    setShowPassword(false);
-    if (open) {
-      requestAnimationFrame(() => passwordInputRef.current?.focus());
-    }
-  };
-
-  const handlePasswordSave = async () => {
-    const trimmed = password.trim();
-    setSavingPassword(true);
-    try {
-      await updateShare(
-        result.code,
-        { password: trimmed.length > 0 ? trimmed : undefined },
-        result.managementToken
-      );
-      setHasPassword(trimmed.length > 0);
-      setPasswordOpen(false);
-      setPassword("");
-      setShowPassword(false);
-    } catch (error) {
-      toast.add({
-        description:
-          error instanceof Error ? error.message : "Please try again.",
-        title: m.upload_result_update_failed(),
-        type: "error",
-      });
-    } finally {
-      setSavingPassword(false);
-    }
-  };
-
-  const handlePasswordRemove = async () => {
-    setSavingPassword(true);
-    try {
-      await updateShare(
-        result.code,
-        { password: undefined },
-        result.managementToken
-      );
-      setHasPassword(false);
-      setPasswordOpen(false);
-      setPassword("");
-    } catch (error) {
-      toast.add({
-        description:
-          error instanceof Error ? error.message : "Please try again.",
-        title: m.upload_result_update_failed(),
-        type: "error",
-      });
-    } finally {
-      setSavingPassword(false);
-    }
-  };
-
   const handleCopy = async () => {
     await navigator.clipboard.writeText(result.shortUrl);
     setCopied(true);
@@ -175,7 +98,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
     } catch (error) {
       toast.add({
         description:
-          error instanceof Error ? error.message : "Please try again.",
+          error instanceof Error ? error.message : m.common_try_again(),
         title: m.upload_result_delete_failed(),
         type: "error",
       });
@@ -199,7 +122,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
         <p className="font-medium text-neutral-900 text-sm">
           {result.fileName}
         </p>
-        <p className="text-neutral-900/70 text-xs">Ready to share</p>
+        <p className="text-neutral-900/70 text-xs">{m.upload_result_ready()}</p>
       </div>
 
       <div className="flex w-full items-center gap-2 rounded-lg border border-neutral-900/15 bg-neutral-900/5 px-3 py-2">
@@ -255,96 +178,11 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
           />
         </div>
 
-        <Collapsible
-          onOpenChange={handlePasswordOpenChange}
-          open={passwordOpen}
-        >
-          <CollapsibleTrigger
-            className="group flex w-full items-center justify-between gap-2 text-neutral-900"
-            render={
-              <button
-                aria-label={
-                  hasPassword
-                    ? m.upload_result_password_set()
-                    : m.upload_result_password_unset()
-                }
-                type="button"
-              />
-            }
-          >
-            <span className="flex items-center gap-2 text-xs/relaxed font-medium">
-              <Lock className="size-3.5" />
-              {hasPassword
-                ? m.upload_result_password_set()
-                : m.upload_result_password_unset()}
-            </span>
-            <ChevronDown className="size-3.5 text-neutral-900/60 transition-transform group-data-panel-open:rotate-180" />
-          </CollapsibleTrigger>
-
-          <CollapsibleContent>
-            <div className="flex flex-col gap-1.5 pt-2">
-              <div className="flex items-center gap-1.5">
-                <div className="relative flex-1">
-                  <Input
-                    className="pr-7"
-                    disabled={savingPassword}
-                    onChange={(event) => setPassword(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        handlePasswordSave();
-                      }
-                    }}
-                    placeholder={
-                      hasPassword
-                        ? m.upload_result_password_replace_placeholder()
-                        : m.upload_settings_password_placeholder()
-                    }
-                    ref={passwordInputRef}
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                  />
-                  <button
-                    aria-label={
-                      showPassword
-                        ? m.upload_result_password_hide()
-                        : m.upload_result_password_show()
-                    }
-                    className="-translate-y-1/2 absolute top-1/2 right-1.5 text-neutral-900/60 hover:text-neutral-900"
-                    onClick={() => setShowPassword((value) => !value)}
-                    type="button"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="size-3.5" />
-                    ) : (
-                      <Eye className="size-3.5" />
-                    )}
-                  </button>
-                </div>
-                <Button
-                  className="shrink-0"
-                  disabled={password.trim().length === 0 || savingPassword}
-                  onClick={handlePasswordSave}
-                  size="sm"
-                  type="button"
-                >
-                  {m.upload_result_password_save()}
-                </Button>
-              </div>
-              {hasPassword && (
-                <Button
-                  className="w-fit px-0 text-destructive hover:bg-transparent hover:underline"
-                  disabled={savingPassword}
-                  onClick={handlePasswordRemove}
-                  size="sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  {m.upload_result_password_remove()}
-                </Button>
-              )}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
+        <SharePasswordField
+          code={result.code}
+          initialHasPassword={result.hasPassword}
+          managementToken={result.managementToken}
+        />
       </div>
 
       <div className="flex w-full items-center gap-2">
@@ -355,7 +193,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
           variant="outline"
         >
           <RotateCcw />
-          Upload another
+          {m.upload_result_upload_another()}
         </Button>
 
         <AlertDialog>
