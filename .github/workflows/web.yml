@@ -65,7 +65,11 @@ jobs:
       # about whether the types are right.
       - run: pnpm turbo run check-types --filter=web --filter=admin
 
-      - run: pnpm exec ultracite check
+      # apps/docs is a separate git submodule (tessera-docs) with its own
+      # oxlint config. --disable-nested-config stops oxlint from walking into
+      # it and tripping over whatever config files live there — including a
+      # stale one that once conflicted with its current oxlint.config.ts.
+      - run: pnpm exec ultracite check --disable-nested-config
 
       # 純函式的單元測試(語言偵測、位元組格式化、PATCH 請求的組法)。
       # 不需要瀏覽器環境,所以跑得很快,放在最後當守門員。
