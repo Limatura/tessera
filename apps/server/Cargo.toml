@@ -344,6 +344,10 @@ futures-util = "0.3"
 http-body = "1"
 http-body-util = "0.1"
 insta = { version = "1.48", features = ["json", "redactions"] }
+# The stand-in identity provider in `tests/common/provider.rs` serves its
+# discovery document and token endpoint over a real loopback socket, so the
+# sign-in it drives goes through the same reqwest client production uses.
+parking_lot = "0.12"
 proptest = "1.11"
 rstest = "0.26"
 tempfile = "3"

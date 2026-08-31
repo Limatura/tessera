@@ -221,10 +221,13 @@ impl OidcConfig {
         // `http` would put the authorisation code and the client secret on the
         // wire in the clear, and the specification's exemption from verifying
         // the token's signature is *only* available because the channel is TLS.
-        if !self.issuer.starts_with("https://") {
+        //
+        // The one exception is a loopback address, where those bytes never
+        // reach a network to be read off. See [`is_private_or_tls`].
+        if !crate::auth::oidc::is_private_or_tls(&self.issuer) {
             return Err(ConfigError::Invalid {
                 field: "auth.oidc.issuer",
-                reason: "must be an https URL".to_owned(),
+                reason: "must be an https URL, or http on a loopback address".to_owned(),
             });
         }
         for (field, value) in [

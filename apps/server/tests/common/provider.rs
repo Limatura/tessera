@@ -1,0 +1,180 @@
+//! A stand-in identity provider, on a loopback port.
+//!
+//! Enough of one to drive the whole sign-in: the discovery document, the token
+//! endpoint, and optionally userinfo. It never checks a signature because
+//! nothing on the other side reads one, and it hands back exactly the claims a
+//! test asks for, which is what makes the refusals testable.
+//!
+//! Loopback and `http`, which `auth::oidc::is_private_or_tls` allows and
+//! nothing else does. A test cannot obtain a certificate a client would trust.
+
+use std::{
+    net::{Ipv4Addr, SocketAddr},
+    sync::Arc,
+};
+
+use axum::{
+    Json, Router,
+    extract::State,
+    routing::{get, post},
+};
+use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
+use parking_lot::Mutex;
+use tokio::net::TcpListener;
+
+/// What the provider will say next.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Script {
+    /// The claims to put in the ID token, minus `iss` and `aud`, which the
+    /// provider fills in so that a test cannot accidentally agree with itself.
+    pub(crate) claims: serde_json::Value,
+    /// Refuse the exchange with this OAuth error instead of issuing a token.
+    pub(crate) refuse: Option<String>,
+    /// Claims to release from the userinfo endpoint rather than in the token.
+    pub(crate) userinfo: Option<serde_json::Value>,
+}
+
+/// Writes one claim, creating the object if the script left it empty.
+fn set(claims: &mut serde_json::Value, key: &str, value: serde_json::Value) {
+    if let Some(fields) = claims.as_object_mut() {
+        fields.insert(key.to_owned(), value);
+        return;
+    }
+    *claims = serde_json::json!({ key: value });
+}
+
+/// A running provider. Stopped when dropped.
+pub(crate) struct FakeProvider {
+    pub(crate) issuer: String,
+    script: Arc<Mutex<Script>>,
+    /// Whether the current script pinned its own nonce.
+    ///
+    /// Held here rather than read back off the claims, because by the time it
+    /// is read this provider may have written one of its own and the two are no
+    /// longer distinguishable.
+    nonce_is_pinned: Mutex<bool>,
+    handle: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for FakeProvider {
+    fn drop(&mut self) {
+        self.handle.abort();
+    }
+}
+
+#[derive(Clone)]
+struct Shared {
+    issuer: String,
+    client_id: String,
+    script: Arc<Mutex<Script>>,
+}
+
+impl FakeProvider {
+    /// Starts one on a port the operating system picks, so tests can run
+    /// alongside each other.
+    pub(crate) async fn start(client_id: &str) -> Self {
+        let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+            .await
+            .expect("a loopback port");
+        let issuer = format!(
+            "http://127.0.0.1:{}",
+            listener.local_addr().expect("an address").port()
+        );
+        let script = Arc::new(Mutex::new(Script::default()));
+        let shared = Shared {
+            issuer: issuer.clone(),
+            client_id: client_id.to_owned(),
+            script: Arc::clone(&script),
+        };
+
+        let router = Router::new()
+            .route("/.well-known/openid-configuration", get(document))
+            .route("/token", post(token))
+            .route("/userinfo", get(userinfo))
+            .with_state(shared);
+        let handle = tokio::spawn(async move {
+            let _ignored = axum::serve(listener, router).await;
+        });
+
+        Self {
+            issuer,
+            script,
+            nonce_is_pinned: Mutex::new(false),
+            handle,
+        }
+    }
+
+    /// Sets what the next exchange returns.
+    pub(crate) fn will_say(&self, script: Script) {
+        *self.nonce_is_pinned.lock() = script.claims.get("nonce").is_some();
+        *self.script.lock() = script;
+    }
+
+    /// Puts the nonce from the authorisation request into the token, which is
+    /// what a provider does with it.
+    ///
+    /// Skipped when the test pinned one: a token from somebody else's sign-in
+    /// is a case worth testing, and this must not quietly repair it.
+    pub(crate) fn echo_nonce(&self, nonce: &str) {
+        if !*self.nonce_is_pinned.lock() {
+            set(
+                &mut self.script.lock().claims,
+                "nonce",
+                serde_json::json!(nonce),
+            );
+        }
+    }
+}
+
+async fn document(State(shared): State<Shared>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "issuer": shared.issuer,
+        "authorization_endpoint": format!("{}/authorize", shared.issuer),
+        "token_endpoint": format!("{}/token", shared.issuer),
+        "userinfo_endpoint": format!("{}/userinfo", shared.issuer),
+        "code_challenge_methods_supported": ["S256"],
+    }))
+}
+
+async fn token(State(shared): State<Shared>) -> (axum::http::StatusCode, Json<serde_json::Value>) {
+    let script = shared.script.lock().clone();
+    if let Some(error) = script.refuse {
+        return (
+            axum::http::StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": error })),
+        );
+    }
+
+    let mut claims = script.claims;
+    set(&mut claims, "iss", serde_json::json!(shared.issuer));
+    set(&mut claims, "aud", serde_json::json!(shared.client_id));
+
+    (
+        axum::http::StatusCode::OK,
+        Json(serde_json::json!({
+            "id_token": id_token(&claims),
+            "access_token": "an-access-token",
+            "token_type": "Bearer",
+        })),
+    )
+}
+
+async fn userinfo(State(shared): State<Shared>) -> Json<serde_json::Value> {
+    Json(
+        shared
+            .script
+            .lock()
+            .userinfo
+            .clone()
+            .unwrap_or_else(|| serde_json::json!({})),
+    )
+}
+
+/// A JWT whose signature is a fixed string, because nothing reads it. See the
+/// module documentation on `auth::oidc::claims` for why that is allowed here
+/// and where it stops being allowed.
+fn id_token(claims: &serde_json::Value) -> String {
+    let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#);
+    let body = URL_SAFE_NO_PAD.encode(claims.to_string());
+    format!("{header}.{body}.not-checked")
+}

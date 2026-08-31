@@ -1237,8 +1237,9 @@ jobs:
           # two exits 0, and the selection goes from 59 operations to 57.
           #
           # What is lost is small: those two are `303` or `404` and nothing
-          # else, and `tests/auth.rs` drives the flow end to end. `link` stays
-          # in, because it refuses an API token before it can redirect.
+          # else, and `tests/oidc.rs` drives the whole flow against a provider
+          # that is actually running. `link` stays in, because it refuses an API
+          # token before it can redirect.
           uvx schemathesis --config-file /tmp/fuzz/run.toml \
             run http://127.0.0.1:13999/openapi.json \
             -w 4 --suppress-health-check=filter_too_much \

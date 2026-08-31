@@ -178,9 +178,18 @@ pub async fn provider(State(state): State<AppState>) -> Result<Response> {
     require_accounts(&state)?;
     let config = state.config();
 
+    // A name is what goes on the button, so an empty one is a button with
+    // nothing written on it. `auth.oidc.display_name` is left empty by default
+    // because there is no good guess at what an operator calls their provider,
+    // and this is the fallback for having not guessed.
+    let display_name = config.auth.oidc.display_name.trim();
     Ok(axum::Json(ProviderResponse {
         enabled: config.auth.oidc.is_configured(),
-        display_name: config.auth.oidc.display_name.clone(),
+        display_name: if display_name.is_empty() {
+            "Single sign-on".to_owned()
+        } else {
+            display_name.to_owned()
+        },
     })
     .into_response())
 }

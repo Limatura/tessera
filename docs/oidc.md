@@ -18,6 +18,7 @@ Code: `auth/oidc/`, `api/oidc.rs`, `db/repository/oidc.rs`. Passwords moved to t
 | The endpoints | `api::oidc` |
 | Identities and flows, as rows | `db::repository::oidc` |
 | Tables | migration `m20260905_000001_oidc` |
+| The flow, end to end | `tests/oidc.rs`, against a provider that runs |
 
 ## Who this is for
 
@@ -191,6 +192,37 @@ So every outcome, refusals included, is a `303` to the sign-in page with a stabl
 | `already_linked` | That provider identity belongs to another account |
 
 The codes are deliberately coarse. "Your provider did not release an address" is worth saying because somebody can act on it. The difference between a wrong nonce and an expired token is not, and spelling it out tells whoever is probing which of their guesses was closer.
+
+## How this is tested
+
+`tests/oidc.rs` runs a stand-in provider on a loopback port and drives the real
+endpoints against it: the discovery document is fetched over the network, the
+code is exchanged at a real token endpoint, and the browser's `Location` is what
+the assertions read. What that reaches, and the unit tests cannot, is the order
+the steps happen in and what each refusal does.
+
+It covers the sign-in, coming back to the same account, replay, an unknown
+state, both ways a provider can refuse, a token from another sign-in, no address
+released, an address released from userinfo instead, the group requirement in
+both directions, a closed instance, attaching and detaching, the last-way-in
+guard, and a subject already claimed by somebody else.
+
+Each of those was checked by breaking the thing it covers and watching it fail:
+removing the nonce comparison, making `consume` stop deleting, dropping the
+last-way-in guard, and skipping the group check each turned tests red.
+
+### Why the provider speaks `http`
+
+A test cannot obtain a certificate a client would trust, so `is_private_or_tls`
+allows `http` on a loopback address and nothing else. The host is compared
+against the three spellings of loopback rather than resolved: a name that
+resolves to `127.0.0.1` today may not tomorrow.
+
+The rule is narrow because the reason for requiring TLS is narrow. An
+authorisation code and a client secret would otherwise be readable on the wire,
+and the signature exemption above holds only while the channel is TLS. On
+loopback the bytes are handed between two processes on one machine and never
+reach a network, so both arguments still hold.
 
 ## The document is fetched once a day
 

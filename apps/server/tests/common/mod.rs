@@ -50,6 +50,10 @@ pub(crate) struct TestApp {
 
 /// Database every test uses unless it asks for something else. In-memory, so
 /// each test gets a private database and nothing has to be cleaned up.
+pub(crate) mod provider;
+
+/// Database every test uses unless it asks for something else. In-memory, so
+/// each test gets a private database and nothing has to be cleaned up.
 pub(crate) const IN_MEMORY_SQLITE: &str = "sqlite::memory:";
 
 impl TestApp {
@@ -578,7 +582,7 @@ impl<'a> Scenario<'a> {
 
 /// `value[key]`, without the panicking index operator, so a missing field fails
 /// the assertion that uses it, not the line that reads it.
-fn field(value: &serde_json::Value, key: &str) -> serde_json::Value {
+pub(crate) fn field(value: &serde_json::Value, key: &str) -> serde_json::Value {
     value.get(key).cloned().unwrap_or(serde_json::Value::Null)
 }
 

@@ -189,8 +189,8 @@ async fn fetch(issuer: &str) -> Result<Provider, DiscoveryError> {
             provider.issuer
         )));
     }
-    if !provider.authorization_endpoint.starts_with("https://")
-        || !provider.token_endpoint.starts_with("https://")
+    if !super::is_private_or_tls(&provider.authorization_endpoint)
+        || !super::is_private_or_tls(&provider.token_endpoint)
     {
         return Err(DiscoveryError::Unusable(
             "its endpoints are not https".to_owned(),
