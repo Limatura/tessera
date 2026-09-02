@@ -27,6 +27,10 @@ on:
       # to it changes how all nine jobs behave — and without this line it was
       # the one thing in the build that could ship without CI running at all.
       - ".github/actions/**"
+      # And the scripts those jobs shell out to — the fuzz seed corpus and the
+      # image footprint report. Same reasoning as the line above: without this
+      # a change to one of them ships without ever having been run.
+      - ".github/scripts/**"
       # The schema pages are generated from the migrations and committed, and
       # the drift check that keeps them honest lives in `checks`. Without these
       # three, a change to the notes or to the generator fires nothing, and the
@@ -170,6 +174,7 @@ jobs:
               - ".cargo/**"
               - ".config/**"
               - ".github/actions/**"
+              - ".github/scripts/**"
               - ".github/workflows/**"
             # The powerset is the most expensive job in the suite and the
             # narrowest in what it can find: a feature combination that does not
@@ -194,6 +199,7 @@ jobs:
               - "Cargo.lock"
               - "rust-toolchain.toml"
               - ".github/actions/**"
+              - ".github/scripts/**"
               - ".github/workflows/**"
             # `checks` regenerates the schema pages and fails on drift, so it
             # has to run when the notes or the generator move, not only when
@@ -1023,6 +1029,12 @@ jobs:
     # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
+    # Read by `image-size-comment`. They are set before the budget check runs,
+    # so a build that fails its budget still hands the numbers over — which is
+    # the run where somebody most wants to see them.
+    outputs:
+      report: ${{ steps.footprint.outputs.report }}
+      rootfs_bytes: ${{ steps.footprint.outputs.rootfs_bytes }}
     if: >-
       needs.changes.outputs.image == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -1112,62 +1124,50 @@ jobs:
       # is a number the build enforces, adding a dependency becomes a concrete
       # question — is this feature worth 3 MB? — instead of an argument.
       #
-      # The rootfs is measured with `docker export`, which flattens the container
-      # filesystem: unlike `docker image inspect`, it means the same thing whether
-      # the daemon uses the classic or the containerd image store.
-      - name: Enforce the footprint budget
-        run: |
-          # A smoke alarm, not a product constraint. Twenty megabytes is not a
-          # size anybody self-hosting notices: the images this sits next to run
-          # from about 30 MB for FileBrowser to a gigabyte for Nextcloud, the
-          # binary is mapped rather than read so unused pages cost no memory,
-          # and on a NAS the disk is not the scarce thing. What this catches is
-          # growth nobody meant — a dependency that dragged in a toolchain, a
-          # frontend bundle that quietly went up fivefold.
-          #
-          # Which means the numbers want headroom, and the previous ones did
-          # not. They were set a quarter above what was measured on 2026-08-12,
-          # and by 2026-08-17 the actual was 18 and 21 — exactly the budget, so
-          # the next change of any size would have failed on somebody else's
-          # growth. An alarm that goes off every time teaches people to raise it
-          # without reading it, and then it is silent on the day it matters.
-          #
-          # These leave about half. That is loose enough to sit still through
-          # ordinary work and tight enough that a doubling still says something.
-          #
-          # Raised on 2026-08-29 for the link-preview cards. Measured on the
-          # release profile, the same build with and without `og-images`:
-          # 19.8 MB against 28.2 MB, so the feature costs 8.4 MB — takumi 5.0
-          # and five embedded font faces 3.3. That left the old budget passing
-          # by 218 KB, which is the state the paragraph above says is worse than
-          # useless, so the budgets move with it rather than being squeaked
-          # under. These again leave about half.
-          BINARY_BUDGET_MB=40
-          ROOTFS_BUDGET_MB=44
+      # The measuring, the comparison against main and the table all live in
+      # `.github/scripts/image-size.sh`, which explains what each figure means
+      # and why it is taken that way. What stays here are the two numbers that
+      # are a product decision rather than a measurement technique.
+      #
+      # # Why these numbers
+      #
+      # A smoke alarm, not a product constraint. Twenty megabytes is not a size
+      # anybody self-hosting notices: the images this sits next to run from
+      # about 30 MB for FileBrowser to a gigabyte for Nextcloud, the binary is
+      # mapped rather than read so unused pages cost no memory, and on a NAS the
+      # disk is not the scarce thing. What this catches is growth nobody meant —
+      # a dependency that dragged in a toolchain, a frontend bundle that quietly
+      # went up fivefold.
+      #
+      # Which means the numbers want headroom, and the previous ones did not.
+      # They were set a quarter above what was measured on 2026-08-12, and by
+      # 2026-08-17 the actual was 18 and 21 — exactly the budget, so the next
+      # change of any size would have failed on somebody else's growth. An alarm
+      # that goes off every time teaches people to raise it without reading it,
+      # and then it is silent on the day it matters.
+      #
+      # These leave about half. That is loose enough to sit still through
+      # ordinary work and tight enough that a doubling still says something.
+      #
+      # Raised on 2026-08-29 for the link-preview cards. Measured on the release
+      # profile, the same build with and without `og-images`: 19.8 MB against
+      # 28.2 MB, so the feature costs 8.4 MB — takumi 5.0 and five embedded font
+      # faces 3.3. That left the old budget passing by 218 KB, which is the state
+      # the paragraph above says is worse than useless, so the budgets move with
+      # it rather than being squeaked under. These again leave about half.
+      - name: Measure the footprint against its budget
+        id: footprint
+        run: .github/scripts/image-size.sh tessera-server:ci
+        env:
+          BINARY_BUDGET_MB: "40"
+          ROOTFS_BUDGET_MB: "44"
 
-          cid=$(docker create tessera-server:ci)
-          docker cp "$cid:/usr/local/bin/tessera-server" /tmp/tessera-server
-          rootfs=$(docker export "$cid" | wc -c)
-          docker rm "$cid" > /dev/null
-
-          binary=$(stat -c%s /tmp/tessera-server)
-          binary_mb=$(( binary / 1000000 ))
-          rootfs_mb=$(( rootfs / 1000000 ))
-
-          echo "binary : ${binary_mb} MB (budget ${BINARY_BUDGET_MB} MB)"
-          echo "rootfs : ${rootfs_mb} MB (budget ${ROOTFS_BUDGET_MB} MB)"
-          echo "pull   : $(docker image inspect tessera-server:ci --format '{{.Size}}' | awk '{printf "%.1f MB", $1/1000000}') as reported by this daemon"
-
-          status=0
-          if [ "$binary_mb" -gt "$BINARY_BUDGET_MB" ]; then
-            echo "::error::binary is ${binary_mb} MB, over the ${BINARY_BUDGET_MB} MB budget"
-            status=1
-          fi
-          if [ "$rootfs_mb" -gt "$ROOTFS_BUDGET_MB" ]; then
-            echo "::error::image rootfs is ${rootfs_mb} MB, over the ${ROOTFS_BUDGET_MB} MB budget"
-            status=1
-          fi
-          exit $status
+      # Only main, and only once the image has proved it works. A baseline taken
+      # from a pull request would make every branch compare against whichever
+      # branch built last, and a baseline taken from a build that failed its
+      # smoke test would anchor the table to something that was never shipped.
+      #
+      # It is written after the smoke test for that reason, further down.
 
       - name: Smoke-test the image
         run: |
@@ -1213,6 +1213,16 @@ jobs:
           echo "::error::the container never became healthy"
           docker logs tessera-smoke
           exit 1
+
+      # The table on every pull request compares against this file. It is
+      # written only on main, and only here — after the smoke test — so the
+      # figure a branch is measured against is one that built, ran, served the
+      # real bundle and reported its commit.
+      #
+      # A file on the runner rather than a cache: see the note in the script.
+      - name: Record this build as the baseline
+        if: github.ref == 'refs/heads/main'
+        run: cp /tmp/tessera-image-size/current.txt /tmp/tessera-image-size/main.txt
 
       # Everything above proves the image works. These two publish it.
       #
@@ -1271,6 +1281,9 @@ jobs:
         run: |
           docker rm -f tessera-smoke 2>/dev/null || true
           docker image rm -f tessera-server:ci 2>/dev/null || true
+          # The copy of the binary the footprint step pulled out of the image.
+          # `main.txt` stays: it is the baseline the next branch reads.
+          rm -f /tmp/tessera-image-size/binary
           docker image prune -f
           # `setup-buildx-action` starts a builder in a container of its own,
           # and each one keeps its state in a volume. Removing the image this
@@ -1289,6 +1302,43 @@ jobs:
           df -h / | tail -1
         env:
           BUILDER: ${{ steps.buildx.outputs.name }}
+
+  # Split out of `docker` on purpose. That job runs eight third-party actions
+  # and holds `packages: write`; giving it `pull-requests: write` as well would
+  # mean any one of them could write to the repository's pull requests. This job
+  # runs no third-party action at all — a checkout and one script — and is the
+  # only thing in the file that can comment.
+  image-size-comment:
+    name: image size comment
+    runs-on: [self-hosted, Linux, X64]
+    permissions:
+      contents: read
+      pull-requests: write
+    timeout-minutes: 5
+    needs: docker
+    # `always()`, because a build that blew its budget is exactly the one whose
+    # numbers somebody wants in front of them. The output being non-empty is
+    # what rules out the cases with nothing to say: a cancelled run, a fork
+    # pull request `docker` never ran for, a branch where the filter skipped it.
+    if: >-
+      always() &&
+      github.event_name == 'pull_request' &&
+      needs.docker.outputs.report != ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Post the footprint table
+        run: .github/scripts/pr-comment.sh
+        # Through the environment, never interpolated into `run:` — the body is
+        # generated text, and `${{ }}` inside a shell script is a substitution
+        # that happens before the shell ever sees quoting.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- tessera:image-size -->"
+          BODY: ${{ needs.docker.outputs.report }}
 
   fuzz:
     name: contract fuzz
