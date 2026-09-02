@@ -102,12 +102,18 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.3.3
         version: 4.3.3(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.11)(yaml@2.9.0))
+      '@tanstack/react-query':
+        specifier: ^5.90.5
+        version: 5.101.4(react@19.2.8)
       '@tanstack/react-router':
         specifier: ^1.170.18
         version: 1.170.24(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-table':
         specifier: ^9.1.2
         version: 9.1.2(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@tessera/api':
+        specifier: workspace:*
+        version: link:../../packages/api
       '@tessera/env':
         specifier: workspace:*
         version: link:../../packages/env

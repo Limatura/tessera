@@ -10,63 +10,206 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as DndDemoRouteImport } from './routes/dnd-demo'
-import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as InvitesRouteImport } from './routes/invites'
+import { Route as SharesRouteImport } from './routes/shares'
+import { Route as UsersRouteImport } from './routes/users'
+import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
+import { Route as DndDemoIndexRouteImport } from './routes/dnd-demo/index'
+import { Route as RolesIndexRouteImport } from './routes/roles/index'
+import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsAccountRouteImport } from './routes/settings/account'
+import { Route as SettingsOidcRouteImport } from './routes/settings/oidc'
+import { Route as SettingsSiteRouteImport } from './routes/settings/site'
+import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
+import { Route as SettingsThemeRouteImport } from './routes/settings/theme'
+import { Route as SettingsUploadRouteImport } from './routes/settings/upload'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const InvitesRoute = InvitesRouteImport.update({
+  id: '/invites',
+  path: '/invites',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DndDemoRoute = DndDemoRouteImport.update({
-  id: '/dnd-demo',
-  path: '/dnd-demo',
+const SharesRoute = SharesRouteImport.update({
+  id: '/shares',
+  path: '/shares',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const UsersRoute = UsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardIndexRoute = DashboardIndexRouteImport.update({
+  id: '/dashboard/',
+  path: '/dashboard/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DndDemoIndexRoute = DndDemoIndexRouteImport.update({
+  id: '/dnd-demo/',
+  path: '/dnd-demo/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RolesIndexRoute = RolesIndexRouteImport.update({
+  id: '/roles/',
+  path: '/roles/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
+  id: '/settings/',
+  path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsAccountRoute = SettingsAccountRouteImport.update({
+  id: '/settings/account',
+  path: '/settings/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsOidcRoute = SettingsOidcRouteImport.update({
+  id: '/settings/oidc',
+  path: '/settings/oidc',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsSiteRoute = SettingsSiteRouteImport.update({
+  id: '/settings/site',
+  path: '/settings/site',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsStorageRoute = SettingsStorageRouteImport.update({
+  id: '/settings/storage',
+  path: '/settings/storage',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsThemeRoute = SettingsThemeRouteImport.update({
+  id: '/settings/theme',
+  path: '/settings/theme',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsUploadRoute = SettingsUploadRouteImport.update({
+  id: '/settings/upload',
+  path: '/settings/upload',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/dnd-demo': typeof DndDemoRoute
-  '/settings': typeof SettingsRoute
+  '/invites': typeof InvitesRoute
+  '/shares': typeof SharesRoute
+  '/users': typeof UsersRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/oidc': typeof SettingsOidcRoute
+  '/settings/site': typeof SettingsSiteRoute
+  '/settings/storage': typeof SettingsStorageRoute
+  '/settings/theme': typeof SettingsThemeRoute
+  '/settings/upload': typeof SettingsUploadRoute
+  '/dashboard/': typeof DashboardIndexRoute
+  '/dnd-demo/': typeof DndDemoIndexRoute
+  '/roles/': typeof RolesIndexRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/dnd-demo': typeof DndDemoRoute
-  '/settings': typeof SettingsRoute
+  '/invites': typeof InvitesRoute
+  '/shares': typeof SharesRoute
+  '/users': typeof UsersRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/oidc': typeof SettingsOidcRoute
+  '/settings/site': typeof SettingsSiteRoute
+  '/settings/storage': typeof SettingsStorageRoute
+  '/settings/theme': typeof SettingsThemeRoute
+  '/settings/upload': typeof SettingsUploadRoute
+  '/dashboard': typeof DashboardIndexRoute
+  '/dnd-demo': typeof DndDemoIndexRoute
+  '/roles': typeof RolesIndexRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/dnd-demo': typeof DndDemoRoute
-  '/settings': typeof SettingsRoute
+  '/invites': typeof InvitesRoute
+  '/shares': typeof SharesRoute
+  '/users': typeof UsersRoute
+  '/settings/account': typeof SettingsAccountRoute
+  '/settings/oidc': typeof SettingsOidcRoute
+  '/settings/site': typeof SettingsSiteRoute
+  '/settings/storage': typeof SettingsStorageRoute
+  '/settings/theme': typeof SettingsThemeRoute
+  '/settings/upload': typeof SettingsUploadRoute
+  '/dashboard/': typeof DashboardIndexRoute
+  '/dnd-demo/': typeof DndDemoIndexRoute
+  '/roles/': typeof RolesIndexRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/dnd-demo' | '/settings'
+  fullPaths:
+    | '/'
+    | '/invites'
+    | '/shares'
+    | '/users'
+    | '/settings/account'
+    | '/settings/oidc'
+    | '/settings/site'
+    | '/settings/storage'
+    | '/settings/theme'
+    | '/settings/upload'
+    | '/dashboard/'
+    | '/dnd-demo/'
+    | '/roles/'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/dnd-demo' | '/settings'
-  id: '__root__' | '/' | '/dashboard' | '/dnd-demo' | '/settings'
+  to:
+    | '/'
+    | '/invites'
+    | '/shares'
+    | '/users'
+    | '/settings/account'
+    | '/settings/oidc'
+    | '/settings/site'
+    | '/settings/storage'
+    | '/settings/theme'
+    | '/settings/upload'
+    | '/dashboard'
+    | '/dnd-demo'
+    | '/roles'
+    | '/settings'
+  id:
+    | '__root__'
+    | '/'
+    | '/invites'
+    | '/shares'
+    | '/users'
+    | '/settings/account'
+    | '/settings/oidc'
+    | '/settings/site'
+    | '/settings/storage'
+    | '/settings/theme'
+    | '/settings/upload'
+    | '/dashboard/'
+    | '/dnd-demo/'
+    | '/roles/'
+    | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRoute
-  DndDemoRoute: typeof DndDemoRoute
-  SettingsRoute: typeof SettingsRoute
+  InvitesRoute: typeof InvitesRoute
+  SharesRoute: typeof SharesRoute
+  UsersRoute: typeof UsersRoute
+  SettingsAccountRoute: typeof SettingsAccountRoute
+  SettingsOidcRoute: typeof SettingsOidcRoute
+  SettingsSiteRoute: typeof SettingsSiteRoute
+  SettingsStorageRoute: typeof SettingsStorageRoute
+  SettingsThemeRoute: typeof SettingsThemeRoute
+  SettingsUploadRoute: typeof SettingsUploadRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+  DndDemoIndexRoute: typeof DndDemoIndexRoute
+  RolesIndexRoute: typeof RolesIndexRoute
+  SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,25 +221,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
+    '/invites': {
+      id: '/invites'
+      path: '/invites'
+      fullPath: '/invites'
+      preLoaderRoute: typeof InvitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shares': {
+      id: '/shares'
+      path: '/shares'
+      fullPath: '/shares'
+      preLoaderRoute: typeof SharesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/users': {
+      id: '/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof UsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard/': {
+      id: '/dashboard/'
       path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+      fullPath: '/dashboard/'
+      preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dnd-demo': {
-      id: '/dnd-demo'
+    '/dnd-demo/': {
+      id: '/dnd-demo/'
       path: '/dnd-demo'
-      fullPath: '/dnd-demo'
-      preLoaderRoute: typeof DndDemoRouteImport
+      fullPath: '/dnd-demo/'
+      preLoaderRoute: typeof DndDemoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings': {
-      id: '/settings'
+    '/roles/': {
+      id: '/roles/'
+      path: '/roles'
+      fullPath: '/roles/'
+      preLoaderRoute: typeof RolesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/': {
+      id: '/settings/'
       path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/account': {
+      id: '/settings/account'
+      path: '/settings/account'
+      fullPath: '/settings/account'
+      preLoaderRoute: typeof SettingsAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/oidc': {
+      id: '/settings/oidc'
+      path: '/settings/oidc'
+      fullPath: '/settings/oidc'
+      preLoaderRoute: typeof SettingsOidcRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/site': {
+      id: '/settings/site'
+      path: '/settings/site'
+      fullPath: '/settings/site'
+      preLoaderRoute: typeof SettingsSiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/storage': {
+      id: '/settings/storage'
+      path: '/settings/storage'
+      fullPath: '/settings/storage'
+      preLoaderRoute: typeof SettingsStorageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/theme': {
+      id: '/settings/theme'
+      path: '/settings/theme'
+      fullPath: '/settings/theme'
+      preLoaderRoute: typeof SettingsThemeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/upload': {
+      id: '/settings/upload'
+      path: '/settings/upload'
+      fullPath: '/settings/upload'
+      preLoaderRoute: typeof SettingsUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -104,9 +317,19 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRoute,
-  DndDemoRoute: DndDemoRoute,
-  SettingsRoute: SettingsRoute,
+  InvitesRoute: InvitesRoute,
+  SharesRoute: SharesRoute,
+  UsersRoute: UsersRoute,
+  SettingsAccountRoute: SettingsAccountRoute,
+  SettingsOidcRoute: SettingsOidcRoute,
+  SettingsSiteRoute: SettingsSiteRoute,
+  SettingsStorageRoute: SettingsStorageRoute,
+  SettingsThemeRoute: SettingsThemeRoute,
+  SettingsUploadRoute: SettingsUploadRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+  DndDemoIndexRoute: DndDemoIndexRoute,
+  RolesIndexRoute: RolesIndexRoute,
+  SettingsIndexRoute: SettingsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

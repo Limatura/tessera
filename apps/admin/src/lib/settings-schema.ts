@@ -89,9 +89,21 @@ export const uploadSettingsSchema = z
 
 export type UploadSettingsValues = z.infer<typeof uploadSettingsSchema>;
 
-// ---- 登入會話時長 auth.session_ttl_hours ----
-export const sessionSettingsSchema = z.object({
+// ---- 帳號與註冊：auth.registration / auth.default_role
+//      / auth.session_ttl_hours / auth.login_history_days ----
+
+/** 對應 server 的 `auth.registration`，值原樣送出。 */
+export const REGISTRATION_MODES = ["open", "invite", "closed"] as const;
+
+export const accountSettingsSchema = z.object({
+  // auth.default_role — 角色「名稱」不是 id，選項來自 GET /admin/roles
+  defaultRole: z.string().min(1, { error: "請選擇一個角色" }),
+  // auth.login_history_days
+  loginHistoryDays: z.number().int().min(1, { error: "至少 1 天" }),
+  // auth.registration
+  registration: z.enum(REGISTRATION_MODES),
+  // auth.session_ttl_hours
   sessionTtlHours: z.number().int().min(1, { error: "至少 1 小時" }),
 });
 
-export type SessionSettingsValues = z.infer<typeof sessionSettingsSchema>;
+export type AccountSettingsValues = z.infer<typeof accountSettingsSchema>;
