@@ -51,9 +51,11 @@ async fn list(app: &TestApp, auth: Auth<'_>) -> Vec<serde_json::Value> {
         StatusCode::OK,
     )
     .await;
+    // The listing is a page now, so the rows are under `data`.
     body_json(response)
         .await
-        .as_array()
+        .get("data")
+        .and_then(serde_json::Value::as_array)
         .cloned()
         .unwrap_or_default()
 }
@@ -280,7 +282,7 @@ async fn deleting_an_account_ends_what_it_was_holding() {
         .await,
     )
     .await;
-    let rows = with_deleted.as_array().expect("a list");
+    let rows = with_deleted["data"].as_array().expect("a list");
     assert_eq!(rows.len(), 2);
 
     // And what is left of it identifies no person.
@@ -1470,9 +1472,9 @@ async fn the_listing_says_who_uploaded_each_share() {
         .await,
     )
     .await;
-    assert_eq!(page["total"], 2);
+    assert_eq!(page["meta"]["total"], 2);
 
-    let rows = page["shares"].as_array().expect("a list");
+    let rows = page["data"].as_array().expect("a list");
     let mine = rows
         .iter()
         .find(|row| row["filename"] == "mine.bin")
@@ -2223,12 +2225,83 @@ async fn admin_share(app: &TestApp, admin: &str) -> u64 {
         .await,
     )
     .await;
-    body.get("shares")
+    body.get("data")
         .and_then(serde_json::Value::as_array)
         .and_then(|rows| rows.first())
         .and_then(|row| row.get("bytes_served"))
         .and_then(serde_json::Value::as_u64)
         .expect("bytes_served in the listing")
+}
+
+/// `offset` used to be read and thrown away, so the second page of an access
+/// log was the first one again. The document advertised the parameter the
+/// whole time.
+/// One page of a share's access log.
+async fn access_log_page(
+    app: &TestApp,
+    owner: &str,
+    id: &str,
+    limit: u64,
+    offset: u64,
+) -> serde_json::Value {
+    let uri = format!("/api/v1/admin/shares/{id}/access-log?limit={limit}&offset={offset}");
+    body_json(
+        expect_status(
+            app.empty(Method::GET, &uri, Auth::Cookie(owner)).await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await
+}
+
+#[tokio::test]
+async fn the_access_log_is_paged_and_offset_moves() {
+    let app = TestApp::with_config(|config| {
+        config.share.access_log.enabled = true;
+    })
+    .await;
+    let (owner, _) = register(&app, "first").await;
+    let share = upload(&app).await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    // Three retrievals, so a page of one has somewhere to move to. `/download`
+    // rather than `/raw`, which is what the other access-log tests record with.
+    for _ in 0..3 {
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/s/{code}/download"))
+                    .header(header::USER_AGENT, "Tessera-Test/1.0"),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await;
+    }
+
+    let id = share["id"].as_str().expect("an id").to_owned();
+
+    let first = access_log_page(&app, &owner, &id, 1, 0).await;
+    assert_eq!(
+        first["meta"]["total"], 3,
+        "the total is the collection, not the page"
+    );
+    assert_eq!(first["meta"]["limit"], 1);
+    assert_eq!(first["meta"]["offset"], 0);
+    assert_eq!(first["meta"]["enabled"], true);
+    assert_eq!(first["data"].as_array().map(Vec::len), Some(1));
+
+    let second = access_log_page(&app, &owner, &id, 1, 1).await;
+    assert_eq!(second["meta"]["offset"], 1);
+    assert_eq!(second["data"].as_array().map(Vec::len), Some(1));
+
+    // Past the end is an empty page, not the first one again.
+    let past = access_log_page(&app, &owner, &id, 1, 9).await;
+    assert_eq!(past["meta"]["total"], 3);
+    assert!(past["data"].as_array().is_some_and(Vec::is_empty));
 }
 
 /// An anonymous share, for the access-log tests below.
@@ -2298,8 +2371,8 @@ async fn the_access_log_says_whether_it_is_even_recording() {
     )
     .await;
 
-    assert_eq!(body["enabled"], false, "the log is off by default");
-    assert!(body["events"].as_array().expect("a list").is_empty());
+    assert_eq!(body["meta"]["enabled"], false, "the log is off by default");
+    assert!(body["data"].as_array().expect("a list").is_empty());
 }
 
 /// And when it is on, an administrator can see what was recorded.
@@ -2342,8 +2415,8 @@ async fn an_administrator_reads_what_was_recorded() {
     )
     .await;
 
-    assert_eq!(body["enabled"], true);
-    let events = body["events"].as_array().expect("a list");
+    assert_eq!(body["meta"]["enabled"], true);
+    let events = body["data"].as_array().expect("a list");
     assert_eq!(events.len(), 1, "one download, one row: {body}");
     assert_eq!(events[0]["user_agent"], "Tessera-Test/1.0");
     assert!(

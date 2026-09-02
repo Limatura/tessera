@@ -140,7 +140,7 @@ pub(super) fn admitted(current: &CurrentUser, permission: Permission) -> Result<
     tag = ADMIN_TAG,
     params(UserListParams),
     responses(
-        (status = 200, description = "Every account on this instance", body = Vec<AdminUserResponse>),
+        (status = 200, description = "A page of accounts", body = AdminUserPage),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 403, description = "Not an administrator, or authenticated with an API token", body = crate::error::ErrorBody),
         (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
@@ -151,23 +151,35 @@ pub async fn list_users(
     State(state): State<AppState>,
     current: CurrentUser,
     ApiQuery(params): ApiQuery<UserListParams>,
-) -> Result<Json<Vec<AdminUserResponse>>> {
+) -> Result<Json<AdminUserPage>> {
     require_admin_feature(&state)?;
     admitted(&current, Permission::UsersRead)?;
 
-    let users = state.users.list(params.include_deleted).await?;
+    let (limit, offset) = page_bounds(&crate::api::shares::SharePageParams {
+        limit: params.limit,
+        offset: params.offset,
+    })?;
+    let users = state
+        .users
+        .list(params.include_deleted, limit, offset)
+        .await?;
     // One query for the whole page. Asking per account would make a list of
     // fifty accounts a hundred and one queries.
     let roles = state.roles.of_users(&users).await?;
-    Ok(Json(
-        users
+    Ok(Json(AdminUserPage {
+        data: users
             .iter()
             .map(|user| {
                 let held = roles.get(&user.id).map_or(&[][..], Vec::as_slice);
                 AdminUserResponse(AccountResponse::build(user, held))
             })
             .collect(),
-    ))
+        meta: crate::api::shares::PageMeta {
+            total: state.users.count(params.include_deleted).await?,
+            limit,
+            offset,
+        },
+    }))
 }
 
 /// Grants or removes the administrator flag.
@@ -648,7 +660,11 @@ pub async fn stats(
     let quota = state.config().storage.max_total_bytes;
 
     Ok(Json(StatsResponse {
-        accounts: state.users.count().await?,
+        // Deleted ones included, which is what this counted before `count`
+        // learned the filter. Whether a dashboard should count tombstones as
+        // accounts is a real question and a different change; this one is not
+        // the place to alter a number somebody may be watching.
+        accounts: state.users.count(true).await?,
         // Counted over the permission, not `users.is_admin`. That column is a
         // mirror kept for rollback and decides nothing; once roles can be
         // assigned directly it stops matching, and a dashboard number that
@@ -1280,15 +1296,30 @@ pub struct UserListParams {
     /// acted on, so it belongs only in an answer that asked for it.
     #[serde(default)]
     pub include_deleted: bool,
+    /// How many to return. Capped, and defaulted when omitted.
+    #[serde(default)]
+    pub limit: Option<u64>,
+    /// How many to skip.
+    #[serde(default)]
+    pub offset: Option<u64>,
+}
+
+/// A page of accounts.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct AdminUserPage {
+    /// The accounts on this page, newest first.
+    pub data: Vec<AdminUserResponse>,
+    /// The collection they came from.
+    pub meta: crate::api::shares::PageMeta,
 }
 
 /// A page of shares.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AdminSharePage {
     /// The shares on this page.
-    pub shares: Vec<AdminShareResponse>,
-    /// How many exist in total, so a client can render pagination.
-    pub total: u64,
+    pub data: Vec<AdminShareResponse>,
+    /// The collection they came from.
+    pub meta: crate::api::shares::PageMeta,
 }
 
 /// Lists every share on the instance, newest first.
@@ -1327,7 +1358,7 @@ pub async fn list_shares(
     let now = OffsetDateTime::now_utc();
 
     Ok(Json(AdminSharePage {
-        shares: shares
+        data: shares
             .iter()
             .filter_map(|share| {
                 contents
@@ -1335,7 +1366,11 @@ pub async fn list_shares(
                     .map(|content| AdminShareResponse::build(share, content, now))
             })
             .collect(),
-        total: state.shares.count_all().await?,
+        meta: crate::api::shares::PageMeta {
+            total: state.shares.count_all().await?,
+            limit,
+            offset,
+        },
     }))
 }
 
@@ -1360,14 +1395,28 @@ pub struct AccessEventResponse {
 /// A share's recorded retrievals.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AccessLogResponse {
+    /// The events on this page, most recent first.
+    pub data: Vec<AccessEventResponse>,
+    /// The collection they came from, and whether anything is being recorded.
+    pub meta: AccessLogMeta,
+}
+
+/// [`PageMeta`](crate::api::shares::PageMeta) plus the one fact this list needs
+/// that the others do not.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
+pub struct AccessLogMeta {
+    /// How many events this share has, not how many are on this page.
+    pub total: u64,
+    /// The page size actually used.
+    pub limit: u64,
+    /// How many were skipped.
+    pub offset: u64,
     /// Whether this instance is recording at all.
     ///
     /// An empty list means the share was never fetched, or that recording is
     /// off. A screen that cannot tell those apart reports the second as the
     /// first.
     pub enabled: bool,
-    /// The events, most recent first.
-    pub events: Vec<AccessEventResponse>,
 }
 
 /// Reads who has fetched one share.
@@ -1419,12 +1468,19 @@ pub async fn share_access_log(
         return Err(Error::NotFound);
     }
 
-    let (limit, _) = page_bounds(&params)?;
-    let events = state.events.for_share(share_id, limit).await?;
+    // `offset` used to be read and thrown away, so the document advertised a
+    // parameter that did nothing and a second page returned the first one.
+    let (limit, offset) = page_bounds(&params)?;
+    let events = state.events.for_share(share_id, limit, offset).await?;
 
     Ok(Json(AccessLogResponse {
-        enabled: state.config().share.access_log.enabled,
-        events: events
+        meta: AccessLogMeta {
+            total: state.events.count_for_share(share_id).await?,
+            limit,
+            offset,
+            enabled: state.config().share.access_log.enabled,
+        },
+        data: events
             .into_iter()
             .map(|event| AccessEventResponse {
                 occurred_at: format_timestamp(event.occurred_at),

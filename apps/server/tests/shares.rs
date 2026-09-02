@@ -362,7 +362,7 @@ async fn a_listing_shows_only_the_callers_own_shares() {
         .await,
     )
     .await;
-    let titles: Vec<_> = listed["shares"]
+    let titles: Vec<_> = listed["data"]
         .as_array()
         .expect("an array")
         .iter()
@@ -428,19 +428,19 @@ async fn the_listing_is_paged_and_says_how_much_there_is() {
 
     let first = page("?limit=2").await;
     assert_eq!(
-        first["shares"].as_array().expect("an array").len(),
+        first["data"].as_array().expect("an array").len(),
         2,
         "the limit is what decides the page size"
     );
     assert_eq!(
-        first["total"], 5,
+        first["meta"]["total"], 5,
         "`total` counts what exists, not what came back"
     );
 
     // Newest first, so an offset of two skips the two most recent.
     let second = page("?limit=2&offset=2").await;
     let titles = |value: &serde_json::Value| -> Vec<String> {
-        value["shares"]
+        value["data"]
             .as_array()
             .expect("an array")
             .iter()
@@ -2265,7 +2265,7 @@ async fn the_uploader_sees_the_counts_on_their_own_share() {
         .await,
     )
     .await;
-    let mine = listed["shares"]
+    let mine = listed["data"]
         .as_array()
         .expect("a list")
         .first()
@@ -2667,7 +2667,7 @@ async fn nothing_is_recorded_until_the_operator_asks() {
     assert!(
         app.state
             .events
-            .for_share(id, 10)
+            .for_share(id, 10, 0)
             .await
             .expect("query")
             .is_empty(),
@@ -2700,7 +2700,7 @@ async fn a_download_is_recorded_once_the_log_is_on() {
     )
     .await;
 
-    let events = app.state.events.for_share(id, 10).await.expect("query");
+    let events = app.state.events.for_share(id, 10, 0).await.expect("query");
     assert_eq!(events.len(), 1, "one download, one row");
     assert_eq!(events[0].user_agent.as_deref(), Some("Tessera-Test/1.0"));
 }
@@ -2728,7 +2728,7 @@ async fn a_head_request_is_not_an_access() {
     assert!(
         app.state
             .events
-            .for_share(id, 10)
+            .for_share(id, 10, 0)
             .await
             .expect("query")
             .is_empty(),
@@ -2757,7 +2757,7 @@ async fn the_sweep_clears_old_events_even_after_the_log_is_switched_off() {
     assert_eq!(
         app.state
             .events
-            .for_share(id, 10)
+            .for_share(id, 10, 0)
             .await
             .expect("query")
             .len(),
@@ -2769,7 +2769,7 @@ async fn the_sweep_clears_old_events_even_after_the_log_is_switched_off() {
     assert!(
         app.state
             .events
-            .for_share(id, 10)
+            .for_share(id, 10, 0)
             .await
             .expect("query")
             .is_empty(),

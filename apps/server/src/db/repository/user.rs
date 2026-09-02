@@ -319,15 +319,21 @@ impl UserRepository {
         )
     }
 
-    /// Every account, newest first.
+    /// One page of accounts, newest first.
     ///
-    /// No pagination. The instance this is built for has a handful of accounts,
-    /// and an unused page parameter is tested once and then rots.
+    /// Paged now, having been a bare list. The reasoning for not paging it was
+    /// that this instance has a handful of accounts, and that holds for the
+    /// panel and not for an instance that opened registration.
     ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the query fails or a row is not usable.
-    pub async fn list(&self, include_deleted: bool) -> Result<Vec<User>, UserRepositoryError> {
+    pub async fn list(
+        &self,
+        include_deleted: bool,
+        limit: u64,
+        offset: u64,
+    ) -> Result<Vec<User>, UserRepositoryError> {
         let mut query = UserEntity::find().order_by_desc(user::Column::CreatedAt);
         if !include_deleted {
             // Off by default: a deleted account is a row that exists to keep
@@ -335,7 +341,11 @@ impl UserRepository {
             // every listing fills with scrubbed names that cannot be acted on.
             query = query.filter(user::Column::State.ne(AccountState::Deleted.as_str()));
         }
-        let models = query.all(&self.connection).await?;
+        let models = query
+            .limit(limit)
+            .offset(offset)
+            .all(&self.connection)
+            .await?;
         models
             .into_iter()
             .map(|model| User::from_model(&model).map_err(UserRepositoryError::from))
@@ -344,11 +354,18 @@ impl UserRepository {
 
     /// How many accounts exist.
     ///
+    /// Takes the same filter the listing does, so the total describes the
+    /// collection being paged rather than a different one.
+    ///
     /// # Errors
     ///
     /// Returns [`UserRepositoryError`] if the query fails.
-    pub async fn count(&self) -> Result<u64, UserRepositoryError> {
-        Ok(UserEntity::find().count(&self.connection).await?)
+    pub async fn count(&self, include_deleted: bool) -> Result<u64, UserRepositoryError> {
+        let mut query = UserEntity::find();
+        if !include_deleted {
+            query = query.filter(user::Column::State.ne(AccountState::Deleted.as_str()));
+        }
+        Ok(query.count(&self.connection).await?)
     }
 
     /// Changes an account's name, address, or both.

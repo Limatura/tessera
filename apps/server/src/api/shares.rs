@@ -487,13 +487,36 @@ pub fn page_bounds(params: &SharePageParams) -> Result<(u64, u64)> {
     ))
 }
 
+/// What a client needs to draw pagination, for any paged list.
+///
+/// # Why the list endpoints have an envelope and nothing else does
+///
+/// A paged response has two things in it: the rows, and facts about the
+/// collection they came from. Without somewhere to put the second, `total`
+/// ends up beside the rows under a name invented per endpoint, and a client
+/// reading two lists reads them two ways. Every other endpoint answers with
+/// one object and has nothing of the kind to carry, so wrapping those would
+/// add a level of nesting that says nothing.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
+pub struct PageMeta {
+    /// How many exist in total, not how many are on this page.
+    #[schema(example = 137)]
+    pub total: u64,
+    /// The page size actually used, which is not always the one asked for.
+    #[schema(example = 50)]
+    pub limit: u64,
+    /// How many were skipped.
+    #[schema(example = 0)]
+    pub offset: u64,
+}
+
 /// A page of the caller's shares.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct SharePage {
     /// The shares on this page.
-    pub shares: Vec<ShareResponse>,
-    /// How many the caller has in total, so a client can render pagination.
-    pub total: u64,
+    pub data: Vec<ShareResponse>,
+    /// The collection they came from.
+    pub meta: PageMeta,
 }
 
 /// Lists the caller's shares, newest first.
@@ -536,7 +559,7 @@ pub async fn list(
     // One query for the page, not one per share. See `contents_for`.
     let contents = state.shares.contents_for(&shares).await?;
     Ok(Json(SharePage {
-        shares: shares
+        data: shares
             .iter()
             .filter_map(|share| {
                 contents
@@ -544,7 +567,11 @@ pub async fn list(
                     .map(|content| ShareResponse::from_share(share, content, None))
             })
             .collect(),
-        total: state.shares.count_for_user(current.user.id).await?,
+        meta: PageMeta {
+            total: state.shares.count_for_user(current.user.id).await?,
+            limit,
+            offset,
+        },
     }))
 }
 

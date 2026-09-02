@@ -35,24 +35,58 @@ expression: document
         ],
         "type": "object"
       },
-      "AccessLogResponse": {
-        "description": "A share's recorded retrievals.",
+      "AccessLogMeta": {
+        "description": "[`PageMeta`](crate::api::shares::PageMeta) plus the one fact this list needs\nthat the others do not.",
         "properties": {
           "enabled": {
             "description": "Whether this instance is recording at all.\n\nAn empty list means the share was never fetched, or that recording is\noff. A screen that cannot tell those apart reports the second as the\nfirst.",
             "type": "boolean"
           },
-          "events": {
-            "description": "The events, most recent first.",
+          "limit": {
+            "description": "The page size actually used.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "How many were skipped.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "description": "How many events this share has, not how many are on this page.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "enabled"
+        ],
+        "type": "object"
+      },
+      "AccessLogResponse": {
+        "description": "A share's recorded retrievals.",
+        "properties": {
+          "data": {
+            "description": "The events on this page, most recent first.",
             "items": {
               "$ref": "#/components/schemas/AccessEventResponse"
             },
             "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/AccessLogMeta",
+            "description": "The collection they came from, and whether anything is being recorded."
           }
         },
         "required": [
-          "enabled",
-          "events"
+          "data",
+          "meta"
         ],
         "type": "object"
       },
@@ -128,23 +162,21 @@ expression: document
       "AdminSharePage": {
         "description": "A page of shares.",
         "properties": {
-          "shares": {
+          "data": {
             "description": "The shares on this page.",
             "items": {
               "$ref": "#/components/schemas/AdminShareResponse"
             },
             "type": "array"
           },
-          "total": {
-            "description": "How many exist in total, so a client can render pagination.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta",
+            "description": "The collection they came from."
           }
         },
         "required": [
-          "shares",
-          "total"
+          "data",
+          "meta"
         ],
         "type": "object"
       },
@@ -217,6 +249,27 @@ expression: document
           "bytes_served",
           "active",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "AdminUserPage": {
+        "description": "A page of accounts.",
+        "properties": {
+          "data": {
+            "description": "The accounts on this page, newest first.",
+            "items": {
+              "$ref": "#/components/schemas/AdminUserResponse"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta",
+            "description": "The collection they came from."
+          }
+        },
+        "required": [
+          "data",
+          "meta"
         ],
         "type": "object"
       },
@@ -815,6 +868,38 @@ expression: document
           }
         ]
       },
+      "PageMeta": {
+        "description": "What a client needs to draw pagination, for any paged list.\n\n# Why the list endpoints have an envelope and nothing else does\n\nA paged response has two things in it: the rows, and facts about the\ncollection they came from. Without somewhere to put the second, `total`\nends up beside the rows under a name invented per endpoint, and a client\nreading two lists reads them two ways. Every other endpoint answers with\none object and has nothing of the kind to carry, so wrapping those would\nadd a level of nesting that says nothing.",
+        "properties": {
+          "limit": {
+            "description": "The page size actually used, which is not always the one asked for.",
+            "example": 50,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "offset": {
+            "description": "How many were skipped.",
+            "example": 0,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "total": {
+            "description": "How many exist in total, not how many are on this page.",
+            "example": 137,
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset"
+        ],
+        "type": "object"
+      },
       "PasswordResetConfirmRequest": {
         "additionalProperties": false,
         "description": "Body of `POST /auth/password-reset/confirm`.",
@@ -1391,23 +1476,21 @@ expression: document
       "SharePage": {
         "description": "A page of the caller's shares.",
         "properties": {
-          "shares": {
+          "data": {
             "description": "The shares on this page.",
             "items": {
               "$ref": "#/components/schemas/ShareResponse"
             },
             "type": "array"
           },
-          "total": {
-            "description": "How many the caller has in total, so a client can render pagination.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
+          "meta": {
+            "$ref": "#/components/schemas/PageMeta",
+            "description": "The collection they came from."
           }
         },
         "required": [
-          "shares",
-          "total"
+          "data",
+          "meta"
         ],
         "type": "object"
       },
@@ -3517,6 +3600,34 @@ expression: document
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "description": "How many to return. Capped, and defaulted when omitted.",
+            "in": "path",
+            "name": "limit",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          {
+            "description": "How many to skip.",
+            "in": "path",
+            "name": "offset",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -3524,14 +3635,11 @@ expression: document
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AdminUserResponse"
-                  },
-                  "type": "array"
+                  "$ref": "#/components/schemas/AdminUserPage"
                 }
               }
             },
-            "description": "Every account on this instance"
+            "description": "A page of accounts"
           },
           "401": {
             "content": {

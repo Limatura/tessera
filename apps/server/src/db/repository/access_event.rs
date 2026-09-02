@@ -85,11 +85,13 @@ impl AccessEventRepository {
         &self,
         share_id: ShareId,
         limit: u64,
+        offset: u64,
     ) -> Result<Vec<AccessEvent>, sea_orm::DbErr> {
         Ok(AccessEventEntity::find()
             .filter(access_event::Column::ShareId.eq(share_id.to_string()))
             .order_by_desc(access_event::Column::OccurredAt)
             .limit(limit)
+            .offset(offset)
             .all(&self.connection)
             .await?
             .into_iter()
@@ -99,6 +101,21 @@ impl AccessEventRepository {
                 user_agent: row.user_agent,
             })
             .collect())
+    }
+
+    /// How many events one share has.
+    ///
+    /// Counted rather than taken from the length of a page, which would report
+    /// the page size on every page but the last.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`sea_orm::DbErr`] if the query fails.
+    pub async fn count_for_share(&self, share_id: ShareId) -> Result<u64, sea_orm::DbErr> {
+        AccessEventEntity::find()
+            .filter(access_event::Column::ShareId.eq(share_id.to_string()))
+            .count(&self.connection)
+            .await
     }
 
     /// How many events a cutoff would remove.
