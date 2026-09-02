@@ -1,47 +1,21 @@
-import { createRoute } from "@tanstack/react-router";
+import { createRoute, redirect } from "@tanstack/react-router";
 
-import { m } from "@/paraglide/messages.js";
+import { landingRoute } from "@/lib/permissions";
+import { requireAuth } from "@/lib/route-guard";
 
 import { Route as rootRoute } from "./__root";
 
+/**
+ * 後台首頁本身不顯示任何東西，只負責把人送到他權限內的第一個頁面。
+ *
+ * 權限少的人進儀表板會是一片空白，所以登入後要往下找第一個進得去的；都沒有就落到
+ * 「我的分享」（見 lib/permissions.ts 的 LANDING_ORDER）。
+ */
 export const Route = createRoute({
-  component: HomeComponent,
+  beforeLoad: async ({ context, location }) => {
+    const { account } = await requireAuth(context.queryClient, location.href);
+    throw redirect({ to: landingRoute(account) });
+  },
   getParentRoute: () => rootRoute,
   path: "/",
 });
-
-const TITLE_TEXT = `
- ██████╗ ███████╗████████╗████████╗███████╗██████╗
- ██╔══██╗██╔════╝╚══██╔══╝╚══██╔══╝██╔════╝██╔══██╗
- ██████╔╝█████╗     ██║      ██║   █████╗  ██████╔╝
- ██╔══██╗██╔══╝     ██║      ██║   ██╔══╝  ██╔══██╗
- ██████╔╝███████╗   ██║      ██║   ███████╗██║  ██║
- ╚═════╝ ╚══════╝   ╚═╝      ╚═╝   ╚══════╝╚═╝  ╚═╝
-
- ████████╗    ███████╗████████╗ █████╗  ██████╗██╗  ██╗
- ╚══██╔══╝    ██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║ ██╔╝
-    ██║       ███████╗   ██║   ███████║██║     █████╔╝
-    ██║       ╚════██║   ██║   ██╔══██║██║     ██╔═██╗
-    ██║       ███████║   ██║   ██║  ██║╚██████╗██║  ██╗
-    ╚═╝       ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
- `;
-
-function HomeComponent() {
-  return (
-    <div className="container mx-auto max-w-3xl px-4 py-2">
-      <pre className="overflow-x-auto font-mono text-sm">{TITLE_TEXT}</pre>
-      <div className="grid gap-6">
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 font-medium">{m.home_api_status()}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {m.home_description()}
-          </p>
-        </section>
-        <section className="rounded-lg border p-4">
-          <h2 className="mb-2 font-medium">{m.home_title()}</h2>
-          <p className="text-sm text-muted-foreground">{m.home_subtitle()}</p>
-        </section>
-      </div>
-    </div>
-  );
-}

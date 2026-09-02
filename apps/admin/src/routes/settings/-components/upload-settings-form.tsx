@@ -15,6 +15,7 @@ import { Controller, useForm } from "react-hook-form";
 import { uploadSettingsSchema } from "@/lib/settings-schema";
 import type { UploadSettingsValues } from "@/lib/settings-schema";
 
+import { GuestAnonymousWarning } from "./guest-anonymous-warning";
 import { NumberField } from "./number-field";
 
 const DEFAULT_MAX_BODY_BYTES = 100 * 1024 * 1024;
@@ -49,6 +50,8 @@ export function UploadSettingsForm() {
   return (
     <form onSubmit={onSubmit}>
       <FieldGroup>
+        <GuestAnonymousWarning fixAt="account" />
+
         <Controller
           control={control}
           name="throttleWindowSecs"

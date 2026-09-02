@@ -6,12 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **@apps/admin** is the React admin dashboard for Tessera, an anonymous file courier service. It's an internal management console for operators — not exposed to end users. It covers server configuration (storage, uploads, sessions, OIDC), site branding, and monitoring (recent shares, storage trend).
 
-The app is embedded in the Rust backend binary and served from it — there is no separate deployment layer. All business logic lives in the backend API; this frontend is purely presentation and orchestration.
+Unlike `apps/web`, this app is **not** embedded in the Rust binary — `apps/server/build.rs` only mirrors `apps/web/dist`. Admin ships separately (its own `Dockerfile` + `nginx.conf`) and sits behind a reverse proxy that puts it on the same domain as the frontend, so the session cookie is shared. All business logic lives in the backend API; this frontend is purely presentation and orchestration.
 
 ## Tech Stack
 
 - **React 19+** with TanStack Router v1
-- **Vite** for bundling and dev server (port 3001, same as apps/web — don't run both dev servers at once without changing one)
+- **Vite** for bundling and dev server (port 3002; `apps/web` is 3001, so both can run at once)
+- **TanStack Query** for server state (session, users, roles, invites)
 - **TypeScript** for type safety
 - **Tailwind CSS** + **shadcn/ui** (via @tessera/ui) for styling
 - **Paraglide** for i18n (cookie + Accept-Language strategy, same as apps/web)
@@ -32,24 +33,36 @@ The app is embedded in the Rust backend binary and served from it — there is n
 ```
 src/
 ├── routes/                      # TanStack Router file-based routing
-│   ├── __root.tsx               # Root layout (theme, locale, toaster)
-│   ├── index.tsx
-│   ├── dashboard.tsx             # Stats cards, storage trend chart, recent shares table
-│   ├── settings.tsx              # Settings forms (site/storage/upload/session/oidc/theme)
-│   └── dnd-demo.tsx
+│   ├── __root.tsx               # Root layout (theme, locale, toaster); context carries queryClient
+│   ├── index.tsx                 # No UI — redirects to the first page the account may open
+│   ├── shares.tsx                # The caller's own shares — the fallback landing page, auth only
+│   ├── users.tsx                 # Accounts and their roles (users:read)
+│   ├── invites.tsx               # Invite codes (invites:read)
+│   ├── dashboard/                # Stats cards, storage trend, recent shares (stats:read)
+│   ├── roles/                    # Roles and what they permit (roles:read)
+│   ├── settings/                 # One route per section, all gated on settings:read
+│   │   ├── index.tsx             # No UI — redirects /settings to /settings/site
+│   │   ├── site.tsx / theme.tsx / account.tsx
+│   │   ├── upload.tsx / storage.tsx / oidc.tsx
+│   │   └── -components/
+│   │       ├── settings-page.tsx           # Shell every section renders inside
+│   │       ├── account-settings-form.tsx   # The one form wired to the real API
+│   │       ├── guest-anonymous-warning.tsx # Shown on both account and upload
+│   │       ├── *-settings-form.tsx         # site / theme / upload / storage / oidc
+│   │       └── number-field.tsx            # Shared numeric input for the forms above
+│   └── dnd-demo/
 ├── components/
-│   ├── settings/                 # One form component per settings section
-│   │   ├── site-settings-form.tsx
-│   │   ├── storage-settings-form.tsx
-│   │   ├── upload-settings-form.tsx
-│   │   ├── session-settings-form.tsx
-│   │   ├── oidc-settings-form.tsx
-│   │   ├── theme-settings-form.tsx
-│   │   └── number-field.tsx      # Shared numeric input for the forms above
-│   ├── app-sidebar.tsx / site-header.tsx
-│   ├── stats-cards.tsx / storage-trend-chart.tsx / recent-shares-table.tsx
+│   ├── admin-shell.tsx           # Sidebar + header frame every page renders inside
+│   ├── app-sidebar.tsx / nav-main.tsx / nav-user.tsx / site-header.tsx
 │   └── theme-provider.tsx
+├── hooks/
+│   ├── use-auth.ts               # sessionQueryOptions / useSession / useLogin / useLogout
+│   ├── use-admin.ts              # roles, permissions, users, invites, own shares + role mutations
+│   └── use-settings.ts           # GET/PUT /admin/settings + readSetting(key)
 ├── lib/
+│   ├── permissions.ts            # Permission constants, hasPermission, landing order, role labels
+│   ├── route-guard.ts            # requireAuth / requirePermission for a route's beforeLoad
+│   ├── web-url.ts                # Builds apps/web URLs from VITE_FRONTEND_URL (login lives there)
 │   ├── settings-schema.ts        # Zod schemas for every settings form — source of truth for field shape
 │   ├── format.ts
 │   └── locale.ts
@@ -70,16 +83,32 @@ pnpm check                # Format + lint (Ultracite/Oxlint/Oxfmt)
 pnpm fix                  # Auto-fix linting and formatting issues
 
 # From apps/admin
-pnpm dev                  # Start dev server
+pnpm dev                  # Start dev server (proxies /api to the backend on :8787)
 pnpm build                # Vite production build
 pnpm check-types          # Type check + build (catches routing issues)
 ```
 
 ### Key Concepts
 
+**Auth and permissions**
+
+There is no login page here. Admin and `apps/web` share a domain behind the reverse proxy, so they share the session cookie; an unauthenticated visitor is sent to the frontend's login page with a `redirect` back to where they were headed. `src/lib/web-url.ts` builds those URLs from `VITE_FRONTEND_URL` (empty = same origin at root; set it to `http://localhost:3001` in dev, where the two dev servers are on different ports).
+
+Authorization reads `permissions` off `/auth/session`. **Never branch on `is_admin`** — the field still exists for older clients but only reports "holds the admin or owner role", not what the account may actually do. `src/lib/permissions.ts` holds the permission strings (mirroring `crates/tessera-core/src/permission.rs`, which is a fixed enum, not a table).
+
+Every route gates itself in `beforeLoad` via `requireAuth` / `requirePermission` (`src/lib/route-guard.ts`). Lacking a permission redirects to the first page that account _can_ open rather than showing a 403 — the order lives in `LANDING_ORDER`, falling back to `/shares`, which needs only a session. The sidebar filters itself by the same permissions, but that is cosmetic: the route guard and the server are what actually enforce anything.
+
+Roles are database rows and one account holds at most one. An empty `roles` array ("未指派") and the seeded `guest` role are both zero permissions, but they mean different things — nobody has decided yet, versus somebody deliberately chose the most restricted role — so the UI must keep them visually distinct.
+
 **Settings forms ↔ backend config mapping**
 
 `src/lib/settings-schema.ts` is the source of truth for every settings field. Each schema's comments map its fields back to `apps/server/src/config.rs` (`server.*`, `storage.*`, `share.*`, `auth.*`, `features.*`, snake_case → camelCase). Read this file before touching any settings form — it also flags which sections/fields are **not yet backed by the server** (marked "(新)" in the source: OIDC, site title/description/SEO, theme, admin-entry visibility, allowed upload types). Do not wire those to a real API call until the server exposes the corresponding config.
+
+Settings are one flat list of dotted keys, not a typed object: `GET /admin/settings` returns every key with its value, where that value came from, and whether this endpoint will change it. `use-settings.ts` wraps that; `readSetting(data, key)` returns `unknown` because the shape depends on which key you asked for. Writes go through `useUpdateSettings` as `{key: value}` and are validated as a **set** — one bad key rejects the whole batch, so send only the fields that actually changed (see how `account-settings-form.tsx` uses `dirtyFields`), and put keys in the same request only when they need to take effect together.
+
+**Only `account-settings-form.tsx` is wired to that API.** The other five sections are still local `useForm` state whose submit does nothing — their fields are either fixed at boot (`server.max_body_bytes`) or have no server config at all.
+
+`GuestAnonymousWarning` reads live server values rather than form state on purpose: it describes what this instance is actually configured to do, so it stays true regardless of which forms are wired. The page that owns `auth.default_role` passes its unsaved value in to preview the warning before saving.
 
 **TanStack Router (v1)**
 
@@ -109,6 +138,9 @@ pnpm check-types          # Type check + build (catches routing issues)
 1. **Dashboard data is mocked** (`src/data/dashboard-mock.json`) — stats cards, storage trend, and recent shares need real backend endpoints
 2. **Settings sections without a backend field yet**: OIDC, site title/description/SEO, theme, admin-entry-on-home visibility, allowed upload types — see the "(新)" markers in `settings-schema.ts`
 3. **dnd-demo route** looks like a scratch/demo route — confirm with the team before building on it or removing it
+4. **The users / invites / roles / shares pages are read-only lists.** The mutations they would need already exist in `use-admin.ts` (`useCreateRole`, `useUpdateRole`, `useDeleteRole`, `useSetUserRole`) but nothing calls them yet — no create/edit UI
+5. **Five of the six settings sections still do nothing on submit** — only 帳號與註冊 (`account-settings-form.tsx`) talks to the server. 上傳設置 and 存儲配置 have real backing for most of their fields (`auth.throttle.source.*`, `storage.max_total_bytes`, `share.*_expiry_hours`, `storage.url`, `server.part_size_bytes`) and could be wired the same way; `server.max_body_bytes` cannot — it is fixed at boot
+6. **No section uses tabs any more.** Each is its own route under the collapsible sidebar group. Add tabs back only when a single section grows enough sub-detail to need them (`auth.hashing.*` and the seven `auth.throttle.*` groups would be the first candidates, under 帳號與註冊)
 
 ## Debugging
 

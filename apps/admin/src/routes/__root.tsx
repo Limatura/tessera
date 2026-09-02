@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import {
   HeadContent,
   Outlet,
@@ -16,8 +17,9 @@ import {
 
 import "../index.css";
 
-// oxlint-disable-next-line no-empty-interface, no-empty-object-type -- reserved for future router context fields
-export interface RouterAppContext {}
+export interface RouterAppContext {
+  queryClient: QueryClient;
+}
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,

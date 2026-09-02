@@ -20,57 +20,82 @@ import {
 } from "@tessera/ui/components/sidebar";
 import type * as React from "react";
 
+import type { NavEntry, NavLink } from "@/components/nav-main";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
+import { useSession } from "@/hooks/use-auth";
+import type { Permission } from "@/lib/permissions";
+import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 
-const data = {
-  navDev: [
-    {
-      icon: <IconArrowsSort />,
-      title: "拖曳排序 Demo",
-      url: "/dnd-demo",
-    },
-  ],
-  navMain: [
-    {
-      icon: <IconDashboard />,
-      title: "儀表板",
-      url: "/dashboard",
-    },
-    {
-      icon: <IconFiles />,
-      title: "分享管理",
-      url: "/shares",
-    },
-    {
-      icon: <IconUsers />,
-      title: "使用者",
-      url: "/users",
-    },
-    {
-      icon: <IconKey />,
-      title: "邀請碼",
-      url: "/invites",
-    },
-    {
-      icon: <IconShieldLock />,
-      title: "角色與權限",
-      url: "/roles",
-    },
-    {
-      icon: <IconSettings />,
-      title: "系統設定",
-      url: "/settings",
-    },
-  ],
-  user: {
-    avatar: "",
-    email: "admin@localhost.invalid",
-    name: "admin",
+/** 設定的各個分頁。整組共用 `settings:read`，所以只在外層擋一次。 */
+const SETTINGS_ITEMS: NavLink[] = [
+  { title: "網站資訊", url: "/settings/site" },
+  { title: "介面主題", url: "/settings/theme" },
+  { title: "帳號與註冊", url: "/settings/account" },
+  { title: "上傳設置", url: "/settings/upload" },
+  { title: "存儲配置", url: "/settings/storage" },
+  { title: "OIDC 設定", url: "/settings/oidc" },
+];
+
+/**
+ * `permission` 為 undefined 代表只要登入就看得到。
+ *
+ * 這裡藏起來的項目只是不讓人點進一個會被轉走的頁面，真正的授權是每個路由的
+ * `beforeLoad` 加上 server 端的檢查。
+ */
+const NAV_ITEMS: (NavEntry & { permission?: Permission })[] = [
+  {
+    icon: <IconDashboard />,
+    permission: PERMISSIONS.statsRead,
+    title: "儀表板",
+    url: "/dashboard",
   },
-};
+  {
+    icon: <IconFiles />,
+    title: "我的分享",
+    url: "/shares",
+  },
+  {
+    icon: <IconUsers />,
+    permission: PERMISSIONS.usersRead,
+    title: "使用者",
+    url: "/users",
+  },
+  {
+    icon: <IconKey />,
+    permission: PERMISSIONS.invitesRead,
+    title: "邀請碼",
+    url: "/invites",
+  },
+  {
+    icon: <IconShieldLock />,
+    permission: PERMISSIONS.rolesRead,
+    title: "角色與權限",
+    url: "/roles",
+  },
+  {
+    icon: <IconSettings />,
+    items: SETTINGS_ITEMS,
+    permission: PERMISSIONS.settingsRead,
+    title: "系統設定",
+  },
+];
+
+const DEV_ITEMS = [
+  {
+    icon: <IconArrowsSort />,
+    title: "拖曳排序 Demo",
+    url: "/dnd-demo",
+  },
+];
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { data: account } = useSession();
+
+  const items: NavEntry[] = NAV_ITEMS.filter(
+    (item) => !item.permission || hasPermission(account, item.permission)
+  );
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -78,7 +103,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarMenuItem>
             <SidebarMenuButton
               className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<Link to="/" aria-label="Tessera 首頁" />}
+              render={<Link aria-label="Tessera 首頁" to="/" />}
             >
               <IconInnerShadowTop className="size-5!" />
               <span className="text-base font-semibold">Tessera Admin</span>
@@ -87,11 +112,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavMain items={data.navDev} label="開發工具" />
+        <NavMain items={items} />
+        <NavMain items={DEV_ITEMS} label="開發工具" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );
