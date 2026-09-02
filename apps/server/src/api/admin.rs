@@ -1288,6 +1288,7 @@ impl AdminShareResponse {
 
 /// Whether a listing should include accounts that have been removed.
 #[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct UserListParams {
     /// Include accounts that have been deleted.

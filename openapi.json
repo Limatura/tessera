@@ -3590,9 +3590,9 @@
         "parameters": [
           {
             "description": "Include accounts that have been deleted.\n\nOff by default. What is left of one identifies no person and cannot be\nacted on, so it belongs only in an answer that asked for it.",
-            "in": "path",
+            "in": "query",
             "name": "include_deleted",
-            "required": true,
+            "required": false,
             "schema": {
               "type": "boolean"
             }
@@ -5912,27 +5912,21 @@
           {
             "description": "What to call the file.",
             "example": "holiday.mp4",
-            "in": "path",
+            "in": "query",
             "name": "filename",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           },
           {
             "description": "Retrieval code of the share to append to.\n\nOmit to make a new share when the upload finishes.",
             "example": "4GSVV6QT",
-            "in": "path",
+            "in": "query",
             "name": "code",
-            "required": true,
+            "required": false,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": "string"
             }
           }
         ],

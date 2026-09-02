@@ -107,6 +107,7 @@ const OFFSET_CONTENT_TYPE: &str = "application/offset+octet-stream";
 
 /// Where a finished upload should land.
 #[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct CreateUploadParams {
     /// What to call the file.
     #[param(example = "holiday.mp4")]
