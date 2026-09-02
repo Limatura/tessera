@@ -690,6 +690,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/oidc/backchannel-logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ends the sessions a provider says are over.
+         * @description # Why this answers in the OAuth error shape
+         *
+         *     Every other endpoint here answers `{"code": ..., "message": ...}`. This one
+         *     answers `{"error": ..., "error_description": ...}`, because the caller is
+         *     not a client of this API. It is an identity provider following `OpenID`
+         *     Connect Back-Channel Logout 1.0, and section 2.8 says what it expects to
+         *     read when it is refused. A provider that cannot parse the refusal will keep
+         *     retrying a token that will never work.
+         *
+         *     # Why it is unauthenticated
+         *
+         *     The caller is a server with no account here. What stands in for a credential
+         *     is the token's signature, checked against keys fetched from the configured
+         *     issuer. See `auth::oidc::logout`.
+         *
+         *     # Errors
+         *
+         *     `404` when accounts are switched off. A token that cannot be believed is a
+         *     `400` with the reason, never a `500`.
+         */
+        post: operations["backchannel_logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What this account signs in through.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in.
+         */
+        get: operations["identities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/identities/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Detaches a provider from this account.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when authenticated with an API
+         *     token, `404` when nothing was attached, `409` when this is the only way
+         *     left into the account.
+         */
+        delete: operations["unlink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/password": {
         parameters: {
             query?: never;
@@ -778,6 +862,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether this instance has an identity provider.
+         * @description Answered whether or not one is configured, because a sign-in page has to ask
+         *     before it can know.
+         *
+         *     # Errors
+         *
+         *     `404` when accounts are switched off.
+         */
+        get: operations["provider"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -847,6 +956,75 @@ export interface paths {
          *     `401` when nothing was signed in.
          */
         get: operations["session"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/{provider}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where the provider sends the browser back.
+         * @description # Errors
+         *
+         *     `404` when accounts are switched off. Everything else is a redirect, see the
+         *     module documentation.
+         */
+        get: operations["callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/{provider}/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sends the browser to the provider to attach it to this account.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in, `403` when authenticated with an API
+         *     token. Everything else is a redirect, because a browser is following this.
+         */
+        get: operations["link"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/{provider}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sends the browser to the identity provider.
+         * @description # Errors
+         *
+         *     `404` when accounts are switched off. Everything else is a redirect back to
+         *     the sign-in page with a reason, because a browser is following this.
+         */
+        get: operations["start"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1339,8 +1517,11 @@ export interface components {
              */
             user_agent?: string | null;
         };
-        /** @description A share's recorded retrievals. */
-        AccessLogResponse: {
+        /**
+         * @description [`PageMeta`](crate::api::shares::PageMeta) plus the one fact this list needs
+         *     that the others do not.
+         */
+        AccessLogMeta: {
             /**
              * @description Whether this instance is recording at all.
              *
@@ -1349,8 +1530,28 @@ export interface components {
              *     first.
              */
             enabled: boolean;
-            /** @description The events, most recent first. */
-            events: components["schemas"]["AccessEventResponse"][];
+            /**
+             * Format: int64
+             * @description The page size actually used.
+             */
+            limit: number;
+            /**
+             * Format: int64
+             * @description How many were skipped.
+             */
+            offset: number;
+            /**
+             * Format: int64
+             * @description How many events this share has, not how many are on this page.
+             */
+            total: number;
+        };
+        /** @description A share's recorded retrievals. */
+        AccessLogResponse: {
+            /** @description The events on this page, most recent first. */
+            data: components["schemas"]["AccessEventResponse"][];
+            /** @description The collection they came from, and whether anything is being recorded. */
+            meta: components["schemas"]["AccessLogMeta"];
         };
         /** @description An account, as the API describes it. Never carries a hash. */
         AccountResponse: {
@@ -1418,12 +1619,9 @@ export interface components {
         /** @description A page of shares. */
         AdminSharePage: {
             /** @description The shares on this page. */
-            shares: components["schemas"]["AdminShareResponse"][];
-            /**
-             * Format: int64
-             * @description How many exist in total, so a client can render pagination.
-             */
-            total: number;
+            data: components["schemas"]["AdminShareResponse"][];
+            /** @description The collection they came from. */
+            meta: components["schemas"]["PageMeta"];
         };
         /**
          * @description One share, as an administrator sees it.
@@ -1487,6 +1685,13 @@ export interface components {
              * @description How many bytes it holds.
              */
             size_bytes: number;
+        };
+        /** @description A page of accounts. */
+        AdminUserPage: {
+            /** @description The accounts on this page, newest first. */
+            data: components["schemas"]["AdminUserResponse"][];
+            /** @description The collection they came from. */
+            meta: components["schemas"]["PageMeta"];
         };
         /**
          * @description One account, as an administrator sees it.
@@ -1895,6 +2100,23 @@ export interface components {
              */
             version: string;
         };
+        /** @description One way an account signs in through a provider. */
+        IdentityResponse: {
+            /**
+             * Format: date-time
+             * @description When it was attached.
+             */
+            created_at: string;
+            /**
+             * @description Whether removing this one would leave the account with no way in.
+             *
+             *     Sent rather than left for the client to work out: the client would need
+             *     to know whether a password exists, which nothing else tells it.
+             */
+            is_last_way_in: boolean;
+            /** @description Which provider vouched for this. */
+            provider: string;
+        };
         /**
          * @description One invite code, as an administrator sees it.
          *
@@ -1961,6 +2183,38 @@ export interface components {
             layout?: string;
         };
         Option_u64: null | number;
+        /**
+         * @description What a client needs to draw pagination, for any paged list.
+         *
+         *     # Why the list endpoints have an envelope and nothing else does
+         *
+         *     A paged response has two things in it: the rows, and facts about the
+         *     collection they came from. Without somewhere to put the second, `total`
+         *     ends up beside the rows under a name invented per endpoint, and a client
+         *     reading two lists reads them two ways. Every other endpoint answers with
+         *     one object and has nothing of the kind to carry, so wrapping those would
+         *     add a level of nesting that says nothing.
+         */
+        PageMeta: {
+            /**
+             * Format: int64
+             * @description The page size actually used, which is not always the one asked for.
+             * @example 50
+             */
+            limit: number;
+            /**
+             * Format: int64
+             * @description How many were skipped.
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Format: int64
+             * @description How many exist in total, not how many are on this page.
+             * @example 137
+             */
+            total: number;
+        };
         /** @description Body of `POST /auth/password-reset/confirm`. */
         PasswordResetConfirmRequest: {
             /** @description What to set the password to. */
@@ -2035,6 +2289,18 @@ export interface components {
         PreviewResponse: {
             /** @description What the change would destroy. Empty when it destroys nothing. */
             consequences: components["schemas"]["Consequence"][];
+        };
+        /** @description One provider a sign-in page may offer. */
+        ProviderResponse: {
+            /** @description What to write on the button. */
+            display_name: string;
+            /** @description Whether it is configured and usable. */
+            enabled: boolean;
+            /**
+             * @description Which one, and the segment to put in the start and link paths.
+             * @example github
+             */
+            provider: string;
         };
         /**
          * @description A share as a public visitor sees it.
@@ -2314,6 +2580,15 @@ export interface components {
              * @example fixed_at_boot
              */
             refusal?: string | null;
+            /**
+             * @description Whether this holds a credential this endpoint will write and never
+             *     return.
+             *
+             *     When true, `value` is a boolean saying whether one is set, never the
+             *     credential itself. A screen draws "configured" beside an empty field
+             *     rather than pre-filling it with something it cannot read back.
+             */
+            secret: boolean;
             /** @description Which layer supplied it. */
             source: components["schemas"]["Source"];
             /** @description The value in force. */
@@ -2352,12 +2627,9 @@ export interface components {
         /** @description A page of the caller's shares. */
         SharePage: {
             /** @description The shares on this page. */
-            shares: components["schemas"]["ShareResponse"][];
-            /**
-             * Format: int64
-             * @description How many the caller has in total, so a client can render pagination.
-             */
-            total: number;
+            data: components["schemas"]["ShareResponse"][];
+            /** @description The collection they came from. */
+            meta: components["schemas"]["PageMeta"];
         };
         /** @description A share as the API describes it. Never carries the content. */
         ShareResponse: {
@@ -3966,28 +4238,32 @@ export interface operations {
     };
     list_users: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
+            query?: {
                 /**
                  * @description Include accounts that have been deleted.
                  *
                  *     Off by default. What is left of one identifies no person and cannot be
                  *     acted on, so it belongs only in an answer that asked for it.
                  */
-                include_deleted: boolean;
+                include_deleted?: boolean;
+                /** @description How many to return. Capped, and defaulted when omitted. */
+                limit?: number;
+                /** @description How many to skip. */
+                offset?: number;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Every account on this instance */
+            /** @description A page of accounts */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminUserResponse"][];
+                    "application/json": components["schemas"]["AdminUserPage"];
                 };
             };
             /** @description Not signed in */
@@ -4330,6 +4606,130 @@ export interface operations {
             };
         };
     };
+    backchannel_logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": string;
+            };
+        };
+        responses: {
+            /** @description The sessions it named are over */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The token could not be believed, or the body carried none */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Accounts are switched off */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    identities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What is attached */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResponse"][];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    unlink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which provider to detach */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Detached */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not permitted with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Nothing was attached */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This is the only way left into the account */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     change_password: {
         parameters: {
             query?: never;
@@ -4460,6 +4860,35 @@ export interface operations {
                 };
             };
             /** @description This instance sends no mail */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every provider, and whether it is configured */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderResponse"][];
+                };
+            };
+            /** @description Accounts are switched off */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4619,6 +5048,115 @@ export interface operations {
             };
             /** @description Not signed in */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    callback: {
+        parameters: {
+            query?: {
+                /** @description The authorisation code */
+                code?: string;
+                /** @description The value that ties this to a redirect we sent */
+                state?: string;
+                /** @description Set instead of `code` when the provider refused */
+                error?: string;
+            };
+            header?: never;
+            path: {
+                /** @description `oidc`, `github` or `discord` */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect back to the application, signed in or with a reason */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Accounts are switched off */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description `oidc`, `github` or `discord` */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the identity provider */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not permitted with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    start: {
+        parameters: {
+            query?: {
+                /** @description An invitation to spend on success */
+                invite?: string;
+            };
+            header?: never;
+            path: {
+                /** @description `oidc`, `github` or `discord` */
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the identity provider */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Accounts are switched off */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5403,22 +5941,22 @@ export interface operations {
     };
     create_upload: {
         parameters: {
-            query?: never;
-            header?: never;
-            path: {
+            query?: {
                 /**
                  * @description What to call the file.
                  * @example holiday.mp4
                  */
-                filename: string | null;
+                filename?: string;
                 /**
                  * @description Retrieval code of the share to append to.
                  *
                  *     Omit to make a new share when the upload finishes.
                  * @example 4GSVV6QT
                  */
-                code: string | null;
+                code?: string;
             };
+            header?: never;
+            path?: never;
             cookie?: never;
         };
         requestBody?: never;
