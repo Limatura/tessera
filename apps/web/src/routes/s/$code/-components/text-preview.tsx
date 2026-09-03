@@ -18,15 +18,6 @@ type PreviewState =
   // Mermaid 要渲染成圖,不上色,所以沒有 html。
   | { status: "ready"; code: string; html: string | null };
 
-async function highlight(code: string, language: string, theme: string) {
-  const { codeToHtml } = await import("@/lib/shiki");
-  try {
-    return await codeToHtml(code, { lang: language, theme });
-  } catch {
-    return await codeToHtml(code, { lang: "text", theme });
-  }
-}
-
 export function TextPreview({
   language,
   sizeBytes,
@@ -132,4 +123,13 @@ export function TextPreview({
       )}
     </div>
   );
+}
+
+async function highlight(code: string, language: string, theme: string) {
+  const { codeToHtml } = await import("@/lib/shiki");
+  try {
+    return await codeToHtml(code, { lang: language, theme });
+  } catch {
+    return await codeToHtml(code, { lang: "text", theme });
+  }
 }

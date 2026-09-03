@@ -12,22 +12,6 @@ import { MermaidZoomDialog } from "./mermaid-zoom-dialog";
 /** 編輯時每打一個字都重畫太吵,而且中途語法必然不合法。 */
 export const EDITOR_DEBOUNCE_MS = 400;
 
-function ErrorBanner({ error }: { error: string }) {
-  return (
-    <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-left">
-      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
-      <div className="min-w-0 flex-1">
-        <p className="font-medium text-destructive text-xs">
-          {m.mermaid_render_failed()}
-        </p>
-        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap wrap-break-word font-mono text-[11px] text-muted-foreground">
-          {error}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
 /**
  * 畫一張 mermaid 圖。渲染失敗時顯示錯誤訊息加原始碼,不留白(tessera#227)。
  * `code` 會傳給放大 dialog 當標題用不到,但錯誤時要拿來顯示原始碼。
@@ -97,6 +81,22 @@ export function MermaidDiagram({
         svg={svg}
         title={title}
       />
+    </div>
+  );
+}
+
+function ErrorBanner({ error }: { error: string }) {
+  return (
+    <div className="flex gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-left">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
+      <div className="min-w-0 flex-1">
+        <p className="font-medium text-destructive text-xs">
+          {m.mermaid_render_failed()}
+        </p>
+        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap wrap-break-word font-mono text-[11px] text-muted-foreground">
+          {error}
+        </pre>
+      </div>
     </div>
   );
 }

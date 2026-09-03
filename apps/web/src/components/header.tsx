@@ -29,10 +29,6 @@ import { getLocale, setLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";
 
-function getInitials(username: string): string {
-  return username.charAt(0).toUpperCase();
-}
-
 export function Header() {
   const locale = getLocale();
   const { data: session } = useSession();
@@ -106,4 +102,8 @@ export function Header() {
       </div>
     </nav>
   );
+}
+
+function getInitials(username: string): string {
+  return username.charAt(0).toUpperCase();
 }

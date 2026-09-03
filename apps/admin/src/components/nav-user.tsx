@@ -25,10 +25,6 @@ import { useLogout, useSession } from "@/hooks/use-auth";
 import { accountRoleLabel, isUnassigned } from "@/lib/permissions";
 import { loginUrl } from "@/lib/web-url";
 
-function initials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
-
 export function NavUser() {
   const { isMobile } = useSidebar();
   const { data: account } = useSession();
@@ -113,4 +109,8 @@ export function NavUser() {
       </SidebarMenuItem>
     </SidebarMenu>
   );
+}
+
+function initials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
 }

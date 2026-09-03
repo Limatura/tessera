@@ -61,6 +61,23 @@ const REGISTRATION_LABELS: Record<
   open: "任何人都能註冊",
 };
 
+type Settings = components["schemas"]["SettingsResponse"];
+
+export function AccountSettingsForm() {
+  const settings = useSettings();
+
+  if (settings.isPending) {
+    return <p className="text-muted-foreground text-sm">載入中…</p>;
+  }
+
+  if (settings.isError || !settings.data) {
+    return <p className="text-destructive text-sm">設定載入失敗</p>;
+  }
+
+  // 初始值只在掛載時讀一次 —— 背景重抓不該把使用者打到一半的內容洗掉。
+  return <AccountSettingsFields defaultValues={initialValues(settings.data)} />;
+}
+
 function asString(value: unknown, fallback: string): string {
   return typeof value === "string" ? value : fallback;
 }
@@ -74,8 +91,6 @@ function asRegistration(value: unknown): AccountSettingsValues["registration"] {
     REGISTRATION_MODES.find((mode) => mode === value) ?? FALLBACKS.registration
   );
 }
-
-type Settings = components["schemas"]["SettingsResponse"];
 
 function initialValues(settings: Settings): AccountSettingsValues {
   return {
@@ -278,19 +293,4 @@ function AccountSettingsFields({
       </FieldGroup>
     </form>
   );
-}
-
-export function AccountSettingsForm() {
-  const settings = useSettings();
-
-  if (settings.isPending) {
-    return <p className="text-muted-foreground text-sm">載入中…</p>;
-  }
-
-  if (settings.isError || !settings.data) {
-    return <p className="text-destructive text-sm">設定載入失敗</p>;
-  }
-
-  // 初始值只在掛載時讀一次 —— 背景重抓不該把使用者打到一半的內容洗掉。
-  return <AccountSettingsFields defaultValues={initialValues(settings.data)} />;
 }

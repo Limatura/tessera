@@ -26,16 +26,6 @@ const config = {
   storageUrl: "data/blobs",
 };
 
-function registrationLabel(registration: typeof config.registration) {
-  if (registration === "open") {
-    return "開放註冊";
-  }
-  if (registration === "invite") {
-    return "限邀請碼";
-  }
-  return "已關閉";
-}
-
 const rows: { label: string; value: string }[] = [
   { label: "儲存後端", value: config.storageUrl },
   { label: "單次上傳上限", value: formatBytes(config.maxBodyBytes) },
@@ -78,4 +68,14 @@ export function ConfigSummary() {
       </CardContent>
     </Card>
   );
+}
+
+function registrationLabel(registration: typeof config.registration) {
+  if (registration === "open") {
+    return "開放註冊";
+  }
+  if (registration === "invite") {
+    return "限邀請碼";
+  }
+  return "已關閉";
 }

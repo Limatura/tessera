@@ -26,6 +26,42 @@ import { useRoleForm } from "./use-role-form";
 type Role = components["schemas"]["RoleResponse"];
 type PermissionInfo = components["schemas"]["PermissionResponse"];
 
+export function RoleEditorDialog({
+  role,
+  open,
+  onOpenChange,
+  allPermissions,
+  grantable,
+}: {
+  /** `null` 代表新增。 */
+  role: Role | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  allPermissions: PermissionInfo[];
+  /** 目前登入者自己持有的權限 —— server 不允許授出自己沒有的。 */
+  grantable: ReadonlySet<string>;
+}) {
+  const close = () => onOpenChange(false);
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="flex max-h-[85svh] flex-col overflow-hidden sm:max-w-2xl">
+        {/* key 換角色時重新掛載表單，初始值才會跟著換。 */}
+        {open && (
+          <RoleEditorForm
+            allPermissions={allPermissions}
+            grantable={grantable}
+            key={role?.id ?? "new"}
+            onCancel={close}
+            onDone={close}
+            role={role}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function RoleEditorForm({
   role,
   allPermissions,
@@ -152,41 +188,5 @@ function RoleEditorForm({
         </Button>
       </DialogFooter>
     </>
-  );
-}
-
-export function RoleEditorDialog({
-  role,
-  open,
-  onOpenChange,
-  allPermissions,
-  grantable,
-}: {
-  /** `null` 代表新增。 */
-  role: Role | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  allPermissions: PermissionInfo[];
-  /** 目前登入者自己持有的權限 —— server 不允許授出自己沒有的。 */
-  grantable: ReadonlySet<string>;
-}) {
-  const close = () => onOpenChange(false);
-
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex max-h-[85svh] flex-col overflow-hidden sm:max-w-2xl">
-        {/* key 換角色時重新掛載表單，初始值才會跟著換。 */}
-        {open && (
-          <RoleEditorForm
-            allPermissions={allPermissions}
-            grantable={grantable}
-            key={role?.id ?? "new"}
-            onCancel={close}
-            onDone={close}
-            role={role}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
   );
 }

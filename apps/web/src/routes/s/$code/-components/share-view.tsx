@@ -41,10 +41,6 @@ interface ApiError {
   status?: number;
 }
 
-function isApiError(error: unknown): error is ApiError {
-  return typeof error === "object" && error !== null && "status" in error;
-}
-
 /**
  * What the revealed card should render for this share. Resolved once,
  * synchronously, from metadata already on hand — no network round trip
@@ -54,6 +50,149 @@ type PreviewPlan =
   | { type: "text" }
   | { type: "file"; Component: FilePreviewComponent }
   | { type: "none" };
+
+const PASSWORD_OTP_LENGTH = 8;
+
+export function ShareView({ code }: { code: string }) {
+  const navigate = useNavigate();
+  const [password, setPassword] = useState<string | undefined>();
+  const share = useShare(code, password);
+
+  if (share.isPending) {
+    return <ShareSkeleton />;
+  }
+
+  const status =
+    share.isError && isApiError(share.error) ? share.error.status : undefined;
+
+  // A wrong password re-triggers the same 401 the initial locked lookup
+  // gets, so the only way to tell them apart is whether a password was
+  // already tried.
+  const wrongPassword = status === 401 && password !== undefined;
+
+  if (share.isError && !wrongPassword) {
+    if (status === 429) {
+      return (
+        <StatusCard
+          action={
+            <Button
+              className="w-full"
+              onClick={() => navigate({ to: "/s" })}
+              type="button"
+              variant="ghost"
+            >
+              {m.share_back_home()}
+            </Button>
+          }
+          description={m.share_rate_limited_description()}
+          icon={<TimerOff className="size-5" />}
+          title={m.share_rate_limited_title()}
+        />
+      );
+    }
+    if (status === 410) {
+      return (
+        <StatusCard
+          action={
+            <Button
+              className="w-full"
+              onClick={() => navigate({ to: "/s" })}
+              type="button"
+              variant="ghost"
+            >
+              {m.share_back_home()}
+            </Button>
+          }
+          description={m.share_gone_description()}
+          icon={<TimerOff className="size-5" />}
+          title={m.share_gone_title()}
+        />
+      );
+    }
+    return (
+      <StatusCard
+        action={
+          <Button
+            className="w-full"
+            onClick={() => navigate({ to: "/" })}
+            type="button"
+            variant="default"
+          >
+            <Home />
+            {m.share_back_home()}
+          </Button>
+        }
+        description={m.share_not_found_description()}
+        icon={<SearchX className="size-5" />}
+        title={m.share_not_found_title()}
+      />
+    );
+  }
+
+  const { data } = share;
+  const locked =
+    wrongPassword || (data ? data.has_password && !data.unlocked : true);
+
+  if (locked) {
+    return (
+      <div className="w-full max-w-sm animate-in fade-in duration-200">
+        <Card className="w-full border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
+          <CardHeader className="items-center text-center">
+            <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Lock className="size-5" />
+            </div>
+            <CardTitle className="font-medium text-xl tracking-tight">
+              {m.share_locked_title()}
+            </CardTitle>
+            <CardDescription>{m.share_locked_description()}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PasswordForm
+              error={wrongPassword}
+              onSubmit={setPassword}
+              pending={share.isFetching}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return (
+    <div className="w-full max-w-xl animate-in fade-in duration-200">
+      <Card className="w-full border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
+        <CardHeader className="items-center text-center">
+          <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            {data.kind === "text" ? (
+              <FileText className="size-5" />
+            ) : (
+              <FileIcon className="size-5" />
+            )}
+          </div>
+          <CardTitle className="font-medium text-xl tracking-tight">
+            {data.title || data.files[0]?.filename || m.share_untitled()}
+          </CardTitle>
+          <ShareMeta
+            expiresAt={data.expires_at}
+            sizeBytes={data.size_bytes}
+            usesRemaining={data.uses_remaining}
+          />
+        </CardHeader>
+        <CardContent>
+          <RevealedShare code={code} data={data} password={password} />
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function isApiError(error: unknown): error is ApiError {
+  return typeof error === "object" && error !== null && "status" in error;
+}
 
 function resolvePreviewPlan(data: PublicShare): PreviewPlan {
   if (data.kind === "text") {
@@ -107,8 +246,6 @@ function ShareSkeleton() {
     </Card>
   );
 }
-
-const PASSWORD_OTP_LENGTH = 8;
 
 /** Same slot as the shared component, but renders a dot instead of the
  * character — this field holds a password, not a code meant to be read. */
@@ -296,143 +433,6 @@ function RevealedShare({
         <Download />
         {ticket.isFetching ? m.share_preparing() : m.share_download()}
       </Button>
-    </div>
-  );
-}
-
-export function ShareView({ code }: { code: string }) {
-  const navigate = useNavigate();
-  const [password, setPassword] = useState<string | undefined>();
-  const share = useShare(code, password);
-
-  if (share.isPending) {
-    return <ShareSkeleton />;
-  }
-
-  const status =
-    share.isError && isApiError(share.error) ? share.error.status : undefined;
-
-  // A wrong password re-triggers the same 401 the initial locked lookup
-  // gets, so the only way to tell them apart is whether a password was
-  // already tried.
-  const wrongPassword = status === 401 && password !== undefined;
-
-  if (share.isError && !wrongPassword) {
-    if (status === 429) {
-      return (
-        <StatusCard
-          action={
-            <Button
-              className="w-full"
-              onClick={() => navigate({ to: "/s" })}
-              type="button"
-              variant="ghost"
-            >
-              {m.share_back_home()}
-            </Button>
-          }
-          description={m.share_rate_limited_description()}
-          icon={<TimerOff className="size-5" />}
-          title={m.share_rate_limited_title()}
-        />
-      );
-    }
-    if (status === 410) {
-      return (
-        <StatusCard
-          action={
-            <Button
-              className="w-full"
-              onClick={() => navigate({ to: "/s" })}
-              type="button"
-              variant="ghost"
-            >
-              {m.share_back_home()}
-            </Button>
-          }
-          description={m.share_gone_description()}
-          icon={<TimerOff className="size-5" />}
-          title={m.share_gone_title()}
-        />
-      );
-    }
-    return (
-      <StatusCard
-        action={
-          <Button
-            className="w-full"
-            onClick={() => navigate({ to: "/" })}
-            type="button"
-            variant="default"
-          >
-            <Home />
-            {m.share_back_home()}
-          </Button>
-        }
-        description={m.share_not_found_description()}
-        icon={<SearchX className="size-5" />}
-        title={m.share_not_found_title()}
-      />
-    );
-  }
-
-  const { data } = share;
-  const locked =
-    wrongPassword || (data ? data.has_password && !data.unlocked : true);
-
-  if (locked) {
-    return (
-      <div className="w-full max-w-sm animate-in fade-in duration-200">
-        <Card className="w-full border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
-          <CardHeader className="items-center text-center">
-            <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-              <Lock className="size-5" />
-            </div>
-            <CardTitle className="font-medium text-xl tracking-tight">
-              {m.share_locked_title()}
-            </CardTitle>
-            <CardDescription>{m.share_locked_description()}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <PasswordForm
-              error={wrongPassword}
-              onSubmit={setPassword}
-              pending={share.isFetching}
-            />
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return null;
-  }
-
-  return (
-    <div className="w-full max-w-xl animate-in fade-in duration-200">
-      <Card className="w-full border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
-        <CardHeader className="items-center text-center">
-          <div className="mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            {data.kind === "text" ? (
-              <FileText className="size-5" />
-            ) : (
-              <FileIcon className="size-5" />
-            )}
-          </div>
-          <CardTitle className="font-medium text-xl tracking-tight">
-            {data.title || data.files[0]?.filename || m.share_untitled()}
-          </CardTitle>
-          <ShareMeta
-            expiresAt={data.expires_at}
-            sizeBytes={data.size_bytes}
-            usesRemaining={data.uses_remaining}
-          />
-        </CardHeader>
-        <CardContent>
-          <RevealedShare code={code} data={data} password={password} />
-        </CardContent>
-      </Card>
     </div>
   );
 }

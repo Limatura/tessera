@@ -23,79 +23,7 @@ interface RuntimeBlob extends BlobSpec {
   }[];
 }
 
-/** 在靜態設定的基礎上,為每個頂點加上隨機的抖動時間參數 */
-function createRuntimeBlobs(specs: BlobSpec[]): RuntimeBlob[] {
-  return specs.map((spec) => ({
-    ...spec,
-    points: Array.from({ length: POINTS_PER_BLOB }, (_, i) => ({
-      angle: (i / POINTS_PER_BLOB) * TWO_PI,
-      phase: Math.random() * TWO_PI,
-      speed: 0.15 + Math.random() * 0.2,
-    })),
-    wobbleAmp: 0.16 + Math.random() * 0.08,
-  }));
-}
-
 const VAR_PATTERN = /var\((?<name>--[a-zA-Z0-9-]+)\)/gu;
-
-/** Resolves `--foo` shorthand or literal CSS containing var(--foo) references. */
-function resolveColorValue(raw: string, style: CSSStyleDeclaration): string {
-  if (raw.startsWith("--")) {
-    return style.getPropertyValue(raw).trim();
-  }
-  return raw.replace(VAR_PATTERN, (...args) => {
-    const groups = args.at(-1) as { name?: string } | undefined;
-    const name = groups?.name ?? "";
-    return style.getPropertyValue(name).trim();
-  });
-}
-
-/** 兩點的中點,用來作為 blob 頂點間圓滑貝茲曲線的錨點 */
-function mid(a: { x: number; y: number }, b: { x: number; y: number }) {
-  return {
-    x: (a.x + b.x) / 2,
-    y: (a.y + b.y) / 2,
-  };
-}
-
-/** 計算單個 blob 這一幀的頂點位置(包含抖動),然後在 canvas 上填色 */
-function drawBlob(
-  ctx: CanvasRenderingContext2D,
-  blob: RuntimeBlob,
-  width: number,
-  height: number,
-  time: number
-) {
-  const size = Math.min(width, height);
-  const driftX =
-    Math.sin(time * blob.driftSpeed + blob.driftPhase) * blob.driftAmp;
-  const driftY =
-    Math.cos(time * blob.driftSpeed * 0.8 + blob.driftPhase) * blob.driftAmp;
-  const centerX = (blob.cx + driftX) * width;
-  const centerY = (blob.cy + driftY) * height;
-  const radius = blob.baseRadius * size;
-
-  const vertices = blob.points.map((p) => {
-    const wobble = 1 + blob.wobbleAmp * Math.sin(time * p.speed + p.phase);
-    const r = radius * wobble;
-    return {
-      x: centerX + Math.cos(p.angle) * r,
-      y: centerY + Math.sin(p.angle) * r,
-    };
-  });
-
-  ctx.beginPath();
-  const first = mid(vertices.at(-1) ?? vertices[0], vertices[0]);
-  ctx.moveTo(first.x, first.y);
-  for (let i = 0; i < vertices.length; i += 1) {
-    const current = vertices[i];
-    const next = vertices[(i + 1) % vertices.length];
-    const midPoint = mid(current, next);
-    ctx.quadraticCurveTo(current.x, current.y, midPoint.x, midPoint.y);
-  }
-  ctx.closePath();
-  ctx.fill();
-}
 
 interface BlobCanvasProps {
   specs: BlobSpec[];
@@ -232,4 +160,76 @@ export function BlobCanvas({
   }, [specs, toColorProp]);
 
   return <canvas className={className} ref={canvasRef} />;
+}
+
+/** 在靜態設定的基礎上,為每個頂點加上隨機的抖動時間參數 */
+function createRuntimeBlobs(specs: BlobSpec[]): RuntimeBlob[] {
+  return specs.map((spec) => ({
+    ...spec,
+    points: Array.from({ length: POINTS_PER_BLOB }, (_, i) => ({
+      angle: (i / POINTS_PER_BLOB) * TWO_PI,
+      phase: Math.random() * TWO_PI,
+      speed: 0.15 + Math.random() * 0.2,
+    })),
+    wobbleAmp: 0.16 + Math.random() * 0.08,
+  }));
+}
+
+/** Resolves `--foo` shorthand or literal CSS containing var(--foo) references. */
+function resolveColorValue(raw: string, style: CSSStyleDeclaration): string {
+  if (raw.startsWith("--")) {
+    return style.getPropertyValue(raw).trim();
+  }
+  return raw.replace(VAR_PATTERN, (...args) => {
+    const groups = args.at(-1) as { name?: string } | undefined;
+    const name = groups?.name ?? "";
+    return style.getPropertyValue(name).trim();
+  });
+}
+
+/** 兩點的中點,用來作為 blob 頂點間圓滑貝茲曲線的錨點 */
+function mid(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return {
+    x: (a.x + b.x) / 2,
+    y: (a.y + b.y) / 2,
+  };
+}
+
+/** 計算單個 blob 這一幀的頂點位置(包含抖動),然後在 canvas 上填色 */
+function drawBlob(
+  ctx: CanvasRenderingContext2D,
+  blob: RuntimeBlob,
+  width: number,
+  height: number,
+  time: number
+) {
+  const size = Math.min(width, height);
+  const driftX =
+    Math.sin(time * blob.driftSpeed + blob.driftPhase) * blob.driftAmp;
+  const driftY =
+    Math.cos(time * blob.driftSpeed * 0.8 + blob.driftPhase) * blob.driftAmp;
+  const centerX = (blob.cx + driftX) * width;
+  const centerY = (blob.cy + driftY) * height;
+  const radius = blob.baseRadius * size;
+
+  const vertices = blob.points.map((p) => {
+    const wobble = 1 + blob.wobbleAmp * Math.sin(time * p.speed + p.phase);
+    const r = radius * wobble;
+    return {
+      x: centerX + Math.cos(p.angle) * r,
+      y: centerY + Math.sin(p.angle) * r,
+    };
+  });
+
+  ctx.beginPath();
+  const first = mid(vertices.at(-1) ?? vertices[0], vertices[0]);
+  ctx.moveTo(first.x, first.y);
+  for (let i = 0; i < vertices.length; i += 1) {
+    const current = vertices[i];
+    const next = vertices[(i + 1) % vertices.length];
+    const midPoint = mid(current, next);
+    ctx.quadraticCurveTo(current.x, current.y, midPoint.x, midPoint.y);
+  }
+  ctx.closePath();
+  ctx.fill();
 }
