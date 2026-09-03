@@ -394,8 +394,12 @@ export function Counter() {
   return (
     <div>
       <p>{count}</p>
-      <button onClick={handleIncrement} type="button">＋</button>
-      <button onClick={() => setCount(0)} type="button">Reset</button>
+      <button onClick={handleIncrement} type="button">
+        ＋
+      </button>
+      <button onClick={() => setCount(0)} type="button">
+        Reset
+      </button>
     </div>
   );
 }
@@ -455,7 +459,6 @@ export const Row = memo(function Row({ item }: RowProps) {
 
 本專案優先「把 ref 當一般 prop 傳」,不用 `forwardRef`(見上面 React 段落)。
 
-
 ### 這些規則哪些是 lint 會擋的
 
 `oxlint.config.ts` 針對 `apps/web/src/**`、`apps/admin/src/**` 開了三條:
@@ -466,8 +469,7 @@ export const Row = memo(function Row({ item }: RowProps) {
 
 `no-use-before-define` 全域關掉,所以「輔助元件放檔案底部」不會被 lint 擋。
 
-lint 擋不到、要靠 code review 的部分:`handleXxx` / `onXxx` 命名、輔助元件何時該拆檔、底部 helper 誤寫成 `const`(TDZ)。
-(`react/jsx-handler-names` 有刻意關掉——它對 `field.onChange` 這種外部 API 的名字會系統性誤判,理由寫在 `oxlint.config.ts`。)
+lint 擋不到、要靠 code review 的部分:`handleXxx` / `onXxx` 命名、輔助元件何時該拆檔、底部 helper 誤寫成 `const`(TDZ)。(`react/jsx-handler-names` 有刻意關掉——它對 `field.onChange` 這種外部 API 的名字會系統性誤判,理由寫在 `oxlint.config.ts`。)
 
 ### 送出前自我檢查
 
