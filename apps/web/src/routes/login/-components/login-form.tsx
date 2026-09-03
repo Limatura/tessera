@@ -17,7 +17,6 @@ import {
   FieldLabel,
 } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
-import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import { Controller, useForm } from "react-hook-form";
 
@@ -31,10 +30,7 @@ import * as m from "@/paraglide/messages";
 /** 直接 import Route 會跟 index.tsx 形成循環依賴。 */
 const routeApi = getRouteApi("/login/");
 
-export function LoginForm({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+export function LoginForm() {
   const navigate = useNavigate();
   const search = routeApi.useSearch();
   const login = useLogin();
@@ -60,7 +56,7 @@ export function LoginForm({
   const formError = login.error as components["schemas"]["ErrorBody"] | null;
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className="flex flex-col gap-6">
       <motion.div
         animate="visible"
         initial="hidden"
