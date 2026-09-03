@@ -1035,6 +1035,7 @@ jobs:
     outputs:
       report: ${{ steps.footprint.outputs.report }}
       rootfs_bytes: ${{ steps.footprint.outputs.rootfs_bytes }}
+      compressed_bytes: ${{ steps.footprint.outputs.compressed_bytes }}
     if: >-
       needs.changes.outputs.image == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
@@ -1281,9 +1282,10 @@ jobs:
         run: |
           docker rm -f tessera-smoke 2>/dev/null || true
           docker image rm -f tessera-server:ci 2>/dev/null || true
-          # The copy of the binary the footprint step pulled out of the image.
-          # `main.txt` stays: it is the baseline the next branch reads.
-          rm -f /tmp/tessera-image-size/binary
+          # The footprint step removes its own scratch files on the way out,
+          # success or failure. `main.txt` is what stays: it is the baseline the
+          # next branch compares against.
+          rm -f /tmp/tessera-image-size/image.tar /tmp/tessera-image-size/binary
           docker image prune -f
           # `setup-buildx-action` starts a builder in a container of its own,
           # and each one keeps its state in a volume. Removing the image this

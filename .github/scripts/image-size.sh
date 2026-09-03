@@ -4,21 +4,30 @@
 # job picks up, and to `$GITHUB_OUTPUT`. Enforces the budgets last, so a build
 # that is over still publishes the numbers that say by how much.
 #
-# Why each number is taken the way it is:
+# The table answers two questions and nothing else, because those are the two a
+# reader actually has:
 #
-#   binary  `stat` on the executable copied out of the container. The one figure
-#           a Rust change moves directly, so it is the one worth attributing.
-#   rootfs  `docker export | wc -c`, the flattened container filesystem. Unlike
-#           `docker image inspect` it means the same thing whether the daemon
-#           uses the classic or the containerd image store, which is why the
-#           budget is enforced on this one and not on the other.
-#   image   what this daemon reports for the tag. Kept because it is the number
-#           a reader sees locally, labelled as such, and never enforced.
+#   下載大小  what `docker pull` transfers. Every layer gzipped, summed by
+#             `image-compressed-size.py` — see that file for why it is not
+#             `docker image inspect`.
+#   磁碟大小  what the image occupies once unpacked: `docker export | wc -c`,
+#             the flattened container filesystem. Store-independent, and the
+#             figure the budget is enforced on.
 #
-# What a `docker pull` actually transfers is deliberately absent: that size only
-# exists once the layers are compressed and pushed, and this runs before any
-# push. A number that is only right on publish would read as a regression on
-# every pull request.
+# The binary is reported underneath the disk figure rather than beside it. It is
+# not a third kind of size — it is the part of that number a Rust change moves,
+# and on this image it is nearly all of it.
+#
+# `docker image inspect --format '{{.Size}}'` is deliberately absent. It was in
+# this table once and reported 17.6 MB for an image holding a 34.6 MB binary.
+# The cause was never established; what was established is that the field is not
+# a stable quantity. Moby has rewritten it repeatedly (moby#49535, #49707,
+# #52482, #52901), users have reported it doubling across an upgrade (#51579,
+# #50103), and moby's own issue on the subject calls it "the size of the
+# Manifest (and compressed layers???)" (#43862). Today the containerd path adds
+# packed and unpacked content together. Whatever it means this month, it is not
+# comparable with the two figures above, and not comparable with itself across
+# a daemon upgrade — which is the whole job of the `main 基準` column.
 
 set -euo pipefail
 
@@ -46,19 +55,30 @@ mkdir -p "$STATE_DIR"
 # ---------------------------------------------------------------- measurement
 
 cid=$(docker create "$IMAGE")
-trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
+# shellcheck disable=SC2329  # invoked by the trap below, which shellcheck does not follow
+cleanup() {
+  docker rm -f "$cid" > /dev/null 2>&1 || true
+  # The saved archive is the size of the image again and this job runs against a
+  # disk floor. It exists for one `python3` call and goes on the way out, on the
+  # failure path as well as the success one.
+  rm -f "$STATE_DIR/image.tar" "$STATE_DIR/binary"
+}
+trap cleanup EXIT
+
 docker cp "$cid:$BINARY_PATH" "$STATE_DIR/binary"
 rootfs=$(docker export "$cid" | wc -c)
-
 binary=$(stat -c%s "$STATE_DIR/binary")
-image=$(docker image inspect "$IMAGE" --format '{{.Size}}')
+
+docker save "$IMAGE" -o "$STATE_DIR/image.tar"
+compressed=$("$(dirname "$0")/image-compressed-size.py" "$STATE_DIR/image.tar")
+
 rev=${GITHUB_SHA:-unknown}
 
 {
   echo "rev $rev"
   echo "binary $binary"
   echo "rootfs $rootfs"
-  echo "image $image"
+  echo "compressed $compressed"
 } > "$CURRENT"
 
 # ------------------------------------------------------------------ baseline
@@ -73,7 +93,7 @@ baseline_field() {
 
 base_binary=$(baseline_field binary)
 base_rootfs=$(baseline_field rootfs)
-base_image=$(baseline_field image)
+base_compressed=$(baseline_field compressed)
 base_rev=$(baseline_field rev)
 
 mb() { awk -v b="${1:-}" 'BEGIN { if (b == "") print "—"; else printf "%.1f MB", b / 1000000 }'; }
@@ -82,7 +102,7 @@ delta() {
   awk -v c="$1" -v b="${2:-}" 'BEGIN {
     if (b == "") { print "—"; exit }
     d = c - b
-    if (d == 0) { print "no change"; exit }
+    if (d == 0) { print "無變化"; exit }
     sign = (d > 0) ? "+" : "−"
     a = (d > 0) ? d : -d
     if (b > 0) printf "%s%.2f MB (%s%.1f%%)", sign, a / 1000000, sign, a * 100 / b
@@ -99,26 +119,30 @@ budget() { awk -v m="$1" 'BEGIN { if (m + 0 == 0) print "—"; else printf "%d M
   echo
   echo "| 項目 | 本次 build | main 基準 | 變化 | 預算 |"
   echo "| --- | ---: | ---: | ---: | ---: |"
-  echo "| 執行檔 binary | $(mb "$binary") | $(mb "$base_binary") | $(delta "$binary" "$base_binary") | $(budget "$BINARY_BUDGET_MB") |"
-  echo "| rootfs(預算依據) | $(mb "$rootfs") | $(mb "$base_rootfs") | $(delta "$rootfs" "$base_rootfs") | $(budget "$ROOTFS_BUDGET_MB") |"
-  echo "| image(daemon 回報) | $(mb "$image") | $(mb "$base_image") | $(delta "$image" "$base_image") | — |"
+  echo "| **下載大小**(docker pull 傳輸量) | **$(mb "$compressed")** | $(mb "$base_compressed") | $(delta "$compressed" "$base_compressed") | — |"
+  echo "| **磁碟大小**(pull 完解開後) | **$(mb "$rootfs")** | $(mb "$base_rootfs") | $(delta "$rootfs" "$base_rootfs") | $(budget "$ROOTFS_BUDGET_MB") |"
+  echo "| &nbsp;&nbsp;└ 其中執行檔 | $(mb "$binary") | $(mb "$base_binary") | $(delta "$binary" "$base_binary") | $(budget "$BINARY_BUDGET_MB") |"
   echo
   if [ -n "$base_rev" ]; then
-    echo "<sub>基準:main @ \`${base_rev:0:7}\` · rootfs 取自 \`docker export\`,預算檢查以它為準 · 壓縮後的 pull 體積要 push 完才存在,這裡不量</sub>"
+    echo "<sub>比較基準:main @ \`${base_rev:0:7}\` · 下載大小為各層 gzip 後加總,約等於 registry 實際存放的量</sub>"
   else
     echo "<sub>這台 runner 還沒有基準 — 下一次 main build 成功後就會寫入</sub>"
   fi
   echo
-  echo "<details><summary>最大的幾層 layer</summary>"
+  echo "<details><summary>各層 layer 明細(未壓縮)</summary>"
   echo
   echo "| 大小 | 產生這層的指令 |"
   echo "| ---: | --- |"
+  # Sorted by size and cut off below 0.1 MB. A distroless base is a dozen bazel
+  # targets of a few kilobytes each; listing them pushed the one layer that
+  # matters — the binary — to the top of a screen of "0.0 MB" rows.
   docker history --human=false --no-trunc --format '{{.Size}}	{{.CreatedBy}}' "$IMAGE" \
     | sort -t'	' -k1,1rn \
-    | head -12 \
-    | awk -F'	' '
+    | awk -F'	' -v cut=100000 '
+        BEGIN { shown = 0; hidden = 0; hidden_bytes = 0 }
         $1 + 0 == 0 { next }
         {
+          if ($1 + 0 < cut || shown >= 10) { hidden++; hidden_bytes += $1; next }
           cmd = $2
           sub(/^\/bin\/sh -c #\(nop\) +/, "", cmd)
           sub(/^\/bin\/sh -c +/, "", cmd)
@@ -129,6 +153,12 @@ budget() { awk -v m="$1" 'BEGIN { if (m + 0 == 0) print "—"; else printf "%d M
           gsub(/\140/, "\47", cmd)
           if (length(cmd) > 80) cmd = substr(cmd, 1, 77) "..."
           printf "| %.1f MB | `%s` |\n", $1 / 1000000, cmd
+          shown++
+        }
+        END {
+          if (hidden > 0)
+            printf "| %.1f MB | _另外 %d 層,每層皆小於 0.1 MB(distroless base)_ |\n",
+                   hidden_bytes / 1000000, hidden
         }'
   echo
   echo "</details>"
@@ -144,7 +174,7 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
   {
     echo "binary_bytes=$binary"
     echo "rootfs_bytes=$rootfs"
-    echo "image_bytes=$image"
+    echo "compressed_bytes=$compressed"
     # A random delimiter is the documented way to stop a crafted body from
     # closing the block early. Nothing here is attacker-controlled today, but
     # the layer table is generated text and this costs one line.
