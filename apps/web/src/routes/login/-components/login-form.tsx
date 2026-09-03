@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
 import { Button } from "@tessera/ui/components/button";
 import {
@@ -25,13 +25,18 @@ import { useLogin } from "@/hooks/use-auth";
 import { loginSchema } from "@/lib/api/auth-schema";
 import type { LoginFormValues } from "@/lib/api/auth-schema";
 import { containerVariants, itemVariants } from "@/lib/motion";
+import { safeRedirect } from "@/lib/safe-redirect";
 import * as m from "@/paraglide/messages";
+
+/** 直接 import Route 會跟 index.tsx 形成循環依賴。 */
+const routeApi = getRouteApi("/login/");
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
   const navigate = useNavigate();
+  const search = routeApi.useSearch();
   const login = useLogin();
   const { control, handleSubmit } = useForm<LoginFormValues>({
     defaultValues: { identifier: "", password: "" },
@@ -41,6 +46,12 @@ export function LoginForm({
   const onSubmit = handleSubmit((values) => {
     login.mutate(values, {
       onSuccess: () => {
+        // admin 是同網域的另一包 SPA，router 裡沒有它的路由，只能整頁跳轉。
+        const target = safeRedirect(search.redirect, window.location.origin);
+        if (target) {
+          window.location.assign(target);
+          return;
+        }
         navigate({ to: "/" });
       },
     });
