@@ -8,7 +8,7 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@tessera/ui/components/toast";
 import { useEffect, useSyncExternalStore } from "react";
 
-import Header from "@/components/header";
+import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
 import {
   applyDocumentLocale,

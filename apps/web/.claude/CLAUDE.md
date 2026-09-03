@@ -335,6 +335,148 @@ Write code that is **accessible, performant, type-safe, and maintainable**. Focu
 - Don't use `.only` or `.skip` in committed code
 - Keep test suites reasonably flat - avoid excessive `describe` nesting
 
+## React 元件寫法規範
+
+核心口訣:**外 function,內 arrow**。目的是讓任何人打開檔案,第一眼就知道「這個檔案的主角是誰」。
+
+### 1. 頂層宣告用 function declaration + 具名導出
+
+頁面元件、共用 UI 元件、自訂 Hook 一律 `export function Name()`,不要 `const Name = () => {}`,不要 `export default`。
+
+- 泛型語法乾淨:`function Table<T>(...)`,不必寫 `<T,>` 這種為了避開 JSX 解析的逗號。
+- 有 hoisting:主角可以放檔案最上面,輔助元件放最下面。
+- DevTools / stack trace 有名字,好除錯。
+- 具名導出讓 rename、find-references、auto-import 都可靠,也避免同一個元件在不同檔案被叫成不同名字。
+
+例外(仍用 default export):`vite.config.ts`、`tailwind.config.ts` 等工具設定檔。
+
+```tsx
+interface TableProps<T> {
+  items: T[];
+  renderRow: (item: T) => React.ReactNode;
+}
+
+// 主角置頂
+export function Table<T>({ items, renderRow }: TableProps<T>) {
+  return (
+    <table>
+      <tbody>
+        {items.map((item) => (
+          <TableRow key={item.id}>{renderRow(item)}</TableRow>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// 只有本檔用得到的小元件放最底部,靠 hoisting
+function TableRow({ children }: { children: React.ReactNode }) {
+  return <tr>{children}</tr>;
+}
+```
+
+注意:hoisting 只對 `function` 成立。底部的輔助元件若寫成 `const`,執行時會炸 TDZ。
+
+### 2. 元件內部邏輯用箭頭函式
+
+大括號裡面的東西——event handler、`map`/`filter` 的 callback、`useEffect`/`useMemo`/`useCallback` 的參數——一律 arrow function。
+
+```tsx
+export function Counter() {
+  const [count, setCount] = useState(0);
+
+  const handleIncrement = () => setCount((prev) => prev + 1);
+
+  useEffect(() => {
+    console.log(`count: ${count}`);
+  }, [count]);
+
+  return (
+    <div>
+      <p>{count}</p>
+      <button onClick={handleIncrement} type="button">＋</button>
+      <button onClick={() => setCount(0)} type="button">Reset</button>
+    </div>
+  );
+}
+```
+
+命名慣例:本地 handler 用 `handleXxx`,往下傳的 props 用 `onXxx`。看到 `onSubmit={handleSubmit}` 就知道誰是定義方、誰是呼叫方。
+
+### 3. 型別
+
+- 不要用 `React.FC` / `React.FunctionComponent`。直接定義 `interface XxxProps`,在參數上解構標註。
+- `React.FC` 不支援乾淨的泛型,而且會隱式帶進 `children`——要 children 就自己寫 `children: React.ReactNode`,型別才是誠實的。
+- 型別 import 用 `import type { ... }`。
+
+```tsx
+// ❌
+const Button: React.FC<ButtonProps> = ({ label }) => <button>{label}</button>;
+
+// ✅
+interface ButtonProps {
+  label: string;
+}
+
+export function Button({ label }: ButtonProps) {
+  return <button type="button">{label}</button>;
+}
+```
+
+### 4. 檔案組織
+
+- 一個檔案一個「主角」export。路由檔的主角是 `Route`,元件檔的主角是那個元件。
+- 輔助元件放檔案底部;一旦第二個檔案要用它,就搬去 `-components/`(路由專屬)或 `components/`(跨路由共用)。
+- 輔助元件變大或帶自己的狀態時就拆檔;純排版的長 JSX 不必為了行數硬拆。
+
+TanStack Router 檔案已經是這個形狀,照抄即可——`Route` 物件置頂,`component` 指到下方的具名 function:
+
+```tsx
+export const Route = createRoute({
+  component: DashboardComponent,
+  getParentRoute: () => rootRoute,
+  path: "/dashboard",
+});
+
+function DashboardComponent() {
+  return <AdminShell title="儀表板">...</AdminShell>;
+}
+```
+
+### 5. 要包 HOC 時保留函式名字
+
+`memo` / `forwardRef` 之類的包裝會讓元件在 DevTools 變成 `Anonymous`。包的時候把 function 寫成具名的:
+
+```tsx
+export const Row = memo(function Row({ item }: RowProps) {
+  return <tr>{item.name}</tr>;
+});
+```
+
+本專案優先「把 ref 當一般 prop 傳」,不用 `forwardRef`(見上面 React 段落)。
+
+
+### 這些規則哪些是 lint 會擋的
+
+`oxlint.config.ts` 針對 `apps/web/src/**`、`apps/admin/src/**` 開了三條:
+
+- `import/no-default-export` — 擋 default export(app 根目錄的 `vite.config.ts` 等設定檔不在範圍內)。
+- `react/function-component-definition` — 擋 `const Foo = () => <div />`。只看元件定義形式,元件內部的 handler、`map` callback 不受影響。
+- `typescript/no-restricted-types` — 擋 `React.FC` / `React.FunctionComponent`。
+
+`no-use-before-define` 全域關掉,所以「輔助元件放檔案底部」不會被 lint 擋。
+
+lint 擋不到、要靠 code review 的部分:`handleXxx` / `onXxx` 命名、輔助元件何時該拆檔、底部 helper 誤寫成 `const`(TDZ)。
+(`react/jsx-handler-names` 有刻意關掉——它對 `field.onChange` 這種外部 API 的名字會系統性誤判,理由寫在 `oxlint.config.ts`。)
+
+### 送出前自我檢查
+
+1. 這是最外層的元件或 Hook 嗎 → `export function Name()`,不要 default export。
+2. 這是 `onClick`、`map`、`useEffect` 裡的東西嗎 → arrow function。
+3. 有沒有寫到 `React.FC` 或 `export default`?
+4. 底部的輔助元件是 `function` 而不是 `const` 嗎?
+5. handler 叫 `handleXxx`、props 叫 `onXxx` 嗎?
+
 ## When Oxlint + Oxfmt Can't Help
 
 Oxlint + Oxfmt's linter will catch most issues automatically. Focus your attention on:

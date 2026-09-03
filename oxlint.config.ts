@@ -29,6 +29,38 @@ export default defineConfig({
       },
     },
     {
+      // 「外 function,內 arrow」的機器可檢查部分,只管 web / admin 的 src。
+      // 不含各 app 根目錄的 vite.config.ts 等設定檔——那些必須 default export。
+      files: ["apps/web/src/**", "apps/admin/src/**"],
+      rules: {
+        "import/no-default-export": "error",
+        // 只管「元件」的定義形式:const Foo = () => <div /> 會被抓,
+        // 元件內部的 handler、map callback 不受影響。
+        "react/function-component-definition": [
+          "error",
+          {
+            namedComponents: "function-declaration",
+            unnamedComponents: "arrow-function",
+          },
+        ],
+        "typescript/no-restricted-types": [
+          "error",
+          {
+            types: {
+              "React.FC": {
+                message:
+                  "不要用 React.FC:泛型寫起來很髒,而且會隱式帶進 children。改成 function Foo({ x }: FooProps)。",
+              },
+              "React.FunctionComponent": {
+                message:
+                  "不要用 React.FunctionComponent,改成 function Foo({ x }: FooProps)。",
+              },
+            },
+          },
+        ],
+      },
+    },
+    {
       files: ["packages/ui/src/components/**", "packages/ui/src/hooks/**"],
       rules: {
         "eslint/complexity": "off",

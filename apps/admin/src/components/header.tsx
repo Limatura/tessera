@@ -6,7 +6,7 @@ import { locales } from "@/paraglide/runtime.js";
 
 import { ModeToggle } from "./mode-toggle";
 
-export default function Header() {
+export function Header() {
   const locale = getLocale();
   const links = [{ label: m.header_home(), to: "/" }] as const;
 

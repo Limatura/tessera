@@ -33,7 +33,7 @@ function getInitials(username: string): string {
   return username.charAt(0).toUpperCase();
 }
 
-export default function Header() {
+export function Header() {
   const locale = getLocale();
   const { data: session } = useSession();
   const logout = useLogout();
