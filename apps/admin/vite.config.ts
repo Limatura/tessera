@@ -26,6 +26,15 @@ export default defineConfig({
   },
   server: {
     allowedHosts: [".coder.sao-x.com"],
-    port: 3001,
+    port: 3002,
+    proxy: {
+      // dev 才需要：admin 跟後端是兩個 process，`@tessera/api` 的 baseUrl 是 `/`，
+      // 不轉過去的話 `/api/...` 會落到 SPA fallback、拿回 index.html 而不是 JSON。
+      // 正式環境同網域由反向代理處理，沒有這一層。
+      "/api": {
+        changeOrigin: true,
+        target: "http://localhost:8787",
+      },
+    },
   },
 });

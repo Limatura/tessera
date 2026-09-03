@@ -1,11 +1,22 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import ReactDOM from "react-dom/client";
 
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
 
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // 後台資料改動頻繁，切回分頁時重抓比看到舊的使用者/角色列表安全。
+      refetchOnWindowFocus: true,
+      staleTime: 30_000,
+    },
+  },
+});
+
 const router = createRouter({
-  context: {},
+  context: { queryClient },
   defaultPendingComponent: () => <Loader />,
   defaultPreload: "intent",
   routeTree,
@@ -26,5 +37,9 @@ if (!rootElement) {
 
 if (!rootElement.innerHTML) {
   const root = ReactDOM.createRoot(rootElement);
-  root.render(<RouterProvider router={router} />);
+  root.render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  );
 }

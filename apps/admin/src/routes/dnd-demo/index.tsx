@@ -4,13 +4,13 @@ import * as React from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
+
+import { Route as rootRoute } from "../__root";
 import {
   createSortableColumnHelper,
   DragHandle,
   SortableTable,
-} from "@/components/sortable-table";
-
-import { Route as rootRoute } from "./__root";
+} from "./-components/sortable-table";
 
 export const Route = createRoute({
   component: DndDemoComponent,
