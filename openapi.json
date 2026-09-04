@@ -3599,30 +3599,24 @@
           },
           {
             "description": "How many to return. Capped, and defaulted when omitted.",
-            "in": "path",
+            "in": "query",
             "name": "limit",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             }
           },
           {
             "description": "How many to skip.",
-            "in": "path",
+            "in": "query",
             "name": "offset",
-            "required": true,
+            "required": false,
             "schema": {
               "format": "int64",
               "minimum": 0,
-              "type": [
-                "integer",
-                "null"
-              ]
+              "type": "integer"
             }
           }
         ],

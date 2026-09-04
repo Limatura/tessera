@@ -114,6 +114,9 @@ importers:
       '@tessera/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@tessera/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@tessera/env':
         specifier: workspace:*
         version: link:../../packages/env
@@ -382,6 +385,9 @@ importers:
       '@tessera/api':
         specifier: workspace:*
         version: link:../../packages/api
+      '@tessera/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@tessera/env':
         specifier: workspace:*
         version: link:../../packages/env
@@ -501,6 +507,28 @@ importers:
       openapi-typescript:
         specifier: ^7.10.0
         version: 7.13.0(typescript@6.0.3)
+      typescript:
+        specifier: 'catalog:'
+        version: 6.0.3
+
+  packages/auth:
+    dependencies:
+      '@tanstack/react-query':
+        specifier: ^5.90.5
+        version: 5.101.4(react@19.2.8)
+      '@tessera/api':
+        specifier: workspace:*
+        version: link:../api
+      react:
+        specifier: 'catalog:'
+        version: 19.2.8
+    devDependencies:
+      '@tessera/config':
+        specifier: workspace:*
+        version: link:../config
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
       typescript:
         specifier: 'catalog:'
         version: 6.0.3

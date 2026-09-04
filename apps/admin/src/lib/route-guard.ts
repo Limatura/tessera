@@ -6,7 +6,7 @@ import { sessionQueryOptions } from "@/hooks/use-auth";
 
 import type { Permission } from "./permissions";
 import { hasPermission, landingRoute } from "./permissions";
-import { loginUrl } from "./web-url";
+import { homeUrl, loginUrl } from "./web-url";
 
 type Account = components["schemas"]["AccountResponse"];
 
@@ -62,6 +62,10 @@ export async function requirePermission(
 
   if (!hasPermission(account, permission)) {
     const fallback = landingRoute(account);
+    // 後台一頁都進不去 —— 這種帳號本來就不屬於後台，送回前台首頁。
+    if (fallback === null) {
+      throw redirect({ href: homeUrl().toString() });
+    }
     // 目標本身就是進不去的那頁時直接放行，否則會在兩個 beforeLoad 之間無限轉址。
     if (fallback !== href) {
       throw redirect({ to: fallback });

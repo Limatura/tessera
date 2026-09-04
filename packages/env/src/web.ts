@@ -21,6 +21,15 @@ export const env = createEnv({
      * 結尾的斜線會被忽略。
      */
     VITE_FRONTEND_URL: z.string().default(""),
+    /**
+     * apps/admin 的位址，讓 apps/web 組出後台管理連結（下拉選單裡的「後台管理」）。
+     *
+     * 兩包 SPA 由反向代理放在同一個網域下，session cookie 共用，所以連過去不用
+     * 額外登入。同網域且後台掛在固定子路徑時填前綴，例如 `/admin`；開發時兩個
+     * dev server 不同 port，填完整位址 `http://localhost:3002`。留空則不顯示
+     * 後台連結（視為沒有設定後台）。
+     */
+    VITE_ADMIN_URL: z.string().default(""),
   },
   clientPrefix: "VITE_",
   emptyStringAsUndefined: true,

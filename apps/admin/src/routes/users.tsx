@@ -65,7 +65,7 @@ function UsersComponent() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.data.map((user) => (
+                {users.data.data.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-medium">
                       {user.username}

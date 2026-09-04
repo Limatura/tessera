@@ -53,18 +53,6 @@ export const invitesQueryOptions = queryOptions({
   queryKey: ["admin", "invites"],
 });
 
-/** 目前登入帳號自己的分享，不是全站的 —— 全站的在 `/admin/shares`。 */
-export const mySharesQueryOptions = queryOptions({
-  queryFn: async () => {
-    const { data, error } = await api.GET("/api/v1/shares", {});
-    if (error) {
-      throw error;
-    }
-    return data;
-  },
-  queryKey: ["shares", "mine"],
-});
-
 export function useRoles() {
   return useQuery(rolesQueryOptions);
 }
@@ -79,10 +67,6 @@ export function useUsers() {
 
 export function useInvites() {
   return useQuery(invitesQueryOptions);
-}
-
-export function useMyShares() {
-  return useQuery(mySharesQueryOptions);
 }
 
 export function useCreateRole() {

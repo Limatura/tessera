@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as InvitesRouteImport } from './routes/invites'
-import { Route as SharesRouteImport } from './routes/shares'
 import { Route as UsersRouteImport } from './routes/users'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as DndDemoIndexRouteImport } from './routes/dnd-demo/index'
@@ -32,11 +31,6 @@ const IndexRoute = IndexRouteImport.update({
 const InvitesRoute = InvitesRouteImport.update({
   id: '/invites',
   path: '/invites',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SharesRoute = SharesRouteImport.update({
-  id: '/shares',
-  path: '/shares',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UsersRoute = UsersRouteImport.update({
@@ -98,7 +92,6 @@ const SettingsUploadRoute = SettingsUploadRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/invites': typeof InvitesRoute
-  '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/oidc': typeof SettingsOidcRoute
@@ -114,7 +107,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/invites': typeof InvitesRoute
-  '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/oidc': typeof SettingsOidcRoute
@@ -131,7 +123,6 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/invites': typeof InvitesRoute
-  '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
   '/settings/account': typeof SettingsAccountRoute
   '/settings/oidc': typeof SettingsOidcRoute
@@ -149,7 +140,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/invites'
-    | '/shares'
     | '/users'
     | '/settings/account'
     | '/settings/oidc'
@@ -165,7 +155,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/invites'
-    | '/shares'
     | '/users'
     | '/settings/account'
     | '/settings/oidc'
@@ -181,7 +170,6 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/invites'
-    | '/shares'
     | '/users'
     | '/settings/account'
     | '/settings/oidc'
@@ -198,7 +186,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   InvitesRoute: typeof InvitesRoute
-  SharesRoute: typeof SharesRoute
   UsersRoute: typeof UsersRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsOidcRoute: typeof SettingsOidcRoute
@@ -226,13 +213,6 @@ declare module '@tanstack/react-router' {
       path: '/invites'
       fullPath: '/invites'
       preLoaderRoute: typeof InvitesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shares': {
-      id: '/shares'
-      path: '/shares'
-      fullPath: '/shares'
-      preLoaderRoute: typeof SharesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/users': {
@@ -318,7 +298,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   InvitesRoute: InvitesRoute,
-  SharesRoute: SharesRoute,
   UsersRoute: UsersRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsOidcRoute: SettingsOidcRoute,
