@@ -4,7 +4,7 @@ import * as m from "@/paraglide/messages";
 
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 32;
-const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 1024;
 
 /** Mirrors `Username::parse`'s rule in `crates/tessera-core/src/username.rs`. */
