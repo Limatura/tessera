@@ -1517,8 +1517,11 @@ export interface components {
              */
             user_agent?: string | null;
         };
-        /** @description A share's recorded retrievals. */
-        AccessLogResponse: {
+        /**
+         * @description [`PageMeta`](crate::api::shares::PageMeta) plus the one fact this list needs
+         *     that the others do not.
+         */
+        AccessLogMeta: {
             /**
              * @description Whether this instance is recording at all.
              *
@@ -1527,8 +1530,28 @@ export interface components {
              *     first.
              */
             enabled: boolean;
-            /** @description The events, most recent first. */
-            events: components["schemas"]["AccessEventResponse"][];
+            /**
+             * Format: int64
+             * @description The page size actually used.
+             */
+            limit: number;
+            /**
+             * Format: int64
+             * @description How many were skipped.
+             */
+            offset: number;
+            /**
+             * Format: int64
+             * @description How many events this share has, not how many are on this page.
+             */
+            total: number;
+        };
+        /** @description A share's recorded retrievals. */
+        AccessLogResponse: {
+            /** @description The events on this page, most recent first. */
+            data: components["schemas"]["AccessEventResponse"][];
+            /** @description The collection they came from, and whether anything is being recorded. */
+            meta: components["schemas"]["AccessLogMeta"];
         };
         /** @description An account, as the API describes it. Never carries a hash. */
         AccountResponse: {
@@ -1596,12 +1619,9 @@ export interface components {
         /** @description A page of shares. */
         AdminSharePage: {
             /** @description The shares on this page. */
-            shares: components["schemas"]["AdminShareResponse"][];
-            /**
-             * Format: int64
-             * @description How many exist in total, so a client can render pagination.
-             */
-            total: number;
+            data: components["schemas"]["AdminShareResponse"][];
+            /** @description The collection they came from. */
+            meta: components["schemas"]["PageMeta"];
         };
         /**
          * @description One share, as an administrator sees it.
@@ -1665,6 +1685,13 @@ export interface components {
              * @description How many bytes it holds.
              */
             size_bytes: number;
+        };
+        /** @description A page of accounts. */
+        AdminUserPage: {
+            /** @description The accounts on this page, newest first. */
+            data: components["schemas"]["AdminUserResponse"][];
+            /** @description The collection they came from. */
+            meta: components["schemas"]["PageMeta"];
         };
         /**
          * @description One account, as an administrator sees it.
@@ -2156,6 +2183,38 @@ export interface components {
             layout?: string;
         };
         Option_u64: null | number;
+        /**
+         * @description What a client needs to draw pagination, for any paged list.
+         *
+         *     # Why the list endpoints have an envelope and nothing else does
+         *
+         *     A paged response has two things in it: the rows, and facts about the
+         *     collection they came from. Without somewhere to put the second, `total`
+         *     ends up beside the rows under a name invented per endpoint, and a client
+         *     reading two lists reads them two ways. Every other endpoint answers with
+         *     one object and has nothing of the kind to carry, so wrapping those would
+         *     add a level of nesting that says nothing.
+         */
+        PageMeta: {
+            /**
+             * Format: int64
+             * @description The page size actually used, which is not always the one asked for.
+             * @example 50
+             */
+            limit: number;
+            /**
+             * Format: int64
+             * @description How many were skipped.
+             * @example 0
+             */
+            offset: number;
+            /**
+             * Format: int64
+             * @description How many exist in total, not how many are on this page.
+             * @example 137
+             */
+            total: number;
+        };
         /** @description Body of `POST /auth/password-reset/confirm`. */
         PasswordResetConfirmRequest: {
             /** @description What to set the password to. */
@@ -2568,12 +2627,9 @@ export interface components {
         /** @description A page of the caller's shares. */
         SharePage: {
             /** @description The shares on this page. */
-            shares: components["schemas"]["ShareResponse"][];
-            /**
-             * Format: int64
-             * @description How many the caller has in total, so a client can render pagination.
-             */
-            total: number;
+            data: components["schemas"]["ShareResponse"][];
+            /** @description The collection they came from. */
+            meta: components["schemas"]["PageMeta"];
         };
         /** @description A share as the API describes it. Never carries the content. */
         ShareResponse: {
@@ -4190,6 +4246,10 @@ export interface operations {
                  *     acted on, so it belongs only in an answer that asked for it.
                  */
                 include_deleted?: boolean;
+                /** @description How many to return. Capped, and defaulted when omitted. */
+                limit?: number;
+                /** @description How many to skip. */
+                offset?: number;
             };
             header?: never;
             path?: never;
@@ -4197,13 +4257,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Every account on this instance */
+            /** @description A page of accounts */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminUserResponse"][];
+                    "application/json": components["schemas"]["AdminUserPage"];
                 };
             };
             /** @description Not signed in */
