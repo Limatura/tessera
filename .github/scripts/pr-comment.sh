@@ -27,6 +27,7 @@ api() {
   curl --fail-with-body -sS \
     -H "Authorization: Bearer $GITHUB_TOKEN" \
     -H "Accept: application/vnd.github+json" \
+    -H "Content-Type: application/json" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     "$@"
 }

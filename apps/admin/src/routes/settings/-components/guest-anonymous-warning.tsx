@@ -5,9 +5,21 @@ import { readSetting, useSettings } from "@/hooks/use-settings";
 
 const GUEST_ROLE = "guest";
 
+/**
+ * 兩個設定各在一頁，`fixAt` 指的是「另外那一頁」—— 也就是這一頁修不到、要跳過去改的
+ * 那一個。動作跟著頁面走：帳號與註冊那頁改的是預設角色，上傳設置那頁關的是匿名上傳。
+ */
 const FIX_TARGETS = {
-  account: { label: "帳號與註冊", to: "/settings/account" },
-  upload: { label: "上傳設置", to: "/settings/upload" },
+  account: {
+    action: "改掉新帳號的預設角色",
+    label: "帳號與註冊",
+    to: "/settings/account",
+  },
+  upload: {
+    action: "關閉「允許訪客上傳」",
+    label: "上傳設置",
+    to: "/settings/upload",
+  },
 } as const;
 
 /**
@@ -54,7 +66,7 @@ export function GuestAnonymousWarning({
           <Link className="mx-1 underline underline-offset-4" to={target.to}>
             {target.label}
           </Link>
-          關閉「允許訪客上傳」。
+          {target.action}。
         </p>
       </div>
     </div>

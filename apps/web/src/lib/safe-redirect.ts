@@ -7,24 +7,25 @@
  *
  * 同源的絕對網址要放行：apps/admin 是另一包 SPA，被反向代理放在同一個網域下，
  * 它送過來的就是完整 URL。
+ *
+ * @param target 網址上帶進來的值，什麼都可能。
+ * @param origin 比對的基準，正常呼叫傳 `window.location.origin`。
+ * @returns 可以安全交給 `location.assign` 的同源路徑，不安全就是 `null`。
  */
-export function safeRedirect(target: string | undefined): string | null {
+export function safeRedirect(
+  target: string | undefined,
+  origin: string
+): string | null {
   if (!target) {
     return null;
   }
 
-  // `//evil.com` 是 protocol-relative，會被當成外站，但開頭確實是斜線。
-  if (target.startsWith("//")) {
-    return null;
-  }
-
-  if (target.startsWith("/")) {
-    return target;
-  }
-
+  // 一律先解析成絕對位址再比對 origin，不要自己判斷開頭長怎樣。瀏覽器會把
+  // 反斜線正規化成斜線，所以 `/\evil.com` 跟 `//evil.com` 一樣會跳到外站，
+  // 但它通得過「開頭是單一斜線」這種字串檢查。交給 URL 解析就沒有這種縫。
   try {
-    const url = new URL(target);
-    return url.origin === window.location.origin
+    const url = new URL(target, origin);
+    return url.origin === origin
       ? `${url.pathname}${url.search}${url.hash}`
       : null;
   } catch {

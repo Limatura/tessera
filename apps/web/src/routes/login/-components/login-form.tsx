@@ -17,6 +17,7 @@ import {
   FieldLabel,
 } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
+import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import { Controller, useForm } from "react-hook-form";
 
@@ -30,7 +31,10 @@ import * as m from "@/paraglide/messages";
 /** 直接 import Route 會跟 index.tsx 形成循環依賴。 */
 const routeApi = getRouteApi("/login/");
 
-export function LoginForm() {
+export function LoginForm({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
   const navigate = useNavigate();
   const search = routeApi.useSearch();
   const login = useLogin();
@@ -43,7 +47,7 @@ export function LoginForm() {
     login.mutate(values, {
       onSuccess: () => {
         // admin 是同網域的另一包 SPA，router 裡沒有它的路由，只能整頁跳轉。
-        const target = safeRedirect(search.redirect);
+        const target = safeRedirect(search.redirect, window.location.origin);
         if (target) {
           window.location.assign(target);
           return;
@@ -56,7 +60,7 @@ export function LoginForm() {
   const formError = login.error as components["schemas"]["ErrorBody"] | null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
       <motion.div
         animate="visible"
         initial="hidden"

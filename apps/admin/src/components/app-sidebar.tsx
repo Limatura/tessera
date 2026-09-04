@@ -1,6 +1,7 @@
 import {
   IconArrowsSort,
   IconDashboard,
+  IconFiles,
   IconInnerShadowTop,
   IconKey,
   IconSettings,
@@ -48,6 +49,11 @@ const NAV_ITEMS: (NavEntry & { permission?: Permission })[] = [
     permission: PERMISSIONS.statsRead,
     title: "儀表板",
     url: "/dashboard",
+  },
+  {
+    icon: <IconFiles />,
+    title: "我的分享",
+    url: "/shares",
   },
   {
     icon: <IconUsers />,
