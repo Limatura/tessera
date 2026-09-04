@@ -1,0 +1,103 @@
+# What a download costs in Safari.
+#
+# Manual, and expected to be run a handful of times ever. It exists because the
+# figures that decide how a stitched download is delivered came from Playwright's
+# own browser builds, and re-measuring the same cases in the browsers as shipped
+# moved one of them by a factor of thirteen and reversed a design conclusion.
+# Chromium and Firefox can be measured on any Linux box; Safari cannot.
+#
+# `macos-latest` is real Apple hardware, which is the only place macOS may be
+# run. A virtual machine on other hardware breaks Apple's licence, and would
+# not answer the question anyway: an emulated Safari is no more the shipped
+# browser than Playwright's build was.
+name: safari memory
+
+on:
+  workflow_dispatch:
+    inputs:
+      size_bytes:
+        description: How many bytes to transfer
+        default: "4294967296"
+      delay_ms:
+        description: Milliseconds per megabyte. Throttling is what separates the browser's floor from the download's cost.
+        default: "10"
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: safari
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Nothing is driven by WebDriver: the page starts its own download and
+      # posts the result back, so whatever Safari the runner has is what gets
+      # measured. `safaridriver --enable` is deliberately not run.
+      - name: What this is measuring
+        run: |
+          /Applications/Safari.app/Contents/MacOS/Safari --version 2>/dev/null || \
+            defaults read /Applications/Safari.app/Contents/Info.plist CFBundleShortVersionString
+          sw_vers
+
+      - name: The floor, with nothing downloaded
+        run: |
+          python3 -c "
+          import http.server, socketserver, threading, time
+          class H(http.server.BaseHTTPRequestHandler):
+              protocol_version='HTTP/1.1'
+              def log_message(self,*a): pass
+              def do_GET(self):
+                  b=b'<!doctype html><title>idle</title><body>idle'
+                  self.send_response(200); self.send_header('content-length',str(len(b)))
+                  self.end_headers(); self.wfile.write(b)
+          class T(socketserver.ThreadingMixIn, http.server.HTTPServer):
+              daemon_threads=True; allow_reuse_address=True
+          s=T(('127.0.0.1',8730),H)
+          threading.Thread(target=s.serve_forever,daemon=True).start()
+          time.sleep(70)
+          " &
+          sleep 1
+          open -a Safari "http://127.0.0.1:8730/"
+          peak=0
+          for _ in $(seq 1 160); do
+            total=0
+            for pid in $(pgrep -f "Safari|com.apple.WebKit" 2>/dev/null); do
+              kib=$(footprint -p "$pid" 2>/dev/null | awk '/phys_footprint/ {gsub(/[^0-9.]/,"",$(NF-1)); print int($(NF-1)); exit}')
+              total=$((total + ${kib:-0}))
+            done
+            [ "$total" -gt "$peak" ] && peak=$total
+            sleep 0.25
+          done
+          osascript -e 'tell application "Safari" to quit' || true
+          echo "idle peak=${peak} KiB"
+
+      # The inputs reach the shell as environment variables rather than being
+      # substituted into the script text, which is what makes them data instead
+      # of program (zizmor `template-injection`).
+      - name: A real download
+        env:
+          SIZE: ${{ inputs.size_bytes }}
+          DELAY: ${{ inputs.delay_ms }}
+        run: scripts/browser-memory/safari.sh download "$SIZE" "$DELAY" 8731
+
+      - name: Through a service worker
+        env:
+          SIZE: ${{ inputs.size_bytes }}
+          DELAY: ${{ inputs.delay_ms }}
+        run: scripts/browser-memory/safari.sh sw "$SIZE" "$DELAY" 8732
+
+      - name: Into OPFS
+        env:
+          SIZE: ${{ inputs.size_bytes }}
+          DELAY: ${{ inputs.delay_ms }}
+        run: scripts/browser-memory/safari.sh opfs "$SIZE" "$DELAY" 8733
+
+      # The one Firefox fails and the other two survive. Throttled hard, because
+      # a fast download finishes before anything can kill it.
+      - name: Whether a service worker survives a slow download
+        run: scripts/browser-memory/safari.sh sw 536870912 300 8734
