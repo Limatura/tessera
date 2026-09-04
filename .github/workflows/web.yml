@@ -19,6 +19,11 @@ on:
       - "oxlint.config.ts"
       - "oxfmt.config.ts"
       - ".github/workflows/web.yml"
+      # The scripts the bundle-size report shells out to. Without this a
+      # change to either could ship without ever having been run.
+      - ".github/scripts/bundle-size.sh"
+      - ".github/scripts/bundle-size-finalize.sh"
+      - ".github/scripts/pr-comment.sh"
   pull_request:
     paths: *web-paths
   workflow_dispatch:
@@ -38,6 +43,9 @@ jobs:
     timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    # Read by `bundle-size-comment`.
+    outputs:
+      report: ${{ steps.bundle-size.outputs.report }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -74,3 +82,49 @@ jobs:
       # 純函式的單元測試(語言偵測、位元組格式化、PATCH 請求的組法)。
       # 不需要瀏覽器環境,所以跑得很快,放在最後當守門員。
       - run: pnpm turbo run test --filter=web
+
+      # Two apps, two rows in one report — `bundle-size.sh` appends, it does
+      # not overwrite. Runs after everything above so a build that fails
+      # type-checking never gets a size reported for it.
+      - name: Measure web
+        run: .github/scripts/bundle-size.sh web apps/web/dist
+      - name: Measure admin
+        run: .github/scripts/bundle-size.sh admin apps/admin/dist
+      - name: Assemble the bundle-size report
+        id: bundle-size
+        run: .github/scripts/bundle-size-finalize.sh
+
+      # Only main, and only once every check above has passed — the same
+      # reasoning as the server image's baseline, in `rust.yml`.
+      - name: Record this build as the baseline
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cp /tmp/tessera-bundle-size/web/current.txt /tmp/tessera-bundle-size/web/main.txt
+          cp /tmp/tessera-bundle-size/admin/current.txt /tmp/tessera-bundle-size/admin/main.txt
+
+  # Split out for the same reason `image-size-comment` is split out of
+  # `docker` in rust.yml: `check` runs no third-party action that could abuse
+  # `pull-requests: write`, but keeping the scope on a job that does nothing
+  # else means it stays that way even if one is added here later.
+  bundle-size-comment:
+    name: bundle size comment
+    runs-on: [self-hosted, Linux, X64]
+    permissions:
+      contents: read
+      pull-requests: write
+    timeout-minutes: 5
+    needs: check
+    if: >-
+      always() && github.event_name == 'pull_request' && needs.check.outputs.report != ''
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Post the bundle-size table
+        run: .github/scripts/pr-comment.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MARKER: "<!-- tessera:bundle-size -->"
+          BODY: ${{ needs.check.outputs.report }}
