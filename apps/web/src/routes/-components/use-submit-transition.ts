@@ -6,6 +6,9 @@ import * as m from "@/paraglide/messages";
 
 export type SubmitStatus = "idle" | "uploading" | "done";
 
+/** 與 upload-panel 圓形收合動畫的 duration 對齊(0.7s) */
+const COLLAPSE_DURATION_MS = 700;
+
 /** 圓形展開特效的中心點和半徑,大小剛好蓋住整個視窗 */
 interface Origin {
   x: number;
@@ -74,7 +77,9 @@ export function useSubmitTransition() {
   };
 
   // 先關掉展開效果(expanded: false 會播放圓形收合動畫)
-  // 等動畫跑完(500ms)再清空其他狀態回到 idle
+  // 收合動畫是 700ms(見 upload-panel 的 transition),要等它整段跑完才清狀態:
+  // 提早清掉會讓 origin 變 null、AnimatePresence 中途接手 exit,同時卸載覆蓋層裡
+  // 的 canvas 與結果面板,一次大量 DOM 拆除剛好砸在動畫還在跑的那幾幀上而掉幀
   const reset = () => {
     setExpanded(false);
     setTimeout(() => {
@@ -82,7 +87,7 @@ export function useSubmitTransition() {
       setProgress(0);
       setOrigin(null);
       setResult(null);
-    }, 500);
+    }, COLLAPSE_DURATION_MS);
   };
 
   return { expanded, origin, progress, reset, result, start, status };

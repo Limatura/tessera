@@ -1,3 +1,25 @@
 @import "@tessera/ui/globals.css";
 
 @source "../../../packages/ui/src/**/*.{ts,tsx}";
+
+/*
+ * --melt 是首頁上傳流程專用的:上傳按鈕「融化」與結果覆蓋層共用的底色。
+ * 只有 apps/web 用得到,所以不放進 @tessera/ui 的共用 token 表。
+ *
+ * @theme 要跟 tailwindcss 的 import 在同一條 CSS 編譯鏈上,utility(bg-melt /
+ * text-melt-foreground)才會被生成——上面的 globals.css 已經 import 了 tailwindcss。
+ */
+@theme inline {
+  --color-melt: var(--melt);
+  --color-melt-foreground: var(--melt-foreground);
+}
+
+:root {
+  --melt: color-mix(in oklch, var(--primary) 45%, white 55%);
+  --melt-foreground: oklch(0.147 0.004 49.3);
+}
+
+.dark {
+  --melt: color-mix(in oklch, var(--primary) 32%, oklch(0.17 0.008 49.3) 68%);
+  --melt-foreground: oklch(0.986 0.002 67.8);
+}
