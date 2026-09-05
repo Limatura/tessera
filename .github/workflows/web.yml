@@ -3,29 +3,20 @@ name: web
 # Separate from `rust.yml` and outside the Rust pipeline for the same reason
 # that one says: the two toolchains share no cache, no dependency graph and no
 # failure modes, so a frontend change should not wait on a Rust rebuild.
+#
+# No `paths:` filter here — unlike `rust.yml`, which needs `dorny/paths-filter`
+# because Cargo has no package graph GitHub Actions can query. Turborepo does:
+# `turbo run ... --affected` walks that graph itself (a `packages/ui` change
+# marks every app that depends on it, not every app in the repo), so the
+# workflow triggers on every push/PR and lets `--affected` decide per package
+# rather than this file guessing from glob patterns. That is also why a commit
+# touching only `apps/tui` or `apps/extension` no longer runs `web`/`admin`
+# work for nothing — those two apps have no `build`/`check-types`/`test` tasks
+# of their own, so `--affected` finds nothing to run for them.
 on:
   push:
     branches: [main]
-    paths: &web-paths
-      - "apps/web/**"
-      - "apps/admin/**"
-      - "apps/tui/**"
-      - "apps/extension/**"
-      - "packages/**"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "pnpm-workspace.yaml"
-      - "turbo.json"
-      - "oxlint.config.ts"
-      - "oxfmt.config.ts"
-      - ".github/workflows/web.yml"
-      # The scripts the bundle-size report shells out to. Without this a
-      # change to either could ship without ever having been run.
-      - ".github/scripts/bundle-size.sh"
-      - ".github/scripts/bundle-size-finalize.sh"
-      - ".github/scripts/pr-comment.sh"
   pull_request:
-    paths: *web-paths
   workflow_dispatch:
 
 concurrency:
@@ -47,9 +38,15 @@ jobs:
     outputs:
       report: ${{ steps.bundle-size.outputs.report }}
     steps:
+      # `fetch-depth: 0` — full history, not the default shallow clone.
+      # `--affected` below works by asking git for the merge base against
+      # main; a shallow clone may not contain it, and turbo then falls back to
+      # treating everything as affected, which is silently the same cost this
+      # change exists to avoid.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -61,27 +58,55 @@ jobs:
       # instead of quietly resolving from the store.
       - run: pnpm install --frozen-lockfile
 
-      # Order matters, and it is the reason this job did not exist for so long.
-      # `paraglide`'s runtime and `routeTree.gen.ts` are produced by Vite
-      # plugins at build time and are both gitignored, so on a fresh checkout
-      # `tsc` cannot resolve `@/paraglide/runtime.js` and reports a dozen errors
-      # that say nothing about the code. Build first, then check.
-      - run: pnpm turbo run build --filter=web --filter=admin
+      # `--affected` asks turbo's own package graph which packages actually
+      # changed — direct edits or a changed internal dependency — instead of
+      # this file's own guess at which globs matter. On `pull_request` it
+      # diffs against the PR's base ref; on `push` to main, against the
+      # previous commit. A run with nothing affected still passes: there is
+      # simply nothing for these tasks to do.
+      #
+      # Order matters, and it is the reason this job did not exist for so
+      # long. `paraglide`'s runtime and `routeTree.gen.ts` are produced by
+      # Vite plugins at build time and are both gitignored, so on a fresh
+      # checkout `tsc` cannot resolve `@/paraglide/runtime.js` and reports a
+      # dozen errors that say nothing about the code. Build first, then check.
+      - run: pnpm turbo run build --affected
 
       # The point of this job. `vite build` hands the file to esbuild, which
       # strips types without checking them — a build that passes says nothing
       # about whether the types are right.
-      - run: pnpm turbo run check-types --filter=web --filter=admin
+      - run: pnpm turbo run check-types --affected
 
       # apps/docs is a separate git submodule (tessera-docs) with its own
       # oxlint config. --disable-nested-config stops oxlint from walking into
       # it and tripping over whatever config files live there — including a
       # stale one that once conflicted with its current oxlint.config.ts.
+      #
+      # Not filtered by --affected: oxlint has no per-package cost model here,
+      # it walks the whole tree in one process either way, so narrowing its
+      # input would only add bookkeeping for no saved work.
       - run: pnpm exec ultracite check --disable-nested-config
 
       # 純函式的單元測試(語言偵測、位元組格式化、PATCH 請求的組法)。
       # 不需要瀏覽器環境,所以跑得很快,放在最後當守門員。
-      - run: pnpm turbo run test --filter=web
+      - run: pnpm turbo run test --affected --filter=web
+
+      # Bundle size only means anything for a package that just built — a
+      # `dist` from an unrelated earlier run would report stale numbers as
+      # this run's own, and `bundle-size.sh` errors outright if `--affected`
+      # skipped the build and `dist` was never produced at all. `--exit-code`
+      # turns "is this package affected" into a plain step outcome so the
+      # measure/restore/save steps below can each ask about their own app.
+      - name: Which apps are affected
+        id: affected
+        run: |
+          for app in web admin; do
+            if pnpm turbo query affected --packages "$app" --exit-code > /dev/null; then
+              echo "${app}=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "${app}=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
 
       # $STATE_DIR is a fixed path on a self-hosted box, not a fresh per-run
       # directory — nothing else clears it between runs. Wipe it up front so
@@ -94,10 +119,15 @@ jobs:
       # The baseline must be *this* PR's diff against main, not whatever the
       # last main build happened to leave on whichever self-hosted box this
       # run lands on. Caching main.txt by commit means the restore always
-      # reflects the actual main tip, keyed on the same paths this workflow
-      # already triggers on, regardless of which box ran that push.
+      # reflects the actual main tip, keyed on the same commit that pushed it,
+      # regardless of which box ran that push.
+      #
+      # Restored on main pushes too, not only PRs: `--affected` means a push
+      # that only touched `web` never regenerates `admin/main.txt`, and
+      # without this restore the save step below would cache that push's
+      # baseline missing admin entirely, one push after another until admin
+      # happens to be affected again.
       - name: Restore main's bundle-size baseline
-        if: github.ref != 'refs/heads/main'
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
@@ -108,24 +138,33 @@ jobs:
 
       # Two apps, two rows in one report — `bundle-size.sh` appends, it does
       # not overwrite. Runs after everything above so a build that fails
-      # type-checking never gets a size reported for it.
+      # type-checking never gets a size reported for it. Each guarded by the
+      # same affected check that gated its build, so a PR touching only one
+      # app reports on that app alone rather than reporting a stale `dist` — or
+      # erroring outright — for the other.
       - name: Measure web
+        if: steps.affected.outputs.web == 'true'
         run: .github/scripts/bundle-size.sh web apps/web/dist
       - name: Measure admin
+        if: steps.affected.outputs.admin == 'true'
         run: .github/scripts/bundle-size.sh admin apps/admin/dist
       - name: Assemble the bundle-size report
         id: bundle-size
+        if: steps.affected.outputs.web == 'true' || steps.affected.outputs.admin == 'true'
         run: .github/scripts/bundle-size-finalize.sh
 
       # Only main, and only once every check above has passed — the same
-      # reasoning as the server image's baseline, in `rust.yml`.
+      # reasoning as the server image's baseline, in `rust.yml`. Each copy
+      # guarded the same way: a `main.txt` from an app that did not build this
+      # run must not be overwritten with nothing.
       - name: Record this build as the baseline
-        if: github.ref == 'refs/heads/main'
-        run: |
-          cp /tmp/tessera-bundle-size/web/current.txt /tmp/tessera-bundle-size/web/main.txt
-          cp /tmp/tessera-bundle-size/admin/current.txt /tmp/tessera-bundle-size/admin/main.txt
+        if: github.ref == 'refs/heads/main' && steps.affected.outputs.web == 'true'
+        run: cp /tmp/tessera-bundle-size/web/current.txt /tmp/tessera-bundle-size/web/main.txt
+      - name: Record this build as the baseline (admin)
+        if: github.ref == 'refs/heads/main' && steps.affected.outputs.admin == 'true'
+        run: cp /tmp/tessera-bundle-size/admin/current.txt /tmp/tessera-bundle-size/admin/main.txt
       - name: Save this build as the cached baseline
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (steps.affected.outputs.web == 'true' || steps.affected.outputs.admin == 'true')
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
