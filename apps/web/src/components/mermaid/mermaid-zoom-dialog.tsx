@@ -27,6 +27,30 @@ interface Transform {
 
 const IDENTITY: Transform = { scale: 1, x: 0, y: 0 };
 
+export function MermaidZoomDialog({
+  onOpenChange,
+  open,
+  svg,
+  title,
+}: {
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  svg: string;
+  title: string;
+}) {
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent className="flex h-[92vh] w-[95vw] max-w-6xl flex-col gap-2 sm:max-w-6xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        {/* 只在打開時掛載,關掉再開就回到原始比例,不用另外重設。 */}
+        {open ? <ZoomViewer svg={svg} /> : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function clampScale(scale: number) {
   return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
 }
@@ -227,29 +251,5 @@ function ZoomViewer({ svg }: { svg: string }) {
         </Button>
       </div>
     </div>
-  );
-}
-
-export function MermaidZoomDialog({
-  onOpenChange,
-  open,
-  svg,
-  title,
-}: {
-  onOpenChange: (open: boolean) => void;
-  open: boolean;
-  svg: string;
-  title: string;
-}) {
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="flex h-[92vh] w-[95vw] max-w-6xl flex-col gap-2 sm:max-w-6xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        {/* 只在打開時掛載,關掉再開就回到原始比例,不用另外重設。 */}
-        {open ? <ZoomViewer svg={svg} /> : null}
-      </DialogContent>
-    </Dialog>
   );
 }

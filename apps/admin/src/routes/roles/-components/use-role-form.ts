@@ -1,5 +1,4 @@
 import type { components } from "@tessera/api/schema";
-import type { FormEvent } from "react";
 import { useState } from "react";
 
 import { useCreateRole, useUpdateRole } from "@/hooks/use-admin";
@@ -64,7 +63,7 @@ export function useRoleForm({
     });
   };
 
-  const submit = (event: FormEvent) => {
+  const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const body = {
       description: description.trim() || null,

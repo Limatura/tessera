@@ -3,23 +3,6 @@ import { Checkbox } from "@tessera/ui/components/checkbox";
 
 type PermissionInfo = components["schemas"]["PermissionResponse"];
 
-/** 依 `resource:verb` 的 resource 分組，讓一長串 checkbox 讀得下去。 */
-function groupByResource(
-  permissions: PermissionInfo[]
-): [string, PermissionInfo[]][] {
-  const groups = new Map<string, PermissionInfo[]>();
-  for (const permission of permissions) {
-    const [resource] = permission.name.split(":");
-    const existing = groups.get(resource);
-    if (existing) {
-      existing.push(permission);
-    } else {
-      groups.set(resource, [permission]);
-    }
-  }
-  return [...groups.entries()];
-}
-
 export function PermissionPicker({
   allPermissions,
   selected,
@@ -74,4 +57,21 @@ export function PermissionPicker({
       ))}
     </div>
   );
+}
+
+/** 依 `resource:verb` 的 resource 分組，讓一長串 checkbox 讀得下去。 */
+function groupByResource(
+  permissions: PermissionInfo[]
+): [string, PermissionInfo[]][] {
+  const groups = new Map<string, PermissionInfo[]>();
+  for (const permission of permissions) {
+    const [resource] = permission.name.split(":");
+    const existing = groups.get(resource);
+    if (existing) {
+      existing.push(permission);
+    } else {
+      groups.set(resource, [permission]);
+    }
+  }
+  return [...groups.entries()];
 }

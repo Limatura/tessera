@@ -104,25 +104,6 @@ interface CodeUploadFormProps {
   ) => void;
 }
 
-function useIsDarkMode() {
-  const [isDark, setIsDark] = useState(
-    () =>
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark")
-  );
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const observer = new MutationObserver(() => {
-      setIsDark(root.classList.contains("dark"));
-    });
-    observer.observe(root, { attributeFilter: ["class"], attributes: true });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
-
 export function CodeUploadForm({
   status,
   progress,
@@ -340,4 +321,23 @@ export function CodeUploadForm({
       </Dialog>
     </div>
   );
+}
+
+function useIsDarkMode() {
+  const [isDark, setIsDark] = useState(
+    () =>
+      typeof document !== "undefined" &&
+      document.documentElement.classList.contains("dark")
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setIsDark(root.classList.contains("dark"));
+    });
+    observer.observe(root, { attributeFilter: ["class"], attributes: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return isDark;
 }

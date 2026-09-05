@@ -23,6 +23,7 @@
     "@tanstack/react-router": "^1.170.18",
     "@tanstack/react-table": "^9.1.2",
     "@tessera/api": "workspace:*",
+    "@tessera/auth": "workspace:*",
     "@tessera/env": "workspace:*",
     "@tessera/i18n": "workspace:*",
     "@tessera/ui": "workspace:*",

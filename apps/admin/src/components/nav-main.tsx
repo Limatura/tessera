@@ -16,7 +16,6 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@tessera/ui/components/sidebar";
-import type * as React from "react";
 
 export interface NavLink {
   title: string;
@@ -28,6 +27,35 @@ export interface NavLink {
 export type NavEntry =
   | NavLink
   | { title: string; icon?: React.ReactNode; items: NavLink[] };
+
+export function NavMain({
+  items,
+  label,
+}: {
+  items: NavEntry[];
+  label?: string;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <SidebarGroup>
+      {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
+      <SidebarGroupContent className="flex flex-col gap-2">
+        <SidebarMenu>
+          {items.map((item) =>
+            isGroup(item) ? (
+              <NavGroupItem item={item} key={item.title} />
+            ) : (
+              <NavLinkItem item={item} key={item.url} />
+            )
+          )}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
 
 function isGroup(entry: NavEntry): entry is {
   title: string;
@@ -105,34 +133,5 @@ function NavGroupItem({
         </CollapsibleContent>
       </Collapsible>
     </SidebarMenuItem>
-  );
-}
-
-export function NavMain({
-  items,
-  label,
-}: {
-  items: NavEntry[];
-  label?: string;
-}) {
-  if (items.length === 0) {
-    return null;
-  }
-
-  return (
-    <SidebarGroup>
-      {label && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
-      <SidebarGroupContent className="flex flex-col gap-2">
-        <SidebarMenu>
-          {items.map((item) =>
-            isGroup(item) ? (
-              <NavGroupItem item={item} key={item.title} />
-            ) : (
-              <NavLinkItem item={item} key={item.url} />
-            )
-          )}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
   );
 }

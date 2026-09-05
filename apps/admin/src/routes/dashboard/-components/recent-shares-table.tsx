@@ -34,13 +34,6 @@ interface ShareRow {
 
 const rows: ShareRow[] = mockData.recentShares as ShareRow[];
 
-function shareLabel(row: ShareRow) {
-  if (row.kind === "text") {
-    return "文字分享";
-  }
-  return row.filename ?? `${row.fileCount} 個檔案`;
-}
-
 export function RecentSharesTable() {
   return (
     <Card className="ring-foreground/10">
@@ -94,4 +87,11 @@ export function RecentSharesTable() {
       </Table>
     </Card>
   );
+}
+
+function shareLabel(row: ShareRow) {
+  if (row.kind === "text") {
+    return "文字分享";
+  }
+  return row.filename ?? `${row.fileCount} 個檔案`;
 }

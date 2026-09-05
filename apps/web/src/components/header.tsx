@@ -1,5 +1,6 @@
 import { IconLogin } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
+import { canAccessAdmin } from "@tessera/auth/permissions";
 import { AnimatedThemeToggler } from "@tessera/ui/components/animated-theme-toggler";
 import {
   Avatar,
@@ -26,17 +27,18 @@ import { cn } from "@tessera/ui/lib/utils";
 import { Logo } from "@/components/logo";
 import { useSession, useLogout } from "@/hooks/use-auth";
 import { getLocale, setLocale } from "@/lib/locale";
+import { adminUrl } from "@/lib/web-url";
 import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";
 
-function getInitials(username: string): string {
-  return username.charAt(0).toUpperCase();
-}
-
-export default function Header() {
+export function Header() {
   const locale = getLocale();
   const { data: session } = useSession();
   const logout = useLogout();
+
+  // 後台每一頁都要權限，一頁都進不去的人點連結只會被 admin 的 route guard 原地送回來，
+  // 所以入口乾脆不出現。真正的授權由 server 擋，這裡只是不要給進不去的門。
+  const adminHref = canAccessAdmin(session) ? adminUrl()?.toString() : null;
 
   const handleLogout = () => {
     logout.mutate();
@@ -87,6 +89,26 @@ export default function Header() {
                 }
               />
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  render={<Link to="/user" search={{ tab: "account" }} />}
+                >
+                  {m.user_tab_account()}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  render={<Link search={{ page: 1 }} to="/shares" />}
+                >
+                  {m.shares_page_title()}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  render={<Link to="/user" search={{ tab: "preferences" }} />}
+                >
+                  {m.user_tab_preferences()}
+                </DropdownMenuItem>
+                {adminHref && (
+                  <DropdownMenuItem
+                    render={<a href={adminHref}>{m.common_admin_console()}</a>}
+                  />
+                )}
                 <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                   {m.common_logout()}
                 </DropdownMenuItem>
@@ -106,4 +128,8 @@ export default function Header() {
       </div>
     </nav>
   );
+}
+
+function getInitials(username: string): string {
+  return username.charAt(0).toUpperCase();
 }

@@ -1,5 +1,9 @@
 import { IconDotsVertical, IconLogout } from "@tabler/icons-react";
-import { Avatar, AvatarFallback } from "@tessera/ui/components/avatar";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@tessera/ui/components/avatar";
 import { Badge } from "@tessera/ui/components/badge";
 import {
   DropdownMenu,
@@ -20,10 +24,6 @@ import {
 import { useLogout, useSession } from "@/hooks/use-auth";
 import { accountRoleLabel, isUnassigned } from "@/lib/permissions";
 import { loginUrl } from "@/lib/web-url";
-
-function initials(name: string): string {
-  return name.slice(0, 2).toUpperCase();
-}
 
 export function NavUser() {
   const { isMobile } = useSidebar();
@@ -53,6 +53,7 @@ export function NavUser() {
             }
           >
             <Avatar className="size-8 rounded-lg grayscale">
+              <AvatarImage alt={account.username} src="" />
               <AvatarFallback className="rounded-lg">
                 {initials(account.username)}
               </AvatarFallback>
@@ -75,6 +76,7 @@ export function NavUser() {
               <DropdownMenuLabel className="p-0 font-normal">
                 <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                   <Avatar className="size-8">
+                    <AvatarImage alt={account.username} src="" />
                     <AvatarFallback className="rounded-lg">
                       {initials(account.username)}
                     </AvatarFallback>
@@ -107,4 +109,8 @@ export function NavUser() {
       </SidebarMenuItem>
     </SidebarMenu>
   );
+}
+
+function initials(name: string): string {
+  return name.slice(0, 2).toUpperCase();
 }
