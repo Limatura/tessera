@@ -95,7 +95,7 @@ delta() {
   echo "| 大小 | 檔案 |"
   echo "| ---: | --- |"
   find "$DIST" -type f -printf '%s\t%P\n' \
-    | sort -t'	' -k1,1rn \
+    | { sort -t'	' -k1,1rn || true; } \
     | head -8 \
     | awk -F'	' '{ printf "| %.1f KB | `%s` |\n", $1 / 1000, $2 }'
   echo
