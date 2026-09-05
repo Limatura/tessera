@@ -39,12 +39,21 @@ const EXPIRY_OPTIONS = [
   { hours: 0, label: () => m.upload_settings_expiry_never() },
 ] as const;
 
+/**
+ * 覆蓋層上的區塊底色。這層的底是 --melt 而不是 background/card,
+ * 所以用 currentColor 的透明度堆出深淺——亮暗模式各自的 --melt-foreground
+ * 會自動把它翻成「暗色壓深」或「亮色提亮」,不用寫成兩套 dark: 變體。
+ */
+const PANEL = "rounded-lg border border-current/15 bg-current/5";
+
 interface UploadResultProps {
   onReset: () => void;
   result: UploadResultData;
+  /** 收合動畫期間仍保持掛載,只把內容淡出,避免拆掉整棵子樹卡住動畫的第一幀 */
+  visible: boolean;
 }
 
-export function UploadResult({ onReset, result }: UploadResultProps) {
+export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [expiresInHours, setExpiresInHours] = useState(result.expiresInHours);
@@ -109,28 +118,39 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
 
   return (
     <motion.div
-      animate={{ opacity: 1, y: 0 }}
-      className="flex w-full max-w-sm flex-col items-center gap-6 text-center"
+      animate={visible ? { opacity: 1, y: 0 } : { opacity: 0, y: 0 }}
+      className="flex w-full max-w-sm flex-col items-center gap-6 text-center text-melt-foreground"
       initial={{ opacity: 0, y: 12 }}
-      transition={{ delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      transition={
+        visible
+          ? { delay: 0.15, duration: 0.4, ease: [0.16, 1, 0.3, 1] }
+          : { duration: 0.15, ease: "linear" }
+      }
     >
-      <div className="rounded-xl border border-neutral-900/15 bg-neutral-900/5 p-3">
-        <QRCodeSVG size={160} value={result.shortUrl} />
+      {/*
+        QR 一律維持「深色碼、白底」:反色(亮碼暗底)有一部分掃描器讀不到。
+        暗色模式下就讓這張白底自己當一張卡片,靠外圈的 ring 收邊,不要跟著變暗。
+      */}
+      <div className="rounded-xl bg-white p-3 ring-1 ring-current/15 dark:shadow-black/40 dark:shadow-lg">
+        <QRCodeSVG
+          bgColor="#ffffff"
+          fgColor="#0a0a0a"
+          size={160}
+          value={result.shortUrl}
+        />
       </div>
 
       <div className="flex flex-col gap-1">
-        <p className="font-medium text-neutral-900 text-sm">
-          {result.fileName}
-        </p>
-        <p className="text-neutral-900/70 text-xs">{m.upload_result_ready()}</p>
+        <p className="font-medium text-sm">{result.fileName}</p>
+        <p className="text-current/70 text-xs">{m.upload_result_ready()}</p>
       </div>
 
-      <div className="flex w-full items-center gap-2 rounded-lg border border-neutral-900/15 bg-neutral-900/5 px-3 py-2">
-        <span className="flex-1 truncate text-left font-mono text-neutral-900 text-xs">
+      <div className={`flex w-full items-center gap-2 px-3 py-2 ${PANEL}`}>
+        <span className="flex-1 truncate text-left font-mono text-xs">
           {result.shortUrl}
         </span>
         <Button
-          className="shrink-0 text-neutral-900 hover:bg-neutral-900/10 hover:text-neutral-900"
+          className="shrink-0 text-current hover:bg-current/10 hover:text-current"
           onClick={handleCopy}
           size="icon-sm"
           type="button"
@@ -140,9 +160,9 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
         </Button>
       </div>
 
-      <div className="flex w-full flex-col gap-3 rounded-lg border border-neutral-900/15 bg-neutral-900/5 p-3 text-left">
+      <div className={`flex w-full flex-col gap-3 p-3 text-left ${PANEL}`}>
         <div className="flex items-center justify-between gap-2">
-          <Label className="text-neutral-900" htmlFor="share-result-expiry">
+          <Label className="text-current" htmlFor="share-result-expiry">
             <IconClock className="size-3.5" />
             {m.upload_settings_expiry_label()}
           </Label>
@@ -165,7 +185,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
 
         <div className="flex items-center justify-between gap-2">
           <Label
-            className="text-neutral-900"
+            className="text-current"
             htmlFor="share-result-burn-after-reading"
           >
             <Flame className="size-3.5" />
@@ -187,7 +207,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
 
       <div className="flex w-full items-center gap-2">
         <Button
-          className="flex-1 border-neutral-900/25 text-neutral-900 hover:bg-neutral-900/10 hover:text-neutral-900"
+          className="flex-1 border-current/25 text-current hover:bg-current/10 hover:text-current"
           onClick={onReset}
           type="button"
           variant="outline"
@@ -201,7 +221,7 @@ export function UploadResult({ onReset, result }: UploadResultProps) {
             render={
               <Button
                 aria-label={m.upload_result_delete()}
-                className="shrink-0 border-neutral-900/25 text-neutral-900 hover:bg-destructive/20 hover:text-destructive"
+                className="shrink-0 border-current/25 text-current hover:bg-destructive/20 hover:text-destructive"
                 size="icon"
                 type="button"
                 variant="outline"

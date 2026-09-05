@@ -124,7 +124,9 @@ export function UploadPanel() {
                 ? `circle(${origin.radius}px at ${origin.x}px ${origin.y}px)`
                 : `circle(0px at ${origin.x}px ${origin.y}px)`,
             }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-[color-mix(in_oklch,var(--primary)_45%,white_55%)]"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-melt text-melt-foreground"
+            // 先讓瀏覽器把這層提升成獨立圖層,不要等動畫開始才提升(提升本身會掉一幀)
+            style={{ willChange: "clip-path" }}
             exit={{
               clipPath: `circle(0px at ${origin.x}px ${origin.y}px)`,
             }}
@@ -137,8 +139,12 @@ export function UploadPanel() {
               className="pointer-events-none absolute inset-0 overflow-hidden"
               vignette={false}
             />
-            {expanded && result && (
-              <UploadResult onReset={reset} result={result} />
+            {result && (
+              <UploadResult
+                onReset={reset}
+                result={result}
+                visible={expanded}
+              />
             )}
           </motion.div>
         )}

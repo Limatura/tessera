@@ -43,5 +43,5 @@ export const PRIMARY_CLUSTER_SPECS: BlobSpec[] = [
   },
 ];
 
-export const PRIMARY_MELT_COLOR =
-  "color-mix(in oklch, var(--primary) 45%, white 55%)";
+/** 上傳按鈕融化、以及結果覆蓋層共用的底色,亮暗模式由 --melt 決定。 */
+export const PRIMARY_MELT_COLOR = "var(--melt)";

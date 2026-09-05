@@ -89,14 +89,14 @@ export function SharePasswordField({
   return (
     <Collapsible onOpenChange={handleOpenChange} open={open}>
       <CollapsibleTrigger
-        className="group flex w-full items-center justify-between gap-2 text-neutral-900"
+        className="group flex w-full items-center justify-between gap-2 text-current"
         render={<button aria-label={label} type="button" />}
       >
         <span className="flex items-center gap-2 font-medium text-xs/relaxed">
           <Lock className="size-3.5" />
           {label}
         </span>
-        <ChevronDown className="size-3.5 text-neutral-900/60 transition-transform group-data-panel-open:rotate-180" />
+        <ChevronDown className="size-3.5 text-current/60 transition-transform group-data-panel-open:rotate-180" />
       </CollapsibleTrigger>
 
       <CollapsibleContent>
@@ -127,7 +127,7 @@ export function SharePasswordField({
                     ? m.upload_result_password_hide()
                     : m.upload_result_password_show()
                 }
-                className="-translate-y-1/2 absolute top-1/2 right-1.5 text-neutral-900/60 hover:text-neutral-900"
+                className="-translate-y-1/2 absolute top-1/2 right-1.5 text-current/60 hover:text-current"
                 onClick={() => setShowPassword((value) => !value)}
                 type="button"
               >
