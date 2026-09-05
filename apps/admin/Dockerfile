@@ -1,5 +1,5 @@
 FROM node:24-slim AS builder
-RUN npm install -g pnpm@11
+RUN npm install -g pnpm@11.25.0
 WORKDIR /app
 ENV SKIP_ENV_VALIDATION=1
 
