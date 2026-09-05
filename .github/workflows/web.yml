@@ -83,6 +83,29 @@ jobs:
       # 不需要瀏覽器環境,所以跑得很快,放在最後當守門員。
       - run: pnpm turbo run test --filter=web
 
+      # $STATE_DIR is a fixed path on a self-hosted box, not a fresh per-run
+      # directory — nothing else clears it between runs. Wipe it up front so
+      # a previous run's report/current.txt never leaks into this one, and so
+      # a stale main.txt is never read before the restore below decides
+      # whether one exists at all.
+      - name: Reset the bundle-size scratch dir
+        run: rm -rf /tmp/tessera-bundle-size
+
+      # The baseline must be *this* PR's diff against main, not whatever the
+      # last main build happened to leave on whichever self-hosted box this
+      # run lands on. Caching main.txt by commit means the restore always
+      # reflects the actual main tip, keyed on the same paths this workflow
+      # already triggers on, regardless of which box ran that push.
+      - name: Restore main's bundle-size baseline
+        if: github.ref != 'refs/heads/main'
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            /tmp/tessera-bundle-size/web/main.txt
+            /tmp/tessera-bundle-size/admin/main.txt
+          key: bundle-size-main-${{ github.sha }}
+          restore-keys: bundle-size-main-
+
       # Two apps, two rows in one report — `bundle-size.sh` appends, it does
       # not overwrite. Runs after everything above so a build that fails
       # type-checking never gets a size reported for it.
@@ -101,6 +124,14 @@ jobs:
         run: |
           cp /tmp/tessera-bundle-size/web/current.txt /tmp/tessera-bundle-size/web/main.txt
           cp /tmp/tessera-bundle-size/admin/current.txt /tmp/tessera-bundle-size/admin/main.txt
+      - name: Save this build as the cached baseline
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            /tmp/tessera-bundle-size/web/main.txt
+            /tmp/tessera-bundle-size/admin/main.txt
+          key: bundle-size-main-${{ github.sha }}
 
   # Split out for the same reason `image-size-comment` is split out of
   # `docker` in rust.yml: `check` runs no third-party action that could abuse
