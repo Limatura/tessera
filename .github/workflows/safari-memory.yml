@@ -21,6 +21,11 @@ on:
       delay_ms:
         description: Milliseconds per megabyte. Throttling is what separates the browser's floor from the download's cost.
         default: "10"
+      cases:
+        description: Which cases to run. macOS minutes bill at ten times the rate, so re-measuring one of them should cost one of them.
+        default: all
+        type: choice
+        options: [all, download, sw, opfs, lifetime]
 
 permissions:
   contents: read
@@ -29,7 +34,7 @@ jobs:
   measure:
     name: safari
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -38,10 +43,12 @@ jobs:
       # Nothing is driven by WebDriver: the page starts its own download and
       # posts the result back, so whatever Safari the runner has is what gets
       # measured. `safaridriver --enable` is deliberately not run.
+      # Read from the bundle, never by running the binary. Safari has no
+      # `--version`: given one it launches and waits, which held this step for
+      # the whole thirty-minute timeout the first time it ran.
       - name: What this is measuring
         run: |
-          /Applications/Safari.app/Contents/MacOS/Safari --version 2>/dev/null || \
-            defaults read /Applications/Safari.app/Contents/Info.plist CFBundleShortVersionString
+          defaults read /Applications/Safari.app/Contents/Info.plist CFBundleShortVersionString
           sw_vers
 
       - name: The floor, with nothing downloaded
@@ -64,7 +71,7 @@ jobs:
           sleep 1
           open -a Safari "http://127.0.0.1:8730/"
           peak=0
-          for _ in $(seq 1 160); do
+          for _ in $(seq 1 40); do
             total=0
             for pid in $(pgrep -f "Safari|com.apple.WebKit" 2>/dev/null); do
               kib=$(footprint -p "$pid" 2>/dev/null | awk '/phys_footprint/ {gsub(/[^0-9.]/,"",$(NF-1)); print int($(NF-1)); exit}')
@@ -74,24 +81,40 @@ jobs:
             sleep 0.25
           done
           osascript -e 'tell application "Safari" to quit' || true
+          for _ in $(seq 1 20); do
+            pgrep -x Safari >/dev/null 2>&1 || break
+            sleep 1
+          done
+          pkill -x Safari 2>/dev/null || true
           echo "idle peak=${peak} KiB"
 
       # The inputs reach the shell as environment variables rather than being
       # substituted into the script text, which is what makes them data instead
       # of program (zizmor `template-injection`).
+      # This one has never completed. Safari makes the request and then no
+      # bytes are consumed, for fifteen minutes. The likeliest reason is the
+      # per-site download prompt, which nobody is here to answer, but that is a
+      # guess: the run has no screen to look at.
+      #
+      # Left in and left failing rather than removed. It is a baseline, not one
+      # of the paths a stitched download could take, so the three cases that
+      # decide anything are unaffected.
       - name: A real download
+        if: inputs.cases == 'all' || inputs.cases == 'download'
         env:
           SIZE: ${{ inputs.size_bytes }}
           DELAY: ${{ inputs.delay_ms }}
         run: scripts/browser-memory/safari.sh download "$SIZE" "$DELAY" 8731
 
       - name: Through a service worker
+        if: inputs.cases == 'all' || inputs.cases == 'sw'
         env:
           SIZE: ${{ inputs.size_bytes }}
           DELAY: ${{ inputs.delay_ms }}
         run: scripts/browser-memory/safari.sh sw "$SIZE" "$DELAY" 8732
 
       - name: Into OPFS
+        if: inputs.cases == 'all' || inputs.cases == 'opfs'
         env:
           SIZE: ${{ inputs.size_bytes }}
           DELAY: ${{ inputs.delay_ms }}
@@ -100,4 +123,14 @@ jobs:
       # The one Firefox fails and the other two survive. Throttled hard, because
       # a fast download finishes before anything can kill it.
       - name: Whether a service worker survives a slow download
+        if: inputs.cases == 'all' || inputs.cases == 'lifetime'
         run: scripts/browser-memory/safari.sh sw 536870912 300 8734
+
+      # The logs are the only evidence when a case produces no result, and they
+      # live on a machine that goes away with the job.
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: safari-measurement-logs
+          path: scripts/browser-memory/out-*.log
+          retention-days: 7

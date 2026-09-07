@@ -162,10 +162,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 n = min(CHUNK, SIZE - sent)
                 self.wfile.write(PAYLOAD[:n])
                 sent += n
+                # Progress, so that a case which does not finish can be read.
+                # "Stalled at zero" and "slower than the budget allowed" look
+                # the same from the outside and mean entirely different things:
+                # the first is a browser waiting on something, the second is a
+                # measurement that needed longer.
+                if sent % (256 * CHUNK) == 0:
+                    print(f"  sent {sent // CHUNK} MiB", flush=True)
                 if DELAY_MS:
                     time.sleep(DELAY_MS / 1000)
         except (BrokenPipeError, ConnectionResetError):
-            pass
+            print(f"  the client went away after {sent // CHUNK} MiB", flush=True)
         return sent
 
     def _send(self, body: bytes, kind: str) -> None:

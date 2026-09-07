@@ -50,6 +50,30 @@ def build_database(path: pathlib.Path) -> None:
 DBML_TYPES = {"INTEGER": "integer", "TEXT": "text", "BLOB": "blob"}
 
 
+def dbml_note(note: str) -> str:
+    """Wraps a note so that DBML parses it as one string.
+
+    Doubling an apostrophe does not escape it here, whatever SQL does: a
+    note written that way ends at the first one and the rest reads as a
+    second string, which the parser refuses with "a Note can only contain
+    one quoted string". Every note mentioning a provider's anything hit it.
+
+    A triple-quoted string has no such problem, and DBML strips the common
+    indentation from one, so the note reads the same either way. The two
+    shapes it cannot survive are a note holding a triple quote of its own
+    and a note whose first or last character is an apostrophe, which would
+    close the wrapper one character early or late; both stop the build here
+    rather than in whatever renders the diagram.
+    """
+    quote = chr(39)
+    triple = quote * 3
+    if triple in note:
+        raise SystemExit(f"a note contains a triple quote: {note[:60]}")
+    if note.startswith(quote) or note.endswith(quote):
+        raise SystemExit(f"a note starts or ends with a quote: {note[:60]}")
+    return f"{triple}{note}{triple}"
+
+
 def dbml_type(declared: str) -> str:
     return DBML_TYPES.get(declared.upper(), declared.lower() or "text")
 
@@ -121,7 +145,7 @@ def write_dbml(path: pathlib.Path) -> None:
                 lines.append(f"  {row['name']} {dbml_type(row['type'])}{suffix}")
             if note := notes.get(table):
                 lines.append("")
-                lines.append(f"  Note: '{note.replace(chr(39), chr(39) * 2)}'")
+                lines.append(f"  Note: {dbml_note(note)}")
             lines.append("}")
             blocks.append("\n".join(lines))
             blocks.append("")
