@@ -40,10 +40,10 @@
   "devDependencies": {
     "@tessera/config": "workspace:*",
     "@types/node": "catalog:",
-    "husky": "latest",
+    "husky": "9.1.7",
     "lint-staged": "^17.3.0",
-    "oxfmt": "latest",
-    "oxlint": "latest",
+    "oxfmt": "0.62.0",
+    "oxlint": "1.77.0",
     "turbo": "^2.10.7",
     "typescript": "catalog:",
     "ultracite": "7.9.4"

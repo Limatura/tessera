@@ -94,14 +94,22 @@ jobs:
       # Bundle size only means anything for a package that just built — a
       # `dist` from an unrelated earlier run would report stale numbers as
       # this run's own, and `bundle-size.sh` errors outright if `--affected`
-      # skipped the build and `dist` was never produced at all. `--exit-code`
-      # turns "is this package affected" into a plain step outcome so the
-      # measure/restore/save steps below can each ask about their own app.
+      # skipped the build and `dist` was never produced at all. So each
+      # measure/restore/save step below asks about its own app first.
+      #
+      # The answer comes from the `length` in turbo's own JSON, not from
+      # `--exit-code`: that flag exits 0 whether the query matched anything
+      # or not — it does so even for a package name that does not exist — so
+      # reading it marked both apps affected on every run. The first push to
+      # main that built neither, a docs-only merge, then failed here.
       - name: Which apps are affected
         id: affected
         run: |
           for app in web admin; do
-            if pnpm turbo query affected --packages "$app" --exit-code > /dev/null; then
+            count=$(pnpm turbo query affected --packages "$app" \
+              | sed -n '/^{/,$p' \
+              | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(String(JSON.parse(s).data.affectedPackages.length)))')
+            if [ "$count" -gt 0 ]; then
               echo "${app}=true" >> "$GITHUB_OUTPUT"
             else
               echo "${app}=false" >> "$GITHUB_OUTPUT"
