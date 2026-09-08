@@ -119,7 +119,14 @@ async fn og_image(
         return Ok((StatusCode::NOT_MODIFIED, card_headers(&etag)).into_response());
     }
 
-    let png = draw(&state, Arc::clone(cards), preview, code, layout).await?;
+    // The tag identifies the picture, so a card held under it is this card.
+    let png = if let Some(held) = state.drawn_cards.get(&etag) {
+        held
+    } else {
+        let drawn = draw(&state, Arc::clone(cards), preview, code, layout).await?;
+        state.drawn_cards.insert(&etag, drawn.clone());
+        drawn
+    };
     Ok((card_headers(&etag), png).into_response())
 }
 

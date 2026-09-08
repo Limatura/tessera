@@ -5417,6 +5417,59 @@ async fn a_crawler_that_comes_back_is_told_nothing_changed() {
     assert_eq!(stale.status(), StatusCode::OK);
 }
 
+/// The other half of the saving: several unfurlers arriving at once, none of
+/// them holding anything, all wanting the same picture. The first draws it and
+/// the rest are handed what it drew.
+///
+/// Asserted on the bytes rather than on a counter, because identical bytes is
+/// the property that matters: a cache that served a *different* card would be
+/// worse than no cache.
+#[tokio::test]
+async fn a_card_is_drawn_once_and_handed_out_after_that() {
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=note.txt"),
+                Body::from("hello"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    let held_before = app.state.drawn_cards.held_bytes();
+    let first = to_bytes(
+        expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK)
+            .await
+            .into_body(),
+        usize::MAX,
+    )
+    .await
+    .expect("the body");
+    assert!(
+        app.state.drawn_cards.held_bytes() > held_before,
+        "the drawn card was not kept"
+    );
+
+    // No conditional header, so this is the burst case and not the returning
+    // crawler: it has to come back as a picture, and as the same one.
+    let again = to_bytes(
+        expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK)
+            .await
+            .into_body(),
+        usize::MAX,
+    )
+    .await
+    .expect("the body");
+    assert_eq!(first, again);
+}
+
 /// Two shares alike in every word still draw two different cards, because the
 /// retrieval code is on the picture. This is the collision worth having a test
 /// for: a crawler holding one would otherwise be told the other had not

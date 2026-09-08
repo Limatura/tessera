@@ -187,6 +187,9 @@ pub struct AppState {
     /// retrievals moving while a crawler works through a sitemap.
     #[cfg(feature = "og-images")]
     pub card_renders: Arc<tokio::sync::Semaphore>,
+    /// Cards already drawn, so a burst on one link draws once.
+    #[cfg(feature = "og-images")]
+    pub drawn_cards: Arc<crate::og::cache::Cards>,
     /// Current lifecycle status.
     ///
     /// A `parking_lot::RwLock`, not an async lock. The critical section is a
@@ -361,6 +364,8 @@ impl AppState {
                     None
                 }
             },
+            #[cfg(feature = "og-images")]
+            drawn_cards: Arc::new(crate::og::cache::Cards::default()),
             #[cfg(feature = "og-images")]
             card_renders: Arc::new(tokio::sync::Semaphore::new(
                 std::thread::available_parallelism()

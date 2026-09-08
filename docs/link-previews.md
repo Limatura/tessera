@@ -16,6 +16,7 @@ Code: `api/preview.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag:
 | Layout rules                    | `og::layout::check`                   |
 | Card route                      | `GET /s/{code}/og.png`                |
 | What a card costs the host      | `public::draw`, `public::card_etag`   |
+| Drawn cards                     | `og::cache`                           |
 | Operator's layout               | the `og.layout` setting               |
 | Fonts                           | `apps/server/assets/fonts/`           |
 | Serving them to an editor       | `GET /fonts/{name}`                   |
@@ -144,6 +145,20 @@ a person speaks, so the same share draws the same bytes for as long as the
 sentence holds, and the tag changes exactly when the picture would. A raw
 expiry in the tag would make every request a different tag while the picture
 stayed identical.
+
+**A card is drawn once.** `og::cache` keeps finished cards keyed by the same
+entity tag, which is already a digest of everything the drawing reads, so an
+entry serves every request that would have produced identical bytes and there
+is nothing to invalidate: a card counting down gets a new tag, and a new entry,
+exactly when its picture would have changed. That covers the burst a posted
+link produces, where several unfurlers arrive at once and none of them holds
+anything yet.
+
+The budget is 64 MB of cards, not a number of them: a count says nothing about
+memory when an entry is a PNG, and an instance holding a hundred thousand
+shares must not turn that into a hundred thousand pictures. Least recently used
+leaves first, and a single outsized card is not kept at all rather than
+evicting everything on its way in.
 
 **Drawing happens on a blocking thread.** One render is a single synchronous
 call that cannot be cancelled; calling it inline would park a runtime worker for

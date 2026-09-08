@@ -38,6 +38,7 @@
 //! have meant inventing a format later and maintaining two implementations: the
 //! preview in the browser and the real thing here.
 
+pub mod cache;
 pub mod code;
 pub mod layout;
 
