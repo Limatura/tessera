@@ -15,7 +15,6 @@ Code: `api/preview.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag:
 | Syntax colouring                | `og::code::highlight`                 |
 | Layout rules                    | `og::layout::check`                   |
 | Card route                      | `GET /s/{code}/og.png`                |
-| Preview-without-saving          | `POST /api/v1/admin/og/preview`       |
 | Operator's layout               | the `og.layout` setting               |
 | Fonts                           | `apps/server/assets/fonts/`           |
 
@@ -66,13 +65,7 @@ If the tags and the image each decided what was safe to show, one of them would 
 
 ```mermaid
 flowchart TD
-    A[operator edits layout] --> B[POST /admin/og/preview]
-    B --> C{layout::check}
-    C -->|fails| D[400 with reason]
-    C -->|passes| E[render with Preview::sample]
-    E --> F[PNG]
-    F --> A
-    A --> G[PUT /admin/settings og.layout]
+    A[operator edits layout] --> G[PUT /admin/settings og.layout]
     G --> H{Config::validate runs layout::check}
     H -->|fails| I[400, nothing stored]
     H -->|passes| J[live, no restart]
@@ -104,28 +97,25 @@ At save (`Config::validate`) and at render. Rules can tighten after a layout is 
 
 Values come from the same `Card`. A locked share has no size, so `{{size}}` fills as empty string. The layout cannot opt out of this. The value simply isn't there.
 
-## Why the preview endpoint is server-side
+## Previewing a layout
 
-The original plan was a browser-side preview using takumi's wasm build, so the editor and the server would share an engine.
+In the browser, with takumi's wasm build, so the editor and the server share an
+engine. `@takumi-rs/wasm` and the `takumi` crate are released under the same
+version number, so the two halves can be pinned to the same one.
 
-|           | wasm in browser                      | server endpoint         |
-| --------- | ------------------------------------ | ----------------------- |
-| Download  | 3.41 MB wasm + 3.43 MB fonts         | 0                       |
-| Code path | same renderer, different HTML parser | identical to production |
-| Fonts     | must ship to browser                 | already embedded        |
-| Latency   | instant after load                   | round trip + ~3 ms      |
+Rust parses with `html5ever`; the JS side (`@takumi-rs/helpers/html`) uses a
+hand-written regex tokenizer. Tested at matching pinned versions, comparing
+rendered PNGs pixel by pixel across 25 cases (unclosed tags, mis-nesting, stray
+close tags, uppercase, duplicate attributes, entities, `<style>` blocks,
+unquoted attributes, `<table>` foster parenting, `<p>` and `<li>` auto-close,
+nested `<form>`, adoption agency, `<script>` raw text, unclosed comment,
+namespaced tags): all 25 identical. They agree because takumi's node tree is
+coarse (boxes, text, style) and parser differences are mostly about error
+recovery, which either collapses to the same tree or lands somewhere the
+renderer ignores.
 
-### The parser drift risk was tested, not assumed
-
-Rust parses with `html5ever`. The JS side (`@takumi-rs/helpers/html`) uses a hand-written regex tokenizer, and `takumi-html`'s description says it mirrors the JS helper rather than sharing code. That looked like a drift risk.
-
-Tested at matching pinned versions, comparing rendered PNGs pixel by pixel across 25 cases: unclosed tags, mis-nesting, stray close tags, uppercase, duplicate attributes, entities, `<style>` blocks, unquoted attributes, `<table>` foster parenting, `<p>` and `<li>` auto-close, nested `<form>`, adoption agency, `<script>` raw text, unclosed comment, namespaced tags.
-
-All 25 identical.
-
-They agree because takumi's node tree is coarse: boxes, text, style. Parser differences are mostly about error recovery, and those either collapse to the same tree or land somewhere the renderer ignores.
-
-So sharing an engine would have worked. But 25 hand-picked cases is evidence, not proof, and it depends on both packages staying at matching versions. The server endpoint needs neither.
+The browser needs the same six faces the server draws with, or the preview is
+wrong about wrapping and CJK, which is exactly what an operator is checking.
 
 ## Tested invariants
 
@@ -134,7 +124,6 @@ So sharing an engine would have worked. But 25 hand-picked cases is evidence, no
 - A note's snippet attaches only to `Card::Open`.
 - `og:image` is an absolute URL.
 - Configured `server.public_url` overrides the `Host` header.
-- The preview endpoint and the save path run the same `layout::check`.
 
 ## Measurements
 
@@ -177,6 +166,6 @@ Both found by rendering and looking, not by reading code.
 ## Not built
 
 - sao's icons. The padlock is currently two rounded boxes.
-- The admin editor UI. This repo provides `POST /admin/og/preview`.
+- The admin editor UI, and serving the fonts it needs.
 - Per-share layouts. `shares.og_config` is unwritten.
 - Colour emoji. Over budget. The intended answer is letting operators add their own fonts, which needs an admin API that does not exist yet.

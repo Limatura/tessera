@@ -39,18 +39,120 @@ use markup5ever_rcdom::{Handle, NodeData, RcDom};
 
 /// Elements a layout may use.
 ///
-/// Boxes and text, and nothing else. `img` and `svg` are absent because both
-/// name a resource, takumi does not fetch resources, and a layout
-/// referencing one draws a hole. When there is a reason to put a logo on a
-/// card, the answer is somewhere to upload one, not a URL in a string.
-const ELEMENTS: [&str; 2] = ["div", "span"];
+/// Boxes, text, and the drawable part of SVG.
+///
+/// # What is missing, and why
+///
+/// `img` names a resource and takumi has no HTTP client, so it draws a hole.
+///
+/// Inside SVG the same rule sorts the rest. `image` is `img` again: usvg is
+/// given a parser with its string href resolver disabled, exactly so that
+/// untrusted markup cannot read a local file, and the element therefore draws
+/// nothing. `text` and `tspan` draw nothing either, because usvg is compiled
+/// without its `text` feature. `foreignObject` is a way back into HTML from
+/// inside a subtree that has already been handed to a different renderer.
+///
+/// `use` is the odd one out: it works. It is absent because `href` is the only
+/// attribute that can point outside the document, and an allowlist with no
+/// href-shaped attribute in it is a simpler thing to be sure of than one with
+/// a rule about which values are local.
+///
+/// `filter` and the `fe*` elements are absent for now, and not because they
+/// fail: they are the expensive ones, and `/{code}/og.png` is public and
+/// unthrottled. That cost is already reachable through `style` and wants
+/// answering once for both, rather than being half-avoided here.
+const ELEMENTS: &[&str] = &[
+    "div",
+    "span",
+    "svg",
+    "g",
+    "defs",
+    "path",
+    "rect",
+    "circle",
+    "ellipse",
+    "line",
+    "polyline",
+    "polygon",
+    "linearGradient",
+    "radialGradient",
+    "stop",
+    "clipPath",
+];
 
 /// Attributes an element may carry.
 ///
-/// `style` alone. `class` and `tw` would work, since takumi reads both, but
-/// they name rules living somewhere this layout cannot see, so a layout using
-/// them renders differently here and in whatever previewed it.
-const ATTRIBUTES: [&str; 1] = ["style"];
+/// `style` and `tw`, plus what the SVG shapes above need to describe
+/// themselves.
+///
+/// `tw` is takumi's own Tailwind implementation, not a stylesheet: it reads
+/// the utilities and turns them into styles itself, so a layout using it
+/// carries everything it needs. `class` is still absent for the reason `tw`
+/// used to be lumped in with: it names rules living somewhere this layout
+/// cannot see, and there is no stylesheet here to find them in.
+///
+/// The list is not per element. A `div` carrying `cx` is meaningless rather
+/// than harmful, and takumi ignores it; a table of which attribute belongs to
+/// which element would be a great deal of upkeep to refuse something nobody
+/// writes by accident.
+///
+/// The spellings are the ones the parser produces. Inside `<svg>` an HTML
+/// parser is in foreign-content mode and restores the camel case of the names
+/// it knows, so `viewBox` arrives as `viewBox` and not `viewbox`. There is a
+/// test for that, because it is the sort of thing that would otherwise be
+/// discovered by a card silently losing its coordinate system.
+const ATTRIBUTES: &[&str] = &[
+    "style",
+    "tw",
+    // Shared geometry.
+    "id",
+    "width",
+    "height",
+    "x",
+    "y",
+    "transform",
+    "opacity",
+    // `svg` itself.
+    "viewBox",
+    "xmlns",
+    "preserveAspectRatio",
+    // Shapes.
+    "d",
+    "points",
+    "cx",
+    "cy",
+    "r",
+    "rx",
+    "ry",
+    "x1",
+    "y1",
+    "x2",
+    "y2",
+    "pathLength",
+    // Paint.
+    "fill",
+    "fill-opacity",
+    "fill-rule",
+    "stroke",
+    "stroke-width",
+    "stroke-opacity",
+    "stroke-linecap",
+    "stroke-linejoin",
+    "stroke-dasharray",
+    // Gradients and clipping.
+    "offset",
+    "stop-color",
+    "stop-opacity",
+    "gradientUnits",
+    "gradientTransform",
+    "spreadMethod",
+    "fx",
+    "fy",
+    "fr",
+    "clip-path",
+    "clipPathUnits",
+    "clip-rule",
+];
 
 /// The most markup a layout may be.
 ///
@@ -86,6 +188,9 @@ pub enum Refused {
     /// A placeholder this server will not fill in.
     #[error("`{{{{{0}}}}}` is not a placeholder this server knows")]
     Placeholder(String),
+    /// A `tw` utility takumi's Tailwind implementation does not recognise.
+    #[error("`{0}` is not a utility class this renderer knows")]
+    Utility(String),
 }
 
 /// Checks that `html` is a layout this server will draw.
@@ -103,10 +208,18 @@ pub fn check(html: &str) -> Result<(), Refused> {
     // walk below sees it as an opaque string, and `@import` inside a `<style>`
     // element that html5ever keeps as text.
     let lowered = html.to_ascii_lowercase();
-    for marker in ["url(", "@import", "javascript:", "expression("] {
+    for marker in ["@import", "javascript:", "expression("] {
         if lowered.contains(marker) {
             return Err(Refused::External(marker.to_owned()));
         }
+    }
+    // `url(` is how a gradient or a clip path names another element of the
+    // same layout, `fill="url(#brand)"`, so refusing all of them would refuse
+    // the reason `linearGradient` is on the list above. A fragment points
+    // inside this document and can reach nothing; anything else is a resource
+    // takumi has no way to fetch and would draw as a hole.
+    if let Some(external) = external_reference(&lowered) {
+        return Err(Refused::External(external));
     }
     for name in placeholders(html) {
         if !PLACEHOLDERS.contains(&name.as_str()) {
@@ -173,8 +286,64 @@ fn check_attributes(attrs: &[Attribute]) -> Result<(), Refused> {
         if !ATTRIBUTES.contains(&name.as_str()) {
             return Err(Refused::Attribute(name));
         }
+        if name == "tw" {
+            check_utilities(&attr.value)?;
+        }
     }
     Ok(())
+}
+
+/// Refuses a `tw` utility takumi's Tailwind implementation does not know.
+///
+/// This is the whole reason the module exists, in its clearest form. takumi
+/// parses the attribute with `filter_map`: a utility it does not recognise is
+/// dropped without a word, so `tw="flex supports-[display:grid]:grid"` lays
+/// out as `flex` alone and nothing anywhere says why. Its implementation is
+/// its own, covering a subset of Tailwind, which is exactly the situation in
+/// which somebody writes a class that is real in Tailwind and silent here.
+///
+/// Asking it, rather than keeping a list, means the answer is whatever the
+/// renderer that will draw the card actually accepts.
+fn check_utilities(value: &str) -> Result<(), Refused> {
+    use std::str::FromStr as _;
+
+    use takumi::prelude::TailwindValues;
+
+    // takumi exposes no way to ask how many utilities it understood, so the
+    // question is put as a comparison: a utility it dropped leaves the same
+    // value as parsing nothing at all.
+    let Ok(nothing) = TailwindValues::from_str("") else {
+        // The empty string is not a parse it can fail. If it ever does, this
+        // check has no baseline to compare against and must not start
+        // refusing every layout on the instance.
+        return Ok(());
+    };
+    for utility in value.split_whitespace() {
+        let understood = TailwindValues::from_str(utility).is_ok_and(|parsed| parsed != nothing);
+        if !understood {
+            return Err(Refused::Utility(utility.to_owned()));
+        }
+    }
+    Ok(())
+}
+
+/// The first `url(...)` in `lowered` that does not point inside this document.
+///
+/// Whitespace is allowed after the parenthesis and the value may be quoted,
+/// because CSS allows both and a check that missed them would be a check
+/// anybody could step around by accident.
+fn external_reference(lowered: &str) -> Option<String> {
+    let mut rest = lowered;
+    while let Some(open) = rest.find("url(") {
+        let after = rest.get(open + "url(".len()..)?;
+        let value = after.trim_start().trim_start_matches(['"', '\'']);
+        if !value.starts_with('#') {
+            let end = after.find(')').unwrap_or(after.len()).min(40);
+            return Some(format!("url({}", after.get(..end).unwrap_or_default()));
+        }
+        rest = after;
+    }
+    None
 }
 
 /// The names a layout may ask for. What each is worth is decided by
@@ -276,6 +445,122 @@ mod tests {
                 "accepted {layout}"
             );
         }
+    }
+
+    /// A logo is the reason `svg` is here: shapes, a gradient and a clip path,
+    /// all of it inline, none of it naming anything this server has to fetch.
+    #[test]
+    fn an_inline_drawing_is_accepted() {
+        let layout = concat!(
+            r##"<div style="display:flex"><svg viewBox="0 0 100 100" width="100" height="100">"##,
+            r##"<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="0">"##,
+            r##"<stop offset="0" stop-color="red"/><stop offset="1" stop-color="blue"/>"##,
+            r##"</linearGradient><clipPath id="c"><circle cx="50" cy="50" r="40"/></clipPath></defs>"##,
+            r##"<rect width="100" height="100" fill="url(#g)" clip-path="url(#c)"/>"##,
+            r##"<path d="M0 0 L100 100" stroke="white" stroke-width="2" fill="none"/>"##,
+            r##"</svg><span>{{title}}</span></div>"##,
+        );
+        assert_eq!(check(layout), Ok(()));
+    }
+
+    /// An HTML parser inside `<svg>` is in foreign-content mode and restores
+    /// the camel case of the names it knows. The allowlist is spelled to match
+    /// what it produces, so this is really asking whether that is still true:
+    /// if `viewBox` ever started arriving as `viewbox`, every drawing on every
+    /// instance would lose its coordinate system and the refusal here would be
+    /// the only warning anybody got.
+    #[test]
+    fn the_parser_keeps_the_camel_case_of_svg_names() {
+        assert_eq!(
+            check(r#"<svg viewBox="0 0 1 1" gradientUnits="userSpaceOnUse"></svg>"#),
+            Ok(())
+        );
+    }
+
+    /// Inside SVG, `url(#id)` is how one element names another in the same
+    /// layout. Refusing every `url(` would refuse the reason gradients are on
+    /// the list.
+    #[test]
+    fn a_reference_to_this_document_is_allowed() {
+        assert_eq!(
+            check(r#"<div style="display:flex"><svg><circle r="1" fill="url(#g)"/></svg></div>"#),
+            Ok(())
+        );
+        for layout in [
+            r#"<svg><circle r="1" fill="url(/local.png)"/></svg>"#,
+            r#"<svg><circle r="1" fill="url( https://example.test/x.svg#g)"/></svg>"#,
+        ] {
+            assert!(
+                matches!(check(layout), Err(Refused::External(_))),
+                "accepted {layout}"
+            );
+        }
+    }
+
+    /// The elements that would draw nothing, each for its own reason: no
+    /// resolver, no text feature, no way back into HTML. All refused as firmly
+    /// as the ones that would be wrong, because a card that silently lost a
+    /// piece is discovered by a stranger.
+    #[test]
+    fn svg_that_would_draw_nothing_is_refused() {
+        for (layout, expected) in [
+            (r#"<svg><image href="/etc/hostname"/></svg>"#, "image"),
+            (r"<svg><text>hi</text></svg>", "text"),
+            (
+                r"<svg><foreignObject></foreignObject></svg>",
+                "foreignObject",
+            ),
+            (r##"<svg><use href="#a"/></svg>"##, "use"),
+            (r#"<svg><filter id="f"></filter></svg>"#, "filter"),
+        ] {
+            assert!(
+                matches!(check(layout), Err(Refused::Element(ref tag)) if tag == expected),
+                "accepted {layout}"
+            );
+        }
+    }
+
+    /// takumi reads `tw` itself, so a layout using it carries everything it
+    /// needs and renders the same wherever that renderer runs.
+    #[test]
+    fn utility_classes_are_accepted() {
+        assert_eq!(
+            check(
+                r#"<div tw="flex w-full items-center bg-red-500"><span tw="text-white">{{title}}</span></div>"#
+            ),
+            Ok(())
+        );
+    }
+
+    /// The reason `tw` is checked and not merely allowed. takumi drops a
+    /// utility it does not know without a word, and its Tailwind is its own
+    /// subset, so a class that is real in Tailwind can be silent here.
+    /// `supports-[…]` is exactly that: valid Tailwind v4, nothing to takumi.
+    #[test]
+    fn a_utility_this_renderer_does_not_know_is_refused() {
+        for (layout, expected) in [
+            (r#"<div tw="not-a-real-class"></div>"#, "not-a-real-class"),
+            (
+                r#"<div tw="flex supports-[display:grid]:grid"></div>"#,
+                "supports-[display:grid]:grid",
+            ),
+        ] {
+            assert!(
+                matches!(check(layout), Err(Refused::Utility(ref name)) if name == expected),
+                "accepted {layout}"
+            );
+        }
+    }
+
+    /// `class` stays off the list. takumi reads it, but it names rules living
+    /// in a stylesheet that does not exist here, so it can only ever be a
+    /// layout that looks right to whoever wrote it.
+    #[test]
+    fn a_class_name_is_still_refused() {
+        assert!(matches!(
+            check(r#"<div class="flex"></div>"#),
+            Err(Refused::Attribute(name)) if name == "class"
+        ));
     }
 
     #[test]

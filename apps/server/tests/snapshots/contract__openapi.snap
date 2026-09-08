@@ -842,20 +842,6 @@ expression: document
         ],
         "type": "object"
       },
-      "OgPreviewRequest": {
-        "description": "A card layout to draw, and which share to draw it for.",
-        "properties": {
-          "card": {
-            "$ref": "#/components/schemas/SampleCard",
-            "description": "Which state to draw. Defaults to an ordinary file share."
-          },
-          "layout": {
-            "description": "The layout, as it would be stored in `og.layout`. Empty draws the\nbuilt-in card, what an operator sees before they change\nanything and what they are comparing against.",
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
       "Option_u64": {
         "oneOf": [
           {
@@ -1326,15 +1312,6 @@ expression: document
           "updated_at"
         ],
         "type": "object"
-      },
-      "SampleCard": {
-        "description": "Which sample card to draw.",
-        "enum": [
-          "open",
-          "locked",
-          "gone"
-        ],
-        "type": "string"
       },
       "ServiceStatus": {
         "description": "Where the process is in its lifecycle.\n\nLoad balancers and `docker healthcheck` need to distinguish \"still migrating\"\nfrom \"draining\" from \"healthy\"; a bare 200/500 cannot express that.",
@@ -2323,88 +2300,6 @@ expression: document
           }
         ],
         "summary": "Revokes an invite.",
-        "tags": [
-          "admin"
-        ]
-      }
-    },
-    "/api/v1/admin/og/preview": {
-      "post": {
-        "description": "# Why this is a server endpoint and not a preview in the browser\n\nThe original plan was to render the preview in the browser with takumi's\nwasm build, so an operator edits against the engine that draws the real\ncard. Measured, that costs the browser 3.41 MB of wasm and 3.43 MB of fonts,\nand still leaves a second implementation for parsing HTML.\n\nThis is the same engine for both halves, because it is not a second engine:\nit is the code that draws the real card, with the real fonts, behind the\nsame check the real layout goes through. It costs a round trip and about\nthree milliseconds.\n\n# Errors\n\n`400` for a layout this instance will not draw, carrying the reason so the\neditor can show it. `401`, `403` and `404` as for [`preview`].",
-        "operationId": "preview_og_card",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OgPreviewRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "image/png": {
-                "schema": {
-                  "items": {
-                    "format": "int32",
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": "array"
-                }
-              }
-            },
-            "description": "The card, as a PNG"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "A layout this instance will not draw"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Not signed in"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "May not change settings, or authenticated with an API token"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "This instance has no administration"
-          }
-        },
-        "security": [
-          {
-            "session": []
-          }
-        ],
-        "summary": "Draws a card layout without storing it.",
         "tags": [
           "admin"
         ]

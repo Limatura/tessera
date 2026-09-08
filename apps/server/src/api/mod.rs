@@ -368,23 +368,6 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(settings::list, settings::update))
         .routes(routes!(settings::preview))
         .routes(routes!(admin::remove_user_shares))
-        .merge(card_routes())
-}
-
-/// Drawing a card, which only exists when cards are compiled in.
-///
-/// Its own function, not a `cfg` inside the chain above. A conditional in the
-/// middle of a builder has to produce a router either way, and the empty
-/// one reads like a mistake in the list.
-fn card_routes() -> OpenApiRouter<AppState> {
-    #[cfg(feature = "og-images")]
-    {
-        OpenApiRouter::new().routes(routes!(settings::og_preview))
-    }
-    #[cfg(not(feature = "og-images"))]
-    {
-        OpenApiRouter::new()
-    }
 }
 
 /// The resumable-upload endpoints.
