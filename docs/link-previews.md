@@ -15,6 +15,7 @@ Code: `api/preview.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag:
 | Syntax colouring                | `og::code::highlight`                 |
 | Layout rules                    | `og::layout::check`                   |
 | Card route                      | `GET /s/{code}/og.png`                |
+| What a card costs the host      | `public::draw`, `public::card_etag`   |
 | Operator's layout               | the `og.layout` setting               |
 | Fonts                           | `apps/server/assets/fonts/`           |
 | Serving them to an editor       | `GET /fonts/{name}`                   |
@@ -122,6 +123,37 @@ wrong about wrapping and CJK, which is exactly what an operator is checking.
 the binary changing, so a reverse proxy can keep them and the 3.42 MB is paid
 once for a whole site rather than once per operator, and the type is what stops
 this server and the proxy each recompressing something already compressed.
+
+## What a card costs the host
+
+The route is public, unauthenticated and deliberately outside the throttle, so
+an unfurler does not spend a share's retrievals on its way to a reader. It is
+also the one route whose cost an operator sets: eight kilobytes of layout is
+three milliseconds or sixteen seconds depending on whether it blurs anything.
+Measured, 53 boxes with `filter: blur(40px)` take 16.4 seconds.
+
+Three things keep that from being the host's problem.
+
+**A returning unfurler is answered without drawing.** The entity tag is derived
+from what the card *would say* — `Preview::fingerprint` over the title, the
+words and the snippet, plus a digest of the layout — so it can be worked out
+from a lookup and two digests. `If-None-Match` then costs no render at all.
+
+That works because the countdown is already coarse: `expires_in` rounds the way
+a person speaks, so the same share draws the same bytes for as long as the
+sentence holds, and the tag changes exactly when the picture would. A raw
+expiry in the tag would make every request a different tag while the picture
+stayed identical.
+
+**Drawing happens on a blocking thread.** One render is a single synchronous
+call that cannot be cancelled; calling it inline would park a runtime worker for
+its whole duration, and a few at once would stop the process answering anything.
+
+**At most half the cores draw at once.** Over that, the request is refused
+rather than queued: there is no cancelling a render, so a caller who waited and
+gave up would have cost the same CPU and got nothing. Cards are the least
+important thing this process does, and the other half is what keeps uploads and
+retrievals moving while a crawler works through a sitemap.
 
 ## Tested invariants
 

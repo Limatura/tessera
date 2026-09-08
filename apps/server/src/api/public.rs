@@ -90,6 +90,7 @@ pub fn routes() -> Router<AppState> {
 #[cfg(feature = "og-images")]
 async fn og_image(
     State(state): State<AppState>,
+    headers: HeaderMap,
     ApiPath(code): ApiPath<String>,
 ) -> Result<Response> {
     use crate::api::preview::Preview;
@@ -111,25 +112,136 @@ async fn og_image(
         let body = String::from_utf8_lossy(&text.content);
         preview = preview.with_snippet(&body, text.language.as_deref());
     }
-    let png = cards
-        .draw_with(&preview, &code, &state.config().og.layout)
-        .map_err(|error| {
-            tracing::error!(%error, "could not draw a link-preview card");
-            Error::Unavailable
-        })?;
 
-    Ok((
-        [
-            (header::CONTENT_TYPE, "image/png".to_owned()),
-            // Long enough that an unfurler asked twice in a minute does not
-            // redraw, short enough that the countdown on the card is not stale
-            // by a day. Drawing costs milliseconds, so this is politeness to
-            // caches, not a saving we need.
-            (header::CACHE_CONTROL, "public, max-age=300".to_owned()),
-        ],
-        png,
-    )
-        .into_response())
+    let layout = state.config().og.layout.clone();
+    let etag = card_etag(&preview, &code, &layout);
+    if already_held(&headers, &etag) {
+        return Ok((StatusCode::NOT_MODIFIED, card_headers(&etag)).into_response());
+    }
+
+    let png = draw(&state, Arc::clone(cards), preview, code, layout).await?;
+    Ok((card_headers(&etag), png).into_response())
+}
+
+/// The headers a card carries, sent with the picture and with a `304` alike.
+///
+/// Five minutes is long enough that an unfurler asked twice in a minute does
+/// not come back, and short enough that the countdown on the card is not stale
+/// by a day. What does the work for a crawler returning later is the tag, not
+/// the age.
+#[cfg(feature = "og-images")]
+fn card_headers(etag: &str) -> [(header::HeaderName, String); 3] {
+    [
+        (header::CONTENT_TYPE, "image/png".to_owned()),
+        (header::CACHE_CONTROL, "public, max-age=300".to_owned()),
+        (header::ETAG, etag.to_owned()),
+    ]
+}
+
+/// An entity tag for the card this share would draw right now.
+///
+/// Worked out from what would be drawn rather than from the drawing, which is
+/// the whole point: answering a returning unfurler then costs a lookup and two
+/// digests instead of a render.
+///
+/// Everything the drawing reads goes in, and there are three of those. The
+/// preview is the words. The layout is the operator's, who can change it, and
+/// every card on the instance becomes a different picture when they do. And
+/// the code is drawn on the card itself, so two shares alike in every other
+/// way still draw two different pictures; leaving it out would let a crawler
+/// holding one be told the other had not changed.
+#[cfg(feature = "og-images")]
+fn card_etag(preview: &crate::api::preview::Preview, code: &str, layout: &str) -> String {
+    use std::fmt::Write as _;
+
+    use sha2::{Digest as _, Sha256};
+
+    let mut digest = Sha256::new();
+    digest.update(preview.fingerprint());
+    // Lengths as well as contents, so a code that ends where a layout begins
+    // cannot be the same stream of bytes as some other pair.
+    digest.update(code.len().to_le_bytes());
+    digest.update(code.as_bytes());
+    digest.update(layout.len().to_le_bytes());
+    digest.update(layout.as_bytes());
+
+    let mut etag = String::with_capacity(66);
+    etag.push('"');
+    for byte in digest.finalize() {
+        // Writing into a String is infallible; the result is discarded rather
+        // than unwrapped so this stays panic-free.
+        let _ = write!(etag, "{byte:02x}");
+    }
+    etag.push('"');
+    etag
+}
+
+/// Whether the caller already holds this exact card.
+///
+/// `If-None-Match` is a list, and `*` matches anything. A weak tag compares
+/// equal to its strong twin here, which is the right comparison: nothing on
+/// this route serves byte ranges, and a card is only ever handed over whole.
+#[cfg(feature = "og-images")]
+fn already_held(headers: &HeaderMap, etag: &str) -> bool {
+    let Some(held) = headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+    else {
+        return false;
+    };
+    held.split(',').any(|candidate| {
+        let candidate = candidate.trim();
+        candidate == "*" || candidate.trim_start_matches("W/") == etag
+    })
+}
+
+/// Draws the card, off the async runtime and behind a ceiling.
+///
+/// # Why not simply call the renderer
+///
+/// It is one synchronous call that takes milliseconds or seconds depending on
+/// a layout the operator wrote, and calling it here would park a runtime
+/// worker for that long. A handful at once would then be enough to stop this
+/// process answering anything at all, which is a great deal worse than a slow
+/// picture.
+///
+/// # Why the ceiling refuses rather than queues
+///
+/// There is no cancelling a render in progress: takumi hands back an image or
+/// it does not, so a caller who gave up leaves the work running anyway.
+/// Queueing would trade a refusal now for the same CPU spent plus a caller who
+/// waited for nothing. An unfurler told to come back does; a page that would
+/// have shown a picture shows none.
+#[cfg(feature = "og-images")]
+async fn draw(
+    state: &AppState,
+    cards: Arc<crate::og::Cards>,
+    preview: crate::api::preview::Preview,
+    code: String,
+    layout: String,
+) -> Result<Bytes> {
+    let permits = Arc::clone(&state.card_renders);
+    let Ok(permit) = permits.try_acquire_owned() else {
+        tracing::warn!("every card-drawing permit is taken; refusing to draw another");
+        return Err(Error::Unavailable);
+    };
+
+    let drawn = tokio::task::spawn_blocking(move || {
+        let png = cards.draw_with(&preview, &code, &layout);
+        drop(permit);
+        png
+    })
+    .await
+    .map_err(|error| {
+        tracing::error!(%error, "the task drawing a link-preview card did not finish");
+        Error::Unavailable
+    })?
+    .map_err(|error| {
+        tracing::error!(%error, "could not draw a link-preview card");
+        Error::Unavailable
+    })?;
+
+    Ok(Bytes::from(drawn))
 }
 
 /// Serves a share's content as plain text.

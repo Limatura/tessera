@@ -173,6 +173,20 @@ pub struct AppState {
     /// and nothing else: the route answers `404` and the page keeps its words.
     #[cfg(feature = "og-images")]
     pub cards: Option<Arc<crate::og::Cards>>,
+    /// How many cards may be drawn at once.
+    ///
+    /// Drawing is CPU work on a public, unthrottled route, and how much of it
+    /// one card is depends on a layout the operator wrote. Measured: eight
+    /// kilobytes of layout can be three milliseconds or sixteen seconds,
+    /// because a blur costs what it costs. Without a ceiling the answer to
+    /// "how much of this machine can pictures take" is "all of it", and the
+    /// rest of the service stops answering.
+    ///
+    /// Half the cores, at least one. Cards are the least important thing this
+    /// process does, and the half that is left is what keeps uploads and
+    /// retrievals moving while a crawler works through a sitemap.
+    #[cfg(feature = "og-images")]
+    pub card_renders: Arc<tokio::sync::Semaphore>,
     /// Current lifecycle status.
     ///
     /// A `parking_lot::RwLock`, not an async lock. The critical section is a
@@ -347,6 +361,12 @@ impl AppState {
                     None
                 }
             },
+            #[cfg(feature = "og-images")]
+            card_renders: Arc::new(tokio::sync::Semaphore::new(
+                std::thread::available_parallelism()
+                    .map_or(1, |cores| cores.get() / 2)
+                    .max(1),
+            )),
             proxies: Arc::new(ArcSwap::from_pointee(config.server.proxy_trust())),
             throttles: Arc::new(Throttles::from_config(&config.auth.throttle)),
             config: Arc::new(ArcSwap::from(config)),

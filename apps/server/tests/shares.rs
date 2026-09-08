@@ -5344,6 +5344,195 @@ async fn the_card_for_a_locked_share_draws_without_the_file_name() {
     expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
 }
 
+/// The saving that matters at any volume: an unfurler that comes back gets a
+/// `304` and nothing is drawn.
+///
+/// The tag is worked out from what the card would say, not from the card, so
+/// answering costs a lookup and two digests. Without it every repeat visit to
+/// every share link is a fresh render, and the number of share links only ever
+/// goes up.
+#[tokio::test]
+async fn a_crawler_that_comes_back_is_told_nothing_changed() {
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=note.txt"),
+                Body::from("hello"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    let first = expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+    let etag = first
+        .headers()
+        .get(header::ETAG)
+        .and_then(|value| value.to_str().ok())
+        .expect("a card carries an entity tag")
+        .to_owned();
+
+    // A conditional request with what the crawler holds.
+    let again = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/og.png"))
+                .header(header::IF_NONE_MATCH, &etag),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(again.status(), StatusCode::NOT_MODIFIED);
+    assert_eq!(
+        again
+            .headers()
+            .get(header::ETAG)
+            .and_then(|value| value.to_str().ok()),
+        Some(etag.as_str()),
+        "a 304 has to carry the tag it is confirming"
+    );
+    assert!(
+        again.headers().contains_key(header::CACHE_CONTROL),
+        "a 304 has to carry the freshness it is confirming"
+    );
+    let body = to_bytes(again.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert!(body.is_empty(), "a 304 has no body");
+
+    // A tag that is not this card's still draws it.
+    let stale = app
+        .send(
+            Request::builder()
+                .uri(format!("/s/{code}/og.png"))
+                .header(header::IF_NONE_MATCH, "\"not-this-card\""),
+            Body::empty(),
+        )
+        .await;
+    assert_eq!(stale.status(), StatusCode::OK);
+}
+
+/// Two shares alike in every word still draw two different cards, because the
+/// retrieval code is on the picture. This is the collision worth having a test
+/// for: a crawler holding one would otherwise be told the other had not
+/// changed, and show a card carrying somebody else's code.
+#[tokio::test]
+async fn two_shares_that_differ_only_by_code_do_not_share_a_tag() {
+    let app = TestApp::ready().await;
+    let mut tags = Vec::new();
+    // Same name, same body, same everything the card says. Only the code the
+    // server assigns is different.
+    for _ in 0..2 {
+        let created = body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri("/api/v1/shares?filename=note.txt"),
+                    Body::from("hello"),
+                )
+                .await,
+                StatusCode::CREATED,
+            )
+            .await,
+        )
+        .await;
+        let code = created["code"].as_str().expect("a code").to_owned();
+        let response =
+            expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+        tags.push(
+            response
+                .headers()
+                .get(header::ETAG)
+                .and_then(|value| value.to_str().ok())
+                .expect("a tag")
+                .to_owned(),
+        );
+    }
+    assert_ne!(tags[0], tags[1]);
+}
+
+/// Two shares that would draw different words must not share a tag either.
+#[tokio::test]
+async fn two_different_cards_do_not_share_a_tag() {
+    let app = TestApp::ready().await;
+    let mut tags = Vec::new();
+    for filename in ["invoice.txt", "roster.txt"] {
+        let created = body_json(
+            expect_status(
+                app.send(
+                    Request::builder()
+                        .method(Method::POST)
+                        .uri(format!("/api/v1/shares?filename={filename}")),
+                    Body::from("hello"),
+                )
+                .await,
+                StatusCode::CREATED,
+            )
+            .await,
+        )
+        .await;
+        let code = created["code"].as_str().expect("a code").to_owned();
+        let response =
+            expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+        tags.push(
+            response
+                .headers()
+                .get(header::ETAG)
+                .and_then(|value| value.to_str().ok())
+                .expect("a tag")
+                .to_owned(),
+        );
+    }
+    assert_ne!(tags[0], tags[1]);
+}
+
+/// Changing the layout changes every card on the instance, so it has to change
+/// every tag too. Otherwise the operator saves a new design and every crawler
+/// that has been round already keeps the old one.
+#[tokio::test]
+async fn changing_the_layout_changes_the_tag() {
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=note.txt"),
+                Body::from("hello"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    let tag_of = async |app: &TestApp| {
+        expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK)
+            .await
+            .headers()
+            .get(header::ETAG)
+            .and_then(|value| value.to_str().ok())
+            .expect("a tag")
+            .to_owned()
+    };
+
+    let before = tag_of(&app).await;
+
+    let mut next: tessera_server::config::Config = (**app.state.config()).clone();
+    next.og.layout = "<div style=\"display:flex\"><span>{{title}}</span></div>".to_owned();
+    app.state.replace_config(std::sync::Arc::new(next));
+
+    assert_ne!(before, tag_of(&app).await);
+}
+
 /// A note's card shows its first lines, coloured, and a locked one does not.
 ///
 /// The second half is the point. The colouring reads the body, exactly what a

@@ -133,6 +133,80 @@ impl Preview {
         self
     }
 
+    /// A digest of everything this preview would draw.
+    ///
+    /// # Why this is worth having
+    ///
+    /// It is an entity tag that can be worked out *without drawing the card*.
+    /// An unfurler that comes back to a link it has seen sends what it holds,
+    /// and answering that costs a lookup and a digest instead of a render.
+    ///
+    /// # Why a card that is counting down still has a stable one
+    ///
+    /// Because the countdown is already coarse. `expires_in` rounds the way a
+    /// person speaks, deliberately: "a different sentence every time a crawler
+    /// looked" is the thing it exists to avoid. So the same share draws the
+    /// same bytes for as long as the sentence holds, and the digest of what is
+    /// drawn changes exactly when the picture would.
+    ///
+    /// Everything drawn goes in, and nothing else does. A raw expiry would
+    /// make every request a different tag while the picture stayed identical,
+    /// which is the mistake this is shaped to avoid.
+    #[must_use]
+    pub fn fingerprint(&self) -> [u8; 32] {
+        use sha2::{Digest as _, Sha256};
+
+        let mut digest = Sha256::new();
+        // Lengths as well as contents. Without them `["ab", "c"]` and
+        // `["a", "bc"]` are the same stream of bytes, and two different cards
+        // would share a tag.
+        let mut field = |bytes: &[u8]| {
+            digest.update(bytes.len().to_le_bytes());
+            digest.update(bytes);
+        };
+        field(self.title.as_bytes());
+        field(self.description.as_bytes());
+
+        match &self.card {
+            Card::Open {
+                label,
+                chips,
+                footer,
+                #[cfg(feature = "og-images")]
+                snippet,
+            } => {
+                field(b"open");
+                field(label.as_bytes());
+                field(footer.as_bytes());
+                field(&chips.len().to_le_bytes());
+                for chip in chips {
+                    field(chip.as_bytes());
+                }
+                #[cfg(feature = "og-images")]
+                if let Some(snippet) = snippet {
+                    field(b"snippet");
+                    field(snippet.language.as_bytes());
+                    field(&[u8::from(snippet.truncated)]);
+                    field(&snippet.lines.len().to_le_bytes());
+                    for line in &snippet.lines {
+                        field(&line.indent.to_le_bytes());
+                        for (colour, text) in &line.runs {
+                            field(colour.as_bytes());
+                            field(text.as_bytes());
+                        }
+                    }
+                }
+            }
+            Card::Locked { named } => {
+                field(b"locked");
+                field(&[u8::from(*named)]);
+            }
+            Card::Gone => field(b"gone"),
+        }
+
+        digest.finalize().into()
+    }
+
     /// The headline: a title the uploader typed, or what stands in for one.
     #[must_use]
     pub fn title(&self) -> &str {
