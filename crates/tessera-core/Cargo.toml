@@ -27,6 +27,9 @@ ulid = { workspace = true }
 [dev-dependencies]
 proptest = "1.11"
 rstest = "0.26"
+# The appearance names are a contract with a stylesheet and with stored rows,
+# so the tests assert on the JSON itself rather than on a round trip.
+serde_json = { workspace = true }
 
 [lints]
 workspace = true

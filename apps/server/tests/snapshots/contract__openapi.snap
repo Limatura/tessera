@@ -984,6 +984,19 @@ expression: document
         ],
         "type": "object"
       },
+      "PreferencesResponse": {
+        "description": "One person's preferences.\n\nOne field so far. Language, time zone and clock format are the ones already\nasked for, and each will be another field here rather than another endpoint.",
+        "properties": {
+          "appearance": {
+            "description": "The appearance choices, `{}` when none have been made.\n\n`mode` is one of `light`, `dark`, `system`; `theme` one of `default`,\n`graphite`, `sepia`; `accent` one of `violet`, `rose`, `orange`,\n`amber`, `green`, `teal`, `blue`. Any of the three may be absent,\nmeaning this person has no opinion and follows the instance.",
+            "type": "object"
+          }
+        },
+        "required": [
+          "appearance"
+        ],
+        "type": "object"
+      },
       "PreviewResponse": {
         "description": "What `POST /admin/settings/preview` answers.",
         "properties": {
@@ -1847,6 +1860,17 @@ expression: document
         "required": [
           "current_password"
         ],
+        "type": "object"
+      },
+      "UpdatePreferencesRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PUT /me/preferences`.",
+        "properties": {
+          "appearance": {
+            "description": "The appearance choices, replacing whatever was stored.\n\nOmit a field, or send `{}`, to have no opinion and follow the\ninstance's default. The accepted names are the ones\n[`PreferencesResponse`] lists; anything else is a `400`.",
+            "type": "object"
+          }
+        },
         "type": "object"
       },
       "UpdateSettingsRequest": {
@@ -4820,6 +4844,104 @@ expression: document
         ]
       }
     },
+    "/api/v1/me/preferences": {
+      "get": {
+        "description": "# Errors\n\n`401` when nothing was signed in.",
+        "operationId": "get_preferences",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            },
+            "description": "The caller's preferences"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "The caller's own preferences.",
+        "tags": [
+          "preferences"
+        ]
+      },
+      "put": {
+        "description": "# Why an unknown name is a `400` and not a shrug\n\nThese end up as attributes on the `<html>` element. Refusing anything\noutside the lists is the whole of the check, and it belongs here rather than\nat the point of rendering, where a value has already been stored and\nwhatever wrote it has already gone.\n\n# Errors\n\n`400` when a name is not one this build knows, `401` when nothing was signed\nin.",
+        "operationId": "update_preferences",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePreferencesRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreferencesResponse"
+                }
+              }
+            },
+            "description": "The preferences as they now stand"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A name outside the lists this build knows"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Replaces the caller's own preferences.",
+        "tags": [
+          "preferences"
+        ]
+      }
+    },
     "/api/v1/sessions": {
       "delete": {
         "description": "The button to press on suspecting that another person is signed in as you.\nIt spares the browser doing the asking, because being logged out by\nyour own attempt to log everybody else out is a poor way to find out it\nworked.\n\n# Errors\n\n`401` when nothing was signed in, `403` when a bearer token was used.",
@@ -6182,6 +6304,10 @@ expression: document
     {
       "description": "Creating and managing shares",
       "name": "shares"
+    },
+    {
+      "description": "A person's own preferences",
+      "name": "preferences"
     }
   ]
 }

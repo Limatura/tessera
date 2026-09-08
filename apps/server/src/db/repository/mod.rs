@@ -12,6 +12,7 @@ pub mod invite;
 pub mod oidc;
 pub mod password_reset;
 pub mod pending_registration;
+pub mod preference;
 pub mod quota;
 pub mod role;
 pub mod session;

@@ -41,6 +41,7 @@ pub mod gate;
 pub mod health;
 pub mod meter;
 pub mod oidc;
+pub mod preferences;
 pub mod preview;
 pub mod public;
 pub mod sessions;
@@ -113,6 +114,9 @@ pub const ADMIN_TAG: &str = "admin";
 /// Tag grouping share creation and management.
 pub const SHARES_TAG: &str = "shares";
 
+/// Tag for the endpoints a person uses on their own preferences.
+pub const PREFERENCES_TAG: &str = "preferences";
+
 /// Name of the cookie-based security scheme in the generated document.
 pub const SESSION_SCHEME: &str = "session";
 
@@ -153,6 +157,7 @@ pub const API_PREFIX: &str = "/api/v1";
         (name = SESSIONS_TAG, description = "Seeing and ending your own sign-ins"),
         (name = ADMIN_TAG, description = "Administering the instance"),
         (name = SHARES_TAG, description = "Creating and managing shares"),
+        (name = PREFERENCES_TAG, description = "A person's own preferences"),
     ),
     modifiers(&SecurityAddon),
     components(schemas(crate::error::ErrorBody, crate::error::ErrorCode)),
@@ -306,11 +311,22 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(auth::confirm_password_reset))
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
-        .routes(routes!(sessions::list, sessions::revoke_others))
-        .routes(routes!(sessions::revoke))
+        .merge(account_routes())
         .merge(admin_routes())
         .merge(share_routes())
         .merge(upload_routes())
+}
+
+/// What a person does to their own account: their sign-ins and their
+/// preferences.
+///
+/// Grouped for the same reason the three below are: [`versioned_routes`] should
+/// stay readable as one page.
+fn account_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(sessions::list, sessions::revoke_others))
+        .routes(routes!(sessions::revoke))
+        .routes(routes!(preferences::get, preferences::update))
 }
 
 /// The share endpoints.

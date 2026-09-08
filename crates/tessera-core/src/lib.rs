@@ -35,6 +35,7 @@
 //! swappability such a port usually provides is already supplied by SeaORM.
 
 mod account_state;
+mod appearance;
 mod code;
 mod email;
 mod error;
@@ -45,6 +46,7 @@ mod username;
 
 pub use crate::{
     account_state::{AccountState, tombstone},
+    appearance::{Accent, Appearance, Mode, Theme},
     code::RetrievalCode,
     email::EmailAddress,
     error::DomainError,

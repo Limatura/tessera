@@ -20,6 +20,7 @@ use crate::{
         oidc::OidcRepository,
         password_reset::PasswordResetRepository,
         pending_registration::PendingRegistrationRepository,
+        preference::PreferenceRepository,
         role::RoleRepository,
         session::SessionRepository,
         setting::SettingRepository,
@@ -99,6 +100,8 @@ pub struct AppState {
     pub pending: PendingRegistrationRepository,
     /// Provider identities, and the sign-ins that are away at the provider.
     pub identities: OidcRepository,
+    /// What each person has chosen about how the site looks to them.
+    pub preferences: PreferenceRepository,
     /// The relay, when this instance has one.
     ///
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
@@ -323,6 +326,7 @@ impl AppState {
             invites: InviteRepository::new(db.clone()),
             pending: PendingRegistrationRepository::new(db.clone()),
             identities: OidcRepository::new(db.clone()),
+            preferences: PreferenceRepository::new(db.clone()),
             mailer: Arc::new(ArcSwap::from_pointee(mailer)),
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),

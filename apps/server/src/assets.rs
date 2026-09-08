@@ -168,10 +168,15 @@ pub async fn handler(
     let source = &state.assets;
 
     if path.is_empty() {
-        return serve(source, INDEX);
+        return serve_index(&state);
     }
 
     if let Some(asset) = load(source, &path) {
+        // The entry point is the one asset that is rewritten on the way out,
+        // so it cannot take the plain path even when it was asked for by name.
+        if path == INDEX {
+            return serve_index(&state);
+        }
         return respond(source, &path, asset);
     }
 
@@ -188,7 +193,120 @@ pub async fn handler(
     if let Some(code) = share_code(&path) {
         return serve_share_page(&state, &headers, code).await;
     }
-    serve(source, INDEX)
+    serve_index(&state)
+}
+
+/// Serves the entry point with the instance's appearance already on it.
+///
+/// # Why the server writes the colours in
+///
+/// The alternative is for the page to load, paint, and then have a script
+/// discover what the operator chose and repaint. On a dark instance that is a
+/// white flash on every navigation, which is the one thing a person notices
+/// about a theme they did not ask for.
+///
+/// Only the instance's own default goes in. A signed-in person's own choice is
+/// applied by the frontend from what it has stored locally, because doing it
+/// here would mean resolving a session on the static-asset path and an
+/// `index.html` that differs per visitor, so no two of them could share a
+/// cached copy.
+fn serve_index(state: &crate::state::AppState) -> Response {
+    let Some(asset) = load(&state.assets, INDEX) else {
+        return not_found();
+    };
+    let Ok(html) = std::str::from_utf8(&asset.bytes) else {
+        return respond(&state.assets, INDEX, asset);
+    };
+    let page = with_appearance(html, state.config().appearance);
+    html_page(page)
+}
+
+/// An HTML body this server assembled, with an entity tag over what was
+/// actually sent.
+///
+/// [`respond`] derives its tag from the bytes on disk, and those stop being the
+/// bytes sent the moment anything is spliced in. Carrying that tag anyway would
+/// be worse than carrying none: nothing here answers a conditional request, but
+/// a proxy in front of one would, and it would serve the colours from before
+/// the operator changed them. Hashing what is about to go out costs one digest
+/// over a few kilobytes and keeps the tag true.
+fn html_page(body: String) -> Response {
+    let etag = quoted_etag(&Sha256::digest(body.as_bytes()).into());
+    (
+        [
+            (header::CONTENT_TYPE, "text/html".to_owned()),
+            (header::CACHE_CONTROL, NO_CACHE.to_owned()),
+            (header::ETAG, etag),
+        ],
+        body,
+    )
+        .into_response()
+}
+
+/// Writes the instance's appearance onto the `<html>` element.
+///
+/// `data-theme` and `data-accent` name a block of CSS in `packages/ui`;
+/// `class="dark"` is what the stylesheet's dark variant hangs off, so it
+/// appears only for an instance that chose dark outright. `data-mode` carries
+/// the choice itself, because "the operator picked light" and "the operator
+/// left it to the device" are different instructions to the frontend and the
+/// absence of a class cannot tell them apart.
+///
+/// A document with no `<html>` is returned unchanged. The colours are worth
+/// having; they are not worth a page that does not load.
+///
+/// # Why this can build markup by concatenation
+///
+/// Every value here comes from [`tessera_core::Mode`], [`tessera_core::Theme`]
+/// or [`tessera_core::Accent`], whose `as_str` returns one of a fixed set of
+/// lowercase words. There is no input to escape, and no way for an operator to
+/// put one anywhere else: a value that is not on the list is refused when the
+/// setting is saved.
+fn with_appearance(html: &str, appearance: crate::config::AppearanceConfig) -> String {
+    use tessera_core::Mode;
+
+    let Some(tag) = html_tag(html) else {
+        return html.to_owned();
+    };
+
+    let mut attributes = format!(
+        r#" data-mode="{}" data-theme="{}" data-accent="{}""#,
+        appearance.mode.as_str(),
+        appearance.theme.as_str(),
+        appearance.accent.as_str(),
+    );
+    if matches!(appearance.mode, Mode::Dark) {
+        attributes.push_str(r#" class="dark""#);
+    }
+
+    let mut out = String::with_capacity(html.len() + attributes.len());
+    out.push_str(html.get(..tag.end).unwrap_or_default());
+    out.push_str(&attributes);
+    out.push_str(html.get(tag.end..).unwrap_or_default());
+    out
+}
+
+/// Where the opening `<html …>` tag ends, in bytes.
+///
+/// `end` is the offset of its `>`, so an attribute inserted there lands inside
+/// the tag. `None` when the document has no such tag, which the placeholder
+/// page and both real bundles do have; a build that somehow did not would lose
+/// the colours rather than the page.
+struct HtmlTag {
+    end: usize,
+}
+
+fn html_tag(html: &str) -> Option<HtmlTag> {
+    let lowered = html.to_ascii_lowercase();
+    let open = lowered.find("<html")?;
+    // `<htmlfoo>` is not the tag. Anything else that can follow the name is
+    // either whitespace before an attribute or the close.
+    let after = lowered.get(open + "<html".len()..)?;
+    if !after.starts_with(|c: char| c.is_ascii_whitespace() || c == '>') {
+        return None;
+    }
+    let end = open + "<html".len() + after.find('>')?;
+    Some(HtmlTag { end })
 }
 
 /// The retrieval code in `/s/{code}`, if that is what this path is.
@@ -234,25 +352,19 @@ async fn serve_share_page(
         return not_found();
     };
     let Some((share, content)) = preview_target(state, code).await else {
-        return respond(&state.assets, INDEX, asset);
+        return serve_index(state);
     };
     let Ok(html) = std::str::from_utf8(&asset.bytes) else {
         return respond(&state.assets, INDEX, asset);
     };
-    let html = html.to_owned();
-    let origin = crate::api::preview::origin(&state.config(), headers);
+    let config = state.config();
+    // The share page is the entry point with more spliced into it, so it gets
+    // the instance's colours for the same reason every other page does.
+    let html = with_appearance(html, config.appearance);
+    let origin = crate::api::preview::origin(&config, headers);
     let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc())
         .to_head_tags(origin.as_deref(), code);
-    let page = splice_into_document(&html, &tags);
-
-    (
-        [
-            (header::CONTENT_TYPE, "text/html".to_owned()),
-            (header::CACHE_CONTROL, NO_CACHE.to_owned()),
-        ],
-        page,
-    )
-        .into_response()
+    html_page(splice_into_document(&html, &tags))
 }
 
 async fn preview_target(
@@ -263,10 +375,6 @@ async fn preview_target(
     crate::db::repository::share::Content,
 )> {
     crate::api::preview::lookup(state, code).await
-}
-
-fn serve(source: &Source, path: &str) -> Response {
-    load(source, path).map_or_else(not_found, |asset| respond(source, path, asset))
 }
 
 fn not_found() -> Response {
@@ -418,5 +526,75 @@ mod tests {
     #[test]
     fn the_share_segment_is_not_taken_for_a_locale() {
         assert_eq!(strip_locale_prefix("s/ABC123"), "s/ABC123");
+    }
+
+    /// The attributes land inside the opening tag, after whatever was already
+    /// on it. Putting them anywhere else produces a page that still loads and
+    /// is still the wrong colour, which is the failure worth a test.
+    #[test]
+    fn the_appearance_lands_inside_the_html_tag() {
+        let page = with_appearance(
+            "<!doctype html>\n<html lang=\"zh-Hant\">\n  <head></head>\n</html>",
+            crate::config::AppearanceConfig {
+                mode: tessera_core::Mode::Dark,
+                theme: tessera_core::Theme::Sepia,
+                accent: tessera_core::Accent::Rose,
+            },
+        );
+        let expected = concat!(
+            r#"<html lang="zh-Hant" data-mode="dark" data-theme="sepia""#,
+            r#" data-accent="rose" class="dark">"#,
+        );
+        assert!(page.contains(expected), "{page}");
+    }
+
+    /// `class="dark"` is what the stylesheet's dark variant hangs off, so it
+    /// must appear for a dark instance and for nothing else. `data-mode`
+    /// carries the choice either way, because an absent class cannot say
+    /// whether the operator picked light or left it to the device.
+    #[rstest]
+    #[case::dark(tessera_core::Mode::Dark, true)]
+    #[case::light(tessera_core::Mode::Light, false)]
+    #[case::system(tessera_core::Mode::System, false)]
+    fn only_a_dark_instance_gets_the_class(
+        #[case] mode: tessera_core::Mode,
+        #[case] expected: bool,
+    ) {
+        let page = with_appearance(
+            "<html>",
+            crate::config::AppearanceConfig {
+                mode,
+                ..crate::config::AppearanceConfig::default()
+            },
+        );
+        assert_eq!(page.contains("class=\"dark\""), expected, "{page}");
+        assert!(
+            page.contains(&format!("data-mode=\"{}\"", mode.as_str())),
+            "{page}"
+        );
+    }
+
+    /// Losing the colours is acceptable; losing the page is not. Every one of
+    /// these comes back byte for byte.
+    #[rstest]
+    #[case::no_html_tag("<p>hello</p>")]
+    #[case::a_word_starting_with_html("<htmlish>")]
+    #[case::an_unterminated_tag("<html lang=\"en\"")]
+    fn a_document_without_an_html_tag_is_untouched(#[case] html: &str) {
+        assert_eq!(
+            with_appearance(html, crate::config::AppearanceConfig::default()),
+            html
+        );
+    }
+
+    /// The default is the one every visitor of a fresh instance sees, so it is
+    /// worth stating rather than leaving to whichever variant came first.
+    #[test]
+    fn the_default_instance_follows_the_device() {
+        let page = with_appearance("<html>", crate::config::AppearanceConfig::default());
+        assert!(page.contains("data-mode=\"system\""), "{page}");
+        assert!(page.contains("data-theme=\"default\""), "{page}");
+        assert!(page.contains("data-accent=\"violet\""), "{page}");
+        assert!(!page.contains("class="), "{page}");
     }
 }

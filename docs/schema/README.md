@@ -28,6 +28,7 @@
 | [identities](identities.md) | 4 | One way an account signs in through a provider. Keyed on `(provider, subject)` because the subject is the provider's own identifier for the person: stable, and never reused within one issuer. An address is not, since providers let people change theirs and some never check it. The `provider` column exists so a second provider is configuration rather than a migration. | table |
 | [credentials](credentials.md) | 4 | One password, for an account that has one. A side table rather than a column on `users`, because `identities` is already one row per way of signing in and a password as a column would make one method a column and the other a row. No row means no password, which is exactly what an account that has only ever used a provider is. | table |
 | [auth_flows](auth_flows.md) | 9 | A sign-in that has left for a provider and has not come back. Holds the CSRF token, the PKCE secret, and the nonce when the provider issues one, until the callback arrives; then the row is deleted, which is what makes a callback answerable once. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. `nonce` is null for a plain OAuth 2.0 provider, which issues no token to put one in. | table |
+| [user_preferences](user_preferences.md) | 3 | One person's own choices, one row each. So far that is appearance: a mode, a neutral theme and an accent, held as JSON because language and time zone are already asked for and each would otherwise be a migration. Every field is optional, and absent means no opinion: somebody who picked only an accent keeps following the instance's default for the rest, including after the operator changes it. The names come from fixed lists in `tessera_core::appearance` and are checked before they are stored, because they end up as attributes on the `<html>` element. No colour is ever stored; each name selects a block of CSS that ships with the frontend. | table |
 
 ## Relations
 
@@ -56,6 +57,7 @@ erDiagram
 "identities" }o--|| "users" : ""
 "credentials" |o--|| "users" : ""
 "auth_flows" }o--o| "users" : ""
+"user_preferences" |o--|| "users" : ""
 
 "schema_metadata" {
   TEXT key PK
@@ -275,6 +277,11 @@ erDiagram
   TEXT invite_code
   TEXT created_at
   TEXT expires_at
+}
+"user_preferences" {
+  TEXT user_id PK
+  TEXT appearance
+  TEXT updated_at
 }
 ```
 

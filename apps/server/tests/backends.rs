@@ -450,6 +450,112 @@ async fn a_full_rollback_runs_on_this_dialect() {
     db::close(conn).await;
 }
 
+/// One person's preferences, written and read back on this dialect.
+///
+/// The same gap `auth_flows` fell into: nothing else in the suite writes to
+/// this table, so a migration that runs is not evidence that a row can be
+/// stored. MySQL is the one to be wrong about here, where `TEXT` cannot be a
+/// primary key without a prefix length and cannot carry a `DEFAULT` at all.
+///
+/// The upsert is the other half. Saving twice is the ordinary case, one device
+/// after another, and it is a single statement whose conflict clause each
+/// dialect spells differently.
+#[tokio::test]
+#[ignore = "needs a live database; see the module docs"]
+async fn preferences_round_trip_on_this_dialect() {
+    use tessera_core::{
+        Accent, AccountState, Appearance, EmailAddress, Mode, Theme, UserId, Username,
+    };
+    use tessera_server::db::repository::user::User;
+
+    let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
+    let now = OffsetDateTime::now_utc();
+
+    // The row has a foreign key to `users`, so it needs somebody to belong to.
+    // Its own account rather than a shared one: this database survives the run,
+    // so a fixed name would collide with the previous invocation and the
+    // failure would say nothing about the schema.
+    let suffix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs());
+    let user = UserId::generate();
+    app.state
+        .users
+        .insert(
+            &User {
+                id: user,
+                username: Username::parse(&format!("prefs{suffix}")).expect("a plain name"),
+                email: EmailAddress::parse(&format!("prefs{suffix}@example.test"))
+                    .expect("a plain address"),
+                role_id: None,
+                quota_bytes: None,
+                max_file_bytes: None,
+                must_change_password: false,
+                state: AccountState::Active,
+                deleted_at: None,
+                deleted_by: None,
+                email_verified_at: None,
+                created_at: now,
+                updated_at: now,
+            },
+            None,
+        )
+        .await
+        .expect("an account for the row to belong to");
+
+    // Nothing stored reads as nothing chosen, not as an error and not as the
+    // instance's default in disguise.
+    assert_eq!(
+        app.state
+            .preferences
+            .appearance_for(user)
+            .await
+            .expect("a query"),
+        Appearance::default()
+    );
+
+    let chosen = Appearance {
+        mode: Some(Mode::Dark),
+        theme: Some(Theme::Sepia),
+        accent: Some(Accent::Rose),
+    };
+    app.state
+        .preferences
+        .set_appearance(user, &chosen, now)
+        .await
+        .expect("the preferences should be storable on this dialect");
+    assert_eq!(
+        app.state
+            .preferences
+            .appearance_for(user)
+            .await
+            .expect("a query"),
+        chosen
+    );
+
+    // Saving again is an upsert, not a second row: one person, one row, on
+    // every dialect.
+    let narrowed = Appearance {
+        accent: Some(Accent::Teal),
+        ..Appearance::default()
+    };
+    app.state
+        .preferences
+        .set_appearance(user, &narrowed, now)
+        .await
+        .expect("the second save should replace the first");
+    assert_eq!(
+        app.state
+            .preferences
+            .appearance_for(user)
+            .await
+            .expect("a query"),
+        narrowed,
+        "the whole object is replaced, so the other two go back to following \
+         the instance"
+    );
+}
+
 /// A sign-in that has left for a provider, written and read back on this
 /// dialect.
 ///

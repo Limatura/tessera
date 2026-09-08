@@ -16,7 +16,7 @@ use figment::{
     providers::{Env, Serialized},
 };
 use serde::{Deserialize, Serialize};
-use tessera_core::{PasswordPolicy, RetrievalCode};
+use tessera_core::{Accent, Mode, PasswordPolicy, RetrievalCode, Theme};
 
 use crate::auth::{cookie::SecurePolicy, throttle};
 
@@ -106,6 +106,52 @@ pub struct Config {
     /// The picture a chat client shows for a share link.
     #[serde(default)]
     pub og: OgConfig,
+    /// How the site looks to somebody who has not chosen otherwise.
+    #[serde(default)]
+    pub appearance: AppearanceConfig,
+}
+
+/// The instance's own answer to the three appearance questions.
+///
+/// What a signed-out visitor sees, and what a signed-in person sees for
+/// whichever of the three they have not chosen themselves. Served into
+/// `index.html` so the page is already the right colour on the first paint
+/// rather than after the scripts run; see [`crate::assets`].
+///
+/// # Why three settings rather than one
+///
+/// The panel's key list is read off this structure, and a nested object is a
+/// group of settings rather than a setting, so one key holding all three is not
+/// a shape it can express. Three is no worse in practice: `PUT /admin/settings`
+/// takes every change in one request and the configuration is swapped once at
+/// the end, so nobody loads a page between the mode changing and the accent.
+///
+/// The gain is that the value is checked by being parsed. A key holding a blob
+/// of JSON would need its own validation, written by hand, kept in step with
+/// this list; here an unknown accent is refused by the same code that refuses
+/// an unknown anything else.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AppearanceConfig {
+    /// Light, dark, or whichever the visitor's device asks for.
+    pub mode: Mode,
+    /// The neutral palette.
+    pub theme: Theme,
+    /// The hue that carries emphasis.
+    pub accent: Accent,
+}
+
+impl Default for AppearanceConfig {
+    fn default() -> Self {
+        Self {
+            // Following the device is the only default that is nobody's
+            // opinion: a visitor who has set their system to dark has already
+            // said what they want.
+            mode: Mode::System,
+            theme: Theme::Default,
+            accent: Accent::Violet,
+        }
+    }
 }
 
 /// What one plain OAuth 2.0 provider needs.

@@ -32,3 +32,4 @@ pub mod upload;
 pub mod upload_part;
 pub mod upload_segment;
 pub mod user;
+pub mod user_preference;

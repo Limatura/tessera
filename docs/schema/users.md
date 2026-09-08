@@ -30,7 +30,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [credentials](credentials.md) [auth_flows](auth_flows.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [credentials](credentials.md) [auth_flows](auth_flows.md) [user_preferences](user_preferences.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | must_change_password | INTEGER | 0 | false |  |  |  |
@@ -77,6 +77,7 @@ erDiagram
 "identities" }o--|| "users" : ""
 "credentials" |o--|| "users" : ""
 "auth_flows" }o--o| "users" : ""
+"user_preferences" |o--|| "users" : ""
 "users" }o--o| "roles" : ""
 
 "users" {
@@ -183,6 +184,11 @@ erDiagram
   TEXT invite_code
   TEXT created_at
   TEXT expires_at
+}
+"user_preferences" {
+  TEXT user_id PK
+  TEXT appearance
+  TEXT updated_at
 }
 "roles" {
   TEXT id PK

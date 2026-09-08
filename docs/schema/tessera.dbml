@@ -279,6 +279,14 @@ Table uploads {
   Note: '''A file still arriving. A half-uploaded thing is not a `file_shares` row, because every row of that table is content somebody can fetch and this is not yet. `object_key` is chosen when the upload opens and never recomputed, so a resumed upload writes back to the same place. `declared_bytes` is what the client said, and quota counts that rather than what has arrived, or two people could claim the same free space at once.'''
 }
 
+Table user_preferences {
+  user_id text [pk, not null]
+  appearance text [not null]
+  updated_at text [not null]
+
+  Note: '''One person's own choices, one row each. So far that is appearance: a mode, a neutral theme and an accent, held as JSON because language and time zone are already asked for and each would otherwise be a migration. Every field is optional, and absent means no opinion: somebody who picked only an accent keeps following the instance's default for the rest, including after the operator changes it. The names come from fixed lists in `tessera_core::appearance` and are checked before they are stored, because they end up as attributes on the `<html>` element. No colour is ever stored; each name selects a block of CSS that ships with the frontend.'''
+}
+
 Table users {
   id text [pk, not null]
   username text [not null, unique]
@@ -317,5 +325,6 @@ Ref: upload_segments.upload_id > uploads.id [delete: cascade]
 Ref: uploads.role_id > roles.id
 Ref: uploads.share_id > shares.id [delete: cascade]
 Ref: uploads.user_id > users.id [delete: cascade]
+Ref: user_preferences.user_id > users.id [delete: cascade]
 Ref: users.deleted_by > users.id
 Ref: users.role_id > roles.id
