@@ -406,6 +406,52 @@ fn respond(source: &Source, path: &str, asset: Asset) -> Response {
         .into_response()
 }
 
+/// Serves one of the faces the card renderer draws with.
+///
+/// # Why the browser needs these at all
+///
+/// An editor previewing a card layout runs the same renderer, and a renderer
+/// without the same faces reports a different wrapping and a different set of
+/// glyphs. That is worst exactly where an operator is least able to check it
+/// by eye: a CJK filename set in a fallback face the server does not have.
+///
+/// # What a reverse proxy in front of this sees
+///
+/// Three and a half megabytes of faces, so what matters is that the proxy can
+/// serve them itself rather than asking again. Two headers do that.
+///
+/// `immutable` with a year is honest here in a way it is not for most things:
+/// the bytes are compiled into the binary, so they cannot change without the
+/// binary changing, and a new binary is a new deployment. It is the same
+/// reasoning the hashed bundle assets get, and it means the download is paid
+/// once for a whole site rather than once per operator.
+///
+/// `font/woff2` matters because woff2 is already compressed. Without the type,
+/// this server's own compression layer and whatever sits in front of it would
+/// each spend CPU making the bytes slightly larger.
+///
+/// The name is matched against the list, not turned into a path, so there is
+/// no traversal to get wrong and nothing here reads a filesystem.
+#[cfg(feature = "og-images")]
+pub async fn font(axum::extract::Path(name): axum::extract::Path<String>) -> Response {
+    let Some((_, bytes)) = crate::og::FACES
+        .iter()
+        .find(|(face, _)| *face == name.as_str())
+    else {
+        return not_found();
+    };
+
+    (
+        [
+            (header::CONTENT_TYPE, "font/woff2".to_owned()),
+            (header::CACHE_CONTROL, IMMUTABLE_CACHE.to_owned()),
+            (header::ETAG, quoted_etag(&Sha256::digest(bytes).into())),
+        ],
+        Bytes::from_static(bytes),
+    )
+        .into_response()
+}
+
 /// Renders a digest as a quoted, hex-encoded entity tag.
 fn quoted_etag(hash: &[u8; 32]) -> String {
     use std::fmt::Write as _;

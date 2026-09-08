@@ -97,16 +97,40 @@ impl std::fmt::Debug for Cards {
 /// Latin first so that a name which is mostly ASCII is set in the face designed
 /// for it; the fallbacks behind it, each covering what the ones before it do
 /// not.
-const FACES: [&[u8]; 6] = [
-    include_bytes!("../../assets/fonts/DejaVuSans.woff2"),
-    include_bytes!("../../assets/fonts/DejaVuSans-Bold.woff2"),
-    include_bytes!("../../assets/fonts/DroidSansFallback.woff2"),
-    include_bytes!("../../assets/fonts/NotoSansKR-hangul.woff2"),
-    include_bytes!("../../assets/fonts/NotoEmoji.woff2"),
+///
+/// Named as well as embedded, because [`FACES`] is also what `GET /fonts/{name}`
+/// serves. An editor drawing the same card in a browser has to be given the
+/// same faces in the same order, or it reports a wrapping and a set of glyphs
+/// this server would not have produced, which is the one thing the person
+/// looking at it is checking.
+pub const FACES: [(&str, &[u8]); 6] = [
+    (
+        "DejaVuSans.woff2",
+        include_bytes!("../../assets/fonts/DejaVuSans.woff2"),
+    ),
+    (
+        "DejaVuSans-Bold.woff2",
+        include_bytes!("../../assets/fonts/DejaVuSans-Bold.woff2"),
+    ),
+    (
+        "DroidSansFallback.woff2",
+        include_bytes!("../../assets/fonts/DroidSansFallback.woff2"),
+    ),
+    (
+        "NotoSansKR-hangul.woff2",
+        include_bytes!("../../assets/fonts/NotoSansKR-hangul.woff2"),
+    ),
+    (
+        "NotoEmoji.woff2",
+        include_bytes!("../../assets/fonts/NotoEmoji.woff2"),
+    ),
     // Code is set in a monospace face, and not only because it looks right:
     // indentation on a card is drawn as padding measured in character widths,
     // a number only when every character is the same width.
-    include_bytes!("../../assets/fonts/DejaVuSansMono.woff2"),
+    (
+        "DejaVuSansMono.woff2",
+        include_bytes!("../../assets/fonts/DejaVuSansMono.woff2"),
+    ),
 ];
 
 impl Cards {
@@ -118,7 +142,7 @@ impl Cards {
     /// mean the embedded bytes are wrong: a build problem, not a runtime one.
     pub fn new() -> Result<Self, CardError> {
         let mut fonts = Fonts::default();
-        for face in FACES {
+        for (_, face) in FACES {
             fonts
                 .register(FontResource::new(face))
                 .map_err(|error| CardError::Font(error.to_string()))?;

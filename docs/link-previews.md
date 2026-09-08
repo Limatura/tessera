@@ -17,6 +17,7 @@ Code: `api/preview.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag:
 | Card route                      | `GET /s/{code}/og.png`                |
 | Operator's layout               | the `og.layout` setting               |
 | Fonts                           | `apps/server/assets/fonts/`           |
+| Serving them to an editor       | `GET /fonts/{name}`                   |
 
 ## Request flow
 
@@ -116,6 +117,11 @@ renderer ignores.
 
 The browser needs the same six faces the server draws with, or the preview is
 wrong about wrapping and CJK, which is exactly what an operator is checking.
+`GET /fonts/{name}` serves them, named and ordered by `og::FACES`. They are
+`immutable` for a year and typed `font/woff2`: the bytes cannot change without
+the binary changing, so a reverse proxy can keep them and the 3.42 MB is paid
+once for a whole site rather than once per operator, and the type is what stops
+this server and the proxy each recompressing something already compressed.
 
 ## Tested invariants
 
@@ -166,6 +172,6 @@ Both found by rendering and looking, not by reading code.
 ## Not built
 
 - sao's icons. The padlock is currently two rounded boxes.
-- The admin editor UI, and serving the fonts it needs.
+- The admin editor UI.
 - Per-share layouts. `shares.og_config` is unwritten.
 - Colour emoji. Over budget. The intended answer is letting operators add their own fonts, which needs an admin API that does not exist yet.

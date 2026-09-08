@@ -282,6 +282,80 @@ async fn root_serves_the_embedded_spa() {
     assert!(body_string(response).await.contains("<!doctype html>"));
 }
 
+/// An editor drawing the same card in a browser needs the same faces, so they
+/// are served rather than only embedded.
+#[cfg(feature = "og-images")]
+#[tokio::test]
+async fn the_card_faces_are_served() {
+    let app = TestApp::ready().await;
+    let response = expect_status(
+        app.get("/fonts/DroidSansFallback.woff2").await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let headers = response.headers().clone();
+    assert_eq!(
+        headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok()),
+        Some("font/woff2"),
+        "woff2 is already compressed; the type is what stops this server and \
+         any proxy in front of it from spending CPU compressing it again"
+    );
+    // The bytes are compiled into the binary and cannot change without the
+    // binary changing, so a proxy may keep them and the download is paid once
+    // for a whole site.
+    assert_eq!(
+        headers
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok()),
+        Some("public, max-age=31536000, immutable")
+    );
+    assert!(headers.contains_key(header::ETAG));
+
+    let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert_eq!(body.get(..4), Some(b"wOF2".as_slice()), "not a woff2 face");
+}
+
+/// The name is matched against the list, never turned into a path, so these
+/// are simply names that are not on it.
+#[cfg(feature = "og-images")]
+#[tokio::test]
+async fn a_face_that_is_not_ours_is_a_404() {
+    let app = TestApp::ready().await;
+    for name in [
+        "nope.woff2",
+        "..%2f..%2fetc%2fpasswd",
+        "DejaVuSans.woff2.bak",
+    ] {
+        expect_status(
+            app.get(&format!("/fonts/{name}")).await,
+            StatusCode::NOT_FOUND,
+        )
+        .await;
+    }
+}
+
+/// Every face the renderer registers is reachable, or an editor loading the
+/// list from `og::FACES` asks for one that is not there and previews in a
+/// face this server would not have used.
+#[cfg(feature = "og-images")]
+#[tokio::test]
+async fn every_face_the_renderer_uses_is_reachable() {
+    let app = TestApp::ready().await;
+    for (name, bytes) in tessera_server::og::FACES {
+        let response =
+            expect_status(app.get(&format!("/fonts/{name}")).await, StatusCode::OK).await;
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("the body");
+        assert_eq!(body.len(), bytes.len(), "{name} came back a different size");
+    }
+}
+
 #[tokio::test]
 async fn unknown_client_route_falls_back_to_the_spa() {
     let app = TestApp::ready().await;

@@ -370,6 +370,19 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::remove_user_shares))
 }
 
+/// The faces the card renderer draws with, for an editor that has to draw the
+/// same card in a browser. Only on an instance that has a card renderer.
+fn font_routes() -> Router<AppState> {
+    #[cfg(feature = "og-images")]
+    {
+        Router::new().route("/fonts/{name}", axum::routing::get(assets::font))
+    }
+    #[cfg(not(feature = "og-images"))]
+    {
+        Router::new()
+    }
+}
+
 /// The resumable-upload endpoints.
 ///
 /// Kept out of [`versioned_routes`] for the same reason `admin_routes` is: that
@@ -406,6 +419,10 @@ pub fn build(state: AppState) -> Router {
             OPENAPI_PATH,
             axum::routing::get(move || std::future::ready(Json(contract))),
         )
+        // Ahead of the fallback, which would otherwise answer these with a 404
+        // for a missing asset. Outside the contract for the same reason the
+        // share routes are: this is where a stylesheet points, not an API.
+        .merge(font_routes())
         // Attached before the state is applied because the fallback needs it:
         // `/s/{code}` is served from the bundle like any client-side route, but
         // with the share's link preview spliced into the HTML on the way out.
