@@ -106,41 +106,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/og/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Draws a card layout without storing it.
-         * @description # Why this is a server endpoint and not a preview in the browser
-         *
-         *     The original plan was to render the preview in the browser with takumi's
-         *     wasm build, so an operator edits against the engine that draws the real
-         *     card. Measured, that costs the browser 3.41 MB of wasm and 3.43 MB of fonts,
-         *     and still leaves a second implementation for parsing HTML.
-         *
-         *     This is the same engine for both halves, because it is not a second engine:
-         *     it is the code that draws the real card, with the real fonts, behind the
-         *     same check the real layout goes through. It costs a round trip and about
-         *     three milliseconds.
-         *
-         *     # Errors
-         *
-         *     `400` for a layout this instance will not draw, carrying the reason so the
-         *     editor can show it. `401`, `403` and `404` as for [`preview`].
-         */
-        post: operations["preview_og_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/permissions": {
         parameters: {
             query?: never;
@@ -1053,6 +1018,42 @@ export interface paths {
          */
         get: operations["capabilities"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's own preferences.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in.
+         */
+        get: operations["get_preferences"];
+        /**
+         * Replaces the caller's own preferences.
+         * @description # Why an unknown name is a `400` and not a shrug
+         *
+         *     These end up as attributes on the `<html>` element. Refusing anything
+         *     outside the lists is the whole of the check, and it belongs here rather than
+         *     at the point of rendering, where a value has already been stored and
+         *     whatever wrote it has already gone.
+         *
+         *     # Errors
+         *
+         *     `400` when a name is not one this build knows, `401` when nothing was signed
+         *     in.
+         */
+        put: operations["update_preferences"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2171,17 +2172,6 @@ export interface components {
              */
             password: string;
         };
-        /** @description A card layout to draw, and which share to draw it for. */
-        OgPreviewRequest: {
-            /** @description Which state to draw. Defaults to an ordinary file share. */
-            card?: components["schemas"]["SampleCard"];
-            /**
-             * @description The layout, as it would be stored in `og.layout`. Empty draws the
-             *     built-in card, what an operator sees before they change
-             *     anything and what they are comparing against.
-             */
-            layout?: string;
-        };
         Option_u64: null | number;
         /**
          * @description What a client needs to draw pagination, for any paged list.
@@ -2284,6 +2274,23 @@ export interface components {
              *     does this let them touch other people?
              */
             privileged: boolean;
+        };
+        /**
+         * @description One person's preferences.
+         *
+         *     One field so far. Language, time zone and clock format are the ones already
+         *     asked for, and each will be another field here rather than another endpoint.
+         */
+        PreferencesResponse: {
+            /**
+             * @description The appearance choices, `{}` when none have been made.
+             *
+             *     `mode` is one of `light`, `dark`, `system`; `theme` one of `default`,
+             *     `graphite`, `sepia`; `accent` one of `violet`, `rose`, `orange`,
+             *     `amber`, `green`, `teal`, `blue`. Any of the three may be absent,
+             *     meaning this person has no opinion and follows the instance.
+             */
+            appearance: Record<string, never>;
         };
         /** @description What `POST /admin/settings/preview` answers. */
         PreviewResponse: {
@@ -2488,11 +2495,6 @@ export interface components {
             /** @description When its permissions last changed, RFC 3339. */
             updated_at: string;
         };
-        /**
-         * @description Which sample card to draw.
-         * @enum {string}
-         */
-        SampleCard: "open" | "locked" | "gone";
         /**
          * @description Where the process is in its lifecycle.
          *
@@ -2885,6 +2887,17 @@ export interface components {
              */
             username?: string | null;
         };
+        /** @description Body of `PUT /me/preferences`. */
+        UpdatePreferencesRequest: {
+            /**
+             * @description The appearance choices, replacing whatever was stored.
+             *
+             *     Omit a field, or send `{}`, to have no opinion and follow the
+             *     instance's default. The accepted names are the ones
+             *     [`PreferencesResponse`] lists; anything else is a `400`.
+             */
+            appearance?: Record<string, never>;
+        };
         /** @description Body of `PUT /admin/settings`. */
         UpdateSettingsRequest: {
             /**
@@ -3244,66 +3257,6 @@ export interface operations {
                 };
             };
             /** @description No invite has that id */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    preview_og_card: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OgPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description The card, as a PNG */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/png": number[];
-                };
-            };
-            /** @description A layout this instance will not draw */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Not signed in */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description May not change settings, or authenticated with an API token */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description This instance has no administration */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -5182,6 +5135,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Capabilities"];
+                };
+            };
+        };
+    };
+    get_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's preferences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description The preferences as they now stand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+            /** @description A name outside the lists this build knows */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
         };
