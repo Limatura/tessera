@@ -391,6 +391,8 @@ fn upload_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(uploads::create))
         .routes(routes!(uploads::offset, uploads::append))
+        .routes(routes!(uploads::part_url))
+        .routes(routes!(uploads::complete))
 }
 
 /// Assembles the complete application: API routes, contract, docs, embedded SPA

@@ -30,6 +30,29 @@ Consequences:
 
 WebDAV's only upload verb is a whole-body `PUT`. `object_store` has no streaming put yet; this is upstream `apache/arrow-rs-object-store#281`.
 
+## Uploads straight to the bucket
+
+A browser writing upload parts directly to S3 or GCS (see `resumable.md`) is a cross-origin request, and the bucket decides whether to allow it. Two things are needed:
+
+- `PUT` allowed from the site's origin
+- `ETag` in the exposed headers, or the browser cannot read the value `complete` needs
+
+On S3 and most S3-compatible stores:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://files.example.com"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
+```
+
+Without it, uploads still work; they just go through this server.
+
 ## Choosing a backend
 
 `placement::choose` is best-fit: the fullest backend that still has room.

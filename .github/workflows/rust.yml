@@ -597,7 +597,7 @@ jobs:
             curl -s -o /dev/null http://127.0.0.1:39002 && break
             sleep 1
           done
-          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+          docker run --rm --network host --entrypoint sh quay.io/minio/mc:latest -c '
             mc alias set t http://127.0.0.1:39002 tesseratest tesseratestsecret &&
             mc mb --ignore-existing t/tessera &&
             mc mb --ignore-existing t/tessera-cold'
@@ -762,7 +762,7 @@ jobs:
           docker run -d --name tessera-minio -p 39100:9000 \
             -e MINIO_ROOT_USER=tesseratest -e MINIO_ROOT_SECRET=tesseratestsecret \
             -e MINIO_ROOT_PASSWORD=tesseratestsecret \
-            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+            quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
           for _ in $(seq 1 60); do
             curl -s -o /dev/null http://127.0.0.1:39100 && break
             sleep 1
@@ -842,7 +842,7 @@ jobs:
       # on stderr while still reporting the bucket as created.
       - name: Create their buckets
         run: |
-          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+          docker run --rm --network host --entrypoint sh quay.io/minio/mc:latest -c '
             for host in 39100 38333 38111 38090; do
               mc alias set "s$host" "http://127.0.0.1:$host" tesseratest tesseratestsecret &&
               mc mb --ignore-existing "s$host/tessera" &&

@@ -493,6 +493,27 @@
         ],
         "type": "object"
       },
+      "CompleteUploadRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /uploads/{id}/complete`.",
+        "properties": {
+          "etags": {
+            "description": "The `ETag` each part's `PUT` answered with, in part order from one.\n\nExactly as many as the upload has parts, as sent by the store: quotes\nincluded, if it included them.",
+            "example": [
+              "\"3858f62230ac3c915f300c664312c11f\"",
+              "\"9b2cf535f27731c974343645a3985328\""
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "etags"
+        ],
+        "type": "object"
+      },
       "Consequence": {
         "description": "What a setting change would destroy the next time the sweep runs.\n\n# Why this exists\n\nThree settings are retention periods, and shortening one means the next\nsweep removes things that were going to be kept. Nothing warns about it and\nnothing brings them back.\n\nAn empty \"are you sure?\" does not help, because everyone clicks it. A number\ndoes: \"this removes 23 shares, 4.2 GB\" is a sentence that gives pause.",
         "properties": {
@@ -879,6 +900,24 @@
           "total",
           "limit",
           "offset"
+        ],
+        "type": "object"
+      },
+      "PartUrlResponse": {
+        "description": "A URL to write one part of an upload to the store directly.",
+        "properties": {
+          "expires_at": {
+            "description": "When the URL stops working, RFC 3339.",
+            "type": "string"
+          },
+          "url": {
+            "description": "Where to `PUT` the part's bytes. The response carries an `ETag` header,\nwhich is what `complete` needs back.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
         ],
         "type": "object"
       },
@@ -1896,6 +1935,10 @@
       "UploadResponse": {
         "description": "A session that has just been opened.",
         "properties": {
+          "direct": {
+            "description": "Whether the parts may go straight to the store instead of through here.\n\nWhen `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`\neach part to, and `POST /uploads/{id}/complete` finishes with the `ETag`\neach `PUT` answered. `PATCH` still works either way.\n\nDecided by where this upload was placed, which is why it is here and not\nin the capabilities: an instance with an S3 bucket and a local directory\nanswers differently for different uploads.",
+            "type": "boolean"
+          },
           "id": {
             "description": "Identifier, and the last segment of the URL to continue at.",
             "type": "string"
@@ -1930,7 +1973,8 @@
           "id",
           "offset",
           "length",
-          "part_size"
+          "part_size",
+          "direct"
         ],
         "type": "object"
       },
@@ -6133,6 +6177,191 @@
           }
         ],
         "summary": "Applies bytes at the given offset.",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/v1/uploads/{id}/complete": {
+      "post": {
+        "description": "# Where the size is checked\n\nHere, and only here. A part URL cannot be limited to a length, so this\ncompletes the object and then asks the store how large it came out. One\nthat is not the size the session declared, and was charged against the\nuploader's room for, is deleted and refused.\n\nUntil then the extra bytes sit in the bucket. That is the cost of not\nhaving the bytes pass through here, and it is bounded by what a session\nthat already passed the size and room checks can write before this runs.\n\n# Errors\n\n`400` when the number of `ETag`s is not the number of parts, or the object\ndid not come out the declared size. `404` when there is no such session,\n`409` when this upload cannot take parts directly or has already had parts\nsent through this server, `410` when the session was abandoned.",
+        "operationId": "complete_upload",
+        "parameters": [
+          {
+            "description": "The session",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            },
+            "description": "The upload is a file now"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Wrong number of parts, or not the declared size"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such session"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This upload cannot be finished this way"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That session was abandoned"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Finishes an upload whose parts went straight to the store.",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/v1/uploads/{id}/parts/{number}": {
+      "get": {
+        "description": "# Why this exists\n\nEvery byte of a `PATCH` crosses this server twice: in from the uploader,\nout to the bucket. On a self-hosted instance those are often the same\nuplink. A part written to the store directly crosses it zero times.\n\n# What it does not check\n\nThe part's size. The URL carries the part number and the upload it belongs\nto, both signed, but a length cannot be: `object_store` refuses to sign\n`content-length`. So a client may write a part of any size, and nothing\nfinds out until `complete` asks the store how large the object came out.\nSee [`complete`].\n\n# Errors\n\n`404` when there is no such session or no such part, `409` when this upload\ncannot take parts directly, `410` when the session was abandoned.",
+        "operationId": "upload_part_url",
+        "parameters": [
+          {
+            "description": "The session",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Which part, from one",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartUrlResponse"
+                }
+              }
+            },
+            "description": "Where to `PUT` that part"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`number` is not a part number"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such session, or no such part"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This upload cannot take parts directly"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That session was abandoned"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Hands out a URL to write one part straight to the store.",
         "tags": [
           "uploads"
         ]

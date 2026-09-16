@@ -430,3 +430,209 @@ fn open_bucket(url: &str) -> tessera_server::storage::Stores {
     })
     .expect("open the bucket")
 }
+
+/// Whether the store under test can sign a part upload, by the scheme the
+/// suite was pointed at. See `storage::Stores::signer`.
+fn signs_part_uploads() -> bool {
+    let url = storage_url();
+    url.starts_with("s3://") || url.starts_with("gs://")
+}
+
+/// Opens a session and returns what the `POST` said.
+async fn open_session(app: &TestApp, name: &str, length: usize) -> serde_json::Value {
+    body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/uploads?filename={name}"))
+                    .header("upload-length", length.to_string()),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await
+}
+
+/// Writes one part to the URL this server signed, and returns the `ETag` the
+/// store answered with.
+async fn put_part(app: &TestApp, id: &str, token: &str, number: usize, bytes: Vec<u8>) -> String {
+    let signed = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::GET)
+                    .uri(format!("/api/v1/uploads/{id}/parts/{number}"))
+                    .header("x-upload-token", token),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let url = signed
+        .get("url")
+        .and_then(serde_json::Value::as_str)
+        .expect("a url");
+
+    // A real HTTP client, not the router: the point is that the bytes go to the
+    // store without this server in the path.
+    let response = reqwest::Client::new()
+        .put(url)
+        .body(bytes)
+        .send()
+        .await
+        .expect("the store answered");
+    let status = response.status();
+    let etag = response
+        .headers()
+        .get("etag")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
+    assert!(
+        status.is_success(),
+        "the store refused part {number}: {status} {}",
+        response.text().await.unwrap_or_default()
+    );
+    etag.expect("a part upload answers with an ETag")
+}
+
+async fn complete(
+    app: &TestApp,
+    id: &str,
+    token: &str,
+    etags: &[String],
+) -> axum::response::Response {
+    app.send(
+        Request::builder()
+            .method(Method::POST)
+            .uri(format!("/api/v1/uploads/{id}/complete"))
+            .header("x-upload-token", token)
+            .header("content-type", "application/json"),
+        Body::from(serde_json::json!({ "etags": etags }).to_string()),
+    )
+    .await
+}
+
+/// The whole point: parts written straight to the store, finished here, and
+/// the file that comes back is the file that went in.
+///
+/// Two whole parts and a short tail, so the order the `ETag`s are listed in
+/// matters: a store that numbered them differently would join the file in the
+/// wrong order and the byte comparison would say where.
+///
+/// Against a store with nothing to sign, the same session has to say it
+/// cannot take parts directly, and that is asserted instead.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn parts_written_straight_to_the_store_come_back_as_one_file() {
+    let app = app().await;
+    let part = app.state.config().server.part_size_bytes;
+    let sent: Vec<u8> = (0..u32::try_from(part * 2 + 4096).unwrap_or(u32::MAX))
+        .map(|i| u8::try_from(i % 251).unwrap_or(0))
+        .collect();
+
+    let created = open_session(&app, "direct.bin", sent.len()).await;
+    if !signs_part_uploads() {
+        assert_eq!(created["direct"], false, "{created}");
+        return;
+    }
+    assert_eq!(created["direct"], true, "{created}");
+    let id = created["id"].as_str().expect("an id").to_owned();
+    let token = created["token"].as_str().expect("a token").to_owned();
+
+    let mut etags = Vec::new();
+    for (index, chunk) in sent.chunks(part).enumerate() {
+        etags.push(put_part(&app, &id, &token, index + 1, chunk.to_vec()).await);
+    }
+
+    let finished = complete(&app, &id, &token, &etags).await;
+    let share = body_json(expect_status(finished, StatusCode::CREATED).await).await;
+    let code = share["code"].as_str().expect("a code");
+
+    let got = download(&app, code).await;
+    assert_eq!(got.len(), sent.len(), "wrong length");
+    assert_eq!(
+        got.iter().zip(&sent).position(|(a, b)| a != b),
+        None,
+        "first differing byte"
+    );
+}
+
+/// A part URL cannot be limited to a length, so a client can write more than it
+/// declared. `complete` is where that is caught: the object is deleted, the
+/// session with it, and nothing is recorded as a file.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn a_direct_upload_that_comes_out_the_wrong_size_is_refused() {
+    if !signs_part_uploads() {
+        return;
+    }
+    let app = app().await;
+    // One part, so the only part is also the last and may be any size at all.
+    let created = open_session(&app, "oversized.bin", 4096).await;
+    let id = created["id"].as_str().expect("an id").to_owned();
+    let token = created["token"].as_str().expect("a token").to_owned();
+
+    let etag = put_part(&app, &id, &token, 1, vec![7_u8; 5000]).await;
+    let refused = complete(&app, &id, &token, &[etag]).await;
+    let body = body_string(expect_status(refused, StatusCode::BAD_REQUEST).await).await;
+    assert!(
+        body.contains("5000"),
+        "the refusal should say what arrived: {body}"
+    );
+
+    // The session went with the object, so there is nothing left to finish.
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::HEAD)
+                .uri(format!("/api/v1/uploads/{id}"))
+                .header("x-upload-token", &token),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::NOT_FOUND,
+    )
+    .await;
+}
+
+/// The count is checked before the store is asked anything, and a refusal
+/// leaves the session open to be finished properly.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn the_wrong_number_of_etags_is_refused_and_the_upload_can_still_finish() {
+    if !signs_part_uploads() {
+        return;
+    }
+    let app = app().await;
+    let sent = vec![9_u8; 4096];
+    let created = open_session(&app, "counted.bin", sent.len()).await;
+    let id = created["id"].as_str().expect("an id").to_owned();
+    let token = created["token"].as_str().expect("a token").to_owned();
+
+    let etag = put_part(&app, &id, &token, 1, sent.clone()).await;
+    expect_status(
+        complete(&app, &id, &token, &[etag.clone(), etag.clone()]).await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+
+    let share = body_json(
+        expect_status(
+            complete(&app, &id, &token, &[etag]).await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        download(&app, share["code"].as_str().expect("a code")).await,
+        sent
+    );
+}

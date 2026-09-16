@@ -254,6 +254,18 @@ impl AppState {
             .and_then(|stores| stores.multipart.clone())
     }
 
+    /// The named backend as a signer, when a client may write a part to it
+    /// directly. See [`crate::storage::Stores::signer`].
+    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+    #[must_use]
+    pub fn backend_signer(&self, name: &str) -> Option<Arc<dyn object_store::signer::Signer>> {
+        self.backends
+            .load()
+            .open
+            .get(name)
+            .and_then(|stores| stores.signer.clone())
+    }
+
     /// Replaces the set of backends, so one added from the panel or the command
     /// line is reachable without a restart.
     ///

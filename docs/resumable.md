@@ -87,6 +87,28 @@ Deciding at creation rather than at completion means the finish step has no choi
 
 **Resumable uploads do not split across backends.** They go through `place_resumable`, which picks one backend. The session declares its size up front so the planner would fit, but it needs `upload_segments` rows in state `planned` and a writer that survives across requests. See `splitting.md`.
 
+## Straight to the store
+
+Every byte of a `PATCH` crosses this server twice: in from the uploader, out to the bucket. On a self-hosted instance those are often the same uplink. A part written to the store directly crosses it zero times.
+
+```text
+POST /uploads                        → 201, "direct": true
+GET  /uploads/{id}/parts/{number}    → { url, expires_at }
+PUT  <url>                           → the store answers with an ETag
+POST /uploads/{id}/complete          { "etags": [...] }  → 201 + share
+```
+
+It is the same session as a `PATCH` upload: the same size and room checks, the same placement, the same token, the same sweep. Only who sends the part bytes changes.
+
+- **Only on S3 and GCS.** Both sign `partNumber` and `uploadId` into the URL. Azure signs a SAS over the whole blob, which needs a different recipe nothing here speaks. A local directory and WebDAV have nothing to sign. `direct` says which applies to this upload, decided by where it was placed.
+- **The size is not enforced per part.** `object_store` refuses to sign `content-length`, so a client can write a part of any size. `complete` asks the store how large the object came out, and a mismatch is deleted and refused. Until then the extra bytes sit in the bucket.
+- **One way or the other.** `complete` refuses once a `PATCH` has written a part, because the server's recorded parts and the client's list would each describe half an object.
+- **A wrong ETag fails at the store** and leaves the multipart upload open, so the client can send the right list again.
+- **A part URL lives at most an hour**, and never past the session.
+- **An abandoned session is swept the same way.** Aborting the multipart upload discards the parts written directly too.
+
+The bucket has to allow it; see `storage.md`. A client should fall back to `PATCH` when a part `PUT` fails, since a bucket without CORS looks exactly like that.
+
 ## Cleanup
 
 An abandoned session holds a real multipart upload, and S3 bills for its parts until someone aborts it. `maintenance` sweeps them; see `maintenance.md`.
