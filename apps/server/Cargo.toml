@@ -43,8 +43,8 @@ mysql = ["dep:sqlx", "sea-orm/sqlx-mysql"]
 
 # --- storage ---
 storage-fs = []                            # always available; a flag for symmetry
-storage-s3 = ["object_store/aws"]
-storage-gcs = ["object_store/gcp"]
+storage-s3 = ["object_store/aws", "dep:httpdate"]
+storage-gcs = ["object_store/gcp", "dep:httpdate"]
 storage-azure = ["object_store/azure"]
 storage-http = ["object_store/http"]       # WebDAV and plain HTTP stores
 
@@ -164,6 +164,11 @@ aws-lc-rs = "1.18"
 # 0.14.2 for `Signer::signed_url_opts`: presigning a multipart part upload
 # needs `partNumber` and `uploadId` folded into the signature.
 object_store = { version = "0.14.2", features = ["fs"] }
+# Reads the `Date` a store answers with, to know how far its clock is from ours
+# before handing out a download URL that lives fifteen seconds. Already in the
+# tree through hyper, so naming it costs nothing new. Only the two stores that
+# can be sent a browser need it.
+httpdate = { version = "1", optional = true }
 # `object_store::parse_url_opts` takes a `Url`; this is the same crate it already
 # depends on, so naming it here costs nothing beyond the import.
 url = "2"

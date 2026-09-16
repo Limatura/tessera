@@ -619,6 +619,12 @@ pub struct StatsResponse {
     /// Counted over the shares still here, so a swept share takes its tally
     /// with it and this falls when one goes.
     pub bytes_served: u64,
+    /// How many bytes downloads sent straight to a store asked for.
+    ///
+    /// Requested, not delivered: the store does not say what it sent, so an
+    /// abandoned download counts in full here. Separate from `bytes_served`
+    /// so that one keeps meaning what left this machine.
+    pub bytes_redirected: u64,
     /// The ceiling from `storage.max_total_bytes`, or `null` when unset.
     ///
     /// `null` means unset, not unlimited. On an instance taking anonymous
@@ -674,6 +680,7 @@ pub async fn stats(
         live_shares,
         stored_bytes: state.shares.total_stored_bytes().await?,
         bytes_served: state.shares.total_bytes_served().await?,
+        bytes_redirected: state.shares.total_bytes_redirected().await?,
         // Zero is how the configuration spells "no ceiling", but a client
         // drawing a usage bar against zero would show every instance as full.
         quota_bytes: (quota > 0).then_some(quota),
@@ -1252,6 +1259,9 @@ pub struct AdminShareResponse {
     /// Not `size_bytes` times `use_count`: a range request, a resumed download
     /// and an abandoned one all send some other amount.
     pub bytes_served: u64,
+    /// How many bytes downloads of it sent straight to a store asked for.
+    /// Requested, not delivered.
+    pub bytes_redirected: u64,
     /// Who uploaded it, or `null` for an anonymous upload.
     ///
     /// An account deleted since still appears here, because the row it left
@@ -1278,6 +1288,7 @@ impl AdminShareResponse {
             file_count: u32::try_from(content.files().len()).unwrap_or(u32::MAX),
             size_bytes: content.size_bytes(),
             bytes_served: share.bytes_served,
+            bytes_redirected: share.bytes_redirected,
             owner_id: share.user_id.map(|id| id.to_string()),
             active: matches!(share.availability_at(now), Availability::Available),
             created_at: format_timestamp(share.created_at),

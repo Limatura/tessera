@@ -139,6 +139,7 @@ erDiagram
   INTEGER copy_count
   INTEGER bytes_served
   TEXT role_id FK
+  INTEGER bytes_redirected
 }
 "password_reset_tokens" {
   TEXT id PK

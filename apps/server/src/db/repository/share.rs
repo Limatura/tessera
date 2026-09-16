@@ -553,6 +553,14 @@ pub struct Share {
     /// Bytes that left this process, not bytes that reached anybody. See the
     /// migration for what a proxy in front does to the difference.
     pub bytes_served: u64,
+    /// How many bytes were asked for by requests this server sent to the store
+    /// instead of serving itself.
+    ///
+    /// Requested, not delivered: nothing reports what a store actually sent.
+    /// Kept apart from [`Share::bytes_served`] for that reason, since folding it
+    /// in would make that figure count whole files for abandoned downloads,
+    /// the one thing it was built not to do.
+    pub bytes_redirected: u64,
     /// When the share was last touched.
     pub last_accessed_at: Option<OffsetDateTime>,
 
@@ -641,6 +649,7 @@ impl Share {
             view_count: unsigned(model.view_count),
             copy_count: unsigned(model.copy_count),
             bytes_served: u64::try_from(model.bytes_served).unwrap_or(0),
+            bytes_redirected: u64::try_from(model.bytes_redirected).unwrap_or(0),
             last_accessed_at: model.last_accessed_at,
 
             created_at: model.created_at,
@@ -669,6 +678,7 @@ impl Share {
             view_count: Set(signed(self.view_count)),
             copy_count: Set(signed(self.copy_count)),
             bytes_served: Set(i64::try_from(self.bytes_served).unwrap_or(i64::MAX)),
+            bytes_redirected: Set(i64::try_from(self.bytes_redirected).unwrap_or(i64::MAX)),
             last_accessed_at: Set(self.last_accessed_at),
 
             created_at: Set(self.created_at),
@@ -1377,6 +1387,50 @@ impl ShareRepository {
             .exec(&self.connection)
             .await?;
         Ok(())
+    }
+
+    /// Adds to what requests sent to the store asked for.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the update fails.
+    pub async fn add_bytes_redirected(
+        &self,
+        id: ShareId,
+        bytes: u64,
+    ) -> Result<(), ShareRepositoryError> {
+        let bytes = i64::try_from(bytes).unwrap_or(i64::MAX);
+        ShareEntity::update_many()
+            .col_expr(
+                share::Column::BytesRedirected,
+                Expr::col(share::Column::BytesRedirected).add(bytes),
+            )
+            .filter(share::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(())
+    }
+
+    /// What requests sent to the store asked for, over the shares still here.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShareRepositoryError`] if the query fails.
+    pub async fn total_bytes_redirected(&self) -> Result<u64, ShareRepositoryError> {
+        let total: Option<i64> = ShareEntity::find()
+            .select_only()
+            .column_as(
+                total::bytes(
+                    self.connection.get_database_backend(),
+                    Expr::col(share::Column::BytesRedirected),
+                ),
+                "total",
+            )
+            .into_tuple()
+            .one(&self.connection)
+            .await?
+            .flatten();
+        Ok(u64::try_from(total.unwrap_or(0)).unwrap_or(0))
     }
 
     /// Records that the share page was looked at.

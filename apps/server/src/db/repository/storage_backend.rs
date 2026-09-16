@@ -27,6 +27,13 @@ pub struct StorageBackend {
     /// Whether it still takes new content. Reads are unaffected: a full backend
     /// and a retired one both keep serving what they already hold.
     pub read_only: bool,
+    /// Whether browsers may be sent to it directly, to download a file or to
+    /// write an upload's parts, instead of through this server.
+    ///
+    /// Off unless an operator turns it on, because only they can know whether
+    /// a browser can reach the store at all: a bucket on a home network is
+    /// reachable from this server and from nobody else.
+    pub direct_access: bool,
 }
 
 /// Anything that can go wrong reading or writing a backend.
@@ -118,6 +125,7 @@ impl StorageBackendRepository {
                 backend.capacity_bytes,
             )),
             read_only: Set(backend.read_only),
+            direct_access: Set(backend.direct_access),
             created_at: Set(now),
             updated_at: Set(now),
         };
@@ -130,6 +138,7 @@ impl StorageBackendRepository {
                         storage_backend::Column::IsDefault,
                         storage_backend::Column::CapacityBytes,
                         storage_backend::Column::ReadOnly,
+                        storage_backend::Column::DirectAccess,
                         storage_backend::Column::UpdatedAt,
                     ])
                     .to_owned(),
@@ -204,6 +213,31 @@ impl StorageBackendRepository {
         Ok(chosen.rows_affected == 1)
     }
 
+    /// Turns direct access on or off for one backend. Returns whether there was
+    /// one by that name.
+    ///
+    /// Its own write, not a second `put`. `put` re-seals the URL and options,
+    /// which the caller would have to send again, and the credentials are the
+    /// one thing this API never hands back.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StorageBackendError`] if the write fails.
+    pub async fn set_direct_access(
+        &self,
+        name: &str,
+        allowed: bool,
+        now: OffsetDateTime,
+    ) -> Result<bool, StorageBackendError> {
+        let changed = StorageBackendEntity::update_many()
+            .col_expr(storage_backend::Column::DirectAccess, allowed.into())
+            .col_expr(storage_backend::Column::UpdatedAt, now.into())
+            .filter(storage_backend::Column::Name.eq(name.to_owned()))
+            .exec(&self.connection)
+            .await?;
+        Ok(changed.rows_affected == 1)
+    }
+
     /// Takes the flag off every backend.
     ///
     /// How the one from `storage.url` becomes the destination again: it has no
@@ -235,6 +269,7 @@ impl StorageBackendRepository {
             is_default: model.is_default,
             capacity_bytes: crate::db::repository::quota::from_column(model.capacity_bytes),
             read_only: model.read_only,
+            direct_access: model.direct_access,
         })
     }
 }

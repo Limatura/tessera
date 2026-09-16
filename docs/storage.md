@@ -30,9 +30,24 @@ Consequences:
 
 WebDAV's only upload verb is a whole-body `PUT`. `object_store` has no streaming put yet; this is upstream `apache/arrow-rs-object-store#281`.
 
-## Uploads straight to the bucket
+## Sending browsers to the bucket
 
-A browser writing upload parts directly to S3 or GCS (see `resumable.md`) is a cross-origin request, and the bucket decides whether to allow it. Two things are needed:
+Downloads (`retrieval.md`) and upload parts (`resumable.md`) can go between the browser and the store directly, without crossing this server. It is off unless an operator turns it on, per backend:
+
+| Backend | Switch |
+| --- | --- |
+| The one from `storage.url` | the `storage.direct_access` setting |
+| A stored one | `direct_access` on `POST /api/v1/admin/storage/backends`, or `PATCH /api/v1/admin/storage/backends/{name}` |
+
+`PATCH` exists so the switch can be flipped without sending the credentials again; they are sealed and never shown.
+
+**Turn it on only if a browser can reach the store.** A bucket on a home network answers this server and nobody else, and nothing here can tell, because the network that matters is the downloader's. A download sent there fails on a page this server never sees.
+
+Only S3 and GCS can be sent to. On anything else the switch changes nothing.
+
+### Uploads need CORS
+
+A browser writing upload parts directly is a cross-origin request, and the bucket decides whether to allow it. Two things are needed:
 
 - `PUT` allowed from the site's origin
 - `ETag` in the exposed headers, or the browser cannot read the value `complete` needs
@@ -52,6 +67,8 @@ On S3 and most S3-compatible stores:
 ```
 
 Without it, uploads still work; they just go through this server.
+
+A download needs none of this: following a redirect is a navigation, not a cross-origin request.
 
 ## Choosing a backend
 

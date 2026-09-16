@@ -328,6 +328,13 @@ async fn download(
     // Never the media type the uploader claimed. Serving that back is the same
     // stored-XSS hole as `/raw`, reached from the other direction.
     let content = state.shares.content_of(&share).await?;
+    // After `permit`, so the password, the expiry and the access log have all
+    // had their say before anybody is sent anywhere.
+    if matches!(payload, Payload::Content)
+        && let Some(redirect) = redirect_to_store(&state, &share, &content, &headers).await
+    {
+        return Ok(redirect);
+    }
     let disposition = HeaderValue::from_str(&content_disposition(&content))
         .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
     serve(
@@ -343,6 +350,146 @@ async fn download(
         },
     )
     .await
+}
+
+/// Sends a download to the store itself, when that is safe to do.
+///
+/// # When it is
+///
+/// Only for a share that promises nothing about who gets the bytes or how often:
+/// no password and no use limit. A URL to the store is a bearer credential for
+/// its lifetime, so on a password-protected share it would be a copy of the
+/// file that needs no password, and on a one-time share a second collection
+/// the count never sees. Neither can be repaired at the store: a presigned URL
+/// cannot be limited to one use or one client.
+///
+/// Only for one file in one piece, on a backend whose operator has said a
+/// browser can reach it and which can sign a URL at all. An archive does not
+/// exist until it is sent, and a split file is several objects.
+///
+/// # How long the URL lives
+///
+/// Fifteen seconds by the store's clock, which is measured first; see
+/// [`crate::storage::clock`]. Long enough to start a transfer, which the store
+/// then finishes whatever the time, and short enough that a URL copied out of
+/// the browser is not much of a gift. A resumed download comes back here for a
+/// fresh one.
+///
+/// # What is counted
+///
+/// What the request asked for, in `bytes_redirected`: the file, or the range.
+/// Not `bytes_served`, which counts what left this process as it left, and none
+/// did.
+///
+/// Anything that does not work out answers `None`, and the download is served
+/// from here as it always was. Being sent somewhere is an optimisation; failing
+/// to be is not an error.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn redirect_to_store(
+    state: &AppState,
+    share: &Share,
+    content: &Content,
+    headers: &HeaderMap,
+) -> Option<Response> {
+    let (backend, key, size) = direct_location(state, share, content)?;
+    let signer = state.backend_signer(backend)?;
+    let skew = state.clocks.skew(backend, &signer).await?;
+    let ttl = crate::storage::clock::download_ttl(skew)?;
+
+    // A range this cannot read is left for `serve`, which answers `416`.
+    let requested = match headers
+        .get(header::RANGE)
+        .and_then(|value| value.to_str().ok())
+    {
+        None => size,
+        Some(value) => {
+            let (start, end) = parse_range(value, size).ok()?;
+            end.saturating_sub(start).saturating_add(1)
+        }
+    };
+
+    // The same name and the same opaque type this server would send, signed
+    // into the URL so the store answers with them. The hardening headers
+    // `serve` adds cannot travel this way; an attachment of an opaque type is
+    // what keeps the browser from rendering it instead.
+    let options = object_store::signer::SignedUrlOptions::new().with_query([
+        ("response-content-disposition", content_disposition(content)),
+        (
+            "response-content-type",
+            "application/octet-stream".to_owned(),
+        ),
+    ]);
+    let url = match signer
+        .signed_url_opts(Method::GET, &ObjectPath::from(key), ttl, &options)
+        .await
+    {
+        Ok(url) => url,
+        Err(error) => {
+            tracing::warn!(%error, backend, "could not sign a download; serving it from here");
+            return None;
+        }
+    };
+    let location = HeaderValue::from_str(url.as_str()).ok()?;
+
+    // Counted once the redirect is certain, and a failure to count does not
+    // stop it, for the reason `record_access` gives.
+    if let Err(error) = state.shares.add_bytes_redirected(share.id, requested).await {
+        tracing::warn!(?error, share = %share.id, "could not record a redirected download");
+    }
+
+    Some(
+        (
+            StatusCode::TEMPORARY_REDIRECT,
+            [
+                (header::LOCATION, location),
+                // A cached redirect replays a URL that has expired, and skips
+                // everything `permit` checks on the way to it.
+                (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+            ],
+        )
+            .into_response(),
+    )
+}
+
+/// Where a download may be sent, if anywhere: the backend, the key, and the
+/// file's size.
+///
+/// The half of [`redirect_to_store`] that needs nothing from the network. No
+/// password, no use limit, one file in one piece, and a backend its operator has
+/// said a browser can reach.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn direct_location<'a>(
+    state: &AppState,
+    share: &Share,
+    content: &'a Content,
+) -> Option<(&'a str, &'a str, u64)> {
+    if share.needs_password() || share.use_limit.is_some() {
+        return None;
+    }
+    let file = content.single_file()?;
+    if file.segments.len() > 1 {
+        return None;
+    }
+    let backend = file.storage.backend()?;
+    let key = file.storage.object_key()?;
+    state
+        .direct_access(backend)
+        .then_some((backend, key, file.size_bytes))
+}
+
+/// The build with no store that can be sent a browser.
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+#[expect(
+    clippy::unused_async,
+    reason = "the same signature as the build that redirects"
+)]
+async fn redirect_to_store(
+    _: &AppState,
+    _: &Share,
+    _: &Content,
+    _: &HeaderMap,
+) -> Option<Response> {
+    None
 }
 
 /// What a response calls the content, the only thing the two routes disagree

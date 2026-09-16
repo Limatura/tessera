@@ -529,6 +529,7 @@ async fn a_resumable_upload_is_placed_like_any_other() {
             is_default: false,
             capacity_bytes: None,
             read_only: false,
+            direct_access: false,
         }],
     });
 
@@ -588,6 +589,7 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
         is_default: false,
         capacity_bytes: None,
         read_only: false,
+        direct_access: false,
     }];
     app.state.replace_backends(tessera_server::storage::Pool {
         open: tessera_server::storage::Backends::from([

@@ -183,6 +183,12 @@
             "description": "Whether a visitor could still open it.",
             "type": "boolean"
           },
+          "bytes_redirected": {
+            "description": "How many bytes downloads of it sent straight to a store asked for.\nRequested, not delivered.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "bytes_served": {
             "description": "How many bytes it has sent out, over its whole life.\n\nThe instance-wide figure in `StatsResponse` answers \"what is this\ncosting me\"; this answers which share to do something about. One link\nposted somewhere busy is usually where the transfer went, and the total\ncannot say which.\n\nNot `size_bytes` times `use_count`: a range request, a resumed download\nand an abandoned one all send some other amount.",
             "format": "int64",
@@ -243,6 +249,7 @@
           "file_count",
           "size_bytes",
           "bytes_served",
+          "bytes_redirected",
           "active",
           "created_at"
         ],
@@ -287,6 +294,10 @@
               "null"
             ]
           },
+          "direct_access": {
+            "description": "Whether browsers may be sent to it directly. Only if a browser can reach\nit; see [`BackendResponse::direct_access`].",
+            "type": "boolean"
+          },
           "name": {
             "description": "What to call it. Reusing an existing name replaces that backend.",
             "example": "cold",
@@ -319,7 +330,7 @@
         "type": "object"
       },
       "BackendResponse": {
-        "description": "One backend, as the panel draws it.\n\nFour booleans answering four unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, and\nwhether it comes from the environment. Collapsing any pair into an enum\nwould invent a state the system does not have, since a read-only backend can\nbe the default and an unreachable one can be either.",
+        "description": "One backend, as the panel draws it.\n\nFive booleans answering five unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, whether\nbrowsers may be sent to it, and whether it comes from the environment.\nCollapsing any pair into an enum would invent a state the system does not\nhave, since a read-only backend can be the default and an unreachable one can\nbe either.",
         "properties": {
           "capacity_bytes": {
             "description": "How much it may hold, or `null` for no limit.\n\nTyped in by the operator: object stores have no capacity API, and on a\nfree tier the limit belongs to the account's plan, which no API reports.",
@@ -330,6 +341,10 @@
               "integer",
               "null"
             ]
+          },
+          "direct_access": {
+            "description": "Whether browsers are sent to it directly, to download a file or write an\nupload's parts, instead of through this server.\n\nOnly S3 and GCS can be sent to. On anything else this may be `true` and\nstill change nothing.",
+            "type": "boolean"
           },
           "from_environment": {
             "description": "Whether it comes from `storage.url` instead of this table.\n\nThe one that does cannot be edited or removed from here: it is where\neverything written before backends existed lives, and it is configured\nin the environment.",
@@ -366,6 +381,7 @@
           "used_bytes",
           "read_only",
           "reachable",
+          "direct_access",
           "from_environment"
         ],
         "type": "object"
@@ -1696,6 +1712,12 @@
             "minimum": 0,
             "type": "integer"
           },
+          "bytes_redirected": {
+            "description": "How many bytes downloads sent straight to a store asked for.\n\nRequested, not delivered: the store does not say what it sent, so an\nabandoned download counts in full here. Separate from `bytes_served`\nso that one keeps meaning what left this machine.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "bytes_served": {
             "description": "How many bytes this instance has sent out.\n\nBytes that left the process, not bytes that reached anybody: a proxy in\nfront holds some, and a caching CDN answers requests this never sees.\nFor what crossed the network, a reverse proxy's log is the authority.\n\nCounted over the shares still here, so a swept share takes its tally\nwith it and this falls when one goes.",
             "format": "int64",
@@ -1743,6 +1765,7 @@
           "live_shares",
           "stored_bytes",
           "bytes_served",
+          "bytes_redirected",
           "live_invites"
         ],
         "type": "object"
@@ -1874,6 +1897,20 @@
         ],
         "type": "object"
       },
+      "UpdateBackendRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PATCH /admin/storage/backends/{name}`.",
+        "properties": {
+          "direct_access": {
+            "description": "Whether browsers may be sent to it directly.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "direct_access"
+        ],
+        "type": "object"
+      },
       "UpdatePreferencesRequest": {
         "additionalProperties": false,
         "description": "Body of `PUT /me/preferences`.",
@@ -1936,7 +1973,7 @@
         "description": "A session that has just been opened.",
         "properties": {
           "direct": {
-            "description": "Whether the parts may go straight to the store instead of through here.\n\nWhen `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`\neach part to, and `POST /uploads/{id}/complete` finishes with the `ETag`\neach `PUT` answered. `PATCH` still works either way.\n\nDecided by where this upload was placed, which is why it is here and not\nin the capabilities: an instance with an S3 bucket and a local directory\nanswers differently for different uploads.",
+            "description": "Whether the parts may go straight to the store instead of through here.\n\nWhen `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`\neach part to, and `POST /uploads/{id}/complete` finishes with the `ETag`\neach `PUT` answered. `PATCH` still works either way.\n\nDecided by where this upload was placed, and by whether the operator\nhas said a browser can reach that store, which is why it is here and not\nin the capabilities: an instance with an S3 bucket and a local directory\nanswers differently for different uploads.",
             "type": "boolean"
           },
           "id": {
@@ -3473,6 +3510,92 @@
           }
         ],
         "summary": "Removes a backend.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "description": "# Why this is not another `POST` of the whole backend\n\nThat works, and replaces the row. But it needs the URL and credentials sent\nagain, and those are sealed and never shown, so flipping one switch would\nmean finding the secret key for a bucket again.\n\n# Errors\n\n`400` for the backend from `storage.url`, whose switch is the\n`storage.direct_access` setting. `401` when nothing was signed in, `403`\nwhen the caller may not write settings, `404` when no backend has that name.",
+        "operationId": "update_storage_backend",
+        "parameters": [
+          {
+            "description": "Which backend",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBackendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackendResponse"
+                }
+              }
+            },
+            "description": "The backend as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The backend from storage.url is changed through its setting"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not write settings"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such backend"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Turns direct access on or off for a stored backend.",
         "tags": [
           "admin"
         ]

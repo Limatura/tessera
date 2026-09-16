@@ -342,6 +342,17 @@ fn share_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(shares::add_file))
 }
 
+/// The storage backends, under `/admin/storage`.
+///
+/// Its own group so [`admin_routes`] stays one page, which is the same reason the
+/// others are split out.
+fn backend_routes() -> OpenApiRouter<AppState> {
+    OpenApiRouter::new()
+        .routes(routes!(backends::list, backends::add))
+        .routes(routes!(backends::remove, backends::update))
+        .routes(routes!(backends::set_default))
+}
+
 /// Everything under `/admin`.
 ///
 /// Its own function because it is its own surface: an operator can switch it
@@ -362,9 +373,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::list_shares))
         .routes(routes!(admin::delete_share))
         .routes(routes!(admin::share_access_log))
-        .routes(routes!(backends::list, backends::add))
-        .routes(routes!(backends::remove))
-        .routes(routes!(backends::set_default))
+        .merge(backend_routes())
         .routes(routes!(settings::list, settings::update))
         .routes(routes!(settings::preview))
         .routes(routes!(admin::remove_user_shares))

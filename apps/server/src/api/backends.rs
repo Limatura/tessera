@@ -33,14 +33,15 @@ use crate::{
 
 /// One backend, as the panel draws it.
 ///
-/// Four booleans answering four unrelated questions: where new uploads go,
-/// whether this one still takes them, whether the process can reach it, and
-/// whether it comes from the environment. Collapsing any pair into an enum
-/// would invent a state the system does not have, since a read-only backend can
-/// be the default and an unreachable one can be either.
+/// Five booleans answering five unrelated questions: where new uploads go,
+/// whether this one still takes them, whether the process can reach it, whether
+/// browsers may be sent to it, and whether it comes from the environment.
+/// Collapsing any pair into an enum would invent a state the system does not
+/// have, since a read-only backend can be the default and an unreachable one can
+/// be either.
 #[expect(
     clippy::struct_excessive_bools,
-    reason = "four independent facts about one backend; see above"
+    reason = "five independent facts about one backend; see above"
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BackendResponse {
@@ -70,6 +71,12 @@ pub struct BackendResponse {
     /// the credentials or the address. Worth showing prominently, because
     /// nothing else about the row looks wrong.
     pub reachable: bool,
+    /// Whether browsers are sent to it directly, to download a file or write an
+    /// upload's parts, instead of through this server.
+    ///
+    /// Only S3 and GCS can be sent to. On anything else this may be `true` and
+    /// still change nothing.
+    pub direct_access: bool,
     /// Whether it comes from `storage.url` instead of this table.
     ///
     /// The one that does cannot be edited or removed from here: it is where
@@ -98,6 +105,18 @@ pub struct BackendRequest {
     /// Whether it should stop taking new content.
     #[serde(default)]
     pub read_only: bool,
+    /// Whether browsers may be sent to it directly. Only if a browser can reach
+    /// it; see [`BackendResponse::direct_access`].
+    #[serde(default)]
+    pub direct_access: bool,
+}
+
+/// Body of `PATCH /admin/storage/backends/{name}`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateBackendRequest {
+    /// Whether browsers may be sent to it directly.
+    pub direct_access: bool,
 }
 
 /// Every configured backend, with what it is holding.
@@ -179,6 +198,7 @@ pub async fn add(
             .any(|existing| existing.name == body.name && existing.is_default),
         capacity_bytes: body.capacity_bytes,
         read_only: body.read_only,
+        direct_access: body.direct_access,
     };
 
     // Opened before it is stored. A backend that will not open is a typo the
@@ -237,6 +257,61 @@ pub async fn remove(
     }
     reload(&state).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Turns direct access on or off for a stored backend.
+///
+/// # Why this is not another `POST` of the whole backend
+///
+/// That works, and replaces the row. But it needs the URL and credentials sent
+/// again, and those are sealed and never shown, so flipping one switch would
+/// mean finding the secret key for a bucket again.
+///
+/// # Errors
+///
+/// `400` for the backend from `storage.url`, whose switch is the
+/// `storage.direct_access` setting. `401` when nothing was signed in, `403`
+/// when the caller may not write settings, `404` when no backend has that name.
+#[utoipa::path(
+    patch,
+    path = "/admin/storage/backends/{name}",
+    operation_id = "update_storage_backend",
+    tag = ADMIN_TAG,
+    params(("name" = String, Path, description = "Which backend")),
+    request_body = UpdateBackendRequest,
+    responses(
+        (status = 200, description = "The backend as it now stands", body = BackendResponse),
+        (status = 400, description = "The backend from storage.url is changed through its setting", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not write settings", body = crate::error::ErrorBody),
+        (status = 404, description = "No such backend", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn update(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiPath(name): ApiPath<String>,
+    ApiJson(body): ApiJson<UpdateBackendRequest>,
+) -> Result<Json<BackendResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, tessera_core::Permission::SettingsWrite)?;
+    if name == crate::storage::DEFAULT_BACKEND {
+        return Err(Error::bad_request(
+            "`default` is the backend from storage.url; its switch is the storage.direct_access setting",
+        ));
+    }
+
+    if !state
+        .storage_backends
+        .set_direct_access(&name, body.direct_access, OffsetDateTime::now_utc())
+        .await
+        .map_err(describe_failure)?
+    {
+        return Err(Error::NotFound);
+    }
+    reload(&state).await?;
+    one(&state, &name).await
 }
 
 /// Sends new uploads to one backend.
@@ -361,6 +436,7 @@ async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
         used_bytes: taken(crate::storage::DEFAULT_BACKEND),
         read_only: false,
         reachable: pool.open.contains_key(crate::storage::DEFAULT_BACKEND),
+        direct_access: state.config().storage.direct_access,
         from_environment: true,
     }];
     listed.extend(pool.configured.iter().map(|backend| BackendResponse {
@@ -370,6 +446,7 @@ async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
         used_bytes: taken(&backend.name),
         read_only: backend.read_only,
         reachable: pool.open.contains_key(&backend.name),
+        direct_access: backend.direct_access,
         from_environment: false,
     }));
     Ok(Json(listed))

@@ -96,6 +96,8 @@ impl core::fmt::Debug for Multipart {
 ///
 /// `None` on the second means resumable uploads there append to a partial file
 /// instead. See `upload::sink`.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+pub mod clock;
 pub mod first_write;
 pub mod in_flight;
 pub mod placement;

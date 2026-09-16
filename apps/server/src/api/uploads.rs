@@ -155,7 +155,8 @@ pub struct UploadResponse {
     /// each part to, and `POST /uploads/{id}/complete` finishes with the `ETag`
     /// each `PUT` answered. `PATCH` still works either way.
     ///
-    /// Decided by where this upload was placed, which is why it is here and not
+    /// Decided by where this upload was placed, and by whether the operator
+    /// has said a browser can reach that store, which is why it is here and not
     /// in the capabilities: an instance with an S3 bucket and a local directory
     /// answers differently for different uploads.
     pub direct: bool,
@@ -667,6 +668,11 @@ fn direct_signer(state: &AppState, upload: &Upload) -> Option<PartSigner> {
     }
     #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
     {
+        // The operator's word that a browser can reach this store. A signer
+        // says the URL can be made, not that anybody outside can use it.
+        if !state.direct_access(&upload.backend) {
+            return None;
+        }
         state.backend_signer(&upload.backend)
     }
     #[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]

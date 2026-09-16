@@ -947,6 +947,18 @@ pub struct StorageConfig {
     /// `docs/splitting.md`.
     pub split_across_backends: bool,
 
+    /// Whether browsers may be sent to the backend from `url` directly, to
+    /// download a file or to write an upload's parts.
+    ///
+    /// Off by default. Turn it on only if a browser can reach that store: an
+    /// S3-compatible bucket on the public internet, not one on a home network
+    /// that only this server can see. Nothing here can check, since the network
+    /// that matters is the downloader's.
+    ///
+    /// Only S3 and GCS can be sent to; anything else keeps going through this
+    /// server with this on. The stored backends carry their own flag.
+    pub direct_access: bool,
+
     /// Key that seals stored backend credentials, as 64 hexadecimal characters.
     ///
     /// Empty, the default, means this instance cannot store a backend. Adding
@@ -1036,6 +1048,7 @@ impl Default for StorageConfig {
             max_total_bytes: 0,
             capacity_bytes: 0,
             split_across_backends: false,
+            direct_access: false,
             secret_key: String::new(),
             reconcile_interval_hours: 24,
             reconcile_grace_hours: 24,

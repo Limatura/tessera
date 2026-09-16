@@ -3892,6 +3892,7 @@ async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
                 is_default: false,
                 capacity_bytes: None,
                 read_only: false,
+                direct_access: false,
             },
             OffsetDateTime::now_utc(),
         )
@@ -3950,6 +3951,7 @@ async fn another_key_cannot_open_a_stored_backend() {
             is_default: false,
             capacity_bytes: None,
             read_only: false,
+            direct_access: false,
         },
         OffsetDateTime::now_utc(),
     )
@@ -3986,6 +3988,7 @@ async fn without_a_key_a_backend_cannot_be_stored() {
                     is_default: false,
                     capacity_bytes: None,
                     read_only: false,
+                    direct_access: false,
                 },
                 OffsetDateTime::now_utc(),
             )
@@ -4019,6 +4022,7 @@ async fn only_one_backend_takes_new_uploads() {
                     is_default: true,
                     capacity_bytes: None,
                     read_only: false,
+                    direct_access: false,
                 },
                 now,
             )
@@ -4069,6 +4073,7 @@ fn pool_with_second(
             is_default: false,
             capacity_bytes: capacity,
             read_only: false,
+            direct_access: false,
         }],
     }
 }
@@ -4185,6 +4190,7 @@ async fn a_backend_holding_files_cannot_be_removed() {
                 is_default: false,
                 capacity_bytes: None,
                 read_only: false,
+                direct_access: false,
             },
             OffsetDateTime::now_utc(),
         )
@@ -4803,6 +4809,7 @@ fn backend_row(
         is_default,
         capacity_bytes: Some(capacity),
         read_only: false,
+        direct_access: false,
     }
 }
 
@@ -5735,4 +5742,40 @@ async fn a_layout_that_is_no_longer_allowed_falls_back() {
     app.state.replace_config(std::sync::Arc::new(config));
 
     expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
+}
+
+/// A local directory has nothing to sign, so switching direct access on for it
+/// must leave downloads exactly as they were rather than send anybody anywhere.
+#[tokio::test]
+async fn direct_access_on_a_local_directory_still_serves_from_here() {
+    let app = TestApp::with_config(|config| config.storage.direct_access = true).await;
+    // Past the inline threshold, so the file is an object and not a row.
+    let sent: Vec<u8> = (0..200_000_u32)
+        .map(|i| u8::try_from(i % 251).unwrap_or(0))
+        .collect();
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=local.bin"),
+                Body::from(sent.clone()),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    let response = expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+    let got = to_bytes(response.into_body(), usize::MAX)
+        .await
+        .expect("the body");
+    assert_eq!(got.as_ref(), sent.as_slice());
 }

@@ -853,6 +853,7 @@ async fn run_backends(
                         is_default: false,
                         capacity_bytes: None,
                         read_only: false,
+                        direct_access: false,
                     },
                     now,
                 )

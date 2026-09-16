@@ -687,6 +687,7 @@ impl<'a> Shares<'a> {
             view_count: 0,
             copy_count: 0,
             bytes_served: 0,
+            bytes_redirected: 0,
             last_accessed_at: None,
             created_at: self.now,
             updated_at: self.now,
