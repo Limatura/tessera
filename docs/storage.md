@@ -45,9 +45,9 @@ Downloads (`retrieval.md`) and upload parts (`resumable.md`) can go between the 
 
 Only S3 and GCS can be sent to. On anything else the switch changes nothing.
 
-### Uploads need CORS
+### Uploads, and joining pieces, need CORS
 
-A browser writing upload parts directly is a cross-origin request, and the bucket decides whether to allow it. Two things are needed:
+A browser writing upload parts directly, or fetching the pieces of a split file to join them (`retrieval.md`), is making a cross-origin request, and the bucket decides whether to allow it. Two things are needed:
 
 - `PUT` allowed from the site's origin
 - `ETag` in the exposed headers, or the browser cannot read the value `complete` needs
@@ -58,7 +58,7 @@ On S3 and most S3-compatible stores:
 [
   {
     "AllowedOrigins": ["https://files.example.com"],
-    "AllowedMethods": ["PUT"],
+    "AllowedMethods": ["PUT", "GET"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3600
@@ -68,7 +68,7 @@ On S3 and most S3-compatible stores:
 
 Without it, uploads still work; they just go through this server.
 
-A download needs none of this: following a redirect is a navigation, not a cross-origin request.
+An ordinary download needs none of this: following a redirect from a link is a navigation, not a cross-origin request.
 
 ## Choosing a backend
 

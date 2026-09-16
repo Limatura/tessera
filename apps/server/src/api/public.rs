@@ -71,7 +71,9 @@ pub struct RetrievalQuery {
 pub fn routes() -> Router<AppState> {
     let router = Router::new()
         .route("/{code}/raw", get(raw))
-        .route("/{code}/download", get(download));
+        .route("/{code}/download", get(download))
+        .route("/{code}/segments", get(segments))
+        .route("/{code}/segments/{index}", get(segment));
     #[cfg(feature = "og-images")]
     let router = router.route("/{code}/og.png", get(og_image));
     router
@@ -391,22 +393,15 @@ async fn redirect_to_store(
     content: &Content,
     headers: &HeaderMap,
 ) -> Option<Response> {
-    let (backend, key, size) = direct_location(state, share, content)?;
-    let signer = state.backend_signer(backend)?;
-    let skew = state.clocks.skew(backend, &signer).await?;
-    let ttl = crate::storage::clock::download_ttl(skew)?;
+    let (file, pieces) = direct_file(state, share, content)?;
+    // One object, because one URL names one object. A split file is handed over
+    // a piece at a time instead; see [`segments`].
+    let [piece] = pieces.as_slice() else {
+        return None;
+    };
 
     // A range this cannot read is left for `serve`, which answers `416`.
-    let requested = match headers
-        .get(header::RANGE)
-        .and_then(|value| value.to_str().ok())
-    {
-        None => size,
-        Some(value) => {
-            let (start, end) = parse_range(value, size).ok()?;
-            end.saturating_sub(start).saturating_add(1)
-        }
-    };
+    let requested = requested_bytes(headers, file.size_bytes)?;
 
     // The same name and the same opaque type this server would send, signed
     // into the URL so the store answers with them. The hardening headers
@@ -419,62 +414,259 @@ async fn redirect_to_store(
             "application/octet-stream".to_owned(),
         ),
     ]);
-    let url = match signer
-        .signed_url_opts(Method::GET, &ObjectPath::from(key), ttl, &options)
-        .await
-    {
-        Ok(url) => url,
-        Err(error) => {
-            tracing::warn!(%error, backend, "could not sign a download; serving it from here");
-            return None;
-        }
-    };
-    let location = HeaderValue::from_str(url.as_str()).ok()?;
+    let location = signed_get(state, piece, &options).await?;
+    count_redirected(state, share, requested).await;
+    Some(hand_over(location))
+}
 
-    // Counted once the redirect is certain, and a failure to count does not
-    // stop it, for the reason `record_access` gives.
-    if let Err(error) = state.shares.add_bytes_redirected(share.id, requested).await {
+/// How many bytes a request asked for: the whole thing, or its range.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn requested_bytes(headers: &HeaderMap, size: u64) -> Option<u64> {
+    match headers
+        .get(header::RANGE)
+        .and_then(|value| value.to_str().ok())
+    {
+        None => Some(size),
+        Some(value) => {
+            let (start, end) = parse_range(value, size).ok()?;
+            Some(end.saturating_sub(start).saturating_add(1))
+        }
+    }
+}
+
+/// Writes down what was handed to a store. A failure here does not stop the
+/// download, for the reason `record_access` gives.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn count_redirected(state: &AppState, share: &Share, bytes: u64) {
+    if let Err(error) = state.shares.add_bytes_redirected(share.id, bytes).await {
         tracing::warn!(?error, share = %share.id, "could not record a redirected download");
     }
+}
 
+/// How a file is stored, for a browser that will fetch the pieces itself.
+///
+/// A file split across backends comes back as several objects, and the only way
+/// to save this server's bandwidth is for the browser to fetch each one and join
+/// them. That needs to know how many there are and how long each is.
+#[derive(Debug, serde::Serialize)]
+pub struct SegmentsResponse {
+    /// The whole file's size, so the browser can check what it joined.
+    pub size_bytes: u64,
+    /// Its pieces, in order. A file that was never split has one.
+    pub segments: Vec<SegmentPart>,
+}
+
+/// One piece, as the listing describes it.
+///
+/// No URL. One lives fifteen seconds and joining a large file takes minutes, so
+/// a list of them would be a list of expired URLs by the time the browser
+/// reached the end. Each is asked for when it is wanted, from
+/// `/s/{code}/segments/{index}`.
+#[derive(Debug, serde::Serialize)]
+pub struct SegmentPart {
+    /// Where it starts within the file.
+    pub offset: u64,
+    /// How many bytes it holds.
+    pub length: u64,
+}
+
+/// How this share is stored, for a browser that will join the pieces itself.
+///
+/// Answers `404` unless every piece could be fetched from its store directly,
+/// by the rules [`direct_file`] keeps: nothing to join is worth describing when
+/// the bytes would come through here anyway, and a client that gets a `404`
+/// uses `/download` as before.
+///
+/// Costs a retrieval no more than a `HEAD` does. Describing the layout is not
+/// handing anything over.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn segments(
+    State(state): State<AppState>,
+    ApiPath(code): ApiPath<String>,
+    ClientAddress(Origin { source, .. }): ClientAddress,
+    headers: HeaderMap,
+) -> Result<axum::Json<SegmentsResponse>> {
+    let share = gate::find(&state, &code, &source).await?;
+    permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
+    let content = state.shares.content_of(&share).await?;
+    let (file, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
+    Ok(axum::Json(SegmentsResponse {
+        size_bytes: file.size_bytes,
+        segments: pieces
+            .iter()
+            .map(|piece| SegmentPart {
+                offset: piece.offset,
+                length: piece.length,
+            })
+            .collect(),
+    }))
+}
+
+/// Hands over one piece, by sending the browser to the store that holds it.
+///
+/// The index is the position in [`SegmentsResponse::segments`], from zero.
+///
+/// # Errors
+///
+/// `404` when there is no such share, no such piece, or the share is not one
+/// whose pieces may be fetched directly.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn segment(
+    State(state): State<AppState>,
+    ApiPath((code, index)): ApiPath<(String, usize)>,
+    ClientAddress(Origin { source, .. }): ClientAddress,
+    headers: HeaderMap,
+) -> Result<Response> {
+    let share = gate::find(&state, &code, &source).await?;
+    permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
+    let content = state.shares.content_of(&share).await?;
+    let (_, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
+    let piece = pieces.get(index).ok_or(Error::NotFound)?;
+
+    let requested = requested_bytes(&headers, piece.length)
+        .ok_or(Error::RangeNotSatisfiable { size: piece.length })?;
+    let options = object_store::signer::SignedUrlOptions::new().with_query([(
+        "response-content-type",
+        "application/octet-stream".to_owned(),
+    )]);
+    let location = signed_get(&state, piece, &options)
+        .await
+        .ok_or(Error::Unavailable)?;
+    count_redirected(&state, &share, requested).await;
+    Ok(hand_over(location))
+}
+
+/// A build with no store that can be fetched from directly has nothing to
+/// describe.
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+#[expect(
+    clippy::unused_async,
+    reason = "the same signature as the build that answers"
+)]
+async fn segments(
+    State(_): State<AppState>,
+    ApiPath(_): ApiPath<String>,
+    ClientAddress(_): ClientAddress,
+    _: HeaderMap,
+) -> Result<axum::Json<SegmentsResponse>> {
+    Err(Error::NotFound)
+}
+
+/// As [`segments`].
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+#[expect(
+    clippy::unused_async,
+    reason = "the same signature as the build that answers"
+)]
+async fn segment(
+    State(_): State<AppState>,
+    ApiPath(_): ApiPath<(String, usize)>,
+    ClientAddress(_): ClientAddress,
+    _: HeaderMap,
+) -> Result<Response> {
+    Err(Error::NotFound)
+}
+
+/// One piece of a file, wherever it lives.
+///
+/// A file that was never split is one piece; a split one is its segments, in
+/// order. Having both shapes answer the same way is what lets the download
+/// path and the stitching path share their rules.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+struct Piece<'a> {
+    backend: &'a str,
+    key: &'a str,
+    offset: u64,
+    length: u64,
+}
+
+/// The pieces a file is stored as, or `None` when its bytes are gone.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn pieces(file: &FilePart) -> Option<Vec<Piece<'_>>> {
+    if file.segments.is_empty() {
+        return Some(vec![Piece {
+            backend: file.storage.backend()?,
+            key: file.storage.object_key()?,
+            offset: 0,
+            length: file.size_bytes,
+        }]);
+    }
     Some(
-        (
-            StatusCode::TEMPORARY_REDIRECT,
-            [
-                (header::LOCATION, location),
-                // A cached redirect replays a URL that has expired, and skips
-                // everything `permit` checks on the way to it.
-                (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
-            ],
-        )
-            .into_response(),
+        file.segments
+            .iter()
+            .map(|segment| Piece {
+                backend: &segment.backend,
+                key: &segment.object_key,
+                offset: segment.offset_bytes,
+                length: segment.length_bytes,
+            })
+            .collect(),
     )
 }
 
-/// Where a download may be sent, if anywhere: the backend, the key, and the
-/// file's size.
+/// The file a browser may fetch from the store itself, and where its pieces are.
 ///
-/// The half of [`redirect_to_store`] that needs nothing from the network. No
-/// password, no use limit, one file in one piece, and a backend its operator has
-/// said a browser can reach.
+/// No password and no use limit, for the reasons [`redirect_to_store`] gives.
+/// One file, because an archive does not exist until it is sent. And **every**
+/// piece on a backend its operator has opened *and* that can sign a URL: a file
+/// half of which can be fetched directly is one the browser would join and then
+/// fail to finish. The switch alone is not enough — a local directory can have
+/// it on and still have nothing to sign with.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
-fn direct_location<'a>(
+fn direct_file<'a>(
     state: &AppState,
     share: &Share,
     content: &'a Content,
-) -> Option<(&'a str, &'a str, u64)> {
+) -> Option<(&'a FilePart, Vec<Piece<'a>>)> {
     if share.needs_password() || share.use_limit.is_some() {
         return None;
     }
     let file = content.single_file()?;
-    if file.segments.len() > 1 {
-        return None;
-    }
-    let backend = file.storage.backend()?;
-    let key = file.storage.object_key()?;
-    state
-        .direct_access(backend)
-        .then_some((backend, key, file.size_bytes))
+    let pieces = pieces(file)?;
+    pieces
+        .iter()
+        .all(|piece| {
+            state.direct_access(piece.backend) && state.backend_signer(piece.backend).is_some()
+        })
+        .then_some((file, pieces))
+}
+
+/// Signs a `GET` for one object, once the store's clock has been checked.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn signed_get(
+    state: &AppState,
+    piece: &Piece<'_>,
+    options: &object_store::signer::SignedUrlOptions,
+) -> Option<HeaderValue> {
+    let signer = state.backend_signer(piece.backend)?;
+    let skew = state.clocks.skew(piece.backend, &signer).await?;
+    let ttl = crate::storage::clock::download_ttl(skew)?;
+    let url = match signer
+        .signed_url_opts(Method::GET, &ObjectPath::from(piece.key), ttl, options)
+        .await
+    {
+        Ok(url) => url,
+        Err(error) => {
+            tracing::warn!(%error, backend = piece.backend, "could not sign a download; serving it from here");
+            return None;
+        }
+    };
+    HeaderValue::from_str(url.as_str()).ok()
+}
+
+/// The `307` a signed URL is handed over as.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn hand_over(location: HeaderValue) -> Response {
+    (
+        StatusCode::TEMPORARY_REDIRECT,
+        [
+            (header::LOCATION, location),
+            // A cached redirect replays a URL that has expired, and skips
+            // everything `permit` checks on the way to it.
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+        ],
+    )
+        .into_response()
 }
 
 /// The build with no store that can be sent a browser.

@@ -5779,3 +5779,35 @@ async fn direct_access_on_a_local_directory_still_serves_from_here() {
         .expect("the body");
     assert_eq!(got.as_ref(), sent.as_slice());
 }
+
+/// The listing is only worth having when the browser could fetch the pieces
+/// itself. On a local directory it could not, so there is nothing to describe.
+#[tokio::test]
+async fn a_local_directory_has_no_segment_listing() {
+    let app = TestApp::with_config(|config| config.storage.direct_access = true).await;
+    let sent: Vec<u8> = (0..200_000_u32)
+        .map(|i| u8::try_from(i % 251).unwrap_or(0))
+        .collect();
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?filename=local.bin"),
+                Body::from(sent),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let code = created["code"].as_str().expect("a code").to_owned();
+
+    for path in [
+        format!("/s/{code}/segments"),
+        format!("/s/{code}/segments/0"),
+    ] {
+        expect_status(app.get(&path).await, StatusCode::NOT_FOUND).await;
+    }
+}

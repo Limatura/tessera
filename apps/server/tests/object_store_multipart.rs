@@ -891,3 +891,192 @@ async fn without_the_switch_downloads_stay_on_this_server() {
     )
     .await;
 }
+
+/// Reads the listing, or `None` when this share has none.
+async fn listing(app: &TestApp, code: &str) -> Option<serde_json::Value> {
+    let response = app
+        .empty(Method::GET, &format!("/s/{code}/segments"), Auth::None)
+        .await;
+    if response.status() == StatusCode::NOT_FOUND {
+        return None;
+    }
+    Some(body_json(expect_status(response, StatusCode::OK).await).await)
+}
+
+/// Fetches one piece the way a browser joining them would.
+async fn piece(app: &TestApp, code: &str, index: usize) -> Vec<u8> {
+    let response = app
+        .empty(
+            Method::GET,
+            &format!("/s/{code}/segments/{index}"),
+            Auth::None,
+        )
+        .await;
+    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+    let location = response
+        .headers()
+        .get("location")
+        .and_then(|value| value.to_str().ok())
+        .expect("a location")
+        .to_owned();
+    reqwest::Client::new()
+        .get(location)
+        .send()
+        .await
+        .expect("the store answered")
+        .bytes()
+        .await
+        .expect("the body")
+        .to_vec()
+}
+
+/// A file that was never split still has one piece, so a browser can join every
+/// share the same way instead of asking which kind it is.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn an_unsplit_file_is_one_piece() {
+    let app = direct_app().await;
+    let sent = sample(300_000);
+    let code = share(&app, "one-piece.bin", sent.clone(), "", &[]).await;
+
+    let Some(listed) = listing(&app, &code).await else {
+        assert!(
+            !signs_part_uploads(),
+            "a signing store should have a listing"
+        );
+        return;
+    };
+    assert_eq!(listed["size_bytes"], 300_000, "{listed}");
+    let segments = listed["segments"].as_array().expect("segments");
+    assert_eq!(segments.len(), 1, "{listed}");
+    assert_eq!(segments[0]["offset"], 0);
+    assert_eq!(segments[0]["length"], 300_000);
+
+    assert_eq!(piece(&app, &code, 0).await, sent);
+    assert_eq!(stored(&app, &code).await.bytes_redirected, 300_000);
+}
+
+/// A share that promises something about who or how often has no listing, for
+/// the reason it has no redirect: a URL to the store keeps neither promise.
+///
+/// The two are refused differently, and both are right. A locked share asks for
+/// its password first, exactly as `/download` does, so the answer says nothing
+/// about what is behind it. A counted one has nothing to hide and simply has no
+/// listing.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn a_password_or_a_use_limit_has_no_segment_listing() {
+    if !signs_part_uploads() {
+        return;
+    }
+    let app = direct_app().await;
+
+    let locked = share(
+        &app,
+        "locked.bin",
+        sample(300_000),
+        "",
+        &[("x-share-password", "a perfectly adequate passphrase")],
+    )
+    .await;
+    expect_status(
+        app.empty(Method::GET, &format!("/s/{locked}/segments"), Auth::None)
+            .await,
+        StatusCode::UNAUTHORIZED,
+    )
+    .await;
+
+    let counted = share(&app, "counted.bin", sample(300_000), "&max_uses=5", &[]).await;
+    assert!(
+        listing(&app, &counted).await.is_none(),
+        "a counted share was listed"
+    );
+}
+
+/// The reason this exists: a file cut across two buckets, listed as its pieces
+/// and joined from them, without a byte crossing this server.
+///
+/// The offsets are checked as they are used, so a listing that described the
+/// pieces in the wrong order would join into a file that does not match.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn a_split_file_is_listed_and_joined_piece_by_piece() {
+    if !signs_part_uploads() {
+        return;
+    }
+    let Some(second) = second_url() else {
+        panic!("TESSERA_TEST_STORAGE_URL_SECOND is not set; see the module docs");
+    };
+
+    // The same shape as the round-trip test above: one part per bucket, and a
+    // file of one and a half parts, so it has to be cut and can only be cut on
+    // the part boundary.
+    let part = 5 * 1024 * 1024_usize;
+    let ceiling = u64::try_from(part).expect("a part size");
+    let app = TestApp::with_config(move |config| {
+        config.storage.url = storage_url();
+        config.storage.options = storage_options();
+        config.storage.split_across_backends = true;
+        config.storage.capacity_bytes = ceiling;
+        config.storage.direct_access = true;
+        config.server.part_size_bytes = part;
+        config.share.inline_threshold_bytes = 8;
+    })
+    .await;
+
+    let open = tessera_server::storage::Backends::from([
+        (
+            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
+            open_bucket(&storage_url()),
+        ),
+        ("cold".to_owned(), open_bucket(&second)),
+    ]);
+    app.state.replace_backends(tessera_server::storage::Pool {
+        open,
+        configured: vec![
+            tessera_server::db::repository::storage_backend::StorageBackend {
+                name: "cold".to_owned(),
+                url: second.clone(),
+                options: storage_options(),
+                is_default: false,
+                capacity_bytes: Some(ceiling),
+                read_only: false,
+                direct_access: true,
+            },
+        ],
+    });
+
+    let content = sample(u32::try_from(part * 3 / 2).expect("a size"));
+    let (code, _) = upload(&app, "split.bin", content.clone()).await;
+
+    let listed = listing(&app, &code).await.expect("a split file is listed");
+    assert_eq!(listed["size_bytes"], content.len(), "{listed}");
+    let segments = listed["segments"].as_array().expect("segments").clone();
+    assert!(segments.len() >= 2, "the file was not split: {listed}");
+
+    let mut joined: Vec<u8> = Vec::new();
+    for (index, described) in segments.iter().enumerate() {
+        assert_eq!(
+            described["offset"].as_u64(),
+            Some(u64::try_from(joined.len()).expect("an offset")),
+            "piece {index} does not start where the last one ended"
+        );
+        let bytes = piece(&app, &code, index).await;
+        assert_eq!(
+            u64::try_from(bytes.len()).ok(),
+            described["length"].as_u64(),
+            "piece {index} is not the length it was listed as"
+        );
+        joined.extend_from_slice(&bytes);
+    }
+    assert_eq!(joined.len(), content.len(), "joined to a different length");
+    assert_eq!(
+        joined.iter().zip(&content).position(|(a, b)| a != b),
+        None,
+        "first differing byte"
+    );
+    assert_eq!(
+        stored(&app, &code).await.bytes_redirected,
+        u64::try_from(content.len()).expect("a size")
+    );
+}

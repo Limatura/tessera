@@ -151,3 +151,22 @@ The redirect carries `Cache-Control: no-store`. A cached redirect replays an exp
 
 The file name and `application/octet-stream` are signed into the URL (`response-content-disposition`, `response-content-type`), so the store answers with the same name and type this server would. The hardening headers `serve` adds (`nosniff`, the CSP) cannot travel that way; an attachment of an opaque type is what keeps a browser from rendering it.
 
+## Joining the pieces in the browser
+
+A file split across backends is several objects, and one URL names one object, so `/download` serves it from here. The browser can save that bandwidth by fetching each piece itself:
+
+```text
+GET /s/{code}/segments        → { "size_bytes": N, "segments": [ { "offset": 0, "length": … }, … ] }
+GET /s/{code}/segments/{i}    → 307 to the store, for that piece
+```
+
+Both answer `404` unless **every** piece could be fetched directly, by the rules the section above keeps. A file half of which can be fetched is one the browser would join and then fail to finish, so it is not offered at all, and a client that gets a `404` uses `/download` as it did before.
+
+A file that was never split lists one piece. That is deliberate: a client joins every share the same way rather than asking which kind it has.
+
+**The listing carries no URLs.** One lives fifteen seconds and joining a large file takes minutes, so a list of them would be a list of expired URLs by the time the browser reached the end. Each piece is asked for when it is wanted.
+
+Neither endpoint costs a retrieval, for the same reason a `HEAD` does not: describing a layout is not handing anything over. Each piece handed over counts its own length in `bytes_redirected`.
+
+**This one needs bucket CORS.** Following a redirect from a link is a navigation; fetching a piece from a script is a cross-origin request, so the bucket has to allow `GET` (and `Range`) from the site's origin. See `storage.md`.
+
