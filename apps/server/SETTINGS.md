@@ -49,6 +49,7 @@
 - `admin: bool` — 管理端點，預設 `true`
 - `anonymous_upload: bool` — 允許匿名上傳，預設 `true`
 - `docs: bool`（fixed at boot）— `/docs` 頁面，預設 `false`
+- `encryption: bool` — 允許端對端加密的分享，預設 `false`。關掉只擋新的，已經加密的分享照樣能下載
 
 ### `auth.*`
 - `registration: "open" | "invite" | "closed"` — 誰能註冊，預設 `open`

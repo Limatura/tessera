@@ -455,6 +455,19 @@ pub struct FeatureConfig {
     ///
     /// `openapi.json` is served either way. This only controls the UI.
     pub docs: bool,
+
+    /// Whether uploads may be end-to-end encrypted.
+    ///
+    /// Off by default. It protects visitors from the operator, so it is worth
+    /// something on an instance run for strangers and nothing on one run for
+    /// oneself, and it costs features: an encrypted share has no preview, no
+    /// archive download and nothing a server-side reader can use. See
+    /// `docs/encryption.md`.
+    ///
+    /// Turning it off stops new encrypted shares. The ones already made stay
+    /// retrievable, since the server never needed to understand them to hand
+    /// them out.
+    pub encryption: bool,
 }
 
 /// Who may create an account.
@@ -1084,6 +1097,7 @@ impl Default for FeatureConfig {
             admin: true,
             anonymous_upload: true,
             docs: false,
+            encryption: false,
         }
     }
 }

@@ -27,7 +27,7 @@ CREATE TABLE uploads (
     created_at     TEXT NOT NULL,
     updated_at     TEXT NOT NULL,
     expires_at     TEXT NOT NULL
-, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
+, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, encryption TEXT, key_salt TEXT, sealed_name TEXT)
 ```
 
 </details>
@@ -48,6 +48,9 @@ CREATE TABLE uploads (
 | updated_at | TEXT |  | false |  |  |  |
 | expires_at | TEXT |  | false |  |  |  |
 | role_id | TEXT |  | true |  | [roles](roles.md) |  |
+| encryption | TEXT |  | true |  |  |  |
+| key_salt | TEXT |  | true |  |  |  |
+| sealed_name | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -91,6 +94,9 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_name
 }
 "upload_segments" {
   TEXT upload_id PK
@@ -131,6 +137,9 @@ erDiagram
   INTEGER bytes_served
   TEXT role_id FK
   INTEGER bytes_redirected
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_details
 }
 "users" {
   TEXT id PK

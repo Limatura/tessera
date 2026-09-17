@@ -233,6 +233,11 @@ fn placeholder_values<'a>(
                 values.insert("language", snippet.language.clone());
             }
         }
+        Card::Sealed { chips, footer } => {
+            values.insert("label", SEALED_LABEL.to_owned());
+            values.insert("size", chips.join(" · "));
+            values.insert("footer", footer.clone());
+        }
         Card::Locked { .. } => {
             values.insert("label", "PASSWORD PROTECTED".to_owned());
             values.insert(
@@ -264,6 +269,9 @@ pub fn placeholder_values_for_test(
     placeholder_values(preview, code)
 }
 
+/// The eyebrow on an encrypted share's card.
+const SEALED_LABEL: &str = "END-TO-END ENCRYPTED";
+
 /// The card's palette, kept together so the three states cannot drift apart.
 mod ink {
     /// The ground.
@@ -294,6 +302,15 @@ fn layout(preview: &Preview, code: &str) -> String {
             *label,
             ink::ACCENT,
             ink::TEXT,
+            chip_row(chips),
+            escape(footer),
+        ),
+        Card::Sealed { chips, footer } => (
+            SEALED_LABEL,
+            ink::ACCENT,
+            // The headline is our own sentence, never the uploader's, so it is
+            // drawn the way a missing title is.
+            ink::FADED,
             chip_row(chips),
             escape(footer),
         ),
@@ -330,7 +347,7 @@ fn layout(preview: &Preview, code: &str) -> String {
 
     let mark = match &preview.card {
         Card::Open { .. } => document_mark(),
-        Card::Locked { .. } => lock_mark(),
+        Card::Sealed { .. } | Card::Locked { .. } => lock_mark(),
         Card::Gone => empty_mark(),
     };
 
@@ -529,6 +546,7 @@ mod tests {
             segments: Vec::new(),
             filename: Some("Q3-2026-finance-and-operations-review.pdf".to_owned()),
             content_type: None,
+            sealed_name: None,
             size_bytes: 26_000_000,
             storage: StorageLocation::Inline,
         }]);

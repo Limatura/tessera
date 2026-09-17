@@ -44,6 +44,7 @@ pub mod oidc;
 pub mod preferences;
 pub mod preview;
 pub mod public;
+pub mod sealed;
 pub mod sessions;
 pub mod settings;
 pub mod shares;

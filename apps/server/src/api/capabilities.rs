@@ -56,6 +56,9 @@ pub struct Capabilities {
     /// accounts *and* accept anonymous uploads, the default.
     pub anonymous_upload: bool,
 
+    /// Whether an upload may be end-to-end encrypted. See `docs/encryption.md`.
+    pub encryption: bool,
+
     /// Who may create an account. Meaningless when
     /// [`accounts`](Self::accounts) is `false`.
     #[schema(example = "open")]
@@ -174,6 +177,7 @@ impl Capabilities {
             admin,
             anonymous_upload,
             docs: _,
+            encryption,
         } = config.features;
 
         // The accessors and not the raw fields: `default_expiry_hours` of 0
@@ -187,6 +191,7 @@ impl Capabilities {
             accounts,
             admin,
             anonymous_upload,
+            encryption,
             registration: config.auth.registration,
             account_password_min_length: config.auth.password.min_length,
             account_password_requires_mixed_case: config.auth.password.require_mixed_case,

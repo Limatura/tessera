@@ -81,6 +81,9 @@ erDiagram
   INTEGER bytes_served
   TEXT role_id FK
   INTEGER bytes_redirected
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_details
 }
 ```
 

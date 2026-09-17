@@ -81,6 +81,7 @@ erDiagram
   TEXT storage
   TEXT object_key
   TEXT created_at
+  TEXT sealed_name
 }
 ```
 

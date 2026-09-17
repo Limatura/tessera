@@ -140,6 +140,9 @@ erDiagram
   INTEGER bytes_served
   TEXT role_id FK
   INTEGER bytes_redirected
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_details
 }
 "password_reset_tokens" {
   TEXT id PK
@@ -162,6 +165,9 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_name
 }
 "identities" {
   TEXT provider PK

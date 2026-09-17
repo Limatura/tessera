@@ -117,6 +117,14 @@ All in `apps/server/tests/shares.rs`, except the password one which is in `auth.
 
 Link previews spend nothing either. See `link-previews.md`.
 
+## One file of several
+
+A share with several files downloads as an archive. `?file=N`, the file's position from zero, asks for that file alone: served as itself, under its own name, resumable, with no archive around it. The same parameter narrows `/segments` and `/segments/{i}` to that file.
+
+An end-to-end encrypted file share has to use it on `/download`, whether it holds one file or several. An archive of sealed files is nothing an archiver can open. Requiring it of every encrypted file share, and not only those with several files, means the refusal needs nothing the share does not already say publicly, so it is decided before a retrieval is spent and without giving away a locked share's file count. `/raw` refuses an encrypted note for the same kind of reason: sealed bytes labelled as text are nothing a reader can use. See `encryption.md`.
+
+Tested by `an_encrypted_share_is_fetched_one_file_at_a_time` and `one_file_of_a_plain_share_comes_without_an_archive`.
+
 ## Sent to the store
 
 A download can be answered with `307` to the store itself, so its bytes never cross this server. Only when all of these hold:

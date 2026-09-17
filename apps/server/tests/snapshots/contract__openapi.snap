@@ -437,6 +437,10 @@ expression: document
               "null"
             ]
           },
+          "encryption": {
+            "description": "Whether an upload may be end-to-end encrypted. See `docs/encryption.md`.",
+            "type": "boolean"
+          },
           "max_expiry_hours": {
             "description": "The longest lifetime an uploader may ask for, in hours.\n\n`null` when there is no ceiling. A form that knows this can bound its own\ncontrol instead of offering a date the server will refuse.",
             "example": 8760,
@@ -492,6 +496,7 @@ expression: document
           "accounts",
           "admin",
           "anonymous_upload",
+          "encryption",
           "registration",
           "account_password_min_length",
           "account_password_requires_mixed_case",
@@ -1108,6 +1113,14 @@ expression: document
               "null"
             ]
           },
+          "encryption": {
+            "description": "`link` or `password` for an end-to-end encrypted share, `null` otherwise.\n\nGiven before unlocking, with the salt below. A client whose key comes\nfrom the password has to derive it before it can present the password\nat all.",
+            "example": "password",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "expires_at": {
             "description": "When it stops being served, RFC 3339.",
             "type": [
@@ -1126,6 +1139,13 @@ expression: document
             "description": "Whether a password must be presented before anything else is revealed.",
             "type": "boolean"
           },
+          "key_salt": {
+            "description": "The salt a password-derived key is stretched with, for `password`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "kind": {
             "description": "`text` or `file`.",
             "example": "file",
@@ -1133,6 +1153,13 @@ expression: document
           },
           "language": {
             "description": "Syntax-highlighting hint.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sealed_details": {
+            "description": "The title and a note's language, sealed, on an encrypted share.",
             "type": [
               "string",
               "null"
@@ -1572,6 +1599,14 @@ expression: document
             "description": "When it was created, RFC 3339.",
             "type": "string"
           },
+          "encryption": {
+            "description": "`link` or `password` for an end-to-end encrypted share, `null` for one\nthe server can read.",
+            "example": "link",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "expires_at": {
             "description": "When it stops being served, RFC 3339, or `null` to live until deleted.",
             "type": [
@@ -1594,6 +1629,13 @@ expression: document
             "description": "Stable identifier.",
             "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
             "type": "string"
+          },
+          "key_salt": {
+            "description": "The salt a password-derived key was stretched with, for `password`.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kind": {
             "description": "`text` or `file`.",
@@ -1625,6 +1667,13 @@ expression: document
             "description": "Where the share lives, relative to this instance's origin.\n\nRelative by design. The server does not know what host it is reached\nthrough, and guessing wrong behind a reverse proxy produces broken\nlinks. The caller already knows the origin it called.",
             "example": "/s/0ZPQ4M7K",
             "type": "string"
+          },
+          "sealed_details": {
+            "description": "The title and a note's language, sealed, on an encrypted share.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "size_bytes": {
             "description": "Size of the content in bytes.",
@@ -1694,8 +1743,15 @@ expression: document
             "minimum": 0,
             "type": "integer"
           },
+          "sealed_name": {
+            "description": "Its name and media type, sealed, in an encrypted share.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "size_bytes": {
-            "description": "How many bytes it holds.",
+            "description": "How many bytes it holds.\n\nSealed bytes in an encrypted share, which is what a download sends.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -5308,6 +5364,43 @@ expression: document
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "`link` or `password` to make an end-to-end encrypted share, whose body\narrives already sealed. See `docs/encryption.md`. Refused unless\n`/capabilities` says `encryption`.",
+            "example": "link",
+            "in": "query",
+            "name": "encryption",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For `encryption=password`: the salt the password was stretched with, as\n16 bytes of unpadded URL-safe base64. Handed to anyone who asks.",
+            "in": "query",
+            "name": "key_salt",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For an encrypted file: its name and media type, sealed. Takes the place\nof `filename`, and like it, makes this a file share.",
+            "in": "query",
+            "name": "sealed_name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For an encrypted share: its title and a note's language, sealed. Takes\nthe place of `title` and `language`.",
+            "in": "query",
+            "name": "sealed_details",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -5742,6 +5835,15 @@ expression: document
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "Its name and media type, sealed, when the share is encrypted. Takes the\nplace of `filename` there.",
+            "in": "query",
+            "name": "sealed_name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -6121,6 +6223,33 @@ expression: document
             "example": "4GSVV6QT",
             "in": "query",
             "name": "code",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "`link` or `password` for a new end-to-end encrypted share. An upload\ninto an existing share is sealed the way that share is, so this is\nrefused alongside `code`. See `POST /shares`.",
+            "in": "query",
+            "name": "encryption",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For `encryption=password`: the salt, as for `POST /shares`.",
+            "in": "query",
+            "name": "key_salt",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For a file in an encrypted share: its name and media type, sealed. Takes\nthe place of `filename`.",
+            "in": "query",
+            "name": "sealed_name",
             "required": false,
             "schema": {
               "type": "string"

@@ -163,6 +163,66 @@ impl<T> Change<T> {
     }
 }
 
+/// How an end-to-end encrypted share's key is held.
+///
+/// The server never has the key either way. What it holds is enough for a
+/// client to know how to get one: nothing, or the salt to stretch a password
+/// with.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Encryption {
+    /// In the link, after `#`.
+    Link,
+    /// Derived from a password.
+    Password {
+        /// What the password is stretched with: 16 bytes, as unpadded URL-safe
+        /// base64. Public, since a client needs it before it can present the
+        /// password.
+        salt: String,
+    },
+}
+
+impl Encryption {
+    /// The spelling stored in `encryption`.
+    #[must_use]
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Link => "link",
+            Self::Password { .. } => "password",
+        }
+    }
+
+    /// The salt, for a key that comes from a password.
+    #[must_use]
+    pub fn salt(&self) -> Option<&str> {
+        match self {
+            Self::Link => None,
+            Self::Password { salt } => Some(salt),
+        }
+    }
+
+    /// Reads the two columns back.
+    ///
+    /// # Errors
+    ///
+    /// [`DomainError`] for a spelling nothing writes, or a password share with
+    /// no salt, which no client could open.
+    pub fn from_columns(
+        encryption: Option<&str>,
+        salt: Option<String>,
+    ) -> Result<Option<Self>, DomainError> {
+        match (encryption, salt) {
+            (None, _) => Ok(None),
+            (Some("link"), _) => Ok(Some(Self::Link)),
+            (Some("password"), Some(salt)) => Ok(Some(Self::Password { salt })),
+            (Some("password"), None) => Err(DomainError::Empty { field: "key_salt" }),
+            (Some(_), _) => Err(DomainError::Malformed {
+                field: "encryption",
+                reason: "must be `link` or `password`",
+            }),
+        }
+    }
+}
+
 /// One file being added to a share.
 #[derive(Debug, Clone)]
 pub struct NewFile {
@@ -170,6 +230,9 @@ pub struct NewFile {
     pub filename: Option<String>,
     /// The media type the uploader claimed. Recorded, never echoed.
     pub content_type: Option<String>,
+    /// The name and media type, sealed, when the share is encrypted. The two
+    /// fields above are `None` then.
+    pub sealed_name: Option<String>,
     /// How many bytes.
     pub size_bytes: u64,
     /// Where those bytes are.
@@ -246,6 +309,8 @@ pub struct FilePart {
     pub filename: Option<String>,
     /// The media type, when one was worked out. Recorded, never echoed.
     pub content_type: Option<String>,
+    /// The name and media type, sealed, in an encrypted share.
+    pub sealed_name: Option<String>,
     /// How many bytes.
     pub size_bytes: u64,
     /// Where those bytes are: the first piece, for the legacy column.
@@ -339,6 +404,7 @@ impl Content {
                 Ok(FilePart {
                     filename: model.filename.clone(),
                     content_type: model.content_type.clone(),
+                    sealed_name: model.sealed_name.clone(),
                     size_bytes: u64::try_from(model.size_bytes).map_err(|_| {
                         fail(DomainError::Malformed {
                             field: "size_bytes",
@@ -536,6 +602,12 @@ pub struct Share {
     /// Display name.
     pub title: Option<String>,
 
+    /// How the content was sealed, or `None` for a share the server can read.
+    pub encryption: Option<Encryption>,
+    /// The title and a note's language, sealed, on an encrypted share. The
+    /// plain title and language are `None` there.
+    pub sealed_details: Option<String>,
+
     /// JSON describing how to draw the OG image. Unused.
     ///
     /// The card design is one instance-wide setting, `og.layout`, not one per
@@ -634,7 +706,10 @@ impl Share {
                 .map(UserId::parse)
                 .transpose()
                 .map_err(fail.clone())?,
-            kind: ShareKind::parse(&model.kind).map_err(fail)?,
+            kind: ShareKind::parse(&model.kind).map_err(fail.clone())?,
+            encryption: Encryption::from_columns(model.encryption.as_deref(), model.key_salt)
+                .map_err(fail)?,
+            sealed_details: model.sealed_details,
 
             password_hash: model.password_hash,
             use_limit: model.use_limit.map(unsigned),
@@ -672,6 +747,13 @@ impl Share {
             disabled_at: Set(self.disabled_at),
 
             title: Set(self.title.clone()),
+            encryption: Set(self.encryption.as_ref().map(|e| e.as_str().to_owned())),
+            key_salt: Set(self
+                .encryption
+                .as_ref()
+                .and_then(Encryption::salt)
+                .map(str::to_owned)),
+            sealed_details: Set(self.sealed_details.clone()),
 
             og_config: Set(self.og_config.clone()),
             management_token_hash: Set(self.management_token_hash.clone()),
@@ -772,6 +854,7 @@ impl ShareRepository {
                     position: Set(0),
                     filename: Set(file.filename.clone()),
                     content_type: Set(file.content_type.clone()),
+                    sealed_name: Set(file.sealed_name.clone()),
                     size_bytes: Set(i64::try_from(file.size_bytes).unwrap_or(i64::MAX)),
                     storage: Set(file.storage.as_str().to_owned()),
                     object_key: Set(file.storage.object_key().map(str::to_owned)),
@@ -865,6 +948,7 @@ impl ShareRepository {
             position: Set(i64::try_from(position).unwrap_or(i64::MAX)),
             filename: Set(file.filename.clone()),
             content_type: Set(file.content_type.clone()),
+            sealed_name: Set(file.sealed_name.clone()),
             size_bytes: Set(i64::try_from(file.size_bytes).unwrap_or(i64::MAX)),
             storage: Set(file.storage.as_str().to_owned()),
             object_key: Set(file.storage.object_key().map(str::to_owned)),

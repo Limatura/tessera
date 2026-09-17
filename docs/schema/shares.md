@@ -43,7 +43,7 @@ CREATE TABLE shares (
 
     created_at     TEXT    NOT NULL,
     updated_at     TEXT    NOT NULL
-, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, bytes_redirected INTEGER NOT NULL DEFAULT 0)
+, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, bytes_redirected INTEGER NOT NULL DEFAULT 0, encryption TEXT, key_salt TEXT, sealed_details TEXT)
 ```
 
 </details>
@@ -72,6 +72,9 @@ CREATE TABLE shares (
 | bytes_served | INTEGER | 0 | false |  |  |  |
 | role_id | TEXT |  | true |  | [roles](roles.md) |  |
 | bytes_redirected | INTEGER | 0 | false |  |  |  |
+| encryption | TEXT |  | true |  |  |  |
+| key_salt | TEXT |  | true |  |  |  |
+| sealed_details | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -128,6 +131,9 @@ erDiagram
   INTEGER bytes_served
   TEXT role_id FK
   INTEGER bytes_redirected
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_details
 }
 "share_tickets" {
   TEXT id PK
@@ -146,6 +152,7 @@ erDiagram
   TEXT storage
   TEXT object_key
   TEXT created_at
+  TEXT sealed_name
 }
 "text_shares" {
   TEXT share_id PK
@@ -165,6 +172,9 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_name
 }
 "access_events" {
   TEXT id PK

@@ -40,6 +40,14 @@ pub struct Model {
     /// Display name, shown on the share page and in the OG image.
     pub title: Option<String>,
 
+    /// `link` or `password` for an end-to-end encrypted share, `None` for one
+    /// the server can read. See the migration.
+    pub encryption: Option<String>,
+    /// The salt a password-derived key is stretched with.
+    pub key_salt: Option<String>,
+    /// The title and a note's language, sealed, for an encrypted share.
+    pub sealed_details: Option<String>,
+
     /// JSON describing how to draw the OG image.
     pub og_config: Option<String>,
     /// SHA-256 of the token that lets an anonymous uploader manage this share.

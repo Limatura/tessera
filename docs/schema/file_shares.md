@@ -22,7 +22,7 @@ CREATE TABLE file_shares (
     storage       TEXT    NOT NULL,
     object_key    TEXT,
     created_at    TEXT    NOT NULL
-)
+, sealed_name TEXT)
 ```
 
 </details>
@@ -40,6 +40,7 @@ CREATE TABLE file_shares (
 | storage | TEXT |  | false |  |  |  |
 | object_key | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
+| sealed_name | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -74,6 +75,7 @@ erDiagram
   TEXT storage
   TEXT object_key
   TEXT created_at
+  TEXT sealed_name
 }
 "file_segments" {
   TEXT file_id PK
@@ -105,6 +107,9 @@ erDiagram
   INTEGER bytes_served
   TEXT role_id FK
   INTEGER bytes_redirected
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_details
 }
 ```
 

@@ -24,6 +24,20 @@ Hidden: the content, file names and media types, the share's title, and a text s
 
 Not hidden: how large each file is (to within the chunking overhead), how many files there are, when the share was made, when it expires, how often it is fetched and from where. The server needs those to enforce quotas, expiry and limits.
 
+## On the server
+
+**Off by default.** `features.encryption` is the switch, and `/capabilities` reports it as `encryption`. Turning it off refuses new encrypted shares and leaves existing ones retrievable: handing them out never needed the server to understand them.
+
+**What a request carries.** `encryption=link` or `encryption=password`, with `key_salt` for the second. A file's name and media type arrive as `sealed_name` instead of `filename`, and a share's title and a note's language as `sealed_details` instead of `title` and `language`: each unpadded URL-safe base64 of a sealed object, at most 4096 characters. A name in the clear on an encrypted share is refused rather than stored, and so is a sealed one on a plain share, which nobody could open. The media type in `Content-Type` describes ciphertext here, so it is not recorded. A file added to an existing share, directly or through a resumable upload, is sealed the way that share is.
+
+**What it hands back.** The same fields, and `key_salt` even while the share is locked, since a client needs it before it can present the password. `size_bytes` is the sealed size, which is what a download sends.
+
+**What it will not do.** Describe the content in a link preview: the card says the share is end-to-end encrypted and how large it is. Pack several files into an archive: `/download` on an encrypted file share needs `?file=N`, one file at a time. Serve a note from `/raw` as text. See `retrieval.md`.
+
+**A key from a password.** The client presents the access token as the share's password. It can be set once, for a client that uploaded before it had one to give, and never changed or removed afterwards: either would lock out everyone who knows the real password, or hand the sealed bytes to anyone.
+
+Tested in `tests/encryption.rs`; the columns round-trip on all three databases through `share_repository_round_trip`.
+
 ## The format
 
 A sealed object is a header and the content in chunks:

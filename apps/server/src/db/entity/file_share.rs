@@ -17,6 +17,8 @@ pub struct Model {
     pub filename: Option<String>,
     /// Recorded, never echoed; see the migration.
     pub content_type: Option<String>,
+    /// The name and media type, sealed, for a file in an encrypted share.
+    pub sealed_name: Option<String>,
     /// Size of the content.
     pub size_bytes: i64,
     /// `inline`, `object` or `gone`, carried over from `shares` as it was.

@@ -82,12 +82,13 @@ use utoipa::{IntoParams, ToSchema};
 use crate::{
     api::{
         extract::{ApiJson, ApiPath, ApiQuery},
+        sealed,
         shares::{ShareResponse, object_key},
         tokens::format_timestamp,
     },
     auth::{extract::MaybeUser, secret::Secret},
     db::repository::{
-        share::{NewFile, StorageLocation},
+        share::{Encryption, NewFile, StorageLocation},
         upload::{NewUpload, Upload},
     },
     error::{Error, Result},
@@ -125,6 +126,15 @@ pub struct CreateUploadParams {
     /// Omit to make a new share when the upload finishes.
     #[param(example = "4GSVV6QT")]
     pub code: Option<String>,
+    /// `link` or `password` for a new end-to-end encrypted share. An upload
+    /// into an existing share is sealed the way that share is, so this is
+    /// refused alongside `code`. See `POST /shares`.
+    pub encryption: Option<String>,
+    /// For `encryption=password`: the salt, as for `POST /shares`.
+    pub key_salt: Option<String>,
+    /// For a file in an encrypted share: its name and media type, sealed. Takes
+    /// the place of `filename`.
+    pub sealed_name: Option<String>,
 }
 
 /// A session that has just been opened.
@@ -244,6 +254,7 @@ pub async fn create(
         Some(code) => Some(resolve_target(&state, code, current.as_ref(), &headers).await?),
         None => None,
     };
+    let (filename, sealed_name, encryption) = named(&state, share_id, params).await?;
 
     let now = OffsetDateTime::now_utc();
     // The key is decided here and never recomputed. Deriving it per request
@@ -289,8 +300,10 @@ pub async fn create(
                     current.as_ref().map(|current| &current.user),
                 ),
                 token_hash: secret.digest(),
-                filename: crate::api::shares::checked_filename(params.filename)?,
+                filename,
                 content_type: None,
+                encryption,
+                sealed_name,
                 declared_bytes: declared,
                 object_key: key,
                 backend,
@@ -314,6 +327,42 @@ pub async fn create(
         }),
     )
         .into_response())
+}
+
+/// The file's name, sealed or not, and how the share it lands in is sealed.
+///
+/// An upload into an existing share is sealed the way that share is, so saying
+/// how alongside `code` is refused rather than believed.
+async fn named(
+    state: &AppState,
+    share_id: Option<ShareId>,
+    params: CreateUploadParams,
+) -> Result<(Option<String>, Option<String>, Option<Encryption>)> {
+    let filename = crate::api::shares::checked_filename(params.filename)?;
+    let sealed_name = sealed::checked(params.sealed_name, "sealed_name")?;
+    let encryption = match share_id {
+        None => sealed::requested(state, params.encryption.as_deref(), params.key_salt)?,
+        Some(id) => {
+            if params.encryption.is_some() || params.key_salt.is_some() {
+                return Err(Error::bad_request(
+                    "an upload into an existing share is sealed the way that share is; drop \
+                     `encryption` and `key_salt`",
+                ));
+            }
+            state
+                .shares
+                .find_by_id(id)
+                .await?
+                .ok_or(Error::NotFound)?
+                .encryption
+        }
+    };
+    sealed::coherent(
+        encryption.is_some(),
+        &[("filename", filename.is_some())],
+        &[("sealed_name", sealed_name.is_some())],
+    )?;
+    Ok((filename, sealed_name, encryption))
 }
 
 /// Answers how much has arrived.
@@ -768,7 +817,16 @@ async fn settle(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
             state.shares.append_file(share_id, &file, now).await?;
             crate::api::shares::describe_for_owner(state, share_id).await?
         }
-        None => crate::api::shares::create_from_file(state, upload.user_id, file, now).await?,
+        None => {
+            crate::api::shares::create_from_file(
+                state,
+                upload.user_id,
+                file,
+                upload.encryption.clone(),
+                now,
+            )
+            .await?
+        }
     };
 
     state.uploads.delete(upload.id).await?;
@@ -934,6 +992,7 @@ pub(crate) fn finished_file(upload: &Upload) -> NewFile {
         segments: Vec::new(),
         filename: upload.filename.clone(),
         content_type: upload.content_type.clone(),
+        sealed_name: upload.sealed_name.clone(),
         size_bytes: upload.offset_bytes,
         storage: StorageLocation::Object {
             // Where the session actually wrote. Reading the configuration here

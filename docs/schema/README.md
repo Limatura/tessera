@@ -8,17 +8,17 @@
 | [users](users.md) | 13 | Accounts. An empty `role_id` means signed in and allowed nothing, which is a real state rather than a fault. A deleted account leaves a scrubbed row behind rather than disappearing, because `shares.user_id` points at it and "nobody uploaded this" is a different fact from "whoever uploaded it is gone". | table |
 | [sessions](sessions.md) | 11 | One sign-in. Expired rows stay, because this table is also the sign-in history and a person needs to be able to see whether somebody else got in. Real removal is `auth.login_history_days`. `origin` says which credential started it, so a provider signing somebody out can end the sessions it issued and leave password ones alone. `provider_sid` is the provider's own identifier for its side, when it released one. | table |
 | [api_tokens](api_tokens.md) | 9 | Credentials for programs. Only a digest is stored; the value itself stops existing the moment it is handed over. | table |
-| [shares](shares.md) | 20 | One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process. | table |
+| [shares](shares.md) | 23 | One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process. | table |
 | [share_tickets](share_tickets.md) | 5 | The pass handed out after a correct password. It exists so that seeing and fetching stay separate: a preview should not spend one of a share's downloads. | table |
 | [password_reset_tokens](password_reset_tokens.md) | 6 | One-shot links for setting a password. | table |
 | [pending_registrations](pending_registrations.md) | 8 | A registration waiting on its address. The account does not exist until the mail is opened, so what would become one waits here instead. That is also what keeps "is this address registered" from being a question anyone can ask. | table |
 | [invites](invites.md) | 7 | Invitation codes. Digests only, as above. | table |
-| [file_shares](file_shares.md) | 9 | One file of a file share. One row per share today; `position` is there for when a share can hold several. | table |
+| [file_shares](file_shares.md) | 10 | One file of a file share. One row per share today; `position` is there for when a share can hold several. | table |
 | [text_shares](text_shares.md) | 3 | The text of a text share. `content` cannot be null, because "the text is somewhere else" is the state this table exists to make impossible. | table |
 | [roles](roles.md) | 8 | The name of a set of permissions. Nothing else decides who may do what. | table |
 | [role_permissions](role_permissions.md) | 2 | Which permissions a role holds. The permissions themselves are defined in code rather than stored, because granting one nothing checks grants nothing. | table |
 | [api_token_permissions](api_token_permissions.md) | 2 | What one token may do. What it can actually do is the intersection of this and its owner's permissions, so demoting a person narrows every token they hold at the same moment. | table |
-| [uploads](uploads.md) | 12 | A file still arriving. A half-uploaded thing is not a `file_shares` row, because every row of that table is content somebody can fetch and this is not yet. `object_key` is chosen when the upload opens and never recomputed, so a resumed upload writes back to the same place. `declared_bytes` is what the client said, and quota counts that rather than what has arrived, or two people could claim the same free space at once. | table |
+| [uploads](uploads.md) | 15 | A file still arriving. A half-uploaded thing is not a `file_shares` row, because every row of that table is content somebody can fetch and this is not yet. `object_key` is chosen when the upload opens and never recomputed, so a resumed upload writes back to the same place. `declared_bytes` is what the client said, and quota counts that rather than what has arrived, or two people could claim the same free space at once. | table |
 | [access_events](access_events.md) | 5 | Who fetched which share, and when. Off by default. A counter is one integer and says nothing about who went where; a row here is an address and a browser string about somebody who followed a link and agreed to nothing. Anonymity is part of why people choose this software, so turning it on is the operator's decision rather than one a default made for them, and it needs saying on the page, because the people being recorded are the last to know. `ip_address` can be null: behind an untrusted proxy the visible address is the proxy's, and recording it would be recording the wrong party. | table |
 | [settings](settings.md) | 3 | Settings changed from the panel, one row each. The load order is defaults, then the file, then the environment, then this, and this wins: it is the only layer somebody deliberately changed on this machine. Only what can take effect without a restart is here. A bound socket, a built connection pool and an installed log subscriber cannot, so those live in the environment, and the panel never has to say "saved, now restart". Secrets are excluded too: a stored one is plaintext in a table and comes back out of whatever endpoint reads settings. The column is `name` rather than `key` because `key` is reserved in MySQL. | table |
 | [file_segments](file_segments.md) | 7 | Where the bytes of one file actually are: a backend, a key, an offset and a length. A list rather than a column pair, because a file too large for any single backend has to be spread across several. Every row has one segment until splitting is turned on. `backend` is a name rather than a foreign key on purpose: the set of backends is configuration, and a row naming one nobody configures any more has to be readable enough to say so instead of failing at start-up. | table |
@@ -124,6 +124,9 @@ erDiagram
   INTEGER bytes_served
   TEXT role_id FK
   INTEGER bytes_redirected
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_details
 }
 "share_tickets" {
   TEXT id PK
@@ -169,6 +172,7 @@ erDiagram
   TEXT storage
   TEXT object_key
   TEXT created_at
+  TEXT sealed_name
 }
 "text_shares" {
   TEXT share_id PK
@@ -206,6 +210,9 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_name
 }
 "access_events" {
   TEXT id PK

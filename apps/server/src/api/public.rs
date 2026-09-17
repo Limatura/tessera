@@ -65,6 +65,39 @@ pub struct RetrievalQuery {
     /// still works.
     #[serde(default)]
     pub format: Format,
+    /// One file of a share that holds several, by its position from zero.
+    ///
+    /// Served as that file alone, resumable and without an archive around it.
+    /// An encrypted share has to be fetched this way: an archive of sealed files
+    /// is something no archiver can open.
+    pub file: Option<usize>,
+}
+
+/// Which file of a share a request is about. See [`RetrievalQuery::file`].
+///
+/// Not `deny_unknown_fields`, unlike [`RetrievalQuery`]: the routes taking this
+/// read no query at all before, and a client sending one along must not start
+/// failing.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct FileQuery {
+    /// Its position, from zero.
+    pub file: Option<usize>,
+}
+
+/// The content a request is about: all of it, or the one file it named.
+///
+/// # Errors
+///
+/// `404` for a position the share does not have.
+fn narrowed(content: Content, file: Option<usize>) -> Result<Content> {
+    let Some(position) = file else {
+        return Ok(content);
+    };
+    content
+        .files()
+        .get(position)
+        .map(|part| Content::Files(vec![part.clone()]))
+        .ok_or(Error::NotFound)
 }
 
 /// Routes that are not part of the versioned API.
@@ -275,6 +308,13 @@ async fn raw(
             "this share is a file; use /download instead",
         ));
     }
+    // Sealed bytes labelled as UTF-8 text are nothing a reader can use, and
+    // only the page holding the key can turn them into the note.
+    if share.encryption.is_some() {
+        return Err(Error::bad_request(
+            "this share is end-to-end encrypted; fetch it from /download and open it with its key",
+        ));
+    }
     let payload = permit(
         &state,
         &share,
@@ -318,6 +358,17 @@ async fn download(
     // See `raw`: the admission decision needs the ticket, so it happens in
     // `permit`, not here.
     let share = gate::find(&state, &code, &source).await?;
+    // An archive of sealed files is something no archiver can open, so these
+    // are fetched a file at a time. Asked of every encrypted file share, not
+    // only those with several files: the rule then needs nothing the share
+    // does not already say publicly, and is settled before a retrieval is
+    // spent or a locked share's file count given away.
+    if share.encryption.is_some() && share.kind == ShareKind::File && query.file.is_none() {
+        return Err(Error::bad_request(
+            "an end-to-end encrypted share is fetched one file at a time; add `?file=` with the \
+             file's position, from zero",
+        ));
+    }
     let payload = permit(
         &state,
         &share,
@@ -329,7 +380,7 @@ async fn download(
     .await?;
     // Never the media type the uploader claimed. Serving that back is the same
     // stored-XSS hole as `/raw`, reached from the other direction.
-    let content = state.shares.content_of(&share).await?;
+    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
     // After `permit`, so the password, the expiry and the access log have all
     // had their say before anybody is sent anywhere.
     if matches!(payload, Payload::Content)
@@ -483,12 +534,13 @@ pub struct SegmentPart {
 async fn segments(
     State(state): State<AppState>,
     ApiPath(code): ApiPath<String>,
+    ApiQuery(query): ApiQuery<FileQuery>,
     ClientAddress(Origin { source, .. }): ClientAddress,
     headers: HeaderMap,
 ) -> Result<axum::Json<SegmentsResponse>> {
     let share = gate::find(&state, &code, &source).await?;
     permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
-    let content = state.shares.content_of(&share).await?;
+    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
     let (file, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
     Ok(axum::Json(SegmentsResponse {
         size_bytes: file.size_bytes,
@@ -514,12 +566,13 @@ async fn segments(
 async fn segment(
     State(state): State<AppState>,
     ApiPath((code, index)): ApiPath<(String, usize)>,
+    ApiQuery(query): ApiQuery<FileQuery>,
     ClientAddress(Origin { source, .. }): ClientAddress,
     headers: HeaderMap,
 ) -> Result<Response> {
     let share = gate::find(&state, &code, &source).await?;
     permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
-    let content = state.shares.content_of(&share).await?;
+    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
     let (_, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
     let piece = pieces.get(index).ok_or(Error::NotFound)?;
 
@@ -546,6 +599,7 @@ async fn segment(
 async fn segments(
     State(_): State<AppState>,
     ApiPath(_): ApiPath<String>,
+    ApiQuery(_): ApiQuery<FileQuery>,
     ClientAddress(_): ClientAddress,
     _: HeaderMap,
 ) -> Result<axum::Json<SegmentsResponse>> {
@@ -561,6 +615,7 @@ async fn segments(
 async fn segment(
     State(_): State<AppState>,
     ApiPath(_): ApiPath<(String, usize)>,
+    ApiQuery(_): ApiQuery<FileQuery>,
     ClientAddress(_): ClientAddress,
     _: HeaderMap,
 ) -> Result<Response> {
@@ -1363,6 +1418,7 @@ mod tests {
             segments: Vec::new(),
             filename: filename.map(str::to_owned),
             content_type: None,
+            sealed_name: None,
             size_bytes: 0,
             storage: crate::db::repository::share::StorageLocation::Inline,
         }])
@@ -1376,6 +1432,7 @@ mod tests {
                 segments: Vec::new(),
                 filename: Some("one.txt".to_owned()),
                 content_type: None,
+                sealed_name: None,
                 size_bytes: 5,
                 storage: crate::db::repository::share::StorageLocation::Inline,
             },
@@ -1383,6 +1440,7 @@ mod tests {
                 segments: Vec::new(),
                 filename: Some("two.txt".to_owned()),
                 content_type: None,
+                sealed_name: None,
                 size_bytes: 7,
                 storage: crate::db::repository::share::StorageLocation::Inline,
             },
