@@ -5810,7 +5810,7 @@
     },
     "/api/v1/shares/{code}/files": {
       "post": {
-        "description": "# Why files arrive one at a time\n\nOne request carrying five files loses five when it drops at the fourth,\nexactly what uploading a folder of photographs over a home connection hits.\nA file that fails here is retried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an interrupted upload\nleaves a share holding what did arrive, not nothing.\n\nThe cost is that a link opened mid-upload shows part of the share. The link\nis handed out afterwards, by the person doing the upload.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room. The body says whose ceiling that was.",
+        "description": "# Why files arrive one at a time\n\nOne request carrying five files loses five when it drops at the fourth,\nexactly what uploading a folder of photographs over a home connection hits.\nA file that fails here is retried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an interrupted upload\nleaves a share holding what did arrive, not nothing.\n\nThe cost is that a link opened mid-upload shows part of the share. The link\nis handed out afterwards, by the person doing the upload.\n\n# Errors\n\n`400` for a name that is unusable or described the wrong way for the share,\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room. The body says whose ceiling that was.",
         "operationId": "add_share_file",
         "parameters": [
           {
@@ -5868,6 +5868,16 @@
               }
             },
             "description": "The share as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A name that is unusable, or described the wrong way for the share: in the clear on an encrypted one, sealed on a plain one"
           },
           "403": {
             "content": {

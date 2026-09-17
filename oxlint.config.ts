@@ -14,6 +14,9 @@ export default defineConfig({
     ".codex/**",
     ".roo/**",
     "packages/ui/**",
+    // Written by `scripts/crypto-wasm.sh` and compared against a fresh build in
+    // CI. Linting generated glue finds nothing anybody could fix here.
+    "packages/crypto/src/wasm/**",
     "**/*.toml",
   ],
   overrides: [

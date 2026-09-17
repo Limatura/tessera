@@ -1,0 +1,30 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_opener_free: (a: number, b: number) => void;
+export const __wbg_sealer_free: (a: number, b: number) => void;
+export const __wbg_sharekey_free: (a: number, b: number) => void;
+export const chunkLength: () => number;
+export const encodeSalt: (a: number, b: number, c: number) => void;
+export const minimumPasswordLength: () => number;
+export const open: (a: number, b: number, c: number, d: number) => void;
+export const opener_chunks: (a: number) => bigint;
+export const opener_length: (a: number, b: number, c: bigint) => void;
+export const opener_new: (a: number, b: number, c: number, d: number, e: bigint) => void;
+export const opener_open: (a: number, b: number, c: bigint, d: number, e: number) => void;
+export const opener_start: (a: number, b: number, c: bigint) => void;
+export const plainLength: (a: number, b: bigint) => void;
+export const seal: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const sealedLength: (a: number, b: bigint) => void;
+export const sealer_header: (a: number, b: number) => void;
+export const sealer_new: (a: number, b: number, c: number, d: number) => void;
+export const sealer_seal: (a: number, b: number, c: number, d: number, e: number) => void;
+export const sharekey_accessToken: (a: number, b: number) => void;
+export const sharekey_encode: (a: number, b: number) => void;
+export const sharekey_fromPassword: (a: number, b: number, c: number, d: number, e: number) => void;
+export const sharekey_fromRandom: (a: number, b: number, c: number) => void;
+export const sharekey_parse: (a: number, b: number, c: number) => void;
+export const __wbindgen_add_to_stack_pointer: (a: number) => number;
+export const __wbindgen_export: (a: number, b: number) => number;
+export const __wbindgen_export2: (a: number, b: number, c: number) => void;
+export const __wbindgen_export3: (a: number, b: number, c: number, d: number) => number;

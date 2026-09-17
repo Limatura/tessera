@@ -2529,6 +2529,7 @@ pub async fn record_event(
 ///
 /// # Errors
 ///
+/// `400` for a name that is unusable or described the wrong way for the share,
 /// `403` when the caller cannot show it is theirs, `404` when no share has that
 /// code, `409` when the share holds text, `413` when the body is too large,
 /// `507` when something is out of room. The body says whose ceiling that was.
@@ -2541,6 +2542,7 @@ pub async fn record_event(
     request_body(content = Vec<u8>, description = "The file", content_type = "application/octet-stream"),
     responses(
         (status = 201, description = "The share as it now stands", body = ShareResponse),
+        (status = 400, description = "A name that is unusable, or described the wrong way for the share: in the clear on an encrypted one, sealed on a plain one", body = crate::error::ErrorBody),
         (status = 403, description = "Not yours", body = crate::error::ErrorBody),
         (status = 404, description = "No such share", body = crate::error::ErrorBody),
         (status = 409, description = "That share holds text", body = crate::error::ErrorBody),

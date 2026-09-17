@@ -40,6 +40,7 @@ COPY packages/ui/package.json packages/ui/
 COPY packages/i18n/package.json packages/i18n/
 COPY packages/env/package.json packages/env/
 COPY packages/config/package.json packages/config/
+COPY packages/crypto/package.json packages/crypto/
 
 # `--filter web...` pulls in web and everything it depends on, and nothing else
 # — no admin, no docs site, no extension. `--frozen-lockfile` makes an undeclared

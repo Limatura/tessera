@@ -38,6 +38,10 @@ on:
       - ".tbls.yml"
       - "docs/schema/**"
       - "scripts/schema-docs.py"
+      # The browser's build of the encryption crate, committed and checked in
+      # `checks` the same way. A hand edit to it has to wake that check.
+      - "packages/crypto/src/wasm/**"
+      - "scripts/crypto-wasm.sh"
   pull_request:
     paths: *rust-paths
   workflow_dispatch:
@@ -165,6 +169,8 @@ jobs:
             rust: &rust
               - "apps/server/**"
               - "crates/**"
+              - "packages/crypto/src/wasm/**"
+              - "scripts/crypto-wasm.sh"
               - "Cargo.toml"
               - "Cargo.lock"
               - "clippy.toml"
@@ -228,7 +234,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/rust
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
-        with: { tool: "cargo-deny,cargo-machete" }
+        # `wasm-bindgen` at the version `crates/tessera-crypto/Cargo.toml` pins.
+        # `scripts/crypto-wasm.sh` refuses any other, so a bump that forgets
+        # this line fails with a message saying so.
+        with: { tool: "cargo-deny,cargo-machete,wasm-bindgen@0.2.128" }
 
       # rustfmt.toml uses import grouping, which is still nightly-gated. The
       # pinned stable toolchain builds and lints; only formatting needs nightly.
@@ -282,6 +291,23 @@ jobs:
           if [ -n "$(git status --porcelain -- docs/schema)" ]; then
             git status --short -- docs/schema
             echo "::error::docs/schema is out of date. Run 'python3 scripts/schema-docs.py' and commit the result."
+            exit 1
+          fi
+
+      # The browser runs `tessera-crypto` compiled to WebAssembly, and that build
+      # is committed so the frontend never needs a Rust compiler. The same
+      # arrangement as the two above: rebuild, and fail if it is not what was
+      # committed, so the module a browser loads is always the crate as it is.
+      - name: Rebuild the browser's encryption module
+        run: |
+          rustup target add wasm32-unknown-unknown
+          ./scripts/crypto-wasm.sh
+
+      - name: Fail if the encryption module drifted
+        run: |
+          if [ -n "$(git status --porcelain -- packages/crypto/src/wasm)" ]; then
+            git status --short -- packages/crypto/src/wasm
+            echo "::error::packages/crypto/src/wasm is out of date. Run './scripts/crypto-wasm.sh' and commit the result."
             exit 1
           fi
 

@@ -57,6 +57,19 @@ Because every chunk but the last is the same size, a sealed length fixes the con
 
 `the_format_has_not_moved` pins a sealed object and an access token, and `a_password_derives_the_same_key_every_time` pins a derived key. Both values were also produced independently, with Python's `cryptography` for HKDF and ChaCha20-Poly1305 and with the Argon2 reference implementation through `argon2-cffi`. A change to either test is a new format version.
 
+## What clients agree on
+
+The server stores sealed descriptions without looking inside, so what goes inside is an agreement between the browser and the command line, and both write exactly this.
+
+- **The link.** `/s/{code}#{key}`, the fragment being exactly the 43-character key. A share whose key comes from a password has no fragment.
+- **`sealed_name`.** A sealed object holding UTF-8 JSON: `{"name": "...", "type": "..."}`, with `type` optional. `name` may carry the folders a file sat in, separated by `/`. A client writing it to disk keeps only the ordinary parts of the path, so a name cannot place a file outside the directory it was asked to write into.
+- **`sealed_details`.** The same, holding `{"title": "...", "language": "..."}`, both optional.
+- **Unknown fields are ignored**, so a later client can add one without breaking an earlier one.
+- **The password** is at least 12 characters (`MIN_PASSWORD_CHARS`), refused below that before anything is sent. The server never sees it, so it cannot refuse a weak one.
+- **Fetching.** Describe the share, derive the key if it comes from a password (from `key_salt`), unlock with the access token as the password, then fetch each file with `?file=N`. A file's `size_bytes` is its sealed length, which is what an `Opener` needs to know which chunk is last.
+
+`packages/crypto` has `sealName` and `sealDetails` for the first two.
+
 ## Why ChaCha20-Poly1305 and not AES-GCM
 
 Browsers have AES-GCM built in through WebCrypto, but WebCrypto has no Argon2, so the password half needs WebAssembly regardless. Once WebAssembly is there, one implementation for everything beats two. The question was whether it is fast enough.

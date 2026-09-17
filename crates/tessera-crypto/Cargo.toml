@@ -17,7 +17,15 @@ chacha20poly1305 = { version = "0.11", default-features = false, features = ["al
 hkdf = "0.13"
 sha2 = { version = "0.11", default-features = false }
 thiserror = { workspace = true }
+# Pinned exactly: the `wasm-bindgen` command that turns the build into a
+# JavaScript module has to be this same version, or it refuses the file.
+wasm-bindgen = { version = "=0.2.128", optional = true }
 zeroize = { version = "1.9", features = ["derive"] }
+
+[features]
+# The browser's bindings. Built by `scripts/crypto-wasm.sh`, not by default:
+# nothing native needs them.
+wasm = ["dep:wasm-bindgen"]
 
 [dev-dependencies]
 proptest = "1.11"

@@ -142,6 +142,16 @@ lto = "fat"
 codegen-units = 1
 strip = "symbols"
 
+# The browser's build of `tessera-crypto`, made by `scripts/crypto-wasm.sh`.
+#
+# Speed rather than size, unlike release: the module is tens of kilobytes either
+# way, and encryption sits between the file and the network. `panic` is abort
+# because nothing on `wasm32-unknown-unknown` can catch an unwind.
+[profile.wasm]
+inherits = "release"
+opt-level = 3
+panic = "abort"
+
 [profile.bench]
 inherits = "release"
 strip = "none"

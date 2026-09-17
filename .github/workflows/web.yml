@@ -89,7 +89,7 @@ jobs:
 
       # 純函式的單元測試(語言偵測、位元組格式化、PATCH 請求的組法)。
       # 不需要瀏覽器環境,所以跑得很快,放在最後當守門員。
-      - run: pnpm turbo run test --affected --filter=web
+      - run: pnpm turbo run test --affected --filter=web --filter=@tessera/crypto
 
       # Bundle size only means anything for a package that just built — a
       # `dist` from an unrelated earlier run would report stale numbers as

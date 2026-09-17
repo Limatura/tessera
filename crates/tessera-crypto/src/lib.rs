@@ -43,6 +43,9 @@
 //! `i` is always at the same offset: a `Range` request can fetch one without
 //! reading what comes before it.
 
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64ct::{Base64UrlUnpadded, Encoding as _};
 use chacha20poly1305::{AeadInOut as _, ChaCha20Poly1305, KeyInit as _, aead::array::Array};
@@ -83,6 +86,14 @@ pub const PASSWORD_MEMORY_KIB: u32 = 64 * 1024;
 
 /// Argon2id passes over memory for a password. See [`PASSWORD_MEMORY_KIB`].
 pub const PASSWORD_PASSES: u32 = 3;
+
+/// The shortest password a client should let a key be derived from.
+///
+/// Not enforced by anything here, and not by the server, which never sees the
+/// password. It is the number clients agree to refuse below. Higher than an
+/// account's minimum because the threat is different: whoever holds the stored
+/// share can guess offline, at their own pace, with no throttle in the way.
+pub const MIN_PASSWORD_CHARS: usize = 12;
 
 const KEY_LEN: usize = 32;
 const SEALED_CHUNK_LEN: usize = CHUNK_LEN + TAG_LEN;
