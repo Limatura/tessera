@@ -68,7 +68,7 @@ The server stores sealed descriptions without looking inside, so what goes insid
 - **The password** is at least 12 characters (`MIN_PASSWORD_CHARS`), refused below that before anything is sent. The server never sees it, so it cannot refuse a weak one.
 - **Fetching.** Describe the share, derive the key if it comes from a password (from `key_salt`), unlock with the access token as the password, then fetch each file with `?file=N`. A file's `size_bytes` is its sealed length, which is what an `Opener` needs to know which chunk is last.
 
-`packages/crypto` has `sealName` and `sealDetails` for the first two.
+`packages/crypto` has `sealName` and `sealDetails` for the first two, and the command line has `apps/cli/src/names.rs`.
 
 ## Why ChaCha20-Poly1305 and not AES-GCM
 

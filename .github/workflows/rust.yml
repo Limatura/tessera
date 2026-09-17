@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths: &rust-paths
       - "apps/server/**"
+      - "apps/cli/**"
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -168,6 +169,7 @@ jobs:
             # gate on everything that compiles or runs it.
             rust: &rust
               - "apps/server/**"
+              - "apps/cli/**"
               - "crates/**"
               - "packages/crypto/src/wasm/**"
               - "scripts/crypto-wasm.sh"
