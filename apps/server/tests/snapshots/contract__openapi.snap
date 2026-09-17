@@ -403,6 +403,18 @@ expression: document
             "minimum": 0,
             "type": "integer"
           },
+          "account_password_requires_digit": {
+            "description": "Whether an account password needs a digit.",
+            "type": "boolean"
+          },
+          "account_password_requires_mixed_case": {
+            "description": "Whether an account password needs both an uppercase and a lowercase\nletter. How a character is classed is on `PasswordPolicy`; a client that\nclasses them differently will pass a password the server refuses.",
+            "type": "boolean"
+          },
+          "account_password_requires_symbol": {
+            "description": "Whether an account password needs a symbol. A space is not one.",
+            "type": "boolean"
+          },
           "accounts": {
             "description": "Whether accounts exist at all on this instance.\n\n`false` means no registration, no login and no session: the shape for a\npersonal instance behind a VPN.",
             "type": "boolean"
@@ -482,6 +494,9 @@ expression: document
           "anonymous_upload",
           "registration",
           "account_password_min_length",
+          "account_password_requires_mixed_case",
+          "account_password_requires_digit",
+          "account_password_requires_symbol",
           "share_password_min_length",
           "registration_requires_confirmation",
           "password_reset",

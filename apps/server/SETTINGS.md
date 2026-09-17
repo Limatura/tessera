@@ -57,7 +57,12 @@
 - `default_role: string` — 新註冊帳號的角色，預設 `member`
 - `admin_username / admin_email: string` — 首次啟動建立的管理員資訊
 - `cookie_secure: SecurePolicy` — session cookie 何時標 `Secure`
-- `password: PasswordPolicy` — 密碼長度規則（無組成規則）
+- `password.*`：
+  - `min_length: usize` — 最短字數，預設 `8`，下限 `8`
+  - `max_length: usize` — 最長字數，預設 `256`，上限 `1024`
+  - `require_mixed_case: bool` — 要有大寫跟小寫字母，預設 `false`
+  - `require_digit: bool` — 要有數字，預設 `false`
+  - `require_symbol: bool` — 要有符號（空白不算），預設 `false`
 - `hashing.*`（Argon2id）：
   - `memory_kib: u32` — 預設 `19456`（19 MiB）
   - `iterations: u32` — 預設 `2`

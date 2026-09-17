@@ -605,8 +605,8 @@ pub struct AuthConfig {
     #[serde(default = "default_login_history_days")]
     pub login_history_days: u64,
 
-    /// Password length policy. There are no composition rules; see
-    /// [`PasswordPolicy`].
+    /// What an account password must be: its length, and the character
+    /// classes it needs, all off by default. See [`PasswordPolicy`].
     pub password: PasswordPolicy,
 
     /// What one password hash costs. See [`HashingConfig`].

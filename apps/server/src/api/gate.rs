@@ -61,6 +61,9 @@ pub const TICKET_HEADER: &str = "x-share-ticket";
 pub const CHOOSING: PasswordPolicy = PasswordPolicy {
     min_length: 4,
     max_length: PasswordPolicy::CEILING,
+    require_mixed_case: false,
+    require_digit: false,
+    require_symbol: false,
 };
 
 /// What a share's password must satisfy to be *presented*.
@@ -76,6 +79,9 @@ pub const CHOOSING: PasswordPolicy = PasswordPolicy {
 const PRESENTING: PasswordPolicy = PasswordPolicy {
     min_length: 1,
     max_length: PasswordPolicy::CEILING,
+    require_mixed_case: false,
+    require_digit: false,
+    require_symbol: false,
 };
 
 /// Whether the request arrived holding a live authorisation for this share.

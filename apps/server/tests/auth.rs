@@ -230,6 +230,58 @@ async fn a_password_below_the_policy_is_refused_at_registration() {
     .await;
 }
 
+/// Turned on by the operator, a composition rule is held against a password
+/// being chosen, and the person is told which one they missed.
+#[tokio::test]
+async fn a_password_missing_a_required_class_is_refused_at_registration() {
+    let app = TestApp::with_config(|config| {
+        config.auth.password.require_digit = true;
+    })
+    .await;
+    // The form finds out before the person types, not after they submit.
+    let capabilities =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert_eq!(capabilities["account_password_requires_digit"], true);
+    assert_eq!(capabilities["account_password_requires_symbol"], false);
+
+    let attempt = |password: &'static str| {
+        serde_json::json!({
+            "username": "composed",
+            "email": "composed@example.com",
+            "password": password,
+        })
+    };
+
+    let refused = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &attempt("no digits in here"),
+        )
+        .await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    let body = body_json(refused).await;
+    assert!(
+        body.to_string().contains("digit"),
+        "the refusal should name the rule: {body}"
+    );
+
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &attempt("4 digits in here"),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+}
+
 /// Names are normalised, so `Alice` and `alice` must not become two accounts a
 /// person could be phished between.
 #[tokio::test]
