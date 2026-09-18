@@ -18,7 +18,7 @@ use crate::{
             upload_part::{self, Entity as UploadPartEntity},
             upload_segment::{self, Entity as UploadSegmentEntity},
         },
-        repository::{quota::Scope, total, user::CorruptRow},
+        repository::{quota::Scope, share::Encryption, total, user::CorruptRow},
     },
     upload::sink::TakenPart,
 };
@@ -94,6 +94,10 @@ pub struct Upload {
     pub filename: Option<String>,
     /// What the uploader said it was.
     pub content_type: Option<String>,
+    /// How the share this creates will be sealed, or `None` for a plain one.
+    pub encryption: Option<Encryption>,
+    /// The name and media type, sealed, for an encrypted share.
+    pub sealed_name: Option<String>,
     /// What the client said it would send.
     pub declared_bytes: u64,
     /// How much has landed. The answer to a `HEAD`.
@@ -190,6 +194,9 @@ impl Upload {
             token_hash: model.token_hash,
             filename: model.filename,
             content_type: model.content_type,
+            encryption: Encryption::from_columns(model.encryption.as_deref(), model.key_salt)
+                .map_err(fail)?,
+            sealed_name: model.sealed_name,
             declared_bytes: u64::try_from(model.declared_bytes).unwrap_or(0),
             offset_bytes: u64::try_from(model.offset_bytes).unwrap_or(0),
             object_key: segment.object_key,
@@ -217,6 +224,10 @@ pub struct NewUpload {
     pub filename: Option<String>,
     /// What they said it is.
     pub content_type: Option<String>,
+    /// How the share this creates will be sealed.
+    pub encryption: Option<Encryption>,
+    /// The name and media type, sealed.
+    pub sealed_name: Option<String>,
     /// How much they said they will send.
     pub declared_bytes: u64,
     /// Where the bytes go. Decided once; see the migration.
@@ -283,6 +294,13 @@ impl UploadRepository {
             token_hash: Set(new.token_hash.clone()),
             filename: Set(new.filename.clone()),
             content_type: Set(new.content_type.clone()),
+            encryption: Set(new.encryption.as_ref().map(|e| e.as_str().to_owned())),
+            key_salt: Set(new
+                .encryption
+                .as_ref()
+                .and_then(Encryption::salt)
+                .map(str::to_owned)),
+            sealed_name: Set(new.sealed_name.clone()),
             declared_bytes: Set(i64::try_from(new.declared_bytes).unwrap_or(i64::MAX)),
             offset_bytes: Set(0),
             created_at: Set(now),
@@ -322,6 +340,8 @@ impl UploadRepository {
             token_hash: new.token_hash.clone(),
             filename: new.filename.clone(),
             content_type: new.content_type.clone(),
+            encryption: new.encryption.clone(),
+            sealed_name: new.sealed_name.clone(),
             declared_bytes: new.declared_bytes,
             offset_bytes: 0,
             object_key: new.object_key.clone(),

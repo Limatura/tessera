@@ -517,6 +517,8 @@ async fn a_resumable_upload_is_placed_like_any_other() {
                     store: second,
                     multipart: Some(second_multipart),
                     put_multipart: true,
+                    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+                    signer: None,
                 },
             ),
         ]),
@@ -527,6 +529,7 @@ async fn a_resumable_upload_is_placed_like_any_other() {
             is_default: false,
             capacity_bytes: None,
             read_only: false,
+            direct_access: false,
         }],
     });
 
@@ -586,6 +589,7 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
         is_default: false,
         capacity_bytes: None,
         read_only: false,
+        direct_access: false,
     }];
     app.state.replace_backends(tessera_server::storage::Pool {
         open: tessera_server::storage::Backends::from([
@@ -599,6 +603,8 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
                     store: cold,
                     multipart: Some(cold_multipart),
                     put_multipart: true,
+                    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+                    signer: None,
                 },
             ),
         ]),
@@ -714,4 +720,91 @@ async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
             path.display()
         );
     }
+}
+
+/// A local directory has nothing to sign, so an upload placed on one says so
+/// when it is opened, and the two direct endpoints refuse rather than hand out
+/// something that cannot work.
+///
+/// Refused with `409` and not `404`: the session exists and is the caller's,
+/// it is the way of finishing it that does not apply.
+#[tokio::test]
+async fn an_upload_to_a_local_directory_cannot_take_parts_directly() {
+    let app = TestApp::ready().await;
+    let created = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/uploads?filename=local.bin")
+                    .header("upload-length", "4096"),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(created["direct"], false, "{created}");
+    let id = created["id"].as_str().expect("an id");
+    let token = created["token"].as_str().expect("a token");
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/uploads/{id}/parts/1"))
+                .header("x-upload-token", token),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::CONFLICT,
+    )
+    .await;
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/uploads/{id}/complete"))
+                .header("x-upload-token", token)
+                .header("content-type", "application/json"),
+            Body::from(r#"{"etags":["\"abc\""]}"#),
+        )
+        .await,
+        StatusCode::CONFLICT,
+    )
+    .await;
+}
+
+/// The direct endpoints ask for the same proof `PATCH` does. Without the token
+/// a stranger learns nothing, not even that the session exists.
+#[tokio::test]
+async fn the_direct_endpoints_need_the_uploaders_token() {
+    let app = TestApp::ready().await;
+    let (id, _token, _) = open(&app, "private.bin", 4096).await;
+
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::GET)
+                .uri(format!("/api/v1/uploads/{id}/parts/1")),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::NOT_FOUND,
+    )
+    .await;
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("/api/v1/uploads/{id}/complete"))
+                .header("content-type", "application/json"),
+            Body::from(r#"{"etags":["\"abc\""]}"#),
+        )
+        .await,
+        StatusCode::NOT_FOUND,
+    )
+    .await;
 }

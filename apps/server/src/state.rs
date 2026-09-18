@@ -187,6 +187,10 @@ pub struct AppState {
     /// retrievals moving while a crawler works through a sitemap.
     #[cfg(feature = "og-images")]
     pub card_renders: Arc<tokio::sync::Semaphore>,
+    /// How far each store's clock is from this one, for download URLs that
+    /// live seconds. See [`crate::storage::clock`].
+    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+    pub clocks: Arc<crate::storage::clock::Clocks>,
     /// Cards already drawn, so a burst on one link draws once.
     #[cfg(feature = "og-images")]
     pub drawn_cards: Arc<crate::og::cache::Cards>,
@@ -252,6 +256,35 @@ impl AppState {
             .open
             .get(name)
             .and_then(|stores| stores.multipart.clone())
+    }
+
+    /// The named backend as a signer, when a client may write a part to it
+    /// directly. See [`crate::storage::Stores::signer`].
+    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+    #[must_use]
+    pub fn backend_signer(&self, name: &str) -> Option<Arc<dyn object_store::signer::Signer>> {
+        self.backends
+            .load()
+            .open
+            .get(name)
+            .and_then(|stores| stores.signer.clone())
+    }
+
+    /// Whether browsers may be sent to the named backend directly.
+    ///
+    /// The one from `storage.url` answers from the configuration, the stored
+    /// ones from their rows. A name that is neither is not a backend anybody
+    /// should be sent to.
+    #[must_use]
+    pub fn direct_access(&self, name: &str) -> bool {
+        if name == crate::storage::DEFAULT_BACKEND {
+            return self.config().storage.direct_access;
+        }
+        self.backends
+            .load()
+            .configured
+            .iter()
+            .any(|backend| backend.name == name && backend.direct_access)
     }
 
     /// Replaces the set of backends, so one added from the panel or the command
@@ -364,6 +397,8 @@ impl AppState {
                     None
                 }
             },
+            #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+            clocks: Arc::default(),
             #[cfg(feature = "og-images")]
             drawn_cards: Arc::new(crate::og::cache::Cards::default()),
             #[cfg(feature = "og-images")]

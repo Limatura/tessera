@@ -183,6 +183,12 @@
             "description": "Whether a visitor could still open it.",
             "type": "boolean"
           },
+          "bytes_redirected": {
+            "description": "How many bytes downloads of it sent straight to a store asked for.\nRequested, not delivered.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
           "bytes_served": {
             "description": "How many bytes it has sent out, over its whole life.\n\nThe instance-wide figure in `StatsResponse` answers \"what is this\ncosting me\"; this answers which share to do something about. One link\nposted somewhere busy is usually where the transfer went, and the total\ncannot say which.\n\nNot `size_bytes` times `use_count`: a range request, a resumed download\nand an abandoned one all send some other amount.",
             "format": "int64",
@@ -243,6 +249,7 @@
           "file_count",
           "size_bytes",
           "bytes_served",
+          "bytes_redirected",
           "active",
           "created_at"
         ],
@@ -287,6 +294,10 @@
               "null"
             ]
           },
+          "direct_access": {
+            "description": "Whether browsers may be sent to it directly. Only if a browser can reach\nit; see [`BackendResponse::direct_access`].",
+            "type": "boolean"
+          },
           "name": {
             "description": "What to call it. Reusing an existing name replaces that backend.",
             "example": "cold",
@@ -319,7 +330,7 @@
         "type": "object"
       },
       "BackendResponse": {
-        "description": "One backend, as the panel draws it.\n\nFour booleans answering four unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, and\nwhether it comes from the environment. Collapsing any pair into an enum\nwould invent a state the system does not have, since a read-only backend can\nbe the default and an unreachable one can be either.",
+        "description": "One backend, as the panel draws it.\n\nFive booleans answering five unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, whether\nbrowsers may be sent to it, and whether it comes from the environment.\nCollapsing any pair into an enum would invent a state the system does not\nhave, since a read-only backend can be the default and an unreachable one can\nbe either.",
         "properties": {
           "capacity_bytes": {
             "description": "How much it may hold, or `null` for no limit.\n\nTyped in by the operator: object stores have no capacity API, and on a\nfree tier the limit belongs to the account's plan, which no API reports.",
@@ -330,6 +341,10 @@
               "integer",
               "null"
             ]
+          },
+          "direct_access": {
+            "description": "Whether browsers are sent to it directly, to download a file or write an\nupload's parts, instead of through this server.\n\nOnly S3 and GCS can be sent to. On anything else this may be `true` and\nstill change nothing.",
+            "type": "boolean"
           },
           "from_environment": {
             "description": "Whether it comes from `storage.url` instead of this table.\n\nThe one that does cannot be edited or removed from here: it is where\neverything written before backends existed lives, and it is configured\nin the environment.",
@@ -366,6 +381,7 @@
           "used_bytes",
           "read_only",
           "reachable",
+          "direct_access",
           "from_environment"
         ],
         "type": "object"
@@ -382,6 +398,18 @@
             "example": 12,
             "minimum": 0,
             "type": "integer"
+          },
+          "account_password_requires_digit": {
+            "description": "Whether an account password needs a digit.",
+            "type": "boolean"
+          },
+          "account_password_requires_mixed_case": {
+            "description": "Whether an account password needs both an uppercase and a lowercase\nletter. How a character is classed is on `PasswordPolicy`; a client that\nclasses them differently will pass a password the server refuses.",
+            "type": "boolean"
+          },
+          "account_password_requires_symbol": {
+            "description": "Whether an account password needs a symbol. A space is not one.",
+            "type": "boolean"
           },
           "accounts": {
             "description": "Whether accounts exist at all on this instance.\n\n`false` means no registration, no login and no session: the shape for a\npersonal instance behind a VPN.",
@@ -404,6 +432,10 @@
               "integer",
               "null"
             ]
+          },
+          "encryption": {
+            "description": "Whether an upload may be end-to-end encrypted. See `docs/encryption.md`.",
+            "type": "boolean"
           },
           "max_expiry_hours": {
             "description": "The longest lifetime an uploader may ask for, in hours.\n\n`null` when there is no ceiling. A form that knows this can bound its own\ncontrol instead of offering a date the server will refuse.",
@@ -460,8 +492,12 @@
           "accounts",
           "admin",
           "anonymous_upload",
+          "encryption",
           "registration",
           "account_password_min_length",
+          "account_password_requires_mixed_case",
+          "account_password_requires_digit",
+          "account_password_requires_symbol",
           "share_password_min_length",
           "registration_requires_confirmation",
           "password_reset",
@@ -490,6 +526,27 @@
         "required": [
           "current_password",
           "new_password"
+        ],
+        "type": "object"
+      },
+      "CompleteUploadRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /uploads/{id}/complete`.",
+        "properties": {
+          "etags": {
+            "description": "The `ETag` each part's `PUT` answered with, in part order from one.\n\nExactly as many as the upload has parts, as sent by the store: quotes\nincluded, if it included them.",
+            "example": [
+              "\"3858f62230ac3c915f300c664312c11f\"",
+              "\"9b2cf535f27731c974343645a3985328\""
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "etags"
         ],
         "type": "object"
       },
@@ -882,6 +939,24 @@
         ],
         "type": "object"
       },
+      "PartUrlResponse": {
+        "description": "A URL to write one part of an upload to the store directly.",
+        "properties": {
+          "expires_at": {
+            "description": "When the URL stops working, RFC 3339.",
+            "type": "string"
+          },
+          "url": {
+            "description": "Where to `PUT` the part's bytes. The response carries an `ETag` header,\nwhich is what `complete` needs back.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "type": "object"
+      },
       "PasswordResetConfirmRequest": {
         "additionalProperties": false,
         "description": "Body of `POST /auth/password-reset/confirm`.",
@@ -1034,6 +1109,14 @@
               "null"
             ]
           },
+          "encryption": {
+            "description": "`link` or `password` for an end-to-end encrypted share, `null` otherwise.\n\nGiven before unlocking, with the salt below. A client whose key comes\nfrom the password has to derive it before it can present the password\nat all.",
+            "example": "password",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "expires_at": {
             "description": "When it stops being served, RFC 3339.",
             "type": [
@@ -1052,6 +1135,13 @@
             "description": "Whether a password must be presented before anything else is revealed.",
             "type": "boolean"
           },
+          "key_salt": {
+            "description": "The salt a password-derived key is stretched with, for `password`.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "kind": {
             "description": "`text` or `file`.",
             "example": "file",
@@ -1059,6 +1149,13 @@
           },
           "language": {
             "description": "Syntax-highlighting hint.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sealed_details": {
+            "description": "The title and a note's language, sealed, on an encrypted share.",
             "type": [
               "string",
               "null"
@@ -1498,6 +1595,14 @@
             "description": "When it was created, RFC 3339.",
             "type": "string"
           },
+          "encryption": {
+            "description": "`link` or `password` for an end-to-end encrypted share, `null` for one\nthe server can read.",
+            "example": "link",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "expires_at": {
             "description": "When it stops being served, RFC 3339, or `null` to live until deleted.",
             "type": [
@@ -1520,6 +1625,13 @@
             "description": "Stable identifier.",
             "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
             "type": "string"
+          },
+          "key_salt": {
+            "description": "The salt a password-derived key was stretched with, for `password`.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "kind": {
             "description": "`text` or `file`.",
@@ -1551,6 +1663,13 @@
             "description": "Where the share lives, relative to this instance's origin.\n\nRelative by design. The server does not know what host it is reached\nthrough, and guessing wrong behind a reverse proxy produces broken\nlinks. The caller already knows the origin it called.",
             "example": "/s/0ZPQ4M7K",
             "type": "string"
+          },
+          "sealed_details": {
+            "description": "The title and a note's language, sealed, on an encrypted share.",
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "size_bytes": {
             "description": "Size of the content in bytes.",
@@ -1620,8 +1739,15 @@
             "minimum": 0,
             "type": "integer"
           },
+          "sealed_name": {
+            "description": "Its name and media type, sealed, in an encrypted share.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "size_bytes": {
-            "description": "How many bytes it holds.",
+            "description": "How many bytes it holds.\n\nSealed bytes in an encrypted share, which is what a download sends.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1653,6 +1779,12 @@
           },
           "administrators": {
             "description": "How many of those administer the instance.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "bytes_redirected": {
+            "description": "How many bytes downloads sent straight to a store asked for.\n\nRequested, not delivered: the store does not say what it sent, so an\nabandoned download counts in full here. Separate from `bytes_served`\nso that one keeps meaning what left this machine.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1704,6 +1836,7 @@
           "live_shares",
           "stored_bytes",
           "bytes_served",
+          "bytes_redirected",
           "live_invites"
         ],
         "type": "object"
@@ -1835,6 +1968,20 @@
         ],
         "type": "object"
       },
+      "UpdateBackendRequest": {
+        "additionalProperties": false,
+        "description": "Body of `PATCH /admin/storage/backends/{name}`.",
+        "properties": {
+          "direct_access": {
+            "description": "Whether browsers may be sent to it directly.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "direct_access"
+        ],
+        "type": "object"
+      },
       "UpdatePreferencesRequest": {
         "additionalProperties": false,
         "description": "Body of `PUT /me/preferences`.",
@@ -1896,6 +2043,10 @@
       "UploadResponse": {
         "description": "A session that has just been opened.",
         "properties": {
+          "direct": {
+            "description": "Whether the parts may go straight to the store instead of through here.\n\nWhen `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`\neach part to, and `POST /uploads/{id}/complete` finishes with the `ETag`\neach `PUT` answered. `PATCH` still works either way.\n\nDecided by where this upload was placed, and by whether the operator\nhas said a browser can reach that store, which is why it is here and not\nin the capabilities: an instance with an S3 bucket and a local directory\nanswers differently for different uploads.",
+            "type": "boolean"
+          },
           "id": {
             "description": "Identifier, and the last segment of the URL to continue at.",
             "type": "string"
@@ -1930,7 +2081,8 @@
           "id",
           "offset",
           "length",
-          "part_size"
+          "part_size",
+          "direct"
         ],
         "type": "object"
       },
@@ -3429,6 +3581,92 @@
           }
         ],
         "summary": "Removes a backend.",
+        "tags": [
+          "admin"
+        ]
+      },
+      "patch": {
+        "description": "# Why this is not another `POST` of the whole backend\n\nThat works, and replaces the row. But it needs the URL and credentials sent\nagain, and those are sealed and never shown, so flipping one switch would\nmean finding the secret key for a bucket again.\n\n# Errors\n\n`400` for the backend from `storage.url`, whose switch is the\n`storage.direct_access` setting. `401` when nothing was signed in, `403`\nwhen the caller may not write settings, `404` when no backend has that name.",
+        "operationId": "update_storage_backend",
+        "parameters": [
+          {
+            "description": "Which backend",
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateBackendRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackendResponse"
+                }
+              }
+            },
+            "description": "The backend as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The backend from storage.url is changed through its setting"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not write settings"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such backend"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Turns direct access on or off for a stored backend.",
         "tags": [
           "admin"
         ]
@@ -5122,6 +5360,43 @@
               "minimum": 0,
               "type": "integer"
             }
+          },
+          {
+            "description": "`link` or `password` to make an end-to-end encrypted share, whose body\narrives already sealed. See `docs/encryption.md`. Refused unless\n`/capabilities` says `encryption`.",
+            "example": "link",
+            "in": "query",
+            "name": "encryption",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For `encryption=password`: the salt the password was stretched with, as\n16 bytes of unpadded URL-safe base64. Handed to anyone who asks.",
+            "in": "query",
+            "name": "key_salt",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For an encrypted file: its name and media type, sealed. Takes the place\nof `filename`, and like it, makes this a file share.",
+            "in": "query",
+            "name": "sealed_name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For an encrypted share: its title and a note's language, sealed. Takes\nthe place of `title` and `language`.",
+            "in": "query",
+            "name": "sealed_details",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -5535,7 +5810,7 @@
     },
     "/api/v1/shares/{code}/files": {
       "post": {
-        "description": "# Why files arrive one at a time\n\nOne request carrying five files loses five when it drops at the fourth,\nexactly what uploading a folder of photographs over a home connection hits.\nA file that fails here is retried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an interrupted upload\nleaves a share holding what did arrive, not nothing.\n\nThe cost is that a link opened mid-upload shows part of the share. The link\nis handed out afterwards, by the person doing the upload.\n\n# Errors\n\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room. The body says whose ceiling that was.",
+        "description": "# Why files arrive one at a time\n\nOne request carrying five files loses five when it drops at the fourth,\nexactly what uploading a folder of photographs over a home connection hits.\nA file that fails here is retried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an interrupted upload\nleaves a share holding what did arrive, not nothing.\n\nThe cost is that a link opened mid-upload shows part of the share. The link\nis handed out afterwards, by the person doing the upload.\n\n# Errors\n\n`400` for a name that is unusable or described the wrong way for the share,\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room. The body says whose ceiling that was.",
         "operationId": "add_share_file",
         "parameters": [
           {
@@ -5552,6 +5827,15 @@
             "example": "holiday.jpg",
             "in": "query",
             "name": "filename",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Its name and media type, sealed, when the share is encrypted. Takes the\nplace of `filename` there.",
+            "in": "query",
+            "name": "sealed_name",
             "required": false,
             "schema": {
               "type": "string"
@@ -5584,6 +5868,16 @@
               }
             },
             "description": "The share as it now stands"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A name that is unusable, or described the wrong way for the share: in the clear on an encrypted one, sealed on a plain one"
           },
           "403": {
             "content": {
@@ -5939,6 +6233,33 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "description": "`link` or `password` for a new end-to-end encrypted share. An upload\ninto an existing share is sealed the way that share is, so this is\nrefused alongside `code`. See `POST /shares`.",
+            "in": "query",
+            "name": "encryption",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For `encryption=password`: the salt, as for `POST /shares`.",
+            "in": "query",
+            "name": "key_salt",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "For a file in an encrypted share: its name and media type, sealed. Takes\nthe place of `filename`.",
+            "in": "query",
+            "name": "sealed_name",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -6133,6 +6454,191 @@
           }
         ],
         "summary": "Applies bytes at the given offset.",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/v1/uploads/{id}/complete": {
+      "post": {
+        "description": "# Where the size is checked\n\nHere, and only here. A part URL cannot be limited to a length, so this\ncompletes the object and then asks the store how large it came out. One\nthat is not the size the session declared, and was charged against the\nuploader's room for, is deleted and refused.\n\nUntil then the extra bytes sit in the bucket. That is the cost of not\nhaving the bytes pass through here, and it is bounded by what a session\nthat already passed the size and room checks can write before this runs.\n\n# Errors\n\n`400` when the number of `ETag`s is not the number of parts, or the object\ndid not come out the declared size. `404` when there is no such session,\n`409` when this upload cannot take parts directly or has already had parts\nsent through this server, `410` when the session was abandoned.",
+        "operationId": "complete_upload",
+        "parameters": [
+          {
+            "description": "The session",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteUploadRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareResponse"
+                }
+              }
+            },
+            "description": "The upload is a file now"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Wrong number of parts, or not the declared size"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such session"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This upload cannot be finished this way"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That session was abandoned"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Finishes an upload whose parts went straight to the store.",
+        "tags": [
+          "uploads"
+        ]
+      }
+    },
+    "/api/v1/uploads/{id}/parts/{number}": {
+      "get": {
+        "description": "# Why this exists\n\nEvery byte of a `PATCH` crosses this server twice: in from the uploader,\nout to the bucket. On a self-hosted instance those are often the same\nuplink. A part written to the store directly crosses it zero times.\n\n# What it does not check\n\nThe part's size. The URL carries the part number and the upload it belongs\nto, both signed, but a length cannot be: `object_store` refuses to sign\n`content-length`. So a client may write a part of any size, and nothing\nfinds out until `complete` asks the store how large the object came out.\nSee [`complete`].\n\n# Errors\n\n`404` when there is no such session or no such part, `409` when this upload\ncannot take parts directly, `410` when the session was abandoned.",
+        "operationId": "upload_part_url",
+        "parameters": [
+          {
+            "description": "The session",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Which part, from one",
+            "in": "path",
+            "name": "number",
+            "required": true,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PartUrlResponse"
+                }
+              }
+            },
+            "description": "Where to `PUT` that part"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "`number` is not a part number"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "No such session, or no such part"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This upload cannot take parts directly"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "That session was abandoned"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Hands out a URL to write one part straight to the store.",
         "tags": [
           "uploads"
         ]

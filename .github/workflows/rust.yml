@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths: &rust-paths
       - "apps/server/**"
+      - "apps/cli/**"
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -38,6 +39,10 @@ on:
       - ".tbls.yml"
       - "docs/schema/**"
       - "scripts/schema-docs.py"
+      # The browser's build of the encryption crate, committed and checked in
+      # `checks` the same way. A hand edit to it has to wake that check.
+      - "packages/crypto/src/wasm/**"
+      - "scripts/crypto-wasm.sh"
   pull_request:
     paths: *rust-paths
   workflow_dispatch:
@@ -164,7 +169,10 @@ jobs:
             # gate on everything that compiles or runs it.
             rust: &rust
               - "apps/server/**"
+              - "apps/cli/**"
               - "crates/**"
+              - "packages/crypto/src/wasm/**"
+              - "scripts/crypto-wasm.sh"
               - "Cargo.toml"
               - "Cargo.lock"
               - "clippy.toml"
@@ -228,7 +236,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/rust
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
-        with: { tool: "cargo-deny,cargo-machete" }
+        # `wasm-bindgen` at the version `crates/tessera-crypto/Cargo.toml` pins.
+        # `scripts/crypto-wasm.sh` refuses any other, so a bump that forgets
+        # this line fails with a message saying so.
+        with: { tool: "cargo-deny,cargo-machete,wasm-bindgen@0.2.128" }
 
       # rustfmt.toml uses import grouping, which is still nightly-gated. The
       # pinned stable toolchain builds and lints; only formatting needs nightly.
@@ -282,6 +293,23 @@ jobs:
           if [ -n "$(git status --porcelain -- docs/schema)" ]; then
             git status --short -- docs/schema
             echo "::error::docs/schema is out of date. Run 'python3 scripts/schema-docs.py' and commit the result."
+            exit 1
+          fi
+
+      # The browser runs `tessera-crypto` compiled to WebAssembly, and that build
+      # is committed so the frontend never needs a Rust compiler. The same
+      # arrangement as the two above: rebuild, and fail if it is not what was
+      # committed, so the module a browser loads is always the crate as it is.
+      - name: Rebuild the browser's encryption module
+        run: |
+          rustup target add wasm32-unknown-unknown
+          ./scripts/crypto-wasm.sh
+
+      - name: Fail if the encryption module drifted
+        run: |
+          if [ -n "$(git status --porcelain -- packages/crypto/src/wasm)" ]; then
+            git status --short -- packages/crypto/src/wasm
+            echo "::error::packages/crypto/src/wasm is out of date. Run './scripts/crypto-wasm.sh' and commit the result."
             exit 1
           fi
 
@@ -597,7 +625,7 @@ jobs:
             curl -s -o /dev/null http://127.0.0.1:39002 && break
             sleep 1
           done
-          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+          docker run --rm --network host --entrypoint sh quay.io/minio/mc:latest -c '
             mc alias set t http://127.0.0.1:39002 tesseratest tesseratestsecret &&
             mc mb --ignore-existing t/tessera &&
             mc mb --ignore-existing t/tessera-cold'
@@ -762,7 +790,7 @@ jobs:
           docker run -d --name tessera-minio -p 39100:9000 \
             -e MINIO_ROOT_USER=tesseratest -e MINIO_ROOT_SECRET=tesseratestsecret \
             -e MINIO_ROOT_PASSWORD=tesseratestsecret \
-            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+            quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
           for _ in $(seq 1 60); do
             curl -s -o /dev/null http://127.0.0.1:39100 && break
             sleep 1
@@ -842,7 +870,7 @@ jobs:
       # on stderr while still reporting the bucket as created.
       - name: Create their buckets
         run: |
-          docker run --rm --network host --entrypoint sh minio/mc:latest -c '
+          docker run --rm --network host --entrypoint sh quay.io/minio/mc:latest -c '
             for host in 39100 38333 38111 38090; do
               mc alias set "s$host" "http://127.0.0.1:$host" tesseratest tesseratestsecret &&
               mc mb --ignore-existing "s$host/tessera" &&

@@ -3176,6 +3176,88 @@ async fn a_new_backend_is_usable_without_a_restart() {
     );
 }
 
+/// Flipping the switch must not need the credentials again: they are sealed and
+/// never shown, so sending the whole backend a second time would mean digging
+/// out a bucket's secret key to change one boolean.
+#[tokio::test]
+async fn direct_access_is_switched_without_sending_the_credentials_again() {
+    let app = app_with_key().await;
+    let (admin, _) = register(&app, "first").await;
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/storage/backends",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "name": "cold", "url": "memory://" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert!(!app.state.direct_access("cold"), "off unless asked for");
+
+    let switched = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                "/api/v1/admin/storage/backends/cold",
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "direct_access": true }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(switched["direct_access"], true, "{switched}");
+    assert!(
+        app.state.direct_access("cold"),
+        "the switch did not reach the pool"
+    );
+    assert!(
+        app.state.backend("cold").is_some(),
+        "switching it lost the credentials it opens with"
+    );
+
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/admin/storage/backends/cold",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "direct_access": false }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    assert!(!app.state.direct_access("cold"));
+}
+
+/// The backend from `storage.url` has no row, so its switch is a setting, and a
+/// name that is no backend at all is `404`.
+#[tokio::test]
+async fn the_environments_backend_is_switched_through_its_setting() {
+    let app = app_with_key().await;
+    let (admin, _) = register(&app, "first").await;
+    for (name, expected) in [
+        ("default", StatusCode::BAD_REQUEST),
+        ("nothing-by-this-name", StatusCode::NOT_FOUND),
+    ] {
+        expect_status(
+            app.json(
+                Method::PATCH,
+                &format!("/api/v1/admin/storage/backends/{name}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "direct_access": true }),
+            )
+            .await,
+            expected,
+        )
+        .await;
+    }
+}
+
 /// Reading settings is not writing them, and a backend is a credential.
 #[tokio::test]
 async fn writing_a_backend_needs_more_than_reading_one() {

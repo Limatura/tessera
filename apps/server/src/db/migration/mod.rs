@@ -64,6 +64,8 @@ mod m20260905_000001_oidc;
 mod m20260906_000001_backchannel_logout;
 mod m20260907_000001_auth_flows;
 mod m20260908_000001_user_preferences;
+mod m20260914_000001_direct_access;
+mod m20260917_000001_encryption;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -118,6 +120,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260906_000001_backchannel_logout::Migration),
             Box::new(m20260907_000001_auth_flows::Migration),
             Box::new(m20260908_000001_user_preferences::Migration),
+            Box::new(m20260914_000001_direct_access::Migration),
+            Box::new(m20260917_000001_encryption::Migration),
         ]
     }
 }

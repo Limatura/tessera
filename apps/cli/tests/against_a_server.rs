@@ -1,0 +1,344 @@
+//! The commands, against a real server listening on a real port.
+//!
+//! Nothing is mocked: the server is the same router the binary serves, on an
+//! in-memory database and a temporary directory. What these prove is that what
+//! the command line seals, the server stores without reading, and the command
+//! line opens again.
+
+#![expect(
+    clippy::expect_used,
+    reason = "test fixture; a panic is how it reports"
+)]
+
+use std::{net::SocketAddr, path::Path, sync::Arc};
+
+use tempfile::TempDir;
+use tessera_cli::{
+    Error,
+    client::Client,
+    get, link,
+    send::{self, Content, Options},
+};
+use tessera_server::{
+    api,
+    config::{Config, DatabaseConfig, StorageConfig},
+    db,
+    state::{AppState, ServiceStatus, Storage},
+    storage::{self, Backends, DEFAULT_BACKEND, Pool, secret::Sealer},
+};
+use url::Url;
+
+/// A server on a port, and the directory its files land in.
+struct Server {
+    url: Url,
+    blobs: TempDir,
+}
+
+async fn server() -> Server {
+    let blobs = tempfile::tempdir().expect("temp dir");
+    let mut config = Config {
+        database: DatabaseConfig {
+            url: "sqlite::memory:".to_owned(),
+            ..Default::default()
+        },
+        storage: StorageConfig {
+            url: blobs.path().join("blobs").display().to_string(),
+            ..Default::default()
+        },
+        ..Config::default()
+    };
+    config.features.encryption = true;
+
+    let database = db::connect(&config.database).await.expect("database");
+    db::migrate(&database).await.expect("migrations");
+    let default = storage::build_with_multipart(&config.storage).expect("store");
+    let assets =
+        tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets");
+    let sealer = Sealer::new(&config.storage.secret_key).expect("a usable key");
+    let state = AppState::new(
+        Arc::new(config),
+        database,
+        Storage {
+            pool: Pool {
+                open: Backends::from([(DEFAULT_BACKEND.to_owned(), default.clone())]),
+                configured: Vec::new(),
+            },
+            default,
+            sealer,
+        },
+        assets,
+    );
+    state.set_status(ServiceStatus::Ready);
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("a port");
+    let address = listener.local_addr().expect("an address");
+    let app = api::build(state).into_make_service_with_connect_info::<SocketAddr>();
+    tokio::spawn(async move { axum::serve(listener, app).await });
+    Server {
+        url: Url::parse(&format!("http://{address}")).expect("a url"),
+        blobs,
+    }
+}
+
+/// Deterministic bytes that no stretch of could be mistaken for another.
+fn content(len: usize, seed: u8) -> Vec<u8> {
+    let mut state = u32::from(seed) | 1;
+    (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            state.to_le_bytes()[0]
+        })
+        .collect()
+}
+
+fn write(dir: &Path, name: &str, bytes: &[u8]) -> std::path::PathBuf {
+    let path = dir.join(name);
+    std::fs::write(&path, bytes).expect("write a file to send");
+    path
+}
+
+/// Every stored byte, concatenated, to search for plaintext in.
+fn stored(server: &Server) -> Vec<u8> {
+    fn walk(dir: &Path, into: &mut Vec<u8>) {
+        for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, into);
+            } else {
+                into.extend(std::fs::read(&path).unwrap_or_default());
+            }
+        }
+    }
+    let mut all = Vec::new();
+    walk(server.blobs.path(), &mut all);
+    all
+}
+
+fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+    haystack
+        .windows(needle.len())
+        .any(|window| window == needle)
+}
+
+async fn fetch(
+    link: &str,
+    password: Option<&str>,
+    output: &Path,
+) -> tessera_cli::Result<get::Fetched> {
+    let target = link::parse(link, None)?;
+    let client = Client::new(target.server.clone(), None)?;
+    get::get(
+        &client,
+        &target.code,
+        target.key,
+        password,
+        output,
+        &mut |_, _, _| {},
+    )
+    .await
+}
+
+/// Larger than one upload part, so it goes up in several requests, and not a
+/// multiple of a chunk, so the last chunk is short.
+const LARGE: usize = 9 * 1024 * 1024 + 12_345;
+
+#[tokio::test]
+async fn files_sealed_with_a_key_in_the_link_come_back_whole() {
+    let server = server().await;
+    let local = tempfile::tempdir().unwrap();
+    let large = content(LARGE, 1);
+    let small = b"a marker the server must never hold in the clear".to_vec();
+    let paths = vec![
+        write(local.path(), "large.bin", &large),
+        write(local.path(), "notes 報告.txt", &small),
+    ];
+
+    let client = Client::new(server.url.clone(), None).unwrap();
+    let sent = send::send(
+        &client,
+        Content::Files(paths),
+        Options {
+            encrypt: true,
+            ..Options::default()
+        },
+        &mut |_, _, _| {},
+    )
+    .await
+    .expect("send");
+    assert!(
+        sent.link.contains('#'),
+        "the key rides in the link: {}",
+        sent.link
+    );
+
+    let everything = stored(&server);
+    assert!(
+        !contains(&everything, &small),
+        "plaintext reached the store"
+    );
+    assert!(
+        !contains(&everything, "報告".as_bytes()),
+        "a name reached the store"
+    );
+
+    let into = tempfile::tempdir().unwrap();
+    let fetched = fetch(&sent.link, None, into.path()).await.expect("get");
+    assert_eq!(fetched.files.len(), 2);
+    assert_eq!(std::fs::read(into.path().join("large.bin")).unwrap(), large);
+    assert_eq!(
+        std::fs::read(into.path().join("notes 報告.txt")).unwrap(),
+        small
+    );
+}
+
+#[tokio::test]
+async fn without_the_key_an_encrypted_share_is_refused_with_a_reason() {
+    let server = server().await;
+    let local = tempfile::tempdir().unwrap();
+    let client = Client::new(server.url.clone(), None).unwrap();
+    let sent = send::send(
+        &client,
+        Content::Files(vec![write(local.path(), "a.txt", b"sealed")]),
+        Options {
+            encrypt: true,
+            ..Options::default()
+        },
+        &mut |_, _, _| {},
+    )
+    .await
+    .expect("send");
+
+    let bare = link::to_share(&server.url, &sent.code, None);
+    let refusal = fetch(&bare, None, local.path()).await.unwrap_err();
+    assert!(refusal.to_string().contains("after `#`"), "{refusal}");
+}
+
+#[tokio::test]
+async fn a_key_from_a_password_opens_only_with_that_password() {
+    let server = server().await;
+    let local = tempfile::tempdir().unwrap();
+    let bytes = content(200_000, 7);
+    let client = Client::new(server.url.clone(), None).unwrap();
+    let sent = send::send(
+        &client,
+        Content::Files(vec![write(local.path(), "secret.bin", &bytes)]),
+        Options {
+            encrypt: true,
+            password: Some("correct horse battery staple".to_owned()),
+            max_uses: Some(2),
+            ..Options::default()
+        },
+        &mut |_, _, _| {},
+    )
+    .await
+    .expect("send");
+    assert!(
+        !sent.link.contains('#'),
+        "no key in the link: {}",
+        sent.link
+    );
+
+    let into = tempfile::tempdir().unwrap();
+    assert!(matches!(
+        fetch(&sent.link, None, into.path()).await,
+        Err(Error::PasswordRequired)
+    ));
+    assert!(matches!(
+        fetch(&sent.link, Some("wrong horse battery staple"), into.path()).await,
+        Err(Error::Server { status: 401, .. })
+    ));
+    fetch(
+        &sent.link,
+        Some("correct horse battery staple"),
+        into.path(),
+    )
+    .await
+    .expect("get with the password");
+    assert_eq!(
+        std::fs::read(into.path().join("secret.bin")).unwrap(),
+        bytes
+    );
+}
+
+#[tokio::test]
+async fn a_short_password_is_refused_before_anything_is_sent() {
+    let server = server().await;
+    let local = tempfile::tempdir().unwrap();
+    let client = Client::new(server.url.clone(), None).unwrap();
+    let refusal = send::send(
+        &client,
+        Content::Files(vec![write(local.path(), "a.txt", b"x")]),
+        Options {
+            encrypt: true,
+            password: Some("hunter2".to_owned()),
+            ..Options::default()
+        },
+        &mut |_, _, _| {},
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(refusal, Error::Usage(_)), "{refusal}");
+    assert!(
+        stored(&server).is_empty(),
+        "nothing should have been uploaded"
+    );
+}
+
+#[tokio::test]
+async fn a_sealed_note_comes_back_as_text() {
+    let server = server().await;
+    let client = Client::new(server.url.clone(), None).unwrap();
+    let note = "meet at the usual place\n".as_bytes().to_vec();
+    let sent = send::send(
+        &client,
+        Content::Note(note.clone()),
+        Options {
+            encrypt: true,
+            ..Options::default()
+        },
+        &mut |_, _, _| {},
+    )
+    .await
+    .expect("send");
+
+    let into = tempfile::tempdir().unwrap();
+    let fetched = fetch(&sent.link, None, into.path()).await.expect("get");
+    assert_eq!(fetched.note, Some(note));
+    assert!(fetched.files.is_empty());
+}
+
+/// The same commands without `--encrypt`: an ordinary share with a password.
+#[tokio::test]
+async fn a_plain_share_with_a_password_still_works() {
+    let server = server().await;
+    let local = tempfile::tempdir().unwrap();
+    let client = Client::new(server.url.clone(), None).unwrap();
+    let sent = send::send(
+        &client,
+        Content::Files(vec![write(local.path(), "plain.txt", b"in the clear")]),
+        Options {
+            password: Some("1234".to_owned()),
+            ..Options::default()
+        },
+        &mut |_, _, _| {},
+    )
+    .await
+    .expect("send");
+
+    let into = tempfile::tempdir().unwrap();
+    assert!(matches!(
+        fetch(&sent.link, None, into.path()).await,
+        Err(Error::PasswordRequired)
+    ));
+    fetch(&sent.link, Some("1234"), into.path())
+        .await
+        .expect("get");
+    assert_eq!(
+        std::fs::read(into.path().join("plain.txt")).unwrap(),
+        b"in the clear"
+    );
+}

@@ -2,7 +2,7 @@
 
 ## Description
 
-A blob store this instance can write to, added from the panel. The credentials are sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone.
+A blob store this instance can write to, added from the panel. The credentials are sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone. `direct_access` says whether a browser may be sent to the store directly, for a download or an upload's parts; off unless an operator turns it on, because only they know whether a browser can reach it.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -18,7 +18,7 @@ CREATE TABLE storage_backends (
     is_default  INTEGER    NOT NULL DEFAULT FALSE,
     created_at  TEXT   NOT NULL,
     updated_at  TEXT   NOT NULL
-, capacity_bytes INTEGER, read_only INTEGER NOT NULL DEFAULT FALSE)
+, capacity_bytes INTEGER, read_only INTEGER NOT NULL DEFAULT FALSE, direct_access INTEGER NOT NULL DEFAULT FALSE)
 ```
 
 </details>
@@ -35,6 +35,7 @@ CREATE TABLE storage_backends (
 | updated_at | TEXT |  | false |  |  |  |
 | capacity_bytes | INTEGER |  | true |  |  |  |
 | read_only | INTEGER | FALSE | false |  |  |  |
+| direct_access | INTEGER | FALSE | false |  |  |  |
 
 ## Constraints
 
@@ -64,6 +65,7 @@ erDiagram
   TEXT updated_at
   INTEGER capacity_bytes
   INTEGER read_only
+  INTEGER direct_access
 }
 ```
 

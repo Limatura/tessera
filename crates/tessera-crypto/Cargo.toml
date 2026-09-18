@@ -1,0 +1,35 @@
+[package]
+name = "tessera-crypto"
+description = "The end-to-end encryption format, shared by the browser and the command line"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+# Built for two targets: natively for the command line, and to WebAssembly for
+# the browser. So nothing here may reach for the operating system, randomness
+# included: every nonce, salt and key arrives as an argument, and the caller
+# decides where it came from.
+[dependencies]
+argon2 = { version = "0.6", default-features = false, features = ["alloc"] }
+base64ct = { version = "1.8", features = ["alloc"] }
+chacha20poly1305 = { version = "0.11", default-features = false, features = ["alloc"] }
+hkdf = "0.13"
+sha2 = { version = "0.11", default-features = false }
+thiserror = { workspace = true }
+# Pinned exactly: the `wasm-bindgen` command that turns the build into a
+# JavaScript module has to be this same version, or it refuses the file.
+wasm-bindgen = { version = "=0.2.128", optional = true }
+zeroize = { version = "1.9", features = ["derive"] }
+
+[features]
+# The browser's bindings. Built by `scripts/crypto-wasm.sh`, not by default:
+# nothing native needs them.
+wasm = ["dep:wasm-bindgen"]
+
+[dev-dependencies]
+proptest = "1.11"
+rstest = "0.26"
+
+[lints]
+workspace = true

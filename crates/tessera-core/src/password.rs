@@ -6,12 +6,28 @@ use serde::Deserialize;
 
 use crate::DomainError;
 
-/// How long a password must be to be accepted.
+/// What a password must be to be accepted.
 ///
-/// Length is the only rule. Composition requirements (an uppercase, a digit, a
-/// symbol) are absent. NIST 800-63B dropped them because they push people
-/// towards `Password1!` and away from the long passphrases that resist
-/// guessing. A longer minimum is worth more than a wider alphabet.
+/// Length, and optionally composition. The composition rules are off unless
+/// an operator turns them on. NIST 800-63B dropped them because they push
+/// people towards `Password1!` and away from the long passphrases that resist
+/// guessing, so a longer minimum is worth more than a wider alphabet. Some
+/// operators answer to a policy that still asks for them, which is why they
+/// exist at all.
+///
+/// # Character classes
+///
+/// Unicode, not ASCII, so a password in any script is judged the same way. A
+/// client checking before the round trip should use the same properties:
+///
+/// | Rule | Rust | JavaScript |
+/// | --- | --- | --- |
+/// | [`require_mixed_case`](Self::require_mixed_case) | [`char::is_uppercase`] and [`char::is_lowercase`] | `/\p{Uppercase}/u` and `/\p{Lowercase}/u` |
+/// | [`require_digit`](Self::require_digit) | [`char::is_numeric`] | `/\p{N}/u` |
+/// | [`require_symbol`](Self::require_symbol) | not [`char::is_alphanumeric`], not [`char::is_whitespace`] | `/[^\p{Alphabetic}\p{N}\p{White_Space}]/u` |
+///
+/// A space is not a symbol. Counting it would let any passphrase satisfy the
+/// rule, which is not what an operator who turned it on asked for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PasswordPolicy {
@@ -19,6 +35,12 @@ pub struct PasswordPolicy {
     pub min_length: usize,
     /// Longest accepted password, in characters.
     pub max_length: usize,
+    /// Whether a password needs both an uppercase and a lowercase letter.
+    pub require_mixed_case: bool,
+    /// Whether a password needs a digit.
+    pub require_digit: bool,
+    /// Whether a password needs a symbol.
+    pub require_symbol: bool,
 }
 
 impl PasswordPolicy {
@@ -48,12 +70,16 @@ impl PasswordPolicy {
     /// So sign-in and change-password parse against this, and only choosing a
     /// *new* password is checked against the configured policy. The bounds are
     /// still real: they are the ones that make [`Password`] a meaningful type at
-    /// all, and they cap the work an unauthenticated request can ask for.
+    /// all, and they cap the work an unauthenticated request can ask for. The
+    /// composition rules are all off, for the same reason as the minimum.
     #[must_use]
     pub const fn widest() -> Self {
         Self {
             min_length: Self::FLOOR,
             max_length: Self::CEILING,
+            require_mixed_case: false,
+            require_digit: false,
+            require_symbol: false,
         }
     }
 
@@ -88,12 +114,15 @@ impl PasswordPolicy {
 
 impl Default for PasswordPolicy {
     fn default() -> Self {
-        // 12, not the more common 8. This is a self-hosted service whose
-        // login page may face the internet, and the operator is often the only
-        // user, so the cost of a slightly longer minimum is small and paid once.
+        // The floor. An operator who wants longer passwords raises it; a
+        // default above it only turns away people the operator never asked to
+        // turn away.
         Self {
-            min_length: 12,
+            min_length: Self::FLOOR,
             max_length: 256,
+            require_mixed_case: false,
+            require_digit: false,
+            require_symbol: false,
         }
     }
 }
@@ -126,8 +155,8 @@ impl Password {
     ///
     /// # Errors
     ///
-    /// Returns [`DomainError`] if the password is empty or outside the policy's
-    /// length bounds.
+    /// Returns [`DomainError`] if the password is empty, outside the policy's
+    /// length bounds, or missing a character class the policy requires.
     pub fn parse(raw: impl Into<String>, policy: PasswordPolicy) -> Result<Self, DomainError> {
         let raw = raw.into();
 
@@ -145,7 +174,32 @@ impl Password {
             });
         }
 
+        if policy.require_mixed_case
+            && !(raw.chars().any(char::is_uppercase) && raw.chars().any(char::is_lowercase))
+        {
+            return Err(Self::lacks(
+                "must contain an uppercase and a lowercase letter",
+            ));
+        }
+        if policy.require_digit && !raw.chars().any(char::is_numeric) {
+            return Err(Self::lacks("must contain a digit"));
+        }
+        if policy.require_symbol
+            && !raw
+                .chars()
+                .any(|c| !c.is_alphanumeric() && !c.is_whitespace())
+        {
+            return Err(Self::lacks("must contain a symbol"));
+        }
+
         Ok(Self(raw))
+    }
+
+    const fn lacks(reason: &'static str) -> DomainError {
+        DomainError::Malformed {
+            field: "password",
+            reason,
+        }
     }
 
     /// The plaintext, for handing to a hasher.
@@ -218,11 +272,17 @@ mod tests {
                 let policy = PasswordPolicy {
                     min_length: min,
                     max_length: max,
+                    require_mixed_case: true,
+                    require_digit: true,
+                    require_symbol: true,
                 };
                 assert!(policy.validate().is_ok(), "{policy:?} should be valid");
                 assert!(
                     widest.min_length <= policy.min_length
-                        && widest.max_length >= policy.max_length,
+                        && widest.max_length >= policy.max_length
+                        && !widest.require_mixed_case
+                        && !widest.require_digit
+                        && !widest.require_symbol,
                     "{policy:?} is not covered by the widest policy"
                 );
             }
@@ -232,6 +292,16 @@ mod tests {
     const POLICY: PasswordPolicy = PasswordPolicy {
         min_length: 12,
         max_length: 256,
+        require_mixed_case: false,
+        require_digit: false,
+        require_symbol: false,
+    };
+
+    const COMPOSED: PasswordPolicy = PasswordPolicy {
+        require_mixed_case: true,
+        require_digit: true,
+        require_symbol: true,
+        ..POLICY
     };
 
     #[test]
@@ -246,6 +316,33 @@ mod tests {
     #[case::one_below_minimum("elevenchars")]
     fn rejects_passwords_below_the_policy(#[case] raw: &str) {
         assert!(Password::parse(raw, POLICY).is_err());
+    }
+
+    #[rstest]
+    #[case::no_uppercase("lower case 1 and !")]
+    #[case::no_lowercase("UPPER CASE 1 AND !")]
+    #[case::no_digit("Mixed Case and !")]
+    #[case::no_symbol("Mixed Case and 1")]
+    #[case::space_is_not_a_symbol("Mixed Case and 1 ")]
+    fn rejects_passwords_missing_a_required_class(#[case] raw: &str) {
+        assert!(matches!(
+            Password::parse(raw, COMPOSED),
+            Err(DomainError::Malformed { .. })
+        ));
+    }
+
+    #[rstest]
+    #[case::ascii("Mixed Case 1 and !")]
+    #[case::other_scripts("Ωmega ωmega ٣ 。")]
+    fn accepts_passwords_with_every_required_class(#[case] raw: &str) {
+        assert!(Password::parse(raw, COMPOSED).is_ok());
+    }
+
+    /// Off by default: a passphrase of lowercase words is the kind of password
+    /// the default should encourage, not refuse.
+    #[test]
+    fn the_default_policy_has_no_composition_rules() {
+        assert!(Password::parse("correct horse battery staple", PasswordPolicy::default()).is_ok());
     }
 
     #[test]
@@ -284,9 +381,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case::below_floor(PasswordPolicy { min_length: 4, max_length: 64 })]
-    #[case::above_ceiling(PasswordPolicy { min_length: 12, max_length: 100_000 })]
-    #[case::inverted(PasswordPolicy { min_length: 64, max_length: 12 })]
+    #[case::below_floor(PasswordPolicy { min_length: 4, max_length: 64, ..POLICY })]
+    #[case::above_ceiling(PasswordPolicy { min_length: 12, max_length: 100_000, ..POLICY })]
+    #[case::inverted(PasswordPolicy { min_length: 64, max_length: 12, ..POLICY })]
     fn rejects_unusable_policies(#[case] policy: PasswordPolicy) {
         assert!(policy.validate().is_err());
     }

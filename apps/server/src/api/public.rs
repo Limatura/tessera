@@ -65,13 +65,48 @@ pub struct RetrievalQuery {
     /// still works.
     #[serde(default)]
     pub format: Format,
+    /// One file of a share that holds several, by its position from zero.
+    ///
+    /// Served as that file alone, resumable and without an archive around it.
+    /// An encrypted share has to be fetched this way: an archive of sealed files
+    /// is something no archiver can open.
+    pub file: Option<usize>,
+}
+
+/// Which file of a share a request is about. See [`RetrievalQuery::file`].
+///
+/// Not `deny_unknown_fields`, unlike [`RetrievalQuery`]: the routes taking this
+/// read no query at all before, and a client sending one along must not start
+/// failing.
+#[derive(Debug, Default, serde::Deserialize)]
+pub struct FileQuery {
+    /// Its position, from zero.
+    pub file: Option<usize>,
+}
+
+/// The content a request is about: all of it, or the one file it named.
+///
+/// # Errors
+///
+/// `404` for a position the share does not have.
+fn narrowed(content: Content, file: Option<usize>) -> Result<Content> {
+    let Some(position) = file else {
+        return Ok(content);
+    };
+    content
+        .files()
+        .get(position)
+        .map(|part| Content::Files(vec![part.clone()]))
+        .ok_or(Error::NotFound)
 }
 
 /// Routes that are not part of the versioned API.
 pub fn routes() -> Router<AppState> {
     let router = Router::new()
         .route("/{code}/raw", get(raw))
-        .route("/{code}/download", get(download));
+        .route("/{code}/download", get(download))
+        .route("/{code}/segments", get(segments))
+        .route("/{code}/segments/{index}", get(segment));
     #[cfg(feature = "og-images")]
     let router = router.route("/{code}/og.png", get(og_image));
     router
@@ -273,6 +308,13 @@ async fn raw(
             "this share is a file; use /download instead",
         ));
     }
+    // Sealed bytes labelled as UTF-8 text are nothing a reader can use, and
+    // only the page holding the key can turn them into the note.
+    if share.encryption.is_some() {
+        return Err(Error::bad_request(
+            "this share is end-to-end encrypted; fetch it from /download and open it with its key",
+        ));
+    }
     let payload = permit(
         &state,
         &share,
@@ -316,6 +358,17 @@ async fn download(
     // See `raw`: the admission decision needs the ticket, so it happens in
     // `permit`, not here.
     let share = gate::find(&state, &code, &source).await?;
+    // An archive of sealed files is something no archiver can open, so these
+    // are fetched a file at a time. Asked of every encrypted file share, not
+    // only those with several files: the rule then needs nothing the share
+    // does not already say publicly, and is settled before a retrieval is
+    // spent or a locked share's file count given away.
+    if share.encryption.is_some() && share.kind == ShareKind::File && query.file.is_none() {
+        return Err(Error::bad_request(
+            "an end-to-end encrypted share is fetched one file at a time; add `?file=` with the \
+             file's position, from zero",
+        ));
+    }
     let payload = permit(
         &state,
         &share,
@@ -327,7 +380,14 @@ async fn download(
     .await?;
     // Never the media type the uploader claimed. Serving that back is the same
     // stored-XSS hole as `/raw`, reached from the other direction.
-    let content = state.shares.content_of(&share).await?;
+    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
+    // After `permit`, so the password, the expiry and the access log have all
+    // had their say before anybody is sent anywhere.
+    if matches!(payload, Payload::Content)
+        && let Some(redirect) = redirect_to_store(&state, &share, &content, &headers).await
+    {
+        return Ok(redirect);
+    }
     let disposition = HeaderValue::from_str(&content_disposition(&content))
         .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
     serve(
@@ -343,6 +403,340 @@ async fn download(
         },
     )
     .await
+}
+
+/// Sends a download to the store itself, when that is safe to do.
+///
+/// # When it is
+///
+/// Only for a share that promises nothing about who gets the bytes or how often:
+/// no password and no use limit. A URL to the store is a bearer credential for
+/// its lifetime, so on a password-protected share it would be a copy of the
+/// file that needs no password, and on a one-time share a second collection
+/// the count never sees. Neither can be repaired at the store: a presigned URL
+/// cannot be limited to one use or one client.
+///
+/// Only for one file in one piece, on a backend whose operator has said a
+/// browser can reach it and which can sign a URL at all. An archive does not
+/// exist until it is sent, and a split file is several objects.
+///
+/// # How long the URL lives
+///
+/// Fifteen seconds by the store's clock, which is measured first; see
+/// [`crate::storage::clock`]. Long enough to start a transfer, which the store
+/// then finishes whatever the time, and short enough that a URL copied out of
+/// the browser is not much of a gift. A resumed download comes back here for a
+/// fresh one.
+///
+/// # What is counted
+///
+/// What the request asked for, in `bytes_redirected`: the file, or the range.
+/// Not `bytes_served`, which counts what left this process as it left, and none
+/// did.
+///
+/// Anything that does not work out answers `None`, and the download is served
+/// from here as it always was. Being sent somewhere is an optimisation; failing
+/// to be is not an error.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn redirect_to_store(
+    state: &AppState,
+    share: &Share,
+    content: &Content,
+    headers: &HeaderMap,
+) -> Option<Response> {
+    let (file, pieces) = direct_file(state, share, content)?;
+    // One object, because one URL names one object. A split file is handed over
+    // a piece at a time instead; see [`segments`].
+    let [piece] = pieces.as_slice() else {
+        return None;
+    };
+
+    // A range this cannot read is left for `serve`, which answers `416`.
+    let requested = requested_bytes(headers, file.size_bytes)?;
+
+    // The same name and the same opaque type this server would send, signed
+    // into the URL so the store answers with them. The hardening headers
+    // `serve` adds cannot travel this way; an attachment of an opaque type is
+    // what keeps the browser from rendering it instead.
+    let options = object_store::signer::SignedUrlOptions::new().with_query([
+        ("response-content-disposition", content_disposition(content)),
+        (
+            "response-content-type",
+            "application/octet-stream".to_owned(),
+        ),
+    ]);
+    let location = signed_get(state, piece, &options).await?;
+    count_redirected(state, share, requested).await;
+    Some(hand_over(location))
+}
+
+/// How many bytes a request asked for: the whole thing, or its range.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn requested_bytes(headers: &HeaderMap, size: u64) -> Option<u64> {
+    match headers
+        .get(header::RANGE)
+        .and_then(|value| value.to_str().ok())
+    {
+        None => Some(size),
+        Some(value) => {
+            let (start, end) = parse_range(value, size).ok()?;
+            Some(end.saturating_sub(start).saturating_add(1))
+        }
+    }
+}
+
+/// Writes down what was handed to a store. A failure here does not stop the
+/// download, for the reason `record_access` gives.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn count_redirected(state: &AppState, share: &Share, bytes: u64) {
+    if let Err(error) = state.shares.add_bytes_redirected(share.id, bytes).await {
+        tracing::warn!(?error, share = %share.id, "could not record a redirected download");
+    }
+}
+
+/// How a file is stored, for a browser that will fetch the pieces itself.
+///
+/// A file split across backends comes back as several objects, and the only way
+/// to save this server's bandwidth is for the browser to fetch each one and join
+/// them. That needs to know how many there are and how long each is.
+#[derive(Debug, serde::Serialize)]
+pub struct SegmentsResponse {
+    /// The whole file's size, so the browser can check what it joined.
+    pub size_bytes: u64,
+    /// Its pieces, in order. A file that was never split has one.
+    pub segments: Vec<SegmentPart>,
+}
+
+/// One piece, as the listing describes it.
+///
+/// No URL. One lives fifteen seconds and joining a large file takes minutes, so
+/// a list of them would be a list of expired URLs by the time the browser
+/// reached the end. Each is asked for when it is wanted, from
+/// `/s/{code}/segments/{index}`.
+#[derive(Debug, serde::Serialize)]
+pub struct SegmentPart {
+    /// Where it starts within the file.
+    pub offset: u64,
+    /// How many bytes it holds.
+    pub length: u64,
+}
+
+/// How this share is stored, for a browser that will join the pieces itself.
+///
+/// Answers `404` unless every piece could be fetched from its store directly,
+/// by the rules [`direct_file`] keeps: nothing to join is worth describing when
+/// the bytes would come through here anyway, and a client that gets a `404`
+/// uses `/download` as before.
+///
+/// Costs a retrieval no more than a `HEAD` does. Describing the layout is not
+/// handing anything over.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn segments(
+    State(state): State<AppState>,
+    ApiPath(code): ApiPath<String>,
+    ApiQuery(query): ApiQuery<FileQuery>,
+    ClientAddress(Origin { source, .. }): ClientAddress,
+    headers: HeaderMap,
+) -> Result<axum::Json<SegmentsResponse>> {
+    let share = gate::find(&state, &code, &source).await?;
+    permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
+    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
+    let (file, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
+    Ok(axum::Json(SegmentsResponse {
+        size_bytes: file.size_bytes,
+        segments: pieces
+            .iter()
+            .map(|piece| SegmentPart {
+                offset: piece.offset,
+                length: piece.length,
+            })
+            .collect(),
+    }))
+}
+
+/// Hands over one piece, by sending the browser to the store that holds it.
+///
+/// The index is the position in [`SegmentsResponse::segments`], from zero.
+///
+/// # Errors
+///
+/// `404` when there is no such share, no such piece, or the share is not one
+/// whose pieces may be fetched directly.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn segment(
+    State(state): State<AppState>,
+    ApiPath((code, index)): ApiPath<(String, usize)>,
+    ApiQuery(query): ApiQuery<FileQuery>,
+    ClientAddress(Origin { source, .. }): ClientAddress,
+    headers: HeaderMap,
+) -> Result<Response> {
+    let share = gate::find(&state, &code, &source).await?;
+    permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
+    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
+    let (_, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
+    let piece = pieces.get(index).ok_or(Error::NotFound)?;
+
+    let requested = requested_bytes(&headers, piece.length)
+        .ok_or(Error::RangeNotSatisfiable { size: piece.length })?;
+    let options = object_store::signer::SignedUrlOptions::new().with_query([(
+        "response-content-type",
+        "application/octet-stream".to_owned(),
+    )]);
+    let location = signed_get(&state, piece, &options)
+        .await
+        .ok_or(Error::Unavailable)?;
+    count_redirected(&state, &share, requested).await;
+    Ok(hand_over(location))
+}
+
+/// A build with no store that can be fetched from directly has nothing to
+/// describe.
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+#[expect(
+    clippy::unused_async,
+    reason = "the same signature as the build that answers"
+)]
+async fn segments(
+    State(_): State<AppState>,
+    ApiPath(_): ApiPath<String>,
+    ApiQuery(_): ApiQuery<FileQuery>,
+    ClientAddress(_): ClientAddress,
+    _: HeaderMap,
+) -> Result<axum::Json<SegmentsResponse>> {
+    Err(Error::NotFound)
+}
+
+/// As [`segments`].
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+#[expect(
+    clippy::unused_async,
+    reason = "the same signature as the build that answers"
+)]
+async fn segment(
+    State(_): State<AppState>,
+    ApiPath(_): ApiPath<(String, usize)>,
+    ApiQuery(_): ApiQuery<FileQuery>,
+    ClientAddress(_): ClientAddress,
+    _: HeaderMap,
+) -> Result<Response> {
+    Err(Error::NotFound)
+}
+
+/// One piece of a file, wherever it lives.
+///
+/// A file that was never split is one piece; a split one is its segments, in
+/// order. Having both shapes answer the same way is what lets the download
+/// path and the stitching path share their rules.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+struct Piece<'a> {
+    backend: &'a str,
+    key: &'a str,
+    offset: u64,
+    length: u64,
+}
+
+/// The pieces a file is stored as, or `None` when its bytes are gone.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn pieces(file: &FilePart) -> Option<Vec<Piece<'_>>> {
+    if file.segments.is_empty() {
+        return Some(vec![Piece {
+            backend: file.storage.backend()?,
+            key: file.storage.object_key()?,
+            offset: 0,
+            length: file.size_bytes,
+        }]);
+    }
+    Some(
+        file.segments
+            .iter()
+            .map(|segment| Piece {
+                backend: &segment.backend,
+                key: &segment.object_key,
+                offset: segment.offset_bytes,
+                length: segment.length_bytes,
+            })
+            .collect(),
+    )
+}
+
+/// The file a browser may fetch from the store itself, and where its pieces are.
+///
+/// No password and no use limit, for the reasons [`redirect_to_store`] gives.
+/// One file, because an archive does not exist until it is sent. And **every**
+/// piece on a backend its operator has opened *and* that can sign a URL: a file
+/// half of which can be fetched directly is one the browser would join and then
+/// fail to finish. The switch alone is not enough — a local directory can have
+/// it on and still have nothing to sign with.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn direct_file<'a>(
+    state: &AppState,
+    share: &Share,
+    content: &'a Content,
+) -> Option<(&'a FilePart, Vec<Piece<'a>>)> {
+    if share.needs_password() || share.use_limit.is_some() {
+        return None;
+    }
+    let file = content.single_file()?;
+    let pieces = pieces(file)?;
+    pieces
+        .iter()
+        .all(|piece| {
+            state.direct_access(piece.backend) && state.backend_signer(piece.backend).is_some()
+        })
+        .then_some((file, pieces))
+}
+
+/// Signs a `GET` for one object, once the store's clock has been checked.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn signed_get(
+    state: &AppState,
+    piece: &Piece<'_>,
+    options: &object_store::signer::SignedUrlOptions,
+) -> Option<HeaderValue> {
+    let signer = state.backend_signer(piece.backend)?;
+    let skew = state.clocks.skew(piece.backend, &signer).await?;
+    let ttl = crate::storage::clock::download_ttl(skew)?;
+    let url = match signer
+        .signed_url_opts(Method::GET, &ObjectPath::from(piece.key), ttl, options)
+        .await
+    {
+        Ok(url) => url,
+        Err(error) => {
+            tracing::warn!(%error, backend = piece.backend, "could not sign a download; serving it from here");
+            return None;
+        }
+    };
+    HeaderValue::from_str(url.as_str()).ok()
+}
+
+/// The `307` a signed URL is handed over as.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn hand_over(location: HeaderValue) -> Response {
+    (
+        StatusCode::TEMPORARY_REDIRECT,
+        [
+            (header::LOCATION, location),
+            // A cached redirect replays a URL that has expired, and skips
+            // everything `permit` checks on the way to it.
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+        ],
+    )
+        .into_response()
+}
+
+/// The build with no store that can be sent a browser.
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+#[expect(
+    clippy::unused_async,
+    reason = "the same signature as the build that redirects"
+)]
+async fn redirect_to_store(
+    _: &AppState,
+    _: &Share,
+    _: &Content,
+    _: &HeaderMap,
+) -> Option<Response> {
+    None
 }
 
 /// What a response calls the content, the only thing the two routes disagree
@@ -1024,6 +1418,7 @@ mod tests {
             segments: Vec::new(),
             filename: filename.map(str::to_owned),
             content_type: None,
+            sealed_name: None,
             size_bytes: 0,
             storage: crate::db::repository::share::StorageLocation::Inline,
         }])
@@ -1037,6 +1432,7 @@ mod tests {
                 segments: Vec::new(),
                 filename: Some("one.txt".to_owned()),
                 content_type: None,
+                sealed_name: None,
                 size_bytes: 5,
                 storage: crate::db::repository::share::StorageLocation::Inline,
             },
@@ -1044,6 +1440,7 @@ mod tests {
                 segments: Vec::new(),
                 filename: Some("two.txt".to_owned()),
                 content_type: None,
+                sealed_name: None,
                 size_bytes: 7,
                 storage: crate::db::repository::share::StorageLocation::Inline,
             },

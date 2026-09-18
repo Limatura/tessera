@@ -47,6 +47,14 @@ pub enum Card {
         #[cfg(feature = "og-images")]
         snippet: Option<crate::og::code::Snippet>,
     },
+    /// End-to-end encrypted. The server has nothing to say about the content
+    /// but its size, and says that much because a download would anyway.
+    Sealed {
+        /// The size, and a file count when there are several.
+        chips: Vec<String>,
+        /// When it goes, and how many goes are left.
+        footer: String,
+    },
     /// Password-protected. Only a title the uploader typed themselves appears.
     Locked {
         /// Whether there was a title. Without one the headline is our own
@@ -87,6 +95,16 @@ impl Preview {
                 description: "Open the link and enter the password to see what this is.".to_owned(),
                 card: Card::Locked {
                     named: share.title.is_some(),
+                },
+            },
+            // After the password, so a locked encrypted share is a locked
+            // share: it says no more than any other, size included.
+            Availability::Available if share.encryption.is_some() => Self {
+                title: "End-to-end encrypted share".to_owned(),
+                description: describe(share, content),
+                card: Card::Sealed {
+                    chips: chips(share, content),
+                    footer: describe(share, content),
                 },
             },
             Availability::Available => Self {
@@ -195,6 +213,14 @@ impl Preview {
                             field(text.as_bytes());
                         }
                     }
+                }
+            }
+            Card::Sealed { chips, footer } => {
+                field(b"sealed");
+                field(footer.as_bytes());
+                field(&chips.len().to_le_bytes());
+                for chip in chips {
+                    field(chip.as_bytes());
                 }
             }
             Card::Locked { named } => {
@@ -491,11 +517,14 @@ pub mod testing {
             expires_at: Some(OffsetDateTime::now_utc() + time::Duration::days(3)),
             disabled_at: None,
             title: None,
+            encryption: None,
+            sealed_details: None,
             og_config: None,
             management_token_hash: None,
             view_count: 0,
             copy_count: 0,
             bytes_served: 0,
+            bytes_redirected: 0,
             last_accessed_at: None,
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),
@@ -531,6 +560,7 @@ mod tests {
             segments: Vec::new(),
             filename: None,
             content_type: None,
+            sealed_name: None,
             size_bytes: 2048,
             storage: StorageLocation::Inline,
         }])
@@ -542,6 +572,7 @@ mod tests {
             segments: Vec::new(),
             filename: Some(filename.to_owned()),
             content_type: None,
+            sealed_name: None,
             size_bytes: 2048,
             storage: StorageLocation::Inline,
         }])
@@ -736,11 +767,14 @@ mod tests {
             expires_at: None,
             disabled_at: None,
             title: None,
+            encryption: None,
+            sealed_details: None,
             og_config: None,
             management_token_hash: None,
             view_count: 0,
             copy_count: 0,
             bytes_served: 0,
+            bytes_redirected: 0,
             last_accessed_at: None,
             created_at: OffsetDateTime::now_utc(),
             updated_at: OffsetDateTime::now_utc(),

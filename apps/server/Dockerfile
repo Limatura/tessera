@@ -40,6 +40,7 @@ COPY packages/ui/package.json packages/ui/
 COPY packages/i18n/package.json packages/i18n/
 COPY packages/env/package.json packages/env/
 COPY packages/config/package.json packages/config/
+COPY packages/crypto/package.json packages/crypto/
 
 # `--filter web...` pulls in web and everything it depends on, and nothing else
 # — no admin, no docs site, no extension. `--frozen-lockfile` makes an undeclared
@@ -92,17 +93,30 @@ RUN rustup target add "$CARGO_BUILD_TARGET"
 # The stubs carry `//!` headers because the workspace warns on `missing_docs`,
 # which applies to every crate root including these throwaways.
 COPY Cargo.toml Cargo.lock ./
+#
+# Every workspace member needs its manifest here, the ones the server does not
+# depend on included: `members` is a glob, and a member missing from it is a
+# lock file that no longer matches, which `--locked` refuses.
 COPY crates/tessera-core/Cargo.toml crates/tessera-core/
+#
+# The command line is one of them. Its stubs stay for the rest of the stage,
+# since the workspace cannot load without the files its manifest names, and
+# only the server is built, so none of its dependencies are compiled here.
+COPY crates/tessera-crypto/Cargo.toml crates/tessera-crypto/
+COPY apps/cli/Cargo.toml apps/cli/
 COPY apps/server/Cargo.toml apps/server/
-RUN mkdir -p crates/tessera-core/src apps/server/src/bin apps/server/benches \
+RUN mkdir -p crates/tessera-core/src crates/tessera-crypto/src apps/cli/src apps/server/src/bin apps/server/benches \
   && echo '//! stub' > crates/tessera-core/src/lib.rs \
+  && echo '//! stub' > crates/tessera-crypto/src/lib.rs \
+  && echo '//! stub' > apps/cli/src/lib.rs \
+  && printf '//! stub\nfn main() {}\n' > apps/cli/src/main.rs \
   && echo '//! stub' > apps/server/src/lib.rs \
   && printf '//! stub\nfn main() {}\n' > apps/server/src/main.rs \
   && printf '//! stub\nfn main() {}\n' > apps/server/src/bin/openapi.rs \
   && printf '//! stub\nfn main() {}\n' > apps/server/benches/api.rs \
   && printf '//! stub\nfn main() {}\n' > apps/server/build.rs \
-  && cargo build --release --locked --bins \
-  && rm -rf crates/tessera-core/src apps/server/src apps/server/build.rs
+  && cargo build --release --locked -p tessera-server --bins \
+  && rm -rf crates/tessera-core/src crates/tessera-crypto/src apps/server/src apps/server/build.rs
 
 # Real sources. `apps/web` is copied for its `index.html`, which build.rs reads;
 # the bundle itself arrives from the stage above rather than from the context,

@@ -116,3 +116,65 @@ Test names, so the claims are checkable.
 All in `apps/server/tests/shares.rs`, except the password one which is in `auth.rs`.
 
 Link previews spend nothing either. See `link-previews.md`.
+
+## One file of several
+
+A share with several files downloads as an archive. `?file=N`, the file's position from zero, asks for that file alone: served as itself, under its own name, resumable, with no archive around it. The same parameter narrows `/segments` and `/segments/{i}` to that file.
+
+An end-to-end encrypted file share has to use it on `/download`, whether it holds one file or several. An archive of sealed files is nothing an archiver can open. Requiring it of every encrypted file share, and not only those with several files, means the refusal needs nothing the share does not already say publicly, so it is decided before a retrieval is spent and without giving away a locked share's file count. `/raw` refuses an encrypted note for the same kind of reason: sealed bytes labelled as text are nothing a reader can use. See `encryption.md`.
+
+Tested by `an_encrypted_share_is_fetched_one_file_at_a_time` and `one_file_of_a_plain_share_comes_without_an_archive`.
+
+## Sent to the store
+
+A download can be answered with `307` to the store itself, so its bytes never cross this server. Only when all of these hold:
+
+- the share has **no password and no use limit**
+- it is **one file in one piece**: an archive does not exist until it is sent, and a split file is several objects
+- its backend has **direct access** switched on, and is S3 or GCS
+- the store's clock is close enough to trust (see below)
+- it is a `GET`: a `HEAD` is not a download
+
+Anything that does not hold is served from here, as before. Being sent somewhere is an optimisation, and failing to be is not an error.
+
+### Why never a password or a use limit
+
+A URL to the store is a bearer credential for its lifetime. On a password-protected share it would be a copy of the file that needs no password; on a one-time share, a second collection the count never sees. A presigned URL cannot be limited to one use or one client, so neither can be repaired at the store. Doing that needs a stateful gateway in front of the store, which is not something this server can assume exists.
+
+### The URL lives fifteen seconds, by the store's clock
+
+Long enough to start the transfer, which the store then finishes however long it takes, and short enough that a URL copied out of a browser is not much of a gift. A resumed download comes back here and gets a fresh one.
+
+The store judges those seconds by its own clock, so `storage::clock` measures it: a signed `HEAD` for an object that does not exist, reading the `Date` the store answers with. A store ahead gets what it is ahead added on. One more than ten seconds behind, or that cannot be measured, is not sent anybody. Measured at most every ten minutes per backend.
+
+### What is counted
+
+`permit` runs first, so the expiry check and the access log happen exactly as for a served download.
+
+What the request asked for goes into `bytes_redirected`: the file's size, or the range's length. Requested, not delivered, because the store does not say what it sent. `bytes_served` stays what left this process, which for a redirect is nothing; folding requested sizes into it would count abandoned downloads in full, the one thing it was built not to do.
+
+The redirect carries `Cache-Control: no-store`. A cached redirect replays an expired URL and skips everything checked on the way to it.
+
+### What the store's answer carries
+
+The file name and `application/octet-stream` are signed into the URL (`response-content-disposition`, `response-content-type`), so the store answers with the same name and type this server would. The hardening headers `serve` adds (`nosniff`, the CSP) cannot travel that way; an attachment of an opaque type is what keeps a browser from rendering it.
+
+## Joining the pieces in the browser
+
+A file split across backends is several objects, and one URL names one object, so `/download` serves it from here. The browser can save that bandwidth by fetching each piece itself:
+
+```text
+GET /s/{code}/segments        → { "size_bytes": N, "segments": [ { "offset": 0, "length": … }, … ] }
+GET /s/{code}/segments/{i}    → 307 to the store, for that piece
+```
+
+Both answer `404` unless **every** piece could be fetched directly, by the rules the section above keeps. A file half of which can be fetched is one the browser would join and then fail to finish, so it is not offered at all, and a client that gets a `404` uses `/download` as it did before.
+
+A file that was never split lists one piece. That is deliberate: a client joins every share the same way rather than asking which kind it has.
+
+**The listing carries no URLs.** One lives fifteen seconds and joining a large file takes minutes, so a list of them would be a list of expired URLs by the time the browser reached the end. Each piece is asked for when it is wanted.
+
+Neither endpoint costs a retrieval, for the same reason a `HEAD` does not: describing a layout is not handing anything over. Each piece handed over counts its own length in `bytes_redirected`.
+
+**This one needs bucket CORS.** Following a redirect from a link is a navigation; fetching a piece from a script is a cross-origin request, so the bucket has to allow `GET` (and `Range`) from the site's origin. See `storage.md`.
+

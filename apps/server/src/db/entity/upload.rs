@@ -23,6 +23,13 @@ pub struct Model {
     pub filename: Option<String>,
     /// Recorded, never echoed; see the migration on `file_shares`.
     pub content_type: Option<String>,
+    /// What the share this creates will be sealed as: `link`, `password`, or
+    /// `None` for a share the server can read.
+    pub encryption: Option<String>,
+    /// The salt a password-derived key is stretched with.
+    pub key_salt: Option<String>,
+    /// The name and media type, sealed, for a file in an encrypted share.
+    pub sealed_name: Option<String>,
     /// What the client said it would send.
     pub declared_bytes: i64,
     /// How much has landed. The answer to a `HEAD`.

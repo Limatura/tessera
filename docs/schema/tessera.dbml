@@ -82,6 +82,7 @@ Table file_shares {
   storage text [not null]
   object_key text
   created_at text [not null]
+  sealed_name text
 
   Note: '''One file of a file share. One row per share today; `position` is there for when a share can hold several.'''
 }
@@ -213,8 +214,12 @@ Table shares {
   copy_count integer [not null]
   bytes_served integer [not null]
   role_id text
+  bytes_redirected integer [not null]
+  encryption text
+  key_salt text
+  sealed_details text
 
-  Note: '''One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all.'''
+  Note: '''One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process.'''
 }
 
 Table storage_backends {
@@ -226,8 +231,9 @@ Table storage_backends {
   updated_at text [not null]
   capacity_bytes integer
   read_only integer [not null]
+  direct_access integer [not null]
 
-  Note: '''A blob store this instance can write to, added from the panel. The credentials are sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone.'''
+  Note: '''A blob store this instance can write to, added from the panel. The credentials are sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone. `direct_access` says whether a browser may be sent to the store directly, for a download or an upload's parts; off unless an operator turns it on, because only they know whether a browser can reach it.'''
 }
 
 Table text_shares {
@@ -275,6 +281,9 @@ Table uploads {
   updated_at text [not null]
   expires_at text [not null]
   role_id text
+  encryption text
+  key_salt text
+  sealed_name text
 
   Note: '''A file still arriving. A half-uploaded thing is not a `file_shares` row, because every row of that table is content somebody can fetch and this is not yet. `object_key` is chosen when the upload opens and never recomputed, so a resumed upload writes back to the same place. `declared_bytes` is what the client said, and quota counts that rather than what has arrived, or two people could claim the same free space at once.'''
 }

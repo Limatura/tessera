@@ -2,7 +2,7 @@
 
 ## Description
 
-One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all.
+One share, whatever it holds. The code, the password, the counters and the expiry live here because those rules do not depend on the content. The content does not: it is in `file_shares` and `text_shares`, because a share can hold several files and a column cannot hold several. `role_id` is the role at the moment of upload, `guest` for anonymous, so changing somebody's role later does not retroactively change who an old share counted against. `user_id` being empty means either anonymous or an uploader whose account was deleted, and nothing tells the two apart. `bytes_served` counts bytes that left this process, not bytes that arrived: a proxy in front inflates it by whatever it holds, and a request a CDN answered is never seen at all. `bytes_redirected` is what downloads sent to the store asked for: requested, not delivered, and kept apart from `bytes_served`, which counts only what left this process.
 
 <details>
 <summary><strong>Table Definition</strong></summary>
@@ -43,7 +43,7 @@ CREATE TABLE shares (
 
     created_at     TEXT    NOT NULL,
     updated_at     TEXT    NOT NULL
-, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL)
+, copy_count INTEGER NOT NULL DEFAULT 0, bytes_served INTEGER NOT NULL DEFAULT 0, role_id TEXT REFERENCES roles (id) ON DELETE SET NULL, bytes_redirected INTEGER NOT NULL DEFAULT 0, encryption TEXT, key_salt TEXT, sealed_details TEXT)
 ```
 
 </details>
@@ -71,6 +71,10 @@ CREATE TABLE shares (
 | copy_count | INTEGER | 0 | false |  |  |  |
 | bytes_served | INTEGER | 0 | false |  |  |  |
 | role_id | TEXT |  | true |  | [roles](roles.md) |  |
+| bytes_redirected | INTEGER | 0 | false |  |  |  |
+| encryption | TEXT |  | true |  |  |  |
+| key_salt | TEXT |  | true |  |  |  |
+| sealed_details | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -126,6 +130,10 @@ erDiagram
   INTEGER copy_count
   INTEGER bytes_served
   TEXT role_id FK
+  INTEGER bytes_redirected
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_details
 }
 "share_tickets" {
   TEXT id PK
@@ -144,6 +152,7 @@ erDiagram
   TEXT storage
   TEXT object_key
   TEXT created_at
+  TEXT sealed_name
 }
 "text_shares" {
   TEXT share_id PK
@@ -163,6 +172,9 @@ erDiagram
   TEXT updated_at
   TEXT expires_at
   TEXT role_id FK
+  TEXT encryption
+  TEXT key_salt
+  TEXT sealed_name
 }
 "access_events" {
   TEXT id PK

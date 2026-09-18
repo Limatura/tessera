@@ -14,6 +14,9 @@ export default defineConfig({
     // emitter) and compared against the committed copy. Formatting it makes one
     // of the two checks fail whichever way round anybody runs them.
     "docs/schema/**",
+    // Same arrangement: `scripts/crypto-wasm.sh` writes it and CI rebuilds it
+    // to compare, so formatting it would fail that check.
+    "packages/crypto/src/wasm/**",
     // Prose, not code — formatting it here fights whatever wrapping/style the
     // authors actually used. `pull_request` CI checks out PR head merged into
     // `main`, so any pre-existing formatting drift on `main` under this path

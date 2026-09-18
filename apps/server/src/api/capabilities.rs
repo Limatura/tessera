@@ -56,6 +56,9 @@ pub struct Capabilities {
     /// accounts *and* accept anonymous uploads, the default.
     pub anonymous_upload: bool,
 
+    /// Whether an upload may be end-to-end encrypted. See `docs/encryption.md`.
+    pub encryption: bool,
+
     /// Who may create an account. Meaningless when
     /// [`accounts`](Self::accounts) is `false`.
     #[schema(example = "open")]
@@ -69,6 +72,17 @@ pub struct Capabilities {
     /// [`share_password_min_length`](Self::share_password_min_length).
     #[schema(example = 12)]
     pub account_password_min_length: usize,
+
+    /// Whether an account password needs both an uppercase and a lowercase
+    /// letter. How a character is classed is on `PasswordPolicy`; a client that
+    /// classes them differently will pass a password the server refuses.
+    pub account_password_requires_mixed_case: bool,
+
+    /// Whether an account password needs a digit.
+    pub account_password_requires_digit: bool,
+
+    /// Whether an account password needs a symbol. A space is not one.
+    pub account_password_requires_symbol: bool,
 
     /// Shortest password an uploader may put on a share.
     ///
@@ -163,6 +177,7 @@ impl Capabilities {
             admin,
             anonymous_upload,
             docs: _,
+            encryption,
         } = config.features;
 
         // The accessors and not the raw fields: `default_expiry_hours` of 0
@@ -176,8 +191,12 @@ impl Capabilities {
             accounts,
             admin,
             anonymous_upload,
+            encryption,
             registration: config.auth.registration,
             account_password_min_length: config.auth.password.min_length,
+            account_password_requires_mixed_case: config.auth.password.require_mixed_case,
+            account_password_requires_digit: config.auth.password.require_digit,
+            account_password_requires_symbol: config.auth.password.require_symbol,
             share_password_min_length: gate::CHOOSING.min_length,
             default_expiry_hours: hours(config.share.default_expiry()),
             max_expiry_hours: hours(config.share.max_expiry()),

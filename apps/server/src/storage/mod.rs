@@ -80,6 +80,7 @@ impl core::fmt::Debug for Stores {
         f.debug_struct("Stores")
             .field("multipart", &self.multipart.is_some())
             .field("put_multipart", &self.put_multipart)
+
             // `store` is a trait object with nothing printable behind it.
             .finish_non_exhaustive()
     }
@@ -95,6 +96,8 @@ impl core::fmt::Debug for Multipart {
 ///
 /// `None` on the second means resumable uploads there append to a partial file
 /// instead. See `upload::sink`.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+pub mod clock;
 pub mod first_write;
 pub mod in_flight;
 pub mod placement;
@@ -196,6 +199,17 @@ pub struct Stores {
     /// Whether [`ObjectStoreExt::put_multipart`](object_store::ObjectStoreExt::put_multipart)
     /// works here. False only for the HTTP/WebDAV store; see the type's own documentation.
     pub put_multipart: bool,
+    /// The same store seen as a [`Signer`](object_store::signer::Signer), when a client may be
+    /// handed a URL to write one part of a multipart upload itself.
+    ///
+    /// S3 and GCS only. Both sign the `partNumber` and `uploadId` a part upload
+    /// needs into the URL, which is what makes a presigned part possible at
+    /// all. Azure signs a URL too, but a SAS covers the blob rather than the
+    /// request, and a client writing blocks there needs a different recipe
+    /// that nothing here speaks yet. A local directory and WebDAV have nothing
+    /// to sign: the bytes have to come through this server either way.
+    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+    pub signer: Option<Arc<dyn object_store::signer::Signer>>,
 }
 
 impl Stores {
@@ -208,6 +222,8 @@ impl Stores {
             store,
             multipart: None,
             put_multipart: true,
+            #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+            signer: None,
         }
     }
 
@@ -218,6 +234,8 @@ impl Stores {
             store,
             multipart: None,
             put_multipart: false,
+            #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+            signer: None,
         }
     }
 }
@@ -302,11 +320,7 @@ fn whole_body_only(url: &url::Url) -> bool {
 ///
 /// `PrefixStore` implements both traits, so wrapping does not cost the second
 /// one. See `apache/arrow-rs-object-store#586`.
-#[cfg(any(
-    feature = "storage-s3",
-    feature = "storage-gcs",
-    feature = "storage-azure"
-))]
+#[cfg(feature = "storage-azure")]
 fn prefixed_pair<S>(store: S, prefix: object_store::path::Path) -> Stores
 where
     S: ObjectStore + MultipartStore,
@@ -341,6 +355,53 @@ where
         store: same,
         multipart: Some(Multipart(shared)),
         put_multipart: true,
+        #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+        signer: None,
+    }
+}
+
+/// As [`prefixed_pair`], for a store that can also sign a part upload.
+///
+/// Its own function rather than a flag on the other one, because the extra
+/// view needs the store to implement [`Signer`](object_store::signer::Signer), and
+/// Azure's does while not being one this can use. See [`Stores::signer`].
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn prefixed_pair_signing<S>(
+    store: S,
+    prefix: object_store::path::Path,
+) -> (Stores, Arc<dyn object_store::signer::Signer>)
+where
+    S: ObjectStore + MultipartStore + object_store::signer::Signer,
+{
+    // The prefix has to be on the signer too. `PrefixStore` forwards
+    // `signed_url_opts` with its prefix applied, so a URL signed through it
+    // names the same object the multipart view opened.
+    if prefix.as_ref().is_empty() {
+        let shared = Arc::new(store);
+        let signer = as_signer(&shared);
+        return (both_views(shared), signer);
+    }
+    let shared = Arc::new(object_store::prefix::PrefixStore::new(store, prefix));
+    let signer = as_signer(&shared);
+    (both_views(shared), signer)
+}
+
+/// The signer view of a store, coerced at a return position for the reason
+/// [`both_views`] gives.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn as_signer<S: object_store::signer::Signer>(
+    shared: &Arc<S>,
+) -> Arc<dyn object_store::signer::Signer> {
+    let same: Arc<S> = Arc::clone(shared);
+    same
+}
+
+/// Attaches the signer to the pair it was built alongside.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+fn signed((stores, signer): (Stores, Arc<dyn object_store::signer::Signer>)) -> Stores {
+    Stores {
+        signer: Some(signer),
+        ..stores
     }
 }
 
@@ -467,7 +528,10 @@ fn build_multipart_capable(
                     Err(_) => builder,
                 },
             );
-            Ok(Some(prefixed_pair(builder.build()?, prefix)))
+            Ok(Some(signed(prefixed_pair_signing(
+                builder.build()?,
+                prefix,
+            ))))
         }
         #[cfg(feature = "storage-gcs")]
         ObjectStoreScheme::GoogleCloudStorage => {
@@ -478,7 +542,10 @@ fn build_multipart_capable(
                     Err(_) => builder,
                 },
             );
-            Ok(Some(prefixed_pair(builder.build()?, prefix)))
+            Ok(Some(signed(prefixed_pair_signing(
+                builder.build()?,
+                prefix,
+            ))))
         }
         #[cfg(feature = "storage-azure")]
         ObjectStoreScheme::MicrosoftAzure => {

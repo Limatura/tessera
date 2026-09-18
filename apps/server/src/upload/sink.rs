@@ -138,6 +138,19 @@ impl Sink {
     }
 }
 
+/// How many parts an upload of `declared` bytes is cut into.
+///
+/// What a client writing parts directly to the store has to agree with this
+/// server about. Every part but the last is `part_size`; the last is whatever
+/// remains. Zero for an empty upload, which has no parts to write.
+#[must_use]
+pub const fn part_count(declared: u64, part_size: u64) -> u64 {
+    if part_size == 0 {
+        return 0;
+    }
+    declared.div_ceil(part_size)
+}
+
 /// Splits `pending` into whole parts and what is left over.
 ///
 /// Returned, not written, so the arithmetic can be tested without a
@@ -386,7 +399,7 @@ mod tests {
 mod part_rules {
     use proptest::prelude::*;
 
-    use super::split_into_parts;
+    use super::{part_count, split_into_parts};
 
     /// S3's floor. A part below this is refused unless it is the last one.
     const S3_MINIMUM_PART: usize = 5 * 1024 * 1024;
@@ -465,5 +478,26 @@ mod part_rules {
                 }
             }
         }
+    }
+    /// The arithmetic a client writing parts directly has to agree with. One
+    /// byte past a boundary is a whole extra part, and exactly on one is not.
+    #[test]
+    fn a_direct_upload_is_cut_into_the_parts_a_client_expects() {
+        assert_eq!(part_count(0, 8), 0, "an empty upload has nothing to write");
+        assert_eq!(part_count(1, 8), 1);
+        assert_eq!(part_count(8, 8), 1, "exactly one part");
+        assert_eq!(part_count(9, 8), 2, "one byte over is a second part");
+        assert_eq!(part_count(16, 8), 2);
+        assert_eq!(part_count(17, 8), 3);
+        assert_eq!(
+            part_count(u64::MAX, 8),
+            u64::MAX.div_ceil(8),
+            "no overflow at the edge"
+        );
+        assert_eq!(
+            part_count(10, 0),
+            0,
+            "a zero part size is no parts, not a panic"
+        );
     }
 }

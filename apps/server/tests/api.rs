@@ -111,6 +111,9 @@ async fn capabilities_report_what_this_instance_exposes() {
     assert_eq!(body["registration"], "open");
     assert_eq!(body["version"], tessera_server::VERSION);
     assert!(body["account_password_min_length"].is_u64());
+    assert_eq!(body["account_password_requires_mixed_case"], false);
+    assert_eq!(body["account_password_requires_digit"], false);
+    assert_eq!(body["account_password_requires_symbol"], false);
     assert!(body["max_upload_bytes"].is_u64());
 
     // Everything the upload form needs to draw itself without guessing.

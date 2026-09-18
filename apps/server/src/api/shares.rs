@@ -44,7 +44,7 @@ use crate::{
     api::{
         Patch, SHARES_TAG,
         extract::{ApiJson, ApiPath, ApiQuery},
-        gate, patched,
+        gate, patched, sealed,
     },
     auth::{
         extract::{ClientAddress, CurrentUser, MaybeUser},
@@ -56,7 +56,8 @@ use crate::{
     db::repository::{
         quota::Scope,
         share::{
-            Change, Content, NewContent, NewFile, Share, ShareEvent, ShareKind, StorageLocation,
+            Change, Content, Encryption, NewContent, NewFile, Share, ShareEvent, ShareKind,
+            StorageLocation,
         },
         user::User,
     },
@@ -125,6 +126,20 @@ pub struct CreateShareParams {
     /// burn-after-reading.
     #[param(example = 3)]
     pub max_uses: Option<u32>,
+    /// `link` or `password` to make an end-to-end encrypted share, whose body
+    /// arrives already sealed. See `docs/encryption.md`. Refused unless
+    /// `/capabilities` says `encryption`.
+    #[param(example = "link")]
+    pub encryption: Option<String>,
+    /// For `encryption=password`: the salt the password was stretched with, as
+    /// 16 bytes of unpadded URL-safe base64. Handed to anyone who asks.
+    pub key_salt: Option<String>,
+    /// For an encrypted file: its name and media type, sealed. Takes the place
+    /// of `filename`, and like it, makes this a file share.
+    pub sealed_name: Option<String>,
+    /// For an encrypted share: its title and a note's language, sealed. Takes
+    /// the place of `title` and `language`.
+    pub sealed_details: Option<String>,
 }
 
 /// A share as the API describes it. Never carries the content.
@@ -157,6 +172,14 @@ pub struct ShareResponse {
     pub size_bytes: u64,
     /// Whether a password must be presented to retrieve it.
     pub has_password: bool,
+    /// `link` or `password` for an end-to-end encrypted share, `null` for one
+    /// the server can read.
+    #[schema(example = "link")]
+    pub encryption: Option<String>,
+    /// The salt a password-derived key was stretched with, for `password`.
+    pub key_salt: Option<String>,
+    /// The title and a note's language, sealed, on an encrypted share.
+    pub sealed_details: Option<String>,
     /// How many retrievals remain, or `null` for unlimited.
     pub uses_remaining: Option<u32>,
     /// How many times it has been retrieved.
@@ -198,7 +221,11 @@ pub struct SharedFile {
     /// What it was uploaded as.
     #[schema(example = "holiday.jpg")]
     pub filename: Option<String>,
+    /// Its name and media type, sealed, in an encrypted share.
+    pub sealed_name: Option<String>,
     /// How many bytes it holds.
+    ///
+    /// Sealed bytes in an encrypted share, which is what a download sends.
     pub size_bytes: u64,
 }
 
@@ -211,6 +238,7 @@ impl SharedFile {
             .map(|(position, file)| Self {
                 position: u32::try_from(position).unwrap_or(u32::MAX),
                 filename: file.filename.clone(),
+                sealed_name: file.sealed_name.clone(),
                 size_bytes: file.size_bytes,
             })
             .collect()
@@ -236,6 +264,13 @@ impl ShareResponse {
             },
             size_bytes: content.size_bytes(),
             has_password: share.needs_password(),
+            encryption: share.encryption.as_ref().map(|e| e.as_str().to_owned()),
+            key_salt: share
+                .encryption
+                .as_ref()
+                .and_then(Encryption::salt)
+                .map(str::to_owned),
+            sealed_details: share.sealed_details.clone(),
             uses_remaining: share
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
@@ -298,7 +333,7 @@ fn format_timestamp(value: OffsetDateTime) -> String {
 pub async fn create(
     State(state): State<AppState>,
     MaybeUser(current): MaybeUser,
-    ApiQuery(params): ApiQuery<CreateShareParams>,
+    ApiQuery(mut params): ApiQuery<CreateShareParams>,
     headers: HeaderMap,
     body: Body,
 ) -> Result<Response> {
@@ -317,9 +352,15 @@ pub async fn create(
             "`max_uses` must be at least 1; omit it for a share that never runs out",
         ));
     }
-    let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;
-    let title = checked_label(params.title, "title", MAX_TEXT_FIELD)?;
-    let language = checked_label(params.language, "language", MAX_LANGUAGE)?;
+    let Described {
+        kind,
+        filename,
+        title,
+        language,
+        encryption,
+        sealed_name,
+        sealed_details,
+    } = described(&state, &mut params)?;
 
     let now = OffsetDateTime::now_utc();
     let expires_at = resolve_expiry(&state, params.expires_in_hours, now)?;
@@ -329,11 +370,6 @@ pub async fn create(
     };
 
     let id = ShareId::generate();
-    let kind = if filename.is_some() {
-        ShareKind::File
-    } else {
-        ShareKind::Text
-    };
 
     // Held until the row exists. Between the last byte and the insert, the
     // bytes are in the store and in no table, so dropping the guard there lets
@@ -378,17 +414,20 @@ pub async fn create(
         // anonymous one. Neither touches the database.
         role_id: charged_role_of(current.as_ref().map(|current| &current.user)),
         kind,
+        encryption: encryption.clone(),
         password_hash,
         use_limit: params.max_uses,
         use_count: 0,
         expires_at,
         disabled_at: None,
         title,
+        sealed_details,
         og_config: None,
         management_token_hash: management_secret.as_ref().map(Secret::digest),
         view_count: 0,
         copy_count: 0,
         bytes_served: 0,
+        bytes_redirected: 0,
         last_accessed_at: None,
         created_at: now,
         updated_at: now,
@@ -401,7 +440,8 @@ pub async fn create(
             // What the uploader claimed. Recorded but never echoed; serving an
             // attacker-chosen media type back turns a `text/html` upload into
             // stored XSS on our own origin.
-            content_type: claimed_content_type(&headers),
+            content_type: recorded_type(encryption.is_some(), &headers),
+            sealed_name,
             size_bytes,
             storage,
         }),
@@ -420,6 +460,51 @@ pub async fn create(
         management_secret.map(|secret| secret.expose().to_owned()),
     );
     Ok((StatusCode::CREATED, Json(response)).into_response())
+}
+
+/// What a new share says about itself, each part checked.
+struct Described {
+    /// A name, sealed or not, is what makes a share a file share.
+    kind: ShareKind,
+    filename: Option<String>,
+    title: Option<String>,
+    language: Option<String>,
+    encryption: Option<Encryption>,
+    sealed_name: Option<String>,
+    sealed_details: Option<String>,
+}
+
+/// Takes the descriptive parameters out of a creation request and checks them,
+/// together: an encrypted share may only describe itself sealed.
+fn described(state: &AppState, params: &mut CreateShareParams) -> Result<Described> {
+    let filename = checked_label(params.filename.take(), "filename", MAX_TEXT_FIELD)?;
+    let sealed_name = sealed::checked(params.sealed_name.take(), "sealed_name")?;
+    let described = Described {
+        kind: if filename.is_some() || sealed_name.is_some() {
+            ShareKind::File
+        } else {
+            ShareKind::Text
+        },
+        filename,
+        title: checked_label(params.title.take(), "title", MAX_TEXT_FIELD)?,
+        language: checked_label(params.language.take(), "language", MAX_LANGUAGE)?,
+        encryption: sealed::requested(state, params.encryption.as_deref(), params.key_salt.take())?,
+        sealed_name,
+        sealed_details: sealed::checked(params.sealed_details.take(), "sealed_details")?,
+    };
+    sealed::coherent(
+        described.encryption.is_some(),
+        &[
+            ("filename", described.filename.is_some()),
+            ("title", described.title.is_some()),
+            ("language", described.language.is_some()),
+        ],
+        &[
+            ("sealed_name", described.sealed_name.is_some()),
+            ("sealed_details", described.sealed_details.is_some()),
+        ],
+    )?;
+    Ok(described)
 }
 
 /// Which slice of a share listing to return.
@@ -740,6 +825,18 @@ pub async fn patch(
     if supplied.is_some() && body.remove_password {
         return Err(Error::bad_request(
             "send `X-Share-Password` to set a password or `remove_password` to clear it, not both",
+        ));
+    }
+    // The key came from the password. What the server holds is a token derived
+    // from that key, so a different one locks out everybody who knows the real
+    // password, and none at all hands the sealed bytes to anyone. Setting the
+    // first is how a client that uploaded before it could choose one says it.
+    if matches!(share.encryption, Some(Encryption::Password { .. }))
+        && (body.remove_password || (supplied.is_some() && share.needs_password()))
+    {
+        return Err(Error::bad_request(
+            "this share's key comes from its password, so the password cannot be changed or \
+             removed",
         ));
     }
 
@@ -1851,6 +1948,7 @@ pub(crate) async fn create_from_file(
     state: &AppState,
     user_id: Option<UserId>,
     file: NewFile,
+    encryption: Option<Encryption>,
     now: OffsetDateTime,
 ) -> Result<ShareResponse> {
     let management_secret = user_id.is_none().then(Secret::generate_session);
@@ -1861,17 +1959,20 @@ pub(crate) async fn create_from_file(
         user_id,
         role_id,
         kind: ShareKind::File,
+        encryption,
         password_hash: None,
         use_limit: None,
         use_count: 0,
         expires_at: resolve_expiry(state, None, now)?,
         disabled_at: None,
         title: None,
+        sealed_details: None,
         og_config: None,
         management_token_hash: management_secret.as_ref().map(Secret::digest),
         view_count: 0,
         copy_count: 0,
         bytes_served: 0,
+        bytes_redirected: 0,
         last_accessed_at: None,
         created_at: now,
         updated_at: now,
@@ -1979,6 +2080,16 @@ fn share_password(headers: &HeaderMap) -> Result<Option<Password>> {
         return Ok(None);
     };
     Ok(Some(Password::parse(raw, gate::CHOOSING)?))
+}
+
+/// The media type to record for an upload: what it claimed, except on an
+/// encrypted share, where the real one is sealed with the name and the header
+/// describes ciphertext.
+fn recorded_type(encrypted: bool, headers: &HeaderMap) -> Option<String> {
+    if encrypted {
+        return None;
+    }
+    claimed_content_type(headers)
 }
 
 /// The media type the uploader claimed, if it said anything specific.
@@ -2117,11 +2228,22 @@ pub struct PublicShareResponse {
     pub kind: String,
     /// Whether a password must be presented before anything else is revealed.
     pub has_password: bool,
+    /// `link` or `password` for an end-to-end encrypted share, `null` otherwise.
+    ///
+    /// Given before unlocking, with the salt below. A client whose key comes
+    /// from the password has to derive it before it can present the password
+    /// at all.
+    #[schema(example = "password")]
+    pub encryption: Option<String>,
+    /// The salt a password-derived key is stretched with, for `password`.
+    pub key_salt: Option<String>,
     /// Whether the fields below are filled in.
     pub unlocked: bool,
 
     /// Display name.
     pub title: Option<String>,
+    /// The title and a note's language, sealed, on an encrypted share.
+    pub sealed_details: Option<String>,
     /// Every file this share holds. Empty for text and for a locked share.
     pub files: Vec<SharedFile>,
     /// Syntax-highlighting hint.
@@ -2142,8 +2264,15 @@ impl PublicShareResponse {
             code: share.code.as_str().to_owned(),
             kind: share.kind.as_str().to_owned(),
             has_password: true,
+            encryption: share.encryption.as_ref().map(|e| e.as_str().to_owned()),
+            key_salt: share
+                .encryption
+                .as_ref()
+                .and_then(Encryption::salt)
+                .map(str::to_owned),
             unlocked: false,
             title: None,
+            sealed_details: None,
             files: Vec::new(),
             language: None,
             size_bytes: None,
@@ -2158,6 +2287,7 @@ impl PublicShareResponse {
             has_password: share.needs_password(),
             unlocked: true,
             title: share.title.clone(),
+            sealed_details: share.sealed_details.clone(),
             files: SharedFile::list(content),
             language: match content {
                 Content::Text(text) => text.language.clone(),
@@ -2399,6 +2529,7 @@ pub async fn record_event(
 ///
 /// # Errors
 ///
+/// `400` for a name that is unusable or described the wrong way for the share,
 /// `403` when the caller cannot show it is theirs, `404` when no share has that
 /// code, `409` when the share holds text, `413` when the body is too large,
 /// `507` when something is out of room. The body says whose ceiling that was.
@@ -2411,6 +2542,7 @@ pub async fn record_event(
     request_body(content = Vec<u8>, description = "The file", content_type = "application/octet-stream"),
     responses(
         (status = 201, description = "The share as it now stands", body = ShareResponse),
+        (status = 400, description = "A name that is unusable, or described the wrong way for the share: in the clear on an encrypted one, sealed on a plain one", body = crate::error::ErrorBody),
         (status = 403, description = "Not yours", body = crate::error::ErrorBody),
         (status = 404, description = "No such share", body = crate::error::ErrorBody),
         (status = 409, description = "That share holds text", body = crate::error::ErrorBody),
@@ -2456,6 +2588,12 @@ pub async fn add_file(
     }
 
     let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;
+    let sealed_name = sealed::checked(params.sealed_name, "sealed_name")?;
+    sealed::coherent(
+        share.encryption.is_some(),
+        &[("filename", filename.is_some())],
+        &[("sealed_name", sealed_name.is_some())],
+    )?;
     let now = OffsetDateTime::now_utc();
     // The share's owner, not the caller. A management token lets an
     // account-less uploader append to a member's share, and the bytes land
@@ -2492,7 +2630,8 @@ pub async fn add_file(
             &NewFile {
                 segments,
                 filename,
-                content_type: claimed_content_type(&headers),
+                content_type: recorded_type(share.encryption.is_some(), &headers),
+                sealed_name,
                 size_bytes,
                 storage,
             },
@@ -2515,4 +2654,7 @@ pub struct AddFileParams {
     /// What to call this file.
     #[param(example = "holiday.jpg")]
     pub filename: Option<String>,
+    /// Its name and media type, sealed, when the share is encrypted. Takes the
+    /// place of `filename` there.
+    pub sealed_name: Option<String>,
 }

@@ -73,6 +73,7 @@ use axum::{
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
+use object_store::ObjectStoreExt as _;
 use serde::{Deserialize, Serialize};
 use tessera_core::{Permission, ShareId, UploadId};
 use time::OffsetDateTime;
@@ -80,17 +81,19 @@ use utoipa::{IntoParams, ToSchema};
 
 use crate::{
     api::{
-        extract::{ApiPath, ApiQuery},
+        extract::{ApiJson, ApiPath, ApiQuery},
+        sealed,
         shares::{ShareResponse, object_key},
+        tokens::format_timestamp,
     },
     auth::{extract::MaybeUser, secret::Secret},
     db::repository::{
-        share::{NewFile, StorageLocation},
+        share::{Encryption, NewFile, StorageLocation},
         upload::{NewUpload, Upload},
     },
     error::{Error, Result},
     state::AppState,
-    upload::sink::{Sink, split_into_parts},
+    upload::sink::{Sink, TakenPart, part_count, split_into_parts},
 };
 
 /// Tag the uploads endpoints appear under.
@@ -104,6 +107,12 @@ const UPLOAD_LENGTH: &str = "upload-length";
 const UPLOAD_TOKEN: &str = "x-upload-token";
 /// The only body type a `PATCH` may carry, per the specification.
 const OFFSET_CONTENT_TYPE: &str = "application/offset+octet-stream";
+/// How long a URL to write one part directly stays usable, at most.
+///
+/// Long enough for one part on a slow uplink, and never past the session
+/// itself: a URL that outlives its session writes into a multipart upload the
+/// sweep has already aborted.
+const PART_URL_TTL: std::time::Duration = std::time::Duration::from_hours(1);
 
 /// Where a finished upload should land.
 #[derive(Debug, Deserialize, IntoParams)]
@@ -117,6 +126,15 @@ pub struct CreateUploadParams {
     /// Omit to make a new share when the upload finishes.
     #[param(example = "4GSVV6QT")]
     pub code: Option<String>,
+    /// `link` or `password` for a new end-to-end encrypted share. An upload
+    /// into an existing share is sealed the way that share is, so this is
+    /// refused alongside `code`. See `POST /shares`.
+    pub encryption: Option<String>,
+    /// For `encryption=password`: the salt, as for `POST /shares`.
+    pub key_salt: Option<String>,
+    /// For a file in an encrypted share: its name and media type, sealed. Takes
+    /// the place of `filename`.
+    pub sealed_name: Option<String>,
 }
 
 /// A session that has just been opened.
@@ -141,6 +159,39 @@ pub struct UploadResponse {
     /// `null`
     /// when the uploader is signed in, since their credential already answers.
     pub token: Option<String>,
+    /// Whether the parts may go straight to the store instead of through here.
+    ///
+    /// When `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`
+    /// each part to, and `POST /uploads/{id}/complete` finishes with the `ETag`
+    /// each `PUT` answered. `PATCH` still works either way.
+    ///
+    /// Decided by where this upload was placed, and by whether the operator
+    /// has said a browser can reach that store, which is why it is here and not
+    /// in the capabilities: an instance with an S3 bucket and a local directory
+    /// answers differently for different uploads.
+    pub direct: bool,
+}
+
+/// A URL to write one part of an upload to the store directly.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct PartUrlResponse {
+    /// Where to `PUT` the part's bytes. The response carries an `ETag` header,
+    /// which is what `complete` needs back.
+    pub url: String,
+    /// When the URL stops working, RFC 3339.
+    pub expires_at: String,
+}
+
+/// Body of `POST /uploads/{id}/complete`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CompleteUploadRequest {
+    /// The `ETag` each part's `PUT` answered with, in part order from one.
+    ///
+    /// Exactly as many as the upload has parts, as sent by the store: quotes
+    /// included, if it included them.
+    #[schema(example = json!(["\"3858f62230ac3c915f300c664312c11f\"", "\"9b2cf535f27731c974343645a3985328\""]))]
+    pub etags: Vec<String>,
 }
 
 /// Opens a session.
@@ -203,6 +254,7 @@ pub async fn create(
         Some(code) => Some(resolve_target(&state, code, current.as_ref(), &headers).await?),
         None => None,
     };
+    let (filename, sealed_name, encryption) = named(&state, share_id, params).await?;
 
     let now = OffsetDateTime::now_utc();
     // The key is decided here and never recomputed. Deriving it per request
@@ -248,8 +300,10 @@ pub async fn create(
                     current.as_ref().map(|current| &current.user),
                 ),
                 token_hash: secret.digest(),
-                filename: crate::api::shares::checked_filename(params.filename)?,
+                filename,
                 content_type: None,
+                encryption,
+                sealed_name,
                 declared_bytes: declared,
                 object_key: key,
                 backend,
@@ -269,9 +323,46 @@ pub async fn create(
             length: declared,
             part_size: u64::try_from(state.config().server.part_size_bytes).unwrap_or(u64::MAX),
             token: current.is_none().then(|| secret.expose().to_owned()),
+            direct: direct_signer(&state, &upload).is_some(),
         }),
     )
         .into_response())
+}
+
+/// The file's name, sealed or not, and how the share it lands in is sealed.
+///
+/// An upload into an existing share is sealed the way that share is, so saying
+/// how alongside `code` is refused rather than believed.
+async fn named(
+    state: &AppState,
+    share_id: Option<ShareId>,
+    params: CreateUploadParams,
+) -> Result<(Option<String>, Option<String>, Option<Encryption>)> {
+    let filename = crate::api::shares::checked_filename(params.filename)?;
+    let sealed_name = sealed::checked(params.sealed_name, "sealed_name")?;
+    let encryption = match share_id {
+        None => sealed::requested(state, params.encryption.as_deref(), params.key_salt)?,
+        Some(id) => {
+            if params.encryption.is_some() || params.key_salt.is_some() {
+                return Err(Error::bad_request(
+                    "an upload into an existing share is sealed the way that share is; drop \
+                     `encryption` and `key_salt`",
+                ));
+            }
+            state
+                .shares
+                .find_by_id(id)
+                .await?
+                .ok_or(Error::NotFound)?
+                .encryption
+        }
+    };
+    sealed::coherent(
+        encryption.is_some(),
+        &[("filename", filename.is_some())],
+        &[("sealed_name", sealed_name.is_some())],
+    )?;
+    Ok((filename, sealed_name, encryption))
 }
 
 /// Answers how much has arrived.
@@ -453,6 +544,252 @@ pub async fn append(
     finish(&state, upload, offset).await
 }
 
+/// Hands out a URL to write one part straight to the store.
+///
+/// # Why this exists
+///
+/// Every byte of a `PATCH` crosses this server twice: in from the uploader,
+/// out to the bucket. On a self-hosted instance those are often the same
+/// uplink. A part written to the store directly crosses it zero times.
+///
+/// # What it does not check
+///
+/// The part's size. The URL carries the part number and the upload it belongs
+/// to, both signed, but a length cannot be: `object_store` refuses to sign
+/// `content-length`. So a client may write a part of any size, and nothing
+/// finds out until `complete` asks the store how large the object came out.
+/// See [`complete`].
+///
+/// # Errors
+///
+/// `404` when there is no such session or no such part, `409` when this upload
+/// cannot take parts directly, `410` when the session was abandoned.
+#[utoipa::path(
+    get,
+    path = "/uploads/{id}/parts/{number}",
+    operation_id = "upload_part_url",
+    tag = UPLOADS_TAG,
+    params(
+        ("id" = String, Path, description = "The session"),
+        ("number" = u64, Path, description = "Which part, from one"),
+    ),
+    responses(
+        (status = 200, description = "Where to `PUT` that part", body = PartUrlResponse),
+        (status = 400, description = "`number` is not a part number", body = crate::error::ErrorBody),
+        (status = 404, description = "No such session, or no such part", body = crate::error::ErrorBody),
+        (status = 409, description = "This upload cannot take parts directly", body = crate::error::ErrorBody),
+        (status = 410, description = "That session was abandoned", body = crate::error::ErrorBody),
+    ),
+    security((), ("session" = []), ("bearer" = [])),
+)]
+pub async fn part_url(
+    State(state): State<AppState>,
+    MaybeUser(current): MaybeUser,
+    ApiPath((id, number)): ApiPath<(String, u64)>,
+    headers: HeaderMap,
+) -> Result<axum::Json<PartUrlResponse>> {
+    let upload = continuable(&state, &id, current.as_ref(), &headers).await?;
+    let signer = direct_signer(&state, &upload).ok_or_else(not_direct)?;
+    let multipart_id = upload.multipart_id.clone().ok_or_else(not_direct)?;
+
+    let parts = part_count(upload.declared_bytes, part_size(&state));
+    if number == 0 || number > parts {
+        return Err(Error::NotFound);
+    }
+
+    let now = OffsetDateTime::now_utc();
+    let remaining = std::time::Duration::try_from(upload.expires_at - now).unwrap_or_default();
+    let ttl = PART_URL_TTL.min(remaining);
+
+    let url = sign_part(&signer, &upload.object_key, number, multipart_id, ttl).await?;
+
+    Ok(axum::Json(PartUrlResponse {
+        url: url.to_string(),
+        expires_at: format_timestamp(now + ttl),
+    }))
+}
+
+/// Finishes an upload whose parts went straight to the store.
+///
+/// # Where the size is checked
+///
+/// Here, and only here. A part URL cannot be limited to a length, so this
+/// completes the object and then asks the store how large it came out. One
+/// that is not the size the session declared, and was charged against the
+/// uploader's room for, is deleted and refused.
+///
+/// Until then the extra bytes sit in the bucket. That is the cost of not
+/// having the bytes pass through here, and it is bounded by what a session
+/// that already passed the size and room checks can write before this runs.
+///
+/// # Errors
+///
+/// `400` when the number of `ETag`s is not the number of parts, or the object
+/// did not come out the declared size. `404` when there is no such session,
+/// `409` when this upload cannot take parts directly or has already had parts
+/// sent through this server, `410` when the session was abandoned.
+#[utoipa::path(
+    post,
+    path = "/uploads/{id}/complete",
+    operation_id = "complete_upload",
+    tag = UPLOADS_TAG,
+    params(("id" = String, Path, description = "The session")),
+    request_body = CompleteUploadRequest,
+    responses(
+        (status = 201, description = "The upload is a file now", body = ShareResponse),
+        (status = 400, description = "Wrong number of parts, or not the declared size", body = crate::error::ErrorBody),
+        (status = 404, description = "No such session", body = crate::error::ErrorBody),
+        (status = 409, description = "This upload cannot be finished this way", body = crate::error::ErrorBody),
+        (status = 410, description = "That session was abandoned", body = crate::error::ErrorBody),
+    ),
+    security((), ("session" = []), ("bearer" = [])),
+)]
+pub async fn complete(
+    State(state): State<AppState>,
+    MaybeUser(current): MaybeUser,
+    ApiPath(id): ApiPath<String>,
+    headers: HeaderMap,
+    ApiJson(body): ApiJson<CompleteUploadRequest>,
+) -> Result<Response> {
+    let upload = continuable(&state, &id, current.as_ref(), &headers).await?;
+    direct_signer(&state, &upload).ok_or_else(not_direct)?;
+
+    // One way or the other, not both. Parts this server wrote through `PATCH`
+    // have their own identifiers recorded, and completing with a client's list
+    // around them would describe an object neither half fully wrote.
+    if !state.uploads.parts_of(upload.id).await?.is_empty() {
+        return Err(Error::Conflict(
+            "parts of this upload came through this server; finish it with PATCH".to_owned(),
+        ));
+    }
+
+    let parts = part_count(upload.declared_bytes, part_size(&state));
+    if u64::try_from(body.etags.len()).ok() != Some(parts) {
+        return Err(Error::bad_request(format!(
+            "this upload is {parts} parts, and {} ETags were sent",
+            body.etags.len()
+        )));
+    }
+    if body.etags.iter().any(|etag| etag.trim().is_empty()) {
+        return Err(Error::bad_request("an ETag cannot be empty"));
+    }
+
+    let taken = body
+        .etags
+        .into_iter()
+        .zip(1..)
+        .map(|(content_id, number)| TakenPart { number, content_id })
+        .collect();
+    // A wrong ETag fails here, at the store, and leaves the multipart upload
+    // open: the client can send the right list again.
+    sink_for(&state, &upload)?
+        .complete(&upload.object_key, taken)
+        .await?;
+
+    let store = state.backend(&upload.backend).ok_or(Error::Unavailable)?;
+    let path = object_store::path::Path::from(upload.object_key.as_str());
+    let size = store.head(&path).await?.size;
+    if size != upload.declared_bytes {
+        if let Err(error) = store.delete(&path).await {
+            // The reconciliation pass collects an object no share names, so
+            // this is late rather than lost.
+            tracing::warn!(%error, upload = %upload.id, "could not delete an upload that came out the wrong size");
+        }
+        state.uploads.delete(upload.id).await?;
+        return Err(Error::bad_request(format!(
+            "the parts came to {size} bytes, and this upload declared {}",
+            upload.declared_bytes
+        )));
+    }
+
+    settle(&state, upload, size).await
+}
+
+/// The signer to hand out part URLs with, when this upload can take them.
+///
+/// Three things have to hold: the store it was placed on can sign a part
+/// upload, a multipart upload is open there, and there is at least one part to
+/// write. An empty upload has none, and a multipart upload cannot be completed
+/// with zero parts.
+fn direct_signer(state: &AppState, upload: &Upload) -> Option<PartSigner> {
+    if upload.multipart_id.is_none() || upload.declared_bytes == 0 {
+        return None;
+    }
+    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+    {
+        // The operator's word that a browser can reach this store. A signer
+        // says the URL can be made, not that anybody outside can use it.
+        if !state.direct_access(&upload.backend) {
+            return None;
+        }
+        state.backend_signer(&upload.backend)
+    }
+    #[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+    {
+        let _ = state;
+        None
+    }
+}
+
+/// What hands out a part URL, in a build that can have one.
+///
+/// Only S3 and GCS sign a part upload, and `object_store` compiles its signing
+/// only for the cloud backends. A build with neither has nothing that could
+/// fill this, so it is a type with no values: every upload there answers
+/// `direct: false`, and the endpoints stay in the contract and refuse.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+type PartSigner = std::sync::Arc<dyn object_store::signer::Signer>;
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+type PartSigner = std::convert::Infallible;
+
+/// Signs a `PUT` for one part of the multipart upload `multipart_id`.
+#[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+async fn sign_part(
+    signer: &PartSigner,
+    key: &str,
+    number: u64,
+    multipart_id: String,
+    ttl: std::time::Duration,
+) -> Result<url::Url> {
+    let options = object_store::signer::SignedUrlOptions::new().with_query([
+        ("partNumber", number.to_string()),
+        ("uploadId", multipart_id),
+    ]);
+    Ok(signer
+        .signed_url_opts(
+            axum::http::Method::PUT,
+            &object_store::path::Path::from(key),
+            ttl,
+            &options,
+        )
+        .await?)
+}
+
+/// The build with nothing to sign never reaches here: [`direct_signer`] has no
+/// value to give, so the caller has already refused.
+#[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
+#[expect(
+    clippy::unused_async,
+    reason = "the same signature as the build that signs"
+)]
+async fn sign_part(
+    signer: &PartSigner,
+    _key: &str,
+    _number: u64,
+    _multipart_id: String,
+    _ttl: std::time::Duration,
+) -> Result<url::Url> {
+    match *signer {}
+}
+
+fn not_direct() -> Error {
+    Error::Conflict("this upload cannot take parts directly; send them with PATCH".to_owned())
+}
+
+fn part_size(state: &AppState) -> u64 {
+    u64::try_from(state.config().server.part_size_bytes).unwrap_or(u64::MAX)
+}
+
 /// Turns a finished upload into a file, and answers with the share.
 ///
 /// The session row goes with it: it has nothing left to describe, and leaving
@@ -461,7 +798,15 @@ async fn finish(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
     let sink = sink_for(state, &upload)?;
     let parts = state.uploads.parts_of(upload.id).await?;
     sink.complete(&upload.object_key, parts).await?;
+    settle(state, upload, size_bytes).await
+}
 
+/// Records an upload whose object is already whole, and answers with the share.
+///
+/// The half of finishing that does not care how the parts arrived, shared by a
+/// `PATCH` that carried the last bytes and a `complete` after parts went
+/// straight to the store.
+async fn settle(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Response> {
     let mut finished = upload.clone();
     finished.offset_bytes = size_bytes;
     let file = finished_file(&finished);
@@ -472,7 +817,16 @@ async fn finish(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
             state.shares.append_file(share_id, &file, now).await?;
             crate::api::shares::describe_for_owner(state, share_id).await?
         }
-        None => crate::api::shares::create_from_file(state, upload.user_id, file, now).await?,
+        None => {
+            crate::api::shares::create_from_file(
+                state,
+                upload.user_id,
+                file,
+                upload.encryption.clone(),
+                now,
+            )
+            .await?
+        }
     };
 
     state.uploads.delete(upload.id).await?;
@@ -638,6 +992,7 @@ pub(crate) fn finished_file(upload: &Upload) -> NewFile {
         segments: Vec::new(),
         filename: upload.filename.clone(),
         content_type: upload.content_type.clone(),
+        sealed_name: upload.sealed_name.clone(),
         size_bytes: upload.offset_bytes,
         storage: StorageLocation::Object {
             // Where the session actually wrote. Reading the configuration here

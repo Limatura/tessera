@@ -6,7 +6,7 @@
 # Rust side (no package.json under it), and cargo never sees the JavaScript side.
 [workspace]
 resolver = "3"
-members = ["apps/server", "crates/*"]
+members = ["apps/cli", "apps/server", "crates/*"]
 
 [workspace.package]
 version = "0.1.0"
@@ -18,6 +18,7 @@ publish = false
 # Versions are pinned once here so the two crates can never disagree about a
 # shared dependency — the classic source of "works in core, breaks in server".
 tessera-core = { path = "crates/tessera-core" }
+tessera-crypto = { path = "crates/tessera-crypto" }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -141,6 +142,16 @@ opt-level = "z"
 lto = "fat"
 codegen-units = 1
 strip = "symbols"
+
+# The browser's build of `tessera-crypto`, made by `scripts/crypto-wasm.sh`.
+#
+# Speed rather than size, unlike release: the module is tens of kilobytes either
+# way, and encryption sits between the file and the network. `panic` is abort
+# because nothing on `wasm32-unknown-unknown` can catch an unwind.
+[profile.wasm]
+inherits = "release"
+opt-level = 3
+panic = "abort"
 
 [profile.bench]
 inherits = "release"

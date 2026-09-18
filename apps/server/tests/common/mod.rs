@@ -633,7 +633,7 @@ pub(crate) async fn share_repository_round_trip(app: &TestApp, suffix: &str) {
 
 use tessera_core::{RetrievalCode, ShareId};
 use tessera_server::db::repository::share::{
-    Availability, NewContent, NewFile, Share, ShareEvent, ShareKind, ShareRepository,
+    Availability, Encryption, NewContent, NewFile, Share, ShareEvent, ShareKind, ShareRepository,
     StorageLocation,
 };
 use time::{Duration, OffsetDateTime};
@@ -682,11 +682,14 @@ impl<'a> Shares<'a> {
             expires_at: None,
             disabled_at: None,
             title: None,
+            encryption: None,
+            sealed_details: None,
             og_config: None,
             management_token_hash: None,
             view_count: 0,
             copy_count: 0,
             bytes_served: 0,
+            bytes_redirected: 0,
             last_accessed_at: None,
             created_at: self.now,
             updated_at: self.now,
@@ -720,6 +723,10 @@ impl<'a> Shares<'a> {
             expires_at: Some(self.now + Duration::hours(1)),
             og_config: Some(r#"{"layout":"default"}"#.to_owned()),
             management_token_hash: Some("a".repeat(64)),
+            encryption: Some(Encryption::Password {
+                salt: "AwMDAwMDAwMDAwMDAwMDAw".to_owned(),
+            }),
+            sealed_details: Some("c2VhbGVk".repeat(64)),
             ..self.blank(1)
         }
     }
@@ -770,6 +777,9 @@ impl<'a> Shares<'a> {
                     segments: Vec::new(),
                     filename: Some("專案.zip".to_owned()),
                     content_type: Some("application/zip".to_owned()),
+                    // Longer than the plain name's column would take, which is
+                    // why it is not that column.
+                    sealed_name: Some("bmFtZQ".repeat(100)),
                     size_bytes: 1_048_576,
                     storage: StorageLocation::Object {
                         backend: DEFAULT_BACKEND.to_owned(),
@@ -781,6 +791,12 @@ impl<'a> Shares<'a> {
             .expect("insert");
 
         assert_eq!(self.stored(share.id).await, share);
+        let files = self.repository.files_of(share.id).await.expect("query");
+        assert_eq!(
+            files.first().and_then(|file| file.sealed_name.clone()),
+            Some("bmFtZQ".repeat(100)),
+            "a sealed name must survive the round trip"
+        );
         let keys = self
             .repository
             .object_keys_of(share.id)
