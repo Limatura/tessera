@@ -106,41 +106,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/og/preview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Draws a card layout without storing it.
-         * @description # Why this is a server endpoint and not a preview in the browser
-         *
-         *     The original plan was to render the preview in the browser with takumi's
-         *     wasm build, so an operator edits against the engine that draws the real
-         *     card. Measured, that costs the browser 3.41 MB of wasm and 3.43 MB of fonts,
-         *     and still leaves a second implementation for parsing HTML.
-         *
-         *     This is the same engine for both halves, because it is not a second engine:
-         *     it is the code that draws the real card, with the real fonts, behind the
-         *     same check the real layout goes through. It costs a round trip and about
-         *     three milliseconds.
-         *
-         *     # Errors
-         *
-         *     `400` for a layout this instance will not draw, carrying the reason so the
-         *     editor can show it. `401`, `403` and `404` as for [`preview`].
-         */
-        post: operations["preview_og_card"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/permissions": {
         parameters: {
             query?: never;
@@ -485,7 +450,21 @@ export interface paths {
         delete: operations["remove_storage_backend"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Turns direct access on or off for a stored backend.
+         * @description # Why this is not another `POST` of the whole backend
+         *
+         *     That works, and replaces the row. But it needs the URL and credentials sent
+         *     again, and those are sealed and never shown, so flipping one switch would
+         *     mean finding the secret key for a bucket again.
+         *
+         *     # Errors
+         *
+         *     `400` for the backend from `storage.url`, whose switch is the
+         *     `storage.direct_access` setting. `401` when nothing was signed in, `403`
+         *     when the caller may not write settings, `404` when no backend has that name.
+         */
+        patch: operations["update_storage_backend"];
         trace?: never;
     };
     "/api/v1/admin/storage/backends/{name}/default": {
@@ -1060,6 +1039,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's own preferences.
+         * @description # Errors
+         *
+         *     `401` when nothing was signed in.
+         */
+        get: operations["get_preferences"];
+        /**
+         * Replaces the caller's own preferences.
+         * @description # Why an unknown name is a `400` and not a shrug
+         *
+         *     These end up as attributes on the `<html>` element. Refusing anything
+         *     outside the lists is the whole of the check, and it belongs here rather than
+         *     at the point of rendering, where a value has already been stored and
+         *     whatever wrote it has already gone.
+         *
+         *     # Errors
+         *
+         *     `400` when a name is not one this build knows, `401` when nothing was signed
+         *     in.
+         */
+        put: operations["update_preferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -1295,6 +1310,7 @@ export interface paths {
          *
          *     # Errors
          *
+         *     `400` for a name that is unusable or described the wrong way for the share,
          *     `403` when the caller cannot show it is theirs, `404` when no share has that
          *     code, `409` when the share holds text, `413` when the body is too large,
          *     `507` when something is out of room. The body says whose ceiling that was.
@@ -1461,6 +1477,79 @@ export interface paths {
          *     when the content type is not the one the specification names.
          */
         patch: operations["append_to_upload"];
+        trace?: never;
+    };
+    "/api/v1/uploads/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finishes an upload whose parts went straight to the store.
+         * @description # Where the size is checked
+         *
+         *     Here, and only here. A part URL cannot be limited to a length, so this
+         *     completes the object and then asks the store how large it came out. One
+         *     that is not the size the session declared, and was charged against the
+         *     uploader's room for, is deleted and refused.
+         *
+         *     Until then the extra bytes sit in the bucket. That is the cost of not
+         *     having the bytes pass through here, and it is bounded by what a session
+         *     that already passed the size and room checks can write before this runs.
+         *
+         *     # Errors
+         *
+         *     `400` when the number of `ETag`s is not the number of parts, or the object
+         *     did not come out the declared size. `404` when there is no such session,
+         *     `409` when this upload cannot take parts directly or has already had parts
+         *     sent through this server, `410` when the session was abandoned.
+         */
+        post: operations["complete_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads/{id}/parts/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Hands out a URL to write one part straight to the store.
+         * @description # Why this exists
+         *
+         *     Every byte of a `PATCH` crosses this server twice: in from the uploader,
+         *     out to the bucket. On a self-hosted instance those are often the same
+         *     uplink. A part written to the store directly crosses it zero times.
+         *
+         *     # What it does not check
+         *
+         *     The part's size. The URL carries the part number and the upload it belongs
+         *     to, both signed, but a length cannot be: `object_store` refuses to sign
+         *     `content-length`. So a client may write a part of any size, and nothing
+         *     finds out until `complete` asks the store how large the object came out.
+         *     See [`complete`].
+         *
+         *     # Errors
+         *
+         *     `404` when there is no such session or no such part, `409` when this upload
+         *     cannot take parts directly, `410` when the session was abandoned.
+         */
+        get: operations["upload_part_url"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/health": {
@@ -1636,6 +1725,12 @@ export interface components {
             active: boolean;
             /**
              * Format: int64
+             * @description How many bytes downloads of it sent straight to a store asked for.
+             *     Requested, not delivered.
+             */
+            bytes_redirected: number;
+            /**
+             * Format: int64
              * @description How many bytes it has sent out, over its whole life.
              *
              *     The instance-wide figure in `StatsResponse` answers "what is this
@@ -1709,6 +1804,11 @@ export interface components {
              */
             capacity_bytes?: number | null;
             /**
+             * @description Whether browsers may be sent to it directly. Only if a browser can reach
+             *     it; see [`BackendResponse::direct_access`].
+             */
+            direct_access?: boolean;
+            /**
              * @description What to call it. Reusing an existing name replaces that backend.
              * @example cold
              */
@@ -1728,11 +1828,12 @@ export interface components {
         /**
          * @description One backend, as the panel draws it.
          *
-         *     Four booleans answering four unrelated questions: where new uploads go,
-         *     whether this one still takes them, whether the process can reach it, and
-         *     whether it comes from the environment. Collapsing any pair into an enum
-         *     would invent a state the system does not have, since a read-only backend can
-         *     be the default and an unreachable one can be either.
+         *     Five booleans answering five unrelated questions: where new uploads go,
+         *     whether this one still takes them, whether the process can reach it, whether
+         *     browsers may be sent to it, and whether it comes from the environment.
+         *     Collapsing any pair into an enum would invent a state the system does not
+         *     have, since a read-only backend can be the default and an unreachable one can
+         *     be either.
          */
         BackendResponse: {
             /**
@@ -1744,6 +1845,14 @@ export interface components {
              * @example 10737418240
              */
             capacity_bytes?: number | null;
+            /**
+             * @description Whether browsers are sent to it directly, to download a file or write an
+             *     upload's parts, instead of through this server.
+             *
+             *     Only S3 and GCS can be sent to. On anything else this may be `true` and
+             *     still change nothing.
+             */
+            direct_access: boolean;
             /**
              * @description Whether it comes from `storage.url` instead of this table.
              *
@@ -1815,6 +1924,16 @@ export interface components {
              * @example 12
              */
             account_password_min_length: number;
+            /** @description Whether an account password needs a digit. */
+            account_password_requires_digit: boolean;
+            /**
+             * @description Whether an account password needs both an uppercase and a lowercase
+             *     letter. How a character is classed is on `PasswordPolicy`; a client that
+             *     classes them differently will pass a password the server refuses.
+             */
+            account_password_requires_mixed_case: boolean;
+            /** @description Whether an account password needs a symbol. A space is not one. */
+            account_password_requires_symbol: boolean;
             /**
              * @description Whether accounts exist at all on this instance.
              *
@@ -1845,6 +1964,8 @@ export interface components {
              * @example 168
              */
             default_expiry_hours?: number | null;
+            /** @description Whether an upload may be end-to-end encrypted. See `docs/encryption.md`. */
+            encryption: boolean;
             /**
              * Format: int64
              * @description The longest lifetime an uploader may ask for, in hours.
@@ -1931,6 +2052,20 @@ export interface components {
             current_password: string;
             /** @description The replacement. */
             new_password: string;
+        };
+        /** @description Body of `POST /uploads/{id}/complete`. */
+        CompleteUploadRequest: {
+            /**
+             * @description The `ETag` each part's `PUT` answered with, in part order from one.
+             *
+             *     Exactly as many as the upload has parts, as sent by the store: quotes
+             *     included, if it included them.
+             * @example [
+             *       "\"3858f62230ac3c915f300c664312c11f\"",
+             *       "\"9b2cf535f27731c974343645a3985328\""
+             *     ]
+             */
+            etags: string[];
         };
         /**
          * @description What a setting change would destroy the next time the sweep runs.
@@ -2171,17 +2306,6 @@ export interface components {
              */
             password: string;
         };
-        /** @description A card layout to draw, and which share to draw it for. */
-        OgPreviewRequest: {
-            /** @description Which state to draw. Defaults to an ordinary file share. */
-            card?: components["schemas"]["SampleCard"];
-            /**
-             * @description The layout, as it would be stored in `og.layout`. Empty draws the
-             *     built-in card, what an operator sees before they change
-             *     anything and what they are comparing against.
-             */
-            layout?: string;
-        };
         Option_u64: null | number;
         /**
          * @description What a client needs to draw pagination, for any paged list.
@@ -2214,6 +2338,16 @@ export interface components {
              * @example 137
              */
             total: number;
+        };
+        /** @description A URL to write one part of an upload to the store directly. */
+        PartUrlResponse: {
+            /** @description When the URL stops working, RFC 3339. */
+            expires_at: string;
+            /**
+             * @description Where to `PUT` the part's bytes. The response carries an `ETag` header,
+             *     which is what `complete` needs back.
+             */
+            url: string;
         };
         /** @description Body of `POST /auth/password-reset/confirm`. */
         PasswordResetConfirmRequest: {
@@ -2285,6 +2419,23 @@ export interface components {
              */
             privileged: boolean;
         };
+        /**
+         * @description One person's preferences.
+         *
+         *     One field so far. Language, time zone and clock format are the ones already
+         *     asked for, and each will be another field here rather than another endpoint.
+         */
+        PreferencesResponse: {
+            /**
+             * @description The appearance choices, `{}` when none have been made.
+             *
+             *     `mode` is one of `light`, `dark`, `system`; `theme` one of `default`,
+             *     `graphite`, `sepia`; `accent` one of `violet`, `rose`, `orange`,
+             *     `amber`, `green`, `teal`, `blue`. Any of the three may be absent,
+             *     meaning this person has no opinion and follows the instance.
+             */
+            appearance: Record<string, never>;
+        };
         /** @description What `POST /admin/settings/preview` answers. */
         PreviewResponse: {
             /** @description What the change would destroy. Empty when it destroys nothing. */
@@ -2318,12 +2469,23 @@ export interface components {
             code: string;
             /** @description When it was created, RFC 3339. */
             created_at?: string | null;
+            /**
+             * @description `link` or `password` for an end-to-end encrypted share, `null` otherwise.
+             *
+             *     Given before unlocking, with the salt below. A client whose key comes
+             *     from the password has to derive it before it can present the password
+             *     at all.
+             * @example password
+             */
+            encryption?: string | null;
             /** @description When it stops being served, RFC 3339. */
             expires_at?: string | null;
             /** @description Every file this share holds. Empty for text and for a locked share. */
             files: components["schemas"]["SharedFile"][];
             /** @description Whether a password must be presented before anything else is revealed. */
             has_password: boolean;
+            /** @description The salt a password-derived key is stretched with, for `password`. */
+            key_salt?: string | null;
             /**
              * @description `text` or `file`.
              * @example file
@@ -2331,6 +2493,8 @@ export interface components {
             kind: string;
             /** @description Syntax-highlighting hint. */
             language?: string | null;
+            /** @description The title and a note's language, sealed, on an encrypted share. */
+            sealed_details?: string | null;
             /**
              * Format: int64
              * @description Size of the content in bytes.
@@ -2489,11 +2653,6 @@ export interface components {
             updated_at: string;
         };
         /**
-         * @description Which sample card to draw.
-         * @enum {string}
-         */
-        SampleCard: "open" | "locked" | "gone";
-        /**
          * @description Where the process is in its lifecycle.
          *
          *     Load balancers and `docker healthcheck` need to distinguish "still migrating"
@@ -2645,6 +2804,12 @@ export interface components {
             copy_count: number;
             /** @description When it was created, RFC 3339. */
             created_at: string;
+            /**
+             * @description `link` or `password` for an end-to-end encrypted share, `null` for one
+             *     the server can read.
+             * @example link
+             */
+            encryption?: string | null;
             /** @description When it stops being served, RFC 3339, or `null` to live until deleted. */
             expires_at?: string | null;
             /** @description Every file this share holds. Empty for text and for a locked share. */
@@ -2656,6 +2821,8 @@ export interface components {
              * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
              */
             id: string;
+            /** @description The salt a password-derived key was stretched with, for `password`. */
+            key_salt?: string | null;
             /**
              * @description `text` or `file`.
              * @example file
@@ -2687,6 +2854,8 @@ export interface components {
              * @example /s/0ZPQ4M7K
              */
             path: string;
+            /** @description The title and a note's language, sealed, on an encrypted share. */
+            sealed_details?: string | null;
             /**
              * Format: int64
              * @description Size of the content in bytes.
@@ -2729,9 +2898,13 @@ export interface components {
              *     restore the uploader's order.
              */
             position: number;
+            /** @description Its name and media type, sealed, in an encrypted share. */
+            sealed_name?: string | null;
             /**
              * Format: int64
              * @description How many bytes it holds.
+             *
+             *     Sealed bytes in an encrypted share, which is what a download sends.
              */
             size_bytes: number;
         };
@@ -2760,6 +2933,15 @@ export interface components {
              * @description How many of those administer the instance.
              */
             administrators: number;
+            /**
+             * Format: int64
+             * @description How many bytes downloads sent straight to a store asked for.
+             *
+             *     Requested, not delivered: the store does not say what it sent, so an
+             *     abandoned download counts in full here. Separate from `bytes_served`
+             *     so that one keeps meaning what left this machine.
+             */
+            bytes_redirected: number;
             /**
              * Format: int64
              * @description How many bytes this instance has sent out.
@@ -2885,6 +3067,22 @@ export interface components {
              */
             username?: string | null;
         };
+        /** @description Body of `PATCH /admin/storage/backends/{name}`. */
+        UpdateBackendRequest: {
+            /** @description Whether browsers may be sent to it directly. */
+            direct_access: boolean;
+        };
+        /** @description Body of `PUT /me/preferences`. */
+        UpdatePreferencesRequest: {
+            /**
+             * @description The appearance choices, replacing whatever was stored.
+             *
+             *     Omit a field, or send `{}`, to have no opinion and follow the
+             *     instance's default. The accepted names are the ones
+             *     [`PreferencesResponse`] lists; anything else is a `400`.
+             */
+            appearance?: Record<string, never>;
+        };
         /** @description Body of `PUT /admin/settings`. */
         UpdateSettingsRequest: {
             /**
@@ -2940,6 +3138,19 @@ export interface components {
         };
         /** @description A session that has just been opened. */
         UploadResponse: {
+            /**
+             * @description Whether the parts may go straight to the store instead of through here.
+             *
+             *     When `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`
+             *     each part to, and `POST /uploads/{id}/complete` finishes with the `ETag`
+             *     each `PUT` answered. `PATCH` still works either way.
+             *
+             *     Decided by where this upload was placed, and by whether the operator
+             *     has said a browser can reach that store, which is why it is here and not
+             *     in the capabilities: an instance with an S3 bucket and a local directory
+             *     answers differently for different uploads.
+             */
+            direct: boolean;
             /** @description Identifier, and the last segment of the URL to continue at. */
             id: string;
             /**
@@ -3244,66 +3455,6 @@ export interface operations {
                 };
             };
             /** @description No invite has that id */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-        };
-    };
-    preview_og_card: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OgPreviewRequest"];
-            };
-        };
-        responses: {
-            /** @description The card, as a PNG */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/png": number[];
-                };
-            };
-            /** @description A layout this instance will not draw */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Not signed in */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description May not change settings, or authenticated with an API token */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description This instance has no administration */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -4177,6 +4328,69 @@ export interface operations {
             };
             /** @description It still holds content; move it off first */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_storage_backend: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Which backend */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBackendRequest"];
+            };
+        };
+        responses: {
+            /** @description The backend as it now stands */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackendResponse"];
+                };
+            };
+            /** @description The backend from storage.url is changed through its setting */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not write settings */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such backend */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5186,6 +5400,77 @@ export interface operations {
             };
         };
     };
+    get_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's preferences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    update_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePreferencesRequest"];
+            };
+        };
+        responses: {
+            /** @description The preferences as they now stand */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferencesResponse"];
+                };
+            };
+            /** @description A name outside the lists this build knows */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     list_sessions: {
         parameters: {
             query?: never;
@@ -5390,6 +5675,28 @@ export interface operations {
                  * @example 3
                  */
                 max_uses?: number;
+                /**
+                 * @description `link` or `password` to make an end-to-end encrypted share, whose body
+                 *     arrives already sealed. See `docs/encryption.md`. Refused unless
+                 *     `/capabilities` says `encryption`.
+                 * @example link
+                 */
+                encryption?: string;
+                /**
+                 * @description For `encryption=password`: the salt the password was stretched with, as
+                 *     16 bytes of unpadded URL-safe base64. Handed to anyone who asks.
+                 */
+                key_salt?: string;
+                /**
+                 * @description For an encrypted file: its name and media type, sealed. Takes the place
+                 *     of `filename`, and like it, makes this a file share.
+                 */
+                sealed_name?: string;
+                /**
+                 * @description For an encrypted share: its title and a note's language, sealed. Takes
+                 *     the place of `title` and `language`.
+                 */
+                sealed_details?: string;
             };
             header?: never;
             path?: never;
@@ -5669,6 +5976,11 @@ export interface operations {
                  * @example holiday.jpg
                  */
                 filename?: string;
+                /**
+                 * @description Its name and media type, sealed, when the share is encrypted. Takes the
+                 *     place of `filename` there.
+                 */
+                sealed_name?: string;
             };
             header?: never;
             path: {
@@ -5691,6 +6003,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description A name that is unusable, or described the wrong way for the share: in the clear on an encrypted one, sealed on a plain one */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Not yours */
@@ -5954,6 +6275,19 @@ export interface operations {
                  * @example 4GSVV6QT
                  */
                 code?: string;
+                /**
+                 * @description `link` or `password` for a new end-to-end encrypted share. An upload
+                 *     into an existing share is sealed the way that share is, so this is
+                 *     refused alongside `code`. See `POST /shares`.
+                 */
+                encryption?: string;
+                /** @description For `encryption=password`: the salt, as for `POST /shares`. */
+                key_salt?: string;
+                /**
+                 * @description For a file in an encrypted share: its name and media type, sealed. Takes
+                 *     the place of `filename`.
+                 */
+                sealed_name?: string;
             };
             header?: never;
             path?: never;
@@ -6096,6 +6430,130 @@ export interface operations {
             };
             /** @description Wrong content type */
             415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    complete_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteUploadRequest"];
+            };
+        };
+        responses: {
+            /** @description The upload is a file now */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShareResponse"];
+                };
+            };
+            /** @description Wrong number of parts, or not the declared size */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such session */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This upload cannot be finished this way */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description That session was abandoned */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    upload_part_url: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The session */
+                id: string;
+                /** @description Which part, from one */
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to `PUT` that part */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartUrlResponse"];
+                };
+            };
+            /** @description `number` is not a part number */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description No such session, or no such part */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This upload cannot take parts directly */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description That session was abandoned */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };

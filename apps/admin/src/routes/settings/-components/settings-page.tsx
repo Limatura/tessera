@@ -21,13 +21,33 @@ export function SettingsPage({
 }) {
   return (
     <AdminShell title="系統設定">
-      <Card className="ring-foreground/10">
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </CardHeader>
-        <CardContent>{children}</CardContent>
-      </Card>
+      <SettingsCard description={description} title={title}>
+        {children}
+      </SettingsCard>
     </AdminShell>
+  );
+}
+
+/**
+ * 單獨一張卡。給一頁裡有好幾個各自送出的表單用 —— 登入方式那頁的三個 provider
+ * 各存各的，混成一批會讓其中一個的錯誤把另外兩個的改動也退回。
+ */
+export function SettingsCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="ring-foreground/10">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   );
 }

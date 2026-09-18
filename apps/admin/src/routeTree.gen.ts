@@ -18,10 +18,15 @@ import { Route as DndDemoIndexRouteImport } from './routes/dnd-demo/index'
 import { Route as RolesIndexRouteImport } from './routes/roles/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccountRouteImport } from './routes/settings/account'
-import { Route as SettingsOidcRouteImport } from './routes/settings/oidc'
-import { Route as SettingsSiteRouteImport } from './routes/settings/site'
+import { Route as SettingsAuthProvidersRouteImport } from './routes/settings/auth-providers'
+import { Route as SettingsFeaturesRouteImport } from './routes/settings/features'
+import { Route as SettingsMailRouteImport } from './routes/settings/mail'
+import { Route as SettingsNetworkRouteImport } from './routes/settings/network'
+import { Route as SettingsPasswordRouteImport } from './routes/settings/password'
+import { Route as SettingsShareRouteImport } from './routes/settings/share'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as SettingsThemeRouteImport } from './routes/settings/theme'
+import { Route as SettingsThrottleRouteImport } from './routes/settings/throttle'
 import { Route as SettingsUploadRouteImport } from './routes/settings/upload'
 
 const IndexRoute = IndexRouteImport.update({
@@ -69,14 +74,34 @@ const SettingsAccountRoute = SettingsAccountRouteImport.update({
   path: '/settings/account',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsOidcRoute = SettingsOidcRouteImport.update({
-  id: '/settings/oidc',
-  path: '/settings/oidc',
+const SettingsAuthProvidersRoute = SettingsAuthProvidersRouteImport.update({
+  id: '/settings/auth-providers',
+  path: '/settings/auth-providers',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsSiteRoute = SettingsSiteRouteImport.update({
-  id: '/settings/site',
-  path: '/settings/site',
+const SettingsFeaturesRoute = SettingsFeaturesRouteImport.update({
+  id: '/settings/features',
+  path: '/settings/features',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsMailRoute = SettingsMailRouteImport.update({
+  id: '/settings/mail',
+  path: '/settings/mail',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsNetworkRoute = SettingsNetworkRouteImport.update({
+  id: '/settings/network',
+  path: '/settings/network',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPasswordRoute = SettingsPasswordRouteImport.update({
+  id: '/settings/password',
+  path: '/settings/password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsShareRoute = SettingsShareRouteImport.update({
+  id: '/settings/share',
+  path: '/settings/share',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsStorageRoute = SettingsStorageRouteImport.update({
@@ -87,6 +112,11 @@ const SettingsStorageRoute = SettingsStorageRouteImport.update({
 const SettingsThemeRoute = SettingsThemeRouteImport.update({
   id: '/settings/theme',
   path: '/settings/theme',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsThrottleRoute = SettingsThrottleRouteImport.update({
+  id: '/settings/throttle',
+  path: '/settings/throttle',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsUploadRoute = SettingsUploadRouteImport.update({
@@ -101,10 +131,15 @@ export interface FileRoutesByFullPath {
   '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
   '/settings/account': typeof SettingsAccountRoute
-  '/settings/oidc': typeof SettingsOidcRoute
-  '/settings/site': typeof SettingsSiteRoute
+  '/settings/auth-providers': typeof SettingsAuthProvidersRoute
+  '/settings/features': typeof SettingsFeaturesRoute
+  '/settings/mail': typeof SettingsMailRoute
+  '/settings/network': typeof SettingsNetworkRoute
+  '/settings/password': typeof SettingsPasswordRoute
+  '/settings/share': typeof SettingsShareRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/theme': typeof SettingsThemeRoute
+  '/settings/throttle': typeof SettingsThrottleRoute
   '/settings/upload': typeof SettingsUploadRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dnd-demo/': typeof DndDemoIndexRoute
@@ -117,10 +152,15 @@ export interface FileRoutesByTo {
   '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
   '/settings/account': typeof SettingsAccountRoute
-  '/settings/oidc': typeof SettingsOidcRoute
-  '/settings/site': typeof SettingsSiteRoute
+  '/settings/auth-providers': typeof SettingsAuthProvidersRoute
+  '/settings/features': typeof SettingsFeaturesRoute
+  '/settings/mail': typeof SettingsMailRoute
+  '/settings/network': typeof SettingsNetworkRoute
+  '/settings/password': typeof SettingsPasswordRoute
+  '/settings/share': typeof SettingsShareRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/theme': typeof SettingsThemeRoute
+  '/settings/throttle': typeof SettingsThrottleRoute
   '/settings/upload': typeof SettingsUploadRoute
   '/dashboard': typeof DashboardIndexRoute
   '/dnd-demo': typeof DndDemoIndexRoute
@@ -134,10 +174,15 @@ export interface FileRoutesById {
   '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
   '/settings/account': typeof SettingsAccountRoute
-  '/settings/oidc': typeof SettingsOidcRoute
-  '/settings/site': typeof SettingsSiteRoute
+  '/settings/auth-providers': typeof SettingsAuthProvidersRoute
+  '/settings/features': typeof SettingsFeaturesRoute
+  '/settings/mail': typeof SettingsMailRoute
+  '/settings/network': typeof SettingsNetworkRoute
+  '/settings/password': typeof SettingsPasswordRoute
+  '/settings/share': typeof SettingsShareRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/theme': typeof SettingsThemeRoute
+  '/settings/throttle': typeof SettingsThrottleRoute
   '/settings/upload': typeof SettingsUploadRoute
   '/dashboard/': typeof DashboardIndexRoute
   '/dnd-demo/': typeof DndDemoIndexRoute
@@ -152,10 +197,15 @@ export interface FileRouteTypes {
     | '/shares'
     | '/users'
     | '/settings/account'
-    | '/settings/oidc'
-    | '/settings/site'
+    | '/settings/auth-providers'
+    | '/settings/features'
+    | '/settings/mail'
+    | '/settings/network'
+    | '/settings/password'
+    | '/settings/share'
     | '/settings/storage'
     | '/settings/theme'
+    | '/settings/throttle'
     | '/settings/upload'
     | '/dashboard/'
     | '/dnd-demo/'
@@ -168,10 +218,15 @@ export interface FileRouteTypes {
     | '/shares'
     | '/users'
     | '/settings/account'
-    | '/settings/oidc'
-    | '/settings/site'
+    | '/settings/auth-providers'
+    | '/settings/features'
+    | '/settings/mail'
+    | '/settings/network'
+    | '/settings/password'
+    | '/settings/share'
     | '/settings/storage'
     | '/settings/theme'
+    | '/settings/throttle'
     | '/settings/upload'
     | '/dashboard'
     | '/dnd-demo'
@@ -184,10 +239,15 @@ export interface FileRouteTypes {
     | '/shares'
     | '/users'
     | '/settings/account'
-    | '/settings/oidc'
-    | '/settings/site'
+    | '/settings/auth-providers'
+    | '/settings/features'
+    | '/settings/mail'
+    | '/settings/network'
+    | '/settings/password'
+    | '/settings/share'
     | '/settings/storage'
     | '/settings/theme'
+    | '/settings/throttle'
     | '/settings/upload'
     | '/dashboard/'
     | '/dnd-demo/'
@@ -201,10 +261,15 @@ export interface RootRouteChildren {
   SharesRoute: typeof SharesRoute
   UsersRoute: typeof UsersRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
-  SettingsOidcRoute: typeof SettingsOidcRoute
-  SettingsSiteRoute: typeof SettingsSiteRoute
+  SettingsAuthProvidersRoute: typeof SettingsAuthProvidersRoute
+  SettingsFeaturesRoute: typeof SettingsFeaturesRoute
+  SettingsMailRoute: typeof SettingsMailRoute
+  SettingsNetworkRoute: typeof SettingsNetworkRoute
+  SettingsPasswordRoute: typeof SettingsPasswordRoute
+  SettingsShareRoute: typeof SettingsShareRoute
   SettingsStorageRoute: typeof SettingsStorageRoute
   SettingsThemeRoute: typeof SettingsThemeRoute
+  SettingsThrottleRoute: typeof SettingsThrottleRoute
   SettingsUploadRoute: typeof SettingsUploadRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
   DndDemoIndexRoute: typeof DndDemoIndexRoute
@@ -277,18 +342,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsAccountRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/oidc': {
-      id: '/settings/oidc'
-      path: '/settings/oidc'
-      fullPath: '/settings/oidc'
-      preLoaderRoute: typeof SettingsOidcRouteImport
+    '/settings/auth-providers': {
+      id: '/settings/auth-providers'
+      path: '/settings/auth-providers'
+      fullPath: '/settings/auth-providers'
+      preLoaderRoute: typeof SettingsAuthProvidersRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/settings/site': {
-      id: '/settings/site'
-      path: '/settings/site'
-      fullPath: '/settings/site'
-      preLoaderRoute: typeof SettingsSiteRouteImport
+    '/settings/features': {
+      id: '/settings/features'
+      path: '/settings/features'
+      fullPath: '/settings/features'
+      preLoaderRoute: typeof SettingsFeaturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/mail': {
+      id: '/settings/mail'
+      path: '/settings/mail'
+      fullPath: '/settings/mail'
+      preLoaderRoute: typeof SettingsMailRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/network': {
+      id: '/settings/network'
+      path: '/settings/network'
+      fullPath: '/settings/network'
+      preLoaderRoute: typeof SettingsNetworkRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/password': {
+      id: '/settings/password'
+      path: '/settings/password'
+      fullPath: '/settings/password'
+      preLoaderRoute: typeof SettingsPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/share': {
+      id: '/settings/share'
+      path: '/settings/share'
+      fullPath: '/settings/share'
+      preLoaderRoute: typeof SettingsShareRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/storage': {
@@ -303,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/theme'
       fullPath: '/settings/theme'
       preLoaderRoute: typeof SettingsThemeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/throttle': {
+      id: '/settings/throttle'
+      path: '/settings/throttle'
+      fullPath: '/settings/throttle'
+      preLoaderRoute: typeof SettingsThrottleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/upload': {
@@ -321,10 +421,15 @@ const rootRouteChildren: RootRouteChildren = {
   SharesRoute: SharesRoute,
   UsersRoute: UsersRoute,
   SettingsAccountRoute: SettingsAccountRoute,
-  SettingsOidcRoute: SettingsOidcRoute,
-  SettingsSiteRoute: SettingsSiteRoute,
+  SettingsAuthProvidersRoute: SettingsAuthProvidersRoute,
+  SettingsFeaturesRoute: SettingsFeaturesRoute,
+  SettingsMailRoute: SettingsMailRoute,
+  SettingsNetworkRoute: SettingsNetworkRoute,
+  SettingsPasswordRoute: SettingsPasswordRoute,
+  SettingsShareRoute: SettingsShareRoute,
   SettingsStorageRoute: SettingsStorageRoute,
   SettingsThemeRoute: SettingsThemeRoute,
+  SettingsThrottleRoute: SettingsThrottleRoute,
   SettingsUploadRoute: SettingsUploadRoute,
   DashboardIndexRoute: DashboardIndexRoute,
   DndDemoIndexRoute: DndDemoIndexRoute,

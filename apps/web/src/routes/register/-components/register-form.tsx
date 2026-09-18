@@ -19,10 +19,13 @@ import {
 import { Input } from "@tessera/ui/components/input";
 import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
+import { useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 
+import { PasswordRequirements } from "@/components/password-requirements";
 import { useRegister } from "@/hooks/use-auth";
-import { registerSchema } from "@/lib/api/auth-schema";
+import { usePasswordPolicy } from "@/hooks/use-password-policy";
+import { registerSchemaFor } from "@/lib/api/auth-schema";
 import type { RegisterFormValues } from "@/lib/api/auth-schema";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
@@ -33,9 +36,11 @@ export function RegisterForm({
 }: React.ComponentProps<"div">) {
   const navigate = useNavigate();
   const registerAccount = useRegister();
+  const policy = usePasswordPolicy();
+  const schema = useMemo(() => registerSchemaFor(policy), [policy]);
   const { control, handleSubmit } = useForm<RegisterFormValues>({
     defaultValues: { email: "", password: "", username: "" },
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(schema),
   });
 
   const onSubmit = handleSubmit((values) => {
@@ -151,9 +156,11 @@ export function RegisterForm({
                             id="password"
                             type="password"
                           />
-                          {fieldState.invalid && (
-                            <FieldError errors={[fieldState.error]} />
-                          )}
+                          <PasswordRequirements
+                            invalid={fieldState.invalid}
+                            policy={policy}
+                            value={field.value}
+                          />
                         </Field>
                       )}
                     />
