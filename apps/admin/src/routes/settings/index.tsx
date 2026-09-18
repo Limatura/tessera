@@ -19,7 +19,7 @@ export const Route = createRoute({
       location.href,
       PERMISSIONS.settingsRead
     );
-    throw redirect({ to: "/settings/site" });
+    throw redirect({ to: "/settings/account" });
   },
   getParentRoute: () => rootRoute,
   path: "/settings",

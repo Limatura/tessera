@@ -29,12 +29,17 @@ import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 
 /** 設定的各個分頁。整組共用 `settings:read`，所以只在外層擋一次。 */
 const SETTINGS_ITEMS: NavLink[] = [
-  { title: "網站資訊", url: "/settings/site" },
-  { title: "外觀", url: "/settings/theme" },
   { title: "帳號與註冊", url: "/settings/account" },
+  { title: "登入方式", url: "/settings/auth-providers" },
+  { title: "密碼與雜湊", url: "/settings/password" },
+  { title: "限流", url: "/settings/throttle" },
+  { title: "寄信", url: "/settings/mail" },
+  { title: "網路與代理", url: "/settings/network" },
+  { title: "分享與取件", url: "/settings/share" },
   { title: "上傳設置", url: "/settings/upload" },
   { title: "存儲配置", url: "/settings/storage" },
-  { title: "OIDC 設定", url: "/settings/oidc" },
+  { title: "外觀", url: "/settings/theme" },
+  { title: "功能開關", url: "/settings/features" },
 ];
 
 /**

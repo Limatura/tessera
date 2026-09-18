@@ -1,5 +1,8 @@
+import { IconPencil } from "@tabler/icons-react";
 import { createRoute } from "@tanstack/react-router";
+import type { components } from "@tessera/api/schema";
 import { Badge } from "@tessera/ui/components/badge";
+import { Button } from "@tessera/ui/components/button";
 import {
   Card,
   CardContent,
@@ -15,13 +18,23 @@ import {
   TableHeader,
   TableRow,
 } from "@tessera/ui/components/table";
+import { useState } from "react";
 
 import { AdminShell } from "@/components/admin-shell";
-import { useUsers } from "@/hooks/use-admin";
-import { PERMISSIONS, accountRoleLabel, isUnassigned } from "@/lib/permissions";
+import { useRoles, useUsers } from "@/hooks/use-admin";
+import { useSession } from "@/hooks/use-auth";
+import {
+  accountRoleLabel,
+  hasPermission,
+  isUnassigned,
+  PERMISSIONS,
+} from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
 
 import { Route as rootRoute } from "./__root";
+import { SetUserRoleDialog } from "./users/-components/set-user-role-dialog";
+
+type Account = components["schemas"]["AccountResponse"];
 
 export const Route = createRoute({
   beforeLoad: ({ context, location }) =>
@@ -37,6 +50,18 @@ export const Route = createRoute({
 
 function UsersComponent() {
   const users = useUsers();
+  const roles = useRoles();
+  const { data: account } = useSession();
+
+  const [editing, setEditing] = useState<Account | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+
+  const canWrite = hasPermission(account, PERMISSIONS.usersWrite);
+
+  const openEditor = (user: Account) => {
+    setEditing(user);
+    setEditorOpen(true);
+  };
 
   return (
     <AdminShell title="使用者">
@@ -62,6 +87,7 @@ function UsersComponent() {
                   <TableHead>電子郵件</TableHead>
                   <TableHead>角色</TableHead>
                   <TableHead className="text-right">權限數</TableHead>
+                  {canWrite && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -88,6 +114,19 @@ function UsersComponent() {
                     <TableCell className="text-right tabular-nums">
                       {user.permissions.length}
                     </TableCell>
+                    {canWrite && (
+                      <TableCell>
+                        <Button
+                          aria-label={`設定 ${user.username} 的角色`}
+                          onClick={() => openEditor(user)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <IconPencil />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -95,6 +134,15 @@ function UsersComponent() {
           )}
         </CardContent>
       </Card>
+
+      {canWrite && (
+        <SetUserRoleDialog
+          account={editing}
+          onOpenChange={setEditorOpen}
+          open={editorOpen}
+          roles={roles.data ?? []}
+        />
+      )}
     </AdminShell>
   );
 }

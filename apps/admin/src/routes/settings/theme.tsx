@@ -5,9 +5,9 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
 
 import { Route as rootRoute } from "../__root";
+import { AppearanceSettingsForm } from "./-components/appearance-settings-form";
 import { InterfaceThemeField } from "./-components/interface-theme-field";
 import { SettingsPage } from "./-components/settings-page";
-import { ThemeSettingsForm } from "./-components/theme-settings-form";
 
 export const Route = createRoute({
   beforeLoad: ({ context, location }) =>
@@ -23,11 +23,14 @@ export const Route = createRoute({
 
 function ThemeSettingsRoute() {
   return (
-    <SettingsPage description="介面外觀與主色調" title="外觀">
+    <SettingsPage
+      description="訪客看到的預設外觀，對應 appearance.*"
+      title="外觀"
+    >
       <div className="flex flex-col gap-6">
         <InterfaceThemeField />
         <Separator />
-        <ThemeSettingsForm />
+        <AppearanceSettingsForm />
       </div>
     </SettingsPage>
   );

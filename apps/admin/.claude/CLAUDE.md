@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**@apps/admin** is the React admin dashboard for Tessera, an anonymous file courier service. It's an internal management console for operators — not exposed to end users. It covers server configuration (storage, uploads, sessions, OIDC), site branding, and monitoring (recent shares, storage trend).
+**@apps/admin** is the React admin dashboard for Tessera, an anonymous file courier service. It's an internal management console for operators — not exposed to end users. It covers server configuration (accounts, sign-in providers, mail, appearance, uploads, storage) and monitoring (recent shares, storage trend).
 
 Unlike `apps/web`, this app is **not** embedded in the Rust binary — `apps/server/build.rs` only mirrors `apps/web/dist`. Admin ships separately (its own `Dockerfile` + `nginx.conf`) and sits behind a reverse proxy that puts it on the same domain as the frontend, so the session cookie is shared. All business logic lives in the backend API; this frontend is purely presentation and orchestration.
 
@@ -41,15 +41,22 @@ src/
 │   ├── dashboard/                # Stats cards, storage trend, recent shares (stats:read)
 │   ├── roles/                    # Roles and what they permit (roles:read)
 │   ├── settings/                 # One route per section, all gated on settings:read
-│   │   ├── index.tsx             # No UI — redirects /settings to /settings/site
-│   │   ├── site.tsx / theme.tsx / account.tsx
-│   │   ├── upload.tsx / storage.tsx / oidc.tsx
+│   │   ├── index.tsx             # No UI — redirects /settings to /settings/account
+│   │   ├── account.tsx / auth-providers.tsx / password.tsx / throttle.tsx
+│   │   ├── mail.tsx / network.tsx / share.tsx
+│   │   ├── upload.tsx / storage.tsx / theme.tsx / features.tsx
 │   │   └── -components/
-│   │       ├── settings-page.tsx           # Shell every section renders inside
-│   │       ├── account-settings-form.tsx   # The one form wired to the real API
+│   │       ├── settings-page.tsx           # SettingsPage shell + SettingsCard (one card alone)
+│   │       ├── settings-loader.tsx         # Gates a form on GET /admin/settings
+│   │       ├── settings-form-footer.tsx    # Permission note + server error + submit button
+│   │       ├── form-fields.tsx             # TextField / SealedField / SwitchField / SelectField
+│   │       ├── number-field.tsx            # Numeric input (valueAsNumber)
+│   │       ├── read-only-setting.tsx       # A key the panel cannot write (FIXED_AT_BOOT / SECRET)
 │   │       ├── guest-anonymous-warning.tsx # Shown on both account and upload
-│   │       ├── *-settings-form.tsx         # site / theme / upload / storage / oidc
-│   │       └── number-field.tsx            # Shared numeric input for the forms above
+│   │       ├── oidc-provider-card.tsx      # auth.oidc.*
+│   │       ├── oauth-provider-card.tsx     # auth.github.* and auth.discord.*, one component
+│   │       └── *-settings-form.tsx         # account / password / throttle / mail / network
+│   │                                       # / share / upload / storage / appearance / feature
 │   └── dnd-demo/
 ├── components/
 │   ├── admin-shell.tsx           # Sidebar + header frame every page renders inside
@@ -58,12 +65,14 @@ src/
 ├── hooks/
 │   ├── use-auth.ts               # sessionQueryOptions / useSession / useLogin / useLogout
 │   ├── use-admin.ts              # roles, permissions, users, invites, own shares + role mutations
-│   └── use-settings.ts           # GET/PUT /admin/settings + readSetting(key)
+│   ├── use-settings.ts           # GET/PUT /admin/settings + readSetting(key)
+│   └── use-settings-form.ts      # Every settings form's shared half: RHF + write permission + dirty-only submit
 ├── lib/
 │   ├── permissions.ts            # Permission constants, hasPermission, landing order, role labels
 │   ├── route-guard.ts            # requireAuth / requirePermission for a route's beforeLoad
 │   ├── web-url.ts                # Builds apps/web URLs from VITE_FRONTEND_URL (login lives there)
 │   ├── settings-schema.ts        # Zod schemas for every settings form — source of truth for field shape
+│   ├── settings-values.ts        # Readers for the untyped `value` off GET /admin/settings
 │   ├── format.ts
 │   └── locale.ts
 ├── data/
@@ -102,11 +111,23 @@ Roles are database rows and one account holds at most one. An empty `roles` arra
 
 **Settings forms ↔ backend config mapping**
 
-`src/lib/settings-schema.ts` is the source of truth for every settings field. Each schema's comments map its fields back to `apps/server/src/config.rs` (`server.*`, `storage.*`, `share.*`, `auth.*`, `features.*`, snake_case → camelCase). Read this file before touching any settings form — it also flags which sections/fields are **not yet backed by the server** (marked "(新)" in the source: OIDC, site title/description/SEO, theme, admin-entry visibility, allowed upload types). Do not wire those to a real API call until the server exposes the corresponding config.
+`src/lib/settings-schema.ts` is the source of truth for every settings field. Each schema's comments map its fields back to the dotted keys in **`apps/server/SETTINGS.md`** — that document, not `config.rs`, is what to read first: it lists every key, its default, and what breaks when it is set wrong. Keys are snake_case on the wire and camelCase in the forms.
+
+Three kinds of key are deliberately **not** editable fields, and `settings-schema.ts` says so per section:
+
+- `FIXED_AT_BOOT` (e.g. `server.max_body_bytes`) — `PUT` refuses it. Because the endpoint validates a batch, including one would reject the legitimate keys sent alongside it. Show it with `ReadOnlySetting` instead.
+- `SECRET` (e.g. `storage.url`) — never readable, never writable; environment only. `GET` returns `null` for its value, so `ReadOnlySetting` takes `value={null}` and only explains.
+- `SEALED` (`auth.oidc.client_secret`, `auth.github.client_secret`, `auth.discord.client_secret`, `mail.username`, `mail.password`) — writable, never readable. `GET` returns a **boolean** saying whether one is set. Use `SealedField`: the input always starts empty, **blank means leave unchanged**, a value overwrites. Never load-then-edit one, or the first save wipes the stored secret.
 
 Settings are one flat list of dotted keys, not a typed object: `GET /admin/settings` returns every key with its value, where that value came from, and whether this endpoint will change it. `use-settings.ts` wraps that; `readSetting(data, key)` returns `unknown` because the shape depends on which key you asked for. Writes go through `useUpdateSettings` as `{key: value}` and are validated as a **set** — one bad key rejects the whole batch, so send only the fields that actually changed (see how `account-settings-form.tsx` uses `dirtyFields`), and put keys in the same request only when they need to take effect together.
 
-**Only `account-settings-form.tsx` is wired to that API.** The other five sections are still local `useForm` state whose submit does nothing — their fields are either fixed at boot (`server.max_body_bytes`) or have no server config at all.
+**Every settings section is wired to that API.** They all go through `useSettingsForm` (`src/hooks/use-settings-form.ts`), which owns the shared half: react-hook-form, the `settings:write` check, and a submit that sends only `dirtyFields` through `collectChanges`. Per-field `encoders` handle the two transforms that exist — `scopes` (form string ↔ server `string[]`) and SEALED fields (blank returns `undefined`, which drops the key from the batch).
+
+Initial values are read once at mount, via `SettingsLoader`, so a background refetch cannot overwrite half-typed input.
+
+The sign-in providers page is three cards, each its own form and its own request — batching them would let a bad OIDC issuer reject an unrelated GitHub change. Two constraints are mirrored client-side so a batch is not rejected server-side: `mail.host`/`mail.from`/`mail.public_url` must be all-set or all-empty, and `share.access_log.retention_days` must be at least 1 while the log is on.
+
+Several of these keys break an instance quietly rather than loudly, so the forms carry the consequence in the UI, not just the field name. The ones that matter: `auth.cookie_secure: always` on anything less than full HTTPS makes login fail **silently** (the browser drops the cookie; no error anywhere); `server.trusted_proxies` set too broadly lets callers pick their own source address, which is what every throttle counts on; a zeroed `auth.throttle.*` pair locks out everyone (`source`) or silently disables the limit; `auth.throttle.lookup` is the only thing making short retrieval codes safe; and **`features.admin` off removes this panel's own API** — only `TESSERA_FEATURES__ADMIN=true` plus a restart brings it back, so that switch gets a destructive-styled warning.
 
 `GuestAnonymousWarning` reads live server values rather than form state on purpose: it describes what this instance is actually configured to do, so it stays true regardless of which forms are wired. The page that owns `auth.default_role` passes its unsaved value in to preview the warning before saving.
 
@@ -136,10 +157,10 @@ Settings are one flat list of dotted keys, not a typed object: `GET /admin/setti
 ## Notes for Future Work
 
 1. **Dashboard data is mocked** (`src/data/dashboard-mock.json`) — stats cards, storage trend, and recent shares need real backend endpoints
-2. **Settings sections without a backend field yet**: OIDC, site title/description/SEO, theme, admin-entry-on-home visibility, allowed upload types — see the "(新)" markers in `settings-schema.ts`
+2. **Dropped for having no backend key**: the 網站資訊 section (site title/description/SEO keywords, admin-entry-on-home) and `upload.allowedFileTypes`. Do not re-add them as editable fields until `settings::keys()` actually lists them — `site.title`/`site.description` are tracked in #278; the other three are a deliberate no, with reasons, in #279.
 3. **dnd-demo route** looks like a scratch/demo route — confirm with the team before building on it or removing it
 4. **The users / invites / roles / shares pages are read-only lists.** The mutations they would need already exist in `use-admin.ts` (`useCreateRole`, `useUpdateRole`, `useDeleteRole`, `useSetUserRole`) but nothing calls them yet — no create/edit UI
-5. **Five of the six settings sections still do nothing on submit** — only 帳號與註冊 (`account-settings-form.tsx`) talks to the server. 上傳設置 and 存儲配置 have real backing for most of their fields (`auth.throttle.source.*`, `storage.max_total_bytes`, `share.*_expiry_hours`, `storage.url`, `server.part_size_bytes`) and could be wired the same way; `server.max_body_bytes` cannot — it is fixed at boot
+5. **Remaining editable keys with no form** — `storage.capacity_bytes`, `storage.split_across_backends`, `storage.reconcile_interval_hours`, `storage.reconcile_grace_hours`, `storage.options`. Everything else `settings::keys()` offers is now wired. `split_across_backends` needs its own explanatory copy before it ships: turning it on lets a file exceed any single backend, but a split file has no direct download, so the bytes go through this server or are stitched in the browser
 6. **No section uses tabs any more.** Each is its own route under the collapsible sidebar group. Add tabs back only when a single section grows enough sub-detail to need them (`auth.hashing.*` and the seven `auth.throttle.*` groups would be the first candidates, under 帳號與註冊)
 
 ## Debugging

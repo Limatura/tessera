@@ -4,8 +4,8 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
 
 import { Route as rootRoute } from "../__root";
+import { NetworkSettingsForm } from "./-components/network-settings-form";
 import { SettingsPage } from "./-components/settings-page";
-import { SiteSettingsForm } from "./-components/site-settings-form";
 
 export const Route = createRoute({
   beforeLoad: ({ context, location }) =>
@@ -14,15 +14,18 @@ export const Route = createRoute({
       location.href,
       PERMISSIONS.settingsRead
     ),
-  component: SiteSettingsRoute,
+  component: NetworkSettingsRoute,
   getParentRoute: () => rootRoute,
-  path: "/settings/site",
+  path: "/settings/network",
 });
 
-function SiteSettingsRoute() {
+function NetworkSettingsRoute() {
   return (
-    <SettingsPage description="網頁標題、敘述與 SEO 關鍵詞" title="網站資訊">
-      <SiteSettingsForm />
+    <SettingsPage
+      description="對外網址、可信任的反向代理,以及 session cookie 與逾時"
+      title="網路與代理"
+    >
+      <NetworkSettingsForm />
     </SettingsPage>
   );
 }

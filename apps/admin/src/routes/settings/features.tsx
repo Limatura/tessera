@@ -4,7 +4,7 @@ import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
 
 import { Route as rootRoute } from "../__root";
-import { OidcSettingsForm } from "./-components/oidc-settings-form";
+import { FeatureSettingsForm } from "./-components/feature-settings-form";
 import { SettingsPage } from "./-components/settings-page";
 
 export const Route = createRoute({
@@ -14,15 +14,15 @@ export const Route = createRoute({
       location.href,
       PERMISSIONS.settingsRead
     ),
-  component: OidcSettingsRoute,
+  component: FeatureSettingsRoute,
   getParentRoute: () => rootRoute,
-  path: "/settings/oidc",
+  path: "/settings/features",
 });
 
-function OidcSettingsRoute() {
+function FeatureSettingsRoute() {
   return (
-    <SettingsPage description="透過外部身分提供者登入" title="OIDC 設定">
-      <OidcSettingsForm />
+    <SettingsPage description="執行期開關與自訂連結預覽卡片" title="功能開關">
+      <FeatureSettingsForm />
     </SettingsPage>
   );
 }

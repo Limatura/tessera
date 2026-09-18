@@ -1,79 +1,101 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@tessera/ui/components/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@tessera/ui/components/field";
-import { Input } from "@tessera/ui/components/input";
-import { Controller, useForm } from "react-hook-form";
+import type { components } from "@tessera/api/schema";
+import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
+import { Controller } from "react-hook-form";
 
-import { storageSettingsSchema } from "@/lib/settings-schema";
+import { readSetting } from "@/hooks/use-settings";
+import { useSettingsForm } from "@/hooks/use-settings-form";
+import type { SettingsKeyMap } from "@/hooks/use-settings-form";
+import {
+  MIN_PART_SIZE_BYTES,
+  storageSettingsSchema,
+} from "@/lib/settings-schema";
 import type { StorageSettingsValues } from "@/lib/settings-schema";
+import { asNumber } from "@/lib/settings-values";
 
 import { NumberField } from "./number-field";
+import { ReadOnlySetting } from "./read-only-setting";
+import { SettingsFormFooter } from "./settings-form-footer";
+import { SettingsLoader } from "./settings-loader";
+
+type Settings = components["schemas"]["SettingsResponse"];
 
 const DEFAULT_PART_SIZE_BYTES = 8 * 1024 * 1024;
 
-const DEFAULT_VALUES: StorageSettingsValues = {
-  backendUrl: "data/blobs",
-  partSizeBytes: DEFAULT_PART_SIZE_BYTES,
-};
+const KEYS = {
+  partSizeBytes: "server.part_size_bytes",
+} satisfies SettingsKeyMap<StorageSettingsValues>;
 
 export function StorageSettingsForm() {
-  const { control, handleSubmit } = useForm<StorageSettingsValues>({
-    defaultValues: DEFAULT_VALUES,
+  return (
+    <SettingsLoader>
+      {(settings) => (
+        <StorageSettingsFields defaultValues={initialValues(settings)} />
+      )}
+    </SettingsLoader>
+  );
+}
+
+function initialValues(settings: Settings): StorageSettingsValues {
+  return {
+    partSizeBytes: asNumber(
+      readSetting(settings, KEYS.partSizeBytes),
+      DEFAULT_PART_SIZE_BYTES
+    ),
+  };
+}
+
+function StorageSettingsFields({
+  defaultValues,
+}: {
+  defaultValues: StorageSettingsValues;
+}) {
+  const form = useSettingsForm<StorageSettingsValues>({
+    defaultValues,
+    keys: KEYS,
     resolver: zodResolver(storageSettingsSchema),
   });
 
-  const onSubmit = handleSubmit((_values) => {
-    // 待補：串接後端 API（對應 storage.url / server.part_size_bytes）
-  });
-
   return (
-    <form onSubmit={onSubmit}>
+    <form onSubmit={form.submit}>
       <FieldGroup>
-        <Controller
-          control={control}
-          name="backendUrl"
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="storage-backend-url">
-                儲存後端位址
-              </FieldLabel>
-              <Input
-                {...field}
-                aria-invalid={fieldState.invalid}
-                id="storage-backend-url"
-                placeholder="data/blobs 或 s3://bucket/prefix"
-              />
-              <FieldDescription>
-                本機路徑會建立本地資料夾；帶協定的位址（s3://、gs://、az://）交由
-                object_store 處理，對應 config.rs 的 storage.url。
-              </FieldDescription>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
+        <ReadOnlySetting
+          description={
+            <>
+              blob 存在哪。URL 裡帶帳密（<code>s3://key:secret@…</code>
+              ），所以面板既讀不到也寫不了 —— 只能用環境變數{" "}
+              <code>TESSERA_STORAGE__URL</code> 設定，對應 storage.url。
+            </>
+          }
+          label="儲存後端位址"
+          reason="只能用環境變數設定"
+          value={null}
         />
+
+        <FieldSeparator />
+
         <Controller
-          control={control}
+          control={form.control}
           name="partSizeBytes"
           render={({ field, fieldState }) => (
             <NumberField
-              description="累積多少資料才送出一個分片，S3 相容後端至少需要 5 MiB；使用 Cloudflare R2 時建議與最小分片大小一致。"
+              description="累積多少資料才送出一個分片。S3 拒絕最後一片以外小於 5 MiB 的 part；Cloudflare R2 還要求每片大小相同，所以在 R2 上這個值應該就等於最小值。"
               field={field}
               fieldState={fieldState}
               id="storage-part-size"
               label="分片上傳大小（bytes）"
-              min={5 * 1024 * 1024}
+              min={MIN_PART_SIZE_BYTES}
             />
           )}
         />
-        <Field orientation="horizontal">
-          <Button type="submit">儲存</Button>
-        </Field>
+
+        <SettingsFormFooter
+          canWrite={form.canWrite}
+          errorMessage={form.errorMessage}
+          isDirty={form.isDirty}
+          isPending={form.isPending}
+          isSaved={form.isSaved}
+        />
       </FieldGroup>
     </form>
   );
