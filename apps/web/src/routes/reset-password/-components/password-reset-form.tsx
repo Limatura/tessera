@@ -24,8 +24,10 @@ import { useMemo } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { PasswordRequirements } from "@/components/password-requirements";
 import { usePasswordReset } from "@/hooks/use-auth";
-import { useCapabilities } from "@/hooks/use-capabilities";
+import { usePasswordPolicy } from "@/hooks/use-password-policy";
+import { passwordSchemaFor } from "@/lib/api/password-policy";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
 
@@ -39,7 +41,7 @@ export function PasswordResetForm({
   ...props
 }: React.ComponentProps<"div">) {
   const navigate = useNavigate();
-  const capabilities = useCapabilities();
+  const policy = usePasswordPolicy();
   const resetMutation = usePasswordReset();
 
   const tokenFromUrl = useMemo(() => {
@@ -51,29 +53,23 @@ export function PasswordResetForm({
     return token;
   }, []);
 
-  const minPasswordLength = capabilities.data?.account_password_min_length ?? 8;
-
-  const resetSchema = z.object({
-    confirmPassword: z.string(),
-    password: z
-      .string()
-      .min(minPasswordLength, {
-        message: m.auth_password_too_short({ min: minPasswordLength }),
-      })
-      .max(1024, { message: m.auth_password_too_long() }),
-  });
-
-  const refinedSchema = resetSchema.refine(
-    (data) => data.password === data.confirmPassword,
-    {
-      message: m.auth_password_mismatch(),
-      path: ["confirmPassword"],
-    }
+  const schema = useMemo(
+    () =>
+      z
+        .object({
+          confirmPassword: z.string(),
+          password: passwordSchemaFor(policy),
+        })
+        .refine((data) => data.password === data.confirmPassword, {
+          message: m.auth_password_mismatch(),
+          path: ["confirmPassword"],
+        }),
+    [policy]
   );
 
   const { control, handleSubmit } = useForm<ResetFormValues>({
     defaultValues: { confirmPassword: "", password: "" },
-    resolver: zodResolver(refinedSchema),
+    resolver: zodResolver(schema),
   });
 
   const onSubmit = handleSubmit((values) => {
@@ -195,9 +191,11 @@ export function PasswordResetForm({
                             placeholder={m.auth_enter_password()}
                             type="password"
                           />
-                          {fieldState.invalid && (
-                            <FieldError errors={[fieldState.error]} />
-                          )}
+                          <PasswordRequirements
+                            invalid={fieldState.invalid}
+                            policy={policy}
+                            value={field.value}
+                          />
                         </Field>
                       )}
                     />
