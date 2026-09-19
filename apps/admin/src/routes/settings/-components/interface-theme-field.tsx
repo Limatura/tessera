@@ -6,8 +6,7 @@ import {
   FieldLabel,
 } from "@tessera/ui/components/field";
 import { Tabs, TabsList, TabsTrigger } from "@tessera/ui/components/tabs";
-
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@tessera/ui/components/theme-provider";
 
 const THEME_OPTIONS = [
   { icon: IconSun, label: "淺色主題", value: "light" },

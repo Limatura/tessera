@@ -5,12 +5,12 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { ThemeProvider } from "@tessera/ui/components/theme-provider";
 import { Toaster } from "@tessera/ui/components/toast";
 import { useEffect, useSyncExternalStore } from "react";
 
 import { AppearanceSync } from "@/components/appearance-sync";
 import { Header } from "@/components/header";
-import { ThemeProvider } from "@/components/theme-provider";
 import { readSiteAppearance } from "@/lib/appearance";
 import {
   applyDocumentLocale,

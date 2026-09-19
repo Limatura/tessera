@@ -1,34 +1,31 @@
 /**
- * 外觀偏好的三個 enum,以及把它們套到 `<html>` 上的那一步。
+ * 個人外觀偏好:解析、跟站台預設合併,以及套到 `<html>` 上。
  *
- * 這三份清單必須跟兩個地方一致:`crates/tessera-core` 的 `Appearance`(PUT
- * /me/preferences 拿它擋 400),以及 `packages/ui` 的 globals.css(每個值對應
- * 一段寫死的 CSS)。加第八個顏色時三邊要一起改。
+ * 三個 enum 本身住在 `@tessera/ui/lib/appearance`,跟它們對應的 globals.css
+ * 放在一起。
  */
 
-export const APPEARANCE_MODES = ["light", "dark", "system"] as const;
-export const APP_THEMES = [
-  "default",
-  "graphite",
-  "sepia",
-  "matsu",
-  "cosmic",
-  "slate",
-  "vintage",
-] as const;
-export const ACCENT_COLORS = [
-  "violet",
-  "rose",
-  "orange",
-  "amber",
-  "green",
-  "teal",
-  "blue",
-] as const;
+import type { SiteAppearance } from "@tessera/ui/lib/appearance";
+import {
+  APPEARANCE_ACCENTS,
+  APPEARANCE_MODES,
+  APPEARANCE_THEMES,
+  FALLBACK_APPEARANCE,
+  memberOf,
+} from "@tessera/ui/lib/appearance";
 
-export type AppearanceMode = (typeof APPEARANCE_MODES)[number];
-export type AppTheme = (typeof APP_THEMES)[number];
-export type AccentColor = (typeof ACCENT_COLORS)[number];
+export {
+  APPEARANCE_ACCENTS,
+  APPEARANCE_MODES,
+  APPEARANCE_THEMES,
+  FALLBACK_APPEARANCE,
+} from "@tessera/ui/lib/appearance";
+export type {
+  AccentColor,
+  AppearanceMode,
+  AppTheme,
+  SiteAppearance,
+} from "@tessera/ui/lib/appearance";
 
 /**
  * 一個人選過的東西。三個欄位都可以缺 —— 缺 = 沒意見,跟著站台預設走,
@@ -38,33 +35,9 @@ export type AccentColor = (typeof ACCENT_COLORS)[number];
  * 「剛好選了跟現在預設一樣的值」,是兩件不同的事。
  */
 export interface Appearance {
-  mode?: AppearanceMode;
-  theme?: AppTheme;
-  accent?: AccentColor;
-}
-
-/** 伺服器寫進 `index.html` 的站台預設,也就是沒意見的人看到的樣子。 */
-export interface SiteAppearance {
-  mode: AppearanceMode;
-  theme: AppTheme;
-  accent: AccentColor;
-}
-
-/** 三份清單都拿不到值時的最後防線,跟後端 `Config::default()` 相同。 */
-export const FALLBACK_APPEARANCE: SiteAppearance = {
-  accent: "violet",
-  mode: "system",
-  theme: "default",
-};
-
-function memberOf<T extends string>(
-  allowed: readonly T[],
-  value: unknown
-): T | undefined {
-  return typeof value === "string" &&
-    (allowed as readonly string[]).includes(value)
-    ? (value as T)
-    : undefined;
+  mode?: SiteAppearance["mode"];
+  theme?: SiteAppearance["theme"];
+  accent?: SiteAppearance["accent"];
 }
 
 /**
@@ -78,9 +51,9 @@ export function parseAppearance(value: unknown): Appearance {
     return {};
   }
   const raw = value as Record<string, unknown>;
-  const accent = memberOf(ACCENT_COLORS, raw.accent);
+  const accent = memberOf(APPEARANCE_ACCENTS, raw.accent);
   const mode = memberOf(APPEARANCE_MODES, raw.mode);
-  const theme = memberOf(APP_THEMES, raw.theme);
+  const theme = memberOf(APPEARANCE_THEMES, raw.theme);
 
   return {
     ...(accent ? { accent } : {}),
@@ -107,12 +80,13 @@ function readSiteAppearanceFromDocument(): SiteAppearance {
 
   return {
     accent:
-      memberOf(ACCENT_COLORS, root.dataset.accent) ??
+      memberOf(APPEARANCE_ACCENTS, root.dataset.accent) ??
       FALLBACK_APPEARANCE.accent,
     mode:
       memberOf(APPEARANCE_MODES, root.dataset.mode) ?? FALLBACK_APPEARANCE.mode,
     theme:
-      memberOf(APP_THEMES, root.dataset.theme) ?? FALLBACK_APPEARANCE.theme,
+      memberOf(APPEARANCE_THEMES, root.dataset.theme) ??
+      FALLBACK_APPEARANCE.theme,
   };
 }
 
