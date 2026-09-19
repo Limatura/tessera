@@ -46,6 +46,7 @@ doc-valid-idents = [
   "MariaDB",
   "SeaORM",
   "WebDAV",
+  "ClamAV",
   "MinIO",
   "UUIDv4",
   "ShareX",

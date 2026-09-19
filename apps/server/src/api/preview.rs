@@ -561,6 +561,7 @@ mod tests {
             filename: None,
             content_type: None,
             sealed_name: None,
+            scan: None,
             size_bytes: 2048,
             storage: StorageLocation::Inline,
         }])
@@ -573,6 +574,7 @@ mod tests {
             filename: Some(filename.to_owned()),
             content_type: None,
             sealed_name: None,
+            scan: None,
             size_bytes: 2048,
             storage: StorageLocation::Inline,
         }])

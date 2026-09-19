@@ -150,7 +150,7 @@ async fn main() -> anyhow::Result<()> {
 
     let shutdown = CancellationToken::new();
     let signal_task = tokio::spawn(watch_for_shutdown(shutdown.clone()));
-    let sweep_task = tokio::spawn(maintenance::sweep_expired(state.clone(), shutdown.clone()));
+    let sweep_task = start_background(&state, &shutdown);
 
     let drain = shutdown.clone();
     let state_for_drain = state.clone();
@@ -266,6 +266,20 @@ fn announce_docs(config: &Config, local_addr: SocketAddr) {
             "API reference enabled; the browser opening it loads the renderer from a CDN"
         );
     }
+}
+
+/// Starts the work that runs beside the server, and returns the part that is
+/// joined at shutdown.
+///
+/// The sweep is joined, so the pool is never closed under a `DELETE`. The
+/// malware scanner is not: a scan cut off at shutdown leaves its file
+/// `pending`, and the next start picks it up.
+fn start_background(state: &AppState, shutdown: &CancellationToken) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(tessera_server::scan::worker::run(
+        state.clone(),
+        shutdown.clone(),
+    ));
+    tokio::spawn(maintenance::sweep_expired(state.clone(), shutdown.clone()))
 }
 
 async fn watch_for_shutdown(token: CancellationToken) {

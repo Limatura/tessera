@@ -21,6 +21,11 @@ pub struct Model {
     pub sealed_name: Option<String>,
     /// Size of the content.
     pub size_bytes: i64,
+    /// What the malware scanner said, or `None` for content nobody asked it
+    /// about. See the migration.
+    pub scan_state: Option<String>,
+    /// The threat for `infected`, or why it was `skipped`.
+    pub scan_detail: Option<String>,
     /// `inline`, `object` or `gone`, carried over from `shares` as it was.
     pub storage: String,
     /// The object key, when the bytes are in the store.

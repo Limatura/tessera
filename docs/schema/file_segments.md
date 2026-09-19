@@ -82,6 +82,8 @@ erDiagram
   TEXT object_key
   TEXT created_at
   TEXT sealed_name
+  TEXT scan_state
+  TEXT scan_detail
 }
 ```
 

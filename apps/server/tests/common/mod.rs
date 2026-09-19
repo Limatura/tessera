@@ -701,6 +701,7 @@ impl<'a> Shares<'a> {
         NewContent::Text {
             language: None,
             body: b"gone shortly".to_vec(),
+            scan: None,
         }
     }
 
@@ -740,6 +741,7 @@ impl<'a> Shares<'a> {
                 &NewContent::Text {
                     language: Some("typescript".to_owned()),
                     body: content.clone(),
+                    scan: None,
                 },
             )
             .await
@@ -780,6 +782,7 @@ impl<'a> Shares<'a> {
                     // Longer than the plain name's column would take, which is
                     // why it is not that column.
                     sealed_name: Some("bmFtZQ".repeat(100)),
+                    scan: None,
                     size_bytes: 1_048_576,
                     storage: StorageLocation::Object {
                         backend: DEFAULT_BACKEND.to_owned(),

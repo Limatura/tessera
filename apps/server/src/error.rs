@@ -92,6 +92,16 @@ pub enum Error {
         retry_after_secs: u64,
     },
 
+    /// The content is waiting for the malware scanner's verdict.
+    ///
+    /// Distinct from [`Error::Unavailable`] because it is about this share, not
+    /// the service, and it ends on its own: the client waits and asks again.
+    #[error("still being scanned")]
+    Scanning {
+        /// Seconds until it is worth asking again.
+        retry_after_secs: u64,
+    },
+
     /// A value failed a domain rule.
     #[error("{0}")]
     Domain(#[from] tessera_core::DomainError),
@@ -167,6 +177,8 @@ pub enum ErrorCode {
     Conflict,
     /// See [`Error::TooManyRequests`].
     TooManyRequests,
+    /// See [`Error::Scanning`].
+    Scanning,
     /// See [`Error::InsufficientStorage`].
     InsufficientStorage,
     /// See [`Error::UnsupportedMediaType`].
@@ -201,6 +213,9 @@ impl ErrorCode {
             Self::RangeNotSatisfiable => StatusCode::RANGE_NOT_SATISFIABLE,
             Self::Conflict => StatusCode::CONFLICT,
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
+            // `423 Locked`: the share is there and will be available, but not
+            // yet, and not because of anything the caller did.
+            Self::Scanning => StatusCode::LOCKED,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
             Self::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
             Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
@@ -223,6 +238,7 @@ impl ErrorCode {
             Self::RangeNotSatisfiable => "the requested range is not available",
             Self::Conflict => "that already exists",
             Self::TooManyRequests => "too many attempts; wait a little and try again",
+            Self::Scanning => "this is still being checked for malware; try again in a moment",
             Self::PayloadTooLarge => "the request body exceeds the configured limit",
             // The generic answer for the code. A real refusal says which
             // ceiling it was, through `Error::public_message`.
@@ -258,6 +274,7 @@ impl Error {
             Self::RangeNotSatisfiable { .. } => ErrorCode::RangeNotSatisfiable,
             Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
+            Self::Scanning { .. } => ErrorCode::Scanning,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
             Self::InsufficientStorage(_) => ErrorCode::InsufficientStorage,
             Self::UnsupportedMediaType => ErrorCode::UnsupportedMediaType,
@@ -317,16 +334,18 @@ impl IntoResponse for Error {
         } else {
             tracing::debug!(error = %self, "request rejected");
         }
-        // Two errors carry a header the client needs, and both are headers HTTP
-        // already has for the purpose. A 429 without `Retry-After` tells a
-        // client to back off but not for how long, so every client invents its
-        // own answer; a 416 without `Content-Range` does not say what range
+        // Some errors carry a header the client needs, each one HTTP already
+        // has for the purpose. A 429 or a 423 without `Retry-After` tells a
+        // client to wait but not for how long, so every client invents its own
+        // answer; a 416 without `Content-Range` does not say what range
         // *would* have worked.
         let extra = match self {
-            Self::TooManyRequests { retry_after_secs } => Some((
-                header::RETRY_AFTER,
-                HeaderValue::from_str(&retry_after_secs.to_string()),
-            )),
+            Self::TooManyRequests { retry_after_secs } | Self::Scanning { retry_after_secs } => {
+                Some((
+                    header::RETRY_AFTER,
+                    HeaderValue::from_str(&retry_after_secs.to_string()),
+                ))
+            }
             Self::RangeNotSatisfiable { size } => Some((
                 header::CONTENT_RANGE,
                 HeaderValue::from_str(&format!("bytes */{size}")),

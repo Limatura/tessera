@@ -109,6 +109,67 @@ pub struct Config {
     /// How the site looks to somebody who has not chosen otherwise.
     #[serde(default)]
     pub appearance: AppearanceConfig,
+    /// Where uploads are sent to be checked for malware. See [`ScanConfig`].
+    #[serde(default)]
+    pub scan: ScanConfig,
+}
+
+/// A malware scanner this instance hands uploads to.
+///
+/// # Why a service and not a library
+///
+/// The engine is somebody else's program. ClamAV's signatures alone are
+/// hundreds of megabytes and change daily; built in, they would be most of the
+/// image and always out of date. An operator who wants scanning runs a scanner
+/// and says where it is.
+///
+/// # What happens to a file
+///
+/// It is recorded, then read back from the store and sent to the scanner in
+/// the background: a large one takes minutes, and one written straight to a
+/// bucket never passed through here to be scanned on the way. Until a verdict
+/// comes back its share cannot be downloaded. A scanner that cannot be reached
+/// holds nothing up: the file is served and scanned when it is back. See
+/// `docs/scanning.md`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct ScanConfig {
+    /// The scanner. Empty, the default, is no scanning.
+    ///
+    /// `clamd://host:3310` for a ClamAV daemon, or an `http://` or `https://`
+    /// URL that takes the file as a `POST` body and answers
+    /// `{"clean": true}` or `{"clean": false, "threat": "..."}`.
+    pub url: String,
+    /// Sent as `Authorization` on every request to an HTTP scanner, when set.
+    pub authorization: String,
+}
+
+impl ScanConfig {
+    /// Whether uploads are being scanned.
+    #[must_use]
+    pub const fn is_enabled(&self) -> bool {
+        !self.url.is_empty()
+    }
+
+    fn validate(&self) -> Result<(), ConfigError> {
+        if !self.is_enabled() {
+            return Ok(());
+        }
+        let refuse = |reason: &str| ConfigError::Invalid {
+            field: "scan.url",
+            reason: reason.to_owned(),
+        };
+        let url = url::Url::parse(&self.url)
+            .map_err(|_| refuse("must be a URL such as `clamd://localhost:3310`"))?;
+        match url.scheme() {
+            "clamd" if url.host_str().is_some() && url.port().is_some() => Ok(()),
+            "clamd" => Err(refuse("a clamd address needs a host and a port")),
+            "http" | "https" => Ok(()),
+            _ => Err(refuse(
+                "must start with `clamd://`, `http://` or `https://`",
+            )),
+        }
+    }
 }
 
 /// The instance's own answer to the three appearance questions.
@@ -1764,6 +1825,7 @@ impl Config {
         self.share.validate()?;
         self.telemetry.validate()?;
         self.og.validate()?;
+        self.scan.validate()?;
         self.mail.validate()
     }
 }

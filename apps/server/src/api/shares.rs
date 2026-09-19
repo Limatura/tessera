@@ -180,6 +180,9 @@ pub struct ShareResponse {
     pub key_salt: Option<String>,
     /// The title and a note's language, sealed, on an encrypted share.
     pub sealed_details: Option<String>,
+    /// Whether it is waiting for the malware scanner. It cannot be downloaded
+    /// until it is not; the answer then is `423` with `Retry-After`.
+    pub scanning: bool,
     /// How many retrievals remain, or `null` for unlimited.
     pub uses_remaining: Option<u32>,
     /// How many times it has been retrieved.
@@ -271,6 +274,7 @@ impl ShareResponse {
                 .and_then(Encryption::salt)
                 .map(str::to_owned),
             sealed_details: share.sealed_details.clone(),
+            scanning: content.awaiting_scan(),
             uses_remaining: share
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
@@ -442,6 +446,7 @@ pub async fn create(
             // stored XSS on our own origin.
             content_type: recorded_type(encryption.is_some(), &headers),
             sealed_name,
+            scan: crate::scan::initial(&state, encryption.is_some()),
             size_bytes,
             storage,
         }),
@@ -450,6 +455,7 @@ pub async fn create(
             // Text is its own row and `ingest` refuses anything it could not
             // hold, so this is always present by the time a share exists.
             body: inline.unwrap_or_default(),
+            scan: crate::scan::initial(&state, encryption.is_some()),
         },
     };
     let share = insert_with_fresh_code(&state, share, &content).await?;
@@ -2018,7 +2024,11 @@ async fn insert_with_fresh_code(
     for _ in 0..CODE_ATTEMPTS {
         share.code = generate_code(state.config().share.code_length)?;
         match state.shares.insert(&share, content).await {
-            Ok(()) => return Ok(share),
+            Ok(()) => {
+                // Whatever was just stored may be waiting on the scanner.
+                state.scan_wake.notify_one();
+                return Ok(share);
+            }
             Err(error) => {
                 // Look, do not assume every failure is a collision:
                 // assuming would retry through an outage and then report it as
@@ -2250,6 +2260,10 @@ pub struct PublicShareResponse {
     pub language: Option<String>,
     /// Size of the content in bytes.
     pub size_bytes: Option<u64>,
+    /// Whether it is waiting for the malware scanner, and so cannot be
+    /// downloaded yet. `false` while locked: a locked share says nothing about
+    /// its content.
+    pub scanning: bool,
     /// How many retrievals remain, or `null` for unlimited.
     pub uses_remaining: Option<u32>,
     /// When it stops being served, RFC 3339.
@@ -2276,6 +2290,7 @@ impl PublicShareResponse {
             files: Vec::new(),
             language: None,
             size_bytes: None,
+            scanning: false,
             uses_remaining: None,
             expires_at: None,
             created_at: None,
@@ -2294,6 +2309,7 @@ impl PublicShareResponse {
                 Content::Files(_) | Content::Gone => None,
             },
             size_bytes: Some(content.size_bytes()),
+            scanning: content.awaiting_scan(),
             uses_remaining: share
                 .use_limit
                 .map(|limit| limit.saturating_sub(share.use_count)),
@@ -2394,6 +2410,7 @@ pub async fn describe(
         (status = 401, description = "Wrong password", body = crate::error::ErrorBody),
         (status = 404, description = "No such code", body = crate::error::ErrorBody),
         (status = 410, description = "Expired or exhausted", body = crate::error::ErrorBody),
+        (status = 423, description = "Still being checked for malware; `Retry-After` says when to ask again", body = crate::error::ErrorBody),
         (status = 429, description = "Too many lookups or password attempts", body = crate::error::ErrorBody),
     ),
 )]
@@ -2406,6 +2423,9 @@ pub async fn unlock(
     let share = gate::open(&state, &code, &source).await?;
     // The password first, so a wrong guess never costs the share a retrieval.
     gate::unlock(&state, &share, &headers, &source).await?;
+    // And the scan: a ticket for content that cannot be handed out yet would
+    // spend a one-time share on nothing.
+    crate::scan::release(&state, &state.shares.content_of(&share).await?)?;
 
     let secret = gate::spend(&state, &share).await?;
     let expires_at = OffsetDateTime::now_utc().saturating_add(
@@ -2632,12 +2652,14 @@ pub async fn add_file(
                 filename,
                 content_type: recorded_type(share.encryption.is_some(), &headers),
                 sealed_name,
+                scan: crate::scan::initial(&state, share.encryption.is_some()),
                 size_bytes,
                 storage,
             },
             now,
         )
         .await?;
+    state.scan_wake.notify_one();
 
     let content = state.shares.content_of(&share).await?;
     Ok((

@@ -102,6 +102,11 @@ pub struct AppState {
     pub identities: OidcRepository,
     /// What each person has chosen about how the site looks to them.
     pub preferences: PreferenceRepository,
+    /// What the malware scanner has yet to look at, and its verdicts.
+    pub scans: crate::db::repository::scan::ScanRepository,
+    /// Wakes the scanner when something has been uploaded, so a share is not
+    /// held for up to a whole interval before anybody looks at it.
+    pub scan_wake: Arc<tokio::sync::Notify>,
     /// The relay, when this instance has one.
     ///
     /// `None` is the ordinary case and not a fault: an instance with no `mail`
@@ -377,6 +382,8 @@ impl AppState {
             pending: PendingRegistrationRepository::new(db.clone()),
             identities: OidcRepository::new(db.clone()),
             preferences: PreferenceRepository::new(db.clone()),
+            scans: crate::db::repository::scan::ScanRepository::new(db.clone()),
+            scan_wake: Arc::new(tokio::sync::Notify::new()),
             mailer: Arc::new(ArcSwap::from_pointee(mailer)),
             sessions: SessionRepository::new(db.clone()),
             tokens: ApiTokenRepository::new(db.clone()),

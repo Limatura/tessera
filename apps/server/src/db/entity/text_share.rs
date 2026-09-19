@@ -17,6 +17,11 @@ pub struct Model {
     /// is a stronger statement than a nullable column would have been.
     #[sea_orm(column_type = "Blob")]
     pub content: Vec<u8>,
+    /// What the malware scanner said, or `None` for a note nobody asked it
+    /// about. See the migration on `file_shares`.
+    pub scan_state: Option<String>,
+    /// The threat for `infected`, or why it was `skipped`.
+    pub scan_detail: Option<String>,
 }
 
 /// No relations declared: the foreign key is enforced by the database, and

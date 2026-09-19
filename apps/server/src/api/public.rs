@@ -315,6 +315,10 @@ async fn raw(
             "this share is end-to-end encrypted; fetch it from /download and open it with its key",
         ));
     }
+    // Before `permit`: a share held for its scan must not cost a retrieval
+    // for a request that is then turned away.
+    let content = state.shares.content_of(&share).await?;
+    crate::scan::release(&state, &content)?;
     let payload = permit(
         &state,
         &share,
@@ -330,7 +334,6 @@ async fn raw(
     // becomes stored XSS on the origin holding everyone's session cookie.
     // GitHub serves raw content from another domain; self-hosted software
     // cannot ask its operators for a second one, so the headers carry it.
-    let content = state.shares.content_of(&share).await?;
     serve(
         &state,
         &share,
@@ -369,6 +372,12 @@ async fn download(
              file's position, from zero",
         ));
     }
+    // Never the media type the uploader claimed. Serving that back is the same
+    // stored-XSS hole as `/raw`, reached from the other direction.
+    //
+    // Read before `permit`, for the reason `raw` gives.
+    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
+    crate::scan::release(&state, &content)?;
     let payload = permit(
         &state,
         &share,
@@ -378,9 +387,6 @@ async fn download(
         &source,
     )
     .await?;
-    // Never the media type the uploader claimed. Serving that back is the same
-    // stored-XSS hole as `/raw`, reached from the other direction.
-    let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
     // After `permit`, so the password, the expiry and the access log have all
     // had their say before anybody is sent anywhere.
     if matches!(payload, Payload::Content)
@@ -541,6 +547,7 @@ async fn segments(
     let share = gate::find(&state, &code, &source).await?;
     permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
     let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
+    crate::scan::release(&state, &content)?;
     let (file, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
     Ok(axum::Json(SegmentsResponse {
         size_bytes: file.size_bytes,
@@ -573,6 +580,7 @@ async fn segment(
     let share = gate::find(&state, &code, &source).await?;
     permit(&state, &share, &headers, None, &Method::HEAD, &source).await?;
     let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
+    crate::scan::release(&state, &content)?;
     let (_, pieces) = direct_file(&state, &share, &content).ok_or(Error::NotFound)?;
     let piece = pieces.get(index).ok_or(Error::NotFound)?;
 
@@ -1206,7 +1214,11 @@ fn stream_stitched(state: &AppState, file: &FilePart, range: Option<(u64, u64)>)
 }
 
 /// Streams one file, honouring a range.
-async fn stream_one(state: &AppState, file: &FilePart, range: Option<(u64, u64)>) -> Result<Body> {
+pub(crate) async fn stream_one(
+    state: &AppState,
+    file: &FilePart,
+    range: Option<(u64, u64)>,
+) -> Result<Body> {
     // More than one piece means the file was spread, and reading it is a walk
     // and not a request. One piece is every file written with splitting off,
     // and it takes the path below unchanged.
@@ -1419,6 +1431,7 @@ mod tests {
             filename: filename.map(str::to_owned),
             content_type: None,
             sealed_name: None,
+            scan: None,
             size_bytes: 0,
             storage: crate::db::repository::share::StorageLocation::Inline,
         }])
@@ -1433,6 +1446,7 @@ mod tests {
                 filename: Some("one.txt".to_owned()),
                 content_type: None,
                 sealed_name: None,
+                scan: None,
                 size_bytes: 5,
                 storage: crate::db::repository::share::StorageLocation::Inline,
             },
@@ -1441,6 +1455,7 @@ mod tests {
                 filename: Some("two.txt".to_owned()),
                 content_type: None,
                 sealed_name: None,
+                scan: None,
                 size_bytes: 7,
                 storage: crate::db::repository::share::StorageLocation::Inline,
             },

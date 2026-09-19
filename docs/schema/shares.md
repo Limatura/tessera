@@ -153,11 +153,15 @@ erDiagram
   TEXT object_key
   TEXT created_at
   TEXT sealed_name
+  TEXT scan_state
+  TEXT scan_detail
 }
 "text_shares" {
   TEXT share_id PK
   TEXT language
   BLOB content
+  TEXT scan_state
+  TEXT scan_detail
 }
 "uploads" {
   TEXT id PK

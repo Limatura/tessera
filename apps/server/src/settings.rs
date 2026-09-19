@@ -113,6 +113,8 @@ const SEALED: &[&str] = &[
     // The same thing for the two providers that have no discovery document.
     "auth.github.client_secret",
     "auth.discord.client_secret",
+    // Whatever the scanning service takes as a credential.
+    "scan.authorization",
 ];
 
 /// Whether a key's value is encrypted at rest and withheld from the panel.

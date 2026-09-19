@@ -55,7 +55,7 @@ pub async fn get(
     } else {
         client.describe(code, presented.as_deref()).await?
     };
-    let ticket = client.unlock(code, presented.as_deref()).await?;
+    let ticket = unlock_when_scanned(client, code, presented.as_deref()).await?;
 
     if described.kind == "text" {
         // `/raw` refuses a sealed note, and the bytes are the same either way.
@@ -100,6 +100,30 @@ pub async fn get(
         fetched.files.push(path);
     }
     Ok(fetched)
+}
+
+/// How long to wait for an instance's malware scanner before giving up.
+const SCAN_PATIENCE: Duration = Duration::from_mins(5);
+
+/// Unlocks the share, waiting while the instance is still scanning it.
+///
+/// A share is held from download until its scan comes back, which the server
+/// answers with `423` and a short `Retry-After`. Most scans take a second, so
+/// waiting here saves a person running the command again.
+async fn unlock_when_scanned(
+    client: &Client,
+    code: &str,
+    password: Option<&str>,
+) -> Result<String> {
+    let started = std::time::Instant::now();
+    loop {
+        match client.unlock(code, password).await {
+            Err(Error::Server { status: 423, .. }) if started.elapsed() < SCAN_PATIENCE => {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+            }
+            other => return other,
+        }
+    }
 }
 
 /// The key to open the share with, and what to present as its password.

@@ -117,6 +117,10 @@ All in `apps/server/tests/shares.rs`, except the password one which is in `auth.
 
 Link previews spend nothing either. See `link-previews.md`.
 
+## Held for a scan
+
+With a malware scanner configured, content waits for its verdict before it is handed out. `/raw`, `/download`, `/segments` and `unlock` answer `423` with `Retry-After` until then, and check before `permit`, so being turned away never spends a retrieval. See `scanning.md`.
+
 ## One file of several
 
 A share with several files downloads as an archive. `?file=N`, the file's position from zero, asks for that file alone: served as itself, under its own name, resumable, with no archive around it. The same parameter narrows `/segments` and `/segments/{i}` to that file.

@@ -52,6 +52,7 @@
 | `auth.github.client_secret` |
 | `auth.discord.client_secret` |
 | `mail.username` / `mail.password` |
+| `scan.authorization` |
 
 面板可以寫入，也會被告知「有沒有設過」，但拿不到值。前端表單要做成「**留空 = 不改動，有填 = 覆寫**」，不能用常規的載入現值再編輯。
 
@@ -176,6 +177,15 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 `retention_days` 不接受 0：把 0 解讀為「永久」對一個關於別人資料的設定是錯的預設。
 
 `GET /admin/shares/{id}/access-log` 的回應會在 `meta` 帶上 `enabled`，前端才能區分「真的沒人下載」和「根本沒在記錄」——兩者的 `data` 都是空陣列。
+
+## `scan.*`
+
+惡意軟體掃描，預設關。詳見 `docs/scanning.md`。
+
+- `url: string` — 掃描服務，空字串 = 不掃。`clamd://host:3310`（ClamAV daemon）或 `http(s)://…`（POST 檔案內容，回 `{"clean": bool, "threat": "…"}`）
+- `authorization: string`（SEALED）— 送給 HTTP 掃描服務的 `Authorization`
+
+掃完之前分享不能下載（`423` + `Retry-After`）。掃描服務連不上時先放行、恢復後補掃；掃到有毒就停用分享。加密分享和超過 clamd 大小上限的檔案不掃。
 
 ## `storage.*`
 

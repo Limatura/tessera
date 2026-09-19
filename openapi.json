@@ -752,6 +752,7 @@
           "range_not_satisfiable",
           "conflict",
           "too_many_requests",
+          "scanning",
           "insufficient_storage",
           "unsupported_media_type",
           "timeout",
@@ -1154,6 +1155,10 @@
               "null"
             ]
           },
+          "scanning": {
+            "description": "Whether it is waiting for the malware scanner, and so cannot be\ndownloaded yet. `false` while locked: a locked share says nothing about\nits content.",
+            "type": "boolean"
+          },
           "sealed_details": {
             "description": "The title and a note's language, sealed, on an encrypted share.",
             "type": [
@@ -1196,7 +1201,8 @@
           "kind",
           "has_password",
           "unlocked",
-          "files"
+          "files",
+          "scanning"
         ],
         "type": "object"
       },
@@ -1664,6 +1670,10 @@
             "example": "/s/0ZPQ4M7K",
             "type": "string"
           },
+          "scanning": {
+            "description": "Whether it is waiting for the malware scanner. It cannot be downloaded\nuntil it is not; the answer then is `423` with `Retry-After`.",
+            "type": "boolean"
+          },
           "sealed_details": {
             "description": "The title and a note's language, sealed, on an encrypted share.",
             "type": [
@@ -1715,6 +1725,7 @@
           "files",
           "size_bytes",
           "has_password",
+          "scanning",
           "use_count",
           "view_count",
           "copy_count",
@@ -6012,6 +6023,16 @@
               }
             },
             "description": "Expired or exhausted"
+          },
+          "423": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Still being checked for malware; `Retry-After` says when to ask again"
           },
           "429": {
             "content": {

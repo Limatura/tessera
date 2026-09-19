@@ -15,6 +15,7 @@ pub mod pending_registration;
 pub mod preference;
 pub mod quota;
 pub mod role;
+pub mod scan;
 pub mod session;
 pub mod setting;
 pub mod share;

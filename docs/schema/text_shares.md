@@ -12,7 +12,7 @@ CREATE TABLE text_shares (
     share_id TEXT NOT NULL PRIMARY KEY REFERENCES shares (id) ON DELETE CASCADE,
     language TEXT,
     content  BLOB NOT NULL
-)
+, scan_state TEXT, scan_detail TEXT)
 ```
 
 </details>
@@ -24,6 +24,8 @@ CREATE TABLE text_shares (
 | share_id | TEXT |  | false |  | [shares](shares.md) |  |
 | language | TEXT |  | true |  |  |  |
 | content | BLOB |  | false |  |  |  |
+| scan_state | TEXT |  | true |  |  |  |
+| scan_detail | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -50,6 +52,8 @@ erDiagram
   TEXT share_id PK
   TEXT language
   BLOB content
+  TEXT scan_state
+  TEXT scan_detail
 }
 "shares" {
   TEXT id PK

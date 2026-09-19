@@ -25,7 +25,7 @@ use crate::{
             share_ticket::{self, Entity as ShareTicketEntity},
             text_share::{self, Entity as TextShareEntity},
         },
-        repository::{quota::Scope, total, user::CorruptRow},
+        repository::{quota::Scope, scan::Scan, total, user::CorruptRow},
     },
 };
 
@@ -233,6 +233,8 @@ pub struct NewFile {
     /// The name and media type, sealed, when the share is encrypted. The two
     /// fields above are `None` then.
     pub sealed_name: Option<String>,
+    /// Where the malware scanner starts it: `None` when no scanner is set up.
+    pub scan: Option<Scan>,
     /// How many bytes.
     pub size_bytes: u64,
     /// Where those bytes are.
@@ -286,6 +288,8 @@ pub enum NewContent {
         language: Option<String>,
         /// The text itself.
         body: Vec<u8>,
+        /// Where the malware scanner starts it.
+        scan: Option<Scan>,
     },
 }
 
@@ -311,6 +315,8 @@ pub struct FilePart {
     pub content_type: Option<String>,
     /// The name and media type, sealed, in an encrypted share.
     pub sealed_name: Option<String>,
+    /// What the malware scanner said, or `None` if it was never asked.
+    pub scan: Option<Scan>,
     /// How many bytes.
     pub size_bytes: u64,
     /// Where those bytes are: the first piece, for the legacy column.
@@ -324,6 +330,8 @@ pub struct FilePart {
 pub struct TextPart {
     /// Syntax-highlighting hint.
     pub language: Option<String>,
+    /// What the malware scanner said, or `None` if it was never asked.
+    pub scan: Option<Scan>,
     /// How many bytes the text is.
     pub size_bytes: u64,
 }
@@ -372,6 +380,19 @@ impl Content {
         }
     }
 
+    /// Whether a verdict is still awaited for anything here, which keeps the
+    /// share from being handed out. See [`Scan::holds`].
+    #[must_use]
+    pub fn awaiting_scan(&self) -> bool {
+        match self {
+            Self::Files(files) => files
+                .iter()
+                .any(|file| file.scan.as_ref().is_some_and(Scan::holds)),
+            Self::Text(text) => text.scan.as_ref().is_some_and(Scan::holds),
+            Self::Gone => false,
+        }
+    }
+
     /// Every file, or nothing for text.
     #[must_use]
     pub fn files(&self) -> &[FilePart] {
@@ -405,6 +426,10 @@ impl Content {
                     filename: model.filename.clone(),
                     content_type: model.content_type.clone(),
                     sealed_name: model.sealed_name.clone(),
+                    scan: Scan::from_columns(
+                        model.scan_state.as_deref(),
+                        model.scan_detail.as_deref(),
+                    ),
                     size_bytes: u64::try_from(model.size_bytes).map_err(|_| {
                         fail(DomainError::Malformed {
                             field: "size_bytes",
@@ -432,6 +457,7 @@ impl Content {
     fn from_text(model: &text_share::Model) -> Self {
         Self::Text(TextPart {
             language: model.language.clone(),
+            scan: Scan::from_columns(model.scan_state.as_deref(), model.scan_detail.as_deref()),
             // The row is the content, so its length is the size.
             size_bytes: u64::try_from(model.content.len()).unwrap_or(u64::MAX),
         })
@@ -855,6 +881,8 @@ impl ShareRepository {
                     filename: Set(file.filename.clone()),
                     content_type: Set(file.content_type.clone()),
                     sealed_name: Set(file.sealed_name.clone()),
+                    scan_state: Set(file.scan.as_ref().map(|scan| scan.columns().0.to_owned())),
+                    scan_detail: Set(file.scan.as_ref().and_then(|scan| scan.columns().1)),
                     size_bytes: Set(i64::try_from(file.size_bytes).unwrap_or(i64::MAX)),
                     storage: Set(file.storage.as_str().to_owned()),
                     object_key: Set(file.storage.object_key().map(str::to_owned)),
@@ -870,11 +898,17 @@ impl ShareRepository {
                 )
                 .await?;
             }
-            NewContent::Text { language, body } => {
+            NewContent::Text {
+                language,
+                body,
+                scan,
+            } => {
                 TextShareEntity::insert(text_share::ActiveModel {
                     share_id: Set(share.id.to_string()),
                     language: Set(language.clone()),
                     content: Set(body.clone()),
+                    scan_state: Set(scan.as_ref().map(|scan| scan.columns().0.to_owned())),
+                    scan_detail: Set(scan.as_ref().and_then(|scan| scan.columns().1)),
                 })
                 .exec(&self.connection)
                 .await?;
@@ -949,6 +983,8 @@ impl ShareRepository {
             filename: Set(file.filename.clone()),
             content_type: Set(file.content_type.clone()),
             sealed_name: Set(file.sealed_name.clone()),
+            scan_state: Set(file.scan.as_ref().map(|scan| scan.columns().0.to_owned())),
+            scan_detail: Set(file.scan.as_ref().and_then(|scan| scan.columns().1)),
             size_bytes: Set(i64::try_from(file.size_bytes).unwrap_or(i64::MAX)),
             storage: Set(file.storage.as_str().to_owned()),
             object_key: Set(file.storage.object_key().map(str::to_owned)),

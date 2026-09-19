@@ -83,6 +83,8 @@ Table file_shares {
   object_key text
   created_at text [not null]
   sealed_name text
+  scan_state text
+  scan_detail text
 
   Note: '''One file of a file share. One row per share today; `position` is there for when a share can hold several.'''
 }
@@ -240,6 +242,8 @@ Table text_shares {
   share_id text [pk, not null]
   language text
   content blob [not null]
+  scan_state text
+  scan_detail text
 
   Note: '''The text of a text share. `content` cannot be null, because "the text is somewhere else" is the state this table exists to make impossible.'''
 }

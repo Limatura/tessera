@@ -547,6 +547,7 @@ mod tests {
             filename: Some("Q3-2026-finance-and-operations-review.pdf".to_owned()),
             content_type: None,
             sealed_name: None,
+            scan: None,
             size_bytes: 26_000_000,
             storage: StorageLocation::Inline,
         }]);

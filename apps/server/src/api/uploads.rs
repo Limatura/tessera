@@ -809,7 +809,12 @@ async fn finish(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
 async fn settle(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Response> {
     let mut finished = upload.clone();
     finished.offset_bytes = size_bytes;
-    let file = finished_file(&finished);
+    // The session carries how the share it lands in is sealed, whether that
+    // share is new or not.
+    let file = NewFile {
+        scan: crate::scan::initial(state, upload.encryption.is_some()),
+        ..finished_file(&finished)
+    };
     let now = OffsetDateTime::now_utc();
 
     let response = match upload.share_id {
@@ -830,6 +835,7 @@ async fn settle(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
     };
 
     state.uploads.delete(upload.id).await?;
+    state.scan_wake.notify_one();
     Ok((StatusCode::CREATED, axum::Json(response)).into_response())
 }
 
@@ -993,6 +999,8 @@ pub(crate) fn finished_file(upload: &Upload) -> NewFile {
         filename: upload.filename.clone(),
         content_type: upload.content_type.clone(),
         sealed_name: upload.sealed_name.clone(),
+        // Decided by whoever records it, which knows whether a scanner is set up.
+        scan: None,
         size_bytes: upload.offset_bytes,
         storage: StorageLocation::Object {
             // Where the session actually wrote. Reading the configuration here

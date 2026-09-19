@@ -22,7 +22,7 @@ CREATE TABLE file_shares (
     storage       TEXT    NOT NULL,
     object_key    TEXT,
     created_at    TEXT    NOT NULL
-, sealed_name TEXT)
+, sealed_name TEXT, scan_state TEXT, scan_detail TEXT)
 ```
 
 </details>
@@ -41,6 +41,8 @@ CREATE TABLE file_shares (
 | object_key | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | sealed_name | TEXT |  | true |  |  |  |
+| scan_state | TEXT |  | true |  |  |  |
+| scan_detail | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -54,6 +56,7 @@ CREATE TABLE file_shares (
 
 | Name | Definition |
 | ---- | ---------- |
+| file_shares_scan_state | CREATE INDEX file_shares_scan_state ON file_shares (scan_state) |
 | idx_file_shares_share | CREATE INDEX idx_file_shares_share ON file_shares (share_id, position) |
 | sqlite_autoindex_file_shares_1 | PRIMARY KEY (id) |
 
@@ -76,6 +79,8 @@ erDiagram
   TEXT object_key
   TEXT created_at
   TEXT sealed_name
+  TEXT scan_state
+  TEXT scan_detail
 }
 "file_segments" {
   TEXT file_id PK

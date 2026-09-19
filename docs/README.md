@@ -23,6 +23,7 @@ Reasoning that does not fit next to the code. Module docs carry the _why_ for a 
 | [`splitting.md`](splitting.md) | One file across several backends. Off by default |
 | [`oidc.md`](oidc.md) | Signing in through an identity provider. Off by default |
 | [`link-previews.md`](link-previews.md) | Open Graph tags and the card image |
+| [`scanning.md`](scanning.md) | Handing uploads to a malware scanner, and what happens when it is down. Off by default |
 | [`encryption.md`](encryption.md) | End-to-end encrypted shares: what they hide, the format, and why ChaCha20 |
 | [`maintenance.md`](maintenance.md) | Sweeps, orphan reconciliation |
 | [`migrations.md`](migrations.md) | Hand-written per-dialect SQL, and the traps in each dialect |
