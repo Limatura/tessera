@@ -1,14 +1,31 @@
 import { IconAlertCircle, IconLogout, IconRefresh } from "@tabler/icons-react";
 import { Button } from "@tessera/ui/components/button";
+import { toast } from "@tessera/ui/components/toast";
 import type * as React from "react";
 
 import { useLogout } from "@/hooks/use-auth";
+import { useRevokeOtherSessions } from "@/hooks/use-sessions";
 import * as m from "@/paraglide/messages";
-
-import { notifyComingSoon } from "./coming-soon";
 
 export function DangerZone() {
   const logout = useLogout();
+  const revokeOthers = useRevokeOtherSessions();
+
+  const handleRevokeOthers = () => {
+    revokeOthers.mutate(undefined, {
+      onError: () =>
+        toast.add({
+          description: m.common_try_again(),
+          title: m.user_sessions_revoke_failed(),
+          type: "error",
+        }),
+      onSuccess: () =>
+        toast.add({
+          title: m.user_sessions_revoke_others_done(),
+          type: "success",
+        }),
+    });
+  };
 
   return (
     <section className="space-y-4">
@@ -28,7 +45,8 @@ export function DangerZone() {
         <DangerAction
           action={
             <Button
-              onClick={notifyComingSoon}
+              disabled={revokeOthers.isPending}
+              onClick={handleRevokeOthers}
               size="sm"
               type="button"
               variant="outline"
