@@ -5,6 +5,7 @@ import { DangerZone } from "./danger-zone";
 import { PasskeysSection } from "./passkeys-section";
 import { PasswordSection } from "./password-section";
 import { ProfileSection } from "./profile-section";
+import { SessionsSection } from "./sessions-section";
 
 export function AccountTab() {
   return (
@@ -16,6 +17,8 @@ export function AccountTab() {
       <PasswordSection />
       <Separator />
       <PasskeysSection />
+      <Separator />
+      <SessionsSection />
       <Separator />
       <DangerZone />
     </div>

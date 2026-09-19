@@ -19,7 +19,15 @@ import { z } from "zod";
 export const APPEARANCE_MODES = ["light", "dark", "system"] as const;
 
 /** `appearance.theme` —— 中性色盤。 */
-export const APPEARANCE_THEMES = ["default", "graphite", "sepia"] as const;
+export const APPEARANCE_THEMES = [
+  "default",
+  "graphite",
+  "sepia",
+  "matsu",
+  "cosmic",
+  "slate",
+  "vintage",
+] as const;
 
 /** `appearance.accent` —— 強調色。 */
 export const APPEARANCE_ACCENTS = [

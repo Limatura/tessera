@@ -8,8 +8,10 @@ import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import { Toaster } from "@tessera/ui/components/toast";
 import { useEffect, useSyncExternalStore } from "react";
 
+import { AppearanceSync } from "@/components/appearance-sync";
 import { Header } from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
+import { readSiteAppearance } from "@/lib/appearance";
 import {
   applyDocumentLocale,
   getLocale,
@@ -59,12 +61,17 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
+      {/*
+        `defaultTheme` 讀 `<html data-mode>` —— 伺服器把站台預設寫在那裡。寫死
+        "dark" 會讓擁有者設的預設明暗對沒選過的人失效,而那正是這個設定的用途。
+      */}
       <ThemeProvider
         attribute="class"
-        defaultTheme="dark"
+        defaultTheme={readSiteAppearance().mode}
         disableTransitionOnChange
         storageKey="theme"
       >
+        <AppearanceSync />
         {/*
           消息函数是在被调用当下读取 locale 的，locale 变了它们不会自己重渲染。
           用 key={locale} 强制整棵树 remount 是最直接可靠的做法；代价是切换语言
