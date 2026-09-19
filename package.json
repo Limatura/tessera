@@ -10,6 +10,8 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "check-types": "turbo run check-types",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "dev:web": "turbo run dev -F web",
     "dev:admin": "turbo run dev -F admin",
     "dev:tui": "turbo run dev -F tui",
@@ -40,13 +42,15 @@
   "devDependencies": {
     "@tessera/config": "workspace:*",
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "^4.1.11",
     "husky": "9.1.7",
     "lint-staged": "^17.3.0",
     "oxfmt": "0.62.0",
     "oxlint": "1.77.0",
     "turbo": "^2.10.7",
     "typescript": "catalog:",
-    "ultracite": "7.9.4"
+    "ultracite": "7.9.4",
+    "vitest": "^4.1.11"
   },
   "packageManager": "pnpm@11.25.0"
 }
