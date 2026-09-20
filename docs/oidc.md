@@ -318,6 +318,16 @@ Nothing is fetched at start-up. A provider that is slow or down would otherwise 
 
 Changing `auth.oidc.issuer` throws the cache away. That document belongs to the old issuer, including the name that `iss` is checked against.
 
+## Trying a provider out from the panel
+
+`POST /admin/settings/oidc/discovery` reads a provider's document and answers with its `issuer`, `scopes_supported` and `backchannel_logout_supported`, which is what the panel's form needs to fill itself in. It takes either the issuer or the `.well-known` URL; the suffix is removed before the fetch.
+
+**Why the server and not the browser.** Discovery says a provider *should* let a browser read its document, not that it must, and plenty do not: Synology DSM answers with an `Access-Control-Allow-Origin` of some other registered application, so the panel's own fetch is refused by CORS. This server sends no `Origin`, so the same read works, and it is the read a sign-in will make: reaching the document from here says the sign-in path can reach it, which a fetch from somebody's browser could never establish.
+
+It is a fetch of an address the caller names, so it keeps the rules the issuer setting keeps: `settings:write`, `is_private_or_tls`, the ten-second timeout, and only the three fields above are passed back out. It does not touch the cache below: the URL is one somebody is trying, and a document fetched from an unsaved value must not decide what a real sign-in talks to.
+
+Tested by `the_panel_can_read_a_provider_document_through_the_server`, `reading_a_document_does_not_decide_what_sign_in_talks_to` and `an_address_the_document_cannot_be_read_from_is_refused`.
+
 ## Attaching and detaching
 
 Somebody who registered with a password can attach a provider afterwards, and detach it again. `GET /auth/oidc/link` starts the same flow as signing in, with `purpose` set to `link` and the account recorded in the row.

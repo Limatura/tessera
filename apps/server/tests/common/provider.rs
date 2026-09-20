@@ -135,6 +135,7 @@ async fn document(State(shared): State<Shared>) -> Json<serde_json::Value> {
         "userinfo_endpoint": format!("{}/userinfo", shared.issuer),
         "jwks_uri": format!("{}/jwks", shared.issuer),
         "backchannel_logout_supported": true,
+        "scopes_supported": ["openid", "email", "profile"],
         "code_challenge_methods_supported": ["S256"],
     }))
 }

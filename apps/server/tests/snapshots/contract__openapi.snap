@@ -725,6 +725,48 @@ expression: document
         ],
         "type": "object"
       },
+      "DiscoveryProbeRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /admin/settings/oidc/discovery`.",
+        "properties": {
+          "url": {
+            "description": "The issuer, or the `.well-known` URL copied from the provider's own\ndocumentation. Either is accepted: the suffix is removed before the\ndocument is fetched, and it is `issuer` that comes back.",
+            "example": "https://id.example.com",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "type": "object"
+      },
+      "DiscoveryProbeResponse": {
+        "description": "What a provider says about itself, as the panel needs it.",
+        "properties": {
+          "backchannel_logout_supported": {
+            "description": "Whether it will tell this instance when somebody signs out.",
+            "type": "boolean"
+          },
+          "issuer": {
+            "description": "The provider's own name for itself, which is what `auth.oidc.issuer`\nhas to be set to.",
+            "example": "https://id.example.com",
+            "type": "string"
+          },
+          "scopes_supported": {
+            "description": "The scopes it advertises, for a form that offers them rather than\nasking somebody to type them.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "issuer",
+          "scopes_supported",
+          "backchannel_logout_supported"
+        ],
+        "type": "object"
+      },
       "ErrorBody": {
         "description": "The JSON body returned for every non-2xx response.",
         "properties": {
@@ -2977,6 +3019,83 @@ expression: document
           }
         ],
         "summary": "Changes settings, and applies them.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/settings/oidc/discovery": {
+      "post": {
+        "description": "# Why the server and not the panel\n\nDiscovery only says a provider *should* let a browser read its document,\nand plenty do not: the panel's own fetch is refused by CORS on exactly the\nproviders a self-hosted instance tends to use. This server has no origin,\nso the same fetch works, and it is the one sign-in will make: a document\nthis reaches is one the sign-in path can reach too, which a browser could\nnever establish.\n\n# What it does not do\n\nTouch the cache. This is a URL somebody is trying out in a form; writing\nwhat it answered into the cache would let an unsaved value decide what a\nreal sign-in talks to.\n\n# Errors\n\n`400` for an address this instance would not accept as an issuer, or one\nthe provider's document cannot be read from. `401`, `403` and `404` as for\n[`list`].",
+        "operationId": "probe_oidc_discovery",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscoveryProbeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryProbeResponse"
+                }
+              }
+            },
+            "description": "What the provider says about itself"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an address this accepts, or the document could not be read"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "May not change settings, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reads a provider's discovery document, from here rather than the browser.",
         "tags": [
           "admin"
         ]
