@@ -294,6 +294,40 @@ async fn changing_the_setting_changes_the_page() {
     assert!(after.contains(r#"class="dark""#), "{after}");
 }
 
+/// The panel can rename the instance, and the empty title it refuses is
+/// refused by the same rule a configuration file would be.
+#[tokio::test]
+async fn the_panel_can_rename_the_instance() {
+    let app = an_app_with_an_account().await;
+    let cookie = a_session(&app).await;
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "changes": { "site.title": "Acme Drop" } }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+    let page = body_string(expect_status(app.get("/").await, StatusCode::OK).await).await;
+    assert!(page.contains("<title>Acme Drop</title>"), "{page}");
+
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/admin/settings",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "changes": { "site.title": "  " } }),
+        )
+        .await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+}
+
 /// The same refusal as the per-person endpoint, on the instance's own value.
 /// It reaches the same `<html>` element by a different route.
 #[tokio::test]

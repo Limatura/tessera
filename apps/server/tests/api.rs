@@ -503,6 +503,51 @@ fn the_compression_predicate_skips_opaque_media_types() {
     }
 }
 
+/// The operator's own name, from the first paint rather than after the
+/// scripts run, and on the instance's own links.
+#[tokio::test]
+async fn the_instance_says_what_the_operator_called_it() {
+    let app = TestApp::with_config(|config| {
+        config.site.title = "Acme Drop".to_owned();
+        config.site.description = "Files for Acme staff".to_owned();
+    })
+    .await;
+
+    let page = body_string(expect_status(app.get("/").await, StatusCode::OK).await).await;
+    assert!(page.contains("<title>Acme Drop</title>"), "{page}");
+    assert!(
+        page.contains(r#"<meta name="description" content="Files for Acme staff">"#),
+        "{page}"
+    );
+
+    // A share page keeps the share's own description and takes the instance's
+    // name for the site it belongs to.
+    let created = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=holiday.jpg"),
+            Body::from(vec![0_u8; 16]),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let code = body_json(created).await["code"]
+        .as_str()
+        .expect("a code")
+        .to_owned();
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{code}")).await, StatusCode::OK).await)
+            .await;
+    assert!(page.contains("<title>Acme Drop</title>"), "{page}");
+    assert!(
+        page.contains(r#"<meta property="og:site_name" content="Acme Drop">"#),
+        "{page}"
+    );
+    assert!(!page.contains("Files for Acme staff"), "{page}");
+}
+
 /// An unfurler fetches the URL and reads the HTML; it does not run JavaScript,
 /// so tags the app adds at runtime are invisible to it. They have to be in the
 /// bytes the server sends.

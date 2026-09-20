@@ -217,7 +217,8 @@ fn serve_index(state: &crate::state::AppState) -> Response {
     let Ok(html) = std::str::from_utf8(&asset.bytes) else {
         return respond(&state.assets, INDEX, asset);
     };
-    let page = with_appearance(html, state.config().appearance);
+    let config = state.config();
+    let page = named(&with_appearance(html, config.appearance), &config.site);
     html_page(page)
 }
 
@@ -241,6 +242,52 @@ fn html_page(body: String) -> Response {
         body,
     )
         .into_response()
+}
+
+/// Puts the instance's name in the tab, and its description under its links.
+///
+/// Both come from `site.*`, so an operator's own name is on the page from the
+/// first paint rather than after the scripts run, and a link to the instance
+/// itself unfurls as something other than whatever the bundle was built with.
+fn named(html: &str, site: &crate::config::SiteConfig) -> String {
+    let page = retitled(html, &site.title);
+    if site.description.trim().is_empty() {
+        return page;
+    }
+    let tag = format!(
+        "<meta name=\"description\" content=\"{}\">",
+        crate::api::preview::escape(&site.description)
+    );
+    crate::api::preview::splice_into_document(&page, &tag)
+}
+
+/// Replaces what is between `<title>` and `</title>`.
+///
+/// A document without both is returned unchanged: a name in the tab is worth
+/// having and is not worth a page that does not load. The value is escaped,
+/// since an operator may put anything in it.
+fn retitled(html: &str, title: &str) -> String {
+    let lowered = html.to_ascii_lowercase();
+    let Some(open) = lowered.find("<title").and_then(|start| {
+        lowered
+            .get(start..)
+            .and_then(|rest| rest.find('>'))
+            .map(|offset| start + offset + 1)
+    }) else {
+        return html.to_owned();
+    };
+    let Some(close) = lowered
+        .get(open..)
+        .and_then(|rest| rest.find("</title>"))
+        .map(|offset| open + offset)
+    else {
+        return html.to_owned();
+    };
+    let mut out = String::with_capacity(html.len() + title.len());
+    out.push_str(html.get(..open).unwrap_or_default());
+    out.push_str(&crate::api::preview::escape(title));
+    out.push_str(html.get(close..).unwrap_or_default());
+    out
 }
 
 /// Writes the instance's appearance onto the `<html>` element.
@@ -360,10 +407,18 @@ async fn serve_share_page(
     let config = state.config();
     // The share page is the entry point with more spliced into it, so it gets
     // the instance's colours for the same reason every other page does.
-    let html = with_appearance(html, config.appearance);
+    // The instance's name, but not its description: the share's own is spliced
+    // in below, and two would be one too many.
+    let html = retitled(
+        &with_appearance(html, config.appearance),
+        &config.site.title,
+    );
     let origin = crate::api::preview::origin(&config, headers);
-    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc())
-        .to_head_tags(origin.as_deref(), code);
+    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc()).to_head_tags(
+        origin.as_deref(),
+        code,
+        &config.site.title,
+    );
     html_page(splice_into_document(&html, &tags))
 }
 
@@ -642,5 +697,50 @@ mod tests {
         assert!(page.contains("data-theme=\"default\""), "{page}");
         assert!(page.contains("data-accent=\"violet\""), "{page}");
         assert!(!page.contains("class="), "{page}");
+    }
+
+    /// The operator's name reaches the tab, and anything they typed into it is
+    /// escaped: the value goes between tags on a page served from this origin.
+    #[test]
+    fn the_instance_name_goes_in_the_title() {
+        let site = crate::config::SiteConfig {
+            title: "Acme <files> & co".to_owned(),
+            description: String::new(),
+        };
+        let page = named("<html><head><title>Tessera</title></head></html>", &site);
+        assert!(
+            page.contains("<title>Acme &lt;files&gt; &amp; co</title>"),
+            "{page}"
+        );
+        assert!(!page.contains("name=\"description\""), "{page}");
+    }
+
+    #[test]
+    fn a_description_is_added_only_when_there_is_one() {
+        let site = crate::config::SiteConfig {
+            title: "Acme".to_owned(),
+            description: "  ".to_owned(),
+        };
+        let page = named("<html><head><title>t</title></head></html>", &site);
+        assert!(!page.contains("description"), "{page}");
+
+        let site = crate::config::SiteConfig {
+            description: "Files, briefly".to_owned(),
+            ..site
+        };
+        let page = named("<html><head><title>t</title></head></html>", &site);
+        assert!(
+            page.contains("<meta name=\"description\" content=\"Files, briefly\">"),
+            "{page}"
+        );
+    }
+
+    /// As with the colours: a page that does not load is worse than a page
+    /// with the wrong name on the tab.
+    #[rstest]
+    #[case::no_title("<html><head></head></html>")]
+    #[case::unterminated("<html><head><title>Tessera</head></html>")]
+    fn a_document_without_a_title_is_untouched(#[case] html: &str) {
+        assert_eq!(retitled(html, "Acme"), html);
     }
 }

@@ -178,6 +178,15 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 
 `GET /admin/shares/{id}/access-log` 的回應會在 `meta` 帶上 `enabled`，前端才能區分「真的沒人下載」和「根本沒在記錄」——兩者的 `data` 都是空陣列。
 
+## `site.*`
+
+- `title: string` — 分頁標題，也是連結預覽裡的站名，預設 `Tessera`。不可空白，最多 100 字
+- `description: string` — 連到這個站本身時，預覽顯示的說明，預設空（空 = 不輸出這個 meta）。最多 300 字
+
+兩個都會在 `index.html` 送出前寫進去，跟 `appearance.*` 一樣，第一次繪製就是對的，不用等 script。分享頁的說明用分享自己的，不會被這個蓋掉。
+
+**不做 SEO 相關欄位**（`keywords` 之類），理由見那張刻意不實作的決策記錄。
+
 ## `scan.*`
 
 惡意軟體掃描，預設關。詳見 `docs/scanning.md`。

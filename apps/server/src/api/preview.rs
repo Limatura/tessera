@@ -246,9 +246,10 @@ impl Preview {
     /// instead of given a relative path, since `og:image` is read by a crawler
     /// on another machine where that resolves to nothing.
     #[must_use]
-    pub fn to_head_tags(&self, origin: Option<&str>, code: &str) -> String {
+    pub fn to_head_tags(&self, origin: Option<&str>, code: &str, site: &str) -> String {
         let title = escape(&self.title);
         let description = escape(&self.description);
+        let site_name = escape(site);
 
         let picture = origin.map_or_else(String::new, |origin| {
             let image = escape(&format!("{origin}/s/{code}/og.png"));
@@ -279,7 +280,7 @@ impl Preview {
             "<meta property=\"og:title\" content=\"{title}\">\
              <meta property=\"og:description\" content=\"{description}\">\
              <meta property=\"og:type\" content=\"website\">\
-             <meta property=\"og:site_name\" content=\"Tessera\">\
+             <meta property=\"og:site_name\" content=\"{site_name}\">\
              {picture}\
              <meta name=\"twitter:card\" content=\"{twitter_card}\">\
              <meta name=\"twitter:title\" content=\"{title}\">\
@@ -393,7 +394,7 @@ fn human_size(bytes: u64) -> String {
 ///
 /// Both quote characters are escaped, not only the one the template uses, so
 /// changing the template cannot reopen the hole.
-fn escape(value: &str) -> String {
+pub(crate) fn escape(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for character in value.chars() {
         match character {
@@ -696,7 +697,7 @@ mod tests {
             &content(),
             OffsetDateTime::now_utc(),
         )
-        .to_head_tags(None, "ABCD1234");
+        .to_head_tags(None, "ABCD1234", "Tessera");
 
         assert!(!tags.contains("og:image"), "{tags}");
         assert!(tags.contains(r#"content="summary""#), "{tags}");
@@ -711,7 +712,7 @@ mod tests {
             &content(),
             OffsetDateTime::now_utc(),
         )
-        .to_head_tags(Some("https://share.example"), "ABCD1234");
+        .to_head_tags(Some("https://share.example"), "ABCD1234", "Tessera");
 
         assert!(
             tags.contains(r#"content="https://share.example/s/ABCD1234/og.png""#),
@@ -825,7 +826,7 @@ mod tests {
         share.title = Some(r#""><script>alert(1)</script>"#.to_owned());
 
         let tags = Preview::of(&share, &content(), OffsetDateTime::now_utc())
-            .to_head_tags(None, "ABCD1234");
+            .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("<script"), "{tags}");
         assert!(tags.contains("&quot;&gt;&lt;script&gt;"), "{tags}");
     }
@@ -845,8 +846,8 @@ mod tests {
         share.password_hash = Some("$argon2id$...".to_owned());
         let content = named("payroll.xlsx");
 
-        let tags =
-            Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags(None, "ABCD1234");
+        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc())
+            .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("payroll"), "the file name leaked: {tags}");
         assert!(!tags.contains("2.0 KiB"), "the size leaked: {tags}");
         assert!(
@@ -862,7 +863,7 @@ mod tests {
         share.password_hash = Some("$argon2id$...".to_owned());
 
         let tags = Preview::of(&share, &named("payroll.xlsx"), OffsetDateTime::now_utc())
-            .to_head_tags(None, "ABCD1234");
+            .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("payroll"), "{tags}");
         assert!(tags.contains("Password-protected"), "{tags}");
     }
@@ -873,8 +874,8 @@ mod tests {
         share.expires_at = Some(OffsetDateTime::now_utc() - time::Duration::hours(1));
         let content = named("gone.zip");
 
-        let tags =
-            Preview::of(&share, &content, OffsetDateTime::now_utc()).to_head_tags(None, "ABCD1234");
+        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc())
+            .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("gone.zip"), "{tags}");
         assert!(tags.contains("Share unavailable"), "{tags}");
     }

@@ -112,6 +112,67 @@ pub struct Config {
     /// Where uploads are sent to be checked for malware. See [`ScanConfig`].
     #[serde(default)]
     pub scan: ScanConfig,
+    /// What this instance calls itself. See [`SiteConfig`].
+    #[serde(default)]
+    pub site: SiteConfig,
+}
+
+/// What the instance calls itself.
+///
+/// Written into `index.html` on the way out, for the same reason the
+/// appearance is: the tab says the operator's name from the first paint rather
+/// than after the scripts run. See [`crate::assets`].
+///
+/// # Not search engine optimisation
+///
+/// A file drop does not want its share pages indexed, and the tags that would
+/// chase rankings are not here; see the decision recorded with the settings
+/// the panel deliberately does not offer. These two are what an operator needs
+/// to put their own name on the thing: the tab, and the line a chat client
+/// shows under a link to the instance itself.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SiteConfig {
+    /// The tab's title, and the name a link preview gives the instance.
+    pub title: String,
+    /// The line under the instance's own links. Empty leaves it out.
+    pub description: String,
+}
+
+impl Default for SiteConfig {
+    fn default() -> Self {
+        Self {
+            title: "Tessera".to_owned(),
+            description: String::new(),
+        }
+    }
+}
+
+impl SiteConfig {
+    /// Longest description. Chat clients cut off around two hundred.
+    const MAX_DESCRIPTION: usize = 300;
+    /// Longest title accepted. A tab shows perhaps a fifth of this.
+    const MAX_TITLE: usize = 100;
+
+    fn validate(&self) -> Result<(), ConfigError> {
+        let too_long = |field: &'static str, max: usize| ConfigError::Invalid {
+            field,
+            reason: format!("must be at most {max} characters"),
+        };
+        if self.title.trim().is_empty() {
+            return Err(ConfigError::Invalid {
+                field: "site.title",
+                reason: "must not be empty".to_owned(),
+            });
+        }
+        if self.title.chars().count() > Self::MAX_TITLE {
+            return Err(too_long("site.title", Self::MAX_TITLE));
+        }
+        if self.description.chars().count() > Self::MAX_DESCRIPTION {
+            return Err(too_long("site.description", Self::MAX_DESCRIPTION));
+        }
+        Ok(())
+    }
 }
 
 /// A malware scanner this instance hands uploads to.
@@ -1826,6 +1887,7 @@ impl Config {
         self.telemetry.validate()?;
         self.og.validate()?;
         self.scan.validate()?;
+        self.site.validate()?;
         self.mail.validate()
     }
 }
