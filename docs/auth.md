@@ -87,3 +87,13 @@ An instance with registration closed has no way to create its first account. `au
 Argon2id. Parameters are configurable and validated at startup: a memory cost below what the algorithm needs for its lane count is rejected rather than silently weakened.
 
 Share passwords have a lower minimum than account passwords, on purpose. See `retrieval.md`.
+
+### Breached passwords
+
+With `auth.pwned.enabled` on, a new password is looked up in Have I Been Pwned's list before it is accepted, on all three paths that set one: registering, changing a password, and finishing a reset.
+
+What is sent is the first five characters of the password's SHA-1, and nothing else. The service answers with every suffix it holds under that prefix and the match is found here, so neither the password nor enough of its hash to identify it leaves the process. Answers are asked to be padded, which is why a suffix is only a match when its count is above zero: the padding entries come back with zero.
+
+Off by default, because it is a request to somebody else's service on a path that has to work. When it is on and that service does not answer, the password is accepted and a line goes in the log: a breach list that is down must not stop somebody registering or resetting a password they have already lost. `auth.pwned.url` points at a self-hosted implementation for an instance with no way out to the internet.
+
+Tested in `tests/pwned.rs`, against a service that answers the way the real one does and records what it was asked. `the_real_service_still_answers_the_way_this_reads` puts the same questions to the real API and is `#[ignore]`d.

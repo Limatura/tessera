@@ -592,6 +592,59 @@ pub struct FeatureConfig {
     pub encryption: bool,
 }
 
+/// Checking a new password against the passwords known to have leaked.
+///
+/// # What is sent
+///
+/// The first five characters of the password's SHA-1, and nothing else. The
+/// service answers with every hash it knows that starts with those five, and
+/// the comparison happens here. That is the k-anonymity model the Pwned
+/// Passwords API is built around: the password does not leave this process,
+/// and neither does enough of its hash to identify it.
+///
+/// # Off by default, and never in the way
+///
+/// It is a request to somebody else's service on a path that has to work, so
+/// an operator opts in. When it is on and the service cannot be reached, the
+/// password is accepted: a breach list that is down must not stop somebody
+/// registering or resetting a password they have already lost.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct PwnedConfig {
+    /// Whether new passwords are looked up at all.
+    pub enabled: bool,
+    /// Where the range API lives, without a trailing slash.
+    ///
+    /// The official service by default. An operator who would rather not
+    /// depend on it, or whose instance has no way out to the internet, can run
+    /// one of the self-hosted implementations and point this at it.
+    pub url: String,
+}
+
+impl Default for PwnedConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            url: "https://api.pwnedpasswords.com".to_owned(),
+        }
+    }
+}
+
+impl PwnedConfig {
+    fn validate(&self) -> Result<(), ConfigError> {
+        if !self.enabled {
+            return Ok(());
+        }
+        match url::Url::parse(&self.url) {
+            Ok(url) if matches!(url.scheme(), "http" | "https") => Ok(()),
+            _ => Err(ConfigError::Invalid {
+                field: "auth.pwned.url",
+                reason: "must be an `http://` or `https://` URL".to_owned(),
+            }),
+        }
+    }
+}
+
 /// Who may create an account.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
@@ -743,6 +796,10 @@ pub struct AuthConfig {
     /// What an account password must be: its length, and the character
     /// classes it needs, all off by default. See [`PasswordPolicy`].
     pub password: PasswordPolicy,
+
+    /// Checking new passwords against known breaches. See [`PwnedConfig`].
+    #[serde(default)]
+    pub pwned: PwnedConfig,
 
     /// What one password hash costs. See [`HashingConfig`].
     #[serde(default)]
@@ -1479,6 +1536,7 @@ impl Default for AuthConfig {
             hashing: HashingConfig::default(),
             throttle: ThrottleConfig::default(),
             password: PasswordPolicy::default(),
+            pwned: PwnedConfig::default(),
             cookie_secure: SecurePolicy::default(),
             admin_username: "admin".to_owned(),
             admin_email: "admin@localhost.invalid".to_owned(),
@@ -2235,6 +2293,7 @@ impl AuthConfig {
         self.discord.validate("auth.discord.scopes", "email")?;
         // The policy's own bounds live in the domain crate, so the rule is the
         // same whether it arrives from a file or from a test.
+        self.pwned.validate()?;
         self.password
             .validate()
             .map_err(|error| ConfigError::Invalid {

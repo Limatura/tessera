@@ -332,6 +332,7 @@ pub async fn register(
     let username = Username::parse(&body.username)?;
     let email = EmailAddress::parse(&body.email)?;
     let password = Password::parse(body.password, state.config().auth.password)?;
+    crate::auth::pwned::refuse_if_breached(&state, &password).await?;
 
     // Checked before inserting so the caller gets "that name is taken" rather
     // than a constraint violation. The unique index is still the guarantee;
@@ -640,6 +641,7 @@ pub async fn change_password(
     }
 
     let replacement = Password::parse(body.new_password, state.config().auth.password)?;
+    crate::auth::pwned::refuse_if_breached(&state, &replacement).await?;
     let hash = password::hash(replacement, state.config().auth.hashing).await?;
 
     let now = OffsetDateTime::now_utc();
@@ -1229,6 +1231,7 @@ pub async fn confirm_password_reset(
     // leave the link usable, or a typo costs the whole round trip through the
     // inbox.
     let password = Password::parse(body.password, state.config().auth.password)?;
+    crate::auth::pwned::refuse_if_breached(&state, &password).await?;
 
     // The database decides who wins, so two clicks arriving together set the
     // password once.

@@ -265,6 +265,9 @@ argon2 = { version = "0.5", features = ["std"] }
 # a fast hash rather than Argon2: there is nothing to brute-force, and paying
 # ~50 ms of key derivation on every authenticated request would be absurd.
 sha2 = "0.11"
+# SHA-1 is not a choice: the Pwned Passwords range API is defined over it. It
+# is used to look a password up, never to protect one.
+sha1 = "0.11"
 # Constant-time comparison, for the one place a secret is compared in process.
 subtle = "2"
 # Cookie jar extractor. `cookie-private`/`cookie-signed` are deliberately not

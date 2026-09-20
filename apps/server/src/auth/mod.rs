@@ -23,5 +23,6 @@ pub mod oauth;
 pub mod oidc;
 pub mod password;
 pub mod proxy;
+pub mod pwned;
 pub mod secret;
 pub mod throttle;
