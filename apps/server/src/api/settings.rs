@@ -374,6 +374,116 @@ pub async fn preview(
     }))
 }
 
+/// Body of `POST /admin/settings/oidc/discovery`.
+#[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DiscoveryProbeRequest {
+    /// The issuer, or the `.well-known` URL copied from the provider's own
+    /// documentation. Either is accepted: the suffix is removed before the
+    /// document is fetched, and it is `issuer` that comes back.
+    #[schema(example = "https://id.example.com")]
+    pub url: String,
+}
+
+/// What a provider says about itself, as the panel needs it.
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DiscoveryProbeResponse {
+    /// The provider's own name for itself, which is what `auth.oidc.issuer`
+    /// has to be set to.
+    #[schema(example = "https://id.example.com")]
+    pub issuer: String,
+    /// The scopes it advertises, for a form that offers them rather than
+    /// asking somebody to type them.
+    pub scopes_supported: Vec<String>,
+    /// Whether it will tell this instance when somebody signs out.
+    pub backchannel_logout_supported: bool,
+}
+
+/// Reads a provider's discovery document, from here rather than the browser.
+///
+/// # Why the server and not the panel
+///
+/// Discovery only says a provider *should* let a browser read its document,
+/// and plenty do not: the panel's own fetch is refused by CORS on exactly the
+/// providers a self-hosted instance tends to use. This server has no origin,
+/// so the same fetch works, and it is the one sign-in will make: a document
+/// this reaches is one the sign-in path can reach too, which a browser could
+/// never establish.
+///
+/// # What it does not do
+///
+/// Touch the cache. This is a URL somebody is trying out in a form; writing
+/// what it answered into the cache would let an unsaved value decide what a
+/// real sign-in talks to.
+///
+/// # Errors
+///
+/// `400` for an address this instance would not accept as an issuer, or one
+/// the provider's document cannot be read from. `401`, `403` and `404` as for
+/// [`list`].
+#[utoipa::path(
+    post,
+    path = "/admin/settings/oidc/discovery",
+    operation_id = "probe_oidc_discovery",
+    tag = ADMIN_TAG,
+    request_body = DiscoveryProbeRequest,
+    responses(
+        (status = 200, description = "What the provider says about itself", body = DiscoveryProbeResponse),
+        (status = 400, description = "Not an address this accepts, or the document could not be read", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "May not change settings, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn probe_oidc_discovery(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiJson(body): ApiJson<DiscoveryProbeRequest>,
+) -> Result<Json<DiscoveryProbeResponse>> {
+    require_admin_feature(&state)?;
+    // The write permission, as for `preview`: this reports on a change only
+    // somebody who could make it has any use for. It is also what keeps this
+    // from being a way for anybody else to make the server fetch a URL.
+    admitted(&current, tessera_core::Permission::SettingsWrite)?;
+
+    let issuer = issuer_of(&body.url);
+    if issuer.is_empty() {
+        return Err(Error::bad_request("give the provider's address"));
+    }
+    // The rule the issuer setting itself keeps, so this cannot reach anywhere
+    // that could not be configured directly.
+    if !crate::auth::oidc::is_private_or_tls(&issuer) {
+        return Err(Error::bad_request(
+            "an identity provider must be https, unless it is on a private address",
+        ));
+    }
+    let provider = crate::auth::oidc::discovery::probe(&issuer)
+        .await
+        .map_err(|error| Error::bad_request(error.to_string()))?;
+    Ok(Json(DiscoveryProbeResponse {
+        issuer: provider.issuer.clone(),
+        scopes_supported: provider.scopes_supported.clone(),
+        backchannel_logout_supported: provider.backchannel_logout_supported,
+    }))
+}
+
+/// The issuer inside whatever was pasted in.
+///
+/// A person copies the `.well-known` URL out of the provider's documentation
+/// as often as they copy the issuer, and the difference is a suffix this can
+/// remove. Anything else is left alone: an address this does not recognise is
+/// better refused by the fetch, with the provider's own answer, than silently
+/// rewritten here.
+fn issuer_of(url: &str) -> String {
+    let trimmed = url.trim().trim_end_matches('/');
+    trimmed
+        .strip_suffix("/.well-known/openid-configuration")
+        .unwrap_or(trimmed)
+        .trim_end_matches('/')
+        .to_owned()
+}
+
 /// Changes settings, and applies them.
 ///
 /// # Why the change is tried before it is stored

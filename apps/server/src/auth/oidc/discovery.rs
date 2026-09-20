@@ -62,6 +62,13 @@ pub struct Provider {
     /// Whether the provider will tell us when it signs somebody out.
     #[serde(default)]
     pub backchannel_logout_supported: bool,
+    /// Which scopes it says it accepts.
+    ///
+    /// Nothing here reads it: the scopes to ask for are the operator's choice
+    /// and are configured. It is carried so the panel can offer what the
+    /// provider advertises instead of making somebody type them.
+    #[serde(default)]
+    pub scopes_supported: Vec<String>,
     /// Which PKCE methods it accepts. `S256` is required by us.
     #[serde(default)]
     pub code_challenge_methods_supported: Vec<String>,
@@ -160,6 +167,19 @@ impl Discovery {
     }
 }
 
+/// Reads a provider's document once, without touching the cache.
+///
+/// For the panel, where somebody is trying a URL out: a document fetched from
+/// a URL that has not been saved must not become the one a sign-in uses.
+///
+/// # Errors
+///
+/// Returns [`DiscoveryError`] when the document cannot be fetched or is not
+/// one this can use.
+pub async fn probe(issuer: &str) -> Result<Provider, DiscoveryError> {
+    fetch(issuer.trim().trim_end_matches('/')).await
+}
+
 async fn fetch(issuer: &str) -> Result<Provider, DiscoveryError> {
     // Appended, not joined: a path on the issuer is part of its identity, and
     // `Url::join` would replace it.
@@ -231,6 +251,7 @@ mod tests {
             end_session_endpoint: None,
             jwks_uri: None,
             backchannel_logout_supported: false,
+            scopes_supported: vec!["openid".to_owned(), "email".to_owned()],
             code_challenge_methods_supported: vec!["S256".to_owned()],
         }
     }

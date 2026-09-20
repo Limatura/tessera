@@ -377,6 +377,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .merge(backend_routes())
         .routes(routes!(settings::list, settings::update))
         .routes(routes!(settings::preview))
+        .routes(routes!(settings::probe_oidc_discovery))
         .routes(routes!(admin::remove_user_shares))
 }
 

@@ -26,7 +26,7 @@ use axum::{
     response::Response,
 };
 use common::{
-    Auth, TestApp, expect_status,
+    Auth, TestApp, body_json, body_string, expect_status,
     provider::{FakeProvider, Script},
     session_cookie,
 };
@@ -46,6 +46,120 @@ async fn instance(provider: &FakeProvider) -> TestApp {
         "a-secret".clone_into(&mut config.auth.oidc.client_secret);
     })
     .await
+}
+
+/// Reading a provider's document from the server, which is the point: the
+/// panel's own fetch is refused by providers that do not open CORS, and this
+/// server has no origin to be refused for.
+#[tokio::test]
+async fn the_panel_can_read_a_provider_document_through_the_server() {
+    let provider = FakeProvider::start(CLIENT_ID).await;
+    let app = TestApp::ready().await;
+    let owner = register(&app, "first").await;
+
+    for given in [
+        provider.issuer.clone(),
+        format!("{}/.well-known/openid-configuration", provider.issuer),
+        format!("{}/", provider.issuer),
+    ] {
+        let read = body_json(
+            expect_status(
+                app.json(
+                    Method::POST,
+                    "/api/v1/admin/settings/oidc/discovery",
+                    Auth::Cookie(&owner),
+                    &serde_json::json!({ "url": given }),
+                )
+                .await,
+                StatusCode::OK,
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(read["issuer"], provider.issuer);
+        assert_eq!(read["backchannel_logout_supported"], true);
+        assert_eq!(
+            read["scopes_supported"],
+            serde_json::json!(["openid", "email", "profile"])
+        );
+    }
+}
+
+/// What it must not do: leave the tried-out document where a sign-in would
+/// pick it up. The configured provider is a different one, and it stays that
+/// way.
+#[tokio::test]
+async fn reading_a_document_does_not_decide_what_sign_in_talks_to() {
+    let configured = FakeProvider::start(CLIENT_ID).await;
+    let other = FakeProvider::start(CLIENT_ID).await;
+    let app = instance(&configured).await;
+    let owner = register(&app, "first").await;
+
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/admin/settings/oidc/discovery",
+            Auth::Cookie(&owner),
+            &serde_json::json!({ "url": other.issuer }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let used = app
+        .state
+        .oidc
+        .provider(&configured.issuer, OffsetDateTime::now_utc())
+        .await
+        .expect("the configured provider");
+    assert_eq!(used.issuer, configured.issuer);
+}
+
+#[tokio::test]
+async fn an_address_the_document_cannot_be_read_from_is_refused() {
+    let app = TestApp::ready().await;
+    let owner = register(&app, "first").await;
+    let member = register(&app, "second").await;
+
+    let refuse = async |auth: Auth<'_>, url: &str, expected: StatusCode| {
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/admin/settings/oidc/discovery",
+                auth,
+                &serde_json::json!({ "url": url }),
+            )
+            .await,
+            expected,
+        )
+        .await
+    };
+
+    // Not https, and not a private address: the rule the issuer setting keeps.
+    let plain = refuse(
+        Auth::Cookie(&owner),
+        "http://id.example.com",
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    assert!(body_string(plain).await.contains("https"));
+    refuse(Auth::Cookie(&owner), "   ", StatusCode::BAD_REQUEST).await;
+    // Nothing listening: the provider's own failure, reported as it is.
+    refuse(
+        Auth::Cookie(&owner),
+        "http://127.0.0.1:1",
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    // And it is not a fetch anybody can ask this server to make.
+    refuse(
+        Auth::Cookie(&member),
+        "http://127.0.0.1:1",
+        StatusCode::FORBIDDEN,
+    )
+    .await;
+    refuse(Auth::None, "http://127.0.0.1:1", StatusCode::UNAUTHORIZED).await;
 }
 
 /// Where a response says the browser should go.
@@ -151,7 +265,7 @@ async fn a_stranger_the_provider_vouches_for_gets_an_account() {
     let cookie = session_cookie(&response);
 
     // The session is real, and it belongs to an account built from the claims.
-    let body = common::body_json(
+    let body = body_json(
         expect_status(
             app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
                 .await,
@@ -202,7 +316,7 @@ async fn the_same_subject_comes_back_to_the_same_account() {
 }
 
 async fn session_of(app: &TestApp, cookie: &str) -> serde_json::Value {
-    common::body_json(
+    body_json(
         expect_status(
             app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(cookie))
                 .await,
@@ -678,7 +792,7 @@ async fn an_instance_without_accounts_has_none_of_this() {
 
 /// Every provider this instance knows about.
 async fn providers(app: &TestApp) -> Vec<serde_json::Value> {
-    common::body_json(
+    body_json(
         expect_status(
             app.empty(Method::GET, "/api/v1/auth/providers", Auth::None)
                 .await,
@@ -694,7 +808,7 @@ async fn providers(app: &TestApp) -> Vec<serde_json::Value> {
 
 /// What an account signs in through.
 async fn identities(app: &TestApp, cookie: &str) -> serde_json::Value {
-    common::body_json(
+    body_json(
         expect_status(
             app.empty(
                 Method::GET,
@@ -1028,7 +1142,7 @@ mod backchannel {
                 StatusCode::BAD_REQUEST,
                 "for a body of {body:?}"
             );
-            let reported = super::common::body_json(response).await;
+            let reported = super::body_json(response).await;
             assert_eq!(
                 reported.get("error"),
                 Some(&serde_json::json!("invalid_request"))
@@ -1127,7 +1241,7 @@ mod backchannel {
                 .and_then(|value| value.to_str().ok()),
             Some("no-store")
         );
-        let body = super::common::body_json(response).await;
+        let body = super::body_json(response).await;
         assert_eq!(
             body.get("error"),
             Some(&serde_json::json!("invalid_request"))
