@@ -1,6 +1,5 @@
+import { useTheme } from "@tessera/ui/components/theme-provider";
 import { useEffect, useRef, useState } from "react";
-
-import { useTheme } from "@/components/theme-provider";
 
 /**
  * 一張圖的渲染結果。`svg` 是上一次成功的輸出,即使這次解析失敗也留著,

@@ -13,6 +13,7 @@ import {
 
 import mockData from "@/data/dashboard-mock.json";
 import { formatBytes, formatNumber } from "@/lib/format";
+import { getLocale } from "@/lib/locale";
 
 /**
  * Mirrors the server's `StatsResponse` (apps/server/src/api/admin.rs).
@@ -20,36 +21,46 @@ import { formatBytes, formatNumber } from "@/lib/format";
  */
 const { stats } = mockData;
 
-const items = [
-  {
-    icon: IconFiles,
-    label: "分享總數",
-    sub: `可取件 ${formatNumber(stats.liveShares)} 筆`,
-    value: formatNumber(stats.shares),
-  },
-  {
-    icon: IconDatabase,
-    label: "已用儲存空間",
-    sub: stats.quotaBytes
-      ? `配額 ${formatBytes(stats.quotaBytes)}`
-      : "無配額限制",
-    value: formatBytes(stats.storedBytes),
-  },
-  {
-    icon: IconCloudUpload,
-    label: "帳號數",
-    sub: "含管理員",
-    value: formatNumber(stats.accounts),
-  },
-  {
-    icon: IconTicket,
-    label: "可用邀請碼",
-    sub: "尚未用盡或過期",
-    value: formatNumber(stats.liveInvites),
-  },
-];
+/**
+ * 數字要跟著介面語言走，所以在元件裡建（`getLocale()` 是執行期的值）。
+ */
+function buildItems() {
+  const locale = getLocale();
+  const number = (value: number) => formatNumber(value, locale);
+
+  return [
+    {
+      icon: IconFiles,
+      label: "分享總數",
+      sub: `可取件 ${number(stats.liveShares)} 筆`,
+      value: number(stats.shares),
+    },
+    {
+      icon: IconDatabase,
+      label: "已用儲存空間",
+      sub: stats.quotaBytes
+        ? `配額 ${formatBytes(stats.quotaBytes)}`
+        : "無配額限制",
+      value: formatBytes(stats.storedBytes),
+    },
+    {
+      icon: IconCloudUpload,
+      label: "帳號數",
+      sub: "含管理員",
+      value: number(stats.accounts),
+    },
+    {
+      icon: IconTicket,
+      label: "可用邀請碼",
+      sub: "尚未用盡或過期",
+      value: number(stats.liveInvites),
+    },
+  ];
+}
 
 export function StatsCards() {
+  const items = buildItems();
+
   return (
     <div className="grid grid-cols-1 gap-4 px-4 sm:grid-cols-2 lg:px-6 xl:grid-cols-4">
       {items.map((item) => (

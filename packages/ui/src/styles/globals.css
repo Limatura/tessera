@@ -117,6 +117,480 @@
   --sidebar-ring: oklch(0.547 0.021 43.1);
 }
 
+/*
+ * 主題與強調色的對照表,覆寫上面 :root / .dark 的中性色與 --primary。
+ * 寫在這裡而不是自己一個檔案用 @import:CSS 的 @import 只能放在所有規則之前,
+ * 而這張表必須排在 :root / .dark 後面才蓋得掉預設色盤。
+ */
+
+/*
+ * 主題(中性色)與強調色(primary)的對照表。
+ *
+ * 這份檔案就是 issue #260 說的「對照表在前端的 CSS 裡」:後端只存三個字串,
+ * 認不得的值在 PUT /me/preferences 就被擋成 400,所以這裡看到的屬性值一定在表內。
+ *
+ * 切換靠 <html> 上的屬性,由 apps/server 的 assets.rs 在送出 index.html 時寫上
+ * (站台預設),登入者的偏好再由 apps/web 的 appearance store 覆蓋同樣那三個屬性。
+ *
+ *   <html class="dark" data-theme="sepia" data-accent="rose">
+ *
+ * 分成 theme 和 accent 兩張表而不是 21 組,是因為兩者互不相干:theme 只動背景、
+ * 文字、邊框那些中性色,accent 只動 --primary 那一家。相乘會變成 21 份要一起維護
+ * 的重複,而且加第八個顏色要改三個地方。
+ *
+ * 明暗各寫一次是必要的,不是重複:深色底上的同一個色相要更亮、彩度更低才有相同的
+ * 對比,直接沿用淺色值在深色底上會糊掉。
+ *
+ * --- 為什麼 accent 在 theme 之後 ---
+ * 兩張表都寫 --ring,accent 要贏(focus ring 屬於強調色那一家)。CSS 同權重時
+ * 後寫的勝出,所以 accent 表放在下面,不需要任何 !important。
+ */
+
+/* ---------------------------------------------------------------- *
+ * 主題:背景、文字、邊框等中性色
+ *
+ * default 已經定義在 globals.css 的 :root / .dark,這裡不重寫 —— 少一份
+ * 會跟它漂移的副本。所以下面只有 graphite 和 sepia。
+ * ---------------------------------------------------------------- */
+
+/* graphite —— 偏冷、較平:色相往藍移,彩度壓低,卡片與背景的距離縮短。 */
+[data-theme="graphite"] {
+  --background: oklch(0.985 0.002 264);
+  --foreground: oklch(0.21 0.013 264);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.013 264);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.21 0.013 264);
+  --secondary: oklch(0.951 0.004 264);
+  --secondary-foreground: oklch(0.28 0.012 264);
+  --muted: oklch(0.951 0.004 264);
+  --muted-foreground: oklch(0.53 0.016 264);
+  --accent: oklch(0.936 0.006 264);
+  --accent-foreground: oklch(0.28 0.012 264);
+  --border: oklch(0.898 0.007 264);
+  --input: oklch(0.898 0.007 264);
+  --ring: oklch(0.68 0.015 264);
+  --sidebar: oklch(0.967 0.004 264);
+  --sidebar-foreground: oklch(0.21 0.013 264);
+  --sidebar-accent: oklch(0.936 0.006 264);
+  --sidebar-accent-foreground: oklch(0.28 0.012 264);
+  --sidebar-border: oklch(0.898 0.007 264);
+  --sidebar-ring: oklch(0.68 0.015 264);
+}
+
+.dark[data-theme="graphite"] {
+  --background: oklch(0.176 0.011 264);
+  --foreground: oklch(0.967 0.003 264);
+  --card: oklch(0.226 0.013 264);
+  --card-foreground: oklch(0.967 0.003 264);
+  --popover: oklch(0.226 0.013 264);
+  --popover-foreground: oklch(0.967 0.003 264);
+  --secondary: oklch(0.272 0.014 264);
+  --secondary-foreground: oklch(0.967 0.003 264);
+  --muted: oklch(0.272 0.014 264);
+  --muted-foreground: oklch(0.708 0.015 264);
+  --accent: oklch(0.297 0.015 264);
+  --accent-foreground: oklch(0.967 0.003 264);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.55 0.017 264);
+  --sidebar: oklch(0.226 0.013 264);
+  --sidebar-foreground: oklch(0.967 0.003 264);
+  --sidebar-accent: oklch(0.297 0.015 264);
+  --sidebar-accent-foreground: oklch(0.967 0.003 264);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.55 0.017 264);
+}
+
+/* sepia —— 暖如紙:背景離純白一段距離,色相在黃橘之間,長時間閱讀不刺眼。 */
+[data-theme="sepia"] {
+  --background: oklch(0.977 0.012 84);
+  --foreground: oklch(0.238 0.017 62);
+  --card: oklch(0.99 0.008 84);
+  --card-foreground: oklch(0.238 0.017 62);
+  --popover: oklch(0.99 0.008 84);
+  --popover-foreground: oklch(0.238 0.017 62);
+  --secondary: oklch(0.944 0.018 84);
+  --secondary-foreground: oklch(0.3 0.019 62);
+  --muted: oklch(0.944 0.018 84);
+  --muted-foreground: oklch(0.523 0.025 62);
+  --accent: oklch(0.925 0.024 84);
+  --accent-foreground: oklch(0.3 0.019 62);
+  --border: oklch(0.888 0.021 78);
+  --input: oklch(0.888 0.021 78);
+  --ring: oklch(0.68 0.028 70);
+  --sidebar: oklch(0.958 0.016 84);
+  --sidebar-foreground: oklch(0.238 0.017 62);
+  --sidebar-accent: oklch(0.925 0.024 84);
+  --sidebar-accent-foreground: oklch(0.3 0.019 62);
+  --sidebar-border: oklch(0.888 0.021 78);
+  --sidebar-ring: oklch(0.68 0.028 70);
+}
+
+.dark[data-theme="sepia"] {
+  --background: oklch(0.192 0.012 62);
+  --foreground: oklch(0.945 0.014 84);
+  --card: oklch(0.242 0.014 62);
+  --card-foreground: oklch(0.945 0.014 84);
+  --popover: oklch(0.242 0.014 62);
+  --popover-foreground: oklch(0.945 0.014 84);
+  --secondary: oklch(0.29 0.016 62);
+  --secondary-foreground: oklch(0.945 0.014 84);
+  --muted: oklch(0.29 0.016 62);
+  --muted-foreground: oklch(0.724 0.022 78);
+  --accent: oklch(0.316 0.018 62);
+  --accent-foreground: oklch(0.945 0.014 84);
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.57 0.025 70);
+  --sidebar: oklch(0.242 0.014 62);
+  --sidebar-foreground: oklch(0.945 0.014 84);
+  --sidebar-accent: oklch(0.316 0.018 62);
+  --sidebar-accent-foreground: oklch(0.945 0.014 84);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.57 0.025 70);
+}
+
+/*
+ * matsu —— 暖紙、橄欖調,取自 matsu-theme.vercel.app(吉卜力風的 shadcn 主題)。
+ *
+ * 只取它的中性色。原主題還綁 Nunito/PT Serif、把所有 border 加粗成 2px、
+ * 疊一張水彩紙貼圖,那些都跳過:字型和圓角是整個設計系統的事,不該由「選一個
+ * 色盤」這個動作連帶換掉,而貼圖要多載一張圖。
+ *
+ * 彩度明顯比其他主題高(background 0.048,sepia 只有 0.012),所以它看起來是
+ * 「有顏色的紙」而不是「偏暖的白」—— 那正是這個主題的重點。
+ *
+ * 深色是這裡配的:原主題只發佈了 light。色相留在 80-84 不動,把明度翻過來、
+ * 彩度稍微收一點,不然暖黃在深色底上會糊成土色。
+ */
+[data-theme="matsu"] {
+  --background: oklch(0.91 0.048 83.6);
+  --foreground: oklch(0.41 0.077 78.9);
+  --card: oklch(0.92 0.042 83.6);
+  --card-foreground: oklch(0.41 0.077 74.3);
+  --popover: oklch(0.92 0.042 83.6);
+  --popover-foreground: oklch(0.41 0.077 74.3);
+  --secondary: oklch(0.88 0.055 83.6);
+  --secondary-foreground: oklch(0.51 0.077 78.9);
+  --muted: oklch(0.86 0.064 83.7);
+  --muted-foreground: oklch(0.51 0.077 74.3);
+  --accent: oklch(0.86 0.055 83.6);
+  --accent-foreground: oklch(0.34 0.055 78.9);
+  --border: oklch(0.74 0.063 80.8);
+  --input: oklch(0.74 0.063 80.8);
+  --sidebar: oklch(0.87 0.059 83.7);
+  --sidebar-foreground: oklch(0.41 0.077 78.9);
+  --sidebar-accent: oklch(0.83 0.058 83.6);
+  --sidebar-accent-foreground: oklch(0.34 0.055 78.9);
+  --sidebar-border: oklch(0.74 0.063 80.8);
+}
+
+.dark[data-theme="matsu"] {
+  --background: oklch(0.232 0.021 83.6);
+  --foreground: oklch(0.905 0.038 83.6);
+  --card: oklch(0.283 0.025 83.6);
+  --card-foreground: oklch(0.905 0.038 83.6);
+  --popover: oklch(0.283 0.025 83.6);
+  --popover-foreground: oklch(0.905 0.038 83.6);
+  --secondary: oklch(0.336 0.029 83.6);
+  --secondary-foreground: oklch(0.905 0.038 83.6);
+  --muted: oklch(0.316 0.027 83.7);
+  --muted-foreground: oklch(0.735 0.042 80.8);
+  --accent: oklch(0.366 0.033 83.6);
+  --accent-foreground: oklch(0.905 0.038 83.6);
+  --border: oklch(1 0 0 / 13%);
+  --input: oklch(1 0 0 / 18%);
+  --sidebar: oklch(0.283 0.025 83.6);
+  --sidebar-foreground: oklch(0.905 0.038 83.6);
+  --sidebar-accent: oklch(0.366 0.033 83.6);
+  --sidebar-accent-foreground: oklch(0.905 0.038 83.6);
+  --sidebar-border: oklch(1 0 0 / 13%);
+}
+
+/*
+ * 以下三個改寫自 tweakcn 的 preset 集合(github.com/jnsahaj/tweakcn),
+ * 原值是 hex,這裡轉成 oklch 跟檔案其餘部分一致。
+ *
+ * 同樣只取中性色:原 preset 各自綁字型、圓角、陰影,而在這裡 theme 只負責
+ * 「背景文字邊框」那一家,`--primary` 一律由下面的 accent 表決定。兩張表相乘
+ * 才能讓七個強調色跟每個色盤自由組合;把 preset 的 primary 一起搬進來會讓
+ * 「選了主題之後 accent 還算不算數」變成一個沒有好答案的問題。
+ *
+ * `--ring` 也同理留給 accent —— focus ring 屬於強調色那一家。
+ */
+
+[data-theme="cosmic"] {
+  --background: oklch(0.973 0.013 286.2);
+  --foreground: oklch(0.301 0.057 282.4);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.301 0.057 282.4);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.301 0.057 282.4);
+  --secondary: oklch(0.917 0.044 292.7);
+  --secondary-foreground: oklch(0.414 0.104 288.2);
+  --muted: oklch(0.958 0.013 286.1);
+  --muted-foreground: oklch(0.543 0.047 284.7);
+  --accent: oklch(0.922 0.037 262.1);
+  --accent-foreground: oklch(0.301 0.057 282.4);
+  --border: oklch(0.911 0.022 286);
+  --input: oklch(0.911 0.022 286);
+  --sidebar: oklch(0.958 0.013 286.1);
+  --sidebar-foreground: oklch(0.301 0.057 282.4);
+  --sidebar-accent: oklch(0.922 0.037 262.1);
+  --sidebar-accent-foreground: oklch(0.301 0.057 282.4);
+  --sidebar-border: oklch(0.911 0.022 286);
+}
+
+.dark[data-theme="cosmic"] {
+  --background: oklch(0.174 0.023 283.8);
+  --foreground: oklch(0.918 0.026 285.9);
+  --card: oklch(0.228 0.038 282.9);
+  --card-foreground: oklch(0.918 0.026 285.9);
+  --popover: oklch(0.228 0.038 282.9);
+  --popover-foreground: oklch(0.918 0.026 285.9);
+  --secondary: oklch(0.314 0.074 283.5);
+  --secondary-foreground: oklch(0.837 0.085 285.9);
+  --muted: oklch(0.271 0.062 281.4);
+  --muted-foreground: oklch(0.717 0.046 285.2);
+  --accent: oklch(0.335 0.083 281);
+  --accent-foreground: oklch(0.918 0.026 285.9);
+  --border: oklch(0.326 0.06 282.6);
+  --input: oklch(0.326 0.06 282.6);
+  --sidebar: oklch(0.228 0.038 282.9);
+  --sidebar-foreground: oklch(0.918 0.026 285.9);
+  --sidebar-accent: oklch(0.335 0.083 281);
+  --sidebar-accent-foreground: oklch(0.918 0.026 285.9);
+  --sidebar-border: oklch(0.326 0.06 282.6);
+}
+
+[data-theme="slate"] {
+  --background: oklch(0.984 0.003 247.9);
+  --foreground: oklch(0.279 0.037 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.279 0.037 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.279 0.037 260);
+  --secondary: oklch(0.928 0.006 264.5);
+  --secondary-foreground: oklch(0.373 0.031 259.7);
+  --muted: oklch(0.967 0.003 264.5);
+  --muted-foreground: oklch(0.551 0.023 264.4);
+  --accent: oklch(0.93 0.033 272.8);
+  --accent-foreground: oklch(0.373 0.031 259.7);
+  --border: oklch(0.872 0.009 258.3);
+  --input: oklch(0.872 0.009 258.3);
+  --sidebar: oklch(0.967 0.003 264.5);
+  --sidebar-foreground: oklch(0.279 0.037 260);
+  --sidebar-accent: oklch(0.93 0.033 272.8);
+  --sidebar-accent-foreground: oklch(0.373 0.031 259.7);
+  --sidebar-border: oklch(0.872 0.009 258.3);
+}
+
+.dark[data-theme="slate"] {
+  --background: oklch(0.208 0.04 265.8);
+  --foreground: oklch(0.929 0.013 255.5);
+  --card: oklch(0.279 0.037 260);
+  --card-foreground: oklch(0.929 0.013 255.5);
+  --popover: oklch(0.279 0.037 260);
+  --popover-foreground: oklch(0.929 0.013 255.5);
+  --secondary: oklch(0.335 0.033 260.9);
+  --secondary-foreground: oklch(0.872 0.009 258.3);
+  --muted: oklch(0.243 0.038 259.9);
+  --muted-foreground: oklch(0.714 0.019 261.3);
+  --accent: oklch(0.373 0.031 259.7);
+  --accent-foreground: oklch(0.872 0.009 258.3);
+  --border: oklch(0.446 0.026 256.8);
+  --input: oklch(0.446 0.026 256.8);
+  --sidebar: oklch(0.279 0.037 260);
+  --sidebar-foreground: oklch(0.929 0.013 255.5);
+  --sidebar-accent: oklch(0.373 0.031 259.7);
+  --sidebar-accent-foreground: oklch(0.872 0.009 258.3);
+  --sidebar-border: oklch(0.446 0.026 256.8);
+}
+
+[data-theme="vintage"] {
+  --background: oklch(0.958 0.015 90.2);
+  --foreground: oklch(0.376 0.022 64.3);
+  --card: oklch(0.991 0.01 87.5);
+  --card-foreground: oklch(0.376 0.022 64.3);
+  --popover: oklch(0.991 0.01 87.5);
+  --popover-foreground: oklch(0.376 0.022 64.3);
+  --secondary: oklch(0.885 0.03 85.6);
+  --secondary-foreground: oklch(0.431 0.03 64.9);
+  --muted: oklch(0.924 0.019 83.1);
+  --muted-foreground: oklch(0.539 0.039 71.2);
+  --accent: oklch(0.835 0.043 88.8);
+  --accent-foreground: oklch(0.376 0.022 64.3);
+  --border: oklch(0.861 0.032 84.6);
+  --input: oklch(0.861 0.032 84.6);
+  --sidebar: oklch(0.924 0.019 83.1);
+  --sidebar-foreground: oklch(0.376 0.022 64.3);
+  --sidebar-accent: oklch(0.835 0.043 88.8);
+  --sidebar-accent-foreground: oklch(0.376 0.022 64.3);
+  --sidebar-border: oklch(0.861 0.032 84.6);
+}
+
+.dark[data-theme="vintage"] {
+  --background: oklch(0.275 0.014 57.7);
+  --foreground: oklch(0.924 0.019 83.1);
+  --card: oklch(0.324 0.016 59.1);
+  --card-foreground: oklch(0.924 0.019 83.1);
+  --popover: oklch(0.324 0.016 59.1);
+  --popover-foreground: oklch(0.924 0.019 83.1);
+  --secondary: oklch(0.38 0.018 57.1);
+  --secondary-foreground: oklch(0.924 0.019 83.1);
+  --muted: oklch(0.294 0.013 62.1);
+  --muted-foreground: oklch(0.798 0.024 82.1);
+  --accent: oklch(0.419 0.028 56.3);
+  --accent-foreground: oklch(0.924 0.019 83.1);
+  --border: oklch(0.38 0.018 57.1);
+  --input: oklch(0.38 0.018 57.1);
+  --sidebar: oklch(0.275 0.014 57.7);
+  --sidebar-foreground: oklch(0.924 0.019 83.1);
+  --sidebar-accent: oklch(0.419 0.028 56.3);
+  --sidebar-accent-foreground: oklch(0.924 0.019 83.1);
+  --sidebar-border: oklch(0.38 0.018 57.1);
+}
+
+/* ---------------------------------------------------------------- *
+ * 強調色:--primary 那一家
+ *
+ * 每個顏色四個值,不多不少:
+ *   --primary              按鈕/連結的底色
+ *   --primary-foreground   壓在它上面的字,對比要夠
+ *   --ring                 focus ring,同色但彩度低一階,免得搶戲
+ *   --sidebar-primary      側欄的同一件事(admin 用得到)
+ *
+ * 淺色底的 --primary 明度落在 0.55 附近,深色底在 0.65 附近 —— 深色底要更亮
+ * 才有相同的可讀性。--primary-foreground 跟著明度走:淺色底的深色按鈕配白字,
+ * 深色底的亮按鈕配深字(amber 尤其明顯,亮黃上放白字是讀不到的)。
+ *
+ * violet 是 default,但這裡仍然明寫 —— 不然「站台預設 violet + 使用者選 rose
+ * 後再選回 violet」會因為沒有規則可套而留在 rose 上。
+ * ---------------------------------------------------------------- */
+
+[data-accent="violet"] {
+  --primary: oklch(0.546 0.245 293);
+  --primary-foreground: oklch(0.985 0.002 293);
+  --ring: oklch(0.606 0.16 293);
+  --sidebar-primary: oklch(0.546 0.245 293);
+  --sidebar-primary-foreground: oklch(0.985 0.002 293);
+}
+
+.dark[data-accent="violet"] {
+  --primary: oklch(0.667 0.211 293);
+  --primary-foreground: oklch(0.21 0.05 293);
+  --ring: oklch(0.545 0.13 293);
+  --sidebar-primary: oklch(0.667 0.211 293);
+  --sidebar-primary-foreground: oklch(0.21 0.05 293);
+}
+
+[data-accent="rose"] {
+  --primary: oklch(0.586 0.222 17.4);
+  --primary-foreground: oklch(0.985 0.004 17.4);
+  --ring: oklch(0.645 0.15 17.4);
+  --sidebar-primary: oklch(0.586 0.222 17.4);
+  --sidebar-primary-foreground: oklch(0.985 0.004 17.4);
+}
+
+.dark[data-accent="rose"] {
+  --primary: oklch(0.682 0.187 17.4);
+  --primary-foreground: oklch(0.212 0.045 17.4);
+  --ring: oklch(0.558 0.125 17.4);
+  --sidebar-primary: oklch(0.682 0.187 17.4);
+  --sidebar-primary-foreground: oklch(0.212 0.045 17.4);
+}
+
+/*
+ * orange 就是這份設計本來的 --primary,值直接沿用上面 :root / .dark 裡那一組,
+ * 不是另外調一個相近的橘。
+ *
+ * 後端的 `Accent` 沒有「原本那個顏色」這個變體,所以如果這裡填一個自己編的橘,
+ * 原本的配色就變成選不回來的 —— `data-accent` 一定有值(伺服器預設 violet),
+ * 而沒有任何一個選項會解到它。
+ */
+[data-accent="orange"] {
+  --primary: oklch(0.553 0.195 38.402);
+  --primary-foreground: oklch(0.98 0.016 73.684);
+  --ring: oklch(0.658 0.135 41.1);
+  --sidebar-primary: oklch(0.646 0.222 41.116);
+  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+}
+
+.dark[data-accent="orange"] {
+  --primary: oklch(0.47 0.157 37.304);
+  --primary-foreground: oklch(0.98 0.016 73.684);
+  --ring: oklch(0.575 0.12 41.1);
+  --sidebar-primary: oklch(0.705 0.213 47.604);
+  --sidebar-primary-foreground: oklch(0.98 0.016 73.684);
+}
+
+/* amber 的明度天生就高:淺色底上壓到 0.66 才撐得住白字以外的選擇,所以
+ * 這是唯一一個淺色底也配深色字的顏色 —— 白字在黃底上達不到 4.5:1。 */
+[data-accent="amber"] {
+  --primary: oklch(0.72 0.164 70.1);
+  --primary-foreground: oklch(0.26 0.055 62);
+  --ring: oklch(0.73 0.12 70.1);
+  --sidebar-primary: oklch(0.72 0.164 70.1);
+  --sidebar-primary-foreground: oklch(0.26 0.055 62);
+}
+
+.dark[data-accent="amber"] {
+  --primary: oklch(0.795 0.153 78.2);
+  --primary-foreground: oklch(0.235 0.05 62);
+  --ring: oklch(0.638 0.11 70.1);
+  --sidebar-primary: oklch(0.795 0.153 78.2);
+  --sidebar-primary-foreground: oklch(0.235 0.05 62);
+}
+
+[data-accent="green"] {
+  --primary: oklch(0.545 0.152 149);
+  --primary-foreground: oklch(0.982 0.008 149);
+  --ring: oklch(0.63 0.105 149);
+  --sidebar-primary: oklch(0.545 0.152 149);
+  --sidebar-primary-foreground: oklch(0.982 0.008 149);
+}
+
+.dark[data-accent="green"] {
+  --primary: oklch(0.696 0.153 149);
+  --primary-foreground: oklch(0.21 0.04 149);
+  --ring: oklch(0.552 0.1 149);
+  --sidebar-primary: oklch(0.696 0.153 149);
+  --sidebar-primary-foreground: oklch(0.21 0.04 149);
+}
+
+[data-accent="teal"] {
+  --primary: oklch(0.545 0.102 183);
+  --primary-foreground: oklch(0.984 0.006 183);
+  --ring: oklch(0.63 0.075 183);
+  --sidebar-primary: oklch(0.545 0.102 183);
+  --sidebar-primary-foreground: oklch(0.984 0.006 183);
+}
+
+.dark[data-accent="teal"] {
+  --primary: oklch(0.7 0.113 183);
+  --primary-foreground: oklch(0.21 0.032 183);
+  --ring: oklch(0.556 0.075 183);
+  --sidebar-primary: oklch(0.7 0.113 183);
+  --sidebar-primary-foreground: oklch(0.21 0.032 183);
+}
+
+[data-accent="blue"] {
+  --primary: oklch(0.546 0.215 263);
+  --primary-foreground: oklch(0.985 0.004 263);
+  --ring: oklch(0.623 0.145 263);
+  --sidebar-primary: oklch(0.546 0.215 263);
+  --sidebar-primary-foreground: oklch(0.985 0.004 263);
+}
+
+.dark[data-accent="blue"] {
+  --primary: oklch(0.672 0.174 263);
+  --primary-foreground: oklch(0.21 0.042 263);
+  --ring: oklch(0.548 0.12 263);
+  --sidebar-primary: oklch(0.672 0.174 263);
+  --sidebar-primary-foreground: oklch(0.21 0.042 263);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

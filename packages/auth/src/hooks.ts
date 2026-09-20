@@ -74,13 +74,19 @@ export function useRegister() {
 }
 
 /**
- * @param clearAllQueries 登出後把整個 query cache 清掉，而不是只清 session。
+ * 登出。**預設把整個 query cache 清掉**，不是只清 session。
  *
- * apps/admin 要這個：留著的 `/admin/*` 快取是上一個帳號看得到的資料，下一個人登入後
- * 在請求回來之前會先看到那份。apps/web 的快取沒有這種跨帳號外洩的問題，清 session
- * 就夠，整包清掉反而會把匿名也能看的東西一起丟了。
+ * 留著的快取是上一個帳號看得到的資料：下一個人登入後，在各自的請求回來之前會先看到
+ * 那一份。兩個 app 都有這種 session 綁定的快取 —— admin 是 `/admin/*`，web 是
+ * `shares/mine`、`sessions`、`preferences`。
+ *
+ * 代價是匿名也能看的東西（`capabilities`、以 code 取件的 `share`）會一起被丟掉，
+ * 下次要用時重抓一次。拿「多一次請求」換「不會看到別人的資料」是划算的，所以這是預設。
+ *
+ * @param clearAllQueries 傳 `false` 可退回只清 session。除非那一頁確定沒有任何
+ *   跟帳號綁定的快取，否則不要關。
  */
-export function useLogout({ clearAllQueries = false } = {}) {
+export function useLogout({ clearAllQueries = true } = {}) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {

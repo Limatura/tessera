@@ -1,11 +1,11 @@
 import { Button } from "@tessera/ui/components/button";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import { useTheme } from "@tessera/ui/components/theme-provider";
 import { cn } from "@tessera/ui/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { MermaidDiagram } from "@/components/mermaid/mermaid-diagram";
-import { useTheme } from "@/components/theme-provider";
 import * as m from "@/paraglide/messages";
 
 const MAX_PREVIEW_BYTES = 200_000;

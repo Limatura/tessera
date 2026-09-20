@@ -1,24 +1,24 @@
-import { IconCheck } from "@tabler/icons-react";
-import { cn } from "@tessera/ui/lib/utils";
+import { AccentPicker } from "@tessera/ui/components/theme-picker";
 
+import { APPEARANCE_ACCENTS } from "@/lib/appearance";
 import * as m from "@/paraglide/messages";
-import type { AccentColor } from "@/stores/appearance";
-import { useAppearanceStore } from "@/stores/appearance";
 
-/** 色票只用來顯示,選了什麼跟 AppThemeField 一樣先只存起來。 */
-const SWATCHES: { value: AccentColor; className: string }[] = [
-  { className: "bg-violet-500", value: "violet" },
-  { className: "bg-rose-500", value: "rose" },
-  { className: "bg-orange-500", value: "orange" },
-  { className: "bg-amber-500", value: "amber" },
-  { className: "bg-green-500", value: "green" },
-  { className: "bg-teal-500", value: "teal" },
-  { className: "bg-blue-500", value: "blue" },
-];
+import { useAppearancePreference } from "./use-appearance-preference";
 
+/**
+ * 強調色。色票由 `@tessera/ui` 的 `AccentPicker` 畫,每顆自己帶 `data-accent`
+ * 並用 `bg-primary`,所以看到的就是按下去會變成的顏色。
+ *
+ * 選項直接從 `APPEARANCE_ACCENTS` 展開而不是自己抄一份:那份清單已經要跟後端的
+ * `Accent` enum 和 globals.css 對齊,再抄第三份只是多一個會漂移的地方。
+ */
 export function AccentColorField() {
-  const accentColor = useAppearanceStore((state) => state.accentColor);
-  const setAccentColor = useAppearanceStore((state) => state.setAccentColor);
+  const { choose, current, isPending } = useAppearancePreference();
+
+  const options = APPEARANCE_ACCENTS.map((value) => ({
+    label: m.user_prefs_accent_select({ color: value }),
+    value,
+  }));
 
   return (
     <div className="space-y-3">
@@ -28,24 +28,12 @@ export function AccentColorField() {
           {m.user_prefs_accent_description()}
         </p>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {SWATCHES.map((swatch) => (
-          <button
-            aria-label={m.user_prefs_accent_select({ color: swatch.value })}
-            aria-pressed={accentColor === swatch.value}
-            className={cn(
-              "flex size-7 items-center justify-center rounded-full text-white ring-offset-2 ring-offset-background transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              swatch.className,
-              accentColor === swatch.value && "ring-2 ring-foreground"
-            )}
-            key={swatch.value}
-            onClick={() => setAccentColor(swatch.value)}
-            type="button"
-          >
-            {accentColor === swatch.value ? <IconCheck size={14} /> : null}
-          </button>
-        ))}
-      </div>
+      <AccentPicker
+        disabled={isPending}
+        onSelect={(accent) => choose({ accent })}
+        options={options}
+        value={current.accent}
+      />
     </div>
   );
 }

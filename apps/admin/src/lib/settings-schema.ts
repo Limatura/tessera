@@ -1,3 +1,8 @@
+import {
+  APPEARANCE_ACCENTS,
+  APPEARANCE_MODES,
+  APPEARANCE_THEMES,
+} from "@tessera/ui/lib/appearance";
 import { z } from "zod";
 
 /**
@@ -13,24 +18,16 @@ import { z } from "zod";
  *   回來。欄位收在這裡，但語意是「留空 = 不改動，有填 = 覆寫」，不是目前的值。
  */
 
-// ---- 外觀：appearance.*（枚舉定義在 crates/tessera-core/src/appearance.rs）----
-
-/** `appearance.mode` */
-export const APPEARANCE_MODES = ["light", "dark", "system"] as const;
-
-/** `appearance.theme` —— 中性色盤。 */
-export const APPEARANCE_THEMES = ["default", "graphite", "sepia"] as const;
-
-/** `appearance.accent` —— 強調色。 */
-export const APPEARANCE_ACCENTS = [
-  "violet",
-  "rose",
-  "orange",
-  "amber",
-  "green",
-  "teal",
-  "blue",
-] as const;
+// ---- 外觀：appearance.* ----
+//
+// 三個 enum 住在 `@tessera/ui/lib/appearance`，跟它們對應的 globals.css 放在一起；
+// 那份清單同時要跟 `crates/tessera-core/src/appearance.rs` 一致。這裡只是轉出去，
+// 讓本檔仍是「表單欄位形狀」的單一入口。
+export {
+  APPEARANCE_ACCENTS,
+  APPEARANCE_MODES,
+  APPEARANCE_THEMES,
+} from "@tessera/ui/lib/appearance";
 
 export const appearanceSettingsSchema = z.object({
   // appearance.accent

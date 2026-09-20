@@ -51,6 +51,14 @@ pub enum Theme {
     Graphite,
     /// Warm, paper-like.
     Sepia,
+    /// Warm paper with an olive cast, after the Ghibli-flavoured `matsu` theme.
+    Matsu,
+    /// Deep blue-violet, a night sky.
+    Cosmic,
+    /// Cool neutral grey, quieter than `Graphite`.
+    Slate,
+    /// Aged print: low contrast, tea-stained.
+    Vintage,
 }
 
 impl Theme {
@@ -61,6 +69,10 @@ impl Theme {
             Self::Default => "default",
             Self::Graphite => "graphite",
             Self::Sepia => "sepia",
+            Self::Matsu => "matsu",
+            Self::Cosmic => "cosmic",
+            Self::Slate => "slate",
+            Self::Vintage => "vintage",
         }
     }
 }
