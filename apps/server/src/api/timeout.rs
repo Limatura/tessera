@@ -44,16 +44,24 @@ pub async fn enforce(State(state): State<AppState>, request: Request, next: Next
         .unwrap_or_else(|_| Error::Timeout.into_response())
 }
 
-/// Whether this request's body is a file being sent to us.
+/// Whether this request's body is bytes being sent to us over the caller's
+/// line.
 ///
 /// Matched on the path, not on `MatchedPath`, which axum fills in during
-/// routing and is not there yet: this layer wraps the router. The two
-/// routes are named exactly, because `POST /shares/{code}/unlock` and
+/// routing and is not there yet: this layer wraps the router. The routes are
+/// named exactly, because `POST /shares/{code}/unlock` and
 /// `POST /shares/{code}/events` sit under the same prefix and are ordinary
 /// requests that should keep their budget.
+///
+/// The speed test's upload is here for the same reason as a file: the handler
+/// reads the whole body, so the budget would be a cap on the *size* a slow
+/// line can test rather than on how long a stalled request may hold a slot.
 fn carries_an_upload(method: &Method, path: &str) -> bool {
     if method != Method::POST {
         return false;
+    }
+    if path == "/api/v1/speed/upload" {
+        return true;
     }
     let Some(rest) = path.strip_prefix("/api/v1/shares") else {
         return false;
@@ -68,12 +76,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_two_routes_that_receive_a_file_are_exempt() {
+    fn the_routes_that_receive_bytes_are_exempt() {
         assert!(carries_an_upload(&Method::POST, "/api/v1/shares"));
         assert!(carries_an_upload(
             &Method::POST,
             "/api/v1/shares/abc123/files"
         ));
+        // A speed test on a slow line is a long request by design. Left in the
+        // budget, the test would stop at whatever fits in thirty seconds.
+        assert!(carries_an_upload(&Method::POST, "/api/v1/speed/upload"));
+        assert!(!carries_an_upload(&Method::GET, "/api/v1/speed/upload"));
     }
 
     /// These share the prefix and are ordinary requests. Exempting them would

@@ -115,6 +115,57 @@ pub struct Config {
     /// What this instance calls itself. See [`SiteConfig`].
     #[serde(default)]
     pub site: SiteConfig,
+    /// Measuring the line to this instance. See [`SpeedConfig`].
+    #[serde(default)]
+    pub speed: SpeedConfig,
+}
+
+/// The speed test: sending bytes that mean nothing, to time them.
+///
+/// # Why this is off by default
+///
+/// It is a tap. A person testing their line costs the instance the bytes they
+/// measure, and an open one costs whatever anybody cares to ask for. Every
+/// bound here exists because of that: it is off, then it is for accounts, and
+/// only then for anybody, and a single test is capped whoever asks.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SpeedConfig {
+    /// Whether the endpoints exist at all.
+    pub enabled: bool,
+    /// Whether somebody without an account may use them.
+    ///
+    /// Off means a visitor sees nothing: the capability says the test is not
+    /// available, and the endpoints answer as if they were not mounted.
+    pub anonymous: bool,
+    /// The most one test may move, in each direction.
+    pub max_bytes: u64,
+}
+
+impl Default for SpeedConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            anonymous: false,
+            // Enough to measure a fast line for a couple of seconds, small
+            // enough that the per-source limit bounds an hour at a few
+            // hundred megabytes.
+            max_bytes: 25 * 1024 * 1024,
+        }
+    }
+}
+
+impl SpeedConfig {
+    /// The largest test this instance will run. Zero is not a measurement.
+    fn validate(&self) -> Result<(), ConfigError> {
+        if self.enabled && self.max_bytes == 0 {
+            return Err(ConfigError::Invalid {
+                field: "speed.max_bytes",
+                reason: "must be at least one byte".to_owned(),
+            });
+        }
+        Ok(())
+    }
 }
 
 /// What the instance calls itself.
@@ -1411,7 +1462,7 @@ pub struct ThrottleConfig {
     ///
     /// A memory ceiling, not a security setting: every key is a string an
     /// unauthenticated stranger chose, so this is how much memory they may
-    /// make the process hold. Shared by all six counters.
+    /// make the process hold. Shared by every counter.
     #[serde(default = "default_tracked_keys")]
     pub max_tracked_keys: usize,
 
@@ -1434,6 +1485,11 @@ pub struct ThrottleConfig {
     /// Failed share passwords, keyed on the code and the source.
     #[serde(default = "default_login_limit")]
     pub share: Limit,
+    /// Speed tests, keyed on the source. Counted on every test run, not on
+    /// failures: what is limited is how much of the line one address may
+    /// spend.
+    #[serde(default = "default_speed_limit")]
+    pub speed: Limit,
 }
 
 /// The most keys an instance may be configured to hold.
@@ -1459,6 +1515,10 @@ const fn default_lookup_limit() -> Limit {
     Limit::new(throttle::LOOKUP_MAX_ATTEMPTS, throttle::SOURCE_WINDOW)
 }
 
+const fn default_speed_limit() -> Limit {
+    Limit::new(throttle::SPEED_MAX_TESTS, throttle::RESET_WINDOW)
+}
+
 const fn default_mail_limit() -> Limit {
     Limit::new(throttle::RESET_MAX_REQUESTS, throttle::RESET_WINDOW)
 }
@@ -1473,6 +1533,7 @@ impl Default for ThrottleConfig {
             reset: default_mail_limit(),
             registration: default_mail_limit(),
             share: default_login_limit(),
+            speed: default_speed_limit(),
         }
     }
 }
@@ -1946,6 +2007,7 @@ impl Config {
         self.og.validate()?;
         self.scan.validate()?;
         self.site.validate()?;
+        self.speed.validate()?;
         self.mail.validate()
     }
 }

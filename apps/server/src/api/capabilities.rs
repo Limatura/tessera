@@ -59,6 +59,13 @@ pub struct Capabilities {
     /// Whether an upload may be end-to-end encrypted. See `docs/encryption.md`.
     pub encryption: bool,
 
+    /// Whether this caller may run a speed test.
+    ///
+    /// Per caller, not per instance: an instance can offer the test to
+    /// accounts and not to visitors, and a visitor should be shown the same
+    /// thing as on an instance that does not offer it at all.
+    pub speed_test: bool,
+
     /// Who may create an account. Meaningless when
     /// [`accounts`](Self::accounts) is `false`.
     #[schema(example = "open")]
@@ -192,6 +199,8 @@ impl Capabilities {
             admin,
             anonymous_upload,
             encryption,
+            // Filled in by the handler: it depends on who is asking.
+            speed_test: false,
             registration: config.auth.registration,
             account_password_min_length: config.auth.password.min_length,
             account_password_requires_mixed_case: config.auth.password.require_mixed_case,
@@ -252,6 +261,10 @@ pub async fn capabilities(
     // refused at four kilobytes.
     let user = current.as_ref().map(|current| &current.user);
     capabilities.max_upload_bytes = max_file_bytes(&state, user).await?;
+    // A visitor on an instance that tests for accounts only is told what such
+    // an instance would tell them if it had no test at all.
+    let speed = state.config().speed;
+    capabilities.speed_test = speed.enabled && (speed.anonymous || current.is_some());
     let may_see_totals = current
         .as_ref()
         .is_some_and(|current| current.permissions.allows(Permission::StatsRead));

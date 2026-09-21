@@ -113,7 +113,7 @@ signed-out 訪客看到的樣子，以及登入者沒自己選過的部分。會
 
 ### `auth.throttle.*`
 
-六組計數器保護不同東西，每組都是 `{max_attempts, window_secs}`。
+七組計數器保護不同東西，每組都是 `{max_attempts, window_secs}`。
 
 | Key | 計數依據 | 保護什麼 |
 |---|---|---|
@@ -123,10 +123,11 @@ signed-out 訪客看到的樣子，以及登入者沒自己選過的部分。會
 | `reset` | 被查詢的 email | 重設密碼信的發送 |
 | `registration` | 被查詢的 email | 註冊確認信的發送 |
 | `share` | 取件碼 + 來源 | 分享密碼猜錯次數 |
+| `speed` | 來源 | 測速。算的是**每次測速**而不是失敗次數，限的是一個位址一小時能用掉多少頻寬 |
 
 **兩個值都不能是 0**，啟動時會拒絕：0 次嘗試等於鎖死所有人（在 `source` 上就是整台機器），0 秒視窗則永遠不會擋，看起來開著實際上關著。要放寬就調高 `max_attempts`。
 
-- `max_tracked_keys: usize` — 清掃前最多追蹤幾個 key，上限 `100_000`。**這是記憶體上限不是安全設定**：每個 key 都是未認證陌生人自己選的字串，這個數字決定他們能讓 process 佔多少記憶體。六組共用
+- `max_tracked_keys: usize` — 清掃前最多追蹤幾個 key，上限 `100_000`。**這是記憶體上限不是安全設定**：每個 key 都是未認證陌生人自己選的字串，這個數字決定他們能讓 process 佔多少記憶體。七組共用
 
 ### `auth.oidc.*`
 
@@ -193,6 +194,16 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 兩個都會在 `index.html` 送出前寫進去，跟 `appearance.*` 一樣，第一次繪製就是對的，不用等 script。分享頁的說明用分享自己的，不會被這個蓋掉。
 
 **不做 SEO 相關欄位**（`keywords` 之類），理由見那張刻意不實作的決策記錄。
+
+## `speed.*`（測速，預設關）
+
+- `enabled: bool` — 有沒有測速端點，預設 `false`
+- `anonymous: bool` — 沒登入的人能不能測，預設 `false`（只有登入者）
+- `max_bytes: u64` — 單次上限（上行下行各自），預設 25 MiB
+
+端點是 `GET /api/v1/speed/download?bytes=N` 和 `POST /api/v1/speed/upload`，送的位元組沒有意義、收到的直接丟掉。關掉或不開放匿名時，該看不到的人拿到 404，跟沒有這個功能的站一樣。
+
+**這是水龍頭**，所以三道限制都在：預設關、預設只給登入者、單次有上限，再加上 `auth.throttle.speed` 的每來源次數限制。`/capabilities` 的 `speed_test` 會告訴前端這個呼叫者能不能測。
 
 ## `scan.*`
 

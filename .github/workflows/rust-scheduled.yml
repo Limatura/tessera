@@ -1,12 +1,12 @@
-name: rust (scheduled)
+name: rust (on demand)
 
 # Mutation testing and benchmarks are too slow, and too noisy, to gate a PR.
-# They run on a schedule and on demand, where a long runtime costs nobody's
-# review latency.
+#
+# They used to run weekly as well. Every one of those runs failed, and a red
+# cron nobody acts on is worse than no cron: it trains everybody to ignore a
+# failing workflow. On demand only until somebody wants to read the output,
+# which is when the run is worth having.
 on:
-  schedule:
-    # 03:00 UTC every Monday.
-    - cron: "0 3 * * 1"
   workflow_dispatch:
     inputs:
       job:
@@ -29,7 +29,7 @@ permissions:
 jobs:
   mutants:
     name: mutation testing
-    if: github.event_name == 'schedule' || inputs.job == 'both' || inputs.job == 'mutants'
+    if: inputs.job == 'both' || inputs.job == 'mutants'
     runs-on: [self-hosted, Linux, X64]
     # A full mutation run rebuilds the crate once per surviving mutant.
     timeout-minutes: 120
@@ -59,7 +59,7 @@ jobs:
 
   bench:
     name: benchmarks
-    if: github.event_name == 'schedule' || inputs.job == 'both' || inputs.job == 'bench'
+    if: inputs.job == 'both' || inputs.job == 'bench'
     runs-on: [self-hosted, Linux, X64]
     timeout-minutes: 60
     steps:

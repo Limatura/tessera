@@ -48,6 +48,7 @@ pub mod sealed;
 pub mod sessions;
 pub mod settings;
 pub mod shares;
+pub mod speed;
 pub mod timeout;
 pub mod tokens;
 pub mod uploads;
@@ -290,6 +291,8 @@ fn api_routes() -> OpenApiRouter<AppState> {
 fn versioned_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(capabilities::capabilities))
+        .routes(routes!(speed::download))
+        .routes(routes!(speed::upload))
         .routes(routes!(auth::register))
         .routes(routes!(auth::confirm_registration))
         .routes(routes!(auth::login))

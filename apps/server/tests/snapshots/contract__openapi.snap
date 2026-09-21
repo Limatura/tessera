@@ -476,6 +476,10 @@ expression: document
             "minimum": 0,
             "type": "integer"
           },
+          "speed_test": {
+            "description": "Whether this caller may run a speed test.\n\nPer caller, not per instance: an instance can offer the test to\naccounts and not to visitors, and a visitor should be shown the same\nthing as on an instance that does not offer it at all.",
+            "type": "boolean"
+          },
           "storage_remaining_bytes": {
             "description": "How much room the caller has left, in bytes.\n\nWhichever ceiling refuses them first: their own quota, then their\nrole's. Callers who may read instance statistics also see the instance\nceiling. `null` if none applies.\n\n`storage.max_total_bytes` is not in everybody's answer because on a\npublic instance it is the operator's capacity planning, and telling\nevery anonymous uploader how close the disk is to full invites them to\nfinish it off. Their own quota is theirs to know, and a client holding\nit can say so before they pick a file.",
             "example": 53687091200,
@@ -497,6 +501,7 @@ expression: document
           "admin",
           "anonymous_upload",
           "encryption",
+          "speed_test",
           "registration",
           "account_password_min_length",
           "account_password_requires_mixed_case",
@@ -2098,48 +2103,18 @@ expression: document
         "type": "object"
       },
       "UploadResponse": {
-        "description": "A session that has just been opened.",
+        "description": "What an upload test read.",
         "properties": {
-          "direct": {
-            "description": "Whether the parts may go straight to the store instead of through here.\n\nWhen `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`\neach part to, and `POST /uploads/{id}/complete` finishes with the `ETag`\neach `PUT` answered. `PATCH` still works either way.\n\nDecided by where this upload was placed, and by whether the operator\nhas said a browser can reach that store, which is why it is here and not\nin the capabilities: an instance with an S3 bucket and a local directory\nanswers differently for different uploads.",
-            "type": "boolean"
-          },
-          "id": {
-            "description": "Identifier, and the last segment of the URL to continue at.",
-            "type": "string"
-          },
-          "length": {
-            "description": "How much was declared.",
+          "received_bytes": {
+            "description": "How many bytes arrived. The client times its own request and divides.",
+            "example": 26214400,
             "format": "int64",
             "minimum": 0,
             "type": "integer"
-          },
-          "offset": {
-            "description": "How much has arrived. Zero, here.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "part_size": {
-            "description": "How much to send per chunk, in bytes.\n\nA chunk that is not the last is accepted only up to a multiple of this;\nthe rest comes back as a lower offset and has to be re-sent. Sending\nexact multiples avoids that entirely.",
-            "format": "int64",
-            "minimum": 0,
-            "type": "integer"
-          },
-          "token": {
-            "description": "Proof that a later request is the same uploader, for an anonymous one.\n\n**Store this.** It is shown once, and without it the upload cannot be\nresumed after the page is closed, the situation resuming exists for.\n`null`\nwhen the uploader is signed in, since their credential already answers.",
-            "type": [
-              "string",
-              "null"
-            ]
           }
         },
         "required": [
-          "id",
-          "offset",
-          "length",
-          "part_size",
-          "direct"
+          "received_bytes"
         ],
         "type": "object"
       },
@@ -6171,6 +6146,154 @@ expression: document
         "summary": "Spends one retrieval and returns a ticket for the transfer.",
         "tags": [
           "shares"
+        ]
+      }
+    },
+    "/api/v1/speed/download": {
+      "get": {
+        "description": "# Errors\n\n`404` when the instance does not offer the test, or does not offer it to\nthis caller, `400` for more than `speed.max_bytes`, `429` when this source\nhas run its tests for the hour.",
+        "operationId": "speed_download",
+        "parameters": [
+          {
+            "description": "Bytes to send. Omit for as much as this instance allows; more than that\nis refused rather than quietly shortened, so a client is never told it\nmeasured a transfer it did not make.",
+            "example": 26214400,
+            "in": "query",
+            "name": "bytes",
+            "required": false,
+            "schema": {
+              "format": "int64",
+              "minimum": 0,
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "The bytes"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "More than this instance allows"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not offered here"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many tests from this source"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Sends `bytes` bytes that mean nothing.",
+        "tags": [
+          "speed"
+        ]
+      }
+    },
+    "/api/v1/speed/upload": {
+      "post": {
+        "description": "# Errors\n\nAs [`download`], and `413` when the body runs past `speed.max_bytes`.",
+        "operationId": "speed_upload",
+        "requestBody": {
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "items": {
+                  "format": "int32",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "type": "array"
+              }
+            }
+          },
+          "description": "Anything; it is counted and dropped",
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            },
+            "description": "How much arrived"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not offered here"
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "More than this instance allows"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many tests from this source"
+          }
+        },
+        "security": [
+          {},
+          {
+            "session": []
+          },
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reads a body and throws it away.",
+        "tags": [
+          "speed"
         ]
       }
     },

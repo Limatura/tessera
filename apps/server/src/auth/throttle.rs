@@ -307,8 +307,8 @@ mod tests {
         );
     }
 
-    /// The counters have to come from the file, or `auth.throttle` is six
-    /// settings an operator can write and none the process reads.
+    /// The counters have to come from the file, or `auth.throttle` is a page
+    /// of settings an operator can write and none the process reads.
     #[test]
     fn the_configured_limits_are_the_ones_enforced() {
         let mut config = ThrottleConfig::default();
@@ -431,6 +431,13 @@ pub struct Throttles {
     /// something read out over the phone and is worthless without this:
     /// unthrottled, ten thousand combinations fall in under a minute.
     pub share: Throttle,
+
+    /// Speed tests, keyed on the source.
+    ///
+    /// Counted on every test rather than on failures, because there is no
+    /// failure to count: each test is a transfer somebody asked for, and what
+    /// has to be bounded is how many of them one address may ask for.
+    pub speed: Throttle,
 }
 
 impl Default for Throttles {
@@ -453,15 +460,16 @@ impl Throttles {
             (&self.reset, &config.reset),
             (&self.registration, &config.registration),
             (&self.share, &config.share),
+            (&self.speed, &config.speed),
         ] {
             throttle.apply(limit.max_attempts, limit.window(), keys);
         }
     }
 
-    /// Builds the six counters an instance keeps from its configuration.
+    /// Builds the counters an instance keeps from its configuration.
     ///
     /// The key bound is shared, not per-counter. It is a memory ceiling, and an
-    /// operator sizing a container wants one number, not six that multiply.
+    /// operator sizing a container wants one number, not one per counter.
     #[must_use]
     pub fn from_config(config: &ThrottleConfig) -> Self {
         let keys = config.max_tracked_keys;
@@ -473,6 +481,7 @@ impl Throttles {
             reset: build(&config.reset),
             registration: build(&config.registration),
             share: build(&config.share),
+            speed: build(&config.speed),
         }
     }
 }
@@ -503,6 +512,13 @@ pub const RESET_MAX_REQUESTS: u32 = 3;
 /// How long that limit lasts. Longer than the link itself, so asking again
 /// after being refused means the earlier link has expired anyway.
 pub const RESET_WINDOW: Duration = Duration::from_hours(1);
+
+/// Speed tests one source may run in an hour.
+///
+/// Five at the default size is a little over a hundred megabytes each way per
+/// address per hour: enough to measure a line twice and compare, and bounded
+/// enough that an open instance is not a download mirror.
+pub const SPEED_MAX_TESTS: u32 = 5;
 
 /// Codes tried and not found, from one source, before it is refused.
 ///
