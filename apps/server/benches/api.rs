@@ -68,7 +68,7 @@ fn router_assembly(c: &mut Criterion) {
         tessera_server::state::Storage {
             default,
             pool,
-            sealer: storage::secret::Sealer::new("").expect("no key"),
+            sealer: tessera_server::security::secret::Sealer::new("").expect("no key"),
         },
         tessera_server::assets::Source::Embedded,
     );

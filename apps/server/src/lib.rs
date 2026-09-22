@@ -30,6 +30,7 @@ pub mod maintenance;
 #[cfg(feature = "og-images")]
 pub mod og;
 pub mod scan;
+pub mod security;
 pub mod settings;
 pub mod state;
 pub mod storage;

@@ -8,7 +8,7 @@ use time::OffsetDateTime;
 
 use crate::{
     db::entity::storage_backend::{self, Entity as StorageBackendEntity},
-    storage::secret::{Sealer, SecretError},
+    security::secret::{Sealer, SecretError},
 };
 
 /// A configured backend, opened.

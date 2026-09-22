@@ -3873,7 +3873,7 @@ async fn an_unconfigured_backend_is_unavailable_not_missing() {
 async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
     use tessera_server::{
         db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
-        storage::secret::Sealer,
+        security::secret::Sealer,
     };
 
     let app = TestApp::ready().await;
@@ -3935,7 +3935,7 @@ async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
 async fn another_key_cannot_open_a_stored_backend() {
     use tessera_server::{
         db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
-        storage::secret::Sealer,
+        security::secret::Sealer,
     };
 
     let app = TestApp::ready().await;
@@ -3971,7 +3971,7 @@ async fn another_key_cannot_open_a_stored_backend() {
 async fn without_a_key_a_backend_cannot_be_stored() {
     use tessera_server::{
         db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
-        storage::secret::Sealer,
+        security::secret::Sealer,
     };
 
     let app = TestApp::ready().await;
@@ -4003,7 +4003,7 @@ async fn without_a_key_a_backend_cannot_be_stored() {
 async fn only_one_backend_takes_new_uploads() {
     use tessera_server::{
         db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
-        storage::secret::Sealer,
+        security::secret::Sealer,
     };
 
     let app = TestApp::ready().await;
@@ -4173,7 +4173,7 @@ async fn capabilities_reports_the_largest_placeable_file_not_the_sum() {
 async fn a_backend_holding_files_cannot_be_removed() {
     use tessera_server::{
         db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
-        storage::secret::Sealer,
+        security::secret::Sealer,
     };
 
     let app = TestApp::with_config(|config| config.share.inline_threshold_bytes = 8).await;

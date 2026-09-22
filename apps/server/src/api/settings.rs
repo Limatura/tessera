@@ -303,10 +303,12 @@ async fn resolve(
         // error for a configuration problem the operator can fix. Sealing is
         // the only reason these are storable at all, so without a key there is
         // no version of this that is safe to do.
-        if settings::is_sealed(key) && state.config().storage.secret_key.trim().is_empty() {
+        if settings::is_sealed(key) && state.config().security.secret_key.trim().is_empty() {
             return Err(Error::bad_request(format!(
-                "`{key}` holds a credential, so it is encrypted before it is stored. Set \
-                 `storage.secret_key` in the environment first."
+                "`{key}` is a credential. It is kept in this instance's database, encrypted \
+                 with `security.secret_key`, which comes from the environment as \
+                 `SECURITY__SECRET_KEY` so that a copy of the database is not a copy of the \
+                 credential. Set that first: `openssl rand -hex 32`."
             )));
         }
     }

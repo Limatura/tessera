@@ -33,7 +33,7 @@
 | `server.cors_allowed_origins` | 建路由時就烤進 middleware |
 | `server.max_body_bytes` | 同上，且只有一半邏輯會跟著改（見下方說明） |
 | `server.assets_dir` | SPA 開機時讀一次就內嵌了 |
-| `storage.secret_key` | 建立 sealer 用，換掉會導致既有 backend 開不了 |
+| `security.secret_key` | 建立 sealer 用，換掉會導致所有加密存的設定開不了 |
 | `features.docs` | 建路由時決定要不要掛 |
 
 ### `SECRET`
@@ -42,7 +42,7 @@
 |---|---|
 | `auth.admin_password` | 只在首次啟動用一次，存起來沒意義 |
 | `database.url` / `storage.url` | URL 裡帶帳密 |
-| `storage.secret_key` | 能解開所有已存的 backend 憑證 |
+| `security.secret_key` | 能解開所有加密存的設定 |
 
 ### `SEALED`
 
@@ -56,7 +56,7 @@
 
 面板可以寫入，也會被告知「有沒有設過」，但拿不到值。前端表單要做成「**留空 = 不改動，有填 = 覆寫**」，不能用常規的載入現值再編輯。
 
-儲存時用 `storage.secret_key` 加密。沒有 key 就直接拒絕寫入，不會退化成明文。
+儲存時用 `security.secret_key` 加密。沒有 key 就直接拒絕寫入，不會退化成明文。
 
 ---
 
@@ -205,6 +205,14 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 
 **這是水龍頭**，所以三道限制都在：預設關、預設只給登入者、單次有上限，再加上 `auth.throttle.speed` 的每來源次數限制。`/capabilities` 的 `speed_test` 會告訴前端這個呼叫者能不能測。
 
+## `security.*`
+
+- `secret_key: string`（SECRET + FIXED）— 封裝所有「存在資料庫、又要讀得回來」的設定，64 個十六進位字元。空 = 那些設定一律拒絕寫入（不會退化成明文）。用 `openssl rand -hex 32` 產生
+
+它封的是上面 `SEALED` 那張表列的 key：OIDC / GitHub / Discord 的 client secret、mail 帳密、掃毒服務的 authorization、還有從後台加的 storage backend 憑證。**跟物件儲存無關**——以前叫 `storage.secret_key`，是因為 backend 憑證是第一個有這個需求的東西，名字誤導人，已經改掉。
+
+金鑰只能從環境變數來，這樣資料庫備份裡不會同時有鎖和鑰匙。弄丟了就是所有加密存的設定都要重填。
+
 ## `scan.*`
 
 惡意軟體掃描，預設關。詳見 `docs/scanning.md`。
@@ -222,7 +230,6 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 - `split_across_backends: bool` — 單一檔案能否跨多個 backend，預設 `false`
 - `reconcile_interval_hours: u64` — 多久對帳一次（物件儲存 vs 資料庫），預設 `24`，`0` 關閉
 - `reconcile_grace_hours: u64` — 無主物件要多舊才會被對帳刪掉，預設 `24`
-- `secret_key: string`（SECRET + FIXED）— 封裝已存 backend 憑證的金鑰，64 個十六進位字元。空 = 無法儲存 backend（直接拒絕而非明文寫入）。用 `openssl rand -hex 32` 產生
 - `options: map<string,string>` — backend 專屬選項，原樣傳遞（`aws_region`、`endpoint`、`allow_http`…）。標準的 `AWS_*` / `GOOGLE_*` / `AZURE_*` 環境變數會自動併入，這裡設的優先
 
 > **`max_total_bytes` 沒設 + `anonymous_upload` 開著（兩者都是預設）= 對所有能連到的人開放的無限網路硬碟**，

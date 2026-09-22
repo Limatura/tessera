@@ -14,7 +14,7 @@ use time::OffsetDateTime;
 
 use crate::{
     db::entity::setting::{self, Entity as SettingEntity},
-    storage::secret::Sealer,
+    security::secret::Sealer,
 };
 
 /// Settings, as the rest of the server sees them.
@@ -68,7 +68,7 @@ impl SettingRepository {
                             // Same posture as unparseable JSON above: losing one
                             // override is recoverable, an instance that will not
                             // start is not. Almost always a changed
-                            // `storage.secret_key`, and the message says so.
+                            // `security.secret_key`, and the message says so.
                             tracing::warn!(
                                 setting = %row.name,
                                 %error,
@@ -137,7 +137,7 @@ impl SettingRepository {
         &self,
         name: &str,
         value: serde_json::Value,
-    ) -> Result<serde_json::Value, crate::storage::secret::SecretError> {
+    ) -> Result<serde_json::Value, crate::security::secret::SecretError> {
         if !crate::settings::is_sealed(name) {
             return Ok(value);
         }
@@ -151,7 +151,7 @@ impl SettingRepository {
     ///
     /// # Errors
     ///
-    /// Refuses when the key is sealed and there is no `storage.secret_key`.
+    /// Refuses when the key is sealed and there is no `security.secret_key`.
     /// Written in plaintext, it would be the one thing sealing exists to
     /// prevent, and the operator would only find out when the dump leaked.
     fn closed(

@@ -158,7 +158,7 @@ pub async fn list(
 /// `400` when the URL will not open or the name is the environment's, `401`
 /// when nothing was signed in, `403` when the caller may not write settings,
 /// `404` when this instance has no administration, `409` when no
-/// `storage.secret_key` is set.
+/// `security.secret_key` is set.
 #[utoipa::path(
     post,
     path = "/admin/storage/backends",
@@ -171,7 +171,7 @@ pub async fn list(
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 403, description = "May not write settings", body = crate::error::ErrorBody),
         (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
-        (status = 409, description = "No storage.secret_key, so credentials cannot be stored", body = crate::error::ErrorBody),
+        (status = 409, description = "No security.secret_key, so credentials cannot be stored", body = crate::error::ErrorBody),
     ),
     security(("session" = [])),
 )]

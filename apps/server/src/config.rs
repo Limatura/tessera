@@ -118,6 +118,37 @@ pub struct Config {
     /// Measuring the line to this instance. See [`SpeedConfig`].
     #[serde(default)]
     pub speed: SpeedConfig,
+    /// The one key this instance keeps recoverable secrets under. See
+    /// [`SecurityConfig`].
+    #[serde(default)]
+    pub security: SecurityConfig,
+}
+
+/// The key everything recoverable is stored under.
+///
+/// # Why this is not `storage.secret_key` any more
+///
+/// It was, because a backend's URL was the first setting that had to be both
+/// stored and readable back. Five more followed: an identity provider's client
+/// secret, two OAuth ones, a relay's credentials, a scanner's. None of them
+/// has anything to do with object storage, and a name saying otherwise sent
+/// people looking for a bucket setting when what they needed was one
+/// environment variable.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct SecurityConfig {
+    /// Seals the settings that are kept in the database and read back, as 64
+    /// hexadecimal characters.
+    ///
+    /// Empty, the default, means those settings cannot be stored at all: the
+    /// panel refuses them rather than writing a credential in plaintext. See
+    /// [`security::secret`](crate::security::secret) for what that protects
+    /// against and what it does not.
+    ///
+    /// Generate one with `openssl rand -hex 32`. It belongs in the
+    /// environment, nowhere near a backup of the rows it protects; losing it
+    /// means every sealed setting has to be entered again.
+    pub secret_key: String,
 }
 
 /// The speed test: sending bytes that mean nothing, to time them.
@@ -1202,17 +1233,6 @@ pub struct StorageConfig {
     /// server with this on. The stored backends carry their own flag.
     pub direct_access: bool,
 
-    /// Key that seals stored backend credentials, as 64 hexadecimal characters.
-    ///
-    /// Empty, the default, means this instance cannot store a backend. Adding
-    /// one is refused instead of written in plaintext. See
-    /// [`storage::secret`](crate::storage::secret).
-    ///
-    /// Generate one with `openssl rand -hex 32`. It belongs in the environment,
-    /// nowhere near a backup of the rows it protects; losing it means the
-    /// stored backends have to be entered again.
-    pub secret_key: String,
-
     /// Backend-specific options, passed through verbatim.
     ///
     /// Keys are whatever the chosen backend understands (`aws_region`,
@@ -1292,7 +1312,6 @@ impl Default for StorageConfig {
             capacity_bytes: 0,
             split_across_backends: false,
             direct_access: false,
-            secret_key: String::new(),
             reconcile_interval_hours: 24,
             reconcile_grace_hours: 24,
         }

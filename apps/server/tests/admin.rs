@@ -2478,7 +2478,7 @@ async fn a_credential_set_from_the_panel_is_never_handed_back() {
     // Sealing is the only reason a credential may be stored, so the fixture
     // needs the key the real thing takes from the environment.
     let app = TestApp::with_config(|config| {
-        config.storage.secret_key = "11".repeat(32);
+        config.security.secret_key = "11".repeat(32);
     })
     .await;
     let (owner, _) = register(&app, "first").await;
@@ -2545,7 +2545,7 @@ async fn setting_a_credential_without_a_sealing_key_says_why() {
     assert!(
         body["message"]
             .as_str()
-            .is_some_and(|message| message.contains("storage.secret_key")),
+            .is_some_and(|message| message.contains("security.secret_key")),
         "the message has to name what to set: {body}"
     );
 }
@@ -3020,7 +3020,7 @@ async fn an_account_quota_survives_a_patch_that_does_not_mention_it() {
 
 /// Builds an app whose panel can store credentials.
 async fn app_with_key() -> TestApp {
-    TestApp::with_config(|config| config.storage.secret_key = "ab".repeat(32)).await
+    TestApp::with_config(|config| config.security.secret_key = "ab".repeat(32)).await
 }
 
 /// The credentials are the reason this is a table and not a settings row, and

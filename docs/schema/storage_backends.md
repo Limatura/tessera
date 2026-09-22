@@ -2,7 +2,7 @@
 
 ## Description
 
-A blob store this instance can write to, added from the panel. The credentials are sealed with `storage.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone. `direct_access` says whether a browser may be sent to the store directly, for a download or an upload's parts; off unless an operator turns it on, because only they know whether a browser can reach it.
+A blob store this instance can write to, added from the panel. The credentials are sealed with `security.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, adding a backend is refused rather than written in plaintext. The name is the primary key because `file_segments.backend` names it and that reference has to stay readable after the row is gone. `direct_access` says whether a browser may be sent to the store directly, for a download or an upload's parts; off unless an operator turns it on, because only they know whether a browser can reach it.
 
 <details>
 <summary><strong>Table Definition</strong></summary>

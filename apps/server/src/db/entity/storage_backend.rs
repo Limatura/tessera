@@ -10,7 +10,7 @@ pub struct Model {
     /// value; see the migration.
     #[sea_orm(primary_key, auto_increment = false)]
     pub name: String,
-    /// Sealed. See `storage::secret`.
+    /// Sealed. See `security::secret`.
     pub url: String,
     /// Sealed JSON object of backend-specific options.
     pub options: String,

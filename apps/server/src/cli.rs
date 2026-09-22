@@ -535,7 +535,7 @@ BACKENDS:
     backends add <name> <url>
                              Add one, or replace one of the same name. The URL
                              usually carries a key, so it is sealed before it is
-                             stored — which needs TESSERA_STORAGE__SECRET_KEY set
+                             stored — which needs TESSERA_SECURITY__SECRET_KEY set
                              (`openssl rand -hex 32`). Without one this refuses
                              rather than storing a recoverable credential in a
                              table.
@@ -558,7 +558,7 @@ BACKENDS:
     `default` and is not in this list: it comes from the environment, and it is
     where everything written before backends existed lives.
 
-    ⚠ Losing TESSERA_STORAGE__SECRET_KEY means the stored backends cannot be
+    ⚠ Losing TESSERA_SECURITY__SECRET_KEY means the stored backends cannot be
       opened and have to be entered again. Keep it out of the backup that holds
       the rows it protects.
 
@@ -781,10 +781,10 @@ pub async fn settings(config: &Config, action: SettingsAction) -> anyhow::Result
     // the table does not exist and the error says so.
     // The same sealer the server builds, from the same value, so a credential
     // written here opens there and the other way round. An instance with no
-    // `storage.secret_key` gets one that refuses rather than one that stores
+    // `security.secret_key` gets one that refuses rather than one that stores
     // plaintext.
-    let sealer = crate::storage::secret::Sealer::new(&config.storage.secret_key)
-        .context("storage.secret_key is not usable")?;
+    let sealer = crate::security::secret::Sealer::new(&config.security.secret_key)
+        .context("security.secret_key is not usable")?;
     let store = SettingRepository::new(db.clone(), sealer);
 
     let outcome = run_settings(&store, action).await;
@@ -817,8 +817,8 @@ pub async fn quota(config: &Config, action: QuotaAction) -> anyhow::Result<()> {
 /// When the database cannot be opened, the key is missing or unusable, or the
 /// name matches nothing.
 pub async fn backends(config: &Config, action: BackendAction) -> anyhow::Result<()> {
-    let sealer = crate::storage::secret::Sealer::new(&config.storage.secret_key)
-        .context("storage.secret_key is not usable")?;
+    let sealer = crate::security::secret::Sealer::new(&config.security.secret_key)
+        .context("security.secret_key is not usable")?;
     let db = db::connect(&config.database)
         .await
         .with_context(|| format!("could not open the database at `{}`", config.database.url))?;

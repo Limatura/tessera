@@ -58,7 +58,7 @@ pub struct Storage {
     /// Every backend that opened, and what they were opened from.
     pub pool: crate::storage::Pool,
     /// What seals and opens a stored backend's credentials.
-    pub sealer: crate::storage::secret::Sealer,
+    pub sealer: crate::security::secret::Sealer,
 }
 
 /// State cloned into every request handler.

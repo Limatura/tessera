@@ -1,12 +1,19 @@
-//! Sealing a backend's credentials so the database alone cannot open them.
+//! Sealing the settings that are stored and read back, so the database alone
+//! cannot open them.
 //!
 //! # Why anything is encrypted here at all
 //!
 //! Every other secret this software holds is either a hash (passwords, tokens)
 //! or lives outside the database (`database.url`, `storage.url`). A backend's
-//! URL is the first thing that has to be both *recoverable*, since the process
-//! needs the key to talk to the bucket, and stored, since the point is that an
-//! operator can add one from the panel without a restart.
+//! URL was the first thing that had to be both *recoverable*, since the
+//! process needs the key to talk to the bucket, and stored, since the point is
+//! that an operator can add one from the panel without a restart.
+//!
+//! It is no longer the only one: an identity provider's client secret, two
+//! OAuth ones, a relay's credentials and a scanner's all arrive the same way
+//! and are sealed with the same key. That is why the key is
+//! `security.secret_key` and not, as it was, `storage.secret_key` — the name
+//! sent people looking for a bucket setting.
 //!
 //! Recoverable and stored means a database dump is a credential leak, unless
 //! the thing that opens it lives somewhere the dump does not. So the key comes
@@ -32,19 +39,19 @@ pub enum SecretError {
     /// stored recoverable credentials in a table would do the one thing this
     /// module exists to prevent, and that surfaces only when the dump leaks.
     #[error(
-        "storage.secret_key is not set; add one to the environment before configuring a backend"
+        "security.secret_key is not set; add one to the environment before configuring a backend"
     )]
     NoKey,
 
     /// The key is not 32 bytes of hex.
-    #[error("storage.secret_key must be 64 hexadecimal characters (32 bytes)")]
+    #[error("security.secret_key must be 64 hexadecimal characters (32 bytes)")]
     BadKey,
 
     /// The stored value will not open with this key.
     ///
     /// Almost always a key that changed, and the message says so because the
     /// other reading, corrupted rows, sends an operator to the wrong place.
-    #[error("a stored credential will not open with this key; was storage.secret_key changed?")]
+    #[error("a stored credential will not open with this key; was security.secret_key changed?")]
     WillNotOpen,
 }
 

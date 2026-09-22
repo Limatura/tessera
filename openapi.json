@@ -3518,7 +3518,7 @@
         ]
       },
       "post": {
-        "description": "The new one is opened and reachable to the next request. The pool is rebuilt\nhere, not at the next restart, because \"add a bucket, then restart\"\nis what this feature exists to avoid.\n\n# Errors\n\n`400` when the URL will not open or the name is the environment's, `401`\nwhen nothing was signed in, `403` when the caller may not write settings,\n`404` when this instance has no administration, `409` when no\n`storage.secret_key` is set.",
+        "description": "The new one is opened and reachable to the next request. The pool is rebuilt\nhere, not at the next restart, because \"add a bucket, then restart\"\nis what this feature exists to avoid.\n\n# Errors\n\n`400` when the URL will not open or the name is the environment's, `401`\nwhen nothing was signed in, `403` when the caller may not write settings,\n`404` when this instance has no administration, `409` when no\n`security.secret_key` is set.",
         "operationId": "add_storage_backend",
         "requestBody": {
           "content": {
@@ -3589,7 +3589,7 @@
                 }
               }
             },
-            "description": "No storage.secret_key, so credentials cannot be stored"
+            "description": "No security.secret_key, so credentials cannot be stored"
           }
         },
         "security": [

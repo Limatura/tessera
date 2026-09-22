@@ -101,7 +101,6 @@ pub mod clock;
 pub mod first_write;
 pub mod in_flight;
 pub mod placement;
-pub mod secret;
 pub mod split;
 pub mod stitch;
 

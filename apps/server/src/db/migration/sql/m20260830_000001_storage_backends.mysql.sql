@@ -12,7 +12,7 @@
 -- A URL like `s3://key:secret@host` has to be *recoverable* — the process
 -- needs it to reach the bucket — which makes a database dump a credential leak
 -- unless what opens it lives somewhere the dump does not. The key is
--- `storage.secret_key`, from the environment. Without one, adding a backend is
+-- `security.secret_key`, from the environment. Without one, adding a backend is
 -- refused rather than written in plaintext.
 --
 -- # Why the name is the key

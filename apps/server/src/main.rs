@@ -22,6 +22,7 @@ use tessera_server::{
         role::RoleRepository, storage_backend::StorageBackendRepository, user::UserRepository,
     },
     maintenance,
+    security::secret::Sealer,
     state::{AppState, ServiceStatus, Storage},
     storage, telemetry,
 };
@@ -109,8 +110,8 @@ async fn main() -> anyhow::Result<()> {
     //
     // A key that will not parse is fatal. Every stored backend is unreadable
     // without it, and starting anyway would present them as gone, not locked.
-    let sealer = storage::secret::Sealer::new(&config.storage.secret_key)
-        .context("storage.secret_key is not usable")?;
+    let sealer =
+        Sealer::new(&config.security.secret_key).context("security.secret_key is not usable")?;
     let (pool, default) = open_stores(&config, &db, &sealer).await?;
     tracing::info!(backends = pool.open.len(), "storage backends open");
 
@@ -390,7 +391,7 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
 async fn open_stores(
     config: &Config,
     db: &sea_orm::DatabaseConnection,
-    sealer: &storage::secret::Sealer,
+    sealer: &Sealer,
 ) -> anyhow::Result<(storage::Pool, storage::Stores)> {
     let stored = if sealer.is_set() {
         StorageBackendRepository::new(db.clone(), sealer.clone())

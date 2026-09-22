@@ -56,7 +56,7 @@ const FIXED_AT_BOOT: &[&str] = &[
     // Read once to build the sealer every stored backend is opened with.
     // Changing it at runtime would leave the process holding backends it can no
     // longer re-seal, and the panel reporting a key that opens nothing.
-    "storage.secret_key",
+    "security.secret_key",
     // Whether the browsable docs are mounted is decided while building the
     // router. The contract at `/openapi.json` is served either way.
     "features.docs",
@@ -77,7 +77,7 @@ const SECRETS: &[&str] = &[
     "storage.url",
     // Opens every stored backend credential. A panel that could read it back
     // would make the encryption decorative.
-    "storage.secret_key",
+    "security.secret_key",
 ];
 
 /// Keys whose value is encrypted before it is stored, and never read back out.
@@ -93,7 +93,7 @@ const SECRETS: &[&str] = &[
 ///
 /// Recoverable and stored means a database dump is a credential leak, unless
 /// what opens it lives somewhere the dump does not. That is
-/// [`Sealer`](crate::storage::secret::Sealer), keyed by `storage.secret_key`
+/// [`Sealer`](crate::security::secret::Sealer), keyed by `security.secret_key`
 /// from the environment. Without a key, storing one of these is refused rather
 /// than written in plaintext, which is what adding a storage backend already
 /// does.
@@ -272,7 +272,7 @@ mod tests {
 
     #[test]
     fn credentials_that_cannot_be_stored_at_all_are_refused() {
-        for key in ["auth.admin_password", "storage.url", "storage.secret_key"] {
+        for key in ["auth.admin_password", "storage.url", "security.secret_key"] {
             assert!(
                 matches!(admits(key), Err(Refusal::Secret | Refusal::FixedAtBoot)),
                 "`{key}` holds a credential and must not be stored"
@@ -293,8 +293,8 @@ mod tests {
     /// The key that opens the others can never be one of them.
     #[test]
     fn the_sealing_key_is_not_itself_sealed() {
-        assert!(!is_sealed("storage.secret_key"));
-        assert!(admits("storage.secret_key").is_err());
+        assert!(!is_sealed("security.secret_key"));
+        assert!(admits("security.secret_key").is_err());
     }
 
     /// A sealed value never leaves as itself. What a screen gets is whether one

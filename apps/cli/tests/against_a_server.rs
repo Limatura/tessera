@@ -23,8 +23,9 @@ use tessera_server::{
     api,
     config::{Config, DatabaseConfig, StorageConfig},
     db,
+    security::secret::Sealer,
     state::{AppState, ServiceStatus, Storage},
-    storage::{self, Backends, DEFAULT_BACKEND, Pool, secret::Sealer},
+    storage::{self, Backends, DEFAULT_BACKEND, Pool},
 };
 use url::Url;
 
@@ -54,7 +55,7 @@ async fn server() -> Server {
     let default = storage::build_with_multipart(&config.storage).expect("store");
     let assets =
         tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets");
-    let sealer = Sealer::new(&config.storage.secret_key).expect("a usable key");
+    let sealer = Sealer::new(&config.security.secret_key).expect("a usable key");
     let state = AppState::new(
         Arc::new(config),
         database,
