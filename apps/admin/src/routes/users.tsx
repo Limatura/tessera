@@ -21,7 +21,8 @@ import {
 import { useState } from "react";
 
 import { AdminShell } from "@/components/admin-shell";
-import { useRoles, useUsers } from "@/hooks/use-admin";
+import { Pager, pageSearchSchema } from "@/components/pager";
+import { PAGE_SIZE, useRoles, useUsers } from "@/hooks/use-admin";
 import { useSession } from "@/hooks/use-auth";
 import {
   accountRoleLabel,
@@ -46,10 +47,12 @@ export const Route = createRoute({
   component: UsersComponent,
   getParentRoute: () => rootRoute,
   path: "/users",
+  validateSearch: pageSearchSchema,
 });
 
 function UsersComponent() {
-  const users = useUsers();
+  const { page } = Route.useSearch();
+  const users = useUsers((page - 1) * PAGE_SIZE);
   const roles = useRoles();
   const { data: account } = useSession();
 
@@ -131,6 +134,14 @@ function UsersComponent() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {users.data && (
+            <Pager
+              page={page}
+              pageSize={PAGE_SIZE}
+              to="/users"
+              total={users.data.meta.total}
+            />
           )}
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 import {
+  keepPreviousData,
   queryOptions,
   useMutation,
   useQuery,
@@ -31,16 +32,27 @@ export const permissionsQueryOptions = queryOptions({
   queryKey: ["admin", "permissions"],
 });
 
-export const usersQueryOptions = queryOptions({
-  queryFn: async () => {
-    const { data, error } = await api.GET("/api/v1/admin/users", {});
-    if (error) {
-      throw error;
-    }
-    return data;
-  },
-  queryKey: ["admin", "users"],
-});
+/** 一頁幾筆。server 的上限是 200,沒帶 `limit` 時只回 50 筆。 */
+export const PAGE_SIZE = 20;
+
+/** 每一頁各自快取,這是它們共同的前綴 —— 失效時整串一起丟。 */
+const USERS_QUERY_KEY = ["admin", "users"] as const;
+
+export function usersQueryOptions(offset: number) {
+  return queryOptions({
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/users", {
+        params: { query: { limit: PAGE_SIZE, offset } },
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    queryKey: [...USERS_QUERY_KEY, offset],
+  });
+}
 
 export const invitesQueryOptions = queryOptions({
   queryFn: async () => {
@@ -54,16 +66,21 @@ export const invitesQueryOptions = queryOptions({
 });
 
 /** 目前登入帳號自己的分享，不是全站的 —— 全站的在 `/admin/shares`。 */
-export const mySharesQueryOptions = queryOptions({
-  queryFn: async () => {
-    const { data, error } = await api.GET("/api/v1/shares", {});
-    if (error) {
-      throw error;
-    }
-    return data;
-  },
-  queryKey: ["shares", "mine"],
-});
+export function mySharesQueryOptions(offset: number) {
+  return queryOptions({
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/shares", {
+        params: { query: { limit: PAGE_SIZE, offset } },
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    queryKey: ["shares", "mine", offset],
+  });
+}
 
 export function useRoles() {
   return useQuery(rolesQueryOptions);
@@ -73,16 +90,16 @@ export function usePermissions() {
   return useQuery(permissionsQueryOptions);
 }
 
-export function useUsers() {
-  return useQuery(usersQueryOptions);
+export function useUsers(offset: number) {
+  return useQuery(usersQueryOptions(offset));
 }
 
 export function useInvites() {
   return useQuery(invitesQueryOptions);
 }
 
-export function useMyShares() {
-  return useQuery(mySharesQueryOptions);
+export function useMyShares(offset: number) {
+  return useQuery(mySharesQueryOptions(offset));
 }
 
 export function useCreateRole() {
@@ -117,7 +134,7 @@ export function useUpdateRole() {
     // 改角色權限會改到持有者的能力，自己也可能在裡面，所以 session 一起重抓。
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: rolesQueryOptions.queryKey });
-      queryClient.invalidateQueries({ queryKey: usersQueryOptions.queryKey });
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
     },
   });
@@ -136,7 +153,7 @@ export function useDeleteRole() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: rolesQueryOptions.queryKey });
-      queryClient.invalidateQueries({ queryKey: usersQueryOptions.queryKey });
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
     },
   });
@@ -157,7 +174,7 @@ export function useSetUserRole() {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: usersQueryOptions.queryKey });
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: rolesQueryOptions.queryKey });
       queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
     },
