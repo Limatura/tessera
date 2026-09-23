@@ -17,7 +17,8 @@ import {
 } from "@tessera/ui/components/table";
 
 import { AdminShell } from "@/components/admin-shell";
-import { useMyShares } from "@/hooks/use-admin";
+import { Pager, pageSearchSchema } from "@/components/pager";
+import { PAGE_SIZE, useMyShares } from "@/hooks/use-admin";
 import { requireAuth } from "@/lib/route-guard";
 
 import { Route as rootRoute } from "./__root";
@@ -32,6 +33,7 @@ export const Route = createRoute({
   component: SharesComponent,
   getParentRoute: () => rootRoute,
   path: "/shares",
+  validateSearch: pageSearchSchema,
 });
 
 const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
@@ -44,7 +46,8 @@ function formatDate(value: string | null | undefined): string {
 }
 
 function SharesComponent() {
-  const shares = useMyShares();
+  const { page } = Route.useSearch();
+  const shares = useMyShares((page - 1) * PAGE_SIZE);
   const rows = shares.data?.data;
 
   return (
@@ -108,6 +111,14 @@ function SharesComponent() {
                 ))}
               </TableBody>
             </Table>
+          )}
+          {shares.data && (
+            <Pager
+              page={page}
+              pageSize={PAGE_SIZE}
+              to="/shares"
+              total={shares.data.meta.total}
+            />
           )}
         </CardContent>
       </Card>
