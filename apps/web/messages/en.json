@@ -264,5 +264,10 @@
   "user_identities_retired": "No longer offered",
   "user_identities_last_way_in": "This is the only way into your account. Add a password or another method before unlinking it.",
   "user_identities_unlink_done": "Unlinked.",
-  "user_identities_unlink_failed": "Could not unlink"
+  "user_identities_unlink_failed": "Could not unlink",
+  "auth_invite_code": "Invite code",
+  "auth_invite_description": "This site is invite-only. Ask whoever runs it for a code.",
+  "auth_invite_required": "An invite code is required",
+  "auth_registration_closed_title": "Sign-ups are closed",
+  "auth_registration_closed_description": "This site is not taking new accounts. If you already have one, sign in — including with a third-party account you have linked."
 }

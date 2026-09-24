@@ -264,5 +264,10 @@
   "user_identities_retired": "已不再提供",
   "user_identities_last_way_in": "這是你唯一的登入方式。解除前請先設定密碼或加上其他方式。",
   "user_identities_unlink_done": "已解除綁定。",
-  "user_identities_unlink_failed": "無法解除綁定"
+  "user_identities_unlink_failed": "無法解除綁定",
+  "auth_invite_code": "邀請碼",
+  "auth_invite_description": "本站採邀請制,請向管理者索取邀請碼。",
+  "auth_invite_required": "請輸入邀請碼",
+  "auth_registration_closed_title": "目前不開放註冊",
+  "auth_registration_closed_description": "本站不接受新帳戶。已經有帳戶的話請直接登入 —— 綁定過的第三方帳號也可以。"
 }

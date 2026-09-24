@@ -31,10 +31,22 @@ export const loginSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 
-/** Registration checks the password the instance would actually accept. */
-export function registerSchemaFor(policy: PasswordPolicy) {
+/**
+ * Registration checks the password the instance would actually accept.
+ *
+ * `requireInvite` mirrors `/capabilities`' `registration`: the server ignores
+ * the code where registration is open, so asking for one there would invent a
+ * rule this instance does not have.
+ */
+export function registerSchemaFor(
+  policy: PasswordPolicy,
+  requireInvite = false
+) {
   return z.object({
     email: z.email({ error: () => m.auth_email_invalid() }),
+    inviteCode: requireInvite
+      ? z.string().min(1, { error: () => m.auth_invite_required() })
+      : z.string(),
     password: passwordSchemaFor(policy),
     username: usernameSchema,
   });
@@ -42,6 +54,7 @@ export function registerSchemaFor(policy: PasswordPolicy) {
 
 export interface RegisterFormValues {
   email: string;
+  inviteCode: string;
   password: string;
   username: string;
 }

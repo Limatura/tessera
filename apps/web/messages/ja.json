@@ -264,5 +264,10 @@
   "user_identities_retired": "現在は提供されていません",
   "user_identities_last_way_in": "これがアカウントへの唯一のサインイン方法です。解除する前にパスワードか別の方法を追加してください。",
   "user_identities_unlink_done": "連携を解除しました。",
-  "user_identities_unlink_failed": "連携を解除できませんでした"
+  "user_identities_unlink_failed": "連携を解除できませんでした",
+  "auth_invite_code": "招待コード",
+  "auth_invite_description": "このサイトは招待制です。運営者にコードを問い合わせてください。",
+  "auth_invite_required": "招待コードが必要です",
+  "auth_registration_closed_title": "新規登録は受け付けていません",
+  "auth_registration_closed_description": "このサイトは新しいアカウントを受け付けていません。すでにアカウントをお持ちの方はサインインしてください（連携済みの外部アカウントでも可能です）。"
 }

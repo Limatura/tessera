@@ -22,6 +22,7 @@ import { motion } from "motion/react";
 import { Controller, useForm } from "react-hook-form";
 
 import { useLogin } from "@/hooks/use-auth";
+import { useCapabilities } from "@/hooks/use-capabilities";
 import { loginSchema } from "@/lib/api/auth-schema";
 import type { LoginFormValues } from "@/lib/api/auth-schema";
 import { oidcErrorMessage } from "@/lib/api/identity-provider";
@@ -41,6 +42,7 @@ export function LoginForm({
   const navigate = useNavigate();
   const search = routeApi.useSearch();
   const login = useLogin();
+  const { data: capabilities } = useCapabilities();
   const { control, handleSubmit } = useForm<LoginFormValues>({
     defaultValues: { identifier: "", password: "" },
     resolver: zodResolver(loginSchema),
@@ -184,15 +186,21 @@ export function LoginForm({
                         </Button>
                       </motion.div>
                       <ProviderButtons invite={search.invite} />
-                      <FieldDescription className="text-center">
-                        {m.auth_no_account()}{" "}
-                        <Link
-                          className="underline-offset-4 hover:underline"
-                          to="/register"
-                        >
-                          {m.auth_sign_up_link()}
-                        </Link>
-                      </FieldDescription>
+                      {/*
+                        註冊關著就不要指一條走不通的路。讀不到 capabilities 時
+                        照常顯示 —— 少一個連結比多一個難發現。
+                      */}
+                      {capabilities?.registration === "closed" ? null : (
+                        <FieldDescription className="text-center">
+                          {m.auth_no_account()}{" "}
+                          <Link
+                            className="underline-offset-4 hover:underline"
+                            to="/register"
+                          >
+                            {m.auth_sign_up_link()}
+                          </Link>
+                        </FieldDescription>
+                      )}
                     </Field>
                   </motion.div>
                 </FieldGroup>
