@@ -257,6 +257,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/settings/oidc/discovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reads a provider's discovery document, from here rather than the browser.
+         * @description # Why the server and not the panel
+         *
+         *     Discovery only says a provider *should* let a browser read its document,
+         *     and plenty do not: the panel's own fetch is refused by CORS on exactly the
+         *     providers a self-hosted instance tends to use. This server has no origin,
+         *     so the same fetch works, and it is the one sign-in will make: a document
+         *     this reaches is one the sign-in path can reach too, which a browser could
+         *     never establish.
+         *
+         *     # What it does not do
+         *
+         *     Touch the cache. This is a URL somebody is trying out in a form; writing
+         *     what it answered into the cache would let an unsaved value decide what a
+         *     real sign-in talks to.
+         *
+         *     # Errors
+         *
+         *     `400` for an address this instance would not accept as an issuer, or one
+         *     the provider's document cannot be read from. `401`, `403` and `404` as for
+         *     [`list`].
+         */
+        post: operations["probe_oidc_discovery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/settings/preview": {
         parameters: {
             query?: never;
@@ -420,7 +459,7 @@ export interface paths {
          *     `400` when the URL will not open or the name is the environment's, `401`
          *     when nothing was signed in, `403` when the caller may not write settings,
          *     `404` when this instance has no administration, `409` when no
-         *     `storage.secret_key` is set.
+         *     `security.secret_key` is set.
          */
         post: operations["add_storage_backend"];
         delete?: never;
@@ -1352,6 +1391,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/speed/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sends `bytes` bytes that mean nothing.
+         * @description # Errors
+         *
+         *     `404` when the instance does not offer the test, or does not offer it to
+         *     this caller, `400` for more than `speed.max_bytes`, `429` when this source
+         *     has run its tests for the hour.
+         */
+        get: operations["speed_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/speed/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reads a body and throws it away.
+         * @description # Errors
+         *
+         *     As [`download`], and `413` when the body runs past `speed.max_bytes`.
+         */
+        post: operations["speed_upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tokens": {
         parameters: {
             query?: never;
@@ -2021,6 +2106,14 @@ export interface components {
              */
             share_password_min_length: number;
             /**
+             * @description Whether this caller may run a speed test.
+             *
+             *     Per caller, not per instance: an instance can offer the test to
+             *     accounts and not to visitors, and a visitor should be shown the same
+             *     thing as on an instance that does not offer it at all.
+             */
+            speed_test: boolean;
+            /**
              * Format: int64
              * @description How much room the caller has left, in bytes.
              *
@@ -2194,6 +2287,32 @@ export interface components {
              */
             delete_shares?: boolean;
         };
+        /** @description Body of `POST /admin/settings/oidc/discovery`. */
+        DiscoveryProbeRequest: {
+            /**
+             * @description The issuer, or the `.well-known` URL copied from the provider's own
+             *     documentation. Either is accepted: the suffix is removed before the
+             *     document is fetched, and it is `issuer` that comes back.
+             * @example https://id.example.com
+             */
+            url: string;
+        };
+        /** @description What a provider says about itself, as the panel needs it. */
+        DiscoveryProbeResponse: {
+            /** @description Whether it will tell this instance when somebody signs out. */
+            backchannel_logout_supported: boolean;
+            /**
+             * @description The provider's own name for itself, which is what `auth.oidc.issuer`
+             *     has to be set to.
+             * @example https://id.example.com
+             */
+            issuer: string;
+            /**
+             * @description The scopes it advertises, for a form that offers them rather than
+             *     asking somebody to type them.
+             */
+            scopes_supported: string[];
+        };
         /** @description The JSON body returned for every non-2xx response. */
         ErrorBody: {
             /** @description Stable identifier the client can branch on. */
@@ -2207,7 +2326,7 @@ export interface components {
          *     Clients branch on this; the human-readable `message` is free to change.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "bad_request" | "payload_too_large" | "unauthorized" | "forbidden" | "password_change_required" | "gone" | "range_not_satisfiable" | "conflict" | "too_many_requests" | "insufficient_storage" | "unsupported_media_type" | "timeout" | "unavailable" | "internal";
+        ErrorCode: "not_found" | "bad_request" | "payload_too_large" | "unauthorized" | "forbidden" | "password_change_required" | "gone" | "range_not_satisfiable" | "conflict" | "too_many_requests" | "scanning" | "insufficient_storage" | "unsupported_media_type" | "timeout" | "unavailable" | "internal";
         /** @description Body of a successful `GET /health`. */
         HealthResponse: {
             /**
@@ -2493,6 +2612,12 @@ export interface components {
             kind: string;
             /** @description Syntax-highlighting hint. */
             language?: string | null;
+            /**
+             * @description Whether it is waiting for the malware scanner, and so cannot be
+             *     downloaded yet. `false` while locked: a locked share says nothing about
+             *     its content.
+             */
+            scanning: boolean;
             /** @description The title and a note's language, sealed, on an encrypted share. */
             sealed_details?: string | null;
             /**
@@ -2854,6 +2979,11 @@ export interface components {
              * @example /s/0ZPQ4M7K
              */
             path: string;
+            /**
+             * @description Whether it is waiting for the malware scanner. It cannot be downloaded
+             *     until it is not; the answer then is `423` with `Retry-After`.
+             */
+            scanning: boolean;
             /** @description The title and a note's language, sealed, on an encrypted share. */
             sealed_details?: string | null;
             /**
@@ -3136,51 +3266,14 @@ export interface components {
              */
             state?: string | null;
         };
-        /** @description A session that has just been opened. */
+        /** @description What an upload test read. */
         UploadResponse: {
             /**
-             * @description Whether the parts may go straight to the store instead of through here.
-             *
-             *     When `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`
-             *     each part to, and `POST /uploads/{id}/complete` finishes with the `ETag`
-             *     each `PUT` answered. `PATCH` still works either way.
-             *
-             *     Decided by where this upload was placed, and by whether the operator
-             *     has said a browser can reach that store, which is why it is here and not
-             *     in the capabilities: an instance with an S3 bucket and a local directory
-             *     answers differently for different uploads.
-             */
-            direct: boolean;
-            /** @description Identifier, and the last segment of the URL to continue at. */
-            id: string;
-            /**
              * Format: int64
-             * @description How much was declared.
+             * @description How many bytes arrived. The client times its own request and divides.
+             * @example 26214400
              */
-            length: number;
-            /**
-             * Format: int64
-             * @description How much has arrived. Zero, here.
-             */
-            offset: number;
-            /**
-             * Format: int64
-             * @description How much to send per chunk, in bytes.
-             *
-             *     A chunk that is not the last is accepted only up to a multiple of this;
-             *     the rest comes back as a lower offset and has to be re-sent. Sending
-             *     exact multiples avoids that entirely.
-             */
-            part_size: number;
-            /**
-             * @description Proof that a later request is the same uploader, for an anonymous one.
-             *
-             *     **Store this.** It is shown once, and without it the upload cannot be
-             *     resumed after the page is closed, the situation resuming exists for.
-             *     `null`
-             *     when the uploader is signed in, since their credential already answers.
-             */
-            token?: string | null;
+            received_bytes: number;
         };
         /** @description Body of `PUT /admin/users/{id}/roles`. */
         UserRolesRequest: {
@@ -3873,6 +3966,66 @@ export interface operations {
             };
         };
     };
+    probe_oidc_discovery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscoveryProbeRequest"];
+            };
+        };
+        responses: {
+            /** @description What the provider says about itself */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryProbeResponse"];
+                };
+            };
+            /** @description Not an address this accepts, or the document could not be read */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description May not change settings, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
     preview_settings: {
         parameters: {
             query?: never;
@@ -4258,7 +4411,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description No storage.secret_key, so credentials cannot be stored */
+            /** @description No security.secret_key, so credentials cannot be stored */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -6112,7 +6265,123 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
+            /** @description Still being checked for malware; `Retry-After` says when to ask again */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
             /** @description Too many lookups or password attempts */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    speed_download: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Bytes to send. Omit for as much as this instance allows; more than that
+                 *     is refused rather than quietly shortened, so a client is never told it
+                 *     measured a transfer it did not make.
+                 * @example 26214400
+                 */
+                bytes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The bytes */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
+            };
+            /** @description More than this instance allows */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not offered here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many tests from this source */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    speed_upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Anything; it is counted and dropped */
+        requestBody: {
+            content: {
+                "application/octet-stream": number[];
+            };
+        };
+        responses: {
+            /** @description How much arrived */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Not offered here */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description More than this instance allows */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many tests from this source */
             429: {
                 headers: {
                     [name: string]: unknown;
