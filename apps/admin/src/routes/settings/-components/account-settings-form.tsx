@@ -104,7 +104,7 @@ function AccountSettingsFields({
           name="registration"
           render={({ field, fieldState }) => (
             <SelectField
-              description="關閉註冊後仍可由管理者手動建立帳號。"
+              description="這同時管第三方登入：關閉註冊後，OIDC／GitHub／Discord 只有已經有帳號的人能登入，新的人會被拒絕。關閉後仍可由管理者手動建立帳號。"
               field={field}
               fieldState={fieldState}
               id="account-registration"

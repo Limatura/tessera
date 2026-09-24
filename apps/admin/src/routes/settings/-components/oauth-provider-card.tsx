@@ -18,6 +18,8 @@ import {
 } from "@/lib/settings-values";
 
 import { SealedField, SwitchField, TextField } from "./form-fields";
+import { ProviderCallbackUrls } from "./provider-callback-urls";
+import { ProviderRegistrationNote } from "./provider-registration-note";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsCard } from "./settings-page";
 
@@ -62,6 +64,7 @@ export function OauthProviderCard({
         defaultValues={initialValues(settings, provider)}
         idPrefix={provider === "auth.github" ? "github" : "discord"}
         keys={keys}
+        publicUrl={asString(readSetting(settings, "server.public_url"), "")}
         scopesHint={scopesHint}
         secretIsSet={isSecretSet(settings, `${provider}.client_secret`)}
       />
@@ -113,6 +116,7 @@ function OauthProviderFields({
   scopesHint,
   baseUrlHint,
   secretIsSet,
+  publicUrl,
 }: {
   defaultValues: OauthSettingsValues;
   keys: SettingsKeyMap<OauthSettingsValues>;
@@ -120,6 +124,7 @@ function OauthProviderFields({
   scopesHint: string;
   baseUrlHint?: string;
   secretIsSet: boolean;
+  publicUrl: string;
 }) {
   const form = useSettingsForm<OauthSettingsValues>({
     defaultValues,
@@ -131,6 +136,11 @@ function OauthProviderFields({
   return (
     <form onSubmit={form.submit}>
       <FieldGroup>
+        {/* idPrefix 就是路徑裡的那一段：`github` / `discord`。 */}
+        <ProviderCallbackUrls provider={idPrefix} publicUrl={publicUrl} />
+
+        <ProviderRegistrationNote />
+
         <Controller
           control={form.control}
           name="clientId"

@@ -164,9 +164,21 @@ export const oidcSettingsSchema = z.object({
   // auth.oidc.group_claim
   groupClaim: z.string(),
   // auth.oidc.issuer —— 規範要求與 `iss` claim 完全字串相等，且必須 https
-  issuer: z.string().refine((value) => value === "" || HTTPS_URL.test(value), {
-    error: "必須是 https:// 開頭的 issuer URL",
-  }),
+  issuer: z
+    .string()
+    .refine((value) => value === "" || HTTPS_URL.test(value), {
+      error: "必須是 https:// 開頭的 issuer URL",
+    })
+    /*
+     * 貼成 discovery URL 是最常見的填法錯誤，而且它會通過上面那條（它也是合法
+     * 的 https URL）。後端抓取時自己會接 `/.well-known/openid-configuration`，
+     * 所以存成這樣的結果是每次登入都以 `unavailable` 失敗 —— 擋在儲存前，
+     * 比讓人事後從一個錯誤代碼回推便宜得多。
+     */
+    .refine((value) => !value.includes("/.well-known/"), {
+      error:
+        "這是 discovery URL，不是 issuer。把它貼到上面那格按「讀取並帶入」，issuer 會從文件裡讀出來",
+    }),
   // auth.oidc.link_by_verified_email
   linkByVerifiedEmail: z.boolean(),
   // auth.oidc.required_group —— 空字串 = 該 provider 認證過的任何人都能登入
