@@ -27,6 +27,7 @@ import { useRegister } from "@/hooks/use-auth";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
 import { registerSchemaFor } from "@/lib/api/auth-schema";
 import type { RegisterFormValues } from "@/lib/api/auth-schema";
+import { isBreachedPasswordError } from "@/lib/api/password-policy";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
 
@@ -38,13 +39,21 @@ export function RegisterForm({
   const registerAccount = useRegister();
   const policy = usePasswordPolicy();
   const schema = useMemo(() => registerSchemaFor(policy), [policy]);
-  const { control, handleSubmit } = useForm<RegisterFormValues>({
+  const { control, handleSubmit, setError } = useForm<RegisterFormValues>({
     defaultValues: { email: "", password: "", username: "" },
     resolver: zodResolver(schema),
   });
 
   const onSubmit = handleSubmit((values) => {
     registerAccount.mutate(values, {
+      onError: (error) => {
+        if (isBreachedPasswordError(error)) {
+          setError("password", {
+            message: m.auth_password_breached(),
+            type: "server",
+          });
+        }
+      },
       onSuccess: (account) => {
         // `account` is undefined when the server sent a confirmation link
         // instead of creating one outright — nothing to sign in to yet.
@@ -53,9 +62,10 @@ export function RegisterForm({
     });
   });
 
-  const formError = registerAccount.error as
-    | components["schemas"]["ErrorBody"]
-    | null;
+  // A breached password is already reported on the password field.
+  const formError = isBreachedPasswordError(registerAccount.error)
+    ? null
+    : (registerAccount.error as components["schemas"]["ErrorBody"] | null);
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -161,6 +171,9 @@ export function RegisterForm({
                             policy={policy}
                             value={field.value}
                           />
+                          {fieldState.error?.type === "server" && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
                         </Field>
                       )}
                     />

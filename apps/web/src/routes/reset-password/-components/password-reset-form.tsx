@@ -27,7 +27,10 @@ import { z } from "zod";
 import { PasswordRequirements } from "@/components/password-requirements";
 import { usePasswordReset } from "@/hooks/use-auth";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
-import { passwordSchemaFor } from "@/lib/api/password-policy";
+import {
+  isBreachedPasswordError,
+  passwordSchemaFor,
+} from "@/lib/api/password-policy";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
 
@@ -67,7 +70,7 @@ export function PasswordResetForm({
     [policy]
   );
 
-  const { control, handleSubmit } = useForm<ResetFormValues>({
+  const { control, handleSubmit, setError } = useForm<ResetFormValues>({
     defaultValues: { confirmPassword: "", password: "" },
     resolver: zodResolver(schema),
   });
@@ -86,6 +89,15 @@ export function PasswordResetForm({
       { password: values.password, token: tokenFromUrl },
       {
         onError: (error) => {
+          // Marked on the field like any other refused password: the token
+          // is still good, so choosing another one and resubmitting works.
+          if (isBreachedPasswordError(error)) {
+            setError("password", {
+              message: m.auth_password_breached(),
+              type: "server",
+            });
+            return;
+          }
           const errorBody =
             error instanceof Error && "code" in error && "message" in error
               ? (error as components["schemas"]["ErrorBody"])
@@ -137,9 +149,9 @@ export function PasswordResetForm({
     );
   }
 
-  const formError = resetMutation.error as
-    | components["schemas"]["ErrorBody"]
-    | null;
+  const formError = isBreachedPasswordError(resetMutation.error)
+    ? null
+    : (resetMutation.error as components["schemas"]["ErrorBody"] | null);
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -196,6 +208,9 @@ export function PasswordResetForm({
                             policy={policy}
                             value={field.value}
                           />
+                          {fieldState.error?.type === "server" && (
+                            <FieldError errors={[fieldState.error]} />
+                          )}
                         </Field>
                       )}
                     />

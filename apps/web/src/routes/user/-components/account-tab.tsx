@@ -2,6 +2,7 @@ import { Separator } from "@tessera/ui/components/separator";
 
 import { ApiKeysSection } from "./api-keys-section";
 import { DangerZone } from "./danger-zone";
+import { IdentitiesSection } from "./identities-section";
 import { PasskeysSection } from "./passkeys-section";
 import { PasswordSection } from "./password-section";
 import { ProfileSection } from "./profile-section";
@@ -17,6 +18,8 @@ export function AccountTab() {
       <PasswordSection />
       <Separator />
       <PasskeysSection />
+      <Separator />
+      <IdentitiesSection />
       <Separator />
       <SessionsSection />
       <Separator />

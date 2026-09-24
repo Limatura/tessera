@@ -14,6 +14,8 @@ const TABS = ["account", "preferences"] as const;
 
 /** 分頁放在 search 而不是路徑,重新整理跟分享連結都會回到同一頁。 */
 const searchSchema = z.object({
+  /** 綁定第三方失敗時後端帶回來的代碼；參數名跟登入頁共用。 */
+  oidc_error: z.string().optional(),
   // oxlint-disable-next-line promise/prefer-await-to-then -- zod 的 catch,不是 Promise 的
   tab: z.enum(TABS).catch("account"),
 });
@@ -30,6 +32,7 @@ function UserPage() {
   const navigate = useNavigate({ from: Route.fullPath });
 
   const handleTabChange = (value: unknown) => {
+    // 換分頁時把 oidc_error 丟掉 —— 它講的是剛才那次綁定，不該跟著人到處走。
     navigate({ search: { tab: value as (typeof TABS)[number] } });
   };
 
