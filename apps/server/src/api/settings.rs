@@ -307,7 +307,7 @@ async fn resolve(
             return Err(Error::bad_request(format!(
                 "`{key}` is a credential. It is kept in this instance's database, encrypted \
                  with `security.secret_key`, which comes from the environment as \
-                 `SECURITY__SECRET_KEY` so that a copy of the database is not a copy of the \
+                 `TESSERA_SECURITY__SECRET_KEY` so that a copy of the database is not a copy of the \
                  credential. Set that first: `openssl rand -hex 32`."
             )));
         }

@@ -6,7 +6,7 @@
 # Rust side (no package.json under it), and cargo never sees the JavaScript side.
 [workspace]
 resolver = "3"
-members = ["apps/cli", "apps/server", "crates/*"]
+members = ["apps/cli", "apps/dev", "apps/server", "crates/*"]
 
 [workspace.package]
 version = "0.1.0"
