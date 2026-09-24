@@ -1,8 +1,9 @@
-import { IconCheck, IconPoint } from "@tabler/icons-react";
+import { IconAlertTriangle, IconCheck, IconPoint } from "@tabler/icons-react";
 import { cn } from "@tessera/ui/lib/utils";
 
-import { passwordRules } from "@/lib/api/password-policy";
+import { PASSWORD_MAX_CEILING, passwordRules } from "@/lib/api/password-policy";
 import type { PasswordPolicy } from "@/lib/api/password-policy";
+import * as m from "@/paraglide/messages";
 
 /**
  * The instance's password rules, ticked off as they are met.
@@ -13,6 +14,11 @@ import type { PasswordPolicy } from "@/lib/api/password-policy";
  * over two attempts. `invalid` only tints the list — the rules themselves are
  * shown from the start, since telling someone the rules up front beats
  * rejecting them after they have chosen.
+ *
+ * A password over the ceiling is not a rule to tick, so it appears only when
+ * it applies, as it is typed. It does not wait for `invalid`: it is already
+ * certain the moment it shows, and the field error it would otherwise be is
+ * one this list replaces.
  */
 export function PasswordRequirements({
   className,
@@ -26,6 +32,8 @@ export function PasswordRequirements({
   value: string;
 }) {
   const rules = passwordRules(policy, value);
+  // The server counts characters, not UTF-16 code units.
+  const tooLong = [...value].length > PASSWORD_MAX_CEILING;
 
   return (
     <ul className={cn("space-y-1 text-muted-foreground text-xs", className)}>
@@ -49,6 +57,16 @@ export function PasswordRequirements({
           </span>
         </li>
       ))}
+      {tooLong && <Refusal>{m.auth_password_too_long()}</Refusal>}
     </ul>
+  );
+}
+
+function Refusal({ children }: { children: string }) {
+  return (
+    <li className="flex items-center gap-1.5 text-destructive" role="alert">
+      <IconAlertTriangle aria-hidden className="size-3.5 shrink-0" />
+      <span>{children}</span>
+    </li>
   );
 }
