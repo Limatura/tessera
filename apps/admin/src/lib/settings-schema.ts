@@ -40,6 +40,40 @@ export const appearanceSettingsSchema = z.object({
 
 export type AppearanceSettingsValues = z.infer<typeof appearanceSettingsSchema>;
 
+// ---- 站台資訊：site.* ----
+
+/** `site.title` 的上限（`SiteConfig::MAX_TITLE`）。 */
+export const SITE_TITLE_MAX = 100;
+
+/** `site.description` 的上限（`SiteConfig::MAX_DESCRIPTION`）。 */
+export const SITE_DESCRIPTION_MAX = 300;
+
+/**
+ * server 用 `chars().count()` 算長度，也就是 Unicode code point。`.length` 算的是
+ * UTF-16 code unit，emoji 之類會被算成兩個，前端會比後端先拒絕。
+ */
+function codePoints(value: string): number {
+  return [...value].length;
+}
+
+export const siteSettingsSchema = z.object({
+  // site.description —— 空 = 不輸出這個 meta
+  description: z
+    .string()
+    .refine((value) => codePoints(value) <= SITE_DESCRIPTION_MAX, {
+      error: `最多 ${SITE_DESCRIPTION_MAX} 字`,
+    }),
+  // site.title
+  title: z
+    .string()
+    .refine((value) => value.trim() !== "", { error: "站名不可空白" })
+    .refine((value) => codePoints(value) <= SITE_TITLE_MAX, {
+      error: `最多 ${SITE_TITLE_MAX} 字`,
+    }),
+});
+
+export type SiteSettingsValues = z.infer<typeof siteSettingsSchema>;
+
 // ---- 存儲配置：server.part_size_bytes ----
 //
 // `storage.url` 不在這裡：它是 SECRET，URL 帶帳密，面板讀不到也改不了。
