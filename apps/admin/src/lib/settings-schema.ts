@@ -376,7 +376,7 @@ export const throttleSettingsSchema = z.object({
 
 export type ThrottleSettingsValues = z.infer<typeof throttleSettingsSchema>;
 
-// ---- 密碼與雜湊：auth.password.* / auth.hashing.* ----
+// ---- 密碼與雜湊：auth.password.* / auth.hashing.* / auth.pwned.* ----
 
 /** `auth.password.min_length` 的下限（`PasswordPolicy::FLOOR`）。 */
 export const PASSWORD_MIN_FLOOR = 8;
@@ -411,11 +411,22 @@ export const passwordSettingsSchema = z
     iterations: z.number().int().min(1, { error: "至少 1" }),
     // auth.hashing.lanes
     lanes: z.number().int().min(1, { error: "至少 1" }),
+    // auth.pwned.enabled
+    pwnedEnabled: z.boolean(),
+    // auth.pwned.url —— 關閉時 server 不驗證，所以這裡也不擋
+    pwnedUrl: z.string(),
   })
   .refine((values) => values.minLength <= values.maxLength, {
     error: "最短長度不可大於最長長度",
     path: ["minLength"],
-  });
+  })
+  .refine(
+    (values) => !values.pwnedEnabled || ABSOLUTE_URL.test(values.pwnedUrl),
+    {
+      error: "開啟時必須是 http(s):// 開頭的絕對位址",
+      path: ["pwnedUrl"],
+    }
+  );
 
 export type PasswordSettingsValues = z.infer<typeof passwordSettingsSchema>;
 

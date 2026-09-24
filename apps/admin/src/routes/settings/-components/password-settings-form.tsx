@@ -12,9 +12,9 @@ import {
   passwordSettingsSchema,
 } from "@/lib/settings-schema";
 import type { PasswordSettingsValues } from "@/lib/settings-schema";
-import { asBoolean, asNumber } from "@/lib/settings-values";
+import { asBoolean, asNumber, asString } from "@/lib/settings-values";
 
-import { SwitchField } from "./form-fields";
+import { SwitchField, TextField } from "./form-fields";
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
@@ -26,6 +26,7 @@ const DEFAULT_MAX_LENGTH = 256;
 const DEFAULT_MEMORY_KIB = 19_456;
 const DEFAULT_ITERATIONS = 2;
 const DEFAULT_LANES = 1;
+const DEFAULT_PWNED_URL = "https://api.pwnedpasswords.com";
 
 const KEYS = {
   iterations: "auth.hashing.iterations",
@@ -33,6 +34,8 @@ const KEYS = {
   maxLength: "auth.password.max_length",
   memoryKib: "auth.hashing.memory_kib",
   minLength: "auth.password.min_length",
+  pwnedEnabled: "auth.pwned.enabled",
+  pwnedUrl: "auth.pwned.url",
   requireDigit: "auth.password.require_digit",
   requireMixedCase: "auth.password.require_mixed_case",
   requireSymbol: "auth.password.require_symbol",
@@ -67,6 +70,8 @@ function initialValues(settings: Settings): PasswordSettingsValues {
       readSetting(settings, KEYS.minLength),
       DEFAULT_MIN_LENGTH
     ),
+    pwnedEnabled: asBoolean(readSetting(settings, KEYS.pwnedEnabled), false),
+    pwnedUrl: asString(readSetting(settings, KEYS.pwnedUrl), DEFAULT_PWNED_URL),
     requireDigit: asBoolean(readSetting(settings, KEYS.requireDigit), false),
     requireMixedCase: asBoolean(
       readSetting(settings, KEYS.requireMixedCase),
@@ -176,6 +181,44 @@ function PasswordSettingsFields({
               field={field}
               id="password-require-symbol"
               label="需要符號"
+            />
+          )}
+        />
+
+        <FieldSeparator />
+
+        <p className="text-muted-foreground text-sm">
+          外洩密碼檢查一樣只管選新密碼。送出去的只有密碼 SHA-1 的前 5
+          個字，比對在本機做（k-anonymity），完整密碼和完整雜湊都不會離開這台。
+          查不到服務（逾時、連不上、非 200）就
+          <strong className="font-medium text-foreground">放行</strong>
+          ，只在 log 留一行 —— 註冊和重設密碼不能因為別人的服務掛掉而停擺。
+        </p>
+
+        <Controller
+          control={form.control}
+          name="pwnedEnabled"
+          render={({ field }) => (
+            <SwitchField
+              description="設新密碼時查 Have I Been Pwned，出現在外洩名單上的密碼會被拒絕。這台要連得到下面那個位址。"
+              field={field}
+              id="pwned-enabled"
+              label="檢查外洩密碼"
+            />
+          )}
+        />
+
+        <Controller
+          control={form.control}
+          name="pwnedUrl"
+          render={({ field, fieldState }) => (
+            <TextField
+              description="range API 的位址，預設官方服務。不想依賴它、或這台出不了網路的話，可以指到自架的實作。"
+              field={field}
+              fieldState={fieldState}
+              id="pwned-url"
+              label="服務位址"
+              placeholder={DEFAULT_PWNED_URL}
             />
           )}
         />
