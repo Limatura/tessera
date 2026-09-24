@@ -40,6 +40,40 @@ export const appearanceSettingsSchema = z.object({
 
 export type AppearanceSettingsValues = z.infer<typeof appearanceSettingsSchema>;
 
+// ---- 站台資訊：site.* ----
+
+/** `site.title` 的上限（`SiteConfig::MAX_TITLE`）。 */
+export const SITE_TITLE_MAX = 100;
+
+/** `site.description` 的上限（`SiteConfig::MAX_DESCRIPTION`）。 */
+export const SITE_DESCRIPTION_MAX = 300;
+
+/**
+ * server 用 `chars().count()` 算長度，也就是 Unicode code point。`.length` 算的是
+ * UTF-16 code unit，emoji 之類會被算成兩個，前端會比後端先拒絕。
+ */
+function codePoints(value: string): number {
+  return [...value].length;
+}
+
+export const siteSettingsSchema = z.object({
+  // site.description —— 空 = 不輸出這個 meta
+  description: z
+    .string()
+    .refine((value) => codePoints(value) <= SITE_DESCRIPTION_MAX, {
+      error: `最多 ${SITE_DESCRIPTION_MAX} 字`,
+    }),
+  // site.title
+  title: z
+    .string()
+    .refine((value) => value.trim() !== "", { error: "站名不可空白" })
+    .refine((value) => codePoints(value) <= SITE_TITLE_MAX, {
+      error: `最多 ${SITE_TITLE_MAX} 字`,
+    }),
+});
+
+export type SiteSettingsValues = z.infer<typeof siteSettingsSchema>;
+
 // ---- 存儲配置：server.part_size_bytes ----
 //
 // `storage.url` 不在這裡：它是 SECRET，URL 帶帳密，面板讀不到也改不了。
@@ -130,9 +164,21 @@ export const oidcSettingsSchema = z.object({
   // auth.oidc.group_claim
   groupClaim: z.string(),
   // auth.oidc.issuer —— 規範要求與 `iss` claim 完全字串相等，且必須 https
-  issuer: z.string().refine((value) => value === "" || HTTPS_URL.test(value), {
-    error: "必須是 https:// 開頭的 issuer URL",
-  }),
+  issuer: z
+    .string()
+    .refine((value) => value === "" || HTTPS_URL.test(value), {
+      error: "必須是 https:// 開頭的 issuer URL",
+    })
+    /*
+     * 貼成 discovery URL 是最常見的填法錯誤，而且它會通過上面那條（它也是合法
+     * 的 https URL）。後端抓取時自己會接 `/.well-known/openid-configuration`，
+     * 所以存成這樣的結果是每次登入都以 `unavailable` 失敗 —— 擋在儲存前，
+     * 比讓人事後從一個錯誤代碼回推便宜得多。
+     */
+    .refine((value) => !value.includes("/.well-known/"), {
+      error:
+        "這是 discovery URL，不是 issuer。把它貼到上面那格按「讀取並帶入」，issuer 會從文件裡讀出來",
+    }),
   // auth.oidc.link_by_verified_email
   linkByVerifiedEmail: z.boolean(),
   // auth.oidc.required_group —— 空字串 = 該 provider 認證過的任何人都能登入
@@ -330,7 +376,7 @@ export const throttleSettingsSchema = z.object({
 
 export type ThrottleSettingsValues = z.infer<typeof throttleSettingsSchema>;
 
-// ---- 密碼與雜湊：auth.password.* / auth.hashing.* ----
+// ---- 密碼與雜湊：auth.password.* / auth.hashing.* / auth.pwned.* ----
 
 /** `auth.password.min_length` 的下限（`PasswordPolicy::FLOOR`）。 */
 export const PASSWORD_MIN_FLOOR = 8;
@@ -365,11 +411,22 @@ export const passwordSettingsSchema = z
     iterations: z.number().int().min(1, { error: "至少 1" }),
     // auth.hashing.lanes
     lanes: z.number().int().min(1, { error: "至少 1" }),
+    // auth.pwned.enabled
+    pwnedEnabled: z.boolean(),
+    // auth.pwned.url —— 關閉時 server 不驗證，所以這裡也不擋
+    pwnedUrl: z.string(),
   })
   .refine((values) => values.minLength <= values.maxLength, {
     error: "最短長度不可大於最長長度",
     path: ["minLength"],
-  });
+  })
+  .refine(
+    (values) => !values.pwnedEnabled || ABSOLUTE_URL.test(values.pwnedUrl),
+    {
+      error: "開啟時必須是 http(s):// 開頭的絕對位址",
+      path: ["pwnedUrl"],
+    }
+  );
 
 export type PasswordSettingsValues = z.infer<typeof passwordSettingsSchema>;
 

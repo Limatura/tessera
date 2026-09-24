@@ -116,6 +116,12 @@ export function useSettingsForm<TValues extends FieldValues>({
     isDirty,
     isPending: update.isPending,
     isSaved: update.isSuccess && !isDirty,
+    /*
+     * 給「由另一格推導出這一格」的欄位用（目前只有 OIDC 的 discovery URL）。
+     * 呼叫端務必帶 `shouldDirty` —— 送出時只挑 dirty 的欄位，沒標記的話這個值
+     * 會留在畫面上卻不會被儲存，那比沒帶入更糟。
+     */
+    setValue: form.setValue,
     submit,
   };
 }

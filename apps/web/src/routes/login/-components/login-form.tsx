@@ -22,11 +22,15 @@ import { motion } from "motion/react";
 import { Controller, useForm } from "react-hook-form";
 
 import { useLogin } from "@/hooks/use-auth";
+import { useCapabilities } from "@/hooks/use-capabilities";
 import { loginSchema } from "@/lib/api/auth-schema";
 import type { LoginFormValues } from "@/lib/api/auth-schema";
+import { oidcErrorMessage } from "@/lib/api/identity-provider";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import { safeRedirect } from "@/lib/safe-redirect";
 import * as m from "@/paraglide/messages";
+
+import { ProviderButtons } from "./provider-buttons";
 
 /** 直接 import Route 會跟 index.tsx 形成循環依賴。 */
 const routeApi = getRouteApi("/login/");
@@ -38,6 +42,7 @@ export function LoginForm({
   const navigate = useNavigate();
   const search = routeApi.useSearch();
   const login = useLogin();
+  const { data: capabilities } = useCapabilities();
   const { control, handleSubmit } = useForm<LoginFormValues>({
     defaultValues: { identifier: "", password: "" },
     resolver: zodResolver(loginSchema),
@@ -58,6 +63,14 @@ export function LoginForm({
   });
 
   const formError = login.error as components["schemas"]["ErrorBody"] | null;
+
+  /*
+   * 第三方回來失敗時後端把人送回這頁並帶上代碼。認不得的代碼（後端加了新的、
+   * 我們還沒跟上）退回一句通用的 —— 把生代碼放到畫面上對使用者沒有意義。
+   */
+  const providerError = search.oidc_error
+    ? (oidcErrorMessage(search.oidc_error) ?? m.oidc_error_generic())
+    : null;
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -93,6 +106,15 @@ export function LoginForm({
               </motion.div>
             </CardHeader>
             <CardContent>
+              {providerError ? (
+                <motion.p
+                  className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"
+                  role="alert"
+                  variants={itemVariants}
+                >
+                  {providerError}
+                </motion.p>
+              ) : null}
               <form onSubmit={onSubmit}>
                 <FieldGroup>
                   <motion.div variants={itemVariants}>
@@ -163,24 +185,22 @@ export function LoginForm({
                             : m.auth_sign_in()}
                         </Button>
                       </motion.div>
-                      <motion.div whileTap={{ scale: 0.98 }}>
-                        <Button
-                          className="w-full"
-                          type="button"
-                          variant="outline"
-                        >
-                          {m.auth_login_with_google()}
-                        </Button>
-                      </motion.div>
-                      <FieldDescription className="text-center">
-                        {m.auth_no_account()}{" "}
-                        <Link
-                          className="underline-offset-4 hover:underline"
-                          to="/register"
-                        >
-                          {m.auth_sign_up_link()}
-                        </Link>
-                      </FieldDescription>
+                      <ProviderButtons invite={search.invite} />
+                      {/*
+                        註冊關著就不要指一條走不通的路。讀不到 capabilities 時
+                        照常顯示 —— 少一個連結比多一個難發現。
+                      */}
+                      {capabilities?.registration === "closed" ? null : (
+                        <FieldDescription className="text-center">
+                          {m.auth_no_account()}{" "}
+                          <Link
+                            className="underline-offset-4 hover:underline"
+                            to="/register"
+                          >
+                            {m.auth_sign_up_link()}
+                          </Link>
+                        </FieldDescription>
+                      )}
                     </Field>
                   </motion.div>
                 </FieldGroup>

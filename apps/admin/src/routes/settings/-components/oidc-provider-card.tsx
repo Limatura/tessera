@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import type { components } from "@tessera/api/schema";
 import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
+import { useState } from "react";
 import { Controller, useWatch } from "react-hook-form";
 
 import { readSetting } from "@/hooks/use-settings";
@@ -18,6 +19,9 @@ import {
 } from "@/lib/settings-values";
 
 import { SealedField, SwitchField, TextField } from "./form-fields";
+import { OidcDiscoveryField } from "./oidc-discovery-field";
+import { ProviderCallbackUrls } from "./provider-callback-urls";
+import { ProviderRegistrationNote } from "./provider-registration-note";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsCard } from "./settings-page";
 
@@ -54,6 +58,7 @@ export function OidcProviderCard({ settings }: { settings: Settings }) {
     >
       <OidcProviderFields
         defaultValues={initialValues(settings)}
+        publicUrl={asString(readSetting(settings, "server.public_url"), "")}
         secretIsSet={isSecretSet(settings, KEYS.clientSecret)}
       />
     </SettingsCard>
@@ -83,9 +88,11 @@ function initialValues(settings: Settings): OidcSettingsValues {
 function OidcProviderFields({
   defaultValues,
   secretIsSet,
+  publicUrl,
 }: {
   defaultValues: OidcSettingsValues;
   secretIsSet: boolean;
+  publicUrl: string;
 }) {
   const form = useSettingsForm<OidcSettingsValues>({
     defaultValues,
@@ -99,6 +106,39 @@ function OidcProviderFields({
     control: form.control,
     name: "requiredGroup",
   });
+  const scopes = useWatch({ control: form.control, name: "scopes" });
+
+  /*
+   * 只有讀過 discovery 文件、而且對方宣告支援時才顯示 back-channel logout 的位址。
+   *
+   * 支援它的 provider 是少數（Keycloak、Authelia、Auth0，Authentik 要 2025.10
+   * 以後；Okta 自己另做一套，Google 跟 Synology 沒有），所以無條件顯示等於給
+   * 大多數人一個永遠用不到、又得自己判斷要不要填的欄位。沒讀過文件就當不知道，
+   * 不猜。
+   */
+  const [backchannelLogout, setBackchannelLogout] = useState(false);
+
+  /*
+   * shouldDirty：送出時只挑動過的欄位，沒標記的話帶入的值會留在畫面上卻存不下去
+   * —— 那比沒帶入更糟。shouldValidate 讓貼錯的網址當場顯示，不用等按儲存。
+   */
+  const handleApplyDiscovery = (values: {
+    issuer: string;
+    scopes?: string;
+    backchannelLogout: boolean;
+  }) => {
+    setBackchannelLogout(values.backchannelLogout);
+    form.setValue("issuer", values.issuer, {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+    if (values.scopes !== undefined) {
+      form.setValue("scopes", values.scopes, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  };
 
   return (
     <form onSubmit={form.submit}>
@@ -106,6 +146,20 @@ function OidcProviderFields({
         {issuer.trim() !== "" && requiredGroup.trim() === "" && (
           <OpenToEveryoneWarning />
         )}
+
+        <OidcDiscoveryField
+          issuer={issuer}
+          onApply={handleApplyDiscovery}
+          scopes={scopes}
+        />
+
+        <ProviderCallbackUrls
+          provider="oidc"
+          publicUrl={publicUrl}
+          showBackchannel={backchannelLogout}
+        />
+
+        <ProviderRegistrationNote />
 
         <Controller
           control={form.control}

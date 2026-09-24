@@ -82,6 +82,17 @@ TESSERA_TELEMETRY__FILTER=info,tessera_server=debug
 supplied it. The ones the panel cannot change are marked read-only with the
 reason.
 
+Settings you want on every run of a development server go in `.dev/local.env`,
+one `NAME=value` per line. `pnpm server:dev` and `pnpm server:dev:fakes` both
+load it when it exists, after `fakes.env`, so it wins over the fakes. It is not
+in version control, and `pnpm dev:fakes` never rewrites it. This is the way to
+set the boot-fixed ones, which the panel refuses by design:
+
+```bash
+# .dev/local.env
+TESSERA_FEATURES__DOCS=true     # mounts the browsable API docs at /docs
+```
+
 Everything is validated during start-up: a bad port, an unusable log filter, an
 unknown key, or a backend the binary was not compiled with all fail the process
 before it opens a socket.

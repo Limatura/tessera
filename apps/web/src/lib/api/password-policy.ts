@@ -104,3 +104,21 @@ export function passwordSchemaFor(policy: PasswordPolicy) {
       }
     });
 }
+
+/**
+ * Whether the server turned the password down because it appears in a known
+ * breach (`auth.pwned.*`). That refusal is a plain 400 whose message names the
+ * breach, with no code of its own, so the message is all there is to go on.
+ *
+ * It belongs on the password field, next to the other reasons a password is
+ * refused, rather than under the submit button like a failure of the request.
+ */
+export function isBreachedPasswordError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.includes("data breach")
+  );
+}

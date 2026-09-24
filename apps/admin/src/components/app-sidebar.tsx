@@ -38,6 +38,7 @@ const SETTINGS_ITEMS: NavLink[] = [
   { title: "分享與取件", url: "/settings/share" },
   { title: "上傳設置", url: "/settings/upload" },
   { title: "存儲配置", url: "/settings/storage" },
+  { title: "站台資訊", url: "/settings/site" },
   { title: "外觀", url: "/settings/theme" },
   { title: "功能開關", url: "/settings/features" },
 ];

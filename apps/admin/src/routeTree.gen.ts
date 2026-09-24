@@ -24,6 +24,7 @@ import { Route as SettingsMailRouteImport } from './routes/settings/mail'
 import { Route as SettingsNetworkRouteImport } from './routes/settings/network'
 import { Route as SettingsPasswordRouteImport } from './routes/settings/password'
 import { Route as SettingsShareRouteImport } from './routes/settings/share'
+import { Route as SettingsSiteRouteImport } from './routes/settings/site'
 import { Route as SettingsStorageRouteImport } from './routes/settings/storage'
 import { Route as SettingsThemeRouteImport } from './routes/settings/theme'
 import { Route as SettingsThrottleRouteImport } from './routes/settings/throttle'
@@ -104,6 +105,11 @@ const SettingsShareRoute = SettingsShareRouteImport.update({
   path: '/settings/share',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsSiteRoute = SettingsSiteRouteImport.update({
+  id: '/settings/site',
+  path: '/settings/site',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsStorageRoute = SettingsStorageRouteImport.update({
   id: '/settings/storage',
   path: '/settings/storage',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/settings/network': typeof SettingsNetworkRoute
   '/settings/password': typeof SettingsPasswordRoute
   '/settings/share': typeof SettingsShareRoute
+  '/settings/site': typeof SettingsSiteRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/theme': typeof SettingsThemeRoute
   '/settings/throttle': typeof SettingsThrottleRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByTo {
   '/settings/network': typeof SettingsNetworkRoute
   '/settings/password': typeof SettingsPasswordRoute
   '/settings/share': typeof SettingsShareRoute
+  '/settings/site': typeof SettingsSiteRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/theme': typeof SettingsThemeRoute
   '/settings/throttle': typeof SettingsThrottleRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/settings/network': typeof SettingsNetworkRoute
   '/settings/password': typeof SettingsPasswordRoute
   '/settings/share': typeof SettingsShareRoute
+  '/settings/site': typeof SettingsSiteRoute
   '/settings/storage': typeof SettingsStorageRoute
   '/settings/theme': typeof SettingsThemeRoute
   '/settings/throttle': typeof SettingsThrottleRoute
@@ -203,6 +212,7 @@ export interface FileRouteTypes {
     | '/settings/network'
     | '/settings/password'
     | '/settings/share'
+    | '/settings/site'
     | '/settings/storage'
     | '/settings/theme'
     | '/settings/throttle'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
     | '/settings/network'
     | '/settings/password'
     | '/settings/share'
+    | '/settings/site'
     | '/settings/storage'
     | '/settings/theme'
     | '/settings/throttle'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/settings/network'
     | '/settings/password'
     | '/settings/share'
+    | '/settings/site'
     | '/settings/storage'
     | '/settings/theme'
     | '/settings/throttle'
@@ -267,6 +279,7 @@ export interface RootRouteChildren {
   SettingsNetworkRoute: typeof SettingsNetworkRoute
   SettingsPasswordRoute: typeof SettingsPasswordRoute
   SettingsShareRoute: typeof SettingsShareRoute
+  SettingsSiteRoute: typeof SettingsSiteRoute
   SettingsStorageRoute: typeof SettingsStorageRoute
   SettingsThemeRoute: typeof SettingsThemeRoute
   SettingsThrottleRoute: typeof SettingsThrottleRoute
@@ -384,6 +397,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsShareRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings/site': {
+      id: '/settings/site'
+      path: '/settings/site'
+      fullPath: '/settings/site'
+      preLoaderRoute: typeof SettingsSiteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings/storage': {
       id: '/settings/storage'
       path: '/settings/storage'
@@ -427,6 +447,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsNetworkRoute: SettingsNetworkRoute,
   SettingsPasswordRoute: SettingsPasswordRoute,
   SettingsShareRoute: SettingsShareRoute,
+  SettingsSiteRoute: SettingsSiteRoute,
   SettingsStorageRoute: SettingsStorageRoute,
   SettingsThemeRoute: SettingsThemeRoute,
   SettingsThrottleRoute: SettingsThrottleRoute,
