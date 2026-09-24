@@ -30,7 +30,7 @@ use common::{
     provider::{FakeProvider, Script},
     session_cookie,
 };
-use tessera_server::config::Config;
+use tessera_server::config::{Config, LinkByEmail};
 use time::OffsetDateTime;
 
 const CLIENT_ID: &str = "tessera";
@@ -81,6 +81,12 @@ async fn the_panel_can_read_a_provider_document_through_the_server() {
         assert_eq!(
             read["scopes_supported"],
             serde_json::json!(["openid", "email", "profile"])
+        );
+        // What lets the panel say, before anybody is refused, that this
+        // provider cannot vouch for an address.
+        assert_eq!(
+            read["claims_supported"],
+            serde_json::json!(["sub", "email", "groups"])
         );
     }
 }
@@ -482,6 +488,142 @@ async fn an_address_from_userinfo_is_enough() {
 
     assert_eq!(location(&response), "/");
     assert!(response.headers().contains_key(header::SET_COOKIE));
+}
+
+/// An instance whose provider may attach sign-ins to existing accounts as
+/// `link` says, with a password account already holding `alice@example.com`.
+async fn with_alice(provider: &FakeProvider, link: LinkByEmail) -> TestApp {
+    let issuer = provider.issuer.clone();
+    let app = TestApp::with_config(move |config: &mut Config| {
+        PUBLIC_URL.clone_into(&mut config.server.public_url);
+        config.auth.oidc.issuer = issuer;
+        CLIENT_ID.clone_into(&mut config.auth.oidc.client_id);
+        "a-secret".clone_into(&mut config.auth.oidc.client_secret);
+        config.auth.oidc.link_by_email = link;
+    })
+    .await;
+    register(&app, "alice").await;
+    app
+}
+
+/// Signs in through the provider as somebody at `alice@example.com`, with
+/// `verified` as the provider's `email_verified`, or no claim at all.
+async fn arrives_as_alice(
+    app: &TestApp,
+    provider: &FakeProvider,
+    verified: Option<bool>,
+) -> Response<Body> {
+    let mut claims = claims_for("sub-alice", "alice@example.com");
+    match verified {
+        Some(verified) => with_claim(&mut claims, "email_verified", serde_json::json!(verified)),
+        None => {
+            if let Some(fields) = claims.as_object_mut() {
+                fields.remove("email_verified");
+            }
+        }
+    }
+    provider.will_say(Script {
+        claims,
+        ..Script::default()
+    });
+    let state = leave(app, "/api/v1/auth/oidc/start", Auth::None).await;
+    come_back(app, provider, &state).await
+}
+
+/// Whether the sign-in landed on the account registered with a password.
+async fn landed_on_alice(app: &TestApp, response: &Response<Body>) -> bool {
+    if location(response) != "/" {
+        return false;
+    }
+    let body = body_json(
+        app.empty(
+            Method::GET,
+            "/api/v1/auth/session",
+            Auth::Cookie(&session_cookie(response)),
+        )
+        .await,
+    )
+    .await;
+    common::field(&body, "username") == serde_json::json!("alice")
+}
+
+/// Synology's SSO Server has no `email_verified` claim at all, Entra ID leaves
+/// it out, and Authentik sends `false` by default. Against those the old
+/// switch did nothing whatever it was set to; these are the three answers
+/// that replaced it.
+#[tokio::test]
+async fn how_far_a_provider_is_trusted_decides_whether_it_links() {
+    for (link, verified, links) in [
+        (LinkByEmail::Never, Some(true), false),
+        (LinkByEmail::WhenVerified, Some(true), true),
+        (LinkByEmail::WhenVerified, None, false),
+        (LinkByEmail::WhenVerified, Some(false), false),
+        (LinkByEmail::Always, None, true),
+        (LinkByEmail::Always, Some(false), true),
+    ] {
+        let provider = FakeProvider::start(CLIENT_ID).await;
+        let app = with_alice(&provider, link).await;
+        let response = arrives_as_alice(&app, &provider, verified).await;
+        if links {
+            assert!(
+                landed_on_alice(&app, &response).await,
+                "{link:?} with {verified:?} should have linked"
+            );
+        } else {
+            assert_eq!(
+                rejection(&response).as_deref(),
+                Some("address_taken"),
+                "{link:?} with {verified:?} should have been refused"
+            );
+        }
+    }
+}
+
+/// A provider that puts the address in the token and says whether it checked
+/// it only in userinfo. Reading the verdict only when the address was missing
+/// from the token left these unverified for ever.
+#[tokio::test]
+async fn a_verdict_from_userinfo_counts_for_an_address_from_the_token() {
+    let provider = FakeProvider::start(CLIENT_ID).await;
+    let app = with_alice(&provider, LinkByEmail::WhenVerified).await;
+    let mut claims = claims_for("sub-alice", "alice@example.com");
+    if let Some(fields) = claims.as_object_mut() {
+        fields.remove("email_verified");
+    }
+    provider.will_say(Script {
+        claims,
+        userinfo: Some(serde_json::json!({
+            "email": "alice@example.com",
+            "email_verified": true,
+        })),
+        ..Script::default()
+    });
+    let state = leave(&app, "/api/v1/auth/oidc/start", Auth::None).await;
+    let response = come_back(&app, &provider, &state).await;
+    assert!(landed_on_alice(&app, &response).await);
+}
+
+/// But only a verdict about the same address. Userinfo vouching for another
+/// one says nothing about the address the token carried.
+#[tokio::test]
+async fn a_verdict_about_another_address_does_not_count() {
+    let provider = FakeProvider::start(CLIENT_ID).await;
+    let app = with_alice(&provider, LinkByEmail::WhenVerified).await;
+    let mut claims = claims_for("sub-alice", "alice@example.com");
+    if let Some(fields) = claims.as_object_mut() {
+        fields.remove("email_verified");
+    }
+    provider.will_say(Script {
+        claims,
+        userinfo: Some(serde_json::json!({
+            "email": "someone-else@example.com",
+            "email_verified": true,
+        })),
+        ..Script::default()
+    });
+    let state = leave(&app, "/api/v1/auth/oidc/start", Auth::None).await;
+    let response = come_back(&app, &provider, &state).await;
+    assert_eq!(rejection(&response).as_deref(), Some("address_taken"));
 }
 
 /// With a group required, somebody outside it is refused even though the

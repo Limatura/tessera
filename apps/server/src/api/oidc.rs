@@ -465,12 +465,13 @@ async fn identify(
                 Outcome::Rejected(Rejection::Refused)
             })?;
 
-            // A provider that keeps the address and the groups out of the token
-            // releases them here instead. Asked for only when something is
-            // missing, so the ordinary case is one round trip rather than two.
+            // A provider that keeps the address, whether it checked it, or the
+            // groups out of the token releases them here instead. Asked for
+            // only when something is missing, so the ordinary case is one
+            // round trip rather than two.
             let wants_groups = !config.auth.oidc.required_group.trim().is_empty()
                 && !admit::is_in_required_group(&claims, &config.auth.oidc);
-            if (claims.email.is_none() || wants_groups)
+            if (claims.email.is_none() || claims.email_verified.is_none() || wants_groups)
                 && let Some(access_token) = tokens.access_token.as_deref()
                 && let Some(extra) = token::userinfo(&document, access_token).await
             {
@@ -643,9 +644,9 @@ async fn attach(
         // Attaching to an account that already exists is how somebody who
         // registered with a password starts using the provider without losing
         // their shares. It is also how a stranger takes over that account if
-        // the provider does not check addresses, which is why both the switch
-        // and the provider's own verification have to agree.
-        if !provider.links_by_verified_email(&config) || !identity.email_verified {
+        // the provider does not check addresses, which is why the operator
+        // says how far this provider's addresses are to be trusted.
+        if !provider.may_link(&config, identity.email_verified) {
             return Err(Outcome::Rejected(Rejection::AddressTaken));
         }
         state
@@ -751,6 +752,18 @@ fn merge(claims: &mut claims::Claims, extra: serde_json::Map<String, serde_json:
             .get("email")
             .and_then(serde_json::Value::as_str)
             .map(str::to_owned);
+    }
+    // Filled on its own and not only with the address. A provider may put the
+    // address in the token and say whether it checked it only in userinfo,
+    // and reading the one without the other left it unverified for ever.
+    //
+    // Only when userinfo is talking about the same address: a verdict on some
+    // other address says nothing about this one.
+    let same_address = extra
+        .get("email")
+        .and_then(serde_json::Value::as_str)
+        .is_none_or(|address| Some(address) == claims.email.as_deref());
+    if claims.email_verified.is_none() && same_address {
         claims.email_verified = extra
             .get("email_verified")
             .and_then(serde_json::Value::as_bool);

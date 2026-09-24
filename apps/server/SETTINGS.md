@@ -142,7 +142,9 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 - `required_group: string` — **只允許這個群組的人登入。空字串 = provider 認證過的任何人都能進**
 - `group_claim: string` — 群組在哪個 claim。Authentik/Authelia 用 `groups`，Keycloak 用 `realm_access.roles`，部分 LDAP bridge 用 `memberOf`。點號選巢狀欄位
 - `display_name: string` — 登入按鈕文字，空則用 issuer 的 host
-- `link_by_verified_email: bool` — provider 身分能否綁到同 email 的既有帳號，預設 `false`。就算開了也要 provider 說 `email_verified`
+- `link_by_email: "never" | "when_verified" | "always"` — provider 身分能否綁到同 email 的既有帳號，預設 `never`
+  - `when_verified`：provider 要說 `email_verified` 是 true 才綁
+  - `always`：不管 provider 怎麼說都綁。給 Synology、Entra ID、Authentik 這類不送或亂送 `email_verified` 的 provider 用。**provider 若讓任何人填任何信箱註冊，選這個等於讓人靠填別人的信箱接管這裡的帳號**，只適合自己掌控帳號的 IdP
 
 > **`required_group` 留空是實質的安全問題。**
 > Provider 服務多個應用時，它認證的是「所有在它那裡有帳號的人」，不等於「該進你這個站的人」。

@@ -69,6 +69,13 @@ pub struct Provider {
     /// provider advertises instead of making somebody type them.
     #[serde(default)]
     pub scopes_supported: Vec<String>,
+    /// Which claims it says it can release.
+    ///
+    /// Carried for the panel, like the scopes: a provider that does not list
+    /// `email_verified` will never let `when_verified` link anybody, and saying
+    /// so when the document is read beats finding out from the first refusal.
+    #[serde(default)]
+    pub claims_supported: Vec<String>,
     /// Which PKCE methods it accepts. `S256` is required by us.
     #[serde(default)]
     pub code_challenge_methods_supported: Vec<String>,
@@ -252,6 +259,7 @@ mod tests {
             jwks_uri: None,
             backchannel_logout_supported: false,
             scopes_supported: vec!["openid".to_owned(), "email".to_owned()],
+            claims_supported: Vec::new(),
             code_challenge_methods_supported: vec!["S256".to_owned()],
         }
     }

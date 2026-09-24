@@ -27,7 +27,7 @@ Code: `auth/oidc/`, `api/oidc.rs`, `db/repository/oidc.rs`. Passwords moved to t
 
 Three shapes of instance, and the settings that separate them.
 
-| | Registration | `link_by_verified_email` | `required_group` |
+| | Registration | `link_by_email` | `required_group` |
 | --- | --- | --- | --- |
 | One person, own NAS | closed | off | empty |
 | A few friends | invite | on | empty |
@@ -135,7 +135,7 @@ flowchart TD
     F -->|no| G[no_address]
     F -->|yes| H{an account has that address}
     H -->|no| I{registration allows it}
-    H -->|yes| J{link_by_verified_email and verified}
+    H -->|yes| J{link_by_email allows it}
     J -->|yes| K[attach the identity, sign in]
     J -->|no| L[address_taken]
     I -->|no| M[not_invited]
@@ -154,7 +154,17 @@ Everything from password reset to notification assumes an address exists. Relaxi
 
 An instance whose people registered with passwords first wants the provider attached to those accounts, not a second set beside them. Matching on the address is how that happens.
 
-It is also how a stranger takes over an account, if the provider hands out addresses it never checked. So two things have to agree: `auth.oidc.link_by_verified_email` has to be on, and the token has to say `email_verified` is true. Either one alone is not enough, and a mismatch is refused with `address_taken` rather than silently creating a second account.
+It is also how a stranger takes over an account, if the provider hands out addresses it never checked. So the operator says how far this provider's addresses are to be trusted, in `auth.oidc.link_by_email`, and anything short of that is refused with `address_taken` rather than silently creating a second account:
+
+- `never`, the default: no address links anything.
+- `when_verified`: the provider has to say `email_verified` is true, in the token or in userinfo. Userinfo is asked when the token leaves the claim out, and only a verdict about the same address counts.
+- `always`: whatever the provider says. For a provider the operator runs and hands accounts out on.
+
+`when_verified` used to be the only way on, and it did nothing against providers that do not send the claim: Synology's SSO Server does not have it, Entra ID leaves it out for work accounts, and Authentik's default mapping sends `false`. `always` is the answer for those, and a trade the operator makes knowingly: a provider that lets anybody sign up with any address becomes a way to take over accounts here. GitHub and Discord have no such setting, because neither hands over an address it has not checked.
+
+`POST /admin/settings/oidc/discovery` returns the provider's `claims_supported`, so the panel can say, when the document is read, that a provider without `email_verified` in it will never link under `when_verified`.
+
+Tested by `how_far_a_provider_is_trusted_decides_whether_it_links`, `a_verdict_from_userinfo_counts_for_an_address_from_the_token` and `a_verdict_about_another_address_does_not_count`.
 
 This matters most with a large public provider. Anyone can obtain an account there, so an instance that both registers strangers and matches on unverified addresses is handing out other people's accounts.
 

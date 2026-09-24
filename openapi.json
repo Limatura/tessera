@@ -748,6 +748,13 @@
             "description": "Whether it will tell this instance when somebody signs out.",
             "type": "boolean"
           },
+          "claims_supported": {
+            "description": "The claims it says it can release. Without `email_verified` here,\n`link_by_email = when_verified` will never link anybody through this\nprovider; `always` or signing in and attaching it is what is left.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "issuer": {
             "description": "The provider's own name for itself, which is what `auth.oidc.issuer`\nhas to be set to.",
             "example": "https://id.example.com",
@@ -764,7 +771,8 @@
         "required": [
           "issuer",
           "scopes_supported",
-          "backchannel_logout_supported"
+          "backchannel_logout_supported",
+          "claims_supported"
         ],
         "type": "object"
       },
