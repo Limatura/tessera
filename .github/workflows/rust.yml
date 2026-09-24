@@ -9,6 +9,7 @@ on:
     paths: &rust-paths
       - "apps/server/**"
       - "apps/cli/**"
+      - "apps/dev/**"
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
@@ -170,6 +171,7 @@ jobs:
             rust: &rust
               - "apps/server/**"
               - "apps/cli/**"
+              - "apps/dev/**"
               - "crates/**"
               - "packages/crypto/src/wasm/**"
               - "scripts/crypto-wasm.sh"

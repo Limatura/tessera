@@ -16,6 +16,8 @@
     "dev:admin": "turbo run dev -F admin",
     "dev:tui": "turbo run dev -F tui",
     "server:dev": "cargo run --bin tessera-server",
+    "dev:fakes": "cargo run -q -p tessera-dev",
+    "server:dev:fakes": "set -a && . ./.dev/fakes.env && set +a && cargo run --bin tessera-server",
     "server:build": "cargo build --release --bin tessera-server",
     "server:test": "cargo nextest run --workspace",
     "server:test:backends": "cargo nextest run --run-ignored all -E 'binary(backends)'",

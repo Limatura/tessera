@@ -14,6 +14,8 @@ apps/web/src/routeTree.gen.ts
 # Environment variables
 .env
 .env*.local
+# Written by `pnpm dev:fakes`: settings pointing a server at the local fakes.
+.dev/
 
 # IDEs and editors
 .vscode/*

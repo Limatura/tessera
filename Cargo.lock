@@ -5001,6 +5001,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tessera-dev"
+version = "0.1.0"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "getrandom 0.3.4",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "tessera-server"
 version = "0.1.0"
 dependencies = [
