@@ -87,6 +87,59 @@ async fn come_back(app: &TestApp, state: &str) -> Response<Body> {
     .await
 }
 
+/// The same setting for GitHub, and the one that matters most there: with no
+/// groups to narrow it, `always` opens this instance to every GitHub account,
+/// so it has to work exactly as written and nothing wider.
+#[tokio::test]
+async fn github_makes_accounts_only_as_its_own_setting_says() {
+    use tessera_server::config::{ProviderRegistration, RegistrationPolicy};
+
+    for (registration, github_says, makes_one) in [
+        (
+            RegistrationPolicy::Closed,
+            ProviderRegistration::Always,
+            true,
+        ),
+        (RegistrationPolicy::Open, ProviderRegistration::Never, false),
+        (
+            RegistrationPolicy::Closed,
+            ProviderRegistration::Inherit,
+            false,
+        ),
+    ] {
+        let github = FakeOauth::start().await;
+        let base = github.base.clone();
+        let app = TestApp::with_config(move |config: &mut Config| {
+            PUBLIC_URL.clone_into(&mut config.server.public_url);
+            CLIENT_ID.clone_into(&mut config.auth.github.client_id);
+            "a-secret".clone_into(&mut config.auth.github.client_secret);
+            config.auth.github.base_url = base;
+            config.auth.registration = registration;
+            config.auth.github.allow_registration = github_says;
+        })
+        .await;
+        github.is(serde_json::json!({ "id": 4_242, "login": "alice" }));
+        github.addresses(serde_json::json!([
+            { "email": "alice@example.com", "primary": true, "verified": true },
+        ]));
+        let state = leave(&app).await;
+        let response = come_back(&app, &state).await;
+        if makes_one {
+            assert_eq!(
+                location(&response),
+                "/",
+                "{registration:?} with {github_says:?}"
+            );
+        } else {
+            assert_eq!(
+                rejection(&response).as_deref(),
+                Some("not_invited"),
+                "{registration:?} with {github_says:?}"
+            );
+        }
+    }
+}
+
 /// The whole point.
 #[tokio::test]
 async fn a_github_account_signs_in() {

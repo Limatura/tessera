@@ -40,6 +40,7 @@ use crate::{
         oauth::{Identity as OauthIdentity, Provider as OauthProvider},
         oidc::{admit, claims, flow, logout, token},
     },
+    config::ProviderRegistration,
     db::repository::{
         session::{SignedInWith, StartedBy},
         user::User,
@@ -669,15 +670,24 @@ async fn register(
     now: OffsetDateTime,
 ) -> std::result::Result<User, Outcome> {
     let config = state.config();
-    if config.auth.registration == crate::config::RegistrationPolicy::Closed {
-        return Err(Outcome::Rejected(Rejection::NotInvited));
-    }
-    // The same rule as registering with a password: an instance that asks for
-    // an invitation asks the provider's users for one too. Being admitted by
-    // the provider is not being admitted here.
-    let invite = check_invite(state, waiting.invite_code.as_deref())
-        .await
-        .map_err(|_ignored| Outcome::Rejected(Rejection::NotInvited))?;
+    let invite = match provider.registration(&config) {
+        ProviderRegistration::Never => return Err(Outcome::Rejected(Rejection::NotInvited)),
+        // The provider letting somebody through is what admits them: that is
+        // the whole point of saying so per provider, so there is no invitation
+        // to ask for.
+        ProviderRegistration::Always => None,
+        ProviderRegistration::Inherit => {
+            if config.auth.registration == crate::config::RegistrationPolicy::Closed {
+                return Err(Outcome::Rejected(Rejection::NotInvited));
+            }
+            // The same rule as registering with a password: an instance that
+            // asks for an invitation asks the provider's users for one too.
+            // Being admitted by the provider is not being admitted here.
+            check_invite(state, waiting.invite_code.as_deref())
+                .await
+                .map_err(|_ignored| Outcome::Rejected(Rejection::NotInvited))?
+        }
+    };
 
     // Collisions are settled by asking, one candidate at a time, so this
     // cannot be the pure function the rest of `admit` is.

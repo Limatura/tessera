@@ -405,6 +405,12 @@ pub struct OauthConfig {
     /// that both registers strangers and matches on an address is handing out
     /// other people's accounts.
     pub link_by_verified_email: bool,
+    /// Whether signing in here for the first time makes an account. See
+    /// [`ProviderRegistration`].
+    ///
+    /// **Neither of these has groups to narrow it down**: `always` lets every
+    /// account at the provider open one here.
+    pub allow_registration: ProviderRegistration,
 }
 
 /// Signing in through an identity provider.
@@ -475,6 +481,36 @@ pub struct OidcConfig {
     /// Whether a provider identity may attach itself to an existing account
     /// with the same address. See [`LinkByEmail`].
     pub link_by_email: LinkByEmail,
+    /// Whether signing in here for the first time makes an account. See
+    /// [`ProviderRegistration`].
+    pub allow_registration: ProviderRegistration,
+}
+
+/// Whether a provider may make accounts, apart from `auth.registration`.
+///
+/// # Why this is not just `auth.registration`
+///
+/// That one setting decided both registering with a password and a provider
+/// making an account on a first sign-in, so an instance could not close the
+/// first and keep the second. That is exactly what somebody running their own
+/// provider wants: accounts are made there, this instance should have no
+/// sign-up form of its own, and the people the provider lets through should
+/// not have to wait for an administrator to make them an account here too.
+///
+/// Three answers and not a switch, so that leaving it alone changes nothing:
+/// `inherit` is what every instance did before this existed.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProviderRegistration {
+    /// As `auth.registration` says, invitation included.
+    #[default]
+    Inherit,
+    /// Always, whatever `auth.registration` says, and without an invitation:
+    /// being let through by the provider is what admits somebody.
+    Always,
+    /// Never. Only accounts that already exist, or are attached by their
+    /// owners, can sign in this way.
+    Never,
 }
 
 /// When an identity provider's address may attach a sign-in to an account
@@ -568,6 +604,7 @@ impl Default for OidcConfig {
             group_claim: "groups".to_owned(),
             display_name: String::new(),
             link_by_email: LinkByEmail::Never,
+            allow_registration: ProviderRegistration::Inherit,
         }
     }
 }

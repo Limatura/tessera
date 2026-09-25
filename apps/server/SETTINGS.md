@@ -148,6 +148,7 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 - `link_by_email: "never" | "when_verified" | "always"` — provider 身分能否綁到同 email 的既有帳號，預設 `never`
   - `when_verified`：provider 要說 `email_verified` 是 true 才綁
   - `always`：不管 provider 怎麼說都綁。給 Synology、Entra ID、Authentik 這類不送或亂送 `email_verified` 的 provider 用。**provider 若讓任何人填任何信箱註冊，選這個等於讓人靠填別人的信箱接管這裡的帳號**，只適合自己掌控帳號的 IdP
+- `allow_registration: "inherit" | "always" | "never"` — 第一次從這家登入時要不要開帳號，預設 `inherit`（跟著 `auth.registration`，含邀請碼）。`always` 不看 `auth.registration`、也不用邀請碼，給「帳號全在自己 IdP 管、這邊關掉密碼註冊」的站台；`never` 只讓已存在的帳號登入
 
 > **`required_group` 留空是實質的安全問題。**
 > Provider 服務多個應用時，它認證的是「所有在它那裡有帳號的人」，不等於「該進你這個站的人」。
@@ -163,6 +164,7 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 - `base_url: string` — 給 GitHub Enterprise Server 用（自架在自己網域下）。空 = github.com。**Discord 無視此欄位**
 - `display_name: string` — 按鈕文字，空則用 provider 名稱
 - `link_by_verified_email: bool` — 預設 `false`。理由同 OIDC：這兩家帳號一分鐘就能註冊，同時開放註冊又用 email 比對等於把別人的帳號送出去
+- `allow_registration: "inherit" | "always" | "never"` — 同 OIDC。**這兩家沒有群組可以篩，`always` 等於全世界任何 GitHub／Discord 帳號都能在這台開戶**
 
 ## `share.*`
 

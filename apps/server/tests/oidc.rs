@@ -695,6 +695,109 @@ async fn a_closed_instance_does_not_register_from_the_provider() {
     );
 }
 
+/// An instance run from its own identity provider: no sign-up form of its own,
+/// and the people the provider lets through get an account on their first
+/// sign-in, without an invitation. `auth.registration` alone could not say
+/// that; the per-provider setting can, in both directions.
+#[tokio::test]
+async fn a_provider_can_make_accounts_whatever_registration_says() {
+    use tessera_server::config::{ProviderRegistration, RegistrationPolicy};
+
+    for (registration, provider_says, makes_one) in [
+        (
+            RegistrationPolicy::Closed,
+            ProviderRegistration::Always,
+            true,
+        ),
+        (
+            RegistrationPolicy::Invite,
+            ProviderRegistration::Always,
+            true,
+        ),
+        (RegistrationPolicy::Open, ProviderRegistration::Never, false),
+        (
+            RegistrationPolicy::Closed,
+            ProviderRegistration::Inherit,
+            false,
+        ),
+        (
+            RegistrationPolicy::Invite,
+            ProviderRegistration::Inherit,
+            false,
+        ),
+        (
+            RegistrationPolicy::Open,
+            ProviderRegistration::Inherit,
+            true,
+        ),
+    ] {
+        let provider = FakeProvider::start(CLIENT_ID).await;
+        let issuer = provider.issuer.clone();
+        let app = TestApp::with_config(move |config: &mut Config| {
+            PUBLIC_URL.clone_into(&mut config.server.public_url);
+            config.auth.oidc.issuer = issuer;
+            CLIENT_ID.clone_into(&mut config.auth.oidc.client_id);
+            "a-secret".clone_into(&mut config.auth.oidc.client_secret);
+            config.auth.registration = registration;
+            config.auth.oidc.allow_registration = provider_says;
+        })
+        .await;
+        provider.will_say(Script {
+            claims: claims_for("sub-1", "alice@example.com"),
+            ..Script::default()
+        });
+        let state = leave(&app, "/api/v1/auth/oidc/start", Auth::None).await;
+        let response = come_back(&app, &provider, &state).await;
+        if makes_one {
+            assert_eq!(
+                location(&response),
+                "/",
+                "{registration:?} with {provider_says:?} should have made an account"
+            );
+        } else {
+            assert_eq!(
+                rejection(&response).as_deref(),
+                Some("not_invited"),
+                "{registration:?} with {provider_says:?} should have been refused"
+            );
+        }
+    }
+}
+
+/// `never` is about new accounts. Somebody who already signs in this way
+/// keeps doing so.
+#[tokio::test]
+async fn never_still_lets_an_existing_identity_in() {
+    use tessera_server::config::ProviderRegistration;
+
+    let provider = FakeProvider::start(CLIENT_ID).await;
+    let issuer = provider.issuer.clone();
+    let app = TestApp::with_config(move |config: &mut Config| {
+        PUBLIC_URL.clone_into(&mut config.server.public_url);
+        config.auth.oidc.issuer = issuer;
+        CLIENT_ID.clone_into(&mut config.auth.oidc.client_id);
+        "a-secret".clone_into(&mut config.auth.oidc.client_secret);
+    })
+    .await;
+    provider.will_say(Script {
+        claims: claims_for("sub-1", "alice@example.com"),
+        ..Script::default()
+    });
+    let first = leave(&app, "/api/v1/auth/oidc/start", Auth::None).await;
+    assert_eq!(location(&come_back(&app, &provider, &first).await), "/");
+
+    let mut config = Config::clone(&app.state.config());
+    config.auth.oidc.allow_registration = ProviderRegistration::Never;
+    app.state.replace_config(std::sync::Arc::new(config));
+
+    provider.will_say(Script {
+        claims: claims_for("sub-1", "alice@example.com"),
+        ..Script::default()
+    });
+    let again = leave(&app, "/api/v1/auth/oidc/start", Auth::None).await;
+    assert_eq!(location(&come_back(&app, &provider, &again).await), "/");
+}
+
 /// With no provider configured there is nothing to send anybody to, and the
 /// sign-in page is told rather than left waiting.
 #[tokio::test]

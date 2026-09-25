@@ -176,6 +176,18 @@ A person signing in for the first time cannot fix a name the provider chose, so 
 
 Collisions take a number, not a random tail. `alice2` is recognisably the same person's account; `alice-x7f2` is not.
 
+## Who a provider may make an account for
+
+`auth.registration` decides registering with a password. Whether a first sign-in through a provider makes an account is `allow_registration` on that provider, one of three:
+
+- `inherit`, the default: as `auth.registration` says, invitation included. What every instance did before this existed.
+- `always`: whatever `auth.registration` says, and without an invitation. The provider letting somebody through is what admits them.
+- `never`: only accounts that already exist, or that their owners attach, sign in this way.
+
+The combination this exists for is `auth.registration = closed` with the provider on `always`: accounts are made at the identity provider, this instance has no sign-up form of its own, and the people the provider admits get an account here the first time they arrive. With OIDC, `required_group` is still what narrows that down. GitHub and Discord have no groups, so `always` there opens this instance to every account at either.
+
+Tested by `a_provider_can_make_accounts_whatever_registration_says`, `never_still_lets_an_existing_identity_in` and `github_makes_accounts_only_as_its_own_setting_says`.
+
 ## When the provider signs somebody out
 
 A provider can disable somebody, and a session that outlives that is exactly what single sign-on exists to prevent.

@@ -116,6 +116,15 @@ impl Provider {
         }
     }
 
+    /// Whether a first sign-in through this provider makes an account.
+    #[must_use]
+    pub fn registration(self, config: &Config) -> crate::config::ProviderRegistration {
+        self.oauth(config)
+            .map_or(config.auth.oidc.allow_registration, |oauth| {
+                oauth.allow_registration
+            })
+    }
+
     /// Whether an address from this provider may attach to an account that
     /// already has it, given whether the provider said it checked it.
     #[must_use]
