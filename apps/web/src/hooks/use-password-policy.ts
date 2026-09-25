@@ -23,6 +23,7 @@ export function usePasswordPolicy(): PasswordPolicy {
     }
 
     return {
+      checksBreaches: data.account_password_breach_check,
       minLength: data.account_password_min_length,
       requiresDigit: data.account_password_requires_digit,
       requiresMixedCase: data.account_password_requires_mixed_case,

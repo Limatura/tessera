@@ -25,10 +25,16 @@ export interface PasswordPolicy {
   requiresMixedCase: boolean;
   requiresDigit: boolean;
   requiresSymbol: boolean;
+  /**
+   * Whether a password in a known breach is refused, and so whether
+   * `GET /auth/pwned/{prefix}` is there to ask while somebody types.
+   */
+  checksBreaches: boolean;
 }
 
 /** Used until `/capabilities` answers, and if it never does. */
 export const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
+  checksBreaches: false,
   minLength: PASSWORD_MIN_FLOOR,
   requiresDigit: false,
   requiresMixedCase: false,
