@@ -7,6 +7,8 @@ import { useLogout } from "@/hooks/use-auth";
 import { useRevokeOtherSessions } from "@/hooks/use-sessions";
 import * as m from "@/paraglide/messages";
 
+import { DeleteAccountButton } from "./delete-account-dialog";
+
 export function DangerZone() {
   const logout = useLogout();
   const revokeOthers = useRevokeOtherSessions();
@@ -73,6 +75,11 @@ export function DangerZone() {
           }
           description={m.user_danger_logout_description()}
           title={m.user_danger_logout_title()}
+        />
+        <DangerAction
+          action={<DeleteAccountButton />}
+          description={m.user_danger_delete_description()}
+          title={m.user_danger_delete_title()}
         />
       </div>
     </section>

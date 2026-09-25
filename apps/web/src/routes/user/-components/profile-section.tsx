@@ -1,42 +1,104 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconDeviceFloppy, IconX } from "@tabler/icons-react";
+import type { components } from "@tessera/api/schema";
 import { Avatar, AvatarFallback } from "@tessera/ui/components/avatar";
 import { Button } from "@tessera/ui/components/button";
-import { Field, FieldError, FieldLabel } from "@tessera/ui/components/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
+import { toast } from "@tessera/ui/components/toast";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { useUpdateAccount } from "@/hooks/use-account";
 import { useSession } from "@/hooks/use-auth";
+import { usernameSchema } from "@/lib/api/auth-schema";
 import * as m from "@/paraglide/messages";
 
-import { notifyComingSoon } from "./coming-soon";
 import { Section } from "./section";
 
+type ErrorBody = components["schemas"]["ErrorBody"];
+
 const profileSchema = z.object({
-  displayName: z.string().min(1),
+  // 只檢查有沒有填:這是當初設的密碼,不一定符合現在的政策(同 PasswordSection)。
+  currentPassword: z.string().min(1, {
+    error: () => m.auth_password_required(),
+  }),
   email: z.email({ error: () => m.auth_email_invalid() }),
+  username: usernameSchema,
 });
 
 type ProfileValues = z.infer<typeof profileSchema>;
 
 export function ProfileSection() {
   const { data: session } = useSession();
+  const updateAccount = useUpdateAccount();
   const defaultValues: ProfileValues = {
-    displayName: session?.username ?? "",
+    currentPassword: "",
     email: session?.email ?? "",
+    username: session?.username ?? "",
   };
 
   const {
-    formState: { errors, isDirty },
+    formState: { dirtyFields, errors },
     handleSubmit,
     register,
     reset,
+    setError,
   } = useForm<ProfileValues>({
     defaultValues,
     resolver: zodResolver(profileSchema),
     values: defaultValues,
   });
+
+  // 只打了密碼不算有改東西 —— 沒有名稱或 email 要送,就沒有東西要存。
+  const changed = Boolean(dirtyFields.username || dirtyFields.email);
+
+  const handleSave = (values: ProfileValues) => {
+    const emailChanged = values.email !== session?.email;
+    updateAccount.mutate(
+      {
+        current_password: values.currentPassword,
+        // 沒改的欄位不送:server 把省略當「保留」,送同一個值會多一次唯一性檢查。
+        email: emailChanged ? values.email : undefined,
+        username:
+          values.username === session?.username ? undefined : values.username,
+      },
+      {
+        // openapi-fetch 丟的是 ErrorBody;斷線時是 TypeError,沒有 code。
+        onError: (error) => {
+          const { code, message } = error as Partial<ErrorBody>;
+          if (code === "unauthorized") {
+            setError("currentPassword", {
+              message: m.user_profile_wrong_password(),
+            });
+            return;
+          }
+          toast.add({
+            description:
+              code === "conflict"
+                ? m.user_profile_taken()
+                : (message ?? m.common_try_again()),
+            title: m.user_profile_save_failed(),
+            type: "error",
+          });
+        },
+        onSuccess: () => {
+          toast.add({
+            description: emailChanged
+              ? m.user_profile_email_unverified()
+              : undefined,
+            title: m.user_profile_saved(),
+            type: "success",
+          });
+        },
+      }
+    );
+  };
 
   return (
     <Section
@@ -57,29 +119,57 @@ export function ProfileSection() {
         </div>
       </div>
 
-      <form className="space-y-4" onSubmit={handleSubmit(notifyComingSoon)}>
+      <form className="space-y-4" onSubmit={handleSubmit(handleSave)}>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field data-invalid={Boolean(errors.displayName)}>
-            <FieldLabel htmlFor="profile-display-name">
+          <Field data-invalid={Boolean(errors.username)}>
+            <FieldLabel htmlFor="profile-username">
               {m.user_profile_display_name()}
             </FieldLabel>
-            <Input id="profile-display-name" {...register("displayName")} />
-            {errors.displayName ? (
-              <FieldError errors={[errors.displayName]} />
-            ) : null}
+            <Input
+              autoComplete="username"
+              id="profile-username"
+              {...register("username")}
+            />
+            {errors.username ? <FieldError errors={[errors.username]} /> : null}
           </Field>
           <Field data-invalid={Boolean(errors.email)}>
             <FieldLabel htmlFor="profile-email">
               {m.user_profile_email()}
             </FieldLabel>
-            <Input id="profile-email" type="email" {...register("email")} />
+            <Input
+              autoComplete="email"
+              id="profile-email"
+              type="email"
+              {...register("email")}
+            />
             {errors.email ? <FieldError errors={[errors.email]} /> : null}
           </Field>
         </div>
 
+        {changed ? (
+          <Field data-invalid={Boolean(errors.currentPassword)}>
+            <FieldLabel htmlFor="profile-current-password">
+              {m.user_password_current()}
+            </FieldLabel>
+            <Input
+              autoComplete="current-password"
+              id="profile-current-password"
+              type="password"
+              {...register("currentPassword")}
+            />
+            {errors.currentPassword ? (
+              <FieldError errors={[errors.currentPassword]} />
+            ) : (
+              <FieldDescription>
+                {m.user_profile_current_password_hint()}
+              </FieldDescription>
+            )}
+          </Field>
+        ) : null}
+
         <div className="flex justify-end gap-2">
           <Button
-            disabled={!isDirty}
+            disabled={!changed || updateAccount.isPending}
             onClick={() => reset(defaultValues)}
             type="button"
             variant="ghost"
@@ -87,7 +177,11 @@ export function ProfileSection() {
             <IconX size={16} />
             {m.user_profile_reset()}
           </Button>
-          <Button disabled={!isDirty} type="submit" variant="outline">
+          <Button
+            disabled={!changed || updateAccount.isPending}
+            type="submit"
+            variant="outline"
+          >
             <IconDeviceFloppy size={16} />
             {m.user_profile_save()}
           </Button>

@@ -13,7 +13,7 @@ export const pageSearchSchema = z.object({
   page: z.coerce.number().int().min(1).catch(1),
 });
 
-type PagedRoute = "/shares" | "/users";
+type PagedRoute = "/all-shares" | "/shares" | "/users";
 
 /**
  * 上一頁／下一頁用 `Link` 而不是 button,中鍵開新分頁、複製連結都能用,
@@ -92,7 +92,13 @@ function PageLink({
   }
 
   return (
-    <Link aria-label={label} className={className} search={{ page }} to={to}>
+    // 保留其他 search 參數(例如使用者頁的 `deleted`),只換頁碼。
+    <Link
+      aria-label={label}
+      className={className}
+      search={(previous) => ({ ...previous, page })}
+      to={to}
+    >
       {children}
     </Link>
   );

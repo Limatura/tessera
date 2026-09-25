@@ -1650,6 +1650,42 @@ async fn suspending_an_account_stops_it_signing_in_but_keeps_its_shares_served()
     );
 }
 
+/// Suspending someone is not a demotion. `is_admin` rewrites the role whenever
+/// it is sent, so a patch that leaves it out must leave the role alone.
+#[tokio::test]
+async fn suspending_an_account_keeps_its_role() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    let roles_of_second = |rows: Vec<serde_json::Value>| {
+        rows.into_iter()
+            .find(|row| row["id"] == id.as_str())
+            .map(|row| row["roles"].clone())
+            .expect("the second account is listed")
+    };
+    let before = roles_of_second(list(&app, Auth::Cookie(&admin)).await);
+
+    for wanted in ["disabled", "active"] {
+        expect_status(
+            app.json(
+                Method::PATCH,
+                &format!("/api/v1/admin/users/{id}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "state": wanted }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await;
+    }
+
+    assert_eq!(
+        roles_of_second(list(&app, Auth::Cookie(&admin)).await),
+        before
+    );
+}
+
 /// A deletion is not.
 #[tokio::test]
 async fn a_deleted_account_cannot_be_reactivated() {

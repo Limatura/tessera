@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AllSharesRouteImport } from './routes/all-shares'
 import { Route as InvitesRouteImport } from './routes/invites'
 import { Route as SharesRouteImport } from './routes/shares'
 import { Route as UsersRouteImport } from './routes/users'
@@ -33,6 +34,11 @@ import { Route as SettingsUploadRouteImport } from './routes/settings/upload'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AllSharesRoute = AllSharesRouteImport.update({
+  id: '/all-shares',
+  path: '/all-shares',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InvitesRoute = InvitesRouteImport.update({
@@ -133,6 +139,7 @@ const SettingsUploadRoute = SettingsUploadRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/all-shares': typeof AllSharesRoute
   '/invites': typeof InvitesRoute
   '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
@@ -155,6 +162,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/all-shares': typeof AllSharesRoute
   '/invites': typeof InvitesRoute
   '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
@@ -178,6 +186,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/all-shares': typeof AllSharesRoute
   '/invites': typeof InvitesRoute
   '/shares': typeof SharesRoute
   '/users': typeof UsersRoute
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/all-shares'
     | '/invites'
     | '/shares'
     | '/users'
@@ -224,6 +234,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/all-shares'
     | '/invites'
     | '/shares'
     | '/users'
@@ -246,6 +257,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/all-shares'
     | '/invites'
     | '/shares'
     | '/users'
@@ -269,6 +281,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AllSharesRoute: typeof AllSharesRoute
   InvitesRoute: typeof InvitesRoute
   SharesRoute: typeof SharesRoute
   UsersRoute: typeof UsersRoute
@@ -297,6 +310,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/all-shares': {
+      id: '/all-shares'
+      path: '/all-shares'
+      fullPath: '/all-shares'
+      preLoaderRoute: typeof AllSharesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invites': {
@@ -437,6 +457,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AllSharesRoute: AllSharesRoute,
   InvitesRoute: InvitesRoute,
   SharesRoute: SharesRoute,
   UsersRoute: UsersRoute,

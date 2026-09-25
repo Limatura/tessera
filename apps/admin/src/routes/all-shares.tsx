@@ -1,0 +1,181 @@
+import { IconTrash } from "@tabler/icons-react";
+import { createRoute } from "@tanstack/react-router";
+import type { components } from "@tessera/api/schema";
+import { Badge } from "@tessera/ui/components/badge";
+import { Button } from "@tessera/ui/components/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@tessera/ui/components/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@tessera/ui/components/table";
+import { useState } from "react";
+
+import { AdminShell } from "@/components/admin-shell";
+import { Pager, pageSearchSchema } from "@/components/pager";
+import { PAGE_SIZE, useAllShares } from "@/hooks/use-admin";
+import { useSession } from "@/hooks/use-auth";
+import { formatBytes } from "@/lib/format";
+import { hasPermission, PERMISSIONS } from "@/lib/permissions";
+import { requirePermission } from "@/lib/route-guard";
+
+import { Route as rootRoute } from "./__root";
+import { DeleteShareDialog } from "./all-shares/-components/delete-share-dialog";
+
+type AdminShare = components["schemas"]["AdminShareResponse"];
+
+/**
+ * 全站的分享,用來找出該清掉的東西。跟「我的分享」不同:這裡看不到取件碼 ——
+ * 能讀每一份的取件碼等於能打開每一份,那是另一種權力(見 AdminShareResponse)。
+ */
+export const Route = createRoute({
+  beforeLoad: ({ context, location }) =>
+    requirePermission(
+      context.queryClient,
+      location.href,
+      PERMISSIONS.sharesReadAny
+    ),
+  component: AllSharesComponent,
+  getParentRoute: () => rootRoute,
+  path: "/all-shares",
+  validateSearch: pageSearchSchema,
+});
+
+const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+/** 單一檔案時用檔名;文字跟多檔都沒有檔名,改說它是什麼。 */
+function shareLabel(share: AdminShare): string {
+  if (share.filename) {
+    return share.filename;
+  }
+  return share.kind === "text" ? "文字" : `${share.file_count} 個檔案`;
+}
+
+function AllSharesComponent() {
+  const { page } = Route.useSearch();
+  const shares = useAllShares((page - 1) * PAGE_SIZE);
+  const { data: account } = useSession();
+  const [deleting, setDeleting] = useState<AdminShare | null>(null);
+
+  const canDelete = hasPermission(account, PERMISSIONS.sharesDeleteAny);
+  const rows = shares.data?.data;
+
+  return (
+    <AdminShell title="全站分享">
+      <Card className="ring-foreground/10">
+        <CardHeader>
+          <CardTitle>所有分享</CardTitle>
+          <CardDescription>
+            {shares.data
+              ? `共 ${shares.data.meta.total} 筆。這裡看不到取件碼。`
+              : "每個人上傳的分享,包括匿名的。這裡看不到取件碼。"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {shares.isPending && (
+            <p className="text-sm text-muted-foreground">載入中…</p>
+          )}
+          {shares.isError && (
+            <p className="text-sm text-destructive">分享載入失敗</p>
+          )}
+          {rows?.length === 0 && (
+            <p className="text-sm text-muted-foreground">還沒有任何分享。</p>
+          )}
+          {rows && rows.length > 0 && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>內容</TableHead>
+                  <TableHead>上傳者</TableHead>
+                  <TableHead className="text-right">大小</TableHead>
+                  <TableHead className="text-right">已送出</TableHead>
+                  <TableHead>建立時間</TableHead>
+                  <TableHead>狀態</TableHead>
+                  {canDelete && <TableHead className="w-12" />}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((share) => (
+                  <TableRow key={share.id}>
+                    <TableCell className="max-w-64 truncate font-medium">
+                      {shareLabel(share)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {/* null 是匿名上傳;帳號刪掉之後這裡仍是那個 id,不會變 null。 */}
+                      {share.owner_id ? (
+                        <span className="font-mono text-xs">
+                          {share.owner_id}
+                        </span>
+                      ) : (
+                        "匿名"
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatBytes(share.size_bytes)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {formatBytes(share.bytes_served)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {dateFormatter.format(new Date(share.created_at))}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={share.active ? "secondary" : "outline"}>
+                        {share.active ? "有效" : "已失效"}
+                      </Badge>
+                    </TableCell>
+                    {canDelete && (
+                      <TableCell>
+                        <Button
+                          aria-label={`刪除 ${shareLabel(share)}`}
+                          onClick={() => setDeleting(share)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <IconTrash />
+                        </Button>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          {shares.data && (
+            <Pager
+              page={page}
+              pageSize={PAGE_SIZE}
+              to="/all-shares"
+              total={shares.data.meta.total}
+            />
+          )}
+        </CardContent>
+      </Card>
+
+      {canDelete && (
+        <DeleteShareDialog
+          label={deleting ? shareLabel(deleting) : ""}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeleting(null);
+            }
+          }}
+          share={deleting}
+        />
+      )}
+    </AdminShell>
+  );
+}

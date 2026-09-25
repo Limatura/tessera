@@ -1,6 +1,7 @@
 import {
   IconArrowsSort,
   IconDashboard,
+  IconDatabase,
   IconFiles,
   IconInnerShadowTop,
   IconKey,
@@ -66,6 +67,12 @@ const NAV_ITEMS: (NavEntry & { permission?: Permission })[] = [
     permission: PERMISSIONS.usersRead,
     title: "使用者",
     url: "/users",
+  },
+  {
+    icon: <IconDatabase />,
+    permission: PERMISSIONS.sharesReadAny,
+    title: "全站分享",
+    url: "/all-shares",
   },
   {
     icon: <IconKey />,
