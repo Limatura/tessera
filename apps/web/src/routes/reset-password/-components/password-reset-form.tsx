@@ -21,11 +21,12 @@ import { toast } from "@tessera/ui/components/toast";
 import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import { useMemo } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { PasswordRequirements } from "@/components/password-requirements";
 import { usePasswordReset } from "@/hooks/use-auth";
+import { usePasswordBreach } from "@/hooks/use-password-breach";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
 import {
   isBreachedPasswordError,
@@ -74,8 +75,14 @@ export function PasswordResetForm({
     defaultValues: { confirmPassword: "", password: "" },
     resolver: zodResolver(schema),
   });
+  const password = useWatch({ control, name: "password" });
+  const breached = usePasswordBreach(password, policy);
 
   const onSubmit = handleSubmit((values) => {
+    // Already shown under the field; the server would only say it again.
+    if (breached) {
+      return;
+    }
     if (!tokenFromUrl) {
       toast.add({
         description: "Reset link is missing",
@@ -204,11 +211,12 @@ export function PasswordResetForm({
                             type="password"
                           />
                           <PasswordRequirements
+                            breached={breached}
                             invalid={fieldState.invalid}
                             policy={policy}
                             value={field.value}
                           />
-                          {fieldState.error?.type === "server" && (
+                          {fieldState.error?.type === "server" && !breached && (
                             <FieldError errors={[fieldState.error]} />
                           )}
                         </Field>

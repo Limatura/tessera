@@ -20,11 +20,12 @@ import { Input } from "@tessera/ui/components/input";
 import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import { useMemo } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { PasswordRequirements } from "@/components/password-requirements";
 import { useRegister } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
+import { usePasswordBreach } from "@/hooks/use-password-breach";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
 import { registerSchemaFor } from "@/lib/api/auth-schema";
 import type { RegisterFormValues } from "@/lib/api/auth-schema";
@@ -65,8 +66,14 @@ export function RegisterForm({
     },
     resolver: zodResolver(schema),
   });
+  const password = useWatch({ control, name: "password" });
+  const breached = usePasswordBreach(password, policy);
 
   const onSubmit = handleSubmit(({ inviteCode, ...values }) => {
+    // 密碼欄下面已經標出外洩了,送出去 server 也只會再退回一次。
+    if (breached) {
+      return;
+    }
     registerAccount.mutate(
       {
         ...values,
@@ -237,11 +244,12 @@ export function RegisterForm({
                             type="password"
                           />
                           <PasswordRequirements
+                            breached={breached}
                             invalid={fieldState.invalid}
                             policy={policy}
                             value={field.value}
                           />
-                          {fieldState.error?.type === "server" && (
+                          {fieldState.error?.type === "server" && !breached && (
                             <FieldError errors={[fieldState.error]} />
                           )}
                         </Field>

@@ -8,6 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { PasswordRequirements } from "@/components/password-requirements";
+import { usePasswordBreach } from "@/hooks/use-password-breach";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
 import { passwordSchemaFor } from "@/lib/api/password-policy";
 import type { PasswordPolicy } from "@/lib/api/password-policy";
@@ -59,6 +60,7 @@ export function PasswordSection() {
   });
 
   const newPassword = watch("newPassword");
+  const breached = usePasswordBreach(newPassword, policy);
 
   // API 還沒接:驗證是真的,送出只提示尚未開放,並清掉打過的密碼。
   const onSubmit = () => {
@@ -99,6 +101,7 @@ export function PasswordSection() {
               {...register("newPassword")}
             />
             <PasswordRequirements
+              breached={breached}
               invalid={Boolean(errors.newPassword)}
               policy={policy}
               value={newPassword}

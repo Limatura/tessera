@@ -905,6 +905,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/pwned/{prefix}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The breached hashes under the first five characters of a password's SHA-1.
+         * @description # Errors
+         *
+         *     `404` when this instance does not check passwords against the breach list,
+         *     `400` for anything but five hex characters, `429` past this source's
+         *     allowance, `503` when the breach list cannot be reached. A form treats the
+         *     last as "no warning"; the check still runs when it is sent.
+         */
+        get: operations["pwned_range"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/register": {
         parameters: {
             query?: never;
@@ -1974,6 +1999,18 @@ export interface components {
              */
             used_bytes: number;
         };
+        /** @description The breached suffixes under one prefix. */
+        BreachedSuffixes: {
+            /**
+             * @description The remaining 35 characters of every breached hash under the prefix,
+             *     uppercase. The padding the service adds to hide how many there are is
+             *     taken out, so a match here is a real one.
+             * @example [
+             *       "1E4C9B93F3F0682250B6CF8331B7EE68FD8"
+             *     ]
+             */
+            suffixes: string[];
+        };
         /**
          * @description Body of `GET /api/v1/capabilities`.
          *
@@ -1999,6 +2036,11 @@ export interface components {
              *     Nothing else will.
              */
             access_log: boolean;
+            /**
+             * @description Whether a new account password is checked against known breaches, so
+             *     a form can look it up as it is typed; see `GET /auth/pwned/{prefix}`.
+             */
+            account_password_breach_check: boolean;
             /**
              * @description Shortest *account* password this instance accepts, so a client can say so
              *     before the round trip, not after it.
@@ -2301,6 +2343,12 @@ export interface components {
         DiscoveryProbeResponse: {
             /** @description Whether it will tell this instance when somebody signs out. */
             backchannel_logout_supported: boolean;
+            /**
+             * @description The claims it says it can release. Without `email_verified` here,
+             *     `link_by_email = when_verified` will never link anybody through this
+             *     provider; `always` or signing in and attaching it is what is left.
+             */
+            claims_supported: string[];
             /**
              * @description The provider's own name for itself, which is what `auth.oidc.issuer`
              *     has to be set to.
@@ -5257,6 +5305,65 @@ export interface operations {
             };
             /** @description Accounts are switched off */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    pwned_range: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The first five characters of the password's SHA-1, in hex, either case */
+                prefix: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The breached suffixes under that prefix */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BreachedSuffixes"];
+                };
+            };
+            /** @description Not five hex characters */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance does not check passwords against the breach list */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many lookups from this source */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The breach list could not be reached */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

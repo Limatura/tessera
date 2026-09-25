@@ -15,17 +15,19 @@ import * as m from "@/paraglide/messages";
  * shown from the start, since telling someone the rules up front beats
  * rejecting them after they have chosen.
  *
- * A password over the ceiling is not a rule to tick, so it appears only when
- * it applies, as it is typed. It does not wait for `invalid`: it is already
- * certain the moment it shows, and the field error it would otherwise be is
- * one this list replaces.
+ * Two refusals are not rules to tick and appear only when they apply, as they
+ * are typed: a password over the ceiling, and one found in a breach
+ * (`breached`, from `usePasswordBreach`). Neither waits for `invalid`, since
+ * each is already certain the moment it shows.
  */
 export function PasswordRequirements({
+  breached = false,
   className,
   invalid = false,
   policy,
   value,
 }: {
+  breached?: boolean;
   className?: string;
   invalid?: boolean;
   policy: PasswordPolicy;
@@ -58,6 +60,7 @@ export function PasswordRequirements({
         </li>
       ))}
       {tooLong && <Refusal>{m.auth_password_too_long()}</Refusal>}
+      {breached && <Refusal>{m.auth_password_breached()}</Refusal>}
     </ul>
   );
 }
