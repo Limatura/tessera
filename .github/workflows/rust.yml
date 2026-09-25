@@ -1,8 +1,6 @@
 name: rust
 
-# Deliberately separate from the TypeScript pipeline and outside Turborepo:
-# the two toolchains share no cache, no dependency graph and no failure modes,
-# and coupling them would make every frontend PR wait on a Rust rebuild.
+# Separate from the TypeScript pipeline: no shared cache, deps or failure modes.
 on:
   push:
     branches: [main]
@@ -20,28 +18,13 @@ on:
       - ".cargo/**"
       - ".config/**"
       - "openapi.json"
-      # Every workflow, not just this one: the `workflows` job below lints all
-      # of them with actionlint and zizmor, and it is the only place that does.
-      # Without this a change to `web.yml` would ship unchecked.
+      # All workflows: the `workflows` job below lints every one of them.
       - ".github/workflows/**"
-      # The composite action every Rust job here starts with. It sets up the
-      # toolchain and clears what previous runs left on the machine, so a change
-      # to it changes how all nine jobs behave — and without this line it was
-      # the one thing in the build that could ship without CI running at all.
       - ".github/actions/**"
-      # And the scripts those jobs shell out to — the fuzz seed corpus and the
-      # image footprint report. Same reasoning as the line above: without this
-      # a change to one of them ships without ever having been run.
       - ".github/scripts/**"
-      # The schema pages are generated from the migrations and committed, and
-      # the drift check that keeps them honest lives in `checks`. Without these
-      # three, a change to the notes or to the generator fires nothing, and the
-      # only thing that would have caught a stale page never runs.
       - ".tbls.yml"
       - "docs/schema/**"
       - "scripts/schema-docs.py"
-      # The browser's build of the encryption crate, committed and checked in
-      # `checks` the same way. A hand edit to it has to wake that check.
       - "packages/crypto/src/wasm/**"
       - "scripts/crypto-wasm.sh"
   pull_request:
@@ -54,97 +37,28 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
-  # Outside the checkout on purpose. `actions/checkout` cleans the workspace at
-  # the start of every run, so a target directory inside it is a cache that
-  # gets deleted before it is ever read — which on one machine is the difference
-  # between a two-minute run and a twenty-minute one. `_work` is the runner's
-  # own directory and survives.
+  # Outside the checkout, which `actions/checkout` wipes every run.
   CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
-  # A build that has to redo work is slow; one that keeps every intermediate
-  # from every branch fills a disk. Measured locally: 28 GB of incremental
-  # artefacts against 4.5 GB of actual output.
+  # Incremental artefacts reached 28 GB against 4.5 GB of output.
   CARGO_INCREMENTAL: "0"
-  # The runner has ten cores and eight gigabytes, and cargo's default `-j` is
-  # the core count. Ten rustc processes at once is what the OOM killer has been
-  # answering, and `exit 143` with nothing in the log is what that looks like
-  # from here.
-  #
-  # Measured on 2026-08-31, peak total resident across every rustc at once,
-  # building `tessera-server --all-features`:
-  #
-  #   -j 10   64s   2212 MB
-  #   -j 4    88s   1780 MB
-  #   -j 1   353s   3541 MB
-  #
-  # Four, because the failure being bought off is "killed" rather than "slow".
-  # One is on the list because it is the obvious answer and it is the worst
-  # one: a single rustc has no other crate to interleave with, so the largest
-  # one reaches its own peak alone.
+  # 8 GB RAM: the default (10 jobs) gets OOM-killed as a silent `exit 143`.
   CARGO_BUILD_JOBS: "4"
-  # Line tables, not full debug info. CI reads a panic message and a line
-  # number; nothing here opens a debugger.
-  #
-  # Measured the same day, building the workspace with `--all-features
-  # --tests`: 11 GB of target directory against 5.4 GB, for the same time
-  # within noise. That directory shares a disk with the image build's layer
-  # cache and eight object stores, and the composite action deletes the whole
-  # thing when it passes its cap, which costs every job after it a cold build.
-  #
-  # Here rather than in `[profile.dev]`, so that a local `cargo test` keeps the
-  # debug info somebody stepping through a test needs.
+  # Halves the target dir; local `cargo test` keeps full debug info.
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
-  # Lint levels in Cargo.toml are `warn` so that local development is never
-  # blocked mid-experiment. This is where they become blocking.
+  # Lints are `warn` locally; CI makes them blocking.
   RUSTFLAGS: -D warnings
 
-# Read-only by default. Nothing here writes to the repository: the checks
-# report through the run's own status, and the one artefact goes to
-# `upload-artifact`, which needs no repository scope. Granting less than the
-# default means a compromised action in this graph — and there are eight
-# third-party ones — cannot push, tag, or open anything.
+# Read-only by default; jobs that need more ask for it.
 permissions:
   contents: read
 
-# Nothing from a fork runs here, and that guard exists before it is needed.
-#
-# These jobs run on a machine somebody owns, in their house. On a private
-# repository only people with access can start one. The day this repository goes
-# public, `pull_request` becomes an invitation for a stranger to run a build
-# script of their choosing on that machine — GitHub's own documentation says not
-# to pair self-hosted runners with public repositories for exactly this reason.
-#
-# A pull request from a branch in this repository still runs, which is every
-# pull request today. One from a fork does not run at all, which is visible as a
-# skipped check rather than a silent pass.
+# Self-hosted runner: every job skips pull requests from forks.
 jobs:
-  # Six checks that were six jobs until they were measured. They all read the
-  # same build output, so splitting them meant paying for a checkout, a toolchain
-  # step and a fresh look at the target directory six times over. On one runner
-  # that overhead is serial, and it was about half of what those jobs cost:
-  # 101 seconds across six jobs, of which the work itself was a few seconds each.
-  #
-  # A step keeps its own status inside the job, so a red build still says which
-  # check failed. What is lost is five tick marks on the pull request.
-  # What a change can and cannot break, worked out once so that eight jobs do
-  # not each have to decide.
-  #
-  # This runner has one slot and the whole suite is about twenty minutes of it,
-  # serial. Most of that is unreachable from most changes: a pull request that
-  # edited only `.tbls.yml` and the schema pages it generates still ran the
-  # object store suite against eight blob stores, both database backends, a
-  # cross-compiled image build and a feature powerset. Eighteen of its twenty
-  # minutes could not have failed.
-  #
-  # Ten seconds here buys that back. The jobs below stay listed either way, so
-  # a skipped one reads as skipped rather than as missing.
+  # Skips jobs a change cannot affect.
   changes:
     name: what changed
     runs-on: [self-hosted, Linux, X64]
-    # `contents: read` comes from the workflow. On a pull request the filter
-    # asks the API which files changed, and that needs the pull-request scope;
-    # without it the job fails with "Resource not accessible by integration"
-    # and every job behind it skips. Granted here rather than at the top so no
-    # other job in this file can read pull requests.
+    # `paths-filter` needs `pull-requests: read` to list PR files.
     permissions:
       contents: read
       pull-requests: read
@@ -166,8 +80,6 @@ jobs:
         id: filter
         with:
           filters: |
-            # Anything that changes what the server does. The wide one, and the
-            # gate on everything that compiles or runs it.
             rust: &rust
               - "apps/server/**"
               - "apps/cli/**"
@@ -186,10 +98,7 @@ jobs:
               - ".github/actions/**"
               - ".github/scripts/**"
               - ".github/workflows/**"
-            # The powerset is the most expensive job in the suite and the
-            # narrowest in what it can find: a feature combination that does not
-            # build. That needs the feature list or something behind a `cfg` to
-            # have moved.
+            # The powerset only matters when features or `cfg`s move.
             features:
               - "Cargo.toml"
               - "apps/server/Cargo.toml"
@@ -197,10 +106,8 @@ jobs:
               - "Cargo.lock"
               - ".github/actions/**"
               - ".github/workflows/**"
-            # The fuzzer reads `openapi.json` from a running instance, so it
-            # cares about the same things the server does.
             contract: *rust
-            # The image build. `apps/web` is in it and is not in `rust`.
+            # `apps/web` is embedded in the image.
             image:
               - "apps/server/**"
               - "apps/web/**"
@@ -211,14 +118,10 @@ jobs:
               - ".github/actions/**"
               - ".github/scripts/**"
               - ".github/workflows/**"
-            # `checks` regenerates the schema pages and fails on drift, so it
-            # has to run when the notes or the generator move, not only when
-            # the migrations do.
             schema:
               - ".tbls.yml"
               - "docs/schema/**"
               - "scripts/schema-docs.py"
-            # Linted by this workflow and nothing else.
             workflows:
               - ".github/workflows/**"
               - ".github/actions/**"
@@ -226,7 +129,6 @@ jobs:
   checks:
     name: checks
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -238,13 +140,10 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/rust
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
-        # `wasm-bindgen` at the version `crates/tessera-crypto/Cargo.toml` pins.
-        # `scripts/crypto-wasm.sh` refuses any other, so a bump that forgets
-        # this line fails with a message saying so.
+        # Must match the wasm-bindgen version pinned in crates/tessera-crypto.
         with: { tool: "cargo-deny,cargo-machete,wasm-bindgen@0.2.128" }
 
-      # rustfmt.toml uses import grouping, which is still nightly-gated. The
-      # pinned stable toolchain builds and lints; only formatting needs nightly.
+      # rustfmt.toml uses nightly-only import grouping.
       - name: Install nightly rustfmt
         run: rustup toolchain install nightly --profile minimal --component rustfmt
 
@@ -254,22 +153,12 @@ jobs:
       - name: clippy
         run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
 
-      # The module docs carry this project's architectural reasoning, so a broken
-      # intra-doc link is a real defect. `[workspace.lints.rustdoc]` flags them;
-      # this is what actually runs rustdoc to find out.
-      #
-      # `RUSTDOCFLAGS` and not the job-wide `RUSTFLAGS`: rustdoc's own lints are
-      # not reached by the latter, so this step printed warnings and passed for
-      # as long as it has existed. Six had accumulated by the time somebody read
-      # a doc comment and found it describing a type that no longer exists.
+      # `RUSTFLAGS` does not reach rustdoc lints.
       - name: rustdoc
         env:
           RUSTDOCFLAGS: -D warnings
         run: cargo doc --locked --workspace --no-deps --all-features --document-private-items
 
-      # The contract is generated, never hand-edited. Regenerating it here and
-      # diffing against the committed file is what stops the frontend and the
-      # Discord bot from generating clients against a stale spec.
       - name: Regenerate openapi.json
         run: cargo run --locked --bin tessera-openapi
 
@@ -280,16 +169,10 @@ jobs:
             exit 1
           fi
 
-      # The same arrangement as the contract above, for the same reason. A
-      # generated diagram is only worth having if it cannot be stale, and the
-      # thing that goes stale is not the diagram — it is somebody's memory of
-      # which tables exist.
       - name: Regenerate the schema docs
         run: python3 scripts/schema-docs.py
 
-      # `git status` rather than `git diff`, because a new table writes a new
-      # file and `git diff` does not see untracked ones — which is the drift
-      # most worth catching.
+      # `git status`, not `git diff`: a new table adds an untracked file.
       - name: Fail if the schema docs drifted
         run: |
           if [ -n "$(git status --porcelain -- docs/schema)" ]; then
@@ -298,10 +181,6 @@ jobs:
             exit 1
           fi
 
-      # The browser runs `tessera-crypto` compiled to WebAssembly, and that build
-      # is committed so the frontend never needs a Rust compiler. The same
-      # arrangement as the two above: rebuild, and fail if it is not what was
-      # committed, so the module a browser loads is always the crate as it is.
       - name: Rebuild the browser's encryption module
         run: |
           rustup target add wasm32-unknown-unknown
@@ -315,19 +194,14 @@ jobs:
             exit 1
           fi
 
-      # cargo-deny covers advisories, licences, banned crates and sources.
-      # cargo-audit is deliberately absent — see the comment in deny.toml.
+      # cargo-audit is left out on purpose; see deny.toml.
       - name: security and licences
         run: cargo deny check
 
       - name: unused dependencies
         run: cargo machete
 
-      # `tessera-core` holds the domain rules and must not learn about HTTP, SQL
-      # or async IO. Its Cargo.toml already omits them, but a banned crate can
-      # still arrive transitively through something innocuous — which is exactly
-      # the case review would miss. Walk the resolved tree instead of trusting
-      # the manifest.
+      # Checks the resolved tree: banned crates can arrive transitively.
       - name: Assert no IO crate reaches tessera-core
         run: |
           cargo tree -p tessera-core --edges normal --prefix none \
@@ -346,7 +220,6 @@ jobs:
   features:
     name: feature matrix
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -360,21 +233,12 @@ jobs:
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: cargo-hack }
 
-      # Every backend is `#[cfg]`-gated. Checking only the empty and full sets
-      # leaves the middle combinations unbuilt — which is where a missing `cfg`
-      # hides. `--depth 2` keeps the run bounded while still pairing backends.
-      #
-      # No `--locked` here, and it is not an oversight: `--no-dev-deps` works by
-      # rewriting the real manifest while cargo runs, which cargo then wants to
-      # reflect in the lock file — and `--locked` exists precisely to forbid that,
-      # so the two cancel out ("cannot update the lock file because --locked was
-      # passed"). The lock file is still pinned in CI; every other job asserts it.
+      # No `--locked`: `--no-dev-deps` rewrites the manifest, which it forbids.
       - run: cargo hack --feature-powerset --depth 2 --no-dev-deps check -p tessera-server
 
   test:
     name: test
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -390,9 +254,7 @@ jobs:
 
       - run: cargo nextest run --locked --workspace --profile ci --all-features
 
-      # Copied into the workspace first. `upload-artifact` refuses a path
-      # containing `..`, and the target directory lives outside the checkout so
-      # that `actions/checkout` does not delete it between runs.
+      # `upload-artifact` rejects paths containing `..`.
       - name: Collect the test report
         if: always()
         run: cp "$CARGO_TARGET_DIR/nextest/ci/junit.xml" junit.xml || true
@@ -408,16 +270,11 @@ jobs:
   backends:
     name: ${{ matrix.backend }} backend
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
     if: >-
       needs.changes.outputs.rust == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    # Without this job, `postgres` and `mysql` are only ever proven to *compile*.
-    # The hand-written per-dialect migration SQL especially needs a real server:
-    # "sqlite was updated and the others were forgotten" is the failure mode that
-    # choosing readable SQL over a schema builder buys, and this is the price.
     strategy:
       fail-fast: false
       matrix:
@@ -434,8 +291,7 @@ jobs:
           POSTGRES_PASSWORD: tessera
           POSTGRES_DB: tessera_test
         ports: ["5432:5432"]
-        # `pg_isready` alone reports ready during initdb, before the role and
-        # database exist — naming both is what makes the probe mean something.
+        # Bare `pg_isready` passes during initdb, before the role and db exist.
         options: >-
           --health-cmd "pg_isready -U tessera -d tessera_test" --health-interval 5s --health-timeout 5s --health-retries 20
       mysql:
@@ -446,8 +302,7 @@ jobs:
           MYSQL_PASSWORD: tessera
           MYSQL_DATABASE: tessera_test
         ports: ["3306:3306"]
-        # Likewise: `mysqladmin ping` answers long before the user is created,
-        # so the probe runs a real query as the user the tests will use.
+        # `mysqladmin ping` passes before the user exists.
         options: >-
           --health-cmd "mysql -utessera -ptessera -e 'SELECT 1' tessera_test" --health-interval 5s --health-timeout 5s --health-retries 30
     steps:
@@ -458,8 +313,7 @@ jobs:
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: cargo-nextest }
 
-      # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
-      # demand a database; `--run-ignored all` is what opts into them.
+      # These tests are `#[ignore]`d; `--run-ignored all` opts in.
       - name: Run the backend suite
         env:
           TESSERA_TEST_DATABASE_URL: ${{ matrix.url }}
@@ -470,20 +324,11 @@ jobs:
   storage:
     name: object store
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
     if: >-
       needs.changes.outputs.rust == 'true' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    # Without this job, `storage-s3` is only ever proven to *compile*. Nothing
-    # had put a byte into a bucket and read it back, so "we support S3" rested
-    # on the options being spelled right and nothing checking that.
-    #
-    # Garage rather than MinIO: MinIO's open-source repository was archived in
-    # early 2026, and Garage is what the self-hosting audience actually runs —
-    # so this doubles as a compatibility statement rather than testing a store
-    # nobody uses.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -492,26 +337,9 @@ jobs:
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: cargo-nextest }
 
-      # Not a `services:` block, because Garage needs a configuration file and
-      # `services:` can only pass an image and environment variables. Only four
-      # of its settings can come from the environment; without `/etc/garage.toml`
-      # it exits with "No such file or directory".
-      #
-      # `--single-node --default-bucket` creates the key and the bucket from the
-      # variables below, which is what makes this nine lines instead of the
-      # layout/bucket/key/allow dance. Both flags need v2.3.0 or newer.
-      # Two things this job can check for itself rather than fail mysteriously
-      # on. The disk floor is the same one the image job carries — the runner
-      # went offline once because a PR of ours grew the base image, and this
-      # adds another store's worth of images to the same machine.
       - name: Check the runner has room and free ports
         run: |
-          # Twelve, from the three measurements there are rather than from
-          # taste: the disk is 55 GB, a run with about 10 GB free had every
-          # SeaweedFS write fail, and a run with 17 GB was stopped by the old
-          # floor of 20 having done nothing wrong. The cap in
-          # `.github/actions/rust` is what keeps the disk out of that region;
-          # this only catches what the cap cannot see.
+          # Below ~10 GB free the stores fail every write with a bare 500.
           FLOOR_GB=12
           free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
           echo "root filesystem ${free_gb} GB free (floor ${FLOOR_GB} GB)"
@@ -521,36 +349,14 @@ jobs:
             free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
             echo "after clearing: ${free_gb} GB free"
           fi
-          # Checked again, and this time it stops. Carrying on without room does
-          # not produce a message about room: the stores come up, accept
-          # connections, and then answer writes with an error their gateways
-          # report as a 500 — so the run fails three minutes later in whichever
-          # test happened to write first, saying nothing about the cause.
-          # Measured on 2026-08-28: 6 GB free, 10 after pruning, and every
-          # SeaweedFS test failed with `internal error`.
-          #
-          # What was filling the disk was not the stores — they use tens of
-          # megabytes — but the shared cargo target directory, which reaches
-          # 64 GB on a 55 GB runner. That is bounded in `.github/actions/rust`,
-          # which runs before this and can hand the space back. This is the
-          # backstop for everything else on a shared machine.
           if [ "$free_gb" -lt "$FLOOR_GB" ]; then
             echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor; the object stores need room to write"
             exit 1
           fi
-          # Our own leftovers first. A cancelled job does not reach its cleanup
-          # step — cancellation skips what has not started — so a run that was
-          # superseded by a new push leaves its containers holding these ports,
-          # and the next run fails the check below on a port that is ours.
-          # Removing them by name is safe: nothing else on the machine is called
-          # this, and a container from a finished job has nothing left to say.
+          # Leftovers from cancelled runs.
           docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
             tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
 
-          # High and unusual on purpose: 9000 and 10000 are the defaults these
-          # images ship with, and they are exactly the ports something else on a
-          # shared machine is likely to already hold. What is left holding one
-          # after the line above is genuinely somebody else's.
           for port in 3900 39002 31000 38080 39100 38333 38111 38090; do
             if ss -ltn "sport = :$port" 2>/dev/null | grep -q LISTEN; then
               echo "::error::port $port is already in use on this runner"
@@ -558,6 +364,7 @@ jobs:
             fi
           done
 
+      # Not `services:`: Garage needs a config file.
       - name: Start Garage
         run: |
           mkdir -p /tmp/garage
@@ -588,15 +395,7 @@ jobs:
           docker logs tessera-garage || true
           exit 1
 
-      # A second bucket, because a file records which backend holds it and
-      # nothing but two real ones proves the reader opens the recorded name.
-      # Against a single bucket, "used the name" and "used whichever store it
-      # had" are indistinguishable — and the second is what shipped before
-      # backends existed.
-      #
-      # `--default-bucket` only makes the first, so this one goes through
-      # Garage's own CLI. It is in the image already, which is why this needs no
-      # S3 client on the runner.
+      # Proves a file is read from the bucket it names.
       - name: Create the second bucket
         run: |
           for _ in $(seq 1 60); do
@@ -607,49 +406,23 @@ jobs:
           docker exec tessera-garage /garage bucket allow \
             --read --write --owner tessera-cold --key tesseratest
 
-      # A second S3 implementation, because Garage is deliberately permissive:
-      # `config.rs` records that it enforces neither S3's 5 MiB floor nor R2's
-      # equal-part rule, "which is why the CI job cannot catch a mistake here".
-      # RustFS is stricter, and it is also what the self-hosting audience moved
-      # to after MinIO's repository was archived — so this doubles as a
-      # compatibility statement, the same reason Garage was chosen over MinIO.
-      #
-      # `mc` rather than a hand-rolled signature: RustFS has no `--default-bucket`
-      # equivalent, creating one takes sigv4, and the client that does it is a
-      # 30 MB one-shot container rather than thirty lines of `openssl` in YAML.
+      # Stricter than Garage on multipart. Buckets via rclone: MinIO's `mc` image is gone.
       - name: Start RustFS
         run: |
           docker run -d --name tessera-rustfs -p 39002:9000 \
             -e RUSTFS_ACCESS_KEY=tesseratest \
             -e RUSTFS_SECRET_KEY=tesseratestsecret \
-            rustfs/rustfs:latest
+            rustfs/rustfs:1.0.0
           for _ in $(seq 1 60); do
             curl -s -o /dev/null http://127.0.0.1:39002 && break
             sleep 1
           done
-          docker run --rm --network host --entrypoint sh quay.io/minio/mc:latest -c '
-            mc alias set t http://127.0.0.1:39002 tesseratest tesseratestsecret &&
-            mc mb --ignore-existing t/tessera &&
-            mc mb --ignore-existing t/tessera-cold'
+          for name in tessera tessera-cold; do
+            docker run --rm --network host rclone/rclone:1.75.0 mkdir \
+              ":s3,provider=Other,access_key_id=tesseratest,secret_access_key=tesseratestsecret,endpoint='http://127.0.0.1:39002':$name"
+          done
 
-      # These tests are `#[ignore]`d so a plain `cargo nextest run` does not
-      # demand an object store; `--run-ignored all` is what opts into them.
-      #
-      # The options go through the environment because `storage.options` is
-      # passed to `object_store::parse_url_opts` unchanged — no code in this
-      # repository knows these names, which is why they are also the answer an
-      # operator needs, and why this job doubles as the source for that
-      # documentation.
-      # Azure, because it is the second backend people actually name and
-      # nothing here had ever spoken its protocol. Azurite is the only emulator
-      # for it, and it needs its containers created first — which is a Shared
-      # Key signature, not a request you can just curl. Signing it here rather
-      # than pulling `azure-cli` keeps a ~700 MB image off a runner that has run
-      # out of disk before; the whole thing is `openssl dgst`.
-      #
-      # `LC_ALL=C` is not decoration. `date` obeys the runner's locale, and a
-      # localised day name goes into the string that gets signed — the signature
-      # then fails to match and the store answers 403 with no hint why.
+      # Containers are created with a Shared Key signature; `LC_ALL=C` keeps `date` unlocalised.
       - name: Start Azurite
         run: |
           docker run -d --name tessera-azurite -p 31000:10000 \
@@ -659,14 +432,10 @@ jobs:
             curl -s -o /dev/null http://127.0.0.1:31000/devstoreaccount1 && break
             sleep 1
           done
-          # The account and key every Azurite ships with; they are in its README,
-          # not a secret.
+          # Azurite's public dev account, not a secret.
           acc=devstoreaccount1
           key='Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='
           ver=2021-08-06
-          # `od` rather than `xxd`: the runner has no `xxd`, and an empty hex key
-          # does not fail here — it reaches the store and comes back as a bare
-          # `403`, which says nothing about where it went wrong.
           hexkey=$(printf '%s' "$key" | openssl base64 -d -A | od -An -v -tx1 | tr -d ' \n')
           [ -n "$hexkey" ] || { echo "::error::could not decode the Azurite key"; exit 1; }
           for name in tessera tessera-cold; do
@@ -682,15 +451,7 @@ jobs:
             [ "$code" = 201 ] || { echo "::error::could not create container $name"; exit 1; }
           done
 
-      # WebDAV, the one backend here that is not object storage at all. It has
-      # no multipart, which is the whole reason `object_store_multipart` is its
-      # own binary — this is the first store that proves the split does
-      # something rather than just tidying tests into two files.
-      #
-      # `rclone serve webdav` with no `--user`, because a URL cannot carry
-      # credentials: `reqwest` rejects `http://user:pass@host` outright with
-      # `BadScheme`. Basic auth would have to arrive as options, which is a
-      # separate thing to build and not what this job is checking.
+      # No `--user`: reqwest rejects credentials in URLs.
       - name: Start a WebDAV server
         run: |
           docker run -d --name tessera-webdav -p 38080:8080 \
@@ -699,9 +460,6 @@ jobs:
             curl -s -o /dev/null http://127.0.0.1:38080/ && break
             sleep 1
           done
-          # WebDAV does not create parent collections on PUT, so the two the
-          # suite writes into have to exist first. MKCOL is the whole protocol
-          # here — no client needed.
           for name in tessera tessera-cold; do
             code=$(curl -s -o /dev/null -w '%{http_code}' -X MKCOL \
               "http://127.0.0.1:38080/$name")
@@ -723,9 +481,6 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
 
-      # The same suite against the stricter implementation. Separate step so a
-      # failure names which store disagreed with us rather than "the object
-      # store job".
       - name: Run the object store suite against RustFS
         env:
           TESSERA_TEST_STORAGE_URL: s3://tessera
@@ -740,68 +495,41 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
 
-      # The same suite again over Azure's protocol rather than S3's. Same
-      # reason as RustFS: one implementation is one opinion, and this one is a
-      # different wire format entirely.
       - name: Run the object store suite against Azurite
         env:
           TESSERA_TEST_STORAGE_URL: azure://tessera
           TESSERA_TEST_STORAGE_URL_SECOND: azure://tessera-cold
           AZURE_STORAGE_ACCOUNT_NAME: devstoreaccount1
           AZURE_STORAGE_ACCOUNT_KEY: Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
-          # The account goes in the path: Azurite serves one account off one
-          # port, where the real service gives each its own host name.
           AZURE_STORAGE_ENDPOINT: http://127.0.0.1:31000/devstoreaccount1
           AZURE_ALLOW_HTTP: "true"
         run: |
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
 
-      # Only the first binary: WebDAV has no multipart, and the other binary is
-      # exactly the tests that need one.
-      #
-      # `allow_http` has to come through the config rather than the environment.
-      # `is_backend_option` asks the S3, GCS and Azure key sets whether a name is
-      # a real option, and the HTTP store's keys are in none of them — so a
-      # WebDAV backend is configurable through the config file and the admin API
-      # and nowhere else.
+      # No multipart binary; serial because concurrent first writes race on MKCOL.
       - name: Run the object store suite against WebDAV
         env:
           TESSERA_TEST_STORAGE_URL: http://127.0.0.1:38080/tessera
           TESSERA_TEST_STORAGE_URL_SECOND: http://127.0.0.1:38080/tessera-cold
           TESSERA_TEST_STORAGE_OPTIONS: allow_http=true
         run: |
-          # One at a time, because of how the suite runs rather than because of
-          # anything the server does. WebDAV answers a write into a directory
-          # that does not exist with `409`, and `object_store` retries after
-          # MKCOL exactly once — not enough when several uploads are creating
-          # `shares/YYYY/MM` at the same moment. The server holds the first
-          # write into a location alone so that cannot happen, but that gate
-          # lives in one process, and `nextest` gives every test its own: each
-          # of these is a first write with no sibling to wait for. Measured —
-          # in parallel this suite is flaky here even with the gate in place.
           cargo nextest run --profile ci --all-features \
             --run-ignored all --test-threads 1 -E 'binary(object_store)'
 
-      # Three more S3 implementations, and not because they disagree with the two
-      # above — measured, they do not. They are here because the compatibility
-      # table in the README names them, and a name in that table that nothing
-      # runs is a promise rather than a fact.
+      # Official MinIO images are gone; pgsty/minio is the maintained fork.
       - name: Start MinIO
         run: |
           docker run -d --name tessera-minio -p 39100:9000 \
-            -e MINIO_ROOT_USER=tesseratest -e MINIO_ROOT_SECRET=tesseratestsecret \
+            -e MINIO_ROOT_USER=tesseratest \
             -e MINIO_ROOT_PASSWORD=tesseratestsecret \
-            quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
+            pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
           for _ in $(seq 1 60); do
             curl -s -o /dev/null http://127.0.0.1:39100 && break
             sleep 1
           done
 
-      # `-s3.config` is not optional: without an identities file `SeaweedFS`
-      # answers every write with `PermissionDenied`, whatever credentials are
-      # sent. Measured — this is the whole reason it looked incompatible at
-      # first.
+      # Needs `-s3.config` for auth; the default `-volume.max` runs out of slots.
       - name: Start SeaweedFS
         run: |
           cat > /tmp/seaweed-s3.json <<'JSON'
@@ -809,24 +537,6 @@ jobs:
             "credentials":[{"accessKey":"tesseratest","secretKey":"tesseratestsecret"}],
             "actions":["Admin","Read","Write","List","Tagging"]}]}
           JSON
-          # `-volume.max` is not tuning. Left at the default, SeaweedFS sets the
-          # number of volume slots from *free disk space in gigabytes*, and it
-          # grows seven volumes at a time for each collection it has never
-          # written to. An S3 bucket is a collection, and there are three here:
-          # the filer's own default, `tessera`, and `tessera-cold`. That is
-          # twenty-one slots wanted.
-          #
-          # This runner's disk sits around fourteen gigabytes free during a run,
-          # so the budget is thirteen. The default collection takes 1-7,
-          # `tessera` takes 8-13, and `tessera-cold` gets none: every write to
-          # the second bucket fails with "No writable volumes and no free
-          # volumes left", and the split test is the only one that uses it.
-          #
-          # Reproduced locally on 2026-08-30 by giving the container a 14 GB
-          # tmpfs: the master reported `Max: 13, Free: 0` with 71 MB of 14 GB
-          # actually used, so this was never about running out of room. Pinning
-          # the count to thirty makes all three collections fit, and the same
-          # suite goes from one failure to ten passes.
           docker run -d --name tessera-seaweed -p 38333:8333 \
             -v /tmp/seaweed-s3.json:/s3.json:ro \
             chrislusf/seaweedfs:4.44 \
@@ -847,12 +557,7 @@ jobs:
             sleep 1
           done
 
-      # An S3 face over something that is not S3 — a filesystem here, but the
-      # point of it is fronting a provider that speaks something else. Pinned by
-      # digest rather than tag because the newest *release*, 2.6.0, answers
-      # `POST ?delete` with `501`: it has no bulk delete, which is how
-      # `object_store` deletes anything. Master implements it, and this is that
-      # build. Measured, not assumed — 2.6.0 fails one test and this passes nine.
+      # Master build: release 2.6.0 has no bulk delete.
       - name: Start s3proxy
         run: |
           docker run -d --name tessera-s3proxy -p 38090:80 \
@@ -864,20 +569,14 @@ jobs:
             sleep 1
           done
 
-      # One client for all four, because none of them has a `--default-bucket`
-      # and creating one takes sigv4 either way.
-      #
-      # The credentials are not decorative even where the store ignores them:
-      # `mc` refuses an access key shorter than three characters, and it says so
-      # on stderr while still reporting the bucket as created.
       - name: Create their buckets
         run: |
-          docker run --rm --network host --entrypoint sh quay.io/minio/mc:latest -c '
-            for host in 39100 38333 38111 38090; do
-              mc alias set "s$host" "http://127.0.0.1:$host" tesseratest tesseratestsecret &&
-              mc mb --ignore-existing "s$host/tessera" &&
-              mc mb --ignore-existing "s$host/tessera-cold"
-            done'
+          for port in 39100 38333 38111 38090; do
+            for name in tessera tessera-cold; do
+              docker run --rm --network host rclone/rclone:1.75.0 mkdir \
+                ":s3,provider=Other,access_key_id=tesseratest,secret_access_key=tesseratestsecret,endpoint='http://127.0.0.1:$port':$name"
+            done
+          done
 
       - name: Run the object store suite against MinIO
         env:
@@ -921,11 +620,7 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
 
-      # Credentials rather than `aws_skip_signature`, even though s3proxy is
-      # configured to ignore them. `skip_signature` is honoured on the plain
-      # path and *not* on the multipart one, which then falls through to the EC2
-      # metadata service and spends twelve seconds timing out per test. Same
-      # shape as the GCS gap recorded in `object_store.rs`.
+      # Credentials, not `skip_signature`: multipart ignores it and hits EC2 metadata.
       - name: Run the object store suite against s3proxy
         env:
           TESSERA_TEST_STORAGE_URL: s3://tessera
@@ -940,15 +635,7 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E 'binary(object_store) + binary(object_store_multipart)'
 
-      # The one thing no emulator can check: whether the rules we encode about
-      # real providers are the rules they actually have. `config.rs` says
-      # Cloudflare R2 requires every part but the last to be the same size —
-      # nothing here can confirm that, because no emulator enforces it.
-      #
-      # Gated on a secret so it costs nothing until somebody adds credentials,
-      # and skips rather than fails when they have not. `continue-on-error`
-      # because a provider being down is their outage, not our regression — the
-      # step still goes red in the log, it just does not block a merge.
+      # Optional; a provider outage should not block merges.
       - name: Run the object store suite against a real provider
         if: vars.STORAGE_PROVIDER_URL != ''
         continue-on-error: true
@@ -960,8 +647,6 @@ jobs:
           AWS_REGION: ${{ vars.STORAGE_PROVIDER_REGION }}
           AWS_ENDPOINT: ${{ vars.STORAGE_PROVIDER_ENDPOINT }}
         run: |
-          # Only the first binary unless a second bucket is configured: the
-          # cross-bucket test needs somewhere to point at that is not the first.
           filter='binary(object_store) + binary(object_store_multipart)'
           if [ -z "${TESSERA_TEST_STORAGE_URL_SECOND}" ]; then
             echo "no second bucket configured; skipping the cross-bucket test"
@@ -970,18 +655,6 @@ jobs:
           cargo nextest run --profile ci --all-features \
             --run-ignored all -E "$filter"
 
-      # A store that will not take a write answers with an error its gateway
-      # reports as a plain `500`, so the test says `internal error` and nothing
-      # about why. The store itself says why, and this is the only place that
-      # record survives the job — the next step removes the containers.
-      #
-      # After every suite rather than beside each one: a step guarded by
-      # `if: failure()` runs wherever the failure was, and which store broke is
-      # not known until one does.
-      # What a store said is half of it. The other half is what else was on the
-      # machine, because the failure that keeps happening here is something
-      # outside this job holding a port or a gigabyte. `docker run` reports
-      # `address already in use` and names nothing.
       - name: What the stores said, if a suite failed
         if: failure()
         run: |
@@ -995,22 +668,19 @@ jobs:
           done
           df -h /
           echo '::group::what else is on this machine'
-          # Named because `docker run` says `address already in use`
-          # and nothing about who is using it.
           ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null || true
           docker ps -a --format '{{.Names}}\t{{.Status}}\t{{.Ports}}' || true
           echo '::endgroup::'
 
-      # The runner keeps running after the job ends, so a container started here
-      # outlives it and the next run finds the name and the port taken.
       - name: Stop the stores
         if: always()
-        run: docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \ tessera-minio tessera-seaweed tessera-versity 2>/dev/null || true
+        run: |
+          docker rm -f tessera-garage tessera-rustfs tessera-azurite tessera-webdav \
+            tessera-minio tessera-seaweed tessera-versity tessera-s3proxy 2>/dev/null || true
 
   workflows:
     name: workflow lint
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -1022,46 +692,25 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/rust
 
-      # `actionlint` reads the workflow the way the runner will: unknown keys,
-      # expressions that cannot evaluate, shell that `shellcheck` dislikes. All
-      # of it is otherwise found by pushing and watching a run go red.
-      # From its own image rather than through a wrapper action. The wrapper
-      # picks a binary from the platform it thinks it is on, and on this runner
-      # it decided "unsupported" — a question that does not arise when the tool
-      # ships as a container.
-      #
-      # Pinned to a version that resolves YAML anchors. `paths: *rust-paths` is
-      # what keeps the trigger lists for push and pull_request from drifting
-      # apart, and 1.7.7 reads the alias as a syntax error.
+      # Container, not the wrapper action (unsupported on this runner). 1.7.7 rejects YAML anchors.
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
 
       - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
         with: { tool: zizmor }
 
-      # `zizmor` audits the workflow as an attack surface. The finding it exists
-      # for here is the one this file had until now: every `uses:` named a tag,
-      # and a tag is a label the action's author can move. Pinning to a commit
-      # means an upstream account compromise cannot silently change what runs
-      # with this repository's token.
       - name: zizmor
         run: zizmor .github/workflows/
 
   docker:
     name: docker image
     runs-on: [self-hosted, Linux, X64]
-    # `contents: read` comes from the workflow; publishing needs the package
-    # scope too, and it is granted here rather than at the top so that no other
-    # job in this file can write packages.
     permissions:
       contents: read
       packages: write
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
-    # Read by `image-size-comment`. They are set before the budget check runs,
-    # so a build that fails its budget still hands the numbers over — which is
-    # the run where somebody most wants to see them.
+    # Set before the budget check, so an over-budget build still reports.
     outputs:
       report: ${{ steps.footprint.outputs.report }}
       rootfs_bytes: ${{ steps.footprint.outputs.rootfs_bytes }}
@@ -1074,18 +723,6 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      # Before the build, and unconditionally for the builders.
-      #
-      # There is one runner and `concurrency` cancels the previous run on a
-      # branch, so nothing else on this machine is using a builder when this
-      # starts — every one of them is left over from a run that was cancelled or
-      # whose runner went away before it could tidy up. Waiting for a disk
-      # threshold to remove them is waiting for the failure this exists to
-      # prevent.
-      #
-      # The heavier `system prune` stays behind a threshold: it throws away base
-      # images the next build will pull again, which is worth it on a full disk
-      # and not worth it otherwise.
       - name: Clear what previous runs left
         run: |
           timeout 120 docker buildx ls --format '{{.Name}}' 2>/dev/null \
@@ -1094,23 +731,7 @@ jobs:
           timeout 60 docker container prune -f 2>/dev/null || true
           timeout 60 docker volume prune -f 2>/dev/null || true
 
-          # A floor in gigabytes, not a percentage. A percentage says nothing
-          # without knowing the disk: 25% free is 12.5 GB on this runner's 50 GB
-          # volume and 250 GB on a bigger one, and only one of those is enough.
-          #
-          # The number is measured, not chosen by taste. The cross toolchain
-          # image is 3.5 GB per architecture and the `mode=max` buildx cache
-          # another 1.6 GB, so a pull-request build settles around 5 GB and a
-          # publish build — which pulls both toolchains — around 10 GB. Twice
-          # the worst case is the headroom, because this runs *before* the build
-          # and has to leave room for all of it.
-          #
-          # It used to trip at 75% used, which on this disk fires with 12.5 GB
-          # left. That was enough while the builder image was `rust:alpine` at
-          # 1.4 GB. It stopped being enough when the musl cross toolchain
-          # replaced it at 3.5 GB, and the runner filled up mid-build and went
-          # offline.
-          # See the note on the other copy of this check.
+          # A publish build pulls ~10 GB of toolchains and cache.
           FLOOR_GB=12
           free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
           used_pct=$(df --output=pcent / | tail -1 | tr -dc '0-9')
@@ -1122,7 +743,6 @@ jobs:
             free_gb=$(df --output=avail --block-size=1G / | tail -1 | tr -dc '0-9')
             echo "after clearing: ${free_gb} GB free"
           fi
-          # As above: stop rather than fail later saying something else.
           if [ "$free_gb" -lt "$FLOOR_GB" ]; then
             echo "::error::runner has ${free_gb} GB free, under the ${FLOOR_GB} GB floor"
             exit 1
@@ -1139,66 +759,20 @@ jobs:
           file: apps/server/Dockerfile
           tags: tessera-server:ci
           load: true
-          # On disk, not in GitHub's cache. The runner is one machine that keeps
-          # its filesystem between runs, so a layer cache costs nothing to keep
-          # and nothing to fetch — where `type=gha` would upload gigabytes to the
-          # place we moved off in the first place. The size cap is enforced by
-          # the prune step below, not here.
+          # Local cache: the runner keeps its disk.
           cache-from: type=local,src=/tmp/tessera-buildx-cache
           cache-to: type=local,dest=/tmp/tessera-buildx-cache,mode=max
-          # `.git` is not in the build context, so the commit has to be passed in
-          # or `/health` reports `unknown`.
+          # `.git` is not in the context; without this /health reports `unknown`.
           build-args: |
             TESSERA_BUILD_REV=${{ github.sha }}
 
-      # "Functional, but not bloated" is a product decision, not a taste. Once it
-      # is a number the build enforces, adding a dependency becomes a concrete
-      # question — is this feature worth 3 MB? — instead of an argument.
-      #
-      # The measuring, the comparison against main and the table all live in
-      # `.github/scripts/image-size.sh`, which explains what each figure means
-      # and why it is taken that way. What stays here are the two numbers that
-      # are a product decision rather than a measurement technique.
-      #
-      # # Why these numbers
-      #
-      # A smoke alarm, not a product constraint. Twenty megabytes is not a size
-      # anybody self-hosting notices: the images this sits next to run from
-      # about 30 MB for FileBrowser to a gigabyte for Nextcloud, the binary is
-      # mapped rather than read so unused pages cost no memory, and on a NAS the
-      # disk is not the scarce thing. What this catches is growth nobody meant —
-      # a dependency that dragged in a toolchain, a frontend bundle that quietly
-      # went up fivefold.
-      #
-      # Which means the numbers want headroom, and the previous ones did not.
-      # They were set a quarter above what was measured on 2026-08-12, and by
-      # 2026-08-17 the actual was 18 and 21 — exactly the budget, so the next
-      # change of any size would have failed on somebody else's growth. An alarm
-      # that goes off every time teaches people to raise it without reading it,
-      # and then it is silent on the day it matters.
-      #
-      # These leave about half. That is loose enough to sit still through
-      # ordinary work and tight enough that a doubling still says something.
-      #
-      # Raised on 2026-08-29 for the link-preview cards. Measured on the release
-      # profile, the same build with and without `og-images`: 19.8 MB against
-      # 28.2 MB, so the feature costs 8.4 MB — takumi 5.0 and five embedded font
-      # faces 3.3. That left the old budget passing by 218 KB, which is the state
-      # the paragraph above says is worse than useless, so the budgets move with
-      # it rather than being squeaked under. These again leave about half.
+      # Smoke alarm for unintended growth, set at ~2x current. See image-size.sh.
       - name: Measure the footprint against its budget
         id: footprint
         run: .github/scripts/image-size.sh tessera-server:ci
         env:
           BINARY_BUDGET_MB: "40"
           ROOTFS_BUDGET_MB: "44"
-
-      # Only main, and only once the image has proved it works. A baseline taken
-      # from a pull request would make every branch compare against whichever
-      # branch built last, and a baseline taken from a build that failed its
-      # smoke test would anchor the table to something that was never shipped.
-      #
-      # It is written after the smoke test for that reason, further down.
 
       - name: Smoke-test the image
         run: |
@@ -1207,7 +781,7 @@ jobs:
             if curl -fsS http://localhost:8787/health > /dev/null; then
               echo "health check passed"
               curl -fsS http://localhost:8787/openapi.json > /dev/null
-              # The commit must reach the binary, or bug reports lose their anchor.
+              # The commit must reach the binary.
               rev=$(curl -fsS http://localhost:8787/health | grep -o '"build_rev":"[^"]*"')
               echo "reported ${rev}"
               case "$rev" in *unknown*)
@@ -1215,20 +789,12 @@ jobs:
                 exit 1 ;;
               esac
 
-              # The image used to ship build.rs's placeholder page, because the
-              # Dockerfile took `apps/web/dist` from the build context and CI
-              # never built it. The Dockerfile builds the SPA itself now — but
-              # nothing checked, so the same failure could return unnoticed:
-              # every other assertion here passes on a placeholder just as
-              # happily. `/health` says the API is up; this says the product is.
+              # Must serve the real SPA, not build.rs's placeholder.
               root=$(curl -fsS http://localhost:8787/)
               case "$root" in *"no frontend bundle was embedded"*)
                 echo "::error::the image serves build.rs's placeholder, not the SPA"
                 exit 1 ;;
               esac
-              # Vite fingerprints its entry point, so this is present only when
-              # a real bundle was embedded — and absent from any hand-written
-              # fallback that might replace the placeholder later.
               case "$root" in *"/assets/index-"*) : ;;
                 *)
                   echo "::error::no fingerprinted bundle in the served page"
@@ -1245,34 +811,12 @@ jobs:
           docker logs tessera-smoke
           exit 1
 
-      # The table on every pull request compares against this file. It is
-      # written only on main, and only here — after the smoke test — so the
-      # figure a branch is measured against is one that built, ran, served the
-      # real bundle and reported its commit.
-      #
-      # A file on the runner rather than a cache: see the note in the script.
+      # Main only, after the smoke test, so branches compare against a working build.
       - name: Record this build as the baseline
         if: github.ref == 'refs/heads/main'
         run: cp /tmp/tessera-image-size/current.txt /tmp/tessera-image-size/main.txt
 
-      # Everything above proves the image works. These two publish it.
-      #
-      # # Why this is behind a variable
-      #
-      # A package built from a private repository is private, so pushing today
-      # produces something nobody can pull — the "one line of docker run"
-      # promise does not start being true until the repository is public. The
-      # steps are written and reviewed now so that day is a switch rather than
-      # a piece of unwritten CI: set the `PUBLISH_IMAGES` repository variable to
-      # `true` and the next push to main publishes.
-      #
-      # # Why arm64 is only built here
-      #
-      # The audience runs this on a NAS or a Pi, so arm64 is not optional. It is
-      # also a second full compile, and the smoke test above only needs one
-      # architecture — `load: true` can only load one anyway. Paying for arm64
-      # on publish rather than on every pull request keeps the feedback loop the
-      # length it is now.
+      # Off until the repo is public (`PUBLISH_IMAGES`). arm64 is only built here.
       - name: Sign in to GHCR
         if: >-
           github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
@@ -1282,10 +826,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # `:main` is what a follower pulls; `:sha-<commit>` is what a bug report
-      # can name. No `:latest` — that belongs to a release tag, and there is no
-      # release workflow yet; pointing it at the tip of main would promise a
-      # stability this has not earned.
+      # No `:latest` until there is a release workflow.
       - name: Publish to GHCR
         if: >-
           github.ref == 'refs/heads/main' && vars.PUBLISH_IMAGES == 'true'
@@ -1302,44 +843,21 @@ jobs:
           build-args: |
             TESSERA_BUILD_REV=${{ github.sha }}
 
-      # This job builds an image and loads it into the daemon. On a hosted
-      # runner the daemon went away with the machine; here it does not, and a
-      # tagged image survives `docker image prune`, which only takes dangling
-      # ones. So the job that made it takes it away — including when the smoke
-      # test failed and left the container behind.
+      # Self-hosted: images, builders and volumes persist unless removed.
       - name: Remove what this job put on the machine
         if: always()
         run: |
           docker rm -f tessera-smoke 2>/dev/null || true
           docker image rm -f tessera-server:ci 2>/dev/null || true
-          # The footprint step removes its own scratch files on the way out,
-          # success or failure. `main.txt` is what stays: it is the baseline the
-          # next branch compares against.
           rm -f /tmp/tessera-image-size/image.tar /tmp/tessera-image-size/binary
           docker image prune -f
-          # `setup-buildx-action` starts a builder in a container of its own,
-          # and each one keeps its state in a volume. Removing the image this
-          # job built left those behind, so every run added one — which is what
-          # filled the disk. `--keep-state` is deliberately absent: the layer
-          # cache this job wants is the local one under /tmp, not the builder's.
           docker buildx rm --force "$BUILDER" 2>/dev/null || true
-          # Belt as well as braces: if this job was cancelled before the line
-          # above, the next run's opening step removes whatever is left. Both
-          # exist because a cancelled job runs neither.
           docker volume prune -f 2>/dev/null || true
-          # What the job actually cost, on the way out. The opening step reports
-          # the state this job inherited; without both there is no way to tell
-          # afterwards whether a run that filled the disk was unusually hungry
-          # or whether it started with almost nothing left.
           df -h / | tail -1
         env:
           BUILDER: ${{ steps.buildx.outputs.name }}
 
-  # Split out of `docker` on purpose. That job runs eight third-party actions
-  # and holds `packages: write`; giving it `pull-requests: write` as well would
-  # mean any one of them could write to the repository's pull requests. This job
-  # runs no third-party action at all — a checkout and one script — and is the
-  # only thing in the file that can comment.
+  # Separate so the only job that can write PRs runs no third-party actions.
   image-size-comment:
     name: image size comment
     runs-on: [self-hosted, Linux, X64]
@@ -1348,10 +866,7 @@ jobs:
       pull-requests: write
     timeout-minutes: 5
     needs: docker
-    # `always()`, because a build that blew its budget is exactly the one whose
-    # numbers somebody wants in front of them. The output being non-empty is
-    # what rules out the cases with nothing to say: a cancelled run, a fork
-    # pull request `docker` never ran for, a branch where the filter skipped it.
+    # `always()`: an over-budget build is the one worth reporting.
     if: >-
       always() &&
       github.event_name == 'pull_request' &&
@@ -1362,9 +877,7 @@ jobs:
           persist-credentials: false
       - name: Post the footprint table
         run: .github/scripts/pr-comment.sh
-        # Through the environment, never interpolated into `run:` — the body is
-        # generated text, and `${{ }}` inside a shell script is a substitution
-        # that happens before the shell ever sees quoting.
+        # Via env, never `${{ }}` in the script (template injection).
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -1375,7 +888,6 @@ jobs:
   fuzz:
     name: contract fuzz
     runs-on: [self-hosted, Linux, X64]
-    # One runner, one slot: a job that hangs holds up everything behind it.
     timeout-minutes: 30
     needs: changes
     if: >-
@@ -1391,24 +903,10 @@ jobs:
 
       - run: cargo build --locked --bin tessera-server
 
-      # SQLite in a temporary directory: this instance is written to, filled with
-      # generated rubbish, and thrown away.
       - name: Start an instance and seed it
         id: instance
         run: |
-          # The step that stops this instance runs `if: always()`, but a
-          # cancelled job runs neither step and a runner that goes away mid-job
-          # runs nothing at all. What is left is a server on 13999 answering
-          # `/health`, and the wait below is satisfied by *any* server on that
-          # port, so the fuzz would report on a binary this job did not build.
-          #
-          # The comment on the stop step below has said this happens since
-          # before this was written. What was missing was anything that made it
-          # visible: the run goes red on an assertion about the API rather than
-          # on the port, and the two look nothing alike.
-          #
-          # Killing by port rather than by pid file, since the pid file goes
-          # with `/tmp/fuzz` and the process that outlived it did not.
+          # A leftover server on 13999 would answer /health and get fuzzed instead.
           if command -v fuser >/dev/null 2>&1; then
             fuser -k 13999/tcp 2>/dev/null || true
           else
@@ -1434,27 +932,12 @@ jobs:
             sleep 0.5
           done
           .github/scripts/fuzz-seed.sh http://127.0.0.1:13999 /tmp/fuzz/server.log > /tmp/fuzz/seed.env
-          # The token is a real credential for the life of this job. Masking it
-          # keeps it out of the log if a later step ever echoes its inputs.
+          # Real credential for this job; keep it out of logs.
           echo "::add-mask::$(grep '^token=' /tmp/fuzz/seed.env | cut -d= -f2-)"
           cat /tmp/fuzz/seed.env >> "$GITHUB_OUTPUT"
 
-      # The credentials go in the config rather than through `-H`, and the
-      # difference matters: given `-H`, Schemathesis cannot tell a header it was
-      # handed from one the API requires, so its `ignored_auth` check strips the
-      # session cookie, leaves the bearer token in place, and reports every
-      # authenticated endpoint as an authentication bypass. Naming the security
-      # scheme lets it remove the whole credential and mean what it says.
-      #
-      # The seeded share is not named here: `POST /shares` declares OpenAPI
-      # links to the three `{code}` operations, so the stateful phase chains
-      # create into describe on its own. What the seed still buys is a populated
-      # `GET /shares` — an empty list conforms to any schema, so a response with
-      # rows in it is the only one that checks anything.
+      # Auth via config, not `-H`, or `ignored_auth` reports false bypasses.
       - name: Compose the run configuration
-        # Through `env` rather than `${{ }}` inside the script: an expression is
-        # substituted before the shell sees the line, so its value becomes part
-        # of the program (zizmor `template-injection`).
         env:
           TOKEN: ${{ steps.instance.outputs.token }}
         run: |
@@ -1463,57 +946,9 @@ jobs:
 
       - name: Schemathesis
         run: |
-          # `filter_too_much` fires on the `/admin` operations, and the reason
-          # is a property of this API rather than a bad schema. Those refuse an
-          # API token outright — `admitted()` asks `is_session()` before it
-          # looks at any permission — so they answer 403 whether or not the
-          # token is sent. The `ignored_auth` check works by re-sending without
-          # credentials and asking whether anything changed; here nothing does,
-          # so it can decide nothing and the example is filtered. Enough
-          # filtered examples trip the health check, and whether that happens at
-          # all depends on the seed, which is why this went red on one merge
-          # commit and green on the branch that produced it.
-          #
-          # Reaching those operations needs the session cookie, and handing the
-          # fuzzer one is not free: it would generate `POST /auth/logout`,
-          # `PATCH /auth/password` and `DELETE /account` against its own
-          # credential. Measured with a cookie and nothing excluded: 28
-          # operations answering only 401/403, against 24 without one.
-          # `append_to_upload` is excluded because Schemathesis cannot build a
-          # body for `application/offset+octet-stream` — "No supported
-          # serializers for media types" — and an operation it cannot construct
-          # a request for is not one it can test. The resumable upload path is
-          # covered by `tests/resumable.rs` and `tests/object_store.rs`
-          # instead, both of which do drive it end to end.
-          # `start` and `callback` are excluded because both answer `303` to a
-          # `Location` outside this API: the identity provider, or a client-side
-          # route. Neither end of that is the fuzzer's to check, and both ways
-          # of letting it try are wrong. Followed, the redirect to a client-side
-          # route lands on the SPA fallback and returns `200 text/html`, which
-          # it reports as an undocumented status on the endpoint that
-          # redirected — it measured `index.html`, not the handler. Capping the
-          # follow count instead turns the redirect itself into "Exceeded 0
-          # redirects", a network error on a response that was correct. Both
-          # were measured on this suite; each replaced one false failure with
-          # another. Measured again against a local instance on 2026-08-30:
-          # following redirects exits 1 with two "Received: 200", excluding the
-          # two exits 0, and the selection goes from 59 operations to 57.
-          #
-          # What is lost is small: those two are `303` or `404` and nothing
-          # else, and `tests/oidc.rs` drives the whole flow against a provider
-          # that is actually running. `link` stays in, because it refuses an API
-          # token before it can redirect.
-          #
-          # `backchannel_logout` is excluded for the `append_to_upload` reason:
-          # the fuzzer cannot construct a request that reaches anything. Its
-          # body is a token signed by the identity provider, and a generated
-          # string is a `400` every time, so every example exercises one branch.
-          # It also has no credential to strip, being a server-to-server
-          # endpoint, so `ignored_auth` re-sends it without one, sees the same
-          # answer, and can decide nothing. Enough of those and the
-          # `filter_too_much` health check trips anyway, which is seed-dependent
-          # and is why this went red on one push and green on the same code
-          # locally.
+          # filter_too_much: /admin refuses API tokens, so `ignored_auth` filters most examples.
+          # Excluded: unsupported body type (append_to_upload), 303 off-API (start, callback),
+          # IdP-signed body (backchannel_logout). All covered by tests/*.rs.
           uvx schemathesis --config-file /tmp/fuzz/run.toml \
             run http://127.0.0.1:13999/openapi.json \
             -w 4 --suppress-health-check=filter_too_much \
@@ -1523,9 +958,6 @@ jobs:
             --exclude-operation-id backchannel_logout \
             --report-junit-path /tmp/fuzz/report.xml
 
-      # The runner is one machine that keeps running after the job ends, so a
-      # server started here outlives it and the next run finds port 13999 taken.
-      # On a hosted runner the whole machine went away and nobody noticed.
       - name: Stop the instance
         if: always()
         run: |
