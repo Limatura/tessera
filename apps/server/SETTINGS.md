@@ -101,6 +101,8 @@ signed-out 訪客看到的樣子，以及登入者沒自己選過的部分。會
 - `enabled: bool` — 設新密碼時查 Have I Been Pwned，預設 `false`
 - `url: string` — range API 的位址，預設 `https://api.pwnedpasswords.com`。可以指到自架的實作
 
+前端可以邊打字邊查：`GET /api/v1/auth/pwned/{prefix}` 帶 SHA-1 前 5 個字，回該前綴下真正外洩過的後綴（padding 已拿掉），比對在瀏覽器做。`/capabilities` 的 `account_password_breach_check` 說這台有沒有開。外部服務查不到時回 503，送出時的檢查照樣會跑。
+
 送出去的只有密碼 SHA-1 的前 5 個字，比對在本機做（k-anonymity），完整密碼和完整雜湊都不會離開這台。查不到服務（逾時、連不上、非 200）就放行，只在 log 留一行——註冊、改密碼、重設密碼都不能因為別人的服務掛掉而停擺。註冊、改密碼、重設密碼三條路都會查。
 
 ### `auth.hashing.*`（Argon2id）
@@ -113,7 +115,7 @@ signed-out 訪客看到的樣子，以及登入者沒自己選過的部分。會
 
 ### `auth.throttle.*`
 
-七組計數器保護不同東西，每組都是 `{max_attempts, window_secs}`。
+八組計數器保護不同東西，每組都是 `{max_attempts, window_secs}`。
 
 | Key | 計數依據 | 保護什麼 |
 |---|---|---|
@@ -124,10 +126,11 @@ signed-out 訪客看到的樣子，以及登入者沒自己選過的部分。會
 | `registration` | 被查詢的 email | 註冊確認信的發送 |
 | `share` | 取件碼 + 來源 | 分享密碼猜錯次數 |
 | `speed` | 來源 | 測速。算的是**每次測速**而不是失敗次數，限的是一個位址一小時能用掉多少頻寬 |
+| `pwned` | 來源 | 打字時查外洩密碼（`GET /auth/pwned/{prefix}`）。每次查詢都算，預設每分鐘 30 次。**不共用 `source`**，打密碼不會吃掉同位址的登入額度 |
 
 **兩個值都不能是 0**，啟動時會拒絕：0 次嘗試等於鎖死所有人（在 `source` 上就是整台機器），0 秒視窗則永遠不會擋，看起來開著實際上關著。要放寬就調高 `max_attempts`。
 
-- `max_tracked_keys: usize` — 清掃前最多追蹤幾個 key，上限 `100_000`。**這是記憶體上限不是安全設定**：每個 key 都是未認證陌生人自己選的字串，這個數字決定他們能讓 process 佔多少記憶體。七組共用
+- `max_tracked_keys: usize` — 清掃前最多追蹤幾個 key，上限 `100_000`。**這是記憶體上限不是安全設定**：每個 key 都是未認證陌生人自己選的字串，這個數字決定他們能讓 process 佔多少記憶體。八組共用
 
 ### `auth.oidc.*`
 

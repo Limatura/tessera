@@ -44,6 +44,7 @@ pub mod oidc;
 pub mod preferences;
 pub mod preview;
 pub mod public;
+pub mod pwned;
 pub mod sealed;
 pub mod sessions;
 pub mod settings;
@@ -313,6 +314,7 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         // draw the link.
         .routes(routes!(auth::request_password_reset))
         .routes(routes!(auth::confirm_password_reset))
+        .routes(routes!(pwned::range_of))
         .routes(routes!(tokens::list, tokens::create))
         .routes(routes!(tokens::revoke))
         .merge(account_routes())

@@ -438,6 +438,12 @@ pub struct Throttles {
     /// failure to count: each test is a transfer somebody asked for, and what
     /// has to be bounded is how many of them one address may ask for.
     pub speed: Throttle,
+
+    /// Breach-list lookups while a password is typed, keyed on the source.
+    ///
+    /// Its own counter and not a share of [`Throttles::source`]: typing a
+    /// password must not spend the budget the same address signs in with.
+    pub pwned: Throttle,
 }
 
 impl Default for Throttles {
@@ -461,6 +467,7 @@ impl Throttles {
             (&self.registration, &config.registration),
             (&self.share, &config.share),
             (&self.speed, &config.speed),
+            (&self.pwned, &config.pwned),
         ] {
             throttle.apply(limit.max_attempts, limit.window(), keys);
         }
@@ -482,6 +489,7 @@ impl Throttles {
             registration: build(&config.registration),
             share: build(&config.share),
             speed: build(&config.speed),
+            pwned: build(&config.pwned),
         }
     }
 }
@@ -519,6 +527,13 @@ pub const RESET_WINDOW: Duration = Duration::from_hours(1);
 /// address per hour: enough to measure a line twice and compare, and bounded
 /// enough that an open instance is not a download mirror.
 pub const SPEED_MAX_TESTS: u32 = 5;
+
+/// Breach-list lookups one source may make in a minute.
+///
+/// A form looks up once the local rules pass and the person has stopped typing,
+/// and remembers each prefix, so choosing a password is a handful. Thirty is
+/// room for somebody trying several, and not a free proxy for anybody else.
+pub const PWNED_MAX_LOOKUPS: u32 = 30;
 
 /// Codes tried and not found, from one source, before it is refused.
 ///

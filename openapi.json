@@ -386,11 +386,34 @@
         ],
         "type": "object"
       },
+      "BreachedSuffixes": {
+        "description": "The breached suffixes under one prefix.",
+        "properties": {
+          "suffixes": {
+            "description": "The remaining 35 characters of every breached hash under the prefix,\nuppercase. The padding the service adds to hide how many there are is\ntaken out, so a match here is a real one.",
+            "example": [
+              "1E4C9B93F3F0682250B6CF8331B7EE68FD8"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "suffixes"
+        ],
+        "type": "object"
+      },
       "Capabilities": {
         "description": "Body of `GET /api/v1/capabilities`.\n\n# Why this endpoint exists\n\n`openapi.json` is a build artefact describing every endpoint the software\nhas. Which of them an *instance* exposes is a runtime decision its operator\nmade, so a single-page app generated from the contract cannot know whether\nto render a login button: the contract says login exists, and on this\ndeployment it may not.\n\nSo the contract describes the whole surface and this reports the subset in\nforce. It is unauthenticated, because a client needs the answer before it\ncan know whether logging in is possible at all.",
         "properties": {
           "access_log": {
             "description": "Whether this instance writes down who fetches a share.\n\n`false` by default. When `true`, every retrieval records the visitor's\naddress and browser string, and the visitor is the person it happens to,\nso a client should say so on the page where the share is collected.\nNothing else will.",
+            "type": "boolean"
+          },
+          "account_password_breach_check": {
+            "description": "Whether a new account password is checked against known breaches, so\na form can look it up as it is typed; see `GET /auth/pwned/{prefix}`.",
             "type": "boolean"
           },
           "account_password_min_length": {
@@ -503,6 +526,7 @@
           "account_password_requires_mixed_case",
           "account_password_requires_digit",
           "account_password_requires_symbol",
+          "account_password_breach_check",
           "share_password_min_length",
           "registration_requires_confirmation",
           "password_reset",
@@ -4697,6 +4721,79 @@
           }
         },
         "summary": "Whether this instance has an identity provider.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/pwned/{prefix}": {
+      "get": {
+        "description": "# Errors\n\n`404` when this instance does not check passwords against the breach list,\n`400` for anything but five hex characters, `429` past this source's\nallowance, `503` when the breach list cannot be reached. A form treats the\nlast as \"no warning\"; the check still runs when it is sent.",
+        "operationId": "pwned_range",
+        "parameters": [
+          {
+            "description": "The first five characters of the password's SHA-1, in hex, either case",
+            "in": "path",
+            "name": "prefix",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BreachedSuffixes"
+                }
+              }
+            },
+            "description": "The breached suffixes under that prefix"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not five hex characters"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance does not check passwords against the breach list"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many lookups from this source"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The breach list could not be reached"
+          }
+        },
+        "summary": "The breached hashes under the first five characters of a password's SHA-1.",
         "tags": [
           "auth"
         ]

@@ -48,7 +48,7 @@ pub async fn refuse_if_breached(state: &AppState, password: &tessera_core::Passw
 
     match lookup(&config.url, prefix).await {
         Ok(body) => {
-            if seen(&body, suffix) {
+            if breached(&body).any(|candidate| candidate.eq_ignore_ascii_case(suffix)) {
                 return Err(Error::bad_request(
                     "this password has appeared in a data breach; choose a different one",
                 ));
@@ -61,6 +61,30 @@ pub async fn refuse_if_breached(state: &AppState, password: &tessera_core::Passw
             Ok(())
         }
     }
+}
+
+/// Every breached suffix under a five-character `prefix`, uppercase, for a
+/// client that finishes the comparison itself.
+///
+/// The same k-anonymity the check above relies on, one hop further out: the
+/// browser sends this the prefix and never the password, and this sends the
+/// service the prefix and never anything else.
+///
+/// # Errors
+///
+/// When the service cannot be reached or answers oddly. Unlike the check, this
+/// has nowhere to fall back to, so it says so; the check still runs when the
+/// form is sent.
+pub async fn range(state: &AppState, prefix: &str) -> Result<Vec<String>, reqwest::Error> {
+    let url = state.config().auth.pwned.url.clone();
+    let body = lookup(&url, &prefix.to_ascii_uppercase()).await?;
+    Ok(breached(&body).map(str::to_ascii_uppercase).collect())
+}
+
+/// Whether `prefix` is what the range API takes: five hex characters.
+#[must_use]
+pub fn is_prefix(prefix: &str) -> bool {
+    prefix.len() == PREFIX && prefix.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 /// Asks the service for every hash under `prefix`.
@@ -80,17 +104,22 @@ async fn lookup(base: &str, prefix: &str) -> Result<String, reqwest::Error> {
         .await
 }
 
-/// Whether `suffix` is in the answer with a count above zero.
+/// The suffixes in an answer that have been breached.
 ///
 /// Each line is `SUFFIX:COUNT`. The padding entries the header asks for come
 /// back with a count of zero, and a password matching one of those has not
 /// been breached.
-fn seen(body: &str, suffix: &str) -> bool {
-    body.lines().any(|line| {
+fn breached(body: &str) -> impl Iterator<Item = &str> {
+    body.lines().filter_map(|line| {
         let line = line.trim();
-        let (candidate, count) = line.split_once(':').unwrap_or((line, "0"));
-        candidate.eq_ignore_ascii_case(suffix) && count.trim().parse::<u64>().unwrap_or(0) > 0
+        let (candidate, count) = line.split_once(':')?;
+        (count.trim().parse::<u64>().unwrap_or(0) > 0).then_some(candidate.trim())
     })
+}
+
+#[cfg(test)]
+fn seen(body: &str, suffix: &str) -> bool {
+    breached(body).any(|candidate| candidate.eq_ignore_ascii_case(suffix))
 }
 
 /// Uppercase hex, the spelling the API answers in.

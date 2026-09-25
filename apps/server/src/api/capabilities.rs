@@ -91,6 +91,10 @@ pub struct Capabilities {
     /// Whether an account password needs a symbol. A space is not one.
     pub account_password_requires_symbol: bool,
 
+    /// Whether a new account password is checked against known breaches, so
+    /// a form can look it up as it is typed; see `GET /auth/pwned/{prefix}`.
+    pub account_password_breach_check: bool,
+
     /// Shortest password an uploader may put on a share.
     ///
     /// Lower than the account minimum by design. A share password is a second
@@ -206,6 +210,7 @@ impl Capabilities {
             account_password_requires_mixed_case: config.auth.password.require_mixed_case,
             account_password_requires_digit: config.auth.password.require_digit,
             account_password_requires_symbol: config.auth.password.require_symbol,
+            account_password_breach_check: accounts && config.auth.pwned.enabled,
             share_password_min_length: gate::CHOOSING.min_length,
             default_expiry_hours: hours(config.share.default_expiry()),
             max_expiry_hours: hours(config.share.max_expiry()),

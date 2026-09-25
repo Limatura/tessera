@@ -244,3 +244,115 @@ async fn the_real_service_still_answers_the_way_this_reads() {
     .await;
     expect_status(register(&app, "hopeful", FRESH).await, StatusCode::CREATED).await;
 }
+
+/// Looking a prefix up while the form is typed into. What comes back is what
+/// the browser compares against: real matches only, without the padding.
+#[tokio::test]
+async fn a_form_can_look_a_prefix_up_as_it_is_typed() {
+    let (url, asked) = range_api(None).await;
+    let app = checking(url).await;
+
+    let capabilities =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert_eq!(capabilities["account_password_breach_check"], true);
+
+    // Lowercase is accepted and passed on as the service spells it.
+    let found =
+        body_json(expect_status(app.get("/api/v1/auth/pwned/5baa6").await, StatusCode::OK).await)
+            .await;
+    assert_eq!(found["suffixes"], serde_json::json!([BREACHED_SUFFIX]));
+    assert_eq!(asked.lock().clone(), vec![BREACHED_PREFIX.to_owned()]);
+
+    // Only padding under this one, which is not a breach.
+    let none =
+        body_json(expect_status(app.get("/api/v1/auth/pwned/00000").await, StatusCode::OK).await)
+            .await;
+    assert_eq!(none["suffixes"], serde_json::json!([]));
+}
+
+#[tokio::test]
+async fn only_a_prefix_is_accepted() {
+    let (url, asked) = range_api(None).await;
+    let app = checking(url).await;
+    for bad in ["5BAA", "5BAA61", "5BAAG", "password"] {
+        expect_status(
+            app.get(&format!("/api/v1/auth/pwned/{bad}")).await,
+            StatusCode::BAD_REQUEST,
+        )
+        .await;
+    }
+    assert!(
+        asked.lock().is_empty(),
+        "nothing malformed reaches the service"
+    );
+}
+
+/// Off looks like an instance without the feature, and so does one without
+/// accounts, where there is no password to check.
+#[tokio::test]
+async fn an_instance_that_does_not_check_has_no_lookup() {
+    let (url, _) = range_api(None).await;
+    let app = TestApp::with_config(move |config| config.auth.pwned.url = url).await;
+    let capabilities =
+        body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
+    assert_eq!(capabilities["account_password_breach_check"], false);
+    expect_status(
+        app.get("/api/v1/auth/pwned/5BAA6").await,
+        StatusCode::NOT_FOUND,
+    )
+    .await;
+
+    let (url, _) = range_api(None).await;
+    let app = TestApp::with_config(move |config| {
+        config.auth.pwned.enabled = true;
+        config.auth.pwned.url = url;
+        config.features.accounts = false;
+    })
+    .await;
+    expect_status(
+        app.get("/api/v1/auth/pwned/5BAA6").await,
+        StatusCode::NOT_FOUND,
+    )
+    .await;
+}
+
+/// The lookup cannot fall back the way the check does, so it says it could
+/// not answer. The form shows no warning, and the check runs when it is sent.
+#[tokio::test]
+async fn a_service_that_is_down_is_reported_as_unavailable() {
+    let (url, _) = range_api(Some(StatusCode::INTERNAL_SERVER_ERROR)).await;
+    let app = checking(url).await;
+    expect_status(
+        app.get("/api/v1/auth/pwned/5BAA6").await,
+        StatusCode::SERVICE_UNAVAILABLE,
+    )
+    .await;
+}
+
+/// Every lookup counts, and on its own counter: a form typing through its
+/// allowance must not use up the same address's sign-in attempts.
+#[tokio::test]
+async fn one_source_gets_so_many_lookups() {
+    let (url, _) = range_api(None).await;
+    let app = TestApp::with_config(move |config| {
+        config.auth.pwned.enabled = true;
+        config.auth.pwned.url = url;
+        config.auth.throttle.pwned.max_attempts = 2;
+    })
+    .await;
+    for _ in 0..2 {
+        expect_status(app.get("/api/v1/auth/pwned/5BAA6").await, StatusCode::OK).await;
+    }
+    let refused = expect_status(
+        app.get("/api/v1/auth/pwned/5BAA6").await,
+        StatusCode::TOO_MANY_REQUESTS,
+    )
+    .await;
+    assert!(refused.headers().contains_key("retry-after"));
+    // The sign-in budget is untouched.
+    expect_status(
+        register(&app, "unaffected", FRESH).await,
+        StatusCode::CREATED,
+    )
+    .await;
+}

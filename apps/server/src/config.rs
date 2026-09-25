@@ -1550,6 +1550,11 @@ pub struct ThrottleConfig {
     /// spend.
     #[serde(default = "default_speed_limit")]
     pub speed: Limit,
+    /// Breach-list lookups from a form being typed into, keyed on the source.
+    /// Counted on every lookup: each one is a request to somebody else's
+    /// service made on a stranger's behalf.
+    #[serde(default = "default_pwned_limit")]
+    pub pwned: Limit,
 }
 
 /// The most keys an instance may be configured to hold.
@@ -1575,6 +1580,10 @@ const fn default_lookup_limit() -> Limit {
     Limit::new(throttle::LOOKUP_MAX_ATTEMPTS, throttle::SOURCE_WINDOW)
 }
 
+const fn default_pwned_limit() -> Limit {
+    Limit::new(throttle::PWNED_MAX_LOOKUPS, throttle::SOURCE_WINDOW)
+}
+
 const fn default_speed_limit() -> Limit {
     Limit::new(throttle::SPEED_MAX_TESTS, throttle::RESET_WINDOW)
 }
@@ -1594,6 +1603,7 @@ impl Default for ThrottleConfig {
             registration: default_mail_limit(),
             share: default_login_limit(),
             speed: default_speed_limit(),
+            pwned: default_pwned_limit(),
         }
     }
 }

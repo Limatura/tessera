@@ -96,4 +96,6 @@ What is sent is the first five characters of the password's SHA-1, and nothing e
 
 Off by default, because it is a request to somebody else's service on a path that has to work. When it is on and that service does not answer, the password is accepted and a line goes in the log: a breach list that is down must not stop somebody registering or resetting a password they have already lost. `auth.pwned.url` points at a self-hosted implementation for an instance with no way out to the internet.
 
+A form can look a password up as it is typed, before it is sent: `GET /api/v1/auth/pwned/{prefix}` takes the first five characters of the SHA-1 and answers with the breached suffixes under them, padding removed, and the browser compares. The password stays in the browser and this server passes on the same five characters it already sends. Every lookup counts against `auth.throttle.pwned`, its own counter so that typing a password does not spend the address's sign-in attempts. A service that does not answer is a `503` here, since there is nothing to fall back to, and the form shows no warning; the check still runs when it is sent.
+
 Tested in `tests/pwned.rs`, against a service that answers the way the real one does and records what it was asked. `the_real_service_still_answers_the_way_this_reads` puts the same questions to the real API and is `#[ignore]`d.
