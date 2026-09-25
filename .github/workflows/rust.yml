@@ -899,7 +899,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/rust
       - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v6
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v6
 
       - run: cargo build --locked --bin tessera-server
 
