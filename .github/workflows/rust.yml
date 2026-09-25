@@ -22,6 +22,7 @@ on:
       - ".github/workflows/**"
       - ".github/actions/**"
       - ".github/scripts/**"
+      - ".github/zizmor.yml"
       - ".tbls.yml"
       - "docs/schema/**"
       - "scripts/schema-docs.py"
@@ -125,6 +126,7 @@ jobs:
             workflows:
               - ".github/workflows/**"
               - ".github/actions/**"
+              - ".github/zizmor.yml"
 
   checks:
     name: checks
@@ -139,7 +141,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         # Must match the wasm-bindgen version pinned in crates/tessera-crypto.
         with: { tool: "cargo-deny,cargo-machete,wasm-bindgen@0.2.128" }
 
@@ -230,7 +232,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-hack }
 
       # No `--locked`: `--no-dev-deps` rewrites the manifest, which it forbids.
@@ -249,7 +251,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-nextest }
 
       - run: cargo nextest run --locked --workspace --profile ci --all-features
@@ -310,7 +312,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-nextest }
 
       # These tests are `#[ignore]`d; `--run-ignored all` opts in.
@@ -334,7 +336,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/rust
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: cargo-nextest }
 
       - name: Check the runner has room and free ports
@@ -696,7 +698,7 @@ jobs:
       - name: actionlint
         run: docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:1.7.12 -color .github/workflows/*.yml
 
-      - uses: taiki-e/install-action@5b4d68e2e660441203ab128a23676f1e4faf1532 # v2
+      - uses: taiki-e/install-action@dfae9bf3d6f6c6f20ef4ebb3486c01a51341ff12 # v2
         with: { tool: zizmor }
 
       - name: zizmor
