@@ -399,6 +399,10 @@ pub struct DiscoveryProbeResponse {
     pub scopes_supported: Vec<String>,
     /// Whether it will tell this instance when somebody signs out.
     pub backchannel_logout_supported: bool,
+    /// The claims it says it can release. Without `email_verified` here,
+    /// `link_by_email = when_verified` will never link anybody through this
+    /// provider; `always` or signing in and attaching it is what is left.
+    pub claims_supported: Vec<String>,
 }
 
 /// Reads a provider's discovery document, from here rather than the browser.
@@ -467,6 +471,7 @@ pub async fn probe_oidc_discovery(
         issuer: provider.issuer.clone(),
         scopes_supported: provider.scopes_supported.clone(),
         backchannel_logout_supported: provider.backchannel_logout_supported,
+        claims_supported: provider.claims_supported,
     }))
 }
 

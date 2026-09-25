@@ -473,13 +473,54 @@ pub struct OidcConfig {
     pub display_name: String,
 
     /// Whether a provider identity may attach itself to an existing account
-    /// with the same address.
+    /// with the same address. See [`LinkByEmail`].
+    pub link_by_email: LinkByEmail,
+}
+
+/// When an identity provider's address may attach a sign-in to an account
+/// that already has it.
+///
+/// # Why three answers and not a switch
+///
+/// It was a switch, and it also required the provider to say
+/// `email_verified`. Plenty of providers do not: Synology's SSO Server does not
+/// have the claim at all, Entra ID leaves it out for work accounts, and
+/// Authentik's default mapping sends `false` whatever the truth. Against
+/// those the switch did nothing, on or off, and the first person to sign in
+/// was refused with `address_taken` while the panel said linking was on.
+///
+/// So the operator says how far they trust this provider's addresses. Only
+/// for the identity provider: GitHub and Discord never hand over an address
+/// they have not checked, so there is nothing for a third answer to change.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum LinkByEmail {
+    /// Never. A sign-in whose address is taken is refused, and the person
+    /// signs in with their password and attaches the provider from there.
+    #[default]
+    Never,
+    /// When the provider says `email_verified` is true.
+    WhenVerified,
+    /// Whatever the provider says about it.
     ///
-    /// Off by default, and even on it requires the provider to have said
-    /// `email_verified`. A provider that lets anybody register an address
-    /// without proving it would otherwise be a way to take over an account by
-    /// registering its owner's address there.
-    pub link_by_verified_email: bool,
+    /// **Anybody who can make the provider vouch for an address can take
+    /// over the account that has it here.** Right for a provider the operator
+    /// runs and whose accounts they hand out; wrong for one that lets anybody
+    /// sign up with any address.
+    Always,
+}
+
+impl LinkByEmail {
+    /// Whether an address the provider did or did not say it checked may
+    /// attach to an existing account.
+    #[must_use]
+    pub const fn allows(self, verified: bool) -> bool {
+        match self {
+            Self::Never => false,
+            Self::WhenVerified => verified,
+            Self::Always => true,
+        }
+    }
 }
 
 impl OauthConfig {
@@ -526,7 +567,7 @@ impl Default for OidcConfig {
             required_group: String::new(),
             group_claim: "groups".to_owned(),
             display_name: String::new(),
-            link_by_verified_email: false,
+            link_by_email: LinkByEmail::Never,
         }
     }
 }

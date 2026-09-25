@@ -48,6 +48,7 @@ async fn document(State(shared): State<Shared>) -> Json<serde_json::Value> {
         "userinfo_endpoint": format!("{issuer}/userinfo"),
         "jwks_uri": format!("{issuer}/jwks"),
         "scopes_supported": ["openid", "email", "profile", "groups"],
+        "claims_supported": ["sub", "email", "email_verified", "name", "groups"],
         "backchannel_logout_supported": false,
         "code_challenge_methods_supported": ["S256"],
     }))
@@ -82,7 +83,7 @@ async fn ask(Query(request): Query<Vec<(String, String)>>) -> Response {
                 name: "email_verified",
                 label: "Email verified",
                 value: "true",
-                hint: "Anything but true is sent as false.",
+                hint: "true, false, or empty to leave the claim out, as Synology and Entra ID do.",
             },
         ],
     )
@@ -110,7 +111,7 @@ async fn answer(State(shared): State<Shared>, Form(answer): Form<Answer>) -> Res
         .filter(|group| !group.is_empty())
         .collect();
     let now = unix_now();
-    let claims = serde_json::json!({
+    let mut claims = serde_json::json!({
         "iss": shared.issuer,
         "sub": format!("dev|{}", answer.email.to_lowercase()),
         "aud": answer.client_id,
@@ -122,6 +123,13 @@ async fn answer(State(shared): State<Shared>, Form(answer): Form<Answer>) -> Res
         "name": answer.name,
         "groups": groups,
     });
+    // Left out when the field is, which is how several providers behave and
+    // the case `auth.oidc.link_by_email` exists for.
+    if answer.email_verified.trim().is_empty()
+        && let Some(fields) = claims.as_object_mut()
+    {
+        fields.remove("email_verified");
+    }
     let code = page::code();
     shared.codes.lock().insert(code.clone(), claims);
 

@@ -116,14 +116,14 @@ impl Provider {
         }
     }
 
-    /// Whether an address this provider says it checked may attach to an
-    /// account that already has it.
+    /// Whether an address from this provider may attach to an account that
+    /// already has it, given whether the provider said it checked it.
     #[must_use]
-    pub fn links_by_verified_email(self, config: &Config) -> bool {
-        self.oauth(config)
-            .map_or(config.auth.oidc.link_by_verified_email, |oauth| {
-                oauth.link_by_verified_email
-            })
+    pub fn may_link(self, config: &Config, verified: bool) -> bool {
+        self.oauth(config).map_or_else(
+            || config.auth.oidc.link_by_email.allows(verified),
+            |oauth| oauth.link_by_verified_email && verified,
+        )
     }
 }
 
