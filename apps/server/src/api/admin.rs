@@ -58,7 +58,12 @@ use crate::{
 #[serde(deny_unknown_fields)]
 pub struct UpdateUserRequest {
     /// Whether this account administers the instance.
-    pub is_admin: bool,
+    ///
+    /// Omitted leaves its role as it is. Sending it always rewrites the role
+    /// (`true` to `owner`, `false` to none), so a client changing only `state`
+    /// or a quota must leave it out, or it demotes the account as a side effect.
+    #[serde(default)]
+    pub is_admin: Option<bool>,
     /// `active` to let it in, `disabled` to suspend it.
     ///
     /// Omitted leaves it as it is. `deleted` is refused here: removing an
@@ -237,7 +242,7 @@ pub async fn update_user(
     // administrator unable to change anyone.
     let holds_the_keys = holds(&state, user.id, Permission::RolesWrite).await?;
     if holds_the_keys
-        && !body.is_admin
+        && body.is_admin == Some(false)
         && state.roles.holders_of(Permission::RolesWrite).await? <= 1
     {
         return Err(Error::Conflict(
@@ -277,7 +282,9 @@ pub async fn update_user(
         }
     }
 
-    state.users.set_admin(user_id, body.is_admin, now).await?;
+    if let Some(is_admin) = body.is_admin {
+        state.users.set_admin(user_id, is_admin, now).await?;
+    }
     if let Some(quota) = body.quota_bytes {
         state.users.set_quota(user_id, quota, now).await?;
     }

@@ -38,11 +38,36 @@ export const PAGE_SIZE = 20;
 /** 每一頁各自快取,這是它們共同的前綴 —— 失效時整串一起丟。 */
 const USERS_QUERY_KEY = ["admin", "users"] as const;
 
-export function usersQueryOptions(offset: number) {
+/**
+ * `includeDeleted` 預設關:刪掉的帳號只剩一列殘骸(`gone-…`),不代表任何人,
+ * 也不能再對它做什麼,只有刻意要看時才列出來。
+ */
+export function usersQueryOptions(offset: number, includeDeleted = false) {
   return queryOptions({
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await api.GET("/api/v1/admin/users", {
+        params: {
+          query: { include_deleted: includeDeleted, limit: PAGE_SIZE, offset },
+        },
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    queryKey: [...USERS_QUERY_KEY, { includeDeleted, offset }],
+  });
+}
+
+/** 全站分享跟「我的分享」是兩份不同的東西,key 也分開 —— 我的在 `["shares", "mine"]`。 */
+const ALL_SHARES_QUERY_KEY = ["admin", "shares"] as const;
+
+export function allSharesQueryOptions(offset: number) {
+  return queryOptions({
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const { data, error } = await api.GET("/api/v1/admin/shares", {
         params: { query: { limit: PAGE_SIZE, offset } },
       });
       if (error) {
@@ -50,7 +75,7 @@ export function usersQueryOptions(offset: number) {
       }
       return data;
     },
-    queryKey: [...USERS_QUERY_KEY, offset],
+    queryKey: [...ALL_SHARES_QUERY_KEY, offset],
   });
 }
 
@@ -90,8 +115,12 @@ export function usePermissions() {
   return useQuery(permissionsQueryOptions);
 }
 
-export function useUsers(offset: number) {
-  return useQuery(usersQueryOptions(offset));
+export function useUsers(offset: number, includeDeleted = false) {
+  return useQuery(usersQueryOptions(offset, includeDeleted));
+}
+
+export function useAllShares(offset: number) {
+  return useQuery(allSharesQueryOptions(offset));
 }
 
 export function useInvites() {
@@ -177,6 +206,89 @@ export function useSetUserRole() {
       queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: rolesQueryOptions.queryKey });
       queryClient.invalidateQueries({ queryKey: ["auth", "session"] });
+    },
+  });
+}
+
+export type AccountState = "active" | "disabled";
+
+/**
+ * 停用／啟用。只送 `state` —— `is_admin` 一帶就會重寫角色(`true` 變 owner、
+ * `false` 變沒有角色),停用一個人不該順手降他的級。
+ */
+export function useSetUserState() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, state }: { id: string; state: AccountState }) => {
+      const { data, error } = await api.PATCH("/api/v1/admin/users/{id}", {
+        body: { state },
+        params: { path: { id } },
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+    },
+  });
+}
+
+/** 刪帳號不會動到他的分享(server 端把 owner 設成 NULL),要清掉是另一個動作。 */
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE("/api/v1/admin/users/{id}", {
+        params: { path: { id } },
+      });
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: rolesQueryOptions.queryKey });
+    },
+  });
+}
+
+/** 一次結束某個人上傳的全部分享。回傳結束了幾份。 */
+export function useRemoveUserShares() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await api.DELETE(
+        "/api/v1/admin/users/{id}/shares",
+        { params: { path: { id } } }
+      );
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_SHARES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ["shares", "mine"] });
+    },
+  });
+}
+
+export function useDeleteShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE("/api/v1/admin/shares/{id}", {
+        params: { path: { id } },
+      });
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_SHARES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ["shares", "mine"] });
     },
   });
 }

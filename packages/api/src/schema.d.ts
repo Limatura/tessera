@@ -3272,8 +3272,14 @@ export interface components {
         };
         /** @description Body of `PATCH /admin/users/{id}`. */
         UpdateUserRequest: {
-            /** @description Whether this account administers the instance. */
-            is_admin: boolean;
+            /**
+             * @description Whether this account administers the instance.
+             *
+             *     Omitted leaves its role as it is. Sending it always rewrites the role
+             *     (`true` to `owner`, `false` to none), so a client changing only `state`
+             *     or a quota must leave it out, or it demotes the account as a side effect.
+             */
+            is_admin?: boolean | null;
             /**
              * @description Largest single file this one account may send, overriding its role's.
              *

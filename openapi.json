@@ -2101,8 +2101,11 @@
         "description": "Body of `PATCH /admin/users/{id}`.",
         "properties": {
           "is_admin": {
-            "description": "Whether this account administers the instance.",
-            "type": "boolean"
+            "description": "Whether this account administers the instance.\n\nOmitted leaves its role as it is. Sending it always rewrites the role\n(`true` to `owner`, `false` to none), so a client changing only `state`\nor a quota must leave it out, or it demotes the account as a side effect.",
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "max_file_bytes": {
             "$ref": "#/components/schemas/Option_u64",
@@ -2120,9 +2123,6 @@
             ]
           }
         },
-        "required": [
-          "is_admin"
-        ],
         "type": "object"
       },
       "UploadResponse": {

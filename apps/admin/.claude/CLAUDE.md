@@ -36,7 +36,8 @@ src/
 │   ├── __root.tsx               # Root layout (theme, locale, toaster); context carries queryClient
 │   ├── index.tsx                 # No UI — redirects to the first page the account may open
 │   ├── shares.tsx                # The caller's own shares — the fallback landing page, auth only
-│   ├── users.tsx                 # Accounts and their roles (users:read)
+│   ├── users.tsx                 # Accounts, roles, suspend / delete / end their shares (users:read)
+│   ├── all-shares.tsx            # Every share on the instance, delete any (shares:read:any)
 │   ├── invites.tsx               # Invite codes (invites:read)
 │   ├── dashboard/                # Stats cards, storage trend, recent shares (stats:read)
 │   ├── roles/                    # Roles and what they permit (roles:read)
@@ -159,7 +160,7 @@ Several of these keys break an instance quietly rather than loudly, so the forms
 1. **Dashboard data is mocked** (`src/data/dashboard-mock.json`) — stats cards, storage trend, and recent shares need real backend endpoints
 2. **Dropped for having no backend key**: the 網站資訊 section (site title/description/SEO keywords, admin-entry-on-home) and `upload.allowedFileTypes`. Do not re-add them as editable fields until `settings::keys()` actually lists them — `site.title`/`site.description` are tracked in #278; the other three are a deliberate no, with reasons, in #279.
 3. **dnd-demo route** looks like a scratch/demo route — confirm with the team before building on it or removing it
-4. **The users / invites / roles / shares pages are read-only lists.** The mutations they would need already exist in `use-admin.ts` (`useCreateRole`, `useUpdateRole`, `useDeleteRole`, `useSetUserRole`) but nothing calls them yet — no create/edit UI
+4. **Account state is not in the list response.** `AdminUserResponse` has no `state` yet, so the users page offers both 停用 and 重新啟用 and cannot badge a suspended account. Deleted accounts are recognised by their `gone-` username (`src/lib/accounts.ts`). Switch both to `state` once the server returns it. Never send `is_admin` on `PATCH /admin/users/{id}` unless changing it — it rewrites the role (`true` → owner, `false` → none)
 5. **Remaining editable keys with no form** — `storage.capacity_bytes`, `storage.split_across_backends`, `storage.reconcile_interval_hours`, `storage.reconcile_grace_hours`, `storage.options`. Everything else `settings::keys()` offers is now wired. `split_across_backends` needs its own explanatory copy before it ships: turning it on lets a file exceed any single backend, but a split file has no direct download, so the bytes go through this server or are stitched in the browser
 6. **No section uses tabs any more.** Each is its own route under the collapsible sidebar group. Add tabs back only when a single section grows enough sub-detail to need them (`auth.hashing.*` and the seven `auth.throttle.*` groups would be the first candidates, under 帳號與註冊)
 
