@@ -22,7 +22,7 @@ services:
       # inside the container.
       TESSERA_SERVER__HOST: 0.0.0.0
       TESSERA_DATABASE__URL: sqlite:///data/tessera.db?mode=rwc
-      TESSERA_STORAGE__URL: /data/blobs
+      TESSERA_SERVER__DATA_DIR: /data
     # No `healthcheck:` here — the image declares its own, which re-executes the
     # binary with `--health-check` so the probe reads the same configuration and
     # therefore always targets the port the server actually listens on.

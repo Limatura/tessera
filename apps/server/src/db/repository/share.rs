@@ -498,10 +498,10 @@ pub enum StorageLocation {
     Object {
         /// Which configured backend holds it.
         ///
-        /// Recorded per file, not read from the configuration, which can
-        /// change. Without this, pointing `storage.url`
-        /// somewhere else leaves every existing share reading as present and
-        /// failing to deliver, with nothing saying where the bytes went.
+        /// Recorded per file, not read from which backend is the default now,
+        /// which can change. Without this, sending new uploads somewhere else
+        /// leaves every existing share reading as present and failing to
+        /// deliver, with nothing saying where the bytes went.
         backend: String,
         /// Key as it was written. Stored, not recomputed, so the layout can
         /// change later without moving existing objects.
@@ -996,7 +996,7 @@ impl ShareRepository {
         Ok(u32::try_from(position).unwrap_or(u32::MAX))
     }
 
-    /// Every object this share has in the store.
+    /// Every object this share has, and the backend each is on.
     ///
     /// # Why a list
     ///
@@ -1004,23 +1004,48 @@ impl ShareRepository {
     /// and unreachable, a leak nothing can find once the row that named them is
     /// gone.
     ///
-    /// Text has no objects: its content is its row.
+    /// # Why the backend with each
+    ///
+    /// A share's files can be on different backends, and one file's pieces
+    /// too. Deleting a key from the wrong store finds nothing there, which the
+    /// sweep reads as "already gone", so the bytes stay where they are with no
+    /// row left to say so.
+    ///
+    /// Read from `file_segments`, one row per piece. A file with none is one
+    /// written before those were recorded, and its bytes are on the seeded
+    /// backend under the key its own row names. Text has no objects: its
+    /// content is its row.
     ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the query fails.
-    pub async fn object_keys_of(
+    pub async fn objects_of(
         &self,
         share_id: ShareId,
-    ) -> Result<Vec<String>, ShareRepositoryError> {
-        Ok(FileShareEntity::find()
+    ) -> Result<Vec<(String, String)>, ShareRepositoryError> {
+        let files = FileShareEntity::find()
             .filter(file_share::Column::ShareId.eq(share_id.to_string()))
             .order_by_asc(file_share::Column::Position)
             .all(&self.connection)
-            .await?
-            .into_iter()
-            .filter_map(|model| model.object_key)
-            .collect())
+            .await?;
+        let ids: Vec<String> = files.iter().map(|file| file.id.clone()).collect();
+        let mut segments = self.segments_of(&ids).await?;
+
+        let mut objects = Vec::new();
+        for file in files {
+            match segments.remove(&file.id) {
+                Some(pieces) => objects.extend(
+                    pieces
+                        .into_iter()
+                        .map(|piece| (piece.backend, piece.object_key)),
+                ),
+                None => objects.extend(
+                    file.object_key
+                        .map(|key| (crate::storage::DEFAULT_BACKEND.to_owned(), key)),
+                ),
+            }
+        }
+        Ok(objects)
     }
 
     /// Every object key any share still names.

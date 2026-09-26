@@ -132,8 +132,7 @@ async fn a_file_is_streamed_to_the_blob_store() {
     );
 
     let fetched = app
-        .state
-        .storage
+        .seeded_store()
         .get(&object_store::path::Path::from(key.as_str()))
         .await
         .expect("the object should exist")
@@ -227,8 +226,7 @@ async fn deleting_a_share_removes_its_object_too() {
     .await;
 
     assert!(
-        app.state
-            .storage
+        app.seeded_store()
             .get(&object_store::path::Path::from(key.as_str()))
             .await
             .is_err(),
@@ -475,8 +473,7 @@ async fn a_body_past_the_limit_is_refused() {
     // And nothing was left behind: a refused upload that had already started
     // writing must not leave parts that will never be collected.
     let listed = app
-        .state
-        .storage
+        .seeded_store()
         .list(None)
         .try_collect::<Vec<_>>()
         .await
@@ -1646,8 +1643,7 @@ async fn a_share_whose_object_already_vanished_is_still_reaped() {
     let id: tessera_core::ShareId = share["id"].as_str().expect("an id").parse().expect("an id");
     let stored = content_of(&app, id).await;
     let key = first_key(&stored).expect("an object key").to_owned();
-    app.state
-        .storage
+    app.seeded_store()
         .delete(&object_store::path::Path::from(key))
         .await
         .expect("could not remove the object by hand");
@@ -2005,8 +2001,7 @@ async fn even_a_tiny_file_becomes_an_object() {
         first_key(&stored).unwrap_or_else(|| panic!("expected object storage, got {stored:?}"));
 
     let bytes = app
-        .state
-        .storage
+        .seeded_store()
         .get(&object_store::path::Path::from(key))
         .await
         .expect("fetch")
@@ -3494,8 +3489,7 @@ async fn capabilities_shows_an_administrator_the_tighter_of_the_two() {
     reason = "test fixture; a panic is how it reports"
 )]
 async fn put_object(app: &TestApp, key: &str, bytes: &[u8]) {
-    app.state
-        .storage
+    app.seeded_store()
         .put(
             &object_store::path::Path::from(key),
             object_store::PutPayload::from(bytes.to_vec()),
@@ -3506,8 +3500,7 @@ async fn put_object(app: &TestApp, key: &str, bytes: &[u8]) {
 
 /// Whether the store still holds a key.
 async fn object_exists(app: &TestApp, key: &str) -> bool {
-    app.state
-        .storage
+    app.seeded_store()
         .head(&object_store::path::Path::from(key))
         .await
         .is_ok()
@@ -3832,13 +3825,7 @@ async fn a_download_reads_from_the_backend_the_file_named() {
     // Same name, nothing behind it.
     let empty: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::new(object_store::memory::InMemory::new());
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([(
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            tessera_server::storage::Stores::plain(empty),
-        )]),
-        configured: Vec::new(),
-    });
+    app.swap_seeded_store(tessera_server::storage::Stores::plain(empty));
 
     assert_ne!(
         app.get(&format!("/s/{code}/download")).await.status(),
@@ -3871,14 +3858,10 @@ async fn an_unconfigured_backend_is_unavailable_not_missing() {
 /// over the buckets is the failure an operator can do nothing about afterwards.
 #[tokio::test]
 async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
-    use tessera_server::{
-        db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
-        security::secret::Sealer,
-    };
+    use tessera_server::db::repository::storage_backend::StorageBackend;
 
     let app = TestApp::ready().await;
-    let key = Sealer::new(&"ab".repeat(32)).expect("a key");
-    let store = StorageBackendRepository::new(app.state.db.clone(), key);
+    let store = &app.state.storage_backends;
 
     store
         .put(
@@ -3905,7 +3888,7 @@ async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
         .db
         .query_one_raw(sea_orm::Statement::from_string(
             app.state.db.get_database_backend(),
-            "SELECT url, options FROM storage_backends",
+            "SELECT url, options FROM storage_backends WHERE name = 'cold'",
         ))
         .await
         .expect("query")
@@ -3921,7 +3904,10 @@ async fn a_stored_backend_keeps_its_credentials_out_of_the_row() {
 
     // And it comes back whole for the process that has the key.
     let opened = store.all().await.expect("read back");
-    let cold = opened.first().expect("the backend");
+    let cold = opened
+        .iter()
+        .find(|backend| backend.name == "cold")
+        .expect("the backend");
     assert_eq!(cold.url, "s3://bucket-b?aws_secret_access_key=hunter2");
     assert_eq!(
         cold.options.get("aws_region").map(String::as_str),
@@ -4001,16 +3987,10 @@ async fn without_a_key_a_backend_cannot_be_stored() {
 /// reachable by two operators pressing the same button.
 #[tokio::test]
 async fn only_one_backend_takes_new_uploads() {
-    use tessera_server::{
-        db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
-        security::secret::Sealer,
-    };
+    use tessera_server::db::repository::storage_backend::StorageBackend;
 
     let app = TestApp::ready().await;
-    let store = StorageBackendRepository::new(
-        app.state.db.clone(),
-        Sealer::new(&"ab".repeat(32)).expect("a key"),
-    );
+    let store = &app.state.storage_backends;
     let now = OffsetDateTime::now_utc();
     for name in ["hot", "cold"] {
         store
@@ -4055,18 +4035,8 @@ fn pool_with_second(
 
     let second: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::new(object_store::memory::InMemory::new());
-    tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([
-            (
-                tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-                tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
-            ),
-            (
-                name.to_owned(),
-                tessera_server::storage::Stores::plain(second),
-            ),
-        ]),
-        configured: vec![StorageBackend {
+    app.pool_with(
+        StorageBackend {
             name: name.to_owned(),
             url: "memory://".to_owned(),
             options: std::collections::BTreeMap::new(),
@@ -4074,8 +4044,121 @@ fn pool_with_second(
             capacity_bytes: capacity,
             read_only: false,
             direct_access: false,
-        }],
-    }
+        },
+        tessera_server::storage::Stores::plain(second),
+    )
+}
+
+/// A dead share's bytes are removed from the backend that holds them.
+///
+/// Asking the default for a key it never had answers "not found", which the
+/// sweep takes as "already gone": the share is marked clean and the bytes stay
+/// on the other backend with nothing left pointing at them.
+#[tokio::test]
+async fn a_dead_share_is_reaped_from_the_backend_holding_it() {
+    let app = TestApp::with_config_and_backend(
+        |config| config.share.inline_threshold_bytes = 8,
+        // Too small for the upload, so it lands on `cold`.
+        |backend| backend.capacity_bytes = Some(1024),
+    )
+    .await;
+    app.state
+        .replace_backends(pool_with_second(&app, "cold", None));
+
+    let share = upload(&app, "?filename=once.bin&max_uses=1", &vec![5_u8; 8192]).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("parses");
+    let stored = content_of(&app, id).await;
+    assert_eq!(
+        stored.files().first().expect("a file").storage.backend(),
+        Some("cold")
+    );
+    let key = first_key(&stored).expect("an object key").to_owned();
+    let code = share["code"].as_str().expect("a code").to_owned();
+    expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::OK,
+    )
+    .await;
+
+    tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+    assert!(
+        app.state
+            .backend("cold")
+            .expect("cold is open")
+            .head(&object_store::path::Path::from(key))
+            .await
+            .is_err(),
+        "the dead share's bytes are still on the backend that held them"
+    );
+}
+
+/// Deleting a share removes its bytes from the backend holding them, for the
+/// same reason the sweep has to.
+#[tokio::test]
+async fn deleting_a_share_removes_its_bytes_from_their_backend() {
+    let app = TestApp::with_config_and_backend(
+        |config| config.share.inline_threshold_bytes = 8,
+        |backend| backend.capacity_bytes = Some(1024),
+    )
+    .await;
+    app.state
+        .replace_backends(pool_with_second(&app, "cold", None));
+
+    let share = upload(&app, "?filename=mine.bin", &vec![6_u8; 8192]).await;
+    let id = tessera_core::ShareId::parse(share["id"].as_str().expect("an id")).expect("parses");
+    let key = first_key(&content_of(&app, id).await)
+        .expect("an object key")
+        .to_owned();
+    let code = share["code"].as_str().expect("a code");
+    let token = share["management_token"].as_str().expect("a token");
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::DELETE)
+                .uri(format!("/api/v1/shares/{code}"))
+                .header("x-share-management-token", token),
+            Body::empty(),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    assert!(
+        app.state
+            .backend("cold")
+            .expect("cold is open")
+            .head(&object_store::path::Path::from(key))
+            .await
+            .is_err(),
+        "the deleted share's bytes are still on the backend that held them"
+    );
+}
+
+/// Orphans are looked for on every backend, not only the default: an upload
+/// can leave one on whichever backend it was placed on.
+#[tokio::test]
+async fn an_orphan_on_another_backend_is_removed() {
+    let app = TestApp::with_config(|config| config.storage.reconcile_grace_hours = 1).await;
+    app.state
+        .replace_backends(pool_with_second(&app, "cold", None));
+    let cold = app.state.backend("cold").expect("cold is open");
+    let orphan = object_store::path::Path::from("shares/2026/01/orphan");
+    cold.put(&orphan, object_store::PutPayload::from_static(b"leaked"))
+        .await
+        .expect("write the object");
+
+    tessera_server::maintenance::reconcile_once(
+        &app.state,
+        OffsetDateTime::now_utc() + time::Duration::hours(2),
+    )
+    .await;
+
+    assert!(
+        cold.head(&orphan).await.is_err(),
+        "the orphan is still there"
+    );
 }
 
 /// The point of a capacity figure: the instance refuses before the provider
@@ -4083,11 +4166,12 @@ fn pool_with_second(
 /// stopping short of it is a clean answer.
 #[tokio::test]
 async fn a_full_backend_hands_the_upload_to_another() {
-    let app = TestApp::with_config(|config| {
-        config.share.inline_threshold_bytes = 8;
-        // The default holds almost nothing, so the second backend has to take it.
-        config.storage.capacity_bytes = 1024;
-    })
+    let app = TestApp::with_config_and_backend(
+        |config| {
+            config.share.inline_threshold_bytes = 8;
+        },
+        |backend| backend.capacity_bytes = Some(1024),
+    )
     .await;
     app.state
         .replace_backends(pool_with_second(&app, "cold", None));
@@ -4106,10 +4190,12 @@ async fn a_full_backend_hands_the_upload_to_another() {
 /// bytes would quietly undo a choice they made.
 #[tokio::test]
 async fn the_default_backend_keeps_taking_uploads_while_it_fits() {
-    let app = TestApp::with_config(|config| {
-        config.share.inline_threshold_bytes = 8;
-        config.storage.capacity_bytes = 1_000_000;
-    })
+    let app = TestApp::with_config_and_backend(
+        |config| {
+            config.share.inline_threshold_bytes = 8;
+        },
+        |backend| backend.capacity_bytes = Some(1_000_000),
+    )
     .await;
     app.state
         .replace_backends(pool_with_second(&app, "cold", None));
@@ -4132,10 +4218,12 @@ async fn the_default_backend_keeps_taking_uploads_while_it_fits() {
 /// the refusal is a 507 and not a 413: the file is not too big in itself.
 #[tokio::test]
 async fn a_file_bigger_than_every_backend_is_refused() {
-    let app = TestApp::with_config(|config| {
-        config.share.inline_threshold_bytes = 8;
-        config.storage.capacity_bytes = 2048;
-    })
+    let app = TestApp::with_config_and_backend(
+        |config| {
+            config.share.inline_threshold_bytes = 8;
+        },
+        |backend| backend.capacity_bytes = Some(2048),
+    )
     .await;
     app.state
         .replace_backends(pool_with_second(&app, "cold", Some(2048)));
@@ -4157,7 +4245,7 @@ async fn a_file_bigger_than_every_backend_is_refused() {
 /// refused.
 #[tokio::test]
 async fn capabilities_reports_the_largest_placeable_file_not_the_sum() {
-    let app = TestApp::with_config(|config| config.storage.capacity_bytes = 2048).await;
+    let app = TestApp::with_backend(|backend| backend.capacity_bytes = Some(2048)).await;
     app.state
         .replace_backends(pool_with_second(&app, "cold", Some(2048)));
 
@@ -4225,13 +4313,7 @@ async fn a_streamed_file_is_refused_by_a_backend_that_cannot_take_one() {
     // Room to spare, and no way to use it for a file this size.
     let store: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::new(object_store::memory::InMemory::new());
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([(
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            tessera_server::storage::Stores::whole_body_only(store),
-        )]),
-        configured: Vec::new(),
-    });
+    app.swap_seeded_store(tessera_server::storage::Stores::whole_body_only(store));
 
     let refused = app
         .send(
@@ -4317,13 +4399,9 @@ async fn a_backend_that_fills_up_mid_upload_does_not_leave_a_share_behind() {
     // Room for a quarter of what is about to be sent.
     let brimming: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::new(common::brimming::Brimming::with_room_for(16 * 1024));
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([(
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            tessera_server::storage::Stores::plain(std::sync::Arc::clone(&brimming)),
-        )]),
-        configured: Vec::new(),
-    });
+    app.swap_seeded_store(tessera_server::storage::Stores::plain(
+        std::sync::Arc::clone(&brimming),
+    ));
 
     let refused = app
         .send(
@@ -4345,13 +4423,7 @@ async fn a_backend_that_fills_up_mid_upload_does_not_leave_a_share_behind() {
     // the one whose budget the failed upload has already spent.
     let roomy: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::new(object_store::memory::InMemory::new());
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([(
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            tessera_server::storage::Stores::plain(roomy),
-        )]),
-        configured: Vec::new(),
-    });
+    app.swap_seeded_store(tessera_server::storage::Stores::plain(roomy));
 
     let created = expect_status(
         app.send(
@@ -4463,11 +4535,11 @@ async fn two_uploads_at_once_cannot_both_spend_the_last_of_the_room() {
 /// say where.
 #[tokio::test]
 async fn an_upload_in_flight_counts_against_its_backend() {
-    let app = TestApp::with_config(|config| {
-        config.share.inline_threshold_bytes = 8;
+    let app = TestApp::with_config_and_backend(
+        |config| config.share.inline_threshold_bytes = 8,
         // Room for one of the two uploads below and not both.
-        config.storage.capacity_bytes = 60 * 1024;
-    })
+        |backend| backend.capacity_bytes = Some(60 * 1024),
+    )
     .await;
 
     // A resumable session declares what it will send, and that declaration is
@@ -4599,13 +4671,7 @@ async fn a_segment_that_cannot_be_finished_is_not_reported_as_written() {
     // Room for the first segment and a little of the second.
     let brimming: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::new(common::brimming::Brimming::with_room_for(part_u64 + 1024));
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([(
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            tessera_server::storage::Stores::plain(brimming),
-        )]),
-        configured: Vec::new(),
-    });
+    app.swap_seeded_store(tessera_server::storage::Stores::plain(brimming));
 
     let plan = vec![
         Planned {
@@ -4736,8 +4802,7 @@ async fn a_file_in_two_objects_reads_back_whole() {
         .expect("clear the old segment");
     // The object the single-segment path would read, removed: without this the
     // test passes through the old path and proves nothing about stitching.
-    app.state
-        .storage
+    app.seeded_store()
         .delete(&object_store::path::Path::from(
             existing.object_key.as_str(),
         ))
@@ -4836,9 +4901,6 @@ async fn a_file_too_large_for_any_one_backend_is_split_and_read_back() {
             config.share.inline_threshold_bytes = 8;
             config.server.part_size_bytes = 5 * 1024 * 1024;
             config.storage.split_across_backends = split;
-            // The backend from `storage.url` has no row, so its ceiling is
-            // configured where its URL is.
-            config.storage.capacity_bytes = 5 * 1024 * 1024;
         })
         .await;
 
@@ -4853,7 +4915,10 @@ async fn a_file_too_large_for_any_one_backend_is_split_and_read_back() {
                 tessera_server::storage::Stores::plain(store),
             );
         }
-        let configured = vec![backend_row("cold", capacity, false)];
+        let configured = vec![
+            backend_row(tessera_server::storage::DEFAULT_BACKEND, capacity, true),
+            backend_row("cold", capacity, false),
+        ];
         app.state
             .replace_backends(tessera_server::storage::Pool { open, configured });
 
@@ -4954,7 +5019,6 @@ async fn splitting_holds_at_every_awkward_size() {
             config.share.inline_threshold_bytes = 8;
             config.server.part_size_bytes = PART;
             config.storage.split_across_backends = true;
-            config.storage.capacity_bytes = per_backend;
             // Otherwise the instance ceiling refuses what the backends could take.
             config.storage.max_total_bytes = pool;
         })
@@ -5103,8 +5167,8 @@ async fn abandoning_a_writer_leaves_nothing_behind() {
 
 /// `count` empty in-memory backends, each with the same ceiling.
 ///
-/// The first is the one built from `storage.url`, whose ceiling lives in the
-/// configuration because it has no row; the rest carry theirs in the table.
+/// The first under the seeded one's name, and the default, so files recorded
+/// there are read from the pool and not from the fixture's directory.
 fn equal_backends(count: usize, each: u64) -> tessera_server::storage::Pool {
     let mut open = tessera_server::storage::Backends::new();
     let mut configured = Vec::new();
@@ -5117,9 +5181,7 @@ fn equal_backends(count: usize, each: u64) -> tessera_server::storage::Pool {
         let store: std::sync::Arc<dyn object_store::ObjectStore> =
             std::sync::Arc::new(object_store::memory::InMemory::new());
         open.insert(name.clone(), tessera_server::storage::Stores::plain(store));
-        if index > 0 {
-            configured.push(backend_row(&name, each, false));
-        }
+        configured.push(backend_row(&name, each, index == 0));
     }
     tessera_server::storage::Pool { open, configured }
 }
@@ -5221,7 +5283,6 @@ async fn two_uploads_that_both_need_splitting_cannot_both_have_the_pool() {
             config.share.inline_threshold_bytes = 8;
             config.server.part_size_bytes = PART;
             config.storage.split_across_backends = true;
-            config.storage.capacity_bytes = per_backend;
             config.storage.max_total_bytes = pool;
         })
         .await;
@@ -5748,7 +5809,7 @@ async fn a_layout_that_is_no_longer_allowed_falls_back() {
 /// must leave downloads exactly as they were rather than send anybody anywhere.
 #[tokio::test]
 async fn direct_access_on_a_local_directory_still_serves_from_here() {
-    let app = TestApp::with_config(|config| config.storage.direct_access = true).await;
+    let app = TestApp::with_backend(|backend| backend.direct_access = true).await;
     // Past the inline threshold, so the file is an object and not a row.
     let sent: Vec<u8> = (0..200_000_u32)
         .map(|i| u8::try_from(i % 251).unwrap_or(0))
@@ -5784,7 +5845,7 @@ async fn direct_access_on_a_local_directory_still_serves_from_here() {
 /// itself. On a local directory it could not, so there is nothing to describe.
 #[tokio::test]
 async fn a_local_directory_has_no_segment_listing() {
-    let app = TestApp::with_config(|config| config.storage.direct_access = true).await;
+    let app = TestApp::with_backend(|backend| backend.direct_access = true).await;
     let sent: Vec<u8> = (0..200_000_u32)
         .map(|i| u8::try_from(i % 251).unwrap_or(0))
         .collect();

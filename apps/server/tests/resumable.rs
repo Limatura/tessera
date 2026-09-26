@@ -486,8 +486,8 @@ async fn an_anonymous_session_does_not_spend_a_members_quota() {
     assert_eq!(mine.status(), StatusCode::CREATED);
 }
 
-/// A resumable upload goes to a backend with room for it, not always the one
-/// from `storage.url`.
+/// A resumable upload goes to a backend with room for it, not always the
+/// default.
 ///
 /// Direct uploads were placed and resumable ones were not, so an instance whose
 /// default had filled up refused every resumable upload while other backends
@@ -496,7 +496,7 @@ async fn an_anonymous_session_does_not_spend_a_members_quota() {
 async fn a_resumable_upload_is_placed_like_any_other() {
     use tessera_server::db::repository::storage_backend::StorageBackend;
 
-    let app = TestApp::with_config(|config| config.storage.capacity_bytes = 1024).await;
+    let app = TestApp::with_backend(|backend| backend.capacity_bytes = Some(1024)).await;
     // A multipart view too, the way a real S3-shaped backend has one. Without
     // it this backend could not hold a resumable upload and the placer would be
     // right to pass it over. One store behind both views, as a real backend
@@ -505,24 +505,8 @@ async fn a_resumable_upload_is_placed_like_any_other() {
     let second: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::<object_store::memory::InMemory>::clone(&memory);
     let second_multipart = tessera_server::storage::Multipart(memory);
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([
-            (
-                tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-                tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
-            ),
-            (
-                "cold".to_owned(),
-                tessera_server::storage::Stores {
-                    store: second,
-                    multipart: Some(second_multipart),
-                    put_multipart: true,
-                    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
-                    signer: None,
-                },
-            ),
-        ]),
-        configured: vec![StorageBackend {
+    app.state.replace_backends(app.pool_with(
+        StorageBackend {
             name: "cold".to_owned(),
             url: "memory://".to_owned(),
             options: std::collections::BTreeMap::new(),
@@ -530,8 +514,15 @@ async fn a_resumable_upload_is_placed_like_any_other() {
             capacity_bytes: None,
             read_only: false,
             direct_access: false,
-        }],
-    });
+        },
+        tessera_server::storage::Stores {
+            store: second,
+            multipart: Some(second_multipart),
+            put_multipart: true,
+            #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+            signer: None,
+        },
+    ));
 
     // Bigger than the default's 1 KiB, so it has to land on `cold`.
     let created = body_json(
@@ -576,40 +567,31 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
     use tessera_server::db::repository::storage_backend::StorageBackend;
 
     // The default has room for nothing, so the session is placed on `cold`.
-    let app = TestApp::with_config(|config| config.storage.capacity_bytes = 1).await;
+    let app = TestApp::with_backend(|backend| backend.capacity_bytes = Some(1)).await;
     // One store behind both views, the way a real backend has one.
     let memory = std::sync::Arc::new(object_store::memory::InMemory::new());
     let cold: std::sync::Arc<dyn object_store::ObjectStore> =
         std::sync::Arc::<object_store::memory::InMemory>::clone(&memory);
     let cold_multipart = tessera_server::storage::Multipart(memory);
-    let configured = vec![StorageBackend {
-        name: "cold".to_owned(),
-        url: "memory://".to_owned(),
-        options: std::collections::BTreeMap::new(),
-        is_default: false,
-        capacity_bytes: None,
-        read_only: false,
-        direct_access: false,
-    }];
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([
-            (
-                tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-                tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
-            ),
-            (
-                "cold".to_owned(),
-                tessera_server::storage::Stores {
-                    store: cold,
-                    multipart: Some(cold_multipart),
-                    put_multipart: true,
-                    #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
-                    signer: None,
-                },
-            ),
-        ]),
-        configured: configured.clone(),
-    });
+    let seeded = app.state.backends.load_full();
+    app.state.replace_backends(app.pool_with(
+        StorageBackend {
+            name: "cold".to_owned(),
+            url: "memory://".to_owned(),
+            options: std::collections::BTreeMap::new(),
+            is_default: false,
+            capacity_bytes: None,
+            read_only: false,
+            direct_access: false,
+        },
+        tessera_server::storage::Stores {
+            store: cold,
+            multipart: Some(cold_multipart),
+            put_multipart: true,
+            #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
+            signer: None,
+        },
+    ));
 
     let (id, token, _) = open(&app, "kept.bin", 4096).await;
     let session = app
@@ -626,13 +608,7 @@ async fn a_resumed_session_keeps_writing_where_it_started() {
 
     // `cold` is dropped from the pool. The session still names it, so the write
     // has to fail instead of landing in whatever is current.
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open: tessera_server::storage::Backends::from([(
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            tessera_server::storage::Stores::plain(std::sync::Arc::clone(&app.state.storage)),
-        )]),
-        configured: Vec::new(),
-    });
+    app.state.replace_backends((*seeded).clone());
 
     let patched = app
         .send(
@@ -668,7 +644,12 @@ async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
     let (id, _token, _) = open(&app, "two-parts.bin", 64).await;
 
     // The partial file the appending sink writes for the segment that exists.
-    let root = app.state.config().storage.url.clone();
+    let root = app
+        .state
+        .backends
+        .load()
+        .local_root(tessera_server::storage::DEFAULT_BACKEND)
+        .expect("the seeded backend is a directory");
     let first = app
         .state
         .uploads
@@ -698,7 +679,7 @@ async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
 
     // A partial file for each, as the appending sink leaves behind.
     for key in [&first.object_key, &second_key] {
-        let path = std::path::Path::new(&root).join(format!("{key}.part"));
+        let path = root.join(format!("{key}.part"));
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).expect("the directory");
         }
@@ -713,7 +694,7 @@ async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
     .await;
 
     for key in [&first.object_key, &second_key] {
-        let path = std::path::Path::new(&root).join(format!("{key}.part"));
+        let path = root.join(format!("{key}.part"));
         assert!(
             !path.exists(),
             "a segment's partial file survived the sweep: {}",

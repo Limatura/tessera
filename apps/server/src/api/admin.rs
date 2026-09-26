@@ -28,7 +28,6 @@
 )]
 
 use axum::{Json, extract::State, http::StatusCode};
-use object_store::{ObjectStoreExt as _, path::Path as ObjectPath};
 use serde::{Deserialize, Serialize};
 use tessera_core::{AccountState, InviteId, Permission, PermissionSet, RoleId, ShareId, UserId};
 use time::OffsetDateTime;
@@ -1546,12 +1545,7 @@ pub async fn delete_share(
     // Objects first, and every object, since a share can hold several. A row
     // without its object is a broken share; an object without its row is an
     // orphan a sweep can still find by listing.
-    for key in state.shares.object_keys_of(share_id).await? {
-        state
-            .storage
-            .delete(&ObjectPath::from(key.as_str()))
-            .await?;
-    }
+    crate::api::shares::remove_objects(&state, share_id).await?;
     state.shares.delete(share_id).await?;
     tracing::info!(share = %share_id, by = %current.user.id, "an administrator removed a share");
     Ok(StatusCode::NO_CONTENT)

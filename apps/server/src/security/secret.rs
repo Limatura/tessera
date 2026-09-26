@@ -4,8 +4,8 @@
 //! # Why anything is encrypted here at all
 //!
 //! Every other secret this software holds is either a hash (passwords, tokens)
-//! or lives outside the database (`database.url`, `storage.url`). A backend's
-//! URL was the first thing that had to be both *recoverable*, since the
+//! or lives outside the database (`database.url`). A backend's URL was the
+//! first thing that had to be both *recoverable*, since the
 //! process needs the key to talk to the bucket, and stored, since the point is
 //! that an operator can add one from the panel without a restart.
 //!
@@ -16,9 +16,14 @@
 //! sent people looking for a bucket setting.
 //!
 //! Recoverable and stored means a database dump is a credential leak, unless
-//! the thing that opens it lives somewhere the dump does not. So the key comes
-//! from the environment: one value, set once, never in a backup of the rows it
-//! protects.
+//! the thing that opens it lives somewhere the dump does not. So the key is
+//! kept apart from the rows: in the environment when an operator sets one, and
+//! otherwise in a file of its own, `secret.key` under `server.data_dir`,
+//! written on the first start. See [`Sealer::resolve`].
+//!
+//! The file is the convenience and the environment the stronger choice. A
+//! backup that copies the whole data directory copies the key with the
+//! database, and an operator who cares about that sets the variable instead.
 //!
 //! # What this is not
 //!
@@ -46,6 +51,15 @@ pub enum SecretError {
     /// The key is not 32 bytes of hex.
     #[error("security.secret_key must be 64 hexadecimal characters (32 bytes)")]
     BadKey,
+
+    /// The key file could not be read, written or understood.
+    #[error("could not use the key file `{path}`: {source}")]
+    KeyFile {
+        /// The file.
+        path: String,
+        /// What went wrong with it.
+        source: std::io::Error,
+    },
 
     /// The stored value will not open with this key.
     ///
@@ -91,6 +105,81 @@ impl Sealer {
                 .map_err(|_| SecretError::BadKey)?;
         }
         Ok(Self(Some(key)))
+    }
+
+    /// The key this instance seals with: `configured` when it is set, else
+    /// the one in `secret.key` under `data_dir`, made there if there is none.
+    ///
+    /// # Why a key is made rather than asked for
+    ///
+    /// Without one, nothing sealed can be stored, and that is every backend
+    /// and every credential the panel takes. Asking for a variable before the
+    /// first start is one more thing to get wrong, for a value nobody needs
+    /// to know. The environment still wins, for an operator who wants the key
+    /// out of the data directory.
+    ///
+    /// Created with `create_new`, so two processes starting at once (the
+    /// server and a command run beside it) end up with the one that got there
+    /// first, not one each.
+    ///
+    /// # Errors
+    ///
+    /// [`SecretError::BadKey`] for a configured key that is not 64 hexadecimal
+    /// characters, [`SecretError::KeyFile`] when the file cannot be read or
+    /// written, or holds something that is not a key.
+    pub fn resolve(configured: &str, data_dir: &std::path::Path) -> Result<Self, SecretError> {
+        if !configured.trim().is_empty() {
+            return Self::new(configured);
+        }
+        let path = data_dir.join(KEY_FILE);
+        let failed = |source| SecretError::KeyFile {
+            path: path.display().to_string(),
+            source,
+        };
+        loop {
+            match std::fs::read_to_string(&path) {
+                Ok(stored) => {
+                    return match Self::new(&stored) {
+                        Ok(sealer) if sealer.is_set() => Ok(sealer),
+                        _ => Err(failed(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "not 64 hexadecimal characters",
+                        ))),
+                    };
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(error) => return Err(failed(error)),
+            }
+            std::fs::create_dir_all(data_dir).map_err(failed)?;
+            match create_key_file(&path) {
+                Ok(hex) => {
+                    tracing::info!(
+                        path = %path.display(),
+                        "made a key for sealing stored credentials; back it up, or set \
+                         TESSERA_SECURITY__SECRET_KEY to keep it out of the data directory"
+                    );
+                    return Self::new(&hex);
+                }
+                // Another process made it between the read and the write. Its
+                // key is the one to use, so read again.
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(failed(error)),
+            }
+        }
+    }
+
+    /// [`Sealer::resolve`] for an instance's configuration: the server and
+    /// every command that opens the database read the key the same way, so
+    /// what one seals the other opens.
+    ///
+    /// # Errors
+    ///
+    /// As [`Sealer::resolve`].
+    pub fn for_config(config: &crate::config::Config) -> Result<Self, SecretError> {
+        Self::resolve(
+            &config.security.secret_key,
+            std::path::Path::new(&config.server.data_dir),
+        )
     }
 
     /// Whether this process can store credentials at all.
@@ -155,6 +244,35 @@ impl Sealer {
         let raw = self.0.as_ref().ok_or(SecretError::NoKey)?;
         RandomizedNonceKey::new(&AES_256_GCM, raw).map_err(|_| SecretError::BadKey)
     }
+}
+
+/// The name of the file [`Sealer::resolve`] keeps a made key in.
+pub const KEY_FILE: &str = "secret.key";
+
+/// Writes a new key to `path`, readable by this user alone, and returns it.
+///
+/// Fails with `AlreadyExists` rather than replacing one: a replaced key leaves
+/// everything sealed under the old one unreadable.
+fn create_key_file(path: &std::path::Path) -> std::io::Result<String> {
+    use std::io::Write as _;
+
+    let mut bytes = [0_u8; 32];
+    aws_lc_rs::rand::fill(&mut bytes).map_err(|_| std::io::Error::other("no randomness"))?;
+    let hex = bytes.iter().fold(String::new(), |mut hex, byte| {
+        use core::fmt::Write as _;
+        let _ = write!(hex, "{byte:02x}");
+        hex
+    });
+
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    let mut file = options.open(path)?;
+    file.write_all(hex.as_bytes())?;
+    file.write_all(b"\n")?;
+    file.sync_all()?;
+    Ok(hex)
 }
 
 fn decode_hex(hex: &str) -> Result<Vec<u8>, SecretError> {
@@ -248,6 +366,57 @@ mod tests {
             Sealer::new(&"z".repeat(64)),
             Err(SecretError::BadKey)
         ));
+    }
+
+    /// With nothing configured, a key is made once and the same one read back
+    /// after, or every restart would orphan what the last one sealed.
+    #[test]
+    fn a_made_key_is_kept_and_reused() {
+        let dir = tempfile::tempdir().expect("a directory");
+        let data = dir.path().join("nested");
+        let sealed = Sealer::resolve("", &data)
+            .expect("made")
+            .seal("s3://bucket")
+            .expect("seal");
+        let again = Sealer::resolve("  ", &data).expect("read back");
+        assert_eq!(again.open(&sealed).expect("open"), "s3://bucket");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = std::fs::metadata(data.join(super::KEY_FILE))
+                .expect("the file")
+                .permissions()
+                .mode();
+            assert_eq!(mode & 0o777, 0o600, "nobody else may read the key");
+        }
+    }
+
+    /// The environment wins, and does not touch the directory.
+    #[test]
+    fn a_configured_key_beats_the_file() {
+        let dir = tempfile::tempdir().expect("a directory");
+        let stored = Sealer::new(KEY)
+            .expect("a key")
+            .seal("s3://bucket")
+            .expect("seal");
+        let resolved = Sealer::resolve(KEY, dir.path()).expect("configured");
+        assert_eq!(resolved.open(&stored).expect("open"), "s3://bucket");
+        assert!(!dir.path().join(super::KEY_FILE).exists());
+    }
+
+    /// A damaged file is reported, not replaced: a new key would leave every
+    /// sealed setting unreadable without a word.
+    #[test]
+    fn a_damaged_key_file_is_not_replaced() {
+        let dir = tempfile::tempdir().expect("a directory");
+        let path = dir.path().join(super::KEY_FILE);
+        std::fs::write(&path, "not a key").expect("write");
+        assert!(matches!(
+            Sealer::resolve("", dir.path()),
+            Err(SecretError::KeyFile { .. })
+        ));
+        assert_eq!(std::fs::read_to_string(&path).expect("read"), "not a key");
     }
 
     /// Whatever it prints, it must not be the key.

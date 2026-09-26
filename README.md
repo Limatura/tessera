@@ -52,17 +52,17 @@ The docs UI is off by default because it pulls its renderer from a CDN, which ke
 
 ## Configuration
 
-Almost everything is changed in the admin panel and takes effect on the next request. Seventeen settings cannot be: the socket is already bound, the connection pool is already built, and the log subscriber was installed before either. Those come from the environment, prefixed `TESSERA_`, with `__` separating nesting levels:
+Almost everything is changed in the admin panel and takes effect on the next request. Sixteen settings cannot be: the socket is already bound, the connection pool is already built, and the log subscriber was installed before either. Those come from the environment, prefixed `TESSERA_`, with `__` separating nesting levels:
 
 ```bash
 TESSERA_SERVER__PORT=9000
 TESSERA_DATABASE__URL=sqlite://data/tessera.db      # or postgres:// / mysql://
-TESSERA_STORAGE__URL=data/blobs                     # or s3:// / gs:// / az:// / https://
+TESSERA_SERVER__DATA_DIR=data                       # the key file, and the first backend
 ```
 
-Every backend is compiled in by default, so pointing at S3 or Postgres needs no rebuild.
+Where files go is not one of them. A fresh instance keeps them in `blobs` under the data directory, and buckets are added from the panel or with `tessera-server backends add`, with no restart. Every backend is compiled in by default, so pointing at S3 or Postgres needs no rebuild.
 
-### What the storage URL can point at
+### What a backend can point at
 
 Each of these has the test suite run against it on every change, so the list is what is currently true rather than what ought to work:
 

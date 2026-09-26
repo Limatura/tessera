@@ -299,18 +299,6 @@ async fn resolve(
                 ),
             }));
         }
-        // Refused here rather than at the write, which would report an internal
-        // error for a configuration problem the operator can fix. Sealing is
-        // the only reason these are storable at all, so without a key there is
-        // no version of this that is safe to do.
-        if settings::is_sealed(key) && state.config().security.secret_key.trim().is_empty() {
-            return Err(Error::bad_request(format!(
-                "`{key}` is a credential. It is kept in this instance's database, encrypted \
-                 with `security.secret_key`, which comes from the environment as \
-                 `TESSERA_SECURITY__SECRET_KEY` so that a copy of the database is not a copy of the \
-                 credential. Set that first: `openssl rand -hex 32`."
-            )));
-        }
     }
 
     let mut candidate = state.settings.all().await?;

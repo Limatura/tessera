@@ -32,6 +32,7 @@ url = "2"
 axum = "0.8.9"
 tempfile = "3"
 tessera-server = { path = "../server" }
+time = { workspace = true }
 
 [lints]
 workspace = true

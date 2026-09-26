@@ -20,8 +20,6 @@ use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use object_store::{ObjectStore, local::LocalFileSystem, multipart::MultipartStore};
 
-use crate::config::StorageConfig;
-
 /// Environment prefixes considered as backend credentials.
 ///
 /// Matching the prefix is not enough to forward a variable. See
@@ -35,8 +33,8 @@ pub enum StorageError {
     #[error("could not open the object store: {0}")]
     Backend(#[from] object_store::Error),
 
-    /// `storage.url` is not a URL and not a usable path.
-    #[error("`storage.url` is not usable: {0}")]
+    /// A backend's location is not a URL and not a usable path.
+    #[error("the backend's location is not usable: {0}")]
     Location(String),
 
     /// The local root directory could not be created or read.
@@ -49,7 +47,29 @@ pub enum StorageError {
     },
 }
 
-/// Builds the object store described by `config`.
+/// Where a backend is and how to open it: a stored row's URL and options.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Target {
+    /// A bare path for a local directory, or an `object_store` URL.
+    pub url: String,
+    /// Backend-specific options, passed through verbatim. The standard
+    /// `AWS_*`, `GOOGLE_*` and `AZURE_*` environment variables are merged in
+    /// underneath, so these win where both are set.
+    pub options: BTreeMap<String, String>,
+}
+
+impl Target {
+    /// A backend at `url` with no options of its own.
+    #[must_use]
+    pub fn at(url: impl Into<String>) -> Self {
+        Self {
+            url: url.into(),
+            options: BTreeMap::new(),
+        }
+    }
+}
+
+/// Builds the object store `target` describes.
 ///
 /// A bare path is treated as a local directory and created if missing, so a
 /// first run needs no manual setup. Anything with a scheme is handed to
@@ -60,8 +80,8 @@ pub enum StorageError {
 /// Returns [`StorageError`] if the directory cannot be prepared, the URL cannot
 /// be parsed, or the backend rejects the options, including when the scheme
 /// needs a cargo feature this binary was built without.
-pub fn build(config: &StorageConfig) -> Result<Arc<dyn ObjectStore>, StorageError> {
-    Ok(build_with_multipart(config)?.store)
+pub fn build(target: &Target) -> Result<Arc<dyn ObjectStore>, StorageError> {
+    Ok(build_with_multipart(target)?.store)
 }
 
 /// A [`MultipartStore`] handle that can sit in a `Debug` struct.
@@ -121,59 +141,103 @@ pub type Backends = std::collections::HashMap<String, Stores>;
 pub struct Pool {
     /// Stores that opened, by name.
     pub open: Backends,
-    /// What the stored ones were configured with. The one from `storage.url`
-    /// is not here, since it has no row.
+    /// Every backend's row, whether or not it opened.
     pub configured: Vec<crate::db::repository::storage_backend::StorageBackend>,
 }
 
-/// Builds the store for every configured backend.
-///
-/// The one from `storage.url` is always present under [`DEFAULT_BACKEND`],
-/// whatever the table says: it holds everything written before backends
-/// existed, and an instance that could not open it could not serve its own
-/// history.
-///
-/// A stored backend that will not build (a bucket that has gone, options this
-/// binary was compiled without) is logged and left out, not fatal. Otherwise
-/// one unreachable bucket out of five takes the other four down.
-///
-/// # Errors
-///
-/// Only when the default itself cannot be built, the same failure the
-/// single-store version had.
-pub fn build_all(
-    config: &StorageConfig,
-    stored: &[crate::db::repository::storage_backend::StorageBackend],
-) -> Result<(Backends, Stores), StorageError> {
-    let default = build_with_multipart(config)?;
-    let mut all = Backends::with_capacity(stored.len() + 1);
-    all.insert(DEFAULT_BACKEND.to_owned(), default.clone());
+impl Pool {
+    /// The row a backend was opened from.
+    #[must_use]
+    pub fn row(
+        &self,
+        name: &str,
+    ) -> Option<&crate::db::repository::storage_backend::StorageBackend> {
+        self.configured.iter().find(|backend| backend.name == name)
+    }
 
+    /// The directory a backend writes to, when it is a local one.
+    ///
+    /// A resumable upload into a local directory appends to a partial file
+    /// there, since a directory has no multipart upload to hold open.
+    #[must_use]
+    pub fn local_root(&self, name: &str) -> Option<std::path::PathBuf> {
+        self.row(name)
+            .and_then(|backend| local_path(&backend.url))
+            .map(std::path::PathBuf::from)
+    }
+}
+
+/// Builds the store for every stored backend.
+///
+/// Every backend is a row. There is no other kind: a local directory is one
+/// like any bucket, written as the first row on a fresh instance by
+/// [`seed`], and an operator who wants only a bucket can remove it.
+///
+/// A backend that will not build (a bucket that has gone, options this binary
+/// was compiled without, a directory it cannot write) is logged and left out,
+/// not fatal. Otherwise one unreachable bucket takes the others down, and an
+/// instance that keeps nothing in the directory it was seeded with would not
+/// start because that directory is gone.
+#[must_use]
+pub fn build_all(stored: &[crate::db::repository::storage_backend::StorageBackend]) -> Backends {
+    let mut all = Backends::with_capacity(stored.len());
     for backend in stored {
-        if backend.name == DEFAULT_BACKEND {
-            tracing::warn!(
-                name = DEFAULT_BACKEND,
-                "a stored backend shadows the one from storage.url; the configured one wins"
-            );
-            continue;
-        }
-        let described = StorageConfig {
+        let target = Target {
             url: backend.url.clone(),
             options: backend.options.clone(),
-            ..StorageConfig::default()
         };
-        match build_with_multipart(&described) {
+        match build_with_multipart(&target) {
             Ok(opened) => {
                 all.insert(backend.name.clone(), opened);
             }
             Err(error) => tracing::error!(
                 name = backend.name,
                 %error,
-                "could not open a stored backend; shares held there will answer 503"
+                "could not open a backend; shares held there will answer 503"
             ),
         }
     }
-    Ok((all, default))
+    all
+}
+
+/// Writes the first backend on an instance that has none: a local directory,
+/// `blobs` under `server.data_dir`, and the one new content goes to.
+///
+/// Only when the table is empty, so an operator who replaced it with a bucket
+/// is not handed it back on the next start. Named [`DEFAULT_BACKEND`], which is
+/// what every file recorded before backends were rows names, so their bytes are
+/// found where they always were.
+///
+/// # Errors
+///
+/// When the table cannot be read or written.
+pub async fn seed(
+    backends: &crate::db::repository::storage_backend::StorageBackendRepository,
+    data_dir: &str,
+    now: time::OffsetDateTime,
+) -> Result<bool, crate::db::repository::storage_backend::StorageBackendError> {
+    if !backends.all().await?.is_empty() {
+        return Ok(false);
+    }
+    let url = Path::new(data_dir)
+        .join("blobs")
+        .to_string_lossy()
+        .into_owned();
+    backends
+        .put(
+            &crate::db::repository::storage_backend::StorageBackend {
+                name: DEFAULT_BACKEND.to_owned(),
+                url,
+                options: BTreeMap::new(),
+                is_default: true,
+                capacity_bytes: None,
+                read_only: false,
+                direct_access: false,
+            },
+            now,
+        )
+        .await?;
+    Ok(true)
 }
 
 /// A store, the same store seen as a [`MultipartStore`] when it is one, and
@@ -239,11 +303,11 @@ impl Stores {
     }
 }
 
-/// The name given to the backend built from `storage.url`.
+/// The name of the backend [`seed`] writes on a fresh instance.
 ///
-/// Every instance has this one, and until an operator configures another it is
-/// the only one. Rows written before backends were recorded read as this,
-/// because there was nowhere else the bytes could have been.
+/// An ordinary row, which an operator may rename, repoint or remove like any
+/// other. The name matters only because files recorded before backends were
+/// rows name it, so the seeded one is where those bytes are found.
 pub const DEFAULT_BACKEND: &str = "default";
 
 /// The same store, plus a handle to it as a [`MultipartStore`] when it is one.
@@ -264,16 +328,16 @@ pub const DEFAULT_BACKEND: &str = "default";
 /// # Errors
 ///
 /// As [`build`].
-pub fn build_with_multipart(config: &StorageConfig) -> Result<Stores, StorageError> {
-    if let Some(path) = local_path(&config.url) {
+pub fn build_with_multipart(target: &Target) -> Result<Stores, StorageError> {
+    if let Some(path) = local_path(&target.url) {
         // A local filesystem has no multipart concept to expose. Resumable
         // uploads there append to a partial file instead; see `upload::sink`.
         return Ok(Stores::plain(build_local(&path)?));
     }
 
-    let url = url::Url::parse(&config.url)
-        .map_err(|e| StorageError::Location(format!("`{}`: {e}", config.url)))?;
-    let options = backend_options(config);
+    let url = url::Url::parse(&target.url)
+        .map_err(|e| StorageError::Location(format!("`{}`: {e}", target.url)))?;
+    let options = backend_options(target);
 
     if let Some(pair) = build_multipart_capable(&url, &options)? {
         return Ok(pair);
@@ -439,14 +503,14 @@ fn build_local(path: &str) -> Result<Arc<dyn ObjectStore>, StorageError> {
 
 /// Merges configured options with the standard cloud credential variables.
 ///
-/// The configured option wins. `storage.options` was set explicitly, even if an
-/// ambient `AWS_ACCESS_KEY_ID` in the environment disagrees.
-fn backend_options(config: &StorageConfig) -> BTreeMap<String, String> {
+/// The backend's own option wins. It was set explicitly, even if an ambient
+/// `AWS_ACCESS_KEY_ID` in the environment disagrees.
+fn backend_options(target: &Target) -> BTreeMap<String, String> {
     let mut options: BTreeMap<String, String> = std::env::vars()
         .map(|(key, value)| (key.to_lowercase(), value))
         .filter(|(key, _)| is_backend_option(key))
         .collect();
-    for (key, value) in &config.options {
+    for (key, value) in &target.options {
         options.insert(key.to_lowercase(), value.clone());
     }
     options
@@ -586,49 +650,29 @@ pub type Usage = std::collections::HashMap<String, u64>;
 /// Every backend as the placer sees it: its ceiling, what it holds, and whether
 /// it still takes new content.
 ///
-/// The stored ones carry their own figures; the one from `storage.url` has no
-/// row, so its figures come from the configuration. Usage is summed from the
-/// segments this instance wrote. See
+/// Usage is summed from the segments this instance wrote. See
 /// [`ShareRepository::bytes_per_backend`](crate::db::repository::share::ShareRepository::bytes_per_backend).
 ///
 /// A backend that is configured but did not open is left out: it can serve
 /// nothing, so placing an upload there would only move the failure later.
 #[must_use]
 pub fn candidates(
-    config: &StorageConfig,
     stored: &[crate::db::repository::storage_backend::StorageBackend],
     open: &Backends,
     used: &Usage,
 ) -> Vec<placement::Candidate> {
-    let mut all = Vec::with_capacity(stored.len() + 1);
     let taken = |name: &str| used.get(name).copied().unwrap_or(0);
-    let any_default = stored.iter().any(|backend| backend.is_default);
-
-    if open.contains_key(DEFAULT_BACKEND) {
-        all.push(placement::Candidate {
-            name: DEFAULT_BACKEND.to_owned(),
-            capacity_bytes: Some(config.capacity_bytes),
-            used_bytes: taken(DEFAULT_BACKEND),
-            read_only: false,
-            // Only when nothing else claims it. An instance that has never
-            // configured a second backend still has a preference, and it is
-            // this one.
-            is_default: !any_default,
-        });
-    }
-    for backend in stored {
-        if backend.name == DEFAULT_BACKEND || !open.contains_key(&backend.name) {
-            continue;
-        }
-        all.push(placement::Candidate {
+    stored
+        .iter()
+        .filter(|backend| open.contains_key(&backend.name))
+        .map(|backend| placement::Candidate {
             name: backend.name.clone(),
             capacity_bytes: backend.capacity_bytes,
             used_bytes: taken(&backend.name),
             read_only: backend.read_only,
             is_default: backend.is_default,
-        });
-    }
-    all
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -680,10 +724,7 @@ mod tests {
     async fn a_bare_path_creates_its_root_and_round_trips() {
         let temp = tempfile::tempdir().unwrap();
         let root = temp.path().join("nested/blobs");
-        let config = StorageConfig {
-            url: root.display().to_string(),
-            ..StorageConfig::default()
-        };
+        let config = Target::at(root.display().to_string());
 
         let store = build(&config).unwrap();
         assert!(root.is_dir(), "the root should have been created");
@@ -706,10 +747,7 @@ mod tests {
     /// integration test would cover it for real.
     #[tokio::test]
     async fn a_prefixed_url_still_round_trips() {
-        let config = StorageConfig {
-            url: "memory:///tessera/uploads".to_owned(),
-            ..StorageConfig::default()
-        };
+        let config = Target::at("memory:///tessera/uploads");
         let store = build(&config).unwrap();
 
         let key = ObjectPath::from("a.bin");
@@ -722,12 +760,11 @@ mod tests {
 
     #[test]
     fn configured_options_beat_the_ambient_environment() {
-        let config = StorageConfig {
+        let config = Target {
             url: "s3://bucket".to_owned(),
             options: [("AWS_REGION".to_owned(), "from-config".to_owned())]
                 .into_iter()
                 .collect(),
-            ..StorageConfig::default()
         };
         let options = backend_options(&config);
         assert_eq!(
@@ -755,10 +792,7 @@ mod tests {
     fn a_scheme_this_build_lacks_is_an_error_not_a_panic() {
         // Which schemes are compiled in depends on features; whichever way this
         // build was configured, an unusable URL must surface as an error.
-        let config = StorageConfig {
-            url: "definitely-not-a-scheme://bucket".to_owned(),
-            ..StorageConfig::default()
-        };
+        let config = Target::at("definitely-not-a-scheme://bucket");
         assert!(build(&config).is_err());
     }
 }

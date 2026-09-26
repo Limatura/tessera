@@ -65,7 +65,7 @@ fn storage_options() -> std::collections::BTreeMap<String, String> {
 
 async fn app() -> TestApp {
     let url = storage_url();
-    TestApp::with_config(move |config| config.storage.url = url).await
+    TestApp::with_backend(move |backend| backend.url = url).await
 }
 
 /// Uploads `bytes` and returns the retrieval code and its management token.
@@ -103,10 +103,10 @@ async fn fetch(app: &TestApp, code: &str) -> Vec<u8> {
 async fn direct_app() -> TestApp {
     let url = storage_url();
     let options = storage_options();
-    TestApp::with_config(move |config| {
-        config.storage.url = url;
-        config.storage.options = options;
-        config.storage.direct_access = true;
+    TestApp::with_backend(move |backend| {
+        backend.url = url;
+        backend.options = options;
+        backend.direct_access = true;
     })
     .await
 }
@@ -372,44 +372,37 @@ async fn a_file_split_across_two_buckets_survives_the_round_trip() {
     // part boundary.
     let part = 5 * 1024 * 1024_usize;
     let ceiling = u64::try_from(part).expect("a part size");
-    let app = TestApp::with_config(move |config| {
-        config.storage.url = storage_url();
-        config.storage.options = storage_options();
-        config.storage.split_across_backends = true;
-        // The backend built from `storage.url` has no row, so its ceiling is
-        // configured where its URL is.
-        config.storage.capacity_bytes = ceiling;
-        config.server.part_size_bytes = part;
-        // Otherwise a small file would be stored in the row and never reach a
-        // bucket. This one is far too large for that, but the threshold is what
-        // decides it and a default that changed would change this test.
-        config.share.inline_threshold_bytes = 8;
-    })
+    let app = TestApp::with_config_and_backend(
+        move |config| {
+            config.storage.split_across_backends = true;
+            config.server.part_size_bytes = part;
+            // Otherwise a small file would be stored in the row and never reach a
+            // bucket. This one is far too large for that, but the threshold is what
+            // decides it and a default that changed would change this test.
+            config.share.inline_threshold_bytes = 8;
+        },
+        move |backend| {
+            backend.url = storage_url();
+            backend.options = storage_options();
+            backend.capacity_bytes = Some(ceiling);
+        },
+    )
     .await;
 
-    // Both buckets, opened the way the server opens them, with the second added
-    // under a name of its own and a ceiling to match.
-    let open = tessera_server::storage::Backends::from([
-        (
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            open_bucket(&storage_url()),
-        ),
-        ("cold".to_owned(), open_bucket(&second)),
-    ]);
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open,
-        configured: vec![
-            tessera_server::db::repository::storage_backend::StorageBackend {
-                name: "cold".to_owned(),
-                url: second.clone(),
-                options: storage_options(),
-                is_default: false,
-                capacity_bytes: Some(ceiling),
-                read_only: false,
-                direct_access: false,
-            },
-        ],
-    });
+    // The second bucket, opened the way the server opens them, added under a
+    // name of its own and a ceiling to match.
+    app.state.replace_backends(app.pool_with(
+        tessera_server::db::repository::storage_backend::StorageBackend {
+            name: "cold".to_owned(),
+            url: second.clone(),
+            options: storage_options(),
+            is_default: false,
+            capacity_bytes: Some(ceiling),
+            read_only: false,
+            direct_access: false,
+        },
+        open_bucket(&second),
+    ));
 
     // A byte pattern, not a constant. A segment written in the wrong
     // order, or one byte out of place, has to show up as a mismatch.
@@ -466,10 +459,9 @@ async fn a_file_split_across_two_buckets_survives_the_round_trip() {
 
 /// Opens one bucket with the suite's options, as a store that can do multipart.
 fn open_bucket(url: &str) -> tessera_server::storage::Stores {
-    tessera_server::storage::build_with_multipart(&tessera_server::config::StorageConfig {
+    tessera_server::storage::build_with_multipart(&tessera_server::storage::Target {
         url: url.to_owned(),
         options: storage_options(),
-        ..tessera_server::config::StorageConfig::default()
     })
     .expect("open the bucket")
 }
@@ -1013,38 +1005,33 @@ async fn a_split_file_is_listed_and_joined_piece_by_piece() {
     // the part boundary.
     let part = 5 * 1024 * 1024_usize;
     let ceiling = u64::try_from(part).expect("a part size");
-    let app = TestApp::with_config(move |config| {
-        config.storage.url = storage_url();
-        config.storage.options = storage_options();
-        config.storage.split_across_backends = true;
-        config.storage.capacity_bytes = ceiling;
-        config.storage.direct_access = true;
-        config.server.part_size_bytes = part;
-        config.share.inline_threshold_bytes = 8;
-    })
+    let app = TestApp::with_config_and_backend(
+        move |config| {
+            config.storage.split_across_backends = true;
+            config.server.part_size_bytes = part;
+            config.share.inline_threshold_bytes = 8;
+        },
+        move |backend| {
+            backend.url = storage_url();
+            backend.options = storage_options();
+            backend.capacity_bytes = Some(ceiling);
+            backend.direct_access = true;
+        },
+    )
     .await;
 
-    let open = tessera_server::storage::Backends::from([
-        (
-            tessera_server::storage::DEFAULT_BACKEND.to_owned(),
-            open_bucket(&storage_url()),
-        ),
-        ("cold".to_owned(), open_bucket(&second)),
-    ]);
-    app.state.replace_backends(tessera_server::storage::Pool {
-        open,
-        configured: vec![
-            tessera_server::db::repository::storage_backend::StorageBackend {
-                name: "cold".to_owned(),
-                url: second.clone(),
-                options: storage_options(),
-                is_default: false,
-                capacity_bytes: Some(ceiling),
-                read_only: false,
-                direct_access: true,
-            },
-        ],
-    });
+    app.state.replace_backends(app.pool_with(
+        tessera_server::db::repository::storage_backend::StorageBackend {
+            name: "cold".to_owned(),
+            url: second.clone(),
+            options: storage_options(),
+            is_default: false,
+            capacity_bytes: Some(ceiling),
+            read_only: false,
+            direct_access: true,
+        },
+        open_bucket(&second),
+    ));
 
     let content = sample(u32::try_from(part * 3 / 2).expect("a size"));
     let (code, _) = upload(&app, "split.bin", content.clone()).await;

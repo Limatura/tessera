@@ -111,8 +111,8 @@ async fn main() -> anyhow::Result<()> {
     // A key that will not parse is fatal. Every stored backend is unreadable
     // without it, and starting anyway would present them as gone, not locked.
     let sealer =
-        Sealer::new(&config.security.secret_key).context("security.secret_key is not usable")?;
-    let (pool, default) = open_stores(&config, &db, &sealer).await?;
+        Sealer::for_config(&config).context("the key for sealed settings is not usable")?;
+    let pool = open_stores(&config, &db, &sealer).await?;
     tracing::info!(backends = pool.open.len(), "storage backends open");
 
     // Before the listener binds, so an instance exposed to the internet never
@@ -136,11 +136,7 @@ async fn main() -> anyhow::Result<()> {
     let state = AppState::new(
         Arc::clone(&config),
         db.clone(),
-        Storage {
-            default,
-            pool,
-            sealer,
-        },
+        Storage { pool, sealer },
         assets,
     );
     let app = api::build(state.clone());
@@ -382,32 +378,37 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
     Ok(assets)
 }
 
-/// Opens every configured backend, and the one new uploads go to.
+/// Opens every backend, writing the first one on a fresh instance.
 ///
-/// Split out so `main` stays under the line limit. Reading the stored backends
-/// needs the key, and a key that will not parse is fatal here: every stored
-/// backend is unreadable without it, and starting anyway would present them as
-/// gone, not locked.
+/// Split out so `main` stays under the line limit. Reading the backends needs
+/// the key, and one that will not open them is fatal here: starting anyway
+/// would present them as gone, not locked.
 async fn open_stores(
     config: &Config,
     db: &sea_orm::DatabaseConnection,
     sealer: &Sealer,
-) -> anyhow::Result<(storage::Pool, storage::Stores)> {
-    let stored = if sealer.is_set() {
-        StorageBackendRepository::new(db.clone(), sealer.clone())
-            .all()
-            .await
-            .context("could not read the configured storage backends")?
-    } else {
-        Vec::new()
-    };
-    let (open, default) =
-        storage::build_all(&config.storage, &stored).context("could not open the object store")?;
-    Ok((
-        storage::Pool {
-            open,
-            configured: stored,
-        },
-        default,
-    ))
+) -> anyhow::Result<storage::Pool> {
+    let backends = StorageBackendRepository::new(db.clone(), sealer.clone());
+    if storage::seed(
+        &backends,
+        &config.server.data_dir,
+        time::OffsetDateTime::now_utc(),
+    )
+    .await
+    .context("could not write the first storage backend")?
+    {
+        tracing::info!(
+            data_dir = config.server.data_dir,
+            "no storage backends yet; keeping files in `blobs` under the data directory"
+        );
+    }
+    let stored = backends
+        .all()
+        .await
+        .context("could not read the storage backends")?;
+    let open = storage::build_all(&stored);
+    Ok(storage::Pool {
+        open,
+        configured: stored,
+    })
 }

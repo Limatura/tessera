@@ -456,10 +456,9 @@ export interface paths {
          *
          *     # Errors
          *
-         *     `400` when the URL will not open or the name is the environment's, `401`
-         *     when nothing was signed in, `403` when the caller may not write settings,
-         *     `404` when this instance has no administration, `409` when no
-         *     `security.secret_key` is set.
+         *     `400` when the URL will not open, `401` when nothing was signed in, `403`
+         *     when the caller may not write settings, `404` when this instance has no
+         *     administration.
          */
         post: operations["add_storage_backend"];
         delete?: never;
@@ -482,15 +481,15 @@ export interface paths {
          * Removes a backend.
          * @description # Errors
          *
-         *     `400` when the name is the environment's, `401` when nothing was signed in,
-         *     `403` when the caller may not write settings, `404` when no backend has that
-         *     name, `409` when it still holds content.
+         *     `401` when nothing was signed in, `403` when the caller may not write
+         *     settings, `404` when no backend has that name, `409` when it still holds
+         *     content.
          */
         delete: operations["remove_storage_backend"];
         options?: never;
         head?: never;
         /**
-         * Turns direct access on or off for a stored backend.
+         * Turns direct access on or off for a backend.
          * @description # Why this is not another `POST` of the whole backend
          *
          *     That works, and replaces the row. But it needs the URL and credentials sent
@@ -499,9 +498,8 @@ export interface paths {
          *
          *     # Errors
          *
-         *     `400` for the backend from `storage.url`, whose switch is the
-         *     `storage.direct_access` setting. `401` when nothing was signed in, `403`
-         *     when the caller may not write settings, `404` when no backend has that name.
+         *     `401` when nothing was signed in, `403` when the caller may not write
+         *     settings, `404` when no backend has that name.
          */
         patch: operations["update_storage_backend"];
         trace?: never;
@@ -1938,12 +1936,11 @@ export interface components {
         /**
          * @description One backend, as the panel draws it.
          *
-         *     Five booleans answering five unrelated questions: where new uploads go,
-         *     whether this one still takes them, whether the process can reach it, whether
-         *     browsers may be sent to it, and whether it comes from the environment.
-         *     Collapsing any pair into an enum would invent a state the system does not
-         *     have, since a read-only backend can be the default and an unreachable one can
-         *     be either.
+         *     Four booleans answering four unrelated questions: where new uploads go,
+         *     whether this one still takes them, whether the process can reach it, and
+         *     whether browsers may be sent to it. Collapsing any pair into an enum would
+         *     invent a state the system does not have, since a read-only backend can be
+         *     the default and an unreachable one can be either.
          */
         BackendResponse: {
             /**
@@ -1963,14 +1960,6 @@ export interface components {
              *     still change nothing.
              */
             direct_access: boolean;
-            /**
-             * @description Whether it comes from `storage.url` instead of this table.
-             *
-             *     The one that does cannot be edited or removed from here: it is where
-             *     everything written before backends existed lives, and it is configured
-             *     in the environment.
-             */
-            from_environment: boolean;
             /** @description Whether new uploads go here. */
             is_default: boolean;
             /**
@@ -4423,7 +4412,7 @@ export interface operations {
                     "application/json": components["schemas"]["BackendResponse"];
                 };
             };
-            /** @description The URL will not open, or the name is reserved */
+            /** @description The URL will not open */
             400: {
                 headers: {
                     [name: string]: unknown;
@@ -4459,15 +4448,6 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description No security.secret_key, so credentials cannot be stored */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
         };
     };
     remove_storage_backend: {
@@ -4489,15 +4469,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
-                };
-            };
-            /** @description The name is the environment's */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Not signed in */
@@ -4561,15 +4532,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BackendResponse"];
-                };
-            };
-            /** @description The backend from storage.url is changed through its setting */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Not signed in */

@@ -35,7 +35,7 @@ Three shapes of instance, and the settings that separate them.
 
 The middle row is the one worth explaining. An instance whose friends already have accounts wants the provider attached to those accounts rather than a second set beside them, and that only works if an address can be matched. The last row is the opposite case: the provider is the authority on who belongs, so registration can be open, and the group claim is what keeps it from being open to the whole directory.
 
-`client_secret` is set from the panel like the rest, encrypted at rest. It needs `security.secret_key` in the environment first; see `configuration.md`.
+`client_secret` is set from the panel like the rest, encrypted at rest; see `configuration.md`.
 
 ## The flow
 

@@ -19,7 +19,7 @@ use std::{hint::black_box, sync::Arc};
 use criterion::{Criterion, criterion_group, criterion_main};
 use tessera_server::{
     api,
-    config::{Config, DatabaseConfig, StorageConfig},
+    config::{Config, DatabaseConfig},
     db,
     state::{AppState, ServiceStatus},
     storage,
@@ -41,14 +41,9 @@ fn router_assembly(c: &mut Criterion) {
         .build()
         .expect("benchmark runtime");
 
-    let temp = tempfile::tempdir().expect("temp dir");
     let config = Config {
         database: DatabaseConfig {
             url: "sqlite::memory:".to_owned(),
-            ..Default::default()
-        },
-        storage: StorageConfig {
-            url: temp.path().join("blobs").display().to_string(),
             ..Default::default()
         },
         ..Config::default()
@@ -57,17 +52,12 @@ fn router_assembly(c: &mut Criterion) {
     let db = runtime
         .block_on(db::connect(&config.database))
         .expect("sqlite pool");
-    let default = storage::build_with_multipart(&config.storage).expect("local store");
-    let pool = storage::Pool {
-        open: storage::Backends::from([(storage::DEFAULT_BACKEND.to_owned(), default.clone())]),
-        configured: Vec::new(),
-    };
+    // No backends: assembling the router opens none of them.
     let state = AppState::new(
         Arc::new(config),
         db,
         tessera_server::state::Storage {
-            default,
-            pool,
+            pool: storage::Pool::default(),
             sealer: tessera_server::security::secret::Sealer::new("").expect("no key"),
         },
         tessera_server::assets::Source::Embedded,

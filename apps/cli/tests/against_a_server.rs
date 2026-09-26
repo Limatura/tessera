@@ -21,15 +21,17 @@ use tessera_cli::{
 };
 use tessera_server::{
     api,
-    config::{Config, DatabaseConfig, StorageConfig},
+    config::{Config, DatabaseConfig},
     db,
+    db::repository::storage_backend::StorageBackendRepository,
     security::secret::Sealer,
     state::{AppState, ServiceStatus, Storage},
-    storage::{self, Backends, DEFAULT_BACKEND, Pool},
+    storage::{self, Pool},
 };
 use url::Url;
 
-/// A server on a port, and the directory its files land in.
+/// A server on a port, and its data directory: the key, and `blobs` where its
+/// files land.
 struct Server {
     url: Url,
     blobs: TempDir,
@@ -42,29 +44,35 @@ async fn server() -> Server {
             url: "sqlite::memory:".to_owned(),
             ..Default::default()
         },
-        storage: StorageConfig {
-            url: blobs.path().join("blobs").display().to_string(),
-            ..Default::default()
-        },
         ..Config::default()
     };
+    config.server.data_dir = blobs.path().display().to_string();
     config.features.encryption = true;
 
     let database = db::connect(&config.database).await.expect("database");
     db::migrate(&database).await.expect("migrations");
-    let default = storage::build_with_multipart(&config.storage).expect("store");
     let assets =
         tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets");
-    let sealer = Sealer::new(&config.security.secret_key).expect("a usable key");
+    // The way the server starts: a key in the data directory, and the first
+    // backend written into the empty table.
+    let sealer = Sealer::for_config(&config).expect("a usable key");
+    let backends = StorageBackendRepository::new(database.clone(), sealer.clone());
+    storage::seed(
+        &backends,
+        &config.server.data_dir,
+        time::OffsetDateTime::now_utc(),
+    )
+    .await
+    .expect("seed");
+    let configured = backends.all().await.expect("backends");
     let state = AppState::new(
         Arc::new(config),
         database,
         Storage {
             pool: Pool {
-                open: Backends::from([(DEFAULT_BACKEND.to_owned(), default.clone())]),
-                configured: Vec::new(),
+                open: storage::build_all(&configured),
+                configured,
             },
-            default,
             sealer,
         },
         assets,
@@ -115,7 +123,7 @@ fn stored(server: &Server) -> Vec<u8> {
         }
     }
     let mut all = Vec::new();
-    walk(server.blobs.path(), &mut all);
+    walk(&server.blobs.path().join("blobs"), &mut all);
     all
 }
 

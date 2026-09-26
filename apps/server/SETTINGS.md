@@ -33,6 +33,7 @@
 | `server.cors_allowed_origins` | 建路由時就烤進 middleware |
 | `server.max_body_bytes` | 同上，且只有一半邏輯會跟著改（見下方說明） |
 | `server.assets_dir` | SPA 開機時讀一次就內嵌了 |
+| `server.data_dir` | 金鑰檔跟第一個 backend 在首次啟動時放在這，事後搬家會把兩個都留在原地 |
 | `security.secret_key` | 建立 sealer 用，換掉會導致所有加密存的設定開不了 |
 | `features.docs` | 建路由時決定要不要掛 |
 
@@ -41,7 +42,7 @@
 | Key | 原因 |
 |---|---|
 | `auth.admin_password` | 只在首次啟動用一次，存起來沒意義 |
-| `database.url` / `storage.url` | URL 裡帶帳密 |
+| `database.url` | URL 裡帶帳密 |
 | `security.secret_key` | 能解開所有加密存的設定 |
 
 ### `SEALED`
@@ -56,7 +57,7 @@
 
 面板可以寫入，也會被告知「有沒有設過」，但拿不到值。前端表單要做成「**留空 = 不改動，有填 = 覆寫**」，不能用常規的載入現值再編輯。
 
-儲存時用 `security.secret_key` 加密。沒有 key 就直接拒絕寫入，不會退化成明文。
+儲存時用 `security.secret_key` 加密；沒設的話用首次啟動寫在 `server.data_dir/secret.key` 的那把，所以一定寫得進去。
 
 ---
 
@@ -214,7 +215,7 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 
 ## `security.*`
 
-- `secret_key: string`（SECRET + FIXED）— 封裝所有「存在資料庫、又要讀得回來」的設定，64 個十六進位字元。空 = 那些設定一律拒絕寫入（不會退化成明文）。用 `openssl rand -hex 32` 產生
+- `secret_key: string`（SECRET + FIXED）— 封裝所有「存在資料庫、又要讀得回來」的設定，64 個十六進位字元。空（預設）= 用首次啟動自動產生、存在 `server.data_dir/secret.key`（權限 0600）的那把。想讓金鑰不跟資料目錄的備份放一起就自己設（`openssl rand -hex 32`）
 
 它封的是上面 `SEALED` 那張表列的 key：OIDC / GitHub / Discord 的 client secret、mail 帳密、掃毒服務的 authorization、還有從後台加的 storage backend 憑證。**跟物件儲存無關**——以前叫 `storage.secret_key`，是因為 backend 憑證是第一個有這個需求的東西，名字誤導人，已經改掉。
 
@@ -231,13 +232,12 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 
 ## `storage.*`
 
-- `url: string`（SECRET）— blob 位置，預設 `data/blobs`。裸路徑 = 本機目錄（不存在會建立）；帶 scheme 交給 `object_store`：`s3://bucket/prefix`、`gs://bucket`、`az://container`、`https://host/dav`、`memory://`
+檔案存哪裡不是設定：每個 backend 都是 `storage_backends` 表裡的一列，從後台 `/admin/storage/backends` 或 `tessera-server backends` 管。全新的實例啟動時自動寫一列 `default`（本機目錄 `server.data_dir/blobs`，預設收新上傳），之後跟其他列一樣可以改、退役、刪除。
+
 - `max_total_bytes: u64` — 整個實例的內容總量上限，`0` = 無限制，預設 `0`
-- `capacity_bytes: u64` — `url` 這個 backend 單獨能放多少，`0` = 無限制。跟 `max_total_bytes` 不同層級：這是**單一 bucket** 裝滿後就換別的去放，可以卡在免費額度之前停住
 - `split_across_backends: bool` — 單一檔案能否跨多個 backend，預設 `false`
 - `reconcile_interval_hours: u64` — 多久對帳一次（物件儲存 vs 資料庫），預設 `24`，`0` 關閉
 - `reconcile_grace_hours: u64` — 無主物件要多舊才會被對帳刪掉，預設 `24`
-- `options: map<string,string>` — backend 專屬選項，原樣傳遞（`aws_region`、`endpoint`、`allow_http`…）。標準的 `AWS_*` / `GOOGLE_*` / `AZURE_*` 環境變數會自動併入，這裡設的優先
 
 > **`max_total_bytes` 沒設 + `anonymous_upload` 開著（兩者都是預設）= 對所有能連到的人開放的無限網路硬碟**，
 > 而第一個徵兆是磁碟滿了寫入開始失敗。
@@ -262,6 +262,7 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 - `max_body_bytes: usize`（FIXED）— 最大請求 body
 - `cors_allowed_origins: string[]`（FIXED）— 空 = 僅同源，單一 binary 部署的正確預設
 - `assets_dir: string`（FIXED）— 從磁碟而非內嵌 bundle 提供前端。指向沒有 `index.html` 的目錄會直接讓伺服器停止（而非靜默 fallback 到舊 build）
+- `data_dir: string`（FIXED）— 實例自己寫的東西放哪，預設 `data`。只在首次啟動用到：沒設 `security.secret_key` 時的 `secret.key`，以及表是空的時候那個 `blobs` backend
 
 **上傳為什麼不給時鐘預算**：一個數字沒辦法同時滿足兩邊。5GB 檔走 20Mbit/s 要 2400 秒，而那也會是「連上來什麼都不送」的人佔住位置的時間，兩者差三個數量級。所以 `upload_stall_secs` 改問另一個問題：對面還在送嗎？
 

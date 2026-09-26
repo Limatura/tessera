@@ -718,14 +718,27 @@ pub async fn delete(
     // Objects first, and every one of them, since a share can hold several. A
     // row without its object is a broken share; an object without its row is an
     // orphan the sweep can still find by listing.
-    for key in state.shares.object_keys_of(share.id).await? {
-        state
-            .storage
-            .delete(&ObjectPath::from(key.as_str()))
-            .await?;
-    }
+    remove_objects(&state, share.id).await?;
     state.shares.delete(share.id).await?;
     Ok(StatusCode::NO_CONTENT)
+}
+
+/// Deletes every object a share has, each from the backend that holds it.
+///
+/// Not from the one new uploads go to: a key asked of a store that never had
+/// it comes back "not found", and the bytes stay where they are with nothing
+/// left pointing at them.
+///
+/// # Errors
+///
+/// [`Error::Unavailable`] when a backend holding one did not open, or the
+/// store's own error when a delete fails.
+pub(crate) async fn remove_objects(state: &AppState, share: ShareId) -> Result<()> {
+    for (backend, key) in state.shares.objects_of(share).await? {
+        let store = state.backend(&backend).ok_or(Error::Unavailable)?;
+        store.delete(&ObjectPath::from(key.as_str())).await?;
+    }
+    Ok(())
 }
 
 /// Body of `PATCH /shares/{code}`.
@@ -1242,18 +1255,19 @@ pub(crate) async fn place(state: &AppState, size: u64) -> Result<String> {
 
 /// The same, restricted to backends that can hold a resumable upload open.
 ///
-/// A backend with no multipart view cannot, and neither can one that is not the
-/// default, since the partial file the appending sink writes only exists beside
-/// the directory `storage.url` names. Placing a resumable upload on one anyway
-/// answers `400 this instance's store cannot hold a resumable upload` while
-/// another backend could have taken it.
+/// One with a multipart view can, and so can a local directory, where the
+/// appending sink writes a partial file beside it. Anything else (a WebDAV
+/// server, a store built without multipart) cannot, and placing a resumable
+/// upload on one anyway answers `400 this instance's store cannot hold a
+/// resumable upload` while another backend could have taken it.
 ///
 /// # Errors
 ///
 /// [`Error::InsufficientStorage`] when nothing suitable has room.
 pub(crate) async fn place_resumable(state: &AppState, size: u64) -> Result<String> {
+    let pool = state.backends.load_full();
     place_where(state, Some(size), |name| {
-        state.backend_multipart(name).is_some() || name == crate::storage::DEFAULT_BACKEND
+        state.backend_multipart(name).is_some() || pool.local_root(name).is_some()
     })
     .await
 }
@@ -1384,8 +1398,7 @@ async fn place_where(
 ) -> Result<String> {
     let pool = state.backends.load();
     let used = backend_usage(state).await?;
-    let all =
-        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used);
+    let all = crate::storage::candidates(&pool.configured, &pool.open, &used);
     let candidates: Vec<crate::storage::placement::Candidate> = all
         .iter()
         .filter(|candidate| suitable(&candidate.name))
@@ -1430,8 +1443,7 @@ async fn plan_object(
     if let (true, Some(size)) = (config.storage.split_across_backends, expected_bytes) {
         let pool = state.backends.load();
         let used = backend_usage(state).await?;
-        let candidates =
-            crate::storage::candidates(&config.storage, &pool.configured, &pool.open, &used);
+        let candidates = crate::storage::candidates(&pool.configured, &pool.open, &used);
         let rules = crate::storage::split::Rules {
             part_size: u64::try_from(config.server.part_size_bytes).unwrap_or(u64::MAX),
             split: true,
@@ -1474,7 +1486,7 @@ async fn backend_free(state: &AppState, name: &str) -> Result<u64> {
     let pool = state.backends.load();
     let used = backend_usage(state).await?;
     Ok(
-        crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used)
+        crate::storage::candidates(&pool.configured, &pool.open, &used)
             .into_iter()
             .find(|candidate| candidate.name == name)
             .and_then(|candidate| candidate.free_bytes())
@@ -1496,7 +1508,7 @@ pub(crate) async fn largest_placeable(state: &AppState) -> Result<Option<u64>> {
     let pool = state.backends.load();
     let used = backend_usage(state).await?;
     Ok(crate::storage::placement::largest_acceptable(
-        &crate::storage::candidates(&state.config().storage, &pool.configured, &pool.open, &used),
+        &crate::storage::candidates(&pool.configured, &pool.open, &used),
     ))
 }
 

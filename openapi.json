@@ -330,7 +330,7 @@
         "type": "object"
       },
       "BackendResponse": {
-        "description": "One backend, as the panel draws it.\n\nFive booleans answering five unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, whether\nbrowsers may be sent to it, and whether it comes from the environment.\nCollapsing any pair into an enum would invent a state the system does not\nhave, since a read-only backend can be the default and an unreachable one can\nbe either.",
+        "description": "One backend, as the panel draws it.\n\nFour booleans answering four unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, and\nwhether browsers may be sent to it. Collapsing any pair into an enum would\ninvent a state the system does not have, since a read-only backend can be\nthe default and an unreachable one can be either.",
         "properties": {
           "capacity_bytes": {
             "description": "How much it may hold, or `null` for no limit.\n\nTyped in by the operator: object stores have no capacity API, and on a\nfree tier the limit belongs to the account's plan, which no API reports.",
@@ -344,10 +344,6 @@
           },
           "direct_access": {
             "description": "Whether browsers are sent to it directly, to download a file or write an\nupload's parts, instead of through this server.\n\nOnly S3 and GCS can be sent to. On anything else this may be `true` and\nstill change nothing.",
-            "type": "boolean"
-          },
-          "from_environment": {
-            "description": "Whether it comes from `storage.url` instead of this table.\n\nThe one that does cannot be edited or removed from here: it is where\neverything written before backends existed lives, and it is configured\nin the environment.",
             "type": "boolean"
           },
           "is_default": {
@@ -381,8 +377,7 @@
           "used_bytes",
           "read_only",
           "reachable",
-          "direct_access",
-          "from_environment"
+          "direct_access"
         ],
         "type": "object"
       },
@@ -3550,7 +3545,7 @@
         ]
       },
       "post": {
-        "description": "The new one is opened and reachable to the next request. The pool is rebuilt\nhere, not at the next restart, because \"add a bucket, then restart\"\nis what this feature exists to avoid.\n\n# Errors\n\n`400` when the URL will not open or the name is the environment's, `401`\nwhen nothing was signed in, `403` when the caller may not write settings,\n`404` when this instance has no administration, `409` when no\n`security.secret_key` is set.",
+        "description": "The new one is opened and reachable to the next request. The pool is rebuilt\nhere, not at the next restart, because \"add a bucket, then restart\"\nis what this feature exists to avoid.\n\n# Errors\n\n`400` when the URL will not open, `401` when nothing was signed in, `403`\nwhen the caller may not write settings, `404` when this instance has no\nadministration.",
         "operationId": "add_storage_backend",
         "requestBody": {
           "content": {
@@ -3581,7 +3576,7 @@
                 }
               }
             },
-            "description": "The URL will not open, or the name is reserved"
+            "description": "The URL will not open"
           },
           "401": {
             "content": {
@@ -3612,16 +3607,6 @@
               }
             },
             "description": "This instance has no administration"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "No security.secret_key, so credentials cannot be stored"
           }
         },
         "security": [
@@ -3637,7 +3622,7 @@
     },
     "/api/v1/admin/storage/backends/{name}": {
       "delete": {
-        "description": "# Errors\n\n`400` when the name is the environment's, `401` when nothing was signed in,\n`403` when the caller may not write settings, `404` when no backend has that\nname, `409` when it still holds content.",
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write\nsettings, `404` when no backend has that name, `409` when it still holds\ncontent.",
         "operationId": "remove_storage_backend",
         "parameters": [
           {
@@ -3660,16 +3645,6 @@
               }
             },
             "description": "Removed"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "The name is the environment's"
           },
           "401": {
             "content": {
@@ -3723,7 +3698,7 @@
         ]
       },
       "patch": {
-        "description": "# Why this is not another `POST` of the whole backend\n\nThat works, and replaces the row. But it needs the URL and credentials sent\nagain, and those are sealed and never shown, so flipping one switch would\nmean finding the secret key for a bucket again.\n\n# Errors\n\n`400` for the backend from `storage.url`, whose switch is the\n`storage.direct_access` setting. `401` when nothing was signed in, `403`\nwhen the caller may not write settings, `404` when no backend has that name.",
+        "description": "# Why this is not another `POST` of the whole backend\n\nThat works, and replaces the row. But it needs the URL and credentials sent\nagain, and those are sealed and never shown, so flipping one switch would\nmean finding the secret key for a bucket again.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write\nsettings, `404` when no backend has that name.",
         "operationId": "update_storage_backend",
         "parameters": [
           {
@@ -3756,16 +3731,6 @@
               }
             },
             "description": "The backend as it now stands"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "The backend from storage.url is changed through its setting"
           },
           "401": {
             "content": {
@@ -3803,7 +3768,7 @@
             "session": []
           }
         ],
-        "summary": "Turns direct access on or off for a stored backend.",
+        "summary": "Turns direct access on or off for a backend.",
         "tags": [
           "admin"
         ]

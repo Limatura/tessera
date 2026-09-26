@@ -58,7 +58,7 @@ src/
 Precedence, lowest to highest: built-in defaults → environment → the `settings`
 table the admin panel writes.
 
-Only seventeen settings can come from the environment, and they are the ones a
+Only sixteen settings can come from the environment, and they are the ones a
 running process cannot pick up: the listening address (the socket is bound), the
 database (the pool is built, and reading the settings table needs it), the log
 format (the subscriber is installed first), the middleware layers baked into the
@@ -72,8 +72,7 @@ levels:
 TESSERA_SERVER__PORT=9000
 TESSERA_SERVER__HOST=0.0.0.0
 TESSERA_DATABASE__URL=sqlite://data/tessera.db     # or postgres:// / mysql://
-TESSERA_STORAGE__URL=data/blobs                    # or s3:// / gs:// / az:// / https://
-TESSERA_STORAGE__OPTIONS__ENDPOINT=http://minio:9000
+TESSERA_SERVER__DATA_DIR=data                      # the key file, and the first backend
 TESSERA_TELEMETRY__FORMAT=json                     # pretty | json
 TESSERA_TELEMETRY__FILTER=info,tessera_server=debug
 ```
@@ -93,14 +92,25 @@ set the boot-fixed ones, which the panel refuses by design:
 TESSERA_FEATURES__DOCS=true     # mounts the browsable API docs at /docs
 ```
 
-Everything is validated during start-up: a bad port, an unusable log filter, an
-unknown key, or a backend the binary was not compiled with all fail the process
-before it opens a socket.
+Everything is validated during start-up: a bad port, an unusable log filter, or
+an unknown key all fail the process before it opens a socket.
 
 ### Storage
 
-`storage.url` selects the backend. A bare path is a local directory, created if
-missing; anything with a scheme is handed to `object_store`:
+Every backend is a row in `storage_backends`, added from the panel or with
+`tessera-server backends add <name> <url>`, and live on the next request. A
+fresh instance writes the first one itself: `default`, the directory `blobs`
+under `server.data_dir`. It is an ordinary row, to be replaced or removed once
+a bucket has taken over. A backend that will not open is logged and left out,
+and the shares on it answer `503` until it is fixed.
+
+The URL and the options carry credentials, so both are sealed before they are
+stored, with `security.secret_key` or, when that is unset, the key the first
+start wrote to `secret.key` in the data directory. A backup of the data
+directory holds both the key and the rows; set the variable to keep them apart.
+
+A bare path is a local directory, created if missing; anything with a scheme is
+handed to `object_store`:
 
 | Value                      | Backend             |
 | -------------------------- | ------------------- |
@@ -114,7 +124,7 @@ missing; anything with a scheme is handed to `object_store`:
 A URL may carry a path prefix — `s3://bucket/tessera` keeps objects under
 `tessera/` rather than at the bucket root, so a shared bucket stays tidy.
 
-`storage.options` is passed through verbatim, so any option the backend
+A backend's options are passed through verbatim, so any option the backend
 understands is reachable without waiting for a release. The standard `AWS_*`,
 `GOOGLE_*` and `AZURE_*` environment variables are merged in automatically —
 but only the ones `object_store` actually recognises. That filter is not

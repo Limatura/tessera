@@ -85,9 +85,6 @@ pub enum Command {
     /// figures, which are rows and not settings.
     Quota(QuotaAction),
     /// Add, list or remove storage backends.
-    ///
-    /// The one from `storage.url` is always there and not in this list: it
-    /// comes from the environment and cannot be removed from here.
     Backends(BackendAction),
     /// Print usage and exit successfully.
     Help,
@@ -535,10 +532,7 @@ BACKENDS:
     backends add <name> <url>
                              Add one, or replace one of the same name. The URL
                              usually carries a key, so it is sealed before it is
-                             stored — which needs TESSERA_SECURITY__SECRET_KEY set
-                             (`openssl rand -hex 32`). Without one this refuses
-                             rather than storing a recoverable credential in a
-                             table.
+                             stored.
     backends remove <name>   Remove one. Shares whose files are held there stop
                              being deliverable and answer 503, so drain first.
     backends default <name>  Send new uploads there. Existing files stay where
@@ -554,13 +548,13 @@ BACKENDS:
                              holds is still served, so this is the step before
                              removing one.
 
-    The backend from TESSERA_STORAGE__URL is always present under the name
-    `default` and is not in this list: it comes from the environment, and it is
-    where everything written before backends existed lives.
+    A fresh instance starts with one, `default`: the directory `blobs` under
+    TESSERA_SERVER__DATA_DIR. It is a row like the others; replace or remove it
+    once a bucket has taken its place.
 
-    ⚠ Losing TESSERA_SECURITY__SECRET_KEY means the stored backends cannot be
-      opened and have to be entered again. Keep it out of the backup that holds
-      the rows it protects.
+    ⚠ Backends are sealed with TESSERA_SECURITY__SECRET_KEY, or, when that is
+      not set, with the key the first start wrote to `secret.key` in the data
+      directory. Losing it means every backend has to be entered again.
 
 RESET-PASSWORD:
     -u, --username <name>    Whose password to set. Required.
@@ -779,12 +773,10 @@ pub async fn settings(config: &Config, action: SettingsAction) -> anyhow::Result
     // that quietly rewrites the schema is the last thing to run against a
     // database you are unsure about. On an instance that has never started,
     // the table does not exist and the error says so.
-    // The same sealer the server builds, from the same value, so a credential
-    // written here opens there and the other way round. An instance with no
-    // `security.secret_key` gets one that refuses rather than one that stores
-    // plaintext.
-    let sealer = crate::security::secret::Sealer::new(&config.security.secret_key)
-        .context("security.secret_key is not usable")?;
+    // The same sealer the server builds, from the same place, so a credential
+    // written here opens there and the other way round.
+    let sealer = crate::security::secret::Sealer::for_config(config)
+        .context("the key for sealed settings is not usable")?;
     let store = SettingRepository::new(db.clone(), sealer);
 
     let outcome = run_settings(&store, action).await;
@@ -814,11 +806,11 @@ pub async fn quota(config: &Config, action: QuotaAction) -> anyhow::Result<()> {
 ///
 /// # Errors
 ///
-/// When the database cannot be opened, the key is missing or unusable, or the
-/// name matches nothing.
+/// When the database cannot be opened, the key is unusable, or the name
+/// matches nothing.
 pub async fn backends(config: &Config, action: BackendAction) -> anyhow::Result<()> {
-    let sealer = crate::security::secret::Sealer::new(&config.security.secret_key)
-        .context("security.secret_key is not usable")?;
+    let sealer = crate::security::secret::Sealer::for_config(config)
+        .context("the key for sealed settings is not usable")?;
     let db = db::connect(&config.database)
         .await
         .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
@@ -936,12 +928,6 @@ async fn amend(
 )]
 fn print_backends(backends: &[StorageBackend]) {
     println!("{:<20}{:<14}{:<12}STATE", "NAME", "NEW UPLOADS", "CAPACITY");
-    println!(
-        "{:<20}{:<14}{:<12}settings",
-        crate::storage::DEFAULT_BACKEND,
-        "",
-        ""
-    );
     for backend in backends {
         println!(
             "{:<20}{:<14}{:<12}{}",
@@ -954,10 +940,6 @@ fn print_backends(backends: &[StorageBackend]) {
             if backend.read_only { "retired" } else { "" },
         );
     }
-    println!(
-        "\n`{}` comes from the environment and is not stored here.",
-        crate::storage::DEFAULT_BACKEND
-    );
 }
 
 #[expect(
@@ -1499,7 +1481,7 @@ mod settings_tests {
     }
 
     /// JSON first, so a number arrives as a number. Falling back to a string is
-    /// what makes `settings set storage.url s3://bucket` work without the
+    /// what makes `settings set mail.host smtp.example.com` work without the
     /// operator quoting it for JSON as well as for the shell.
     #[test]
     fn values_are_read_as_json_then_as_text() {

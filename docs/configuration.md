@@ -34,11 +34,11 @@ Some are, because the alternative is worse. `mail.host` is changeable and `mail.
 
 | | Never stored | Stored, encrypted |
 | --- | --- | --- |
-| Which | `auth.admin_password`, `database.url`, `storage.url`, `security.secret_key` | `mail.username`, `mail.password`, `auth.oidc.client_secret` |
+| Which | `auth.admin_password`, `database.url`, `security.secret_key` | `mail.username`, `mail.password`, `auth.oidc.client_secret` |
 | Why | Read once at start-up, or carries credentials inside a URL that is also a connection string | An operator has every reason to set it from the panel |
 | The panel sees | nothing | whether one is set, never the value |
 
-The second column is sealed with `security.secret_key`, which comes from the environment, so a database dump on its own opens nothing. Without a key, storing one is refused rather than written in plaintext, and the refusal names what to set.
+The second column is sealed with `security.secret_key`, so a database dump on its own opens nothing. Storage backends are sealed the same way. Left unset, the first start writes a key to `secret.key` in `server.data_dir` and uses that; set the variable instead to keep the key out of a backup of that directory.
 
 `security.secret_key` can never be in the second column itself: it is what opens the others.
 

@@ -2460,7 +2460,8 @@ async fn the_settings_list_marks_what_cannot_be_changed() {
     assert_eq!(port["refusal"], "fixed_at_boot");
 
     // Never storable, and named as such.
-    assert_eq!(find("storage.url")["refusal"], "secret");
+    assert_eq!(find("database.url")["refusal"], "secret");
+    assert_eq!(find("server.data_dir")["refusal"], "fixed_at_boot");
 
     // The other kind: writable, encrypted at rest, and reported as a boolean
     // saying whether one is set rather than as the credential.
@@ -2475,12 +2476,9 @@ async fn the_settings_list_marks_what_cannot_be_changed() {
 /// itself, and the value in the table is not the value that was sent.
 #[tokio::test]
 async fn a_credential_set_from_the_panel_is_never_handed_back() {
-    // Sealing is the only reason a credential may be stored, so the fixture
-    // needs the key the real thing takes from the environment.
-    let app = TestApp::with_config(|config| {
-        config.security.secret_key = "11".repeat(32);
-    })
-    .await;
+    // No key configured: the one made in the data directory seals it, as on a
+    // fresh instance nobody has set a variable for.
+    let app = TestApp::ready().await;
     let (owner, _) = register(&app, "first").await;
 
     expect_status(
@@ -2520,34 +2518,6 @@ async fn a_credential_set_from_the_panel_is_never_handed_back() {
 
     // And the process is using it, which is the point of storing it at all.
     assert_eq!(app.state.config().mail.password, "a-relay-password");
-}
-
-/// Without a key there is nowhere safe to put one. Reported as the
-/// configuration problem it is, not as an internal error.
-#[tokio::test]
-async fn setting_a_credential_without_a_sealing_key_says_why() {
-    let app = TestApp::ready().await;
-    let (owner, _) = register(&app, "first").await;
-
-    let response = app
-        .json(
-            Method::PUT,
-            "/api/v1/admin/settings",
-            Auth::Cookie(&owner),
-            &serde_json::json!({
-                "changes": { "mail.password": "a-relay-password" },
-            }),
-        )
-        .await;
-
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body = body_json(response).await;
-    assert!(
-        body["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("security.secret_key")),
-        "the message has to name what to set: {body}"
-    );
 }
 
 /// What the feature is for: change it here and the next request uses it,
@@ -2739,9 +2709,9 @@ async fn admin_reads_settings_but_does_not_write_them() {
     );
 }
 
-/// The listing is read over HTTP and pasted into issues. `database.url` and
-/// `storage.url` carry a password inside them, so the endpoint names them and
-/// withholds what they are set to.
+/// The listing is read over HTTP and pasted into issues. `database.url` can
+/// carry a password inside it, so the endpoint names it and withholds what it
+/// is set to.
 #[tokio::test]
 async fn the_settings_endpoint_never_returns_a_credential() {
     let app = TestApp::ready().await;
@@ -3018,17 +2988,12 @@ async fn an_account_quota_survives_a_patch_that_does_not_mention_it() {
 
 // ── 儲存 backend ──────────────────────────────────────────────────────────
 
-/// Builds an app whose panel can store credentials.
-async fn app_with_key() -> TestApp {
-    TestApp::with_config(|config| config.security.secret_key = "ab".repeat(32)).await
-}
-
 /// The credentials are the reason this is a table and not a settings row, and
 /// a surface that echoed them back would leave the sealing protecting the
 /// database against everybody except the one request that asks nicely.
 #[tokio::test]
 async fn the_listing_never_sends_a_credential() {
-    let app = app_with_key().await;
+    let app = TestApp::ready().await;
     let (admin, _) = register(&app, "first").await;
 
     expect_status(
@@ -3065,30 +3030,12 @@ async fn the_listing_never_sends_a_credential() {
     assert!(!listed.contains("garage"), "sent the options back");
 }
 
-/// Storing a recoverable credential without a key would do the one thing the
-/// sealing exists to prevent.
-#[tokio::test]
-async fn without_a_key_the_panel_refuses_to_store_one() {
-    let app = TestApp::ready().await;
-    let (admin, _) = register(&app, "first").await;
-
-    let refused = app
-        .json(
-            Method::POST,
-            "/api/v1/admin/storage/backends",
-            Auth::Cookie(&admin),
-            &serde_json::json!({ "name": "cold", "url": "memory://" }),
-        )
-        .await;
-    assert_eq!(refused.status(), StatusCode::CONFLICT);
-}
-
 /// A typo is something the operator can fix while the form is still in front of
 /// them. Storing it first would surface the failure as a later upload going
 /// wrong later.
 #[tokio::test]
 async fn a_backend_that_will_not_open_is_refused_before_it_is_stored() {
-    let app = app_with_key().await;
+    let app = TestApp::ready().await;
     let (admin, _) = register(&app, "first").await;
 
     let refused = app
@@ -3120,41 +3067,48 @@ async fn a_backend_that_will_not_open_is_refused_before_it_is_stored() {
     );
 }
 
-/// The one from `storage.url` has no row, so a stored backend under its name
-/// would be a second definition that the configured one silently wins over.
+/// The backend a fresh instance starts with is a row like any other: its
+/// switch flips, and once it holds nothing it can go.
 #[tokio::test]
-async fn the_environments_backend_cannot_be_written_or_removed() {
-    let app = app_with_key().await;
+async fn the_seeded_backend_is_an_ordinary_one() {
+    let app = TestApp::ready().await;
     let (admin, _) = register(&app, "first").await;
 
-    assert_eq!(
-        app.json(
-            Method::POST,
-            "/api/v1/admin/storage/backends",
-            Auth::Cookie(&admin),
-            &serde_json::json!({ "name": "default", "url": "memory://" }),
+    let switched = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                "/api/v1/admin/storage/backends/default",
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "direct_access": true }),
+            )
+            .await,
+            StatusCode::OK,
         )
-        .await
-        .status(),
-        StatusCode::BAD_REQUEST,
-    );
-    assert_eq!(
+        .await,
+    )
+    .await;
+    assert_eq!(switched["is_default"], true, "{switched}");
+    assert_eq!(switched["direct_access"], true, "{switched}");
+
+    expect_status(
         app.empty(
             Method::DELETE,
             "/api/v1/admin/storage/backends/default",
             Auth::Cookie(&admin),
         )
-        .await
-        .status(),
-        StatusCode::BAD_REQUEST,
-    );
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+    assert!(app.state.backend("default").is_none());
 }
 
 /// Adding a bucket that needs a restart is the thing this whole feature exists
 /// to stop, so the new one has to be reachable to the next request.
 #[tokio::test]
 async fn a_new_backend_is_usable_without_a_restart() {
-    let app = app_with_key().await;
+    let app = TestApp::ready().await;
     let (admin, _) = register(&app, "first").await;
     assert!(app.state.backend("cold").is_none());
 
@@ -3181,7 +3135,7 @@ async fn a_new_backend_is_usable_without_a_restart() {
 /// out a bucket's secret key to change one boolean.
 #[tokio::test]
 async fn direct_access_is_switched_without_sending_the_credentials_again() {
-    let app = app_with_key().await;
+    let app = TestApp::ready().await;
     let (admin, _) = register(&app, "first").await;
     expect_status(
         app.json(
@@ -3234,34 +3188,28 @@ async fn direct_access_is_switched_without_sending_the_credentials_again() {
     assert!(!app.state.direct_access("cold"));
 }
 
-/// The backend from `storage.url` has no row, so its switch is a setting, and a
-/// name that is no backend at all is `404`.
+/// A name that is no backend at all is `404`, not a switch set on nothing.
 #[tokio::test]
-async fn the_environments_backend_is_switched_through_its_setting() {
-    let app = app_with_key().await;
+async fn switching_a_backend_that_is_not_there_is_not_found() {
+    let app = TestApp::ready().await;
     let (admin, _) = register(&app, "first").await;
-    for (name, expected) in [
-        ("default", StatusCode::BAD_REQUEST),
-        ("nothing-by-this-name", StatusCode::NOT_FOUND),
-    ] {
-        expect_status(
-            app.json(
-                Method::PATCH,
-                &format!("/api/v1/admin/storage/backends/{name}"),
-                Auth::Cookie(&admin),
-                &serde_json::json!({ "direct_access": true }),
-            )
-            .await,
-            expected,
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/admin/storage/backends/nothing-by-this-name",
+            Auth::Cookie(&admin),
+            &serde_json::json!({ "direct_access": true }),
         )
-        .await;
-    }
+        .await,
+        StatusCode::NOT_FOUND,
+    )
+    .await;
 }
 
 /// Reading settings is not writing them, and a backend is a credential.
 #[tokio::test]
 async fn writing_a_backend_needs_more_than_reading_one() {
-    let app = app_with_key().await;
+    let app = TestApp::ready().await;
     let (owner, _) = register(&app, "first").await;
     let (watcher, _) = register(&app, "second").await;
 
