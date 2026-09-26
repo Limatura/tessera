@@ -295,6 +295,50 @@ async fn deleting_an_account_ends_what_it_was_holding() {
     assert!(name.starts_with("gone-"), "{name}");
     assert!(email.ends_with("@deleted.invalid"), "{email}");
     assert!(!name.contains("second"), "the original name is gone");
+    // Said outright, so a client need not recognise the tombstone name.
+    assert_eq!(gone["state"], "deleted");
+    let kept = rows
+        .iter()
+        .find(|row| row["id"] != id)
+        .expect("the account left");
+    assert_eq!(kept["state"], "active");
+}
+
+/// The listing and the answer to a change both say where an account stands, so
+/// a disabled one looks disabled, and switching it back is the one action that
+/// makes sense.
+#[tokio::test]
+async fn an_accounts_state_is_shown_and_follows_a_change() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    let changed = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                &format!("/api/v1/admin/users/{id}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "state": "disabled" }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(changed["state"], "disabled", "{changed}");
+    assert_eq!(
+        changed["username"], "second",
+        "the account fields are still there"
+    );
+
+    let listed = list(&app, Auth::Cookie(&admin)).await;
+    let row = listed
+        .iter()
+        .find(|row| row["id"] == id)
+        .expect("the disabled account is still listed");
+    assert_eq!(row["state"], "disabled");
 }
 
 /// An identifier that is not an identifier answers the same as one that names
@@ -1484,7 +1528,62 @@ async fn the_listing_says_who_uploaded_each_share() {
         .find(|row| row["filename"] == "nobodys.bin")
         .expect("the anonymous upload");
     assert_eq!(mine["owner_id"], admin_id);
+    assert_eq!(
+        mine["owner_username"], "first",
+        "who, without a lookup per row"
+    );
     assert!(nobodys["owner_id"].is_null(), "anonymous means nobody");
+    assert!(nobodys["owner_username"].is_null());
+}
+
+/// A share outliving its uploader still says whose it was, as the name the
+/// account was left with.
+#[tokio::test]
+async fn a_deleted_uploader_is_named_by_what_is_left_of_them() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (theirs, id) = register(&app, "second").await;
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=left-behind.bin")
+                .header(header::COOKIE, &theirs),
+            Body::from(b"theirs".to_vec()),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    let page = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    // Removing an account leaves its shares working for whoever holds the code.
+    let row = page["data"]
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|row| row["filename"] == "left-behind.bin")
+        .expect("the share outlives its uploader");
+    assert_eq!(row["owner_id"], id);
+    assert_eq!(row["owner_username"], format!("gone-{}", id.to_lowercase()));
 }
 
 /// Reading every share and deleting every share are separate powers.

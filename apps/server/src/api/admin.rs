@@ -95,10 +95,52 @@ pub struct UpdateUserRequest {
 
 /// One account, as an administrator sees it.
 ///
-/// The same shape a person sees of themselves. This service stores no profile,
-/// and the one thing an administrator can change is already a field.
+/// What a person sees of themselves, plus the one thing only somebody else
+/// needs: whether the account may sign in. A person never sees their own
+/// `state` as anything but active, since a disabled one cannot sign in to ask.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct AdminUserResponse(pub AccountResponse);
+pub struct AdminUserResponse {
+    /// The account, as its owner sees it.
+    #[serde(flatten)]
+    pub account: AccountResponse,
+    /// Whether it may sign in, or has been deleted.
+    pub state: UserState,
+}
+
+impl AdminUserResponse {
+    fn build(
+        user: &crate::db::repository::user::User,
+        roles: &[crate::db::repository::role::Role],
+    ) -> Self {
+        Self {
+            account: AccountResponse::build(user, roles),
+            state: user.state.into(),
+        }
+    }
+}
+
+/// Where an account stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UserState {
+    /// Signs in, and does whatever its role allows.
+    Active,
+    /// Stopped from signing in. Its shares keep serving.
+    Disabled,
+    /// Removed. What is left keeps its shares attributable; the name is a
+    /// tombstone and identifies nobody.
+    Deleted,
+}
+
+impl From<AccountState> for UserState {
+    fn from(state: AccountState) -> Self {
+        match state {
+            AccountState::Active => Self::Active,
+            AccountState::Disabled => Self::Disabled,
+            AccountState::Deleted => Self::Deleted,
+        }
+    }
+}
 
 /// Refuses everything when the instance has no administration.
 pub(super) fn require_admin_feature(state: &AppState) -> Result<()> {
@@ -175,7 +217,7 @@ pub async fn list_users(
             .iter()
             .map(|user| {
                 let held = roles.get(&user.id).map_or(&[][..], Vec::as_slice);
-                AdminUserResponse(AccountResponse::build(user, held))
+                AdminUserResponse::build(user, held)
             })
             .collect(),
         meta: crate::api::shares::PageMeta {
@@ -298,9 +340,7 @@ pub async fn update_user(
         .await?
         .ok_or(Error::NotFound)?;
     let roles = state.roles.of_user(updated.id).await?;
-    Ok(Json(AdminUserResponse(AccountResponse::build(
-        &updated, &roles,
-    ))))
+    Ok(Json(AdminUserResponse::build(&updated, &roles)))
 }
 
 /// Removes an account.
@@ -1218,9 +1258,7 @@ pub async fn set_user_roles(
         return Err(Error::NotFound);
     }
     let roles = state.roles.of_user(user_id).await?;
-    Ok(Json(AdminUserResponse(AccountResponse::build(
-        &user, &roles,
-    ))))
+    Ok(Json(AdminUserResponse::build(&user, &roles)))
 }
 
 /// Refuses to hand out a permission the caller does not hold.
@@ -1274,6 +1312,13 @@ pub struct AdminShareResponse {
     /// keeps this answerable. `null` means the upload was anonymous, a
     /// different fact worth telling apart.
     pub owner_id: Option<String>,
+    /// The uploader's account name, or `null` for an anonymous upload.
+    ///
+    /// Beside the id so the listing can say who without a request per row. An
+    /// account deleted since answers with the name its row was left with,
+    /// which starts `gone-`.
+    #[schema(example = "alice")]
+    pub owner_username: Option<String>,
     /// Whether a visitor could still open it.
     pub active: bool,
     /// When it was uploaded, RFC 3339.
@@ -1283,7 +1328,12 @@ pub struct AdminShareResponse {
 }
 
 impl AdminShareResponse {
-    fn build(share: &Share, content: &Content, now: OffsetDateTime) -> Self {
+    fn build(
+        share: &Share,
+        content: &Content,
+        owners: &std::collections::HashMap<tessera_core::UserId, tessera_core::Username>,
+        now: OffsetDateTime,
+    ) -> Self {
         Self {
             id: share.id.to_string(),
             kind: share.kind.as_str().to_owned(),
@@ -1296,6 +1346,10 @@ impl AdminShareResponse {
             bytes_served: share.bytes_served,
             bytes_redirected: share.bytes_redirected,
             owner_id: share.user_id.map(|id| id.to_string()),
+            owner_username: share
+                .user_id
+                .and_then(|id| owners.get(&id))
+                .map(ToString::to_string),
             active: matches!(share.availability_at(now), Availability::Available),
             created_at: format_timestamp(share.created_at),
             expires_at: share.expires_at.map(format_timestamp),
@@ -1373,6 +1427,10 @@ pub async fn list_shares(
     let (limit, offset) = page_bounds(&params)?;
     let shares = state.shares.list_all(limit, offset).await?;
     let contents = state.shares.contents_for(&shares).await?;
+    let mut owner_ids: Vec<_> = shares.iter().filter_map(|share| share.user_id).collect();
+    owner_ids.sort_unstable();
+    owner_ids.dedup();
+    let owners = state.users.usernames_of(&owner_ids).await?;
     let now = OffsetDateTime::now_utc();
 
     Ok(Json(AdminSharePage {
@@ -1381,7 +1439,7 @@ pub async fn list_shares(
             .filter_map(|share| {
                 contents
                     .get(&share.id)
-                    .map(|content| AdminShareResponse::build(share, content, now))
+                    .map(|content| AdminShareResponse::build(share, content, &owners, now))
             })
             .collect(),
         meta: crate::api::shares::PageMeta {

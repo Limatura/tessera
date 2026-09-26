@@ -98,6 +98,15 @@ expression: document
             "example": "alice@example.com",
             "type": "string"
           },
+          "email_verified_at": {
+            "description": "When the address was last proven to reach this person, or `null` if it\nnever has been.\n\nSet by confirming a registration, by a provider that vouches for the\naddress, or by following the link from\n`POST /account/email/verification`. Cleared when the address changes.",
+            "example": "2026-09-26T08:00:00Z",
+            "format": "date-time",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "id": {
             "description": "Stable identifier.",
             "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
@@ -240,6 +249,14 @@ expression: document
               "null"
             ]
           },
+          "owner_username": {
+            "description": "The uploader's account name, or `null` for an anonymous upload.\n\nBeside the id so the listing can say who without a request per row. An\naccount deleted since answers with the name its row was left with,\nwhich starts `gone-`.",
+            "example": "alice",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "size_bytes": {
             "description": "How many bytes it holds.",
             "format": "int64",
@@ -281,8 +298,25 @@ expression: document
         "type": "object"
       },
       "AdminUserResponse": {
-        "$ref": "#/components/schemas/AccountResponse",
-        "description": "One account, as an administrator sees it.\n\nThe same shape a person sees of themselves. This service stores no profile,\nand the one thing an administrator can change is already a field."
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AccountResponse",
+            "description": "The account, as its owner sees it."
+          },
+          {
+            "properties": {
+              "state": {
+                "$ref": "#/components/schemas/UserState",
+                "description": "Whether it may sign in, or has been deleted."
+              }
+            },
+            "required": [
+              "state"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "One account, as an administrator sees it.\n\nWhat a person sees of themselves, plus the one thing only somebody else\nneeds: whether the account may sign in. A person never sees their own\n`state` as anything but active, since a disabled one cannot sign in to ask."
       },
       "BackendRequest": {
         "additionalProperties": false,
@@ -2157,6 +2191,29 @@ expression: document
           }
         },
         "type": "object"
+      },
+      "UserState": {
+        "description": "Where an account stands.",
+        "enum": [
+          "active",
+          "disabled",
+          "deleted"
+        ],
+        "type": "string"
+      },
+      "VerificationConfirmRequest": {
+        "additionalProperties": false,
+        "description": "Body of `POST /account/email/verification/confirm`.",
+        "properties": {
+          "token": {
+            "description": "The token from the link.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -2311,6 +2368,131 @@ expression: document
           }
         ],
         "summary": "Changes the caller's own name or address.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/account/email/verification": {
+      "post": {
+        "description": "Sent while the request waits, unlike a password reset: the caller is signed\nin and knows their own address, so there is nothing for the timing to give\naway, and a relay that is down is better said than hidden.\n\n# Errors\n\n`401` when not signed in, `403` when an API token was used, `404` when this\ninstance has no accounts or sends no mail, `409` when the address is already\nconfirmed, `429` when that address has been sent as many as the window\nallows, `503` when the relay would not take the message.",
+        "operationId": "request_email_verification",
+        "responses": {
+          "202": {
+            "description": "A link is on its way to the account's address"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no accounts, or sends no mail"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The address is already confirmed"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Too many links have been sent to this address"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The mail relay would not take the message"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Sends a link to the caller's address that proves it is theirs.",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/account/email/verification/confirm": {
+      "post": {
+        "description": "Needs no session: the link is opened wherever the mail is read, which is\noften not where the account is signed in. Holding the link is the proof.\n\n# Errors\n\n`400` when the link is unknown, spent, expired, or was sent to an address the\naccount no longer has. `404` when this instance has no accounts or sends no\nmail.",
+        "operationId": "confirm_email_verification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerificationConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "The address is confirmed"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "The link is not usable"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no accounts, or sends no mail"
+          }
+        },
+        "summary": "Confirms an address from the link sent to it.",
         "tags": [
           "auth"
         ]

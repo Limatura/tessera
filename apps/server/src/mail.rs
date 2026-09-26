@@ -188,6 +188,25 @@ pub fn password_reset_letter(to: &str, link: &str, minutes: u64) -> Letter {
     }
 }
 
+/// Composes the message that proves an account can receive mail at its
+/// address.
+///
+/// Asked for from a signed-in account, but the wording still tells a reader
+/// who did not ask that ignoring it changes nothing.
+#[must_use]
+pub fn verification_letter(to: &str, link: &str, hours: u64) -> Letter {
+    Letter {
+        to: to.to_owned(),
+        subject: "Confirm your tessera email address".to_owned(),
+        body: format!(
+            "Somebody signed in to tessera asked to confirm that this address is theirs.\n\n\
+             Open this link to confirm it:\n\n{link}\n\n\
+             It works once and stops working in {hours} hours.\n\n\
+             If this was not you, ignore this — nothing changes unless the link is opened.\n"
+        ),
+    }
+}
+
 /// Composes the message that confirms a new registration.
 ///
 /// The account does not exist until this link is followed, and the wording says

@@ -99,3 +99,17 @@ Off by default, because it is a request to somebody else's service on a path tha
 A form can look a password up as it is typed, before it is sent: `GET /api/v1/auth/pwned/{prefix}` takes the first five characters of the SHA-1 and answers with the breached suffixes under them, padding removed, and the browser compares. The password stays in the browser and this server passes on the same five characters it already sends. Every lookup counts against `auth.throttle.pwned`, its own counter so that typing a password does not spend the address's sign-in attempts. A service that does not answer is a `503` here, since there is nothing to fall back to, and the form shows no warning; the check still runs when it is sent.
 
 Tested in `tests/pwned.rs`, against a service that answers the way the real one does and records what it was asked. `the_real_service_still_answers_the_way_this_reads` puts the same questions to the real API and is `#[ignore]`d.
+
+## Proving an address
+
+`email_verified_at` on an account says when its address was last shown to reach the person. Three things set it: confirming a registration, a provider that vouches for the address (see `oidc.md`), and following a verification link. Changing the address clears it. Nothing on the server depends on it yet; it is there so a person can see which address they have confirmed.
+
+The link is for the addresses registration never proved: one changed afterwards, the first administrator, an account registered while no mail was configured. `POST /api/v1/account/email/verification` sends it to the account's current address, and `POST /api/v1/account/email/verification/confirm` with the token from it sets the timestamp. Code: `api/verification.rs`, `db/repository/email_verification.rs`.
+
+- **The link proves the address it was sent to, not the account's.** The row keeps the address, and confirming only succeeds while the account still has it. Otherwise asking for a link and then moving to an address you cannot receive would get the new one confirmed by mail that went to the old one.
+- **Asking needs a session.** A leaked API token should not be a way to mail the owner on repeat.
+- **Counted against the address it goes to**, on `auth.throttle.verification`. An account can set its address to anybody's, so without a limit this mails a stranger on demand. Its own counter, not the reset one, or the same trick would use up that stranger's resets.
+- **Sent while the request waits**, unlike a reset. The caller is signed in and knows their own address, so the timing gives nothing away, and a relay that is down is a `503` rather than a success that never arrives.
+- **Confirming needs no session**, because the link is opened wherever the mail is read. It lasts `mail.registration_ttl_hours`, works once, and every unusable link gets the same `400`.
+
+Both answer `404` on an instance that sends no mail.

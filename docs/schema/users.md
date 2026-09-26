@@ -30,7 +30,7 @@ CREATE TABLE users (
 
 | Name | Type | Default | Nullable | Children | Parents | Comment |
 | ---- | ---- | ------- | -------- | -------- | ------- | ------- |
-| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [credentials](credentials.md) [auth_flows](auth_flows.md) [user_preferences](user_preferences.md) |  |  |
+| id | TEXT |  | false | [users](users.md) [sessions](sessions.md) [api_tokens](api_tokens.md) [shares](shares.md) [password_reset_tokens](password_reset_tokens.md) [uploads](uploads.md) [identities](identities.md) [credentials](credentials.md) [auth_flows](auth_flows.md) [user_preferences](user_preferences.md) [email_verifications](email_verifications.md) |  |  |
 | username | TEXT |  | false |  |  |  |
 | email | TEXT |  | false |  |  |  |
 | must_change_password | INTEGER | 0 | false |  |  |  |
@@ -78,6 +78,7 @@ erDiagram
 "credentials" |o--|| "users" : ""
 "auth_flows" }o--o| "users" : ""
 "user_preferences" |o--|| "users" : ""
+"email_verifications" }o--|| "users" : ""
 "users" }o--o| "roles" : ""
 
 "users" {
@@ -196,6 +197,15 @@ erDiagram
   TEXT user_id PK
   TEXT appearance
   TEXT updated_at
+}
+"email_verifications" {
+  TEXT id PK
+  TEXT user_id FK
+  TEXT email
+  TEXT secret_hash
+  TEXT created_at
+  TEXT expires_at
+  TEXT used_at
 }
 "roles" {
   TEXT id PK

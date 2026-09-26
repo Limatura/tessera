@@ -279,6 +279,45 @@ impl UserRepository {
         )
     }
 
+    /// The names of several accounts at once, for a listing that shows who
+    /// owns each row.
+    ///
+    /// One query for the page, not one per row. A deleted account answers with
+    /// the tombstone name it was left with; an id with no row is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails or a stored name no
+    /// longer parses.
+    pub async fn usernames_of(
+        &self,
+        ids: &[UserId],
+    ) -> Result<std::collections::HashMap<UserId, Username>, UserRepositoryError> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows: Vec<(String, String)> = UserEntity::find()
+            .select_only()
+            .column(user::Column::Id)
+            .column(user::Column::Username)
+            .filter(user::Column::Id.is_in(ids.iter().map(ToString::to_string)))
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        rows.into_iter()
+            .map(|(id, name)| {
+                let fail = |source| CorruptRow {
+                    id: id.clone(),
+                    source,
+                };
+                Ok((
+                    UserId::parse(&id).map_err(fail)?,
+                    Username::parse_privileged(&name).map_err(fail)?,
+                ))
+            })
+            .collect()
+    }
+
     /// Finds an account by name.
     ///
     /// Takes a [`Username`], not a `&str`, so the caller cannot forget to
@@ -393,6 +432,34 @@ impl UserRepository {
             .col_expr(user::Column::EmailVerifiedAt, verified_at.into())
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
+    /// Records that the account's address is proven, if it is still `email`.
+    ///
+    /// Conditional on the address, not only the account: a link sent to an
+    /// address the account has since moved away from proves nothing about the
+    /// new one. The check is in the same statement as the write, so an address
+    /// changed between reading the link and following it cannot slip through.
+    ///
+    /// Returns whether the account changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the update fails.
+    pub async fn mark_email_verified(
+        &self,
+        id: UserId,
+        email: &EmailAddress,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::EmailVerifiedAt, Some(now).into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .filter(user::Column::Email.eq(email.as_str()))
             .exec(&self.connection)
             .await?;
         Ok(result.rows_affected == 1)

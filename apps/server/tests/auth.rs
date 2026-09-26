@@ -3311,3 +3311,205 @@ async fn an_account_with_no_password_cannot_be_told_apart_by_timing() {
         "one answer was far faster than the other: {took_existing:?} vs {took_missing:?}"
     );
 }
+
+// ── 驗證 email ────────────────────────────────────────────────────────────
+
+async fn session_of(app: &TestApp, cookie: &str) -> serde_json::Value {
+    body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(cookie))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await
+}
+
+async fn move_address(app: &TestApp, cookie: &str, to: &str) {
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(cookie),
+            &serde_json::json!({ "email": to, "current_password": PASSWORD }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+async fn ask_to_verify(app: &TestApp, auth: Auth<'_>) -> StatusCode {
+    app.empty(Method::POST, "/api/v1/account/email/verification", auth)
+        .await
+        .status()
+}
+
+async fn follow_verification(app: &TestApp, token: &str) -> StatusCode {
+    app.json(
+        Method::POST,
+        "/api/v1/account/email/verification/confirm",
+        Auth::None,
+        &serde_json::json!({ "token": token }),
+    )
+    .await
+    .status()
+}
+
+/// A link for `email`, issued the way the endpoint does, since the token
+/// otherwise exists only in the mail.
+#[expect(clippy::expect_used, reason = "a fixture reports by panicking")]
+async fn verification_link(app: &TestApp, username: &str, email: &str) -> String {
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse(username).expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .verifications
+        .issue(
+            user.id,
+            &tessera_core::EmailAddress::parse(email).expect("an address"),
+            now,
+            now.saturating_add(time::Duration::hours(24)),
+        )
+        .await
+        .expect("issue")
+        .expose()
+        .to_owned()
+}
+
+/// The account says whether its address is proven, and a new address is not.
+#[tokio::test]
+async fn the_account_shows_whether_its_address_is_verified() {
+    let app = app_with_mail().await;
+    let cookie = register_verified(&app, "member").await;
+    assert!(
+        session_of(&app, &cookie).await["email_verified_at"].is_string(),
+        "confirming the registration proved the address"
+    );
+
+    move_address(&app, &cookie, "elsewhere@example.com").await;
+    assert!(session_of(&app, &cookie).await["email_verified_at"].is_null());
+}
+
+/// Following the link proves the address, once.
+#[tokio::test]
+async fn a_verification_link_confirms_the_address_once() {
+    let app = app_with_mail().await;
+    let cookie = register_verified(&app, "member").await;
+    move_address(&app, &cookie, "elsewhere@example.com").await;
+
+    let token = verification_link(&app, "member", "elsewhere@example.com").await;
+    assert_eq!(
+        follow_verification(&app, &token).await,
+        StatusCode::NO_CONTENT
+    );
+    assert!(session_of(&app, &cookie).await["email_verified_at"].is_string());
+
+    assert_eq!(
+        follow_verification(&app, &token).await,
+        StatusCode::BAD_REQUEST,
+        "a spent link works again"
+    );
+    assert_eq!(
+        follow_verification(&app, "not a real token").await,
+        StatusCode::BAD_REQUEST
+    );
+}
+
+/// A link proves the address it was sent to. Asking for one and then moving to
+/// an address you cannot receive must not get the new one confirmed.
+#[tokio::test]
+async fn a_link_for_an_address_since_left_confirms_nothing() {
+    let app = app_with_mail().await;
+    let cookie = register_verified(&app, "member").await;
+    move_address(&app, &cookie, "first@example.com").await;
+    let token = verification_link(&app, "member", "first@example.com").await;
+
+    move_address(&app, &cookie, "second@example.com").await;
+    assert_eq!(
+        follow_verification(&app, &token).await,
+        StatusCode::BAD_REQUEST
+    );
+    assert!(session_of(&app, &cookie).await["email_verified_at"].is_null());
+}
+
+/// Asking for a link: refused when there is nothing to prove, and counted
+/// against the address it goes to, since an account can set that to anyone's.
+#[tokio::test]
+async fn asking_for_a_link_is_bounded() {
+    let app = app_with_mail().await;
+    let cookie = register_verified(&app, "member").await;
+    assert_eq!(
+        ask_to_verify(&app, Auth::Cookie(&cookie)).await,
+        StatusCode::CONFLICT,
+        "the address is already proven"
+    );
+
+    move_address(&app, &cookie, "elsewhere@example.com").await;
+    // The fixture's relay does not exist, and a request that waits for the
+    // send says so rather than claiming a mail went out.
+    for _ in 0..3 {
+        assert_eq!(
+            ask_to_verify(&app, Auth::Cookie(&cookie)).await,
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
+    assert_eq!(
+        ask_to_verify(&app, Auth::Cookie(&cookie)).await,
+        StatusCode::TOO_MANY_REQUESTS
+    );
+
+    // And the reset budget of that address is untouched.
+    assert_eq!(
+        ask_for_reset(&app, "elsewhere@example.com").await,
+        StatusCode::ACCEPTED
+    );
+}
+
+/// A token is for scripts, and no script needs to send this mail.
+#[tokio::test]
+async fn an_api_token_cannot_ask_for_a_link() {
+    let app = app_with_mail().await;
+    let cookie = register_verified(&app, "member").await;
+    move_address(&app, &cookie, "elsewhere@example.com").await;
+    let created = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&cookie),
+                &serde_json::json!({ "name": "automation" }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let secret = created["secret"].as_str().expect("a secret");
+    assert_eq!(
+        ask_to_verify(&app, Auth::Bearer(secret)).await,
+        StatusCode::FORBIDDEN
+    );
+}
+
+/// No relay, no mail: both ends answer as the switched-off feature they are.
+#[tokio::test]
+async fn without_mail_there_is_no_verification() {
+    let app = TestApp::ready().await;
+    let cookie = register(&app, "member").await;
+    assert_eq!(
+        ask_to_verify(&app, Auth::Cookie(&cookie)).await,
+        StatusCode::NOT_FOUND
+    );
+    assert_eq!(
+        follow_verification(&app, "anything").await,
+        StatusCode::NOT_FOUND
+    );
+}

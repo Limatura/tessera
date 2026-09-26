@@ -8,6 +8,7 @@
 
 pub mod access_event;
 pub mod api_token;
+pub mod email_verification;
 pub mod invite;
 pub mod oidc;
 pub mod password_reset;

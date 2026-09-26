@@ -53,6 +53,7 @@ pub mod speed;
 pub mod timeout;
 pub mod tokens;
 pub mod uploads;
+pub mod verification;
 
 use std::{sync::Arc, time::Duration};
 
@@ -333,6 +334,8 @@ fn account_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(sessions::list, sessions::revoke_others))
         .routes(routes!(sessions::revoke))
         .routes(routes!(preferences::get, preferences::update))
+        .routes(routes!(verification::request))
+        .routes(routes!(verification::confirm))
 }
 
 /// The share endpoints.
