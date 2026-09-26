@@ -1,6 +1,8 @@
 import type { components } from "@tessera/api/schema";
 import { Checkbox } from "@tessera/ui/components/checkbox";
 
+import * as m from "@/paraglide/messages";
+
 type PermissionInfo = components["schemas"]["PermissionResponse"];
 
 export function PermissionPicker({
@@ -46,7 +48,7 @@ export function PermissionPicker({
                   <span className="font-mono">{permission.name}</span>
                   {permission.privileged && (
                     <span className="text-destructive text-xs">
-                      會動到別人的東西
+                      {m.roles_permission_picker_privileged_note()}
                     </span>
                   )}
                 </span>

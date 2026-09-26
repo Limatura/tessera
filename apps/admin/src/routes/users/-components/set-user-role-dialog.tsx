@@ -21,6 +21,7 @@ import { useState } from "react";
 
 import { useSetUserRole } from "@/hooks/use-admin";
 import { roleLabel, UNASSIGNED_ROLE_LABEL } from "@/lib/permissions";
+import * as m from "@/paraglide/messages";
 
 type Account = components["schemas"]["AccountResponse"];
 type Role = components["schemas"]["RoleResponse"];
@@ -85,15 +86,19 @@ function SetUserRoleForm({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>設定「{account.username}」的角色</DialogTitle>
+        <DialogTitle>
+          {m.users_set_role_dialog_title({ name: account.username })}
+        </DialogTitle>
         <DialogDescription>
-          一個帳號只會有一個角色。選「未指派」代表這個帳號登入得了，但什麼都不能做。
+          {m.users_set_role_dialog_description()}
         </DialogDescription>
       </DialogHeader>
 
       <form id="set-user-role-form" onSubmit={onSubmit}>
         <Field>
-          <FieldLabel htmlFor="user-role">角色</FieldLabel>
+          <FieldLabel htmlFor="user-role">
+            {m.users_set_role_dialog_role_label()}
+          </FieldLabel>
           <Select
             onValueChange={(next) =>
               setRole(next === UNASSIGNED_VALUE ? null : next)
@@ -101,7 +106,9 @@ function SetUserRoleForm({
             value={role ?? UNASSIGNED_VALUE}
           >
             <SelectTrigger id="user-role">
-              <SelectValue placeholder="選擇角色" />
+              <SelectValue
+                placeholder={m.users_set_role_dialog_placeholder()}
+              />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -120,21 +127,21 @@ function SetUserRoleForm({
 
         {error && (
           <p className="mt-2 text-destructive text-sm" role="alert">
-            {error.message ?? "設定失敗"}
+            {error.message ?? m.users_set_role_dialog_error()}
           </p>
         )}
       </form>
 
       <DialogFooter>
         <Button onClick={onCancel} type="button" variant="outline">
-          取消
+          {m.common_cancel()}
         </Button>
         <Button
           disabled={setUserRole.isPending || role === currentRole}
           form="set-user-role-form"
           type="submit"
         >
-          {setUserRole.isPending ? "儲存中…" : "儲存"}
+          {setUserRole.isPending ? m.common_saving() : m.common_save()}
         </Button>
       </DialogFooter>
     </>

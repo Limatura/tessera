@@ -8,11 +8,19 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@tessera/ui/components/tabs";
 import { useTheme } from "@tessera/ui/components/theme-provider";
 
-const THEME_OPTIONS = [
-  { icon: IconSun, label: "淺色主題", value: "light" },
-  { icon: IconMoon, label: "深色主題", value: "dark" },
-  { icon: IconDeviceDesktop, label: "系統", value: "system" },
-] as const;
+import * as m from "@/paraglide/messages";
+
+function themeOptions() {
+  return [
+    { icon: IconSun, label: m.settings_theme_field_light(), value: "light" },
+    { icon: IconMoon, label: m.settings_theme_field_dark(), value: "dark" },
+    {
+      icon: IconDeviceDesktop,
+      label: m.settings_theme_field_system(),
+      value: "system",
+    },
+  ] as const;
+}
 
 /**
  * 這一項跟同頁的「訪客預設主題」不一樣：它走 next-themes，只寫這台瀏覽器的
@@ -24,12 +32,14 @@ export function InterfaceThemeField() {
   return (
     <Field orientation="horizontal">
       <FieldContent>
-        <FieldLabel>主題</FieldLabel>
-        <FieldDescription>主題設定僅為目前使用者儲存。</FieldDescription>
+        <FieldLabel>{m.settings_theme_field_label()}</FieldLabel>
+        <FieldDescription>
+          {m.settings_theme_field_description()}
+        </FieldDescription>
       </FieldContent>
       <Tabs onValueChange={setTheme} value={theme ?? "system"}>
         <TabsList>
-          {THEME_OPTIONS.map((option) => (
+          {themeOptions().map((option) => (
             <TabsTrigger key={option.value} value={option.value}>
               <option.icon />
               {option.label}

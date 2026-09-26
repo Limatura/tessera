@@ -4,6 +4,8 @@ import { buttonVariants } from "@tessera/ui/components/button";
 import { cn } from "@tessera/ui/lib/utils";
 import { z } from "zod";
 
+import * as m from "@/paraglide/messages";
+
 /**
  * 頁碼放 search 而不是路徑,重新整理跟複製網址都會回到同一頁。
  * 用 1-based 的 `page` 而不是 `offset`,網址對人來說才讀得懂。
@@ -43,21 +45,29 @@ export function Pager({
   return (
     <div className="mt-4 flex items-center justify-between gap-4">
       <p className="text-sm text-muted-foreground tabular-nums">
-        第 {Math.min(offset + 1, total)}–{Math.min(offset + pageSize, total)}{" "}
-        筆,共 {total} 筆
+        {m.pager_range({
+          from: Math.min(offset + 1, total),
+          to: Math.min(offset + pageSize, total),
+          total,
+        })}
       </p>
       <div className="flex items-center gap-2">
-        <PageLink disabled={page <= 1} label="上一頁" page={page - 1} to={to}>
+        <PageLink
+          disabled={page <= 1}
+          label={m.pager_previous()}
+          page={page - 1}
+          to={to}
+        >
           <IconChevronLeft size={16} />
-          上一頁
+          {m.pager_previous()}
         </PageLink>
         <PageLink
           disabled={page >= lastPage}
-          label="下一頁"
+          label={m.pager_next()}
           page={page + 1}
           to={to}
         >
-          下一頁
+          {m.pager_next()}
           <IconChevronRight size={16} />
         </PageLink>
       </div>

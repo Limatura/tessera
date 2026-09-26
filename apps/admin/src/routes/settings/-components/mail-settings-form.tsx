@@ -13,6 +13,7 @@ import {
 } from "@/lib/settings-schema";
 import type { MailSettingsValues } from "@/lib/settings-schema";
 import { asNumber, asString, isSecretSet } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { SealedField, TextField } from "./form-fields";
 import { NumberField } from "./number-field";
@@ -106,9 +107,7 @@ function MailSettingsFields({
       <FieldGroup>
         {host.trim() === "" && (
           <p className="rounded-md border border-border bg-muted/40 p-3 text-muted-foreground text-sm">
-            SMTP 主機留空代表這個實例不寄任何信，重設密碼與註冊確認都不會運作。
-            這裡預期的是 relay（Resend、Brevo、SES、Fastmail 或公司自己的）——
-            家用線路 送不出信，多數 ISP 封鎖 port 25，收信端也直接拒絕住宅位址。
+            {m.settings_mail_form_host_empty_warning()}
           </p>
         )}
 
@@ -117,11 +116,11 @@ function MailSettingsFields({
           name="host"
           render={({ field, fieldState }) => (
             <TextField
-              description="SMTP 主機。留空關閉所有寄信功能。"
+              description={m.settings_mail_form_host_description()}
               field={field}
               fieldState={fieldState}
               id="mail-host"
-              label="SMTP 主機"
+              label={m.settings_mail_form_host_label()}
               placeholder="smtp.resend.com"
             />
           )}
@@ -132,11 +131,11 @@ function MailSettingsFields({
           name="port"
           render={({ field, fieldState }) => (
             <NumberField
-              description="587 是 submission + STARTTLS（預設）；465 是隱式 TLS，也常見。"
+              description={m.settings_mail_form_port_description()}
               field={field}
               fieldState={fieldState}
               id="mail-port"
-              label="SMTP 連接埠"
+              label={m.settings_mail_form_port_label()}
               max={MAX_PORT}
               min={1}
             />
@@ -148,12 +147,12 @@ function MailSettingsFields({
           name="username"
           render={({ field, fieldState }) => (
             <SealedField
-              description="Resend 要求這裡填字面字串 resend。"
+              description={m.settings_mail_form_username_description()}
               field={field}
               fieldState={fieldState}
               id="mail-username"
               isSet={usernameIsSet}
-              label="SMTP 帳號"
+              label={m.settings_mail_form_username_label()}
             />
           )}
         />
@@ -163,12 +162,12 @@ function MailSettingsFields({
           name="password"
           render={({ field, fieldState }) => (
             <SealedField
-              description="多數 relay 這裡放的是 API key。"
+              description={m.settings_mail_form_password_description()}
               field={field}
               fieldState={fieldState}
               id="mail-password"
               isSet={passwordIsSet}
-              label="SMTP 密碼"
+              label={m.settings_mail_form_password_label()}
             />
           )}
         />
@@ -180,11 +179,11 @@ function MailSettingsFields({
           name="from"
           render={({ field, fieldState }) => (
             <TextField
-              description="信件的 From: 位址。網域必須已經在 relay 那邊驗證過，否則會被退信。"
+              description={m.settings_mail_form_from_description()}
               field={field}
               fieldState={fieldState}
               id="mail-from"
-              label="寄件位址"
+              label={m.settings_mail_form_from_label()}
               placeholder="tessera@example.com"
             />
           )}
@@ -195,11 +194,11 @@ function MailSettingsFields({
           name="publicUrl"
           render={({ field, fieldState }) => (
             <TextField
-              description="信件內連結的基底。刻意用設定值而非請求的 Host header —— 用可被偽造的 header 組出的重設連結會指向攻擊者的伺服器，等於把 token 送給他。"
+              description={m.settings_mail_form_public_url_description()}
               field={field}
               fieldState={fieldState}
               id="mail-public-url"
-              label="信件連結基底"
+              label={m.settings_mail_form_public_url_label()}
               placeholder="https://tessera.example.com"
             />
           )}
@@ -212,11 +211,11 @@ function MailSettingsFields({
           name="resetTtlMinutes"
           render={({ field, fieldState }) => (
             <NumberField
-              description="重設密碼連結的有效分鐘數，預設 30，上限 1440（24 小時）。短是因為這個連結本身就是憑證，夠久撐過郵件佇列即可。"
+              description={m.settings_mail_form_reset_ttl_description()}
               field={field}
               fieldState={fieldState}
               id="mail-reset-ttl"
-              label="重設密碼連結時效（分鐘）"
+              label={m.settings_mail_form_reset_ttl_label()}
               max={MAX_RESET_TTL_MINUTES}
               min={1}
             />
@@ -228,11 +227,11 @@ function MailSettingsFields({
           name="registrationTtlHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="註冊確認連結的時效，預設 24，上限 168（7 天）。可以長是因為它給的少 —— 點了之後建立的帳號用的是申請者自己早就選好的密碼。"
+              description={m.settings_mail_form_registration_ttl_description()}
               field={field}
               fieldState={fieldState}
               id="mail-registration-ttl"
-              label="註冊確認連結時效（小時）"
+              label={m.settings_mail_form_registration_ttl_label()}
               max={MAX_REGISTRATION_TTL_HOURS}
               min={1}
             />

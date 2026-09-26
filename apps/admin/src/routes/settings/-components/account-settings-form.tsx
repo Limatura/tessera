@@ -27,6 +27,7 @@ import {
 } from "@/lib/settings-schema";
 import type { AccountSettingsValues } from "@/lib/settings-schema";
 import { asEnum, asNumber, asString } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { SelectField } from "./form-fields";
 import { GuestAnonymousWarning } from "./guest-anonymous-warning";
@@ -46,11 +47,17 @@ const KEYS = {
   sessionTtlHours: "auth.session_ttl_hours",
 } satisfies SettingsKeyMap<AccountSettingsValues>;
 
-const REGISTRATION_OPTIONS = [
-  { label: "任何人都能註冊", value: "open" },
-  { label: "需要邀請碼", value: "invite" },
-  { label: "關閉註冊", value: "closed" },
-] as const;
+/**
+ * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale，
+ * 包成 const 只會在模組第一次載入時凍住語系。
+ */
+function registrationOptions() {
+  return [
+    { label: m.settings_account_form_registration_open(), value: "open" },
+    { label: m.settings_account_form_registration_invite(), value: "invite" },
+    { label: m.settings_account_form_registration_closed(), value: "closed" },
+  ] as const;
+}
 
 export function AccountSettingsForm() {
   return (
@@ -104,13 +111,13 @@ function AccountSettingsFields({
           name="registration"
           render={({ field, fieldState }) => (
             <SelectField
-              description="這同時管第三方登入：關閉註冊後，OIDC／GitHub／Discord 只有已經有帳號的人能登入，新的人會被拒絕。關閉後仍可由管理者手動建立帳號。"
+              description={m.settings_account_form_registration_description()}
               field={field}
               fieldState={fieldState}
               id="account-registration"
-              label="註冊方式"
-              options={REGISTRATION_OPTIONS}
-              placeholder="選擇註冊方式"
+              label={m.settings_account_form_registration_label()}
+              options={registrationOptions()}
+              placeholder={m.settings_account_form_registration_placeholder()}
             />
           )}
         />
@@ -132,11 +139,11 @@ function AccountSettingsFields({
           name="sessionTtlHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="使用者登入後多久需要重新登入，預設 720 小時（30 天）。"
+              description={m.settings_account_form_session_ttl_description()}
               field={field}
               fieldState={fieldState}
               id="account-session-ttl"
-              label="登入會話時長（小時）"
+              label={m.settings_account_form_session_ttl_label()}
               min={1}
             />
           )}
@@ -147,11 +154,11 @@ function AccountSettingsFields({
           name="loginHistoryDays"
           render={({ field, fieldState }) => (
             <NumberField
-              description="已結束的 session 在登入紀錄留幾天，預設 90 天。用途是回答「有沒有別人進來過」，所以活得比憑證久。"
+              description={m.settings_account_form_login_history_description()}
               field={field}
               fieldState={fieldState}
               id="account-login-history-days"
-              label="登入紀錄保留天數"
+              label={m.settings_account_form_login_history_label()}
               min={1}
             />
           )}
@@ -190,10 +197,14 @@ function DefaultRoleField({
 
   return (
     <Field data-invalid={invalid}>
-      <FieldLabel htmlFor="account-default-role">新帳號預設角色</FieldLabel>
+      <FieldLabel htmlFor="account-default-role">
+        {m.settings_account_form_default_role_label()}
+      </FieldLabel>
       <Select onValueChange={(next) => onChange(next ?? "")} value={value}>
         <SelectTrigger id="account-default-role">
-          <SelectValue placeholder="選擇角色" />
+          <SelectValue
+            placeholder={m.settings_account_form_default_role_placeholder()}
+          />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
@@ -206,8 +217,8 @@ function DefaultRoleField({
         </SelectContent>
       </Select>
       <FieldDescription>
-        註冊完成時指派的角色，對應 auth.default_role。
-        {roles.isError && "（角色列表載入失敗，只能沿用目前的值）"}
+        {m.settings_account_form_default_role_description()}
+        {roles.isError && m.settings_account_form_roles_error()}
       </FieldDescription>
     </Field>
   );

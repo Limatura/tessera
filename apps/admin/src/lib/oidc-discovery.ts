@@ -1,6 +1,8 @@
 import { api } from "@tessera/api";
 import type { components } from "@tessera/api/schema";
 
+import * as m from "@/paraglide/messages";
+
 type ErrorBody = components["schemas"]["ErrorBody"];
 
 /**
@@ -95,7 +97,10 @@ export async function readDiscovery(
      * 連不上、還是文件不能用（例如 issuer 對不起來、不接受 S256）。
      */
     const body = error as Partial<ErrorBody>;
-    return { ok: false, reason: body.message || "讀不到這個位址的設定文件。" };
+    return {
+      ok: false,
+      reason: body.message || m.settings_oidc_discovery_unreadable(),
+    };
   }
 
   /*

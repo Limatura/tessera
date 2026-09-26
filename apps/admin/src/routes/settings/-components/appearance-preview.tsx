@@ -1,12 +1,19 @@
 import { cn } from "@tessera/ui/lib/utils";
 
 import type { AppearanceSettingsValues } from "@/lib/settings-schema";
+import * as m from "@/paraglide/messages";
 
-const MODE_LABELS: Record<AppearanceSettingsValues["mode"], string> = {
-  dark: "深色",
-  light: "淺色",
-  system: "跟隨裝置",
-};
+/**
+ * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale，
+ * 包成 const 只會在模組第一次載入時凍住語系。
+ */
+function modeLabels(): Record<AppearanceSettingsValues["mode"], string> {
+  return {
+    dark: m.settings_appearance_preview_mode_dark(),
+    light: m.settings_appearance_preview_mode_light(),
+    system: m.settings_appearance_preview_mode_system(),
+  };
+}
 
 /**
  * 表單目前那三個值合起來長什麼樣。
@@ -45,18 +52,24 @@ export function AppearancePreview({
       data-theme={values.theme}
     >
       <p className="mb-3 font-medium text-muted-foreground text-xs">
-        預覽 · {MODE_LABELS[values.mode]}
+        {m.settings_appearance_preview_heading({
+          mode: modeLabels()[values.mode],
+        })}
       </p>
       <div className="rounded-md border bg-card p-3 text-card-foreground">
-        <p className="font-medium text-sm">分享已建立</p>
+        <p className="font-medium text-sm">
+          {m.settings_appearance_preview_card_title()}
+        </p>
         <p className="mt-1 text-muted-foreground text-xs">
-          訪客會看到這組顏色，直到他們自己選過為止。
+          {m.settings_appearance_preview_card_description()}
         </p>
         <div className="mt-3 flex items-center gap-2">
           <span className="rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground text-xs">
-            下載
+            {m.settings_appearance_preview_download()}
           </span>
-          <span className="rounded-md border px-3 py-1.5 text-xs">取消</span>
+          <span className="rounded-md border px-3 py-1.5 text-xs">
+            {m.settings_appearance_preview_cancel()}
+          </span>
           <span className="ml-auto size-4 rounded-full bg-primary" />
         </div>
       </div>

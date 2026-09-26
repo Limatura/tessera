@@ -5,6 +5,8 @@ import {
 } from "@tessera/ui/lib/appearance";
 import { z } from "zod";
 
+import * as m from "@/paraglide/messages";
+
 /**
  * 表單欄位對應到 `apps/server/SETTINGS.md` 列出的 dotted key（`settings::keys()`
  * 的實際輸出），值轉成 camelCase。
@@ -16,6 +18,10 @@ import { z } from "zod";
  * - `SECRET`（`storage.url`...）—— 讀不到也寫不了，只能用環境變數。
  * - `SEALED`（`*.client_secret`、`mail.username` / `mail.password`）—— 寫得進去、讀不
  *   回來。欄位收在這裡，但語意是「留空 = 不改動，有填 = 覆寫」，不是目前的值。
+ *
+ * 錯誤訊息一律用 `error: () => m.xxx()` 而不是 `error: m.xxx()`——schema 是模組載入
+ * 時建立一次的常數，直接呼叫會把當下的語系烤進字串裡，之後切換語言也不會變；包一層
+ * function 讓 zod 驗證當下才讀 `m.xxx()`，才會跟著目前的語系走。
  */
 
 // ---- 外觀：appearance.* ----
@@ -61,14 +67,16 @@ export const siteSettingsSchema = z.object({
   description: z
     .string()
     .refine((value) => codePoints(value) <= SITE_DESCRIPTION_MAX, {
-      error: `最多 ${SITE_DESCRIPTION_MAX} 字`,
+      error: () => m.settings_schema_max_chars({ max: SITE_DESCRIPTION_MAX }),
     }),
   // site.title
   title: z
     .string()
-    .refine((value) => value.trim() !== "", { error: "站名不可空白" })
+    .refine((value) => value.trim() !== "", {
+      error: () => m.settings_schema_site_title_required(),
+    })
     .refine((value) => codePoints(value) <= SITE_TITLE_MAX, {
-      error: `最多 ${SITE_TITLE_MAX} 字`,
+      error: () => m.settings_schema_max_chars({ max: SITE_TITLE_MAX }),
     }),
 });
 
@@ -86,7 +94,9 @@ export const storageSettingsSchema = z.object({
   partSizeBytes: z
     .number()
     .int()
-    .min(MIN_PART_SIZE_BYTES, { error: "至少需要 5 MiB（S3 分片下限）" }),
+    .min(MIN_PART_SIZE_BYTES, {
+      error: () => m.settings_schema_min_part_size(),
+    }),
 });
 
 export type StorageSettingsValues = z.infer<typeof storageSettingsSchema>;
@@ -101,9 +111,15 @@ export const uploadSettingsSchema = z
   // oxlint-disable-next-line sort-keys -- 依限流／容量／保存時間的敘事順序分組，字母序會打散語意
   .object({
     // auth.throttle.source.window_secs
-    throttleWindowSecs: z.number().int().min(1, { error: "至少 1 秒" }),
+    throttleWindowSecs: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_seconds({ n: 1 }) }),
     // auth.throttle.source.max_attempts
-    throttleMaxAttempts: z.number().int().min(1, { error: "至少 1 次" }),
+    throttleMaxAttempts: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_times({ n: 1 }) }),
     // features.anonymous_upload
     allowAnonymousUpload: z.boolean(),
     // storage.max_total_bytes
@@ -119,7 +135,7 @@ export const uploadSettingsSchema = z
       values.defaultExpiryHours === 0 ||
       values.defaultExpiryHours <= values.maxExpiryHours,
     {
-      error: "預設保存時間不可超過最長保存時間",
+      error: () => m.settings_schema_expiry_order(),
       path: ["defaultExpiryHours"],
     }
   );
@@ -134,13 +150,21 @@ export const REGISTRATION_MODES = ["open", "invite", "closed"] as const;
 
 export const accountSettingsSchema = z.object({
   // auth.default_role — 角色「名稱」不是 id，選項來自 GET /admin/roles
-  defaultRole: z.string().min(1, { error: "請選擇一個角色" }),
+  defaultRole: z
+    .string()
+    .min(1, { error: () => m.settings_schema_select_role() }),
   // auth.login_history_days
-  loginHistoryDays: z.number().int().min(1, { error: "至少 1 天" }),
+  loginHistoryDays: z
+    .number()
+    .int()
+    .min(1, { error: () => m.settings_schema_at_least_days({ n: 1 }) }),
   // auth.registration
   registration: z.enum(REGISTRATION_MODES),
   // auth.session_ttl_hours
-  sessionTtlHours: z.number().int().min(1, { error: "至少 1 小時" }),
+  sessionTtlHours: z
+    .number()
+    .int()
+    .min(1, { error: () => m.settings_schema_at_least_hours({ n: 1 }) }),
 });
 
 export type AccountSettingsValues = z.infer<typeof accountSettingsSchema>;
@@ -167,7 +191,7 @@ export const oidcSettingsSchema = z.object({
   issuer: z
     .string()
     .refine((value) => value === "" || HTTPS_URL.test(value), {
-      error: "必須是 https:// 開頭的 issuer URL",
+      error: () => m.settings_schema_oidc_issuer_https(),
     })
     /*
      * 貼成 discovery URL 是最常見的填法錯誤，而且它會通過上面那條（它也是合法
@@ -176,8 +200,7 @@ export const oidcSettingsSchema = z.object({
      * 比讓人事後從一個錯誤代碼回推便宜得多。
      */
     .refine((value) => !value.includes("/.well-known/"), {
-      error:
-        "這是 discovery URL，不是 issuer。把它貼到上面那格按「讀取並帶入」，issuer 會從文件裡讀出來",
+      error: () => m.settings_schema_oidc_issuer_not_discovery_url(),
     }),
   // auth.oidc.link_by_verified_email
   linkByVerifiedEmail: z.boolean(),
@@ -198,7 +221,7 @@ export const oauthSettingsSchema = z.object({
   baseUrl: z
     .string()
     .refine((value) => value === "" || ABSOLUTE_URL.test(value), {
-      error: "必須是 http(s):// 開頭的絕對位址",
+      error: () => m.settings_schema_absolute_url(),
     }),
   // auth.{github,discord}.client_id
   clientId: z.string(),
@@ -233,7 +256,11 @@ export const mailSettingsSchema = z
     // mail.host —— 空字串關閉所有寄信功能
     host: z.string(),
     // mail.port
-    port: z.number().int().min(1, { error: "至少 1" }).max(MAX_PORT),
+    port: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least({ n: 1 }) })
+      .max(MAX_PORT),
     // mail.username（SEALED，留空 = 不改動）
     username: z.string(),
     // mail.password（SEALED，留空 = 不改動）
@@ -246,20 +273,24 @@ export const mailSettingsSchema = z
     resetTtlMinutes: z
       .number()
       .int()
-      .min(1, { error: "至少 1 分鐘" })
-      .max(MAX_RESET_TTL_MINUTES, { error: "上限 1440 分鐘（24 小時）" }),
+      .min(1, { error: () => m.settings_schema_at_least_minutes({ n: 1 }) })
+      .max(MAX_RESET_TTL_MINUTES, {
+        error: () => m.settings_schema_reset_ttl_max(),
+      }),
     // mail.registration_ttl_hours
     registrationTtlHours: z
       .number()
       .int()
-      .min(1, { error: "至少 1 小時" })
-      .max(MAX_REGISTRATION_TTL_HOURS, { error: "上限 168 小時（7 天）" }),
+      .min(1, { error: () => m.settings_schema_at_least_hours({ n: 1 }) })
+      .max(MAX_REGISTRATION_TTL_HOURS, {
+        error: () => m.settings_schema_registration_ttl_max(),
+      }),
   })
   .superRefine((values, ctx) => {
     if (values.from.trim() !== "" && !values.from.includes("@")) {
       ctx.addIssue({
         code: "custom",
-        message: "請輸入完整的寄件位址",
+        message: m.settings_schema_mail_from_required(),
         path: ["from"],
       });
     }
@@ -270,7 +301,7 @@ export const mailSettingsSchema = z
     ) {
       ctx.addIssue({
         code: "custom",
-        message: "必須是 http(s):// 開頭的絕對位址",
+        message: m.settings_schema_absolute_url(),
         path: ["publicUrl"],
       });
     }
@@ -285,7 +316,7 @@ export const mailSettingsSchema = z
     for (const name of missing) {
       ctx.addIssue({
         code: "custom",
-        message: "SMTP 主機、寄件位址、信件連結基底要嘛全填、要嘛全空",
+        message: m.settings_schema_mail_trio_incomplete(),
         path: [name],
       });
     }
@@ -305,16 +336,22 @@ export const networkSettingsSchema = z
     publicUrl: z
       .string()
       .refine((value) => value === "" || ABSOLUTE_URL.test(value), {
-        error: "必須是 http(s):// 開頭的絕對位址",
+        error: () => m.settings_schema_absolute_url(),
       }),
     // server.trusted_proxies —— 後端是 string[]，表單用一行一筆
     trustedProxies: z.string(),
     // auth.cookie_secure
     cookieSecure: z.enum(COOKIE_SECURE_POLICIES),
     // server.request_timeout_secs —— 不套用在上傳路由
-    requestTimeoutSecs: z.number().int().min(1, { error: "至少 1 秒" }),
+    requestTimeoutSecs: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_seconds({ n: 1 }) }),
     // server.upload_stall_secs
-    uploadStallSecs: z.number().int().min(1, { error: "至少 1 秒" }),
+    uploadStallSecs: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_seconds({ n: 1 }) }),
   });
 
 export type NetworkSettingsValues = z.infer<typeof networkSettingsSchema>;
@@ -342,11 +379,17 @@ export type ThrottleCounter = (typeof THROTTLE_COUNTERS)[number];
 export const MAX_TRACKED_KEYS_CEILING = 100_000;
 
 function throttleAttempts() {
-  return z.number().int().min(1, { error: "至少 1 次，0 會鎖死所有人" });
+  return z
+    .number()
+    .int()
+    .min(1, { error: () => m.settings_schema_throttle_attempts_floor() });
 }
 
 function throttleWindow() {
-  return z.number().int().min(1, { error: "至少 1 秒，0 等於完全不限流" });
+  return z
+    .number()
+    .int()
+    .min(1, { error: () => m.settings_schema_throttle_window_floor() });
 }
 
 /**
@@ -362,8 +405,11 @@ export const throttleSettingsSchema = z.object({
   maxTrackedKeys: z
     .number()
     .int()
-    .min(1, { error: "至少 1" })
-    .max(MAX_TRACKED_KEYS_CEILING, { error: "上限 100000" }),
+    .min(1, { error: () => m.settings_schema_at_least({ n: 1 }) })
+    .max(MAX_TRACKED_KEYS_CEILING, {
+      error: () =>
+        m.settings_schema_max_value({ max: MAX_TRACKED_KEYS_CEILING }),
+    }),
   registrationMaxAttempts: throttleAttempts(),
   registrationWindowSecs: throttleWindow(),
   resetMaxAttempts: throttleAttempts(),
@@ -391,14 +437,18 @@ export const passwordSettingsSchema = z
     minLength: z
       .number()
       .int()
-      .min(PASSWORD_MIN_FLOOR, { error: "不可低於 8" })
+      .min(PASSWORD_MIN_FLOOR, {
+        error: () => m.settings_schema_min_value({ min: PASSWORD_MIN_FLOOR }),
+      })
       .max(PASSWORD_MAX_CEILING),
     // auth.password.max_length —— 無上限的密碼欄位等於讓未認證請求叫伺服器做任意多的工
     maxLength: z
       .number()
       .int()
       .min(PASSWORD_MIN_FLOOR)
-      .max(PASSWORD_MAX_CEILING, { error: "上限 1024" }),
+      .max(PASSWORD_MAX_CEILING, {
+        error: () => m.settings_schema_max_value({ max: PASSWORD_MAX_CEILING }),
+      }),
     // auth.password.require_mixed_case
     requireMixedCase: z.boolean(),
     // auth.password.require_digit
@@ -406,24 +456,33 @@ export const passwordSettingsSchema = z
     // auth.password.require_symbol
     requireSymbol: z.boolean(),
     // auth.hashing.memory_kib —— 最關鍵的參數，見表單說明
-    memoryKib: z.number().int().min(8, { error: "至少 8 KiB" }),
+    memoryKib: z
+      .number()
+      .int()
+      .min(8, { error: () => m.settings_schema_min_kib({ min: 8 }) }),
     // auth.hashing.iterations
-    iterations: z.number().int().min(1, { error: "至少 1" }),
+    iterations: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least({ n: 1 }) }),
     // auth.hashing.lanes
-    lanes: z.number().int().min(1, { error: "至少 1" }),
+    lanes: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least({ n: 1 }) }),
     // auth.pwned.enabled
     pwnedEnabled: z.boolean(),
     // auth.pwned.url —— 關閉時 server 不驗證，所以這裡也不擋
     pwnedUrl: z.string(),
   })
   .refine((values) => values.minLength <= values.maxLength, {
-    error: "最短長度不可大於最長長度",
+    error: () => m.settings_schema_password_length_order(),
     path: ["minLength"],
   })
   .refine(
     (values) => !values.pwnedEnabled || ABSOLUTE_URL.test(values.pwnedUrl),
     {
-      error: "開啟時必須是 http(s):// 開頭的絕對位址",
+      error: () => m.settings_schema_pwned_url_required(),
       path: ["pwnedUrl"],
     }
   );
@@ -443,8 +502,12 @@ export const shareSettingsSchema = z
     codeLength: z
       .number()
       .int()
-      .min(CODE_LENGTH_MIN, { error: "至少 4 碼" })
-      .max(CODE_LENGTH_MAX, { error: "最多 32 碼" }),
+      .min(CODE_LENGTH_MIN, {
+        error: () => m.settings_schema_min_value({ min: CODE_LENGTH_MIN }),
+      })
+      .max(CODE_LENGTH_MAX, {
+        error: () => m.settings_schema_max_value({ max: CODE_LENGTH_MAX }),
+      }),
     // share.access_log.enabled
     accessLogEnabled: z.boolean(),
     // share.access_log.retention_days —— 開啟時不可為 0
@@ -452,20 +515,32 @@ export const shareSettingsSchema = z
     // share.inline_threshold_bytes
     inlineThresholdBytes: z.number().int().min(0),
     // share.max_text_bytes
-    maxTextBytes: z.number().int().min(1, { error: "至少 1 byte" }),
+    maxTextBytes: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_bytes({ n: 1 }) }),
     // share.ticket_ttl_hours
-    ticketTtlHours: z.number().int().min(1, { error: "至少 1 小時" }),
+    ticketTtlHours: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_hours({ n: 1 }) }),
     // share.ticket_idle_hours
-    ticketIdleHours: z.number().int().min(1, { error: "至少 1 小時" }),
+    ticketIdleHours: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_hours({ n: 1 }) }),
     // share.retain_after_death_hours —— 0 代表下次清掃就刪
     retainAfterDeathHours: z.number().int().min(0),
     // share.upload_session_ttl_hours
-    uploadSessionTtlHours: z.number().int().min(1, { error: "至少 1 小時" }),
+    uploadSessionTtlHours: z
+      .number()
+      .int()
+      .min(1, { error: () => m.settings_schema_at_least_hours({ n: 1 }) }),
   })
   .refine(
     (values) => !values.accessLogEnabled || values.accessLogRetentionDays >= 1,
     {
-      error: "存取紀錄開啟時，保留天數至少 1 天（沒有「永久保留」這個值）",
+      error: () => m.settings_schema_access_log_retention_min(),
       path: ["accessLogRetentionDays"],
     }
   );

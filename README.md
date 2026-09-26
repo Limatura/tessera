@@ -1,5 +1,9 @@
 # tessera
 
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE)
+
+**English** | [繁體中文](README.zh-TW.md)
+
 Anonymous file courier. Upload a file or a note, hand out a retrieval code, and the payload destroys itself once it expires or runs out of retrievals.
 
 Self-hosted, one binary. The frontend is embedded in it, so there is nothing to put in front of it and nothing to run beside it.

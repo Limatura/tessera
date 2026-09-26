@@ -14,6 +14,7 @@ import {
   getLocale,
   subscribeToLocale,
 } from "@/lib/locale";
+import * as m from "@/paraglide/messages";
 
 import "../index.css";
 
@@ -32,10 +33,10 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
     meta: [
       {
-        title: "my-better-t-app",
+        title: m.admin_app_name(),
       },
       {
-        content: "my-better-t-app is a web application",
+        content: m.admin_app_description(),
         name: "description",
       },
     ],

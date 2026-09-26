@@ -36,6 +36,8 @@ import {
 } from "@tessera/ui/components/table";
 import * as React from "react";
 
+import * as m from "@/paraglide/messages";
+
 /**
  * The feature set every sortable table registers. Fixed rather than
  * generic over the caller: v9's `Row<TFeatures, TData>` produces a union
@@ -64,7 +66,7 @@ export function DragHandle({ id }: { id: UniqueIdentifier }) {
       className="size-7 text-muted-foreground hover:bg-transparent"
     >
       <IconGripVertical className="size-3 text-muted-foreground" />
-      <span className="sr-only">拖曳排序</span>
+      <span className="sr-only">{m.dnd_demo_drag_to_reorder()}</span>
     </Button>
   );
 }
@@ -108,7 +110,7 @@ export function SortableTable<TData extends RowData>({
   columns,
   getRowId,
   onReorder,
-  emptyMessage = "沒有資料",
+  emptyMessage,
 }: {
   data: TData[];
   columns: ColumnDef<typeof sortableTableFeatures, TData>[];
@@ -116,6 +118,7 @@ export function SortableTable<TData extends RowData>({
   onReorder: (fromIndex: number, toIndex: number) => void;
   emptyMessage?: string;
 }) {
+  const resolvedEmptyMessage = emptyMessage ?? m.dnd_demo_no_data();
   const sortableId = React.useId();
   const sensors = useSensors(
     useSensor(MouseSensor, {}),
@@ -188,7 +191,7 @@ export function SortableTable<TData extends RowData>({
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  {emptyMessage}
+                  {resolvedEmptyMessage}
                 </TableCell>
               </TableRow>
             )}

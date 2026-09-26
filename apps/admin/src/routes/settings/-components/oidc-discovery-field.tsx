@@ -14,6 +14,7 @@ import { useState } from "react";
 
 import type { ReadResult } from "@/lib/oidc-discovery";
 import { readDiscovery } from "@/lib/oidc-discovery";
+import * as m from "@/paraglide/messages";
 
 /**
  * 貼上 discovery URL，請伺服器讀一次文件，把裡面的值填進下面的欄位。
@@ -75,7 +76,7 @@ export function OidcDiscoveryField({
     <div className="space-y-3 rounded-md border border-dashed p-3">
       <Field>
         <FieldLabel htmlFor="oidc-discovery-url">
-          Discovery URL（選填）
+          {m.settings_oidc_discovery_field_url_label()}
         </FieldLabel>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
@@ -96,13 +97,11 @@ export function OidcDiscoveryField({
             {isReading ? (
               <IconLoader2 className="animate-spin" size={16} />
             ) : null}
-            讀取並帶入
+            {m.settings_oidc_discovery_field_read_button()}
           </Button>
         </div>
         <FieldDescription>
-          從 provider 後台複製過來的通常就是這一串。由伺服器去讀，讀到的 Issuer
-          與 Scopes 會填進下面 —— 端點不用填，後端登入時會從同一份文件讀。留空
-          則改讀下面 Issuer 的現值。
+          {m.settings_oidc_discovery_field_description()}
         </FieldDescription>
       </Field>
 
@@ -138,16 +137,18 @@ function ReadMessage({ result }: { result: ReadResult }) {
         size={16}
       />
       <div className="space-y-1">
-        <p className="font-medium">伺服器讀到了，已帶入下面的欄位</p>
+        <p className="font-medium">
+          {m.settings_oidc_discovery_field_read_success()}
+        </p>
         {result.supportedScopes ? (
           <p className="text-muted-foreground">
-            這個 provider 支援的 scopes：{result.supportedScopes.join("、")}
-            。下面的 Scopes 已經對齊這份清單。
+            {m.settings_oidc_discovery_field_supported_scopes({
+              scopes: result.supportedScopes.join("、"),
+            })}
           </p>
         ) : (
           <p className="text-muted-foreground">
-            文件沒有宣告 scopes_supported，所以 Scopes 保持原樣 ——
-            沒宣告不代表不支援。
+            {m.settings_oidc_discovery_field_no_scopes_declared()}
           </p>
         )}
         {/*
@@ -156,8 +157,7 @@ function ReadMessage({ result }: { result: ReadResult }) {
         */}
         {missingEmail ? (
           <p className="font-medium text-amber-600 dark:text-amber-500">
-            這個 provider 沒有宣告 email scope。拿不到已驗證的信箱的話，每次登入
-            都會以 no_address 失敗。
+            {m.settings_oidc_discovery_field_missing_email()}
           </p>
         ) : null}
       </div>

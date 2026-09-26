@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { AccountSettingsForm } from "./-components/account-settings-form";
@@ -22,8 +23,8 @@ export const Route = createRoute({
 function AccountSettingsRoute() {
   return (
     <SettingsPage
-      description="誰能註冊、新帳號拿到什麼角色，以及登入會話與紀錄的保留時間"
-      title="帳號與註冊"
+      description={m.settings_account_description()}
+      title={m.settings_account_title()}
     >
       <AccountSettingsForm />
     </SettingsPage>

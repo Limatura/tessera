@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useSession } from "@/hooks/use-auth";
 import { useUpdateSettings } from "@/hooks/use-settings";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
+import * as m from "@/paraglide/messages";
 
 type ErrorBody = components["schemas"]["ErrorBody"];
 
@@ -59,7 +60,7 @@ export function settingsErrorMessage(error: unknown): string | null {
     return null;
   }
   const body = error as ErrorBody;
-  return body.message ?? "儲存失敗";
+  return body.message ?? m.settings_form_save_failed();
 }
 
 /**

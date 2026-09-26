@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { MailSettingsForm } from "./-components/mail-settings-form";
@@ -22,8 +23,8 @@ export const Route = createRoute({
 function MailSettingsRoute() {
   return (
     <SettingsPage
-      description="SMTP relay、寄件位址，以及重設密碼與註冊確認連結的時效"
-      title="寄信"
+      description={m.settings_mail_description()}
+      title={m.settings_mail_title()}
     >
       <MailSettingsForm />
     </SettingsPage>

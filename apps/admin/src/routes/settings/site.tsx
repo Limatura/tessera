@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { SettingsPage } from "./-components/settings-page";
@@ -22,8 +23,8 @@ export const Route = createRoute({
 function SiteSettingsRoute() {
   return (
     <SettingsPage
-      description="分頁標題與連結預覽，對應 site.*"
-      title="站台資訊"
+      description={m.settings_site_description()}
+      title={m.settings_site_title()}
     >
       <SiteSettingsForm />
     </SettingsPage>

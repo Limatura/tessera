@@ -2,6 +2,8 @@ import { IconAlertTriangle, IconCheck, IconCopy } from "@tabler/icons-react";
 import { Button } from "@tessera/ui/components/button";
 import { useState } from "react";
 
+import * as m from "@/paraglide/messages";
+
 /**
  * 要貼進 provider 後台的那幾個位址。
  *
@@ -37,17 +39,16 @@ export function ProviderCallbackUrls({
   return (
     <div className="space-y-3 rounded-md border border-dashed p-3">
       <p className="text-muted-foreground text-sm">
-        把這些登記到 provider 後台。少了或打錯，對方會拒絕登入，而且錯誤訊息只會
-        出現在它的頁面上。
+        {m.settings_provider_callback_intro()}
       </p>
       <CopyableUrl
-        hint="OAuth 後台通常叫 Redirect URI、Callback URL 或「重新導向 URL」。"
-        label="重新導向 URL"
+        hint={m.settings_provider_callback_redirect_hint()}
+        label={m.settings_provider_callback_redirect_label()}
         url={`${base}/api/v1/auth/${provider}/callback`}
       />
       {showBackchannel ? (
         <CopyableUrl
-          hint="選填。登記之後，在 provider 那邊登出（或帳號被停用）時它會推一個 logout token 到這裡，這邊的 session 才會跟著結束；不登記的話要等 session 自己過期。"
+          hint={m.settings_provider_callback_backchannel_hint()}
           label="Back-channel logout URL"
           url={`${base}/api/v1/auth/oidc/backchannel-logout`}
         />
@@ -68,11 +69,13 @@ function NoPublicUrl() {
     >
       <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
       <div className="space-y-1">
-        <p className="font-medium">要先設好「對外網址」才知道要登記什麼</p>
+        <p className="font-medium">
+          {m.settings_provider_callback_no_public_url_title()}
+        </p>
         <p className="text-muted-foreground">
-          重新導向 URL 是從 <code>server.public_url</code>{" "}
-          拼出來的。它沒設的話這裡沒有位址可以給你，而且第三方登入本身也會失敗
-          —— 後端沒有位址可以叫 provider 送回來。請到「網路」把它填好。
+          {m.settings_provider_callback_no_public_url_description_1()}{" "}
+          <code>server.public_url</code>{" "}
+          {m.settings_provider_callback_no_public_url_description_2()}
         </p>
       </div>
     </div>
@@ -107,7 +110,9 @@ function CopyableUrl({
         <span className="font-medium text-sm">{label}</span>
         <Button onClick={handleCopy} size="sm" type="button" variant="ghost">
           {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-          {copied ? "已複製" : "複製"}
+          {copied
+            ? m.settings_provider_callback_copied()
+            : m.settings_provider_callback_copy()}
         </Button>
       </div>
       {/*

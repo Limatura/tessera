@@ -14,6 +14,7 @@ import {
 import mockData from "@/data/dashboard-mock.json";
 import { formatBytes, formatNumber } from "@/lib/format";
 import { getLocale } from "@/lib/locale";
+import * as m from "@/paraglide/messages";
 
 /**
  * Mirrors the server's `StatsResponse` (apps/server/src/api/admin.rs).
@@ -31,28 +32,28 @@ function buildItems() {
   return [
     {
       icon: IconFiles,
-      label: "分享總數",
-      sub: `可取件 ${number(stats.liveShares)} 筆`,
+      label: m.dashboard_stats_total_shares(),
+      sub: m.dashboard_stats_live_shares({ count: number(stats.liveShares) }),
       value: number(stats.shares),
     },
     {
       icon: IconDatabase,
-      label: "已用儲存空間",
+      label: m.dashboard_stats_used_storage(),
       sub: stats.quotaBytes
-        ? `配額 ${formatBytes(stats.quotaBytes)}`
-        : "無配額限制",
+        ? m.dashboard_stats_quota({ amount: formatBytes(stats.quotaBytes) })
+        : m.dashboard_stats_no_quota(),
       value: formatBytes(stats.storedBytes),
     },
     {
       icon: IconCloudUpload,
-      label: "帳號數",
-      sub: "含管理員",
+      label: m.dashboard_stats_accounts(),
+      sub: m.dashboard_stats_accounts_sub(),
       value: number(stats.accounts),
     },
     {
       icon: IconTicket,
-      label: "可用邀請碼",
-      sub: "尚未用盡或過期",
+      label: m.dashboard_stats_available_invites(),
+      sub: m.dashboard_stats_available_invites_sub(),
       value: number(stats.liveInvites),
     },
   ];

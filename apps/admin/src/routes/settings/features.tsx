@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { FeatureSettingsForm } from "./-components/feature-settings-form";
@@ -21,7 +22,10 @@ export const Route = createRoute({
 
 function FeatureSettingsRoute() {
   return (
-    <SettingsPage description="執行期開關與自訂連結預覽卡片" title="功能開關">
+    <SettingsPage
+      description={m.settings_features_description()}
+      title={m.settings_features_title()}
+    >
       <FeatureSettingsForm />
     </SettingsPage>
   );

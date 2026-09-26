@@ -20,6 +20,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { Pager, pageSearchSchema } from "@/components/pager";
 import { PAGE_SIZE, useMyShares } from "@/hooks/use-admin";
 import { requireAuth } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "./__root";
 
@@ -42,7 +43,9 @@ const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
 });
 
 function formatDate(value: string | null | undefined): string {
-  return value ? dateFormatter.format(new Date(value)) : "—";
+  return value
+    ? dateFormatter.format(new Date(value))
+    : m.common_dash_placeholder();
 }
 
 function SharesComponent() {
@@ -51,35 +54,39 @@ function SharesComponent() {
   const rows = shares.data?.data;
 
   return (
-    <AdminShell title="我的分享">
+    <AdminShell title={m.shares_page_title()}>
       <Card className="ring-foreground/10">
         <CardHeader>
-          <CardTitle>我上傳的分享</CardTitle>
+          <CardTitle>{m.shares_card_title()}</CardTitle>
           <CardDescription>
             {shares.data
-              ? `共 ${shares.data.meta.total} 筆`
-              : "由你的帳號建立的分享"}
+              ? m.shares_card_description_total({
+                  total: shares.data.meta.total,
+                })
+              : m.shares_card_description_empty()}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {shares.isPending && (
-            <p className="text-sm text-muted-foreground">載入中…</p>
+            <p className="text-sm text-muted-foreground">
+              {m.common_loading()}
+            </p>
           )}
           {shares.isError && (
-            <p className="text-sm text-destructive">分享載入失敗</p>
+            <p className="text-sm text-destructive">{m.shares_load_error()}</p>
           )}
           {rows?.length === 0 && (
-            <p className="text-sm text-muted-foreground">還沒有任何分享。</p>
+            <p className="text-sm text-muted-foreground">{m.shares_empty()}</p>
           )}
           {rows && rows.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>取件碼</TableHead>
-                  <TableHead>類型</TableHead>
-                  <TableHead>建立時間</TableHead>
-                  <TableHead>最後取件</TableHead>
-                  <TableHead>到期</TableHead>
+                  <TableHead>{m.shares_col_code()}</TableHead>
+                  <TableHead>{m.shares_col_kind()}</TableHead>
+                  <TableHead>{m.shares_col_created()}</TableHead>
+                  <TableHead>{m.shares_col_last_accessed()}</TableHead>
+                  <TableHead>{m.shares_col_expires()}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -92,7 +99,7 @@ function SharesComponent() {
                       <Badge variant="secondary">{share.kind}</Badge>
                       {share.has_password && (
                         <Badge className="ml-1" variant="outline">
-                          需密碼
+                          {m.shares_needs_password()}
                         </Badge>
                       )}
                     </TableCell>
@@ -105,7 +112,7 @@ function SharesComponent() {
                     <TableCell className="text-muted-foreground">
                       {share.expires_at
                         ? formatDate(share.expires_at)
-                        : "不過期"}
+                        : m.common_never_expires()}
                     </TableCell>
                   </TableRow>
                 ))}

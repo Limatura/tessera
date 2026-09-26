@@ -18,6 +18,7 @@ import {
 import { Input } from "@tessera/ui/components/input";
 
 import { roleLabel } from "@/lib/permissions";
+import * as m from "@/paraglide/messages";
 
 import { ByteLimitField } from "./byte-limit-field";
 import { PermissionPicker } from "./permission-picker";
@@ -81,12 +82,14 @@ function RoleEditorForm({
     <>
       <DialogHeader className="shrink-0">
         <DialogTitle>
-          {role ? `編輯「${roleLabel(role.name)}」` : "新增角色"}
+          {role
+            ? m.roles_editor_edit_title({ name: roleLabel(role.name) })
+            : m.roles_editor_add_title()}
         </DialogTitle>
         <DialogDescription>
           {form.isSystem
-            ? "內建角色的名稱與配額可以改，權限不行 —— 要讓一般帳號能做的事變少，請自己開一個角色。"
-            : "權限是送出整組，不是只送改動的部分。"}
+            ? m.roles_editor_description_system()
+            : m.roles_editor_description_custom()}
         </DialogDescription>
       </DialogHeader>
 
@@ -97,7 +100,9 @@ function RoleEditorForm({
       >
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="role-name">名稱</FieldLabel>
+            <FieldLabel htmlFor="role-name">
+              {m.roles_editor_name_label()}
+            </FieldLabel>
             <Input
               id="role-name"
               onChange={(event) => form.setName(event.target.value)}
@@ -107,11 +112,13 @@ function RoleEditorForm({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="role-description">說明</FieldLabel>
+            <FieldLabel htmlFor="role-description">
+              {m.roles_editor_description_label()}
+            </FieldLabel>
             <Input
               id="role-description"
               onChange={(event) => form.setDescription(event.target.value)}
-              placeholder="這個角色是給誰用的"
+              placeholder={m.roles_editor_description_placeholder()}
               value={form.description}
             />
           </Field>
@@ -121,8 +128,8 @@ function RoleEditorForm({
             <ByteLimitField
               disabled={form.pending}
               id="role-quota"
-              inheritLabel="跟隨全站上限"
-              label="每個帳號的儲存配額"
+              inheritLabel={m.roles_editor_quota_inherit()}
+              label={m.roles_editor_quota_label()}
               mib={form.quotaMib}
               mode={form.quotaMode}
               onMibChange={form.setQuotaMib}
@@ -132,8 +139,8 @@ function RoleEditorForm({
             <ByteLimitField
               disabled={form.pending}
               id="role-max-file"
-              inheritLabel="跟隨全站上限"
-              label="單檔大小上限"
+              inheritLabel={m.roles_editor_quota_inherit()}
+              label={m.roles_editor_file_limit_label()}
               mib={form.fileMib}
               mode={form.fileMode}
               onMibChange={form.setFileMib}
@@ -142,9 +149,11 @@ function RoleEditorForm({
           </div>
 
           <Field>
-            <FieldLabel>權限</FieldLabel>
+            <FieldLabel>{m.roles_editor_permissions_label()}</FieldLabel>
             {form.isSystem && (
-              <FieldDescription>這是內建角色，權限不可更動。</FieldDescription>
+              <FieldDescription>
+                {m.roles_editor_permissions_system_note()}
+              </FieldDescription>
             )}
             <PermissionPicker
               allPermissions={allPermissions}
@@ -157,19 +166,19 @@ function RoleEditorForm({
 
           {form.blocked && (
             <p className="text-destructive text-sm" role="alert">
-              這個角色帶有你自己沒有的權限（
+              {m.roles_editor_blocked_warning()}
               {form.ungrantable.map((permission) => (
                 <Badge className="mx-0.5" key={permission} variant="outline">
                   {permission}
                 </Badge>
               ))}
-              ），儲存會被拒絕。
+              {m.roles_editor_blocked_warning_suffix()}
             </p>
           )}
 
           {form.error && (
             <p className="text-destructive text-sm" role="alert">
-              {form.error.message ?? "儲存失敗"}
+              {form.error.message ?? m.roles_editor_save_error()}
             </p>
           )}
         </FieldGroup>
@@ -177,14 +186,14 @@ function RoleEditorForm({
 
       <DialogFooter className="shrink-0">
         <Button onClick={onCancel} type="button" variant="outline">
-          取消
+          {m.common_cancel()}
         </Button>
         <Button
           disabled={form.pending || form.blocked || form.name.trim() === ""}
           form="role-editor-form"
           type="submit"
         >
-          {form.pending ? "儲存中…" : "儲存"}
+          {form.pending ? m.common_saving() : m.common_save()}
         </Button>
       </DialogFooter>
     </>

@@ -13,6 +13,7 @@ import {
 } from "@/lib/settings-schema";
 import type { ShareSettingsValues } from "@/lib/settings-schema";
 import { asBoolean, asNumber } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { SwitchField } from "./form-fields";
 import { NumberField } from "./number-field";
@@ -117,11 +118,11 @@ function ShareSettingsFields({
           name="codeLength"
           render={({ field, fieldState }) => (
             <NumberField
-              description="取件碼字數，預設 8。8 個 Crockford base32 約是 1.1×10¹² 組合；某些同類服務用的 5 碼只有 3300 萬，公開端點可以被走訪完。短碼只有在「取件碼查詢」那組限流存在時才站得住腳。"
+              description={m.settings_share_form_code_length_description()}
               field={field}
               fieldState={fieldState}
               id="share-code-length"
-              label="取件碼長度"
+              label={m.settings_share_form_code_length_label()}
               max={CODE_LENGTH_MAX}
               min={CODE_LENGTH_MIN}
             />
@@ -133,11 +134,11 @@ function ShareSettingsFields({
           name="maxTextBytes"
           render={({ field, fieldState }) => (
             <NumberField
-              description="純文字分享的上限，預設 1 MiB。文字存在資料庫，所以這同時是單一 row 的最大值，也是一次上傳能佔的最大記憶體 —— 整包收下的東西沒辦法串流。"
+              description={m.settings_share_form_max_text_bytes_description()}
               field={field}
               fieldState={fieldState}
               id="share-max-text-bytes"
-              label="文字分享上限（bytes）"
+              label={m.settings_share_form_max_text_bytes_label()}
               min={1}
             />
           )}
@@ -148,11 +149,11 @@ function ShareSettingsFields({
           name="inlineThresholdBytes"
           render={({ field, fieldState }) => (
             <NumberField
-              description="小於此值存資料庫而非物件儲存，預設 64 KiB。多數分享是短筆記或程式片段，跑一趟物件儲存的成本高於省下的空間；順帶讓資料庫備份也涵蓋內容。"
+              description={m.settings_share_form_inline_threshold_description()}
               field={field}
               fieldState={fieldState}
               id="share-inline-threshold"
-              label="行內儲存門檻（bytes）"
+              label={m.settings_share_form_inline_threshold_label()}
               min={0}
             />
           )}
@@ -165,11 +166,11 @@ function ShareSettingsFields({
           name="ticketTtlHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="下載授權的存活上限，預設 24 小時。一次授權消耗一次取件次數，之後產生的 ticket 可重複使用（Range 請求、續傳、斷線重試）—— 沒有這層分離，一次中斷的下載就會燒掉一個一次性分享。這是天花板不是常態。"
+              description={m.settings_share_form_ticket_ttl_description()}
               field={field}
               fieldState={fieldState}
               id="share-ticket-ttl"
-              label="下載授權存活上限（小時）"
+              label={m.settings_share_form_ticket_ttl_label()}
               min={1}
             />
           )}
@@ -180,11 +181,11 @@ function ShareSettingsFields({
           name="ticketIdleHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="ticket 閒置多久失效，預設 1 小時，每次使用都往後推。用閒置而非固定壽命：ticket 是一串字所以可轉發，固定壽命必須涵蓋「最慢的線下載最大的檔」，而活那麼久的 ticket 就值得被轉發了。"
+              description={m.settings_share_form_ticket_idle_description()}
               field={field}
               fieldState={fieldState}
               id="share-ticket-idle"
-              label="下載授權閒置失效（小時）"
+              label={m.settings_share_form_ticket_idle_label()}
               min={1}
             />
           )}
@@ -195,11 +196,11 @@ function ShareSettingsFields({
           name="uploadSessionTtlHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="未完成的上傳留多久，預設 24 小時。期間它佔的位元組一直算在配額裡。夠久讓闔上的筆電隔夜還能續傳，夠短讓死掉的 session 不堆積。用 S3 的話另外設一條 AbortIncompleteMultipartUpload，天數比這個長幾天。"
+              description={m.settings_share_form_upload_session_ttl_description()}
               field={field}
               fieldState={fieldState}
               id="share-upload-session-ttl"
-              label="未完成上傳保留（小時）"
+              label={m.settings_share_form_upload_session_ttl_label()}
               min={1}
             />
           )}
@@ -210,11 +211,11 @@ function ShareSettingsFields({
           name="retainAfterDeathHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="過期或用完後保留多久才真刪，預設 168（7 天），0 代表下次清掃就刪。留著是為了讓連結能說「這個過期了」而不是「查無此碼」—— 只有前者值得重打一次。"
+              description={m.settings_share_form_retain_after_death_description()}
               field={field}
               fieldState={fieldState}
               id="share-retain-after-death"
-              label="失效後保留（小時）"
+              label={m.settings_share_form_retain_after_death_label()}
               min={0}
             />
           )}
@@ -227,19 +228,19 @@ function ShareSettingsFields({
           name="accessLogEnabled"
           render={({ field }) => (
             <SwitchField
-              description="是否逐筆記錄每次取件。預設關閉是刻意的 —— view_count 是個整數，不說明訪客在哪；而一筆存取紀錄是一個位址加一串瀏覽器字串，記的是「收到連結、什麼都沒答應過」的人。"
+              description={m.settings_share_form_access_log_enabled_description()}
               field={field}
               id="share-access-log-enabled"
-              label="記錄取件紀錄"
+              label={m.settings_share_form_access_log_enabled_label()}
             />
           )}
         />
 
         {accessLogEnabled && (
           <p className="rounded-md border border-border bg-muted/40 p-3 text-muted-foreground text-sm">
-            開啟後這個實例會留下訪客的位址與瀏覽器字串。
+            {m.settings_share_form_access_log_notice_1()}
             <strong className="font-medium text-foreground">
-              開啟的實例應該在頁面上說明這件事。
+              {m.settings_share_form_access_log_notice_2()}
             </strong>
           </p>
         )}
@@ -249,11 +250,11 @@ function ShareSettingsFields({
           name="accessLogRetentionDays"
           render={({ field, fieldState }) => (
             <NumberField
-              description="保留天數，預設 30。開啟時不可為 0 —— 把 0 解讀為「永久」對一個關於別人資料的設定是錯的預設，所以後端直接拒絕。"
+              description={m.settings_share_form_access_log_retention_description()}
               field={field}
               fieldState={fieldState}
               id="share-access-log-retention"
-              label="取件紀錄保留天數"
+              label={m.settings_share_form_access_log_retention_label()}
               min={0}
             />
           )}

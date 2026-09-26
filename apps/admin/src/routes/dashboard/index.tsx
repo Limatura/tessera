@@ -3,6 +3,7 @@ import { createRoute } from "@tanstack/react-router";
 import { AdminShell } from "@/components/admin-shell";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { ConfigSummary } from "./-components/config-summary";
@@ -24,7 +25,7 @@ export const Route = createRoute({
 
 function DashboardComponent() {
   return (
-    <AdminShell title="儀表板">
+    <AdminShell title={m.dashboard_title()}>
       <StatsCards />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">

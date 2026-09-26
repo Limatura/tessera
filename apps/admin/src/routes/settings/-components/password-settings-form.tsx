@@ -13,6 +13,7 @@ import {
 } from "@/lib/settings-schema";
 import type { PasswordSettingsValues } from "@/lib/settings-schema";
 import { asBoolean, asNumber, asString } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { SwitchField, TextField } from "./form-fields";
 import { NumberField } from "./number-field";
@@ -96,9 +97,8 @@ function PasswordSettingsFields({
     <form onSubmit={form.submit}>
       <FieldGroup>
         <p className="text-muted-foreground text-sm">
-          長度是主要規則。依 NIST 800-63B：組成規則只會逼出{" "}
-          <code>Password1!</code>
-          ，長度比字元集更有價值，所以下面三個預設都是關的。留著它們是為了還在要求組成規則的內部政策。
+          {m.settings_password_form_intro_1()} <code>Password1!</code>
+          {m.settings_password_form_intro_2()}
         </p>
 
         <Controller
@@ -106,11 +106,11 @@ function PasswordSettingsFields({
           name="minLength"
           render={({ field, fieldState }) => (
             <NumberField
-              description="下限 8，不能再低。"
+              description={m.settings_password_form_min_length_description()}
               field={field}
               fieldState={fieldState}
               id="password-min-length"
-              label="最短長度"
+              label={m.settings_password_form_min_length_label()}
               max={PASSWORD_MAX_CEILING}
               min={PASSWORD_MIN_FLOOR}
             />
@@ -122,11 +122,11 @@ function PasswordSettingsFields({
           name="maxLength"
           render={({ field, fieldState }) => (
             <NumberField
-              description="上限 1024。需要上限是因為無上限的密碼欄位等於「未認證請求可叫伺服器做任意多的工」。"
+              description={m.settings_password_form_max_length_description()}
               field={field}
               fieldState={fieldState}
               id="password-max-length"
-              label="最長長度"
+              label={m.settings_password_form_max_length_label()}
               max={PASSWORD_MAX_CEILING}
               min={PASSWORD_MIN_FLOOR}
             />
@@ -136,14 +136,15 @@ function PasswordSettingsFields({
         <FieldSeparator />
 
         <p className="text-muted-foreground text-sm">
-          組成規則只管
-          <strong className="font-medium text-foreground">選新密碼</strong>
-          （註冊、改密碼、重設）。登入不檢查，所以開起來
+          {m.settings_password_form_composition_intro_1()}
           <strong className="font-medium text-foreground">
-            不會把既有帳號鎖在外面
+            {m.settings_password_form_composition_intro_2()}
           </strong>
-          ，但他們下次改密碼時就得照新規則。字元類別照 Unicode
-          判斷，任何語言的密碼都用同一套標準。
+          {m.settings_password_form_composition_intro_3()}
+          <strong className="font-medium text-foreground">
+            {m.settings_password_form_composition_intro_4()}
+          </strong>
+          {m.settings_password_form_composition_intro_5()}
         </p>
 
         <Controller
@@ -151,10 +152,10 @@ function PasswordSettingsFields({
           name="requireMixedCase"
           render={({ field }) => (
             <SwitchField
-              description="要同時有大寫和小寫字母。"
+              description={m.settings_password_form_require_mixed_case_description()}
               field={field}
               id="password-require-mixed-case"
-              label="需要大小寫混合"
+              label={m.settings_password_form_require_mixed_case_label()}
             />
           )}
         />
@@ -164,10 +165,10 @@ function PasswordSettingsFields({
           name="requireDigit"
           render={({ field }) => (
             <SwitchField
-              description="要有數字。"
+              description={m.settings_password_form_require_digit_description()}
               field={field}
               id="password-require-digit"
-              label="需要數字"
+              label={m.settings_password_form_require_digit_label()}
             />
           )}
         />
@@ -177,10 +178,10 @@ function PasswordSettingsFields({
           name="requireSymbol"
           render={({ field }) => (
             <SwitchField
-              description="要有符號。空白不算 —— 不然任何 passphrase 都自動過關，等於沒開。"
+              description={m.settings_password_form_require_symbol_description()}
               field={field}
               id="password-require-symbol"
-              label="需要符號"
+              label={m.settings_password_form_require_symbol_label()}
             />
           )}
         />
@@ -188,11 +189,11 @@ function PasswordSettingsFields({
         <FieldSeparator />
 
         <p className="text-muted-foreground text-sm">
-          外洩密碼檢查一樣只管選新密碼。送出去的只有密碼 SHA-1 的前 5
-          個字，比對在本機做（k-anonymity），完整密碼和完整雜湊都不會離開這台。
-          查不到服務（逾時、連不上、非 200）就
-          <strong className="font-medium text-foreground">放行</strong>
-          ，只在 log 留一行 —— 註冊和重設密碼不能因為別人的服務掛掉而停擺。
+          {m.settings_password_form_pwned_intro_1()}
+          <strong className="font-medium text-foreground">
+            {m.settings_password_form_pwned_intro_2()}
+          </strong>
+          {m.settings_password_form_pwned_intro_3()}
         </p>
 
         <Controller
@@ -200,10 +201,10 @@ function PasswordSettingsFields({
           name="pwnedEnabled"
           render={({ field }) => (
             <SwitchField
-              description="設新密碼時查 Have I Been Pwned，出現在外洩名單上的密碼會被拒絕。這台要連得到下面那個位址。"
+              description={m.settings_password_form_pwned_enabled_description()}
               field={field}
               id="pwned-enabled"
-              label="檢查外洩密碼"
+              label={m.settings_password_form_pwned_enabled_label()}
             />
           )}
         />
@@ -213,11 +214,11 @@ function PasswordSettingsFields({
           name="pwnedUrl"
           render={({ field, fieldState }) => (
             <TextField
-              description="range API 的位址，預設官方服務。不想依賴它、或這台出不了網路的話，可以指到自架的實作。"
+              description={m.settings_password_form_pwned_url_description()}
               field={field}
               fieldState={fieldState}
               id="pwned-url"
-              label="服務位址"
+              label={m.settings_password_form_pwned_url_label()}
               placeholder={DEFAULT_PWNED_URL}
             />
           )}
@@ -226,11 +227,11 @@ function PasswordSettingsFields({
         <FieldSeparator />
 
         <p className="text-muted-foreground text-sm">
-          以下是 Argon2id 的成本參數。改這些
+          {m.settings_password_form_argon2_intro_1()}
           <strong className="font-medium text-foreground">
-            不會讓既有密碼失效
+            {m.settings_password_form_argon2_intro_2()}
           </strong>
-          ：參數寫在雜湊值本身裡，驗證時從那讀，所以只影響新產生的雜湊。
+          {m.settings_password_form_argon2_intro_3()}
         </p>
 
         <Controller
@@ -238,11 +239,11 @@ function PasswordSettingsFields({
           name="memoryKib"
           render={({ field, fieldState }) => (
             <NumberField
-              description="預設 19456（19 MiB，OWASP 建議值）。最關鍵的參數 —— 記憶體成本是 GPU 破解變貴的原因，但也等於登入尖峰的記憶體用量乘以同時執行數，所以調高前先算一下這台機器撐不撐得住。"
+              description={m.settings_password_form_memory_kib_description()}
               field={field}
               fieldState={fieldState}
               id="hashing-memory-kib"
-              label="記憶體成本（KiB）"
+              label={m.settings_password_form_memory_kib_label()}
               min={8}
             />
           )}
@@ -253,11 +254,11 @@ function PasswordSettingsFields({
           name="iterations"
           render={({ field, fieldState }) => (
             <NumberField
-              description="預設 2。"
+              description={m.settings_password_form_iterations_description()}
               field={field}
               fieldState={fieldState}
               id="hashing-iterations"
-              label="迭代次數"
+              label={m.settings_password_form_iterations_label()}
               min={1}
             />
           )}
@@ -268,11 +269,11 @@ function PasswordSettingsFields({
           name="lanes"
           render={({ field, fieldState }) => (
             <NumberField
-              description="預設 1。"
+              description={m.settings_password_form_lanes_description()}
               field={field}
               fieldState={fieldState}
               id="hashing-lanes"
-              label="平行度（lanes）"
+              label={m.settings_password_form_lanes_label()}
               min={1}
             />
           )}

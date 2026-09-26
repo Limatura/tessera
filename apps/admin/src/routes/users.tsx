@@ -56,6 +56,7 @@ import {
   PERMISSIONS,
 } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "./__root";
 import { SetUserRoleDialog } from "./users/-components/set-user-role-dialog";
@@ -147,21 +148,25 @@ function UsersComponent() {
       { id: user.id, state: "active" },
       {
         onError: () =>
-          toast.add({ title: `無法啟用「${user.username}」`, type: "error" }),
+          toast.add({
+            title: m.users_enable_error({ name: user.username }),
+            type: "error",
+          }),
         onSuccess: () =>
-          toast.add({ title: `已啟用「${user.username}」`, type: "success" }),
+          toast.add({
+            title: m.users_enable_success({ name: user.username }),
+            type: "success",
+          }),
       }
     );
   };
 
   return (
-    <AdminShell title="使用者">
+    <AdminShell title={m.users_page_title()}>
       <Card className="ring-foreground/10">
         <CardHeader>
-          <CardTitle>帳號</CardTitle>
-          <CardDescription>
-            「未指派」代表還沒有人決定這個帳號能做什麼，跟刻意給訪客角色不同。
-          </CardDescription>
+          <CardTitle>{m.users_card_title()}</CardTitle>
+          <CardDescription>{m.users_card_description()}</CardDescription>
           <CardAction className="flex items-center gap-2">
             <Switch
               checked={deleted}
@@ -169,24 +174,28 @@ function UsersComponent() {
               onCheckedChange={handleShowDeletedChange}
               size="sm"
             />
-            <Label htmlFor="users-show-deleted">顯示已刪除的帳號</Label>
+            <Label htmlFor="users-show-deleted">{m.users_show_deleted()}</Label>
           </CardAction>
         </CardHeader>
         <CardContent>
           {users.isPending && (
-            <p className="text-sm text-muted-foreground">載入中…</p>
+            <p className="text-sm text-muted-foreground">
+              {m.common_loading()}
+            </p>
           )}
           {users.isError && (
-            <p className="text-sm text-destructive">帳號載入失敗</p>
+            <p className="text-sm text-destructive">{m.users_load_error()}</p>
           )}
           {users.data && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>帳號</TableHead>
-                  <TableHead>電子郵件</TableHead>
-                  <TableHead>角色</TableHead>
-                  <TableHead className="text-right">權限數</TableHead>
+                  <TableHead>{m.users_col_account()}</TableHead>
+                  <TableHead>{m.users_col_email()}</TableHead>
+                  <TableHead>{m.users_col_role()}</TableHead>
+                  <TableHead className="text-right">
+                    {m.users_col_permission_count()}
+                  </TableHead>
                   {hasActions && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
@@ -203,7 +212,7 @@ function UsersComponent() {
                         onEnable={() => handleEnable(user)}
                         username={
                           isDeletedAccount(user)
-                            ? "已刪除的帳號"
+                            ? m.users_deleted_account()
                             : user.username
                         }
                       />
@@ -227,7 +236,7 @@ function UsersComponent() {
                         </Badge>
                         {isUnassigned(user) && (
                           <span className="ml-2 text-xs text-muted-foreground">
-                            尚未決定能做什麼
+                            {m.users_not_decided()}
                           </span>
                         )}
                       </TableCell>
@@ -277,7 +286,7 @@ function UsersComponent() {
 function DeletedUserRow({ menu }: { menu: React.ReactNode }) {
   return (
     <TableRow className="text-muted-foreground">
-      <TableCell className="italic">已刪除的帳號</TableCell>
+      <TableCell className="italic">{m.users_deleted_account()}</TableCell>
       <TableCell>—</TableCell>
       <TableCell>—</TableCell>
       <TableCell className="text-right">—</TableCell>
@@ -309,7 +318,7 @@ function UserRowMenu({
       <DropdownMenuTrigger
         render={
           <Button
-            aria-label={`${username} 的操作`}
+            aria-label={m.users_row_menu_aria({ username })}
             size="icon"
             type="button"
             variant="ghost"
@@ -322,7 +331,7 @@ function UserRowMenu({
         {setRole && (
           <DropdownMenuItem onClick={onEditRole}>
             <IconShieldCog />
-            設定角色
+            {m.users_menu_set_role()}
           </DropdownMenuItem>
         )}
         {/*
@@ -333,11 +342,11 @@ function UserRowMenu({
           <>
             <DropdownMenuItem onClick={() => onAction("disable")}>
               <IconPlayerPause />
-              停用帳號
+              {m.users_menu_disable()}
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onEnable}>
               <IconPlayerPlay />
-              重新啟用
+              {m.users_menu_enable()}
             </DropdownMenuItem>
           </>
         )}
@@ -350,7 +359,7 @@ function UserRowMenu({
             variant="destructive"
           >
             <IconTrashX />
-            結束全部分享
+            {m.users_menu_remove_shares()}
           </DropdownMenuItem>
         )}
         {remove && (
@@ -359,7 +368,7 @@ function UserRowMenu({
             variant="destructive"
           >
             <IconTrash />
-            刪除帳號
+            {m.users_menu_delete()}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

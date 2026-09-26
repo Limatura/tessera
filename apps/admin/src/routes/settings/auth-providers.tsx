@@ -3,6 +3,7 @@ import { createRoute } from "@tanstack/react-router";
 import { AdminShell } from "@/components/admin-shell";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { OauthProviderCard } from "./-components/oauth-provider-card";
@@ -29,25 +30,25 @@ export const Route = createRoute({
  */
 function AuthProvidersRoute() {
   return (
-    <AdminShell title="系統設定">
+    <AdminShell title={m.settings_auth_providers_shell_title()}>
       <SettingsLoader>
         {(settings) => (
           <>
             <OidcProviderCard settings={settings} />
             <OauthProviderCard
-              baseUrlHint="給 GitHub Enterprise Server 用（自架在自己的網域下）。留空代表 github.com。"
-              description="GitHub 不是 OIDC provider（不發 id_token），端點寫死在 adapter 裡，所以這裡只有向 GitHub 表明本站身分的那組值。"
+              baseUrlHint={m.settings_auth_providers_github_base_url_hint()}
+              description={m.settings_auth_providers_github_description()}
               provider="auth.github"
-              scopesHint="以空白分隔。沒有 user:email 的話 GitHub 不給已驗證信箱，每次登入都會以 no_address 失敗。"
+              scopesHint={m.settings_auth_providers_github_scopes_hint()}
               settings={settings}
-              title="GitHub"
+              title={m.settings_auth_providers_github_title()}
             />
             <OauthProviderCard
-              description="Discord 同樣不是 OIDC provider。沒有自架版本，所以沒有自訂網域可以設。"
+              description={m.settings_auth_providers_discord_description()}
               provider="auth.discord"
-              scopesHint="以空白分隔。沒有 email 的話 Discord 不給信箱，每次登入都會以 no_address 失敗。"
+              scopesHint={m.settings_auth_providers_discord_scopes_hint()}
               settings={settings}
-              title="Discord"
+              title={m.settings_auth_providers_discord_title()}
             />
           </>
         )}

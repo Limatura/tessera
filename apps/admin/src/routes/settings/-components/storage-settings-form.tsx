@@ -12,6 +12,7 @@ import {
 } from "@/lib/settings-schema";
 import type { StorageSettingsValues } from "@/lib/settings-schema";
 import { asNumber } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { NumberField } from "./number-field";
 import { ReadOnlySetting } from "./read-only-setting";
@@ -62,13 +63,15 @@ function StorageSettingsFields({
         <ReadOnlySetting
           description={
             <>
-              blob 存在哪。URL 裡帶帳密（<code>s3://key:secret@…</code>
-              ），所以面板既讀不到也寫不了 —— 只能用環境變數{" "}
-              <code>TESSERA_STORAGE__URL</code> 設定，對應 storage.url。
+              {m.settings_storage_form_url_description_1()}
+              <code>s3://key:secret@…</code>
+              {m.settings_storage_form_url_description_2()}{" "}
+              <code>TESSERA_STORAGE__URL</code>{" "}
+              {m.settings_storage_form_url_description_3()}
             </>
           }
-          label="儲存後端位址"
-          reason="只能用環境變數設定"
+          label={m.settings_storage_form_url_label()}
+          reason={m.settings_storage_form_url_reason()}
           value={null}
         />
 
@@ -79,11 +82,11 @@ function StorageSettingsFields({
           name="partSizeBytes"
           render={({ field, fieldState }) => (
             <NumberField
-              description="累積多少資料才送出一個分片。S3 拒絕最後一片以外小於 5 MiB 的 part；Cloudflare R2 還要求每片大小相同，所以在 R2 上這個值應該就等於最小值。"
+              description={m.settings_storage_form_part_size_description()}
               field={field}
               fieldState={fieldState}
               id="storage-part-size"
-              label="分片上傳大小（bytes）"
+              label={m.settings_storage_form_part_size_label()}
               min={MIN_PART_SIZE_BYTES}
             />
           )}

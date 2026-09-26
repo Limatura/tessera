@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { SettingsPage } from "./-components/settings-page";
@@ -21,7 +22,10 @@ export const Route = createRoute({
 
 function StorageSettingsRoute() {
   return (
-    <SettingsPage description="儲存後端位址與分片上傳大小" title="存儲配置">
+    <SettingsPage
+      description={m.settings_storage_description()}
+      title={m.settings_storage_title()}
+    >
       <StorageSettingsForm />
     </SettingsPage>
   );
