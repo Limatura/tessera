@@ -1975,10 +1975,14 @@ export interface components {
         /**
          * @description One account, as an administrator sees it.
          *
-         *     The same shape a person sees of themselves. This service stores no profile,
-         *     and the one thing an administrator can change is already a field.
+         *     What a person sees of themselves, plus the one thing only somebody else
+         *     needs: whether the account may sign in. A person never sees their own
+         *     `state` as anything but active, since a disabled one cannot sign in to ask.
          */
-        AdminUserResponse: components["schemas"]["AccountResponse"];
+        AdminUserResponse: components["schemas"]["AccountResponse"] & {
+            /** @description Whether it may sign in, or has been deleted. */
+            state: components["schemas"]["UserState"];
+        };
         /** @description Body of `POST /admin/storage/backends`. */
         BackendRequest: {
             /**
@@ -3404,6 +3408,11 @@ export interface components {
              */
             role?: string | null;
         };
+        /**
+         * @description Where an account stands.
+         * @enum {string}
+         */
+        UserState: "active" | "disabled" | "deleted";
         /** @description Body of `POST /account/email/verification/confirm`. */
         VerificationConfirmRequest: {
             /** @description The token from the link. */

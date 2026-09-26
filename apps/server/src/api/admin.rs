@@ -95,10 +95,52 @@ pub struct UpdateUserRequest {
 
 /// One account, as an administrator sees it.
 ///
-/// The same shape a person sees of themselves. This service stores no profile,
-/// and the one thing an administrator can change is already a field.
+/// What a person sees of themselves, plus the one thing only somebody else
+/// needs: whether the account may sign in. A person never sees their own
+/// `state` as anything but active, since a disabled one cannot sign in to ask.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
-pub struct AdminUserResponse(pub AccountResponse);
+pub struct AdminUserResponse {
+    /// The account, as its owner sees it.
+    #[serde(flatten)]
+    pub account: AccountResponse,
+    /// Whether it may sign in, or has been deleted.
+    pub state: UserState,
+}
+
+impl AdminUserResponse {
+    fn build(
+        user: &crate::db::repository::user::User,
+        roles: &[crate::db::repository::role::Role],
+    ) -> Self {
+        Self {
+            account: AccountResponse::build(user, roles),
+            state: user.state.into(),
+        }
+    }
+}
+
+/// Where an account stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UserState {
+    /// Signs in, and does whatever its role allows.
+    Active,
+    /// Stopped from signing in. Its shares keep serving.
+    Disabled,
+    /// Removed. What is left keeps its shares attributable; the name is a
+    /// tombstone and identifies nobody.
+    Deleted,
+}
+
+impl From<AccountState> for UserState {
+    fn from(state: AccountState) -> Self {
+        match state {
+            AccountState::Active => Self::Active,
+            AccountState::Disabled => Self::Disabled,
+            AccountState::Deleted => Self::Deleted,
+        }
+    }
+}
 
 /// Refuses everything when the instance has no administration.
 pub(super) fn require_admin_feature(state: &AppState) -> Result<()> {
@@ -175,7 +217,7 @@ pub async fn list_users(
             .iter()
             .map(|user| {
                 let held = roles.get(&user.id).map_or(&[][..], Vec::as_slice);
-                AdminUserResponse(AccountResponse::build(user, held))
+                AdminUserResponse::build(user, held)
             })
             .collect(),
         meta: crate::api::shares::PageMeta {
@@ -298,9 +340,7 @@ pub async fn update_user(
         .await?
         .ok_or(Error::NotFound)?;
     let roles = state.roles.of_user(updated.id).await?;
-    Ok(Json(AdminUserResponse(AccountResponse::build(
-        &updated, &roles,
-    ))))
+    Ok(Json(AdminUserResponse::build(&updated, &roles)))
 }
 
 /// Removes an account.
@@ -1218,9 +1258,7 @@ pub async fn set_user_roles(
         return Err(Error::NotFound);
     }
     let roles = state.roles.of_user(user_id).await?;
-    Ok(Json(AdminUserResponse(AccountResponse::build(
-        &user, &roles,
-    ))))
+    Ok(Json(AdminUserResponse::build(&user, &roles)))
 }
 
 /// Refuses to hand out a permission the caller does not hold.

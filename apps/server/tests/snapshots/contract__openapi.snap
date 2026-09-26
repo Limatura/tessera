@@ -298,8 +298,25 @@ expression: document
         "type": "object"
       },
       "AdminUserResponse": {
-        "$ref": "#/components/schemas/AccountResponse",
-        "description": "One account, as an administrator sees it.\n\nThe same shape a person sees of themselves. This service stores no profile,\nand the one thing an administrator can change is already a field."
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/AccountResponse",
+            "description": "The account, as its owner sees it."
+          },
+          {
+            "properties": {
+              "state": {
+                "$ref": "#/components/schemas/UserState",
+                "description": "Whether it may sign in, or has been deleted."
+              }
+            },
+            "required": [
+              "state"
+            ],
+            "type": "object"
+          }
+        ],
+        "description": "One account, as an administrator sees it.\n\nWhat a person sees of themselves, plus the one thing only somebody else\nneeds: whether the account may sign in. A person never sees their own\n`state` as anything but active, since a disabled one cannot sign in to ask."
       },
       "BackendRequest": {
         "additionalProperties": false,
@@ -2174,6 +2191,15 @@ expression: document
           }
         },
         "type": "object"
+      },
+      "UserState": {
+        "description": "Where an account stands.",
+        "enum": [
+          "active",
+          "disabled",
+          "deleted"
+        ],
+        "type": "string"
       },
       "VerificationConfirmRequest": {
         "additionalProperties": false,

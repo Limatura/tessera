@@ -295,6 +295,50 @@ async fn deleting_an_account_ends_what_it_was_holding() {
     assert!(name.starts_with("gone-"), "{name}");
     assert!(email.ends_with("@deleted.invalid"), "{email}");
     assert!(!name.contains("second"), "the original name is gone");
+    // Said outright, so a client need not recognise the tombstone name.
+    assert_eq!(gone["state"], "deleted");
+    let kept = rows
+        .iter()
+        .find(|row| row["id"] != id)
+        .expect("the account left");
+    assert_eq!(kept["state"], "active");
+}
+
+/// The listing and the answer to a change both say where an account stands, so
+/// a disabled one looks disabled, and switching it back is the one action that
+/// makes sense.
+#[tokio::test]
+async fn an_accounts_state_is_shown_and_follows_a_change() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    let changed = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                &format!("/api/v1/admin/users/{id}"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "state": "disabled" }),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(changed["state"], "disabled", "{changed}");
+    assert_eq!(
+        changed["username"], "second",
+        "the account fields are still there"
+    );
+
+    let listed = list(&app, Auth::Cookie(&admin)).await;
+    let row = listed
+        .iter()
+        .find(|row| row["id"] == id)
+        .expect("the disabled account is still listed");
+    assert_eq!(row["state"], "disabled");
 }
 
 /// An identifier that is not an identifier answers the same as one that names
