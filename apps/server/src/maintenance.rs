@@ -273,6 +273,10 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         "expired password reset links",
         state.resets.delete_expired(now).await,
     );
+    report(
+        "expired address verification links",
+        state.verifications.delete_expired(now).await,
+    );
     // These hold a password hash, so letting them linger past their usefulness
     // keeps a credential around for an account that was never created.
     report(

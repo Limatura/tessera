@@ -425,6 +425,14 @@ pub struct Throttles {
     /// instead of three.
     pub registration: Throttle,
 
+    /// Address verification mails, keyed on the address they go to.
+    ///
+    /// Its own counter for the reason [`Throttles::registration`] has one. An
+    /// account can set its address to anybody's, so without a limit of its
+    /// own this is a way to mail a stranger on repeat; sharing the reset
+    /// counter would let the same trick use up the stranger's resets instead.
+    pub verification: Throttle,
+
     /// Failed share-password attempts, keyed on the code and the source.
     ///
     /// A share password may be as short as four characters, which suits
@@ -465,6 +473,7 @@ impl Throttles {
             (&self.lookup, &config.lookup),
             (&self.reset, &config.reset),
             (&self.registration, &config.registration),
+            (&self.verification, &config.verification),
             (&self.share, &config.share),
             (&self.speed, &config.speed),
             (&self.pwned, &config.pwned),
@@ -487,6 +496,7 @@ impl Throttles {
             lookup: build(&config.lookup),
             reset: build(&config.reset),
             registration: build(&config.registration),
+            verification: build(&config.verification),
             share: build(&config.share),
             speed: build(&config.speed),
             pwned: build(&config.pwned),
@@ -511,7 +521,7 @@ pub const SOURCE_MAX_ATTEMPTS: u32 = 120;
 pub const SOURCE_WINDOW: Duration = Duration::from_mins(1);
 
 /// Mails to one address before further requests are refused, counted separately
-/// for resets and registrations.
+/// for resets, registrations and address verification.
 ///
 /// Three covers a message that did not arrive and a second attempt, and is few
 /// enough that the inbox is not a place to hide an attack.

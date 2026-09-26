@@ -78,6 +78,15 @@ pub struct AccountResponse {
     /// `/capabilities`, which accounts for what has been used.
     #[schema(example = 10_737_418_240_u64)]
     pub quota_bytes: Option<u64>,
+    /// When the address was last proven to reach this person, or `null` if it
+    /// never has been.
+    ///
+    /// Set by confirming a registration, by a provider that vouches for the
+    /// address, or by following the link from
+    /// `POST /account/email/verification`. Cleared when the address changes.
+    #[serde(with = "time::serde::rfc3339::option")]
+    #[schema(value_type = Option<String>, format = DateTime, example = "2026-09-26T08:00:00Z")]
+    pub email_verified_at: Option<OffsetDateTime>,
 }
 
 impl AccountResponse {
@@ -110,6 +119,7 @@ impl AccountResponse {
             roles: roles.iter().map(|role| role.name.clone()).collect(),
             must_change_password: user.must_change_password,
             quota_bytes: user.quota_bytes,
+            email_verified_at: user.email_verified_at,
         }
     }
 }

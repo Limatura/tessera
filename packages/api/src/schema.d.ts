@@ -40,6 +40,62 @@ export interface paths {
         patch: operations["update_account"];
         trace?: never;
     };
+    "/api/v1/account/email/verification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sends a link to the caller's address that proves it is theirs.
+         * @description Sent while the request waits, unlike a password reset: the caller is signed
+         *     in and knows their own address, so there is nothing for the timing to give
+         *     away, and a relay that is down is better said than hidden.
+         *
+         *     # Errors
+         *
+         *     `401` when not signed in, `403` when an API token was used, `404` when this
+         *     instance has no accounts or sends no mail, `409` when the address is already
+         *     confirmed, `429` when that address has been sent as many as the window
+         *     allows, `503` when the relay would not take the message.
+         */
+        post: operations["request_email_verification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/account/email/verification/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirms an address from the link sent to it.
+         * @description Needs no session: the link is opened wherever the mail is read, which is
+         *     often not where the account is signed in. Holding the link is the proof.
+         *
+         *     # Errors
+         *
+         *     `400` when the link is unknown, spent, expired, or was sent to an address the
+         *     account no longer has. `404` when this instance has no accounts or sends no
+         *     mail.
+         */
+        post: operations["confirm_email_verification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/invites": {
         parameters: {
             query?: never;
@@ -1758,6 +1814,17 @@ export interface components {
              */
             email: string;
             /**
+             * Format: date-time
+             * @description When the address was last proven to reach this person, or `null` if it
+             *     never has been.
+             *
+             *     Set by confirming a registration, by a provider that vouches for the
+             *     address, or by following the link from
+             *     `POST /account/email/verification`. Cleared when the address changes.
+             * @example 2026-09-26T08:00:00Z
+             */
+            email_verified_at?: string | null;
+            /**
              * @description Stable identifier.
              * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
              */
@@ -3328,6 +3395,11 @@ export interface components {
              */
             role?: string | null;
         };
+        /** @description Body of `POST /account/email/verification/confirm`. */
+        VerificationConfirmRequest: {
+            /** @description The token from the link. */
+            token: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -3437,6 +3509,118 @@ export interface operations {
             };
             /** @description The name or address is taken */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    request_email_verification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A link is on its way to the account's address */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no accounts, or sends no mail */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The address is already confirmed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Too many links have been sent to this address */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description The mail relay would not take the message */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    confirm_email_verification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerificationConfirmRequest"];
+            };
+        };
+        responses: {
+            /** @description The address is confirmed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link is not usable */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no accounts, or sends no mail */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

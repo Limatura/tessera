@@ -398,6 +398,34 @@ impl UserRepository {
         Ok(result.rows_affected == 1)
     }
 
+    /// Records that the account's address is proven, if it is still `email`.
+    ///
+    /// Conditional on the address, not only the account: a link sent to an
+    /// address the account has since moved away from proves nothing about the
+    /// new one. The check is in the same statement as the write, so an address
+    /// changed between reading the link and following it cannot slip through.
+    ///
+    /// Returns whether the account changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the update fails.
+    pub async fn mark_email_verified(
+        &self,
+        id: UserId,
+        email: &EmailAddress,
+        now: OffsetDateTime,
+    ) -> Result<bool, UserRepositoryError> {
+        let result = UserEntity::update_many()
+            .col_expr(user::Column::EmailVerifiedAt, Some(now).into())
+            .col_expr(user::Column::UpdatedAt, now.into())
+            .filter(user::Column::Id.eq(id.to_string()))
+            .filter(user::Column::Email.eq(email.as_str()))
+            .exec(&self.connection)
+            .await?;
+        Ok(result.rows_affected == 1)
+    }
+
     /// Suspends an account, or lets it back in.
     ///
     /// Refuses to touch a deleted one. That state is final, and reactivating a

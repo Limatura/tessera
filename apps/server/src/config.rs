@@ -1548,6 +1548,9 @@ pub struct ThrottleConfig {
     /// Registration mails, keyed on the address asked about.
     #[serde(default = "default_mail_limit")]
     pub registration: Limit,
+    /// Address verification mails, keyed on the address they go to.
+    #[serde(default = "default_mail_limit")]
+    pub verification: Limit,
     /// Failed share passwords, keyed on the code and the source.
     #[serde(default = "default_login_limit")]
     pub share: Limit,
@@ -1607,6 +1610,7 @@ impl Default for ThrottleConfig {
             lookup: default_lookup_limit(),
             reset: default_mail_limit(),
             registration: default_mail_limit(),
+            verification: default_mail_limit(),
             share: default_login_limit(),
             speed: default_speed_limit(),
             pwned: default_pwned_limit(),
@@ -1637,6 +1641,7 @@ impl ThrottleConfig {
         self.lookup.validate("auth.throttle.lookup")?;
         self.reset.validate("auth.throttle.reset")?;
         self.registration.validate("auth.throttle.registration")?;
+        self.verification.validate("auth.throttle.verification")?;
         self.share.validate("auth.throttle.share")?;
         Ok(())
     }

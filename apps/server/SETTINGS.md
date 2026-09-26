@@ -125,6 +125,7 @@ signed-out 訪客看到的樣子，以及登入者沒自己選過的部分。會
 | `lookup` | 來源 | 查了不存在的取件碼。**短取件碼的安全性完全靠這個** |
 | `reset` | 被查詢的 email | 重設密碼信的發送 |
 | `registration` | 被查詢的 email | 註冊確認信的發送 |
+| `verification` | 收信的 email | 驗證 email 的信。**不共用 `reset`**，否則把自己的 email 改成別人的就能耗掉對方重設密碼的額度 |
 | `share` | 取件碼 + 來源 | 分享密碼猜錯次數 |
 | `speed` | 來源 | 測速。算的是**每次測速**而不是失敗次數，限的是一個位址一小時能用掉多少頻寬 |
 | `pwned` | 來源 | 打字時查外洩密碼（`GET /auth/pwned/{prefix}`）。每次查詢都算，預設每分鐘 30 次。**不共用 `source`**，打密碼不會吃掉同位址的登入額度 |
@@ -303,7 +304,7 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 - `from: string` — `From:` 位址，網域必須在 relay 驗證過
 - `public_url: string` — 信件內連結的基底
 - `reset_ttl_minutes: u64` — 重設密碼連結有效分鐘數，預設 `30`，上限 `1440`（24 小時）
-- `registration_ttl_hours: u64` — 註冊確認連結時效，預設 `24`，上限 `168`（7 天）
+- `registration_ttl_hours: u64` — 註冊確認連結時效，預設 `24`，上限 `168`（7 天）。驗證 email 的連結也用這個
 
 `host` / `from` / `public_url` 要嘛全填要嘛全空，半設定會被拒絕。
 

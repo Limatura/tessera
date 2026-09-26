@@ -60,6 +60,16 @@ Table credentials {
   Note: '''One password, for an account that has one. A side table rather than a column on `users`, because `identities` is already one row per way of signing in and a password as a column would make one method a column and the other a row. No row means no password, which is exactly what an account that has only ever used a provider is.'''
 }
 
+Table email_verifications {
+  id text [pk, not null]
+  user_id text [not null]
+  email text [not null]
+  secret_hash text [not null, unique]
+  created_at text [not null]
+  expires_at text [not null]
+  used_at text
+}
+
 Table file_segments {
   file_id text [pk, not null]
   seq integer [pk, not null]
@@ -323,6 +333,7 @@ Ref: api_token_permissions.token_id > api_tokens.id [delete: cascade]
 Ref: api_tokens.user_id > users.id [delete: cascade]
 Ref: auth_flows.user_id > users.id [delete: cascade]
 Ref: credentials.user_id > users.id [delete: cascade]
+Ref: email_verifications.user_id > users.id [delete: cascade]
 Ref: file_segments.file_id > file_shares.id [delete: cascade]
 Ref: file_shares.share_id > shares.id [delete: cascade]
 Ref: identities.user_id > users.id [delete: cascade]

@@ -51,8 +51,8 @@ pub use crate::{
     email::EmailAddress,
     error::DomainError,
     id::{
-        AccessEventId, ApiTokenId, InviteId, PasswordResetTokenId, PendingRegistrationId, RoleId,
-        SessionId, ShareId, ShareTicketId, UploadId, UserId,
+        AccessEventId, ApiTokenId, EmailVerificationId, InviteId, PasswordResetTokenId,
+        PendingRegistrationId, RoleId, SessionId, ShareId, ShareTicketId, UploadId, UserId,
     },
     password::{Password, PasswordPolicy},
     permission::{Permission, PermissionSet},

@@ -175,6 +175,12 @@ declare_id!(
 );
 
 declare_id!(
+    /// Identifies one link proving an account's address.
+    EmailVerificationId,
+    "email_verification_id"
+);
+
+declare_id!(
     /// Identifies one authorisation to retrieve a share.
     ShareTicketId,
     "share_ticket_id"
