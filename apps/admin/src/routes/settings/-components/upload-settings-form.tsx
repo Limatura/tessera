@@ -9,6 +9,7 @@ import type { SettingsKeyMap } from "@/hooks/use-settings-form";
 import { uploadSettingsSchema } from "@/lib/settings-schema";
 import type { UploadSettingsValues } from "@/lib/settings-schema";
 import { asBoolean, asNumber } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { SwitchField } from "./form-fields";
 import { GuestAnonymousWarning } from "./guest-anonymous-warning";
@@ -98,11 +99,11 @@ function UploadSettingsFields({
           name="throttleWindowSecs"
           render={({ field, fieldState }) => (
             <NumberField
-              description="以來源位址計數的視窗長度，對應 auth.throttle.source.window_secs。這組刻意寬鬆 —— 位址是共用的，擋一個等於擋掉它後面所有人。"
+              description={m.settings_upload_form_throttle_window_description()}
               field={field}
               fieldState={fieldState}
               id="upload-throttle-window"
-              label="限流時間窗口（秒）"
+              label={m.settings_upload_form_throttle_window_label()}
               min={1}
             />
           )}
@@ -113,11 +114,11 @@ function UploadSettingsFields({
           name="throttleMaxAttempts"
           render={({ field, fieldState }) => (
             <NumberField
-              description="視窗內同一個來源能做幾次昂貴操作。不可為 0 —— 0 次等於鎖死整台機器，server 啟動時就會拒絕。"
+              description={m.settings_upload_form_throttle_attempts_description()}
               field={field}
               fieldState={fieldState}
               id="upload-throttle-attempts"
-              label="允許次數"
+              label={m.settings_upload_form_throttle_attempts_label()}
               min={1}
             />
           )}
@@ -128,10 +129,10 @@ function UploadSettingsFields({
           name="allowAnonymousUpload"
           render={({ field }) => (
             <SwitchField
-              description="關閉後僅登入帳號可以上傳，對應 features.anonymous_upload。"
+              description={m.settings_upload_form_allow_anonymous_description()}
               field={field}
               id="upload-allow-anonymous"
-              label="允許訪客上傳"
+              label={m.settings_upload_form_allow_anonymous_label()}
             />
           )}
         />
@@ -139,14 +140,13 @@ function UploadSettingsFields({
         <ReadOnlySetting
           description={
             <>
-              最大請求 body。改了也只有一半會生效 ——
-              上傳路徑裡的檢查讀當下設定，但 把關的 middleware
-              是建路由時就烤進去的，所以只能改環境變數{" "}
-              <code>TESSERA_SERVER__MAX_BODY_BYTES</code> 後重啟。
+              {m.settings_upload_form_max_body_description_before()}{" "}
+              <code>TESSERA_SERVER__MAX_BODY_BYTES</code>{" "}
+              {m.settings_upload_form_max_body_description_after()}
             </>
           }
-          label="單次請求大小上限（bytes）"
-          reason="需重啟"
+          label={m.settings_upload_form_max_body_label()}
+          reason={m.settings_upload_form_max_body_reason()}
           value={maxBodyBytes.toLocaleString()}
         />
 
@@ -157,11 +157,11 @@ function UploadSettingsFields({
           name="maxTotalBytes"
           render={({ field, fieldState }) => (
             <NumberField
-              description="整個實例的內容總量上限，0 代表不限制。沒設又開著訪客上傳，等於對所有連得到的人開放的無限網路硬碟，而第一個徵兆是磁碟滿了。"
+              description={m.settings_upload_form_max_total_bytes_description()}
               field={field}
               fieldState={fieldState}
               id="upload-max-total-bytes"
-              label="總存儲容量上限（bytes）"
+              label={m.settings_upload_form_max_total_bytes_label()}
               min={0}
             />
           )}
@@ -172,11 +172,11 @@ function UploadSettingsFields({
           name="defaultExpiryHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="上傳時未指定保存期限的預設值，0 代表沿用下方的最長保存時間。這比任何配額都更決定磁碟用量。"
+              description={m.settings_upload_form_default_expiry_description()}
               field={field}
               fieldState={fieldState}
               id="upload-default-expiry"
-              label="文件預設保存時間（小時）"
+              label={m.settings_upload_form_default_expiry_label()}
               min={0}
             />
           )}
@@ -187,11 +187,11 @@ function UploadSettingsFields({
           name="maxExpiryHours"
           render={({ field, fieldState }) => (
             <NumberField
-              description="使用者可要求的最長保存期限，0 代表沒有上限。"
+              description={m.settings_upload_form_max_expiry_description()}
               field={field}
               fieldState={fieldState}
               id="upload-max-expiry"
-              label="文件最長保存時間（小時）"
+              label={m.settings_upload_form_max_expiry_label()}
               min={0}
             />
           )}

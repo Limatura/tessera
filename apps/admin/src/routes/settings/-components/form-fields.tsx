@@ -17,6 +17,8 @@ import { Switch } from "@tessera/ui/components/switch";
 import type * as React from "react";
 import type { ControllerRenderProps, FieldValues, Path } from "react-hook-form";
 
+import * as m from "@/paraglide/messages";
+
 interface FieldStateLike {
   invalid: boolean;
   error?: { message?: string };
@@ -85,14 +87,18 @@ export function SealedField<TValues extends FieldValues>({
         aria-invalid={fieldState.invalid}
         autoComplete="off"
         id={id}
-        placeholder={isSet ? "已設定 —— 留空代表不變更" : "尚未設定"}
+        placeholder={
+          isSet
+            ? m.settings_form_fields_sealed_placeholder_set()
+            : m.settings_form_fields_sealed_placeholder_unset()
+        }
         type="password"
         value={field.value ?? ""}
       />
       <FieldDescription>
         {isSet
-          ? "目前已設定。這裡讀不回原值，留空就維持不變，填了才會覆寫。"
-          : "目前未設定。填入後儲存即生效；之後這裡一樣不會顯示原值。"}
+          ? m.settings_form_fields_sealed_description_set()
+          : m.settings_form_fields_sealed_description_unset()}
         {description && <> {description}</>}
       </FieldDescription>
       {fieldState.invalid && <FieldError errors={[fieldState.error]} />}

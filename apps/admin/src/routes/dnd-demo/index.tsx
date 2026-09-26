@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import {
@@ -23,25 +24,31 @@ interface DemoRow {
   label: string;
 }
 
-const initialData: DemoRow[] = [
-  { id: "a", label: "第一項" },
-  { id: "b", label: "第二項" },
-  { id: "c", label: "第三項" },
-  { id: "d", label: "第四項" },
-];
+function buildInitialData(): DemoRow[] {
+  return [
+    { id: "a", label: m.dnd_demo_item_one() },
+    { id: "b", label: m.dnd_demo_item_two() },
+    { id: "c", label: m.dnd_demo_item_three() },
+    { id: "d", label: m.dnd_demo_item_four() },
+  ];
+}
 
 const columnHelper = createSortableColumnHelper<DemoRow>();
-const columns = columnHelper.columns([
-  columnHelper.display({
-    cell: ({ row }) => <DragHandle id={row.original.id} />,
-    header: () => null,
-    id: "drag",
-  }),
-  columnHelper.accessor("label", { header: "項目" }),
-]);
+
+function buildColumns() {
+  return columnHelper.columns([
+    columnHelper.display({
+      cell: ({ row }) => <DragHandle id={row.original.id} />,
+      header: () => null,
+      id: "drag",
+    }),
+    columnHelper.accessor("label", { header: m.dnd_demo_column_item() }),
+  ]);
+}
 
 function DndDemoComponent() {
-  const [data, setData] = React.useState(initialData);
+  const [data, setData] = React.useState(buildInitialData);
+  const columns = React.useMemo(() => buildColumns(), []);
 
   return (
     <SidebarProvider
@@ -54,7 +61,7 @@ function DndDemoComponent() {
     >
       <AppSidebar variant="inset" />
       <SidebarInset>
-        <SiteHeader title="拖曳排序 Demo" />
+        <SiteHeader title={m.dnd_demo_title()} />
         <div className="p-4 lg:p-6">
           <SortableTable
             data={data}

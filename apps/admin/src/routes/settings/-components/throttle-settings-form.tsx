@@ -22,6 +22,7 @@ import type {
   ThrottleSettingsValues,
 } from "@/lib/settings-schema";
 import { asNumber } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
@@ -50,44 +51,47 @@ const COUNTER_DEFAULTS: Record<
  * 每組計數器在畫面上的說明。
  *
  * 「計數依據」是重點 —— 同樣一個 5 次,以帳號計跟以來源位址計是完全不同的影響範圍。
+ *
+ * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale,
+ * 包成 const 只會在模組第一次載入時凍住語系。
  */
-const COUNTER_COPY: Record<
+function counterCopy(): Record<
   ThrottleCounter,
   { title: string; keyedOn: string; protects: string }
-> = {
-  login: {
-    keyedOn: "帳號 + 來源位址",
-    protects: "失敗的登入嘗試。",
-    title: "登入",
-  },
-  lookup: {
-    keyedOn: "來源位址",
-    protects:
-      "查了不存在的取件碼。短取件碼的安全性完全靠這一組 —— 放寬它等於讓人有機會走訪完整個取件碼空間。",
-    title: "取件碼查詢",
-  },
-  registration: {
-    keyedOn: "被查詢的 email",
-    protects: "註冊確認信的發送。",
-    title: "註冊信",
-  },
-  reset: {
-    keyedOn: "被查詢的 email",
-    protects: "重設密碼信的發送。",
-    title: "重設密碼信",
-  },
-  share: {
-    keyedOn: "取件碼 + 來源位址",
-    protects: "分享密碼猜錯的次數。",
-    title: "分享密碼",
-  },
-  source: {
-    keyedOn: "來源位址",
-    protects:
-      "任何昂貴操作。刻意寬鬆 —— 位址是共用的，擋一個等於擋掉它後面所有人。",
-    title: "來源位址總量",
-  },
-};
+> {
+  return {
+    login: {
+      keyedOn: m.settings_throttle_form_login_keyed_on(),
+      protects: m.settings_throttle_form_login_protects(),
+      title: m.settings_throttle_form_login_title(),
+    },
+    lookup: {
+      keyedOn: m.settings_throttle_form_lookup_keyed_on(),
+      protects: m.settings_throttle_form_lookup_protects(),
+      title: m.settings_throttle_form_lookup_title(),
+    },
+    registration: {
+      keyedOn: m.settings_throttle_form_registration_keyed_on(),
+      protects: m.settings_throttle_form_registration_protects(),
+      title: m.settings_throttle_form_registration_title(),
+    },
+    reset: {
+      keyedOn: m.settings_throttle_form_reset_keyed_on(),
+      protects: m.settings_throttle_form_reset_protects(),
+      title: m.settings_throttle_form_reset_title(),
+    },
+    share: {
+      keyedOn: m.settings_throttle_form_share_keyed_on(),
+      protects: m.settings_throttle_form_share_protects(),
+      title: m.settings_throttle_form_share_title(),
+    },
+    source: {
+      keyedOn: m.settings_throttle_form_source_keyed_on(),
+      protects: m.settings_throttle_form_source_protects(),
+      title: m.settings_throttle_form_source_title(),
+    },
+  };
+}
 
 const KEYS = {
   loginMaxAttempts: "auth.throttle.login.max_attempts",
@@ -162,10 +166,7 @@ function ThrottleSettingsFields({
     <form onSubmit={form.submit}>
       <FieldGroup>
         <p className="text-muted-foreground text-sm">
-          六組計數器保護不同的東西，所以分開設。兩個值都不能是 0：0
-          次嘗試等於鎖死所有人 （在「來源位址總量」上就是整台機器），0
-          秒視窗則永遠不會擋 ——
-          看起來開著實際上關著。要放寬就調高次數，不要把視窗設成 0。
+          {m.settings_throttle_form_intro()}
         </p>
 
         {THROTTLE_COUNTERS.map((counter) => (
@@ -183,11 +184,11 @@ function ThrottleSettingsFields({
           name="maxTrackedKeys"
           render={({ field, fieldState }) => (
             <NumberField
-              description="清掃前最多追蹤幾個 key，六組共用。這是記憶體上限不是安全設定：每個 key 都是未認證陌生人自己選的字串，這個數字決定他們能讓 process 佔多少記憶體。上限 100000。"
+              description={m.settings_throttle_form_max_tracked_keys_description()}
               field={field}
               fieldState={fieldState}
               id="throttle-max-tracked-keys"
-              label="追蹤 key 數上限"
+              label={m.settings_throttle_form_max_tracked_keys_label()}
               max={MAX_TRACKED_KEYS_CEILING}
               min={1}
             />
@@ -213,14 +214,14 @@ function CounterFields({
   control: Control<ThrottleSettingsValues>;
   counter: ThrottleCounter;
 }) {
-  const copy = COUNTER_COPY[counter];
+  const copy = counterCopy()[counter];
 
   return (
     <FieldSet>
       <FieldLegend variant="label">
         {copy.title}
         <span className="ml-2 font-normal text-muted-foreground">
-          依 {copy.keyedOn} 計數
+          {m.settings_throttle_form_keyed_on_suffix({ keyedOn: copy.keyedOn })}
         </span>
       </FieldLegend>
       <p className="text-muted-foreground text-sm">{copy.protects}</p>
@@ -233,7 +234,7 @@ function CounterFields({
               field={field}
               fieldState={fieldState}
               id={`throttle-${counter}-attempts`}
-              label="允許次數"
+              label={m.settings_throttle_form_attempts_label()}
               min={1}
             />
           )}
@@ -246,7 +247,7 @@ function CounterFields({
               field={field}
               fieldState={fieldState}
               id={`throttle-${counter}-window`}
-              label="視窗長度（秒）"
+              label={m.settings_throttle_form_window_label()}
               min={1}
             />
           )}

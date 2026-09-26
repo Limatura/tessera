@@ -15,6 +15,14 @@ import {
   DropdownMenuTrigger,
 } from "@tessera/ui/components/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@tessera/ui/components/select";
+import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -22,13 +30,17 @@ import {
 } from "@tessera/ui/components/sidebar";
 
 import { useLogout, useSession } from "@/hooks/use-auth";
+import { getLocale, setLocale } from "@/lib/locale";
 import { accountRoleLabel, isUnassigned } from "@/lib/permissions";
 import { loginUrl } from "@/lib/web-url";
+import * as m from "@/paraglide/messages";
+import { locales } from "@/paraglide/runtime.js";
 
 export function NavUser() {
   const { isMobile } = useSidebar();
   const { data: account } = useSession();
   const logout = useLogout();
+  const locale = getLocale();
 
   if (!account) {
     return null;
@@ -100,9 +112,31 @@ export function NavUser() {
               </div>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <div className="px-2 py-1.5">
+              <Select
+                onValueChange={(value) => setLocale(value as typeof locale)}
+                value={locale}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={m.common_language()} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {locales.map((availableLocale) => (
+                      <SelectItem key={availableLocale} value={availableLocale}>
+                        {availableLocale.toUpperCase()}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuItem disabled={logout.isPending} onClick={onLogout}>
               <IconLogout />
-              {logout.isPending ? "登出中…" : "登出"}
+              {logout.isPending
+                ? m.nav_user_logging_out()
+                : m.nav_user_logout()}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

@@ -16,6 +16,7 @@ import {
   isSecretSet,
   toScopes,
 } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { SealedField, SwitchField, TextField } from "./form-fields";
 import { ProviderCallbackUrls } from "./provider-callback-urls";
@@ -146,11 +147,11 @@ function OauthProviderFields({
           name="clientId"
           render={({ field, fieldState }) => (
             <TextField
-              description="填了 Client ID 與 Client Secret 才會出現這個登入按鈕。"
+              description={m.settings_oauth_card_client_id_description()}
               field={field}
               fieldState={fieldState}
               id={`${idPrefix}-client-id`}
-              label="Client ID"
+              label={m.settings_oauth_card_client_id_label()}
             />
           )}
         />
@@ -164,7 +165,7 @@ function OauthProviderFields({
               fieldState={fieldState}
               id={`${idPrefix}-client-secret`}
               isSet={secretIsSet}
-              label="Client Secret"
+              label={m.settings_oauth_card_client_secret_label()}
             />
           )}
         />
@@ -178,7 +179,7 @@ function OauthProviderFields({
               field={field}
               fieldState={fieldState}
               id={`${idPrefix}-scopes`}
-              label="Scopes"
+              label={m.settings_oauth_card_scopes_label()}
             />
           )}
         />
@@ -193,7 +194,7 @@ function OauthProviderFields({
                 field={field}
                 fieldState={fieldState}
                 id={`${idPrefix}-base-url`}
-                label="自訂網域"
+                label={m.settings_oauth_card_base_url_label()}
                 placeholder="https://github.example.com"
               />
             )}
@@ -207,11 +208,11 @@ function OauthProviderFields({
           name="displayName"
           render={({ field, fieldState }) => (
             <TextField
-              description="登入按鈕上的文字，留空則用 provider 的名稱。"
+              description={m.settings_oauth_card_display_name_description()}
               field={field}
               fieldState={fieldState}
               id={`${idPrefix}-display-name`}
-              label="按鈕顯示名稱"
+              label={m.settings_oauth_card_display_name_label()}
             />
           )}
         />
@@ -221,10 +222,10 @@ function OauthProviderFields({
           name="linkByVerifiedEmail"
           render={({ field }) => (
             <SwitchField
-              description="允許這個身分綁到同 email 的既有帳號。這兩家的帳號一分鐘就能註冊，同時開放註冊又用 email 比對等於把別人的帳號送出去 —— 預設關閉。"
+              description={m.settings_oauth_card_link_by_email_description()}
               field={field}
               id={`${idPrefix}-link-by-email`}
-              label="用已驗證的 email 綁定既有帳號"
+              label={m.settings_oauth_card_link_by_email_label()}
             />
           )}
         />

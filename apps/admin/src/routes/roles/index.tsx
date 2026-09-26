@@ -25,6 +25,7 @@ import { usePermissions, useRoles } from "@/hooks/use-admin";
 import { useSession } from "@/hooks/use-auth";
 import { PERMISSIONS, hasPermission, roleLabel } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { DeleteRoleDialog } from "./-components/delete-role-dialog";
@@ -71,13 +72,11 @@ function RolesComponent() {
   };
 
   return (
-    <AdminShell title="角色與權限">
+    <AdminShell title={m.roles_page_title()}>
       <Card className="ring-foreground/10">
         <CardHeader>
-          <CardTitle>角色</CardTitle>
-          <CardDescription>
-            權限是程式決定的固定清單，角色才是可以增減的。內建角色不可刪除，也不能改權限。
-          </CardDescription>
+          <CardTitle>{m.roles_card_title()}</CardTitle>
+          <CardDescription>{m.roles_card_description()}</CardDescription>
           {canWrite && (
             <Button
               className="w-fit"
@@ -85,25 +84,29 @@ function RolesComponent() {
               type="button"
             >
               <IconPlus />
-              新增角色
+              {m.roles_add()}
             </Button>
           )}
         </CardHeader>
         <CardContent>
           {roles.isPending && (
-            <p className="text-muted-foreground text-sm">載入中…</p>
+            <p className="text-muted-foreground text-sm">
+              {m.common_loading()}
+            </p>
           )}
           {roles.isError && (
-            <p className="text-destructive text-sm">角色載入失敗</p>
+            <p className="text-destructive text-sm">{m.roles_load_error()}</p>
           )}
           {roles.data && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>名稱</TableHead>
-                  <TableHead>說明</TableHead>
-                  <TableHead className="text-right">成員</TableHead>
-                  <TableHead>權限</TableHead>
+                  <TableHead>{m.roles_col_name()}</TableHead>
+                  <TableHead>{m.roles_col_description()}</TableHead>
+                  <TableHead className="text-right">
+                    {m.roles_col_members()}
+                  </TableHead>
+                  <TableHead>{m.roles_col_permissions()}</TableHead>
                   {canWrite && <TableHead className="w-24" />}
                 </TableRow>
               </TableHeader>
@@ -114,12 +117,14 @@ function RolesComponent() {
                       <span className="flex items-center gap-2">
                         {roleLabel(role.name)}
                         {role.is_system && (
-                          <Badge variant="outline">內建</Badge>
+                          <Badge variant="outline">
+                            {m.roles_builtin_badge()}
+                          </Badge>
                         )}
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {role.description ?? "—"}
+                      {role.description ?? m.common_dash_placeholder()}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {role.members}
@@ -127,7 +132,7 @@ function RolesComponent() {
                     <TableCell>
                       {role.permissions.length === 0 ? (
                         <span className="text-muted-foreground">
-                          不允許任何操作
+                          {m.roles_no_permissions()}
                         </span>
                       ) : (
                         <span className="flex flex-wrap gap-1">
@@ -150,7 +155,7 @@ function RolesComponent() {
                       <TableCell>
                         <span className="flex justify-end gap-1">
                           <Button
-                            aria-label={`編輯 ${role.name}`}
+                            aria-label={m.roles_edit_aria({ name: role.name })}
                             onClick={() => openEditor(role)}
                             size="icon"
                             type="button"
@@ -159,7 +164,9 @@ function RolesComponent() {
                             <IconPencil />
                           </Button>
                           <Button
-                            aria-label={`刪除 ${role.name}`}
+                            aria-label={m.roles_delete_aria({
+                              name: role.name,
+                            })}
                             disabled={role.is_system}
                             onClick={() => openDelete(role)}
                             size="icon"

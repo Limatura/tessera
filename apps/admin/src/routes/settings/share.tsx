@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { SettingsPage } from "./-components/settings-page";
@@ -22,8 +23,8 @@ export const Route = createRoute({
 function ShareSettingsRoute() {
   return (
     <SettingsPage
-      description="取件碼、下載授權時效、清掃,以及取件紀錄"
-      title="分享與取件"
+      description={m.settings_share_description()}
+      title={m.settings_share_title()}
     >
       <ShareSettingsForm />
     </SettingsPage>

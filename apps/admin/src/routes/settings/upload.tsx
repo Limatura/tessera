@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { SettingsPage } from "./-components/settings-page";
@@ -21,7 +22,10 @@ export const Route = createRoute({
 
 function UploadSettingsRoute() {
   return (
-    <SettingsPage description="上傳限流、大小上限與保存時間" title="上傳設置">
+    <SettingsPage
+      description={m.settings_upload_description()}
+      title={m.settings_upload_title()}
+    >
       <UploadSettingsForm />
     </SettingsPage>
   );

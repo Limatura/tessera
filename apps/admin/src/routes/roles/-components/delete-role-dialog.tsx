@@ -11,6 +11,7 @@ import { Button } from "@tessera/ui/components/button";
 
 import { useDeleteRole } from "@/hooks/use-admin";
 import { roleLabel } from "@/lib/permissions";
+import * as m from "@/paraglide/messages";
 
 type Role = components["schemas"]["RoleResponse"];
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -39,16 +40,20 @@ export function DeleteRoleDialog({
     <AlertDialog onOpenChange={onOpenChange} open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>刪除「{roleLabel(role.name)}」？</AlertDialogTitle>
+          <AlertDialogTitle>
+            {m.roles_delete_dialog_title({ name: roleLabel(role.name) })}
+          </AlertDialogTitle>
           <AlertDialogDescription>
             {role.members > 0
-              ? `目前有 ${role.members} 個帳號在這個角色裡。刪掉之後他們會變成沒有角色 —— 登入得了，但什麼都不能做。`
-              : "這個角色目前沒有任何成員。"}
+              ? m.roles_delete_dialog_description_with_members({
+                  members: role.members,
+                })
+              : m.roles_delete_dialog_description_empty()}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
           <p className="text-destructive text-sm" role="alert">
-            {error.message ?? "刪除失敗"}
+            {error.message ?? m.roles_delete_dialog_error()}
           </p>
         )}
         <AlertDialogFooter>
@@ -57,7 +62,7 @@ export function DeleteRoleDialog({
             type="button"
             variant="outline"
           >
-            取消
+            {m.common_cancel()}
           </Button>
           <Button
             disabled={deleteRole.isPending}
@@ -65,7 +70,7 @@ export function DeleteRoleDialog({
             type="button"
             variant="destructive"
           >
-            {deleteRole.isPending ? "刪除中…" : "刪除"}
+            {deleteRole.isPending ? m.common_deleting() : m.common_delete()}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -2,6 +2,7 @@ import { IconInfoCircle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 
 import { readSetting, useSettings } from "@/hooks/use-settings";
+import * as m from "@/paraglide/messages";
 
 /**
  * 第三方登入遇到「這個人這裡還沒有帳號」時會怎麼做。
@@ -24,14 +25,15 @@ export function ProviderRegistrationNote() {
       <div className="space-y-1">
         <p className="font-medium">{headline(registration)}</p>
         <p className="text-muted-foreground">
-          {detail(registration)}在
+          {detail(registration)}
+          {m.settings_provider_registration_change_before()}
           <Link
             className="mx-1 underline underline-offset-4"
             to="/settings/account"
           >
-            帳號與註冊
+            {m.settings_provider_registration_link_label()}
           </Link>
-          改。
+          {m.settings_provider_registration_change_after()}
         </p>
       </div>
     </div>
@@ -45,13 +47,13 @@ export function ProviderRegistrationNote() {
 function headline(registration: unknown): string {
   switch (registration) {
     case "closed": {
-      return "目前只有現有帳號能用第三方登入";
+      return m.settings_provider_registration_headline_closed();
     }
     case "invite": {
-      return "目前第三方登入要有邀請碼才能開新帳號";
+      return m.settings_provider_registration_headline_invite();
     }
     default: {
-      return "目前第三方登入會自動替新的人開帳號";
+      return m.settings_provider_registration_headline_open();
     }
   }
 }
@@ -59,13 +61,13 @@ function headline(registration: unknown): string {
 function detail(registration: unknown): string {
   switch (registration) {
     case "closed": {
-      return "註冊是關的，所以這裡還沒有帳號的人登入會被拒絕，看到的是「本站不開放註冊」。已經綁定的人、或用同一個已驗證信箱對上既有帳號的人不受影響。";
+      return m.settings_provider_registration_detail_closed();
     }
     case "invite": {
-      return "沒帶邀請碼的新使用者會被拒絕。邀請碼要跟著登入連結一起帶（`/login?invite=代碼`），被 provider 認證過不等於被這裡接受。";
+      return m.settings_provider_registration_detail_invite();
     }
     default: {
-      return "任何能通過這家 provider 認證的人都會拿到一個新帳號。如果那是公開服務（例如 Google），等於對全世界開放註冊。";
+      return m.settings_provider_registration_detail_open();
     }
   }
 }

@@ -2,25 +2,31 @@ import { IconAlertTriangle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 
 import { readSetting, useSettings } from "@/hooks/use-settings";
+import * as m from "@/paraglide/messages";
 
 const GUEST_ROLE = "guest";
 
 /**
  * 兩個設定各在一頁，`fixAt` 指的是「另外那一頁」—— 也就是這一頁修不到、要跳過去改的
  * 那一個。動作跟著頁面走：帳號與註冊那頁改的是預設角色，上傳設置那頁關的是匿名上傳。
+ *
+ * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale，
+ * 包成 const 只會在模組第一次載入時凍住語系。
  */
-const FIX_TARGETS = {
-  account: {
-    action: "改掉新帳號的預設角色",
-    label: "帳號與註冊",
-    to: "/settings/account",
-  },
-  upload: {
-    action: "關閉「允許訪客上傳」",
-    label: "上傳設置",
-    to: "/settings/upload",
-  },
-} as const;
+function fixTargets() {
+  return {
+    account: {
+      action: m.settings_guest_warning_account_action(),
+      label: m.settings_guest_warning_account_label(),
+      to: "/settings/account",
+    },
+    upload: {
+      action: m.settings_guest_warning_upload_action(),
+      label: m.settings_guest_warning_upload_label(),
+      to: "/settings/upload",
+    },
+  } as const;
+}
 
 /**
  * `auth.default_role` 選了 `guest`、`features.anonymous_upload` 又開著時的提醒。
@@ -39,7 +45,7 @@ export function GuestAnonymousWarning({
   /** 這一頁表單裡還沒存的 `auth.default_role`，沒給就讀 server 上的。 */
   defaultRole?: string;
   /** 要去哪一頁修 —— 指向另外那個設定所在的頁面。 */
-  fixAt: keyof typeof FIX_TARGETS;
+  fixAt: keyof ReturnType<typeof fixTargets>;
 }) {
   const { data } = useSettings();
 
@@ -50,7 +56,7 @@ export function GuestAnonymousWarning({
     return null;
   }
 
-  const target = FIX_TARGETS[fixAt];
+  const target = fixTargets()[fixAt];
 
   return (
     <div
@@ -59,14 +65,13 @@ export function GuestAnonymousWarning({
     >
       <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
       <div className="space-y-1">
-        <p className="font-medium">訪客角色目前限制不到任何人</p>
+        <p className="font-medium">{m.settings_guest_warning_title()}</p>
         <p className="text-muted-foreground">
-          新註冊帳號預設是「訪客」（不允許任何操作），但匿名上傳還開著 ——
-          同一個人登出後仍可以陌生人的身分上傳。要真的擋住，請到
+          {m.settings_guest_warning_body_before()}
           <Link className="mx-1 underline underline-offset-4" to={target.to}>
             {target.label}
           </Link>
-          {target.action}。
+          {m.settings_guest_warning_body_after({ action: target.action })}
         </p>
       </div>
     </div>

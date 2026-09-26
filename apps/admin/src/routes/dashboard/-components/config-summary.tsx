@@ -8,6 +8,7 @@ import {
 } from "@tessera/ui/components/card";
 
 import { formatBytes } from "@/lib/format";
+import * as m from "@/paraglide/messages";
 
 /**
  * Mirrors the server's `Capabilities` response (apps/server/src/api/capabilities.rs)
@@ -26,29 +27,46 @@ const config = {
   storageUrl: "data/blobs",
 };
 
-const rows: { label: string; value: string }[] = [
-  { label: "儲存後端", value: config.storageUrl },
-  { label: "單次上傳上限", value: formatBytes(config.maxBodyBytes) },
-  { label: "訪客上傳", value: config.anonymousUpload ? "已開啟" : "已關閉" },
-  { label: "帳號系統", value: config.accounts ? "已開啟" : "已關閉" },
-  {
-    label: "註冊政策",
-    value: registrationLabel(config.registration),
-  },
-  {
-    label: "過期分享保留",
-    value: `${config.retainAfterDeathHours} 小時`,
-  },
-];
+function buildRows(): { label: string; value: string }[] {
+  return [
+    { label: m.dashboard_config_storage_backend(), value: config.storageUrl },
+    {
+      label: m.dashboard_config_max_body_bytes(),
+      value: formatBytes(config.maxBodyBytes),
+    },
+    {
+      label: m.dashboard_config_anonymous_upload(),
+      value: config.anonymousUpload
+        ? m.dashboard_config_enabled()
+        : m.dashboard_config_disabled(),
+    },
+    {
+      label: m.dashboard_config_accounts(),
+      value: config.accounts
+        ? m.dashboard_config_enabled()
+        : m.dashboard_config_disabled(),
+    },
+    {
+      label: m.dashboard_config_registration_policy(),
+      value: registrationLabel(config.registration),
+    },
+    {
+      label: m.dashboard_config_retain_after_death(),
+      value: m.dashboard_config_retain_hours({
+        hours: config.retainAfterDeathHours,
+      }),
+    },
+  ];
+}
 
 export function ConfigSummary() {
+  const rows = buildRows();
+
   return (
     <Card className="ring-foreground/10">
       <CardHeader>
-        <CardTitle>啟動設定</CardTitle>
-        <CardDescription>
-          由環境變數或設定檔在啟動時決定，此頁僅供檢視
-        </CardDescription>
+        <CardTitle>{m.dashboard_config_title()}</CardTitle>
+        <CardDescription>{m.dashboard_config_description()}</CardDescription>
       </CardHeader>
       <CardContent>
         <dl className="divide-y divide-border">
@@ -63,7 +81,7 @@ export function ConfigSummary() {
           ))}
         </dl>
         <Badge variant="outline" className="mt-3">
-          唯讀 · 需修改設定並重啟服務
+          {m.dashboard_config_readonly_badge()}
         </Badge>
       </CardContent>
     </Card>
@@ -72,10 +90,10 @@ export function ConfigSummary() {
 
 function registrationLabel(registration: typeof config.registration) {
   if (registration === "open") {
-    return "開放註冊";
+    return m.dashboard_config_registration_open();
   }
   if (registration === "invite") {
-    return "限邀請碼";
+    return m.dashboard_config_registration_invite();
   }
-  return "已關閉";
+  return m.dashboard_config_disabled();
 }

@@ -16,6 +16,7 @@ import {
   useSetUserState,
 } from "@/hooks/use-admin";
 import { isDeletedAccount } from "@/lib/accounts";
+import * as m from "@/paraglide/messages";
 
 type Account = components["schemas"]["AccountResponse"];
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -23,29 +24,28 @@ type ErrorBody = components["schemas"]["ErrorBody"];
 /** 需要先確認才做的動作。「重新啟用」可以直接按,不在這裡。 */
 export type UserAction = "delete" | "disable" | "removeShares";
 
-const COPY: Record<
+function buildCopy(): Record<
   UserAction,
   { title: (name: string) => string; description: string; confirm: string }
-> = {
-  delete: {
-    confirm: "刪除帳號",
-    description:
-      "帳號會被清成一列「已刪除的帳號」,無法復原。他上傳的分享不會一起刪掉,會變成匿名分享繼續有效 —— 要清掉請另外用「結束全部分享」。",
-    title: (name) => `刪除「${name}」？`,
-  },
-  disable: {
-    confirm: "停用",
-    description:
-      "他會立刻被登出,之後也登不進來,API token 同時失效。他的分享照樣給收件人。隨時可以重新啟用。",
-    title: (name) => `停用「${name}」？`,
-  },
-  removeShares: {
-    confirm: "全部結束",
-    description:
-      "這個帳號上傳的每一份分享都會立刻失效,已發出去的連結一起打不開,無法復原。帳號本身不受影響。",
-    title: (name) => `結束「${name}」的全部分享？`,
-  },
-};
+> {
+  return {
+    delete: {
+      confirm: m.users_action_delete_confirm(),
+      description: m.users_action_delete_description(),
+      title: (name) => m.users_action_delete_title({ name }),
+    },
+    disable: {
+      confirm: m.users_action_disable_confirm(),
+      description: m.users_action_disable_description(),
+      title: (name) => m.users_action_disable_title({ name }),
+    },
+    removeShares: {
+      confirm: m.users_action_remove_shares_confirm(),
+      description: m.users_action_remove_shares_description(),
+      title: (name) => m.users_action_remove_shares_title({ name }),
+    },
+  };
+}
 
 export function UserActionDialog({
   account,
@@ -94,7 +94,7 @@ function UserActionForm({
     removeShares,
   }[action];
   const error = mutation.error as Partial<ErrorBody> | null;
-  const copy = COPY[action];
+  const copy = buildCopy()[action];
 
   const handleConfirm = () => {
     switch (action) {
@@ -112,7 +112,10 @@ function UserActionForm({
       case "removeShares": {
         removeShares.mutate(account.id, {
           onSuccess: ({ removed }) => {
-            toast.add({ title: `已結束 ${removed} 份分享`, type: "success" });
+            toast.add({
+              title: m.users_action_remove_shares_success({ removed }),
+              type: "success",
+            });
             onDone();
           },
         });
@@ -129,7 +132,9 @@ function UserActionForm({
       <AlertDialogHeader>
         <AlertDialogTitle>
           {copy.title(
-            isDeletedAccount(account) ? "已刪除的帳號" : account.username
+            isDeletedAccount(account)
+              ? m.users_deleted_account()
+              : account.username
           )}
         </AlertDialogTitle>
         <AlertDialogDescription>{copy.description}</AlertDialogDescription>
@@ -138,13 +143,13 @@ function UserActionForm({
         <p className="text-destructive text-sm" role="alert">
           {/* 409 只會是「他是最後一個持有 roles:write 的人」,server 的訊息是英文。 */}
           {error.code === "conflict"
-            ? "這是最後一個能發權限的帳號,先把權限交給別人再做。"
-            : (error.message ?? "操作失敗,請再試一次")}
+            ? m.users_action_last_admin_error()
+            : (error.message ?? m.users_action_generic_error())}
         </p>
       )}
       <AlertDialogFooter>
         <Button onClick={onDone} type="button" variant="outline">
-          取消
+          {m.common_cancel()}
         </Button>
         <Button
           disabled={mutation.isPending}
@@ -152,7 +157,7 @@ function UserActionForm({
           type="button"
           variant="destructive"
         >
-          {mutation.isPending ? "處理中…" : copy.confirm}
+          {mutation.isPending ? m.users_action_processing() : copy.confirm}
         </Button>
       </AlertDialogFooter>
     </>

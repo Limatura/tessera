@@ -21,6 +21,7 @@ import {
 } from "@/lib/settings-schema";
 import type { AppearanceSettingsValues } from "@/lib/settings-schema";
 import { asEnum } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { AppearancePreview } from "./appearance-preview";
 import { SelectField } from "./form-fields";
@@ -35,43 +36,69 @@ const KEYS = {
   theme: "appearance.theme",
 } satisfies SettingsKeyMap<AppearanceSettingsValues>;
 
-const MODE_OPTIONS = [
-  { label: "跟隨裝置", value: "system" },
-  { label: "淺色", value: "light" },
-  { label: "深色", value: "dark" },
-] as const;
+/*
+ * 三組選項都是函式而不是 module-level const —— 裡面的 `m.xxx()` 要在渲染當下讀
+ * locale，包成 const 只會在模組第一次載入時凍住語系。
+ */
+function modeOptions() {
+  return [
+    { label: m.settings_appearance_form_mode_system(), value: "system" },
+    { label: m.settings_appearance_form_mode_light(), value: "light" },
+    { label: m.settings_appearance_form_mode_dark(), value: "dark" },
+  ] as const;
+}
 
-const THEME_OPTIONS = [
-  { description: "這份設計本來的樣子。", name: "預設", value: "default" },
-  { description: "偏冷、較平的中性灰。", name: "Graphite", value: "graphite" },
-  { description: "暖如紙，長時間閱讀舒適。", name: "Sepia", value: "sepia" },
-  {
-    description: "暖米紙配橄欖綠，柔和手繪調。",
-    name: "Matsu",
-    value: "matsu",
-  },
-  {
-    description: "深藍紫夜空，深色模式最出色。",
-    name: "Cosmic",
-    value: "cosmic",
-  },
-  { description: "乾淨的冷灰，最不干擾內容。", name: "Slate", value: "slate" },
-  {
-    description: "低對比茶漬紙，像舊印刷品。",
-    name: "Vintage",
-    value: "vintage",
-  },
-] as const;
+function themeOptions() {
+  return [
+    {
+      description: m.settings_appearance_form_theme_default_description(),
+      name: m.settings_appearance_form_theme_default_name(),
+      value: "default",
+    },
+    {
+      description: m.settings_appearance_form_theme_graphite_description(),
+      name: "Graphite",
+      value: "graphite",
+    },
+    {
+      description: m.settings_appearance_form_theme_sepia_description(),
+      name: "Sepia",
+      value: "sepia",
+    },
+    {
+      description: m.settings_appearance_form_theme_matsu_description(),
+      name: "Matsu",
+      value: "matsu",
+    },
+    {
+      description: m.settings_appearance_form_theme_cosmic_description(),
+      name: "Cosmic",
+      value: "cosmic",
+    },
+    {
+      description: m.settings_appearance_form_theme_slate_description(),
+      name: "Slate",
+      value: "slate",
+    },
+    {
+      description: m.settings_appearance_form_theme_vintage_description(),
+      name: "Vintage",
+      value: "vintage",
+    },
+  ] as const;
+}
 
-const ACCENT_OPTIONS = [
-  { label: "紫 Violet", value: "violet" },
-  { label: "玫瑰 Rose", value: "rose" },
-  { label: "橘 Orange", value: "orange" },
-  { label: "琥珀 Amber", value: "amber" },
-  { label: "綠 Green", value: "green" },
-  { label: "青 Teal", value: "teal" },
-  { label: "藍 Blue", value: "blue" },
-] as const;
+function accentOptions() {
+  return [
+    { label: m.settings_appearance_form_accent_violet(), value: "violet" },
+    { label: m.settings_appearance_form_accent_rose(), value: "rose" },
+    { label: m.settings_appearance_form_accent_orange(), value: "orange" },
+    { label: m.settings_appearance_form_accent_amber(), value: "amber" },
+    { label: m.settings_appearance_form_accent_green(), value: "green" },
+    { label: m.settings_appearance_form_accent_teal(), value: "teal" },
+    { label: m.settings_appearance_form_accent_blue(), value: "blue" },
+  ] as const;
+}
 
 /**
  * 站台外觀：`appearance.mode` / `appearance.theme` / `appearance.accent`。
@@ -134,12 +161,12 @@ function AppearanceSettingsFields({
           name="mode"
           render={({ field, fieldState }) => (
             <SelectField
-              description="訪客首次造訪時套用的明暗，之後仍可自行切換。跟隨裝置時讀 prefers-color-scheme。"
+              description={m.settings_appearance_form_mode_description()}
               field={field}
               fieldState={fieldState}
               id="appearance-mode"
-              label="預設明暗"
-              options={MODE_OPTIONS}
+              label={m.settings_appearance_form_mode_label()}
+              options={modeOptions()}
             />
           )}
         />
@@ -157,14 +184,16 @@ function AppearanceSettingsFields({
           render={({ field }) => (
             <Field>
               <FieldContent>
-                <FieldLabel>色盤</FieldLabel>
+                <FieldLabel>
+                  {m.settings_appearance_form_theme_label()}
+                </FieldLabel>
                 <FieldDescription>
-                  背景、文字與邊框用的中性色盤。
+                  {m.settings_appearance_form_theme_description()}
                 </FieldDescription>
               </FieldContent>
               <ThemePicker
                 onSelect={field.onChange}
-                options={THEME_OPTIONS}
+                options={themeOptions()}
                 value={field.value}
               />
             </Field>
@@ -177,15 +206,16 @@ function AppearanceSettingsFields({
           render={({ field }) => (
             <Field>
               <FieldContent>
-                <FieldLabel>強調色</FieldLabel>
+                <FieldLabel>
+                  {m.settings_appearance_form_accent_label()}
+                </FieldLabel>
                 <FieldDescription>
-                  按鈕、連結與 focus ring 的強調色。每個顏色都是 packages/ui
-                  裡的一段 CSS，所以只能從這七個選。
+                  {m.settings_appearance_form_accent_description()}
                 </FieldDescription>
               </FieldContent>
               <AccentPicker
                 onSelect={field.onChange}
-                options={ACCENT_OPTIONS}
+                options={accentOptions()}
                 value={field.value}
               />
             </Field>

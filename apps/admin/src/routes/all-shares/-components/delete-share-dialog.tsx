@@ -10,6 +10,7 @@ import {
 import { Button } from "@tessera/ui/components/button";
 
 import { useDeleteShare } from "@/hooks/use-admin";
+import * as m from "@/paraglide/messages";
 
 type AdminShare = components["schemas"]["AdminShareResponse"];
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -46,14 +47,16 @@ export function DeleteShareDialog({
     <AlertDialog onOpenChange={handleOpenChange} open={share !== null}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>刪除「{label}」？</AlertDialogTitle>
+          <AlertDialogTitle>
+            {m.all_shares_delete_dialog_title({ label })}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            連結會立刻失效,已經拿到取件碼的人也打不開。檔案稍後由背景清理移除,無法復原。
+            {m.all_shares_delete_dialog_description()}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error && (
           <p className="text-destructive text-sm" role="alert">
-            {error.message ?? "刪除失敗,請再試一次"}
+            {error.message ?? m.all_shares_delete_dialog_error()}
           </p>
         )}
         <AlertDialogFooter>
@@ -62,7 +65,7 @@ export function DeleteShareDialog({
             type="button"
             variant="outline"
           >
-            取消
+            {m.common_cancel()}
           </Button>
           <Button
             disabled={deleteShare.isPending}
@@ -70,7 +73,7 @@ export function DeleteShareDialog({
             type="button"
             variant="destructive"
           >
-            {deleteShare.isPending ? "刪除中…" : "刪除"}
+            {deleteShare.isPending ? m.common_deleting() : m.common_delete()}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -16,6 +16,7 @@ import {
 
 import mockData from "@/data/dashboard-mock.json";
 import { formatBytes } from "@/lib/format";
+import * as m from "@/paraglide/messages";
 
 /**
  * Mirrors the server's `AdminShareResponse` (apps/server/src/api/admin.rs).
@@ -38,17 +39,21 @@ export function RecentSharesTable() {
   return (
     <Card className="ring-foreground/10">
       <CardHeader>
-        <CardTitle>最近分享</CardTitle>
-        <CardDescription>最新建立的 10 筆分享</CardDescription>
+        <CardTitle>{m.dashboard_recent_shares_title()}</CardTitle>
+        <CardDescription>
+          {m.dashboard_recent_shares_description()}
+        </CardDescription>
       </CardHeader>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>內容</TableHead>
-            <TableHead>大小</TableHead>
-            <TableHead>建立者</TableHead>
-            <TableHead>狀態</TableHead>
-            <TableHead>建立時間</TableHead>
+            <TableHead>{m.dashboard_recent_shares_column_content()}</TableHead>
+            <TableHead>{m.dashboard_recent_shares_column_size()}</TableHead>
+            <TableHead>{m.dashboard_recent_shares_column_owner()}</TableHead>
+            <TableHead>{m.dashboard_recent_shares_column_status()}</TableHead>
+            <TableHead>
+              {m.dashboard_recent_shares_column_created_at()}
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -58,7 +63,7 @@ export function RecentSharesTable() {
                 colSpan={5}
                 className="h-24 text-center text-muted-foreground"
               >
-                目前沒有分享記錄
+                {m.dashboard_recent_shares_empty()}
               </TableCell>
             </TableRow>
           )}
@@ -71,11 +76,13 @@ export function RecentSharesTable() {
                 {formatBytes(row.sizeBytes)}
               </TableCell>
               <TableCell className="text-muted-foreground">
-                {row.owner ?? "訪客"}
+                {row.owner ?? m.dashboard_recent_shares_guest()}
               </TableCell>
               <TableCell>
                 <Badge variant={row.active ? "outline" : "secondary"}>
-                  {row.active ? "可取件" : "已失效"}
+                  {row.active
+                    ? m.dashboard_recent_shares_active()
+                    : m.dashboard_recent_shares_inactive()}
                 </Badge>
               </TableCell>
               <TableCell className="text-muted-foreground">
@@ -91,7 +98,10 @@ export function RecentSharesTable() {
 
 function shareLabel(row: ShareRow) {
   if (row.kind === "text") {
-    return "文字分享";
+    return m.dashboard_recent_shares_text_share();
   }
-  return row.filename ?? `${row.fileCount} 個檔案`;
+  return (
+    row.filename ??
+    m.dashboard_recent_shares_file_count({ count: row.fileCount })
+  );
 }

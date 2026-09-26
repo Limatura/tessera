@@ -27,6 +27,7 @@ import { useSession } from "@/hooks/use-auth";
 import { formatBytes } from "@/lib/format";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "./__root";
 import { DeleteShareDialog } from "./all-shares/-components/delete-share-dialog";
@@ -60,7 +61,9 @@ function shareLabel(share: AdminShare): string {
   if (share.filename) {
     return share.filename;
   }
-  return share.kind === "text" ? "文字" : `${share.file_count} 個檔案`;
+  return share.kind === "text"
+    ? m.all_shares_label_text()
+    : m.all_shares_label_file_count({ count: share.file_count });
 }
 
 function AllSharesComponent() {
@@ -73,36 +76,48 @@ function AllSharesComponent() {
   const rows = shares.data?.data;
 
   return (
-    <AdminShell title="全站分享">
+    <AdminShell title={m.all_shares_page_title()}>
       <Card className="ring-foreground/10">
         <CardHeader>
-          <CardTitle>所有分享</CardTitle>
+          <CardTitle>{m.all_shares_card_title()}</CardTitle>
           <CardDescription>
             {shares.data
-              ? `共 ${shares.data.meta.total} 筆。這裡看不到取件碼。`
-              : "每個人上傳的分享,包括匿名的。這裡看不到取件碼。"}
+              ? m.all_shares_card_description_total({
+                  total: shares.data.meta.total,
+                })
+              : m.all_shares_card_description_empty()}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {shares.isPending && (
-            <p className="text-sm text-muted-foreground">載入中…</p>
+            <p className="text-sm text-muted-foreground">
+              {m.common_loading()}
+            </p>
           )}
           {shares.isError && (
-            <p className="text-sm text-destructive">分享載入失敗</p>
+            <p className="text-sm text-destructive">
+              {m.all_shares_load_error()}
+            </p>
           )}
           {rows?.length === 0 && (
-            <p className="text-sm text-muted-foreground">還沒有任何分享。</p>
+            <p className="text-sm text-muted-foreground">
+              {m.all_shares_empty()}
+            </p>
           )}
           {rows && rows.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>內容</TableHead>
-                  <TableHead>上傳者</TableHead>
-                  <TableHead className="text-right">大小</TableHead>
-                  <TableHead className="text-right">已送出</TableHead>
-                  <TableHead>建立時間</TableHead>
-                  <TableHead>狀態</TableHead>
+                  <TableHead>{m.all_shares_col_content()}</TableHead>
+                  <TableHead>{m.all_shares_col_owner()}</TableHead>
+                  <TableHead className="text-right">
+                    {m.all_shares_col_size()}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {m.all_shares_col_served()}
+                  </TableHead>
+                  <TableHead>{m.all_shares_col_created()}</TableHead>
+                  <TableHead>{m.all_shares_col_status()}</TableHead>
                   {canDelete && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
@@ -119,7 +134,7 @@ function AllSharesComponent() {
                           {share.owner_id}
                         </span>
                       ) : (
-                        "匿名"
+                        m.all_shares_owner_anonymous()
                       )}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
@@ -133,13 +148,17 @@ function AllSharesComponent() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={share.active ? "secondary" : "outline"}>
-                        {share.active ? "有效" : "已失效"}
+                        {share.active
+                          ? m.all_shares_status_active()
+                          : m.all_shares_status_inactive()}
                       </Badge>
                     </TableCell>
                     {canDelete && (
                       <TableCell>
                         <Button
-                          aria-label={`刪除 ${shareLabel(share)}`}
+                          aria-label={m.all_shares_delete_aria({
+                            label: shareLabel(share),
+                          })}
                           onClick={() => setDeleting(share)}
                           size="icon"
                           type="button"

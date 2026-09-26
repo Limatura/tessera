@@ -3,6 +3,7 @@ import { Separator } from "@tessera/ui/components/separator";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { AppearanceSettingsForm } from "./-components/appearance-settings-form";
@@ -24,8 +25,8 @@ export const Route = createRoute({
 function ThemeSettingsRoute() {
   return (
     <SettingsPage
-      description="訪客看到的預設外觀，對應 appearance.*"
-      title="外觀"
+      description={m.settings_theme_description()}
+      title={m.settings_theme_title()}
     >
       <div className="flex flex-col gap-6">
         <InterfaceThemeField />

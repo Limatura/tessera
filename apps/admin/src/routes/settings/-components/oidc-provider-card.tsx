@@ -17,6 +17,7 @@ import {
   isSecretSet,
   toScopes,
 } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { SealedField, SwitchField, TextField } from "./form-fields";
 import { OidcDiscoveryField } from "./oidc-discovery-field";
@@ -52,10 +53,7 @@ const ENCODERS = {
  */
 export function OidcProviderCard({ settings }: { settings: Settings }) {
   return (
-    <SettingsCard
-      description="填入 issuer 即啟用，清空即關閉。其餘端點都由 issuer 的 discovery 文件取得。"
-      title="OIDC"
-    >
+    <SettingsCard description={m.settings_oidc_card_description()} title="OIDC">
       <OidcProviderFields
         defaultValues={initialValues(settings)}
         publicUrl={asString(readSetting(settings, "server.public_url"), "")}
@@ -166,11 +164,11 @@ function OidcProviderFields({
           name="issuer"
           render={({ field, fieldState }) => (
             <TextField
-              description="必須是 https，且要與 provider 在 id_token 裡給的 iss claim 完全一字不差（規範要求）。清空代表關閉 OIDC 登入。"
+              description={m.settings_oidc_card_issuer_description()}
               field={field}
               fieldState={fieldState}
               id="oidc-issuer"
-              label="Issuer URL"
+              label={m.settings_oidc_card_issuer_label()}
               placeholder="https://auth.example.com/application/o/tessera/"
             />
           )}
@@ -184,7 +182,7 @@ function OidcProviderFields({
               field={field}
               fieldState={fieldState}
               id="oidc-client-id"
-              label="Client ID"
+              label={m.settings_oidc_card_client_id_label()}
             />
           )}
         />
@@ -198,7 +196,7 @@ function OidcProviderFields({
               fieldState={fieldState}
               id="oidc-client-secret"
               isSet={secretIsSet}
-              label="Client Secret"
+              label={m.settings_oidc_card_client_secret_label()}
             />
           )}
         />
@@ -208,11 +206,11 @@ function OidcProviderFields({
           name="scopes"
           render={({ field, fieldState }) => (
             <TextField
-              description="以空白分隔。openid 缺了會自動補；email 是必要的，沒有 email 的登入會被拒絕。"
+              description={m.settings_oidc_card_scopes_description()}
               field={field}
               fieldState={fieldState}
               id="oidc-scopes"
-              label="Scopes"
+              label={m.settings_oidc_card_scopes_label()}
               placeholder="openid profile email"
             />
           )}
@@ -225,11 +223,11 @@ function OidcProviderFields({
           name="requiredGroup"
           render={({ field, fieldState }) => (
             <TextField
-              description="只允許這個群組的人登入。留空代表 provider 認證過的任何帳號都能進來。"
+              description={m.settings_oidc_card_required_group_description()}
               field={field}
               fieldState={fieldState}
               id="oidc-required-group"
-              label="必要群組"
+              label={m.settings_oidc_card_required_group_label()}
             />
           )}
         />
@@ -239,11 +237,11 @@ function OidcProviderFields({
           name="groupClaim"
           render={({ field, fieldState }) => (
             <TextField
-              description="群組放在哪個 claim。Authentik／Authelia 用 groups，Keycloak 用 realm_access.roles，部分 LDAP bridge 用 memberOf。點號可以選巢狀欄位。"
+              description={m.settings_oidc_card_group_claim_description()}
               field={field}
               fieldState={fieldState}
               id="oidc-group-claim"
-              label="群組 claim"
+              label={m.settings_oidc_card_group_claim_label()}
               placeholder="groups"
             />
           )}
@@ -256,11 +254,11 @@ function OidcProviderFields({
           name="displayName"
           render={({ field, fieldState }) => (
             <TextField
-              description="登入按鈕上的文字，留空則用 issuer 的網域。"
+              description={m.settings_oidc_card_display_name_description()}
               field={field}
               fieldState={fieldState}
               id="oidc-display-name"
-              label="按鈕顯示名稱"
+              label={m.settings_oidc_card_display_name_label()}
             />
           )}
         />
@@ -270,10 +268,10 @@ function OidcProviderFields({
           name="linkByVerifiedEmail"
           render={({ field }) => (
             <SwitchField
-              description="允許 provider 的身分綁到同 email 的既有帳號。開了也仍要 provider 說 email_verified。"
+              description={m.settings_oidc_card_link_by_email_description()}
               field={field}
               id="oidc-link-by-email"
-              label="用已驗證的 email 綁定既有帳號"
+              label={m.settings_oidc_card_link_by_email_label()}
             />
           )}
         />
@@ -304,11 +302,11 @@ function OpenToEveryoneWarning() {
     >
       <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
       <div className="space-y-1">
-        <p className="font-medium">目前這個 provider 的任何帳號都能登入</p>
+        <p className="font-medium">
+          {m.settings_oidc_card_open_warning_title()}
+        </p>
         <p className="text-muted-foreground">
-          「必要群組」留空代表不篩選。provider 認證的是所有在它那裡有帳號的人 ——
-          如果那是 Google
-          之類的公開服務，等於對全世界開放註冊。要限制的話，填一個群組名稱。
+          {m.settings_oidc_card_open_warning_body()}
         </p>
       </div>
     </div>

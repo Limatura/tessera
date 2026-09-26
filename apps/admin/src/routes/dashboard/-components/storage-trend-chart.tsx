@@ -16,6 +16,7 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
 
 import mockData from "@/data/dashboard-mock.json";
 import { formatBytes } from "@/lib/format";
+import * as m from "@/paraglide/messages";
 
 /**
  * Placeholder time series until GET /admin/stats carries history — today the
@@ -24,23 +25,29 @@ import { formatBytes } from "@/lib/format";
  */
 const data = mockData.storageTrend;
 
-const chartConfig = {
-  bytes: {
-    color: "var(--primary)",
-    label: "已用空間",
-  },
-} satisfies ChartConfig;
+function buildChartConfig() {
+  return {
+    bytes: {
+      color: "var(--primary)",
+      label: m.dashboard_storage_trend_used_space(),
+    },
+  } satisfies ChartConfig;
+}
 
 const first = data.at(0)?.bytes ?? 0;
 const last = data.at(-1)?.bytes ?? 0;
 const growthPercent = first > 0 ? ((last - first) / first) * 100 : 0;
 
 export function StorageTrendChart() {
+  const chartConfig = buildChartConfig();
+
   return (
     <Card className="ring-foreground/10">
       <CardHeader>
-        <CardTitle>儲存空間趨勢</CardTitle>
-        <CardDescription>過去 7 天已用儲存空間</CardDescription>
+        <CardTitle>{m.dashboard_storage_trend_title()}</CardTitle>
+        <CardDescription>
+          {m.dashboard_storage_trend_description()}
+        </CardDescription>
       </CardHeader>
       <ChartContainer config={chartConfig} className="aspect-auto h-56 px-2">
         <AreaChart data={data} margin={{ left: 0, right: 12 }}>
@@ -83,10 +90,14 @@ export function StorageTrendChart() {
       <CardFooter className="flex-col items-start gap-1.5 text-sm">
         <div className="flex items-center gap-2 font-medium">
           <IconTrendingUp className="size-4 text-primary" />
-          過去 7 天成長 {growthPercent.toFixed(1)}%
+          {m.dashboard_storage_trend_growth({
+            percent: growthPercent.toFixed(1),
+          })}
         </div>
         <div className="text-muted-foreground">
-          目前已用 {formatBytes(last)}
+          {m.dashboard_storage_trend_current_used({
+            amount: formatBytes(last),
+          })}
         </div>
       </CardFooter>
     </Card>

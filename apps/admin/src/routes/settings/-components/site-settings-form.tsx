@@ -20,6 +20,7 @@ import {
 } from "@/lib/settings-schema";
 import type { SiteSettingsValues } from "@/lib/settings-schema";
 import { asString } from "@/lib/settings-values";
+import * as m from "@/paraglide/messages";
 
 import { TextField } from "./form-fields";
 import { SettingsFormFooter } from "./settings-form-footer";
@@ -76,11 +77,13 @@ function SiteSettingsFields({
           name="title"
           render={({ field, fieldState }) => (
             <TextField
-              description={`分頁標題，也是連結預覽裡的站名。不可空白，最多 ${SITE_TITLE_MAX} 字。`}
+              description={m.settings_site_form_title_description({
+                max: SITE_TITLE_MAX,
+              })}
               field={field}
               fieldState={fieldState}
               id="site-title"
-              label="站名"
+              label={m.settings_site_form_title_label()}
               placeholder={DEFAULT_TITLE}
             />
           )}
@@ -91,7 +94,9 @@ function SiteSettingsFields({
           name="description"
           render={({ field, fieldState }) => (
             <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="site-description">說明</FieldLabel>
+              <FieldLabel htmlFor="site-description">
+                {m.settings_site_form_description_label()}
+              </FieldLabel>
               <Textarea
                 {...field}
                 aria-invalid={fieldState.invalid}
@@ -99,8 +104,9 @@ function SiteSettingsFields({
                 rows={3}
               />
               <FieldDescription>
-                有人貼出這個站本身的連結時，預覽卡片顯示的說明。留空就不輸出這個
-                meta。最多 {SITE_DESCRIPTION_MAX} 字。
+                {m.settings_site_form_description_description({
+                  max: SITE_DESCRIPTION_MAX,
+                })}
               </FieldDescription>
               {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
             </Field>

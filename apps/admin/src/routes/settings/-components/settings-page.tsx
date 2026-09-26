@@ -8,6 +8,7 @@ import {
 import type * as React from "react";
 
 import { AdminShell } from "@/components/admin-shell";
+import * as m from "@/paraglide/messages";
 
 /** 每個設定分頁共用的外框。分頁之間只差標題、說明跟裡面那張表單。 */
 export function SettingsPage({
@@ -20,7 +21,7 @@ export function SettingsPage({
   children: React.ReactNode;
 }) {
   return (
-    <AdminShell title="系統設定">
+    <AdminShell title={m.settings_page_shell_title()}>
       <SettingsCard description={description} title={title}>
         {children}
       </SettingsCard>

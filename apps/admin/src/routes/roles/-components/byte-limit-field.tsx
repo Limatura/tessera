@@ -12,6 +12,8 @@ import {
   SelectValue,
 } from "@tessera/ui/components/select";
 
+import * as m from "@/paraglide/messages";
+
 /**
  * 配額欄位有三種狀態，而且 `null` 跟 `0` 是不同的意思：
  * `null` 跟著全站設定跑（全站改了它就跟著改），`0` 是「這個角色不設上限」。
@@ -21,12 +23,14 @@ const MIB = 1024 * 1024;
 
 export type ByteLimitMode = "inherit" | "unlimited" | "custom";
 
-/** `inherit` 的字樣每個欄位不同，由呼叫端給。 */
-const MODE_LABELS: Record<ByteLimitMode, string> = {
-  custom: "自訂",
-  inherit: "跟隨全站",
-  unlimited: "不限制",
-};
+/** `inherit` 的字樣每個欄位不同，由呼叫端給。呼叫時才讀取，語系才能即時反映。 */
+function modeLabels(): Record<ByteLimitMode, string> {
+  return {
+    custom: m.roles_byte_limit_custom(),
+    inherit: m.roles_byte_limit_inherit(),
+    unlimited: m.roles_byte_limit_unlimited(),
+  };
+}
 
 export function modeOf(value: number | null | undefined): ByteLimitMode {
   if (value === null || value === undefined) {
@@ -65,6 +69,8 @@ export function ByteLimitField({
   onMibChange: (mib: number) => void;
   disabled?: boolean;
 }) {
+  const labels = modeLabels();
+
   return (
     <Field>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -78,19 +84,19 @@ export function ByteLimitField({
             {/* 不給對應函式的話會顯示原始值（inherit / unlimited / custom）。 */}
             <SelectValue>
               {(value: ByteLimitMode) =>
-                value === "inherit" ? inheritLabel : MODE_LABELS[value]
+                value === "inherit" ? inheritLabel : labels[value]
               }
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="inherit">{inheritLabel}</SelectItem>
-            <SelectItem value="unlimited">{MODE_LABELS.unlimited}</SelectItem>
-            <SelectItem value="custom">{MODE_LABELS.custom}</SelectItem>
+            <SelectItem value="unlimited">{labels.unlimited}</SelectItem>
+            <SelectItem value="custom">{labels.custom}</SelectItem>
           </SelectContent>
         </Select>
         {mode === "custom" && (
           <Input
-            aria-label={`${label}（MiB）`}
+            aria-label={m.roles_byte_limit_mib_aria({ label })}
             className="w-24 shrink-0"
             disabled={disabled}
             min={1}
@@ -101,9 +107,10 @@ export function ByteLimitField({
         )}
       </div>
       <FieldDescription>
-        {mode === "inherit" && `${inheritLabel}，全站設定改了會跟著改`}
-        {mode === "unlimited" && "這個角色不套用自己的上限"}
-        {mode === "custom" && "單位為 MiB"}
+        {mode === "inherit" &&
+          m.roles_byte_limit_inherit_description({ inheritLabel })}
+        {mode === "unlimited" && m.roles_byte_limit_unlimited_description()}
+        {mode === "custom" && m.roles_byte_limit_custom_description()}
       </FieldDescription>
     </Field>
   );

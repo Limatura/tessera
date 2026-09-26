@@ -20,6 +20,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { useInvites } from "@/hooks/use-admin";
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "./__root";
 
@@ -41,47 +42,53 @@ const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
 });
 
 function formatDate(value: string | null | undefined): string {
-  return value ? dateFormatter.format(new Date(value)) : "不過期";
+  return value
+    ? dateFormatter.format(new Date(value))
+    : m.common_never_expires();
 }
 
 function InvitesComponent() {
   const invites = useInvites();
 
   return (
-    <AdminShell title="邀請碼">
+    <AdminShell title={m.invites_page_title()}>
       <Card className="ring-foreground/10">
         <CardHeader>
-          <CardTitle>邀請碼</CardTitle>
-          <CardDescription>
-            是否仍可使用由 server 判斷，不是從次數與時間自己推算的。
-          </CardDescription>
+          <CardTitle>{m.invites_card_title()}</CardTitle>
+          <CardDescription>{m.invites_card_description()}</CardDescription>
         </CardHeader>
         <CardContent>
           {invites.isPending && (
-            <p className="text-sm text-muted-foreground">載入中…</p>
+            <p className="text-sm text-muted-foreground">
+              {m.common_loading()}
+            </p>
           )}
           {invites.isError && (
-            <p className="text-sm text-destructive">邀請碼載入失敗</p>
+            <p className="text-sm text-destructive">{m.invites_load_error()}</p>
           )}
           {invites.data && (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>備註</TableHead>
-                  <TableHead>狀態</TableHead>
-                  <TableHead className="text-right">已用 / 上限</TableHead>
-                  <TableHead>到期</TableHead>
+                  <TableHead>{m.invites_col_note()}</TableHead>
+                  <TableHead>{m.invites_col_status()}</TableHead>
+                  <TableHead className="text-right">
+                    {m.invites_col_usage()}
+                  </TableHead>
+                  <TableHead>{m.invites_col_expires()}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invites.data.map((invite) => (
                   <TableRow key={invite.id}>
                     <TableCell className="font-medium">
-                      {invite.note ?? "—"}
+                      {invite.note ?? m.common_dash_placeholder()}
                     </TableCell>
                     <TableCell>
                       <Badge variant={invite.active ? "secondary" : "outline"}>
-                        {invite.active ? "可使用" : "已失效"}
+                        {invite.active
+                          ? m.invites_status_active()
+                          : m.invites_status_inactive()}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">

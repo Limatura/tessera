@@ -2,6 +2,7 @@ import { createRoute } from "@tanstack/react-router";
 
 import { PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
+import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "../__root";
 import { PasswordSettingsForm } from "./-components/password-settings-form";
@@ -22,8 +23,8 @@ export const Route = createRoute({
 function PasswordSettingsRoute() {
   return (
     <SettingsPage
-      description="密碼長度規則與 Argon2id 的成本參數"
-      title="密碼與雜湊"
+      description={m.settings_password_description()}
+      title={m.settings_password_title()}
     >
       <PasswordSettingsForm />
     </SettingsPage>

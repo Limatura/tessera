@@ -2,6 +2,7 @@ import type { components } from "@tessera/api/schema";
 import type * as React from "react";
 
 import { useSettings } from "@/hooks/use-settings";
+import * as m from "@/paraglide/messages";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -20,11 +21,17 @@ export function SettingsLoader({
   const settings = useSettings();
 
   if (settings.isPending) {
-    return <p className="text-muted-foreground text-sm">載入中…</p>;
+    return (
+      <p className="text-muted-foreground text-sm">
+        {m.settings_loader_loading()}
+      </p>
+    );
   }
 
   if (settings.isError || !settings.data) {
-    return <p className="text-destructive text-sm">設定載入失敗</p>;
+    return (
+      <p className="text-destructive text-sm">{m.settings_loader_error()}</p>
+    );
   }
 
   return children(settings.data);
