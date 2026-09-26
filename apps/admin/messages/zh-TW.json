@@ -20,6 +20,7 @@
   "all_shares_label_text": "文字",
   "all_shares_load_error": "分享載入失敗",
   "all_shares_owner_anonymous": "匿名",
+  "all_shares_owner_deleted": "已刪除的帳號",
   "all_shares_page_title": "全站分享",
   "all_shares_status_active": "有效",
   "all_shares_status_inactive": "已失效",

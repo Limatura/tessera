@@ -7,8 +7,13 @@ import type { Account } from "./permissions";
  *
  * `AccountResponse` 目前沒有 `state` 欄位,之後有了應改看那個。
  */
-const TOMBSTONE_PREFIX = "gone-";
+export const TOMBSTONE_PREFIX = "gone-";
 
 export function isDeletedAccount(account: Account): boolean {
   return account.username.startsWith(TOMBSTONE_PREFIX);
+}
+
+/** 同一個殘骸慣例,但用在只有 username 字串、沒有整個 Account 物件的地方(例如 owner_username)。 */
+export function isDeletedUsername(username: string): boolean {
+  return username.startsWith(TOMBSTONE_PREFIX);
 }
