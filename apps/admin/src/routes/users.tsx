@@ -7,7 +7,6 @@ import {
   IconTrashX,
 } from "@tabler/icons-react";
 import { createRoute, useNavigate } from "@tanstack/react-router";
-import type { components } from "@tessera/api/schema";
 import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
 import {
@@ -48,6 +47,7 @@ import {
   useUsers,
 } from "@/hooks/use-admin";
 import { useSession } from "@/hooks/use-auth";
+import type { AdminUser } from "@/lib/accounts";
 import { isDeletedAccount } from "@/lib/accounts";
 import {
   accountRoleLabel,
@@ -63,7 +63,7 @@ import { SetUserRoleDialog } from "./users/-components/set-user-role-dialog";
 import type { UserAction } from "./users/-components/user-action-dialog";
 import { UserActionDialog } from "./users/-components/user-action-dialog";
 
-type Account = components["schemas"]["AccountResponse"];
+type Account = AdminUser;
 
 const usersSearchSchema = pageSearchSchema.extend({
   // oxlint-disable-next-line promise/prefer-await-to-then -- zod 的 catch,不是 Promise 的
@@ -86,7 +86,8 @@ export const Route = createRoute({
 /** 這列帳號上,目前登入的人能做哪些事。都不能做時整個選單不出現。 */
 interface RowAbilities {
   setRole: boolean;
-  setState: boolean;
+  disable: boolean;
+  enable: boolean;
   removeShares: boolean;
   remove: boolean;
 }
@@ -118,19 +119,21 @@ function UsersComponent() {
     // 殘骸不代表任何人,能做的只剩清掉它留下的分享 —— 刪帳號本來就不會帶走那些。
     if (isDeletedAccount(user)) {
       return {
+        disable: false,
+        enable: false,
         remove: false,
         removeShares: canRemoveShares,
         setRole: false,
-        setState: false,
       };
     }
     // 停用或刪掉自己要走前台的帳號設定(刪自己要密碼),這裡不給。
     const isSelf = user.id === account?.id;
     return {
+      disable: canSetState && !isSelf && user.state === "active",
+      enable: canSetState && user.state === "disabled",
       remove: canDelete && !isSelf,
       removeShares: canRemoveShares,
       setRole: canSetRole,
-      setState: canSetState && !isSelf,
     };
   };
 
@@ -224,6 +227,11 @@ function UsersComponent() {
                     <TableRow key={user.id}>
                       <TableCell className="font-medium">
                         {user.username}
+                        {user.state === "disabled" && (
+                          <Badge className="ml-2" variant="destructive">
+                            {m.users_state_disabled()}
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {user.email}
@@ -308,8 +316,8 @@ function UserRowMenu({
   onEnable: () => void;
   onAction: (action: UserAction) => void;
 }) {
-  const { setRole, setState, removeShares, remove } = abilities;
-  if (!(setRole || setState || removeShares || remove)) {
+  const { setRole, disable, enable, removeShares, remove } = abilities;
+  if (!(setRole || disable || enable || removeShares || remove)) {
     return null;
   }
 
@@ -334,23 +342,19 @@ function UserRowMenu({
             {m.users_menu_set_role()}
           </DropdownMenuItem>
         )}
-        {/*
-         * 列表還看不到帳號是不是停用中(AdminUserResponse 還沒有 state),
-         * 所以兩個都給。重複停用或啟用對 server 來說都是無害的。
-         */}
-        {setState && (
-          <>
-            <DropdownMenuItem onClick={() => onAction("disable")}>
-              <IconPlayerPause />
-              {m.users_menu_disable()}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onEnable}>
-              <IconPlayerPlay />
-              {m.users_menu_enable()}
-            </DropdownMenuItem>
-          </>
+        {disable && (
+          <DropdownMenuItem onClick={() => onAction("disable")}>
+            <IconPlayerPause />
+            {m.users_menu_disable()}
+          </DropdownMenuItem>
         )}
-        {(removeShares || remove) && (setRole || setState) && (
+        {enable && (
+          <DropdownMenuItem onClick={onEnable}>
+            <IconPlayerPlay />
+            {m.users_menu_enable()}
+          </DropdownMenuItem>
+        )}
+        {(removeShares || remove) && (setRole || disable || enable) && (
           <DropdownMenuSeparator />
         )}
         {removeShares && (
