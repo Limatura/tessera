@@ -15,10 +15,11 @@ import {
   useRemoveUserShares,
   useSetUserState,
 } from "@/hooks/use-admin";
+import type { AdminUser } from "@/lib/accounts";
 import { isDeletedAccount } from "@/lib/accounts";
 import * as m from "@/paraglide/messages";
 
-type Account = components["schemas"]["AccountResponse"];
+type Account = AdminUser;
 type ErrorBody = components["schemas"]["ErrorBody"];
 
 /** 需要先確認才做的動作。「重新啟用」可以直接按,不在這裡。 */

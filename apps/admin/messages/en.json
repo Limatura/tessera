@@ -543,5 +543,6 @@
   "users_set_role_dialog_placeholder": "Select a role",
   "users_set_role_dialog_role_label": "Role",
   "users_set_role_dialog_title": "Set role for \"{name}\"",
-  "users_show_deleted": "Show deleted accounts"
+  "users_show_deleted": "Show deleted accounts",
+  "users_state_disabled": "Disabled"
 }

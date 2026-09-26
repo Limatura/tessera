@@ -543,5 +543,6 @@
   "users_set_role_dialog_placeholder": "選擇角色",
   "users_set_role_dialog_role_label": "角色",
   "users_set_role_dialog_title": "設定「{name}」的角色",
-  "users_show_deleted": "顯示已刪除的帳號"
+  "users_show_deleted": "顯示已刪除的帳號",
+  "users_state_disabled": "已停用"
 }

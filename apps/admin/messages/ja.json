@@ -543,5 +543,6 @@
   "users_set_role_dialog_placeholder": "ロールを選択",
   "users_set_role_dialog_role_label": "ロール",
   "users_set_role_dialog_title": "「{name}」のロールを設定",
-  "users_show_deleted": "削除済みアカウントを表示"
+  "users_show_deleted": "削除済みアカウントを表示",
+  "users_state_disabled": "停止中"
 }
