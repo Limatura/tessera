@@ -19,6 +19,7 @@ import { useSession } from "@/hooks/use-auth";
 import { usernameSchema } from "@/lib/api/auth-schema";
 import * as m from "@/paraglide/messages";
 
+import { EmailVerificationStatus } from "./email-verification-status";
 import { Section } from "./section";
 
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -143,6 +144,13 @@ export function ProfileSection() {
               {...register("email")}
             />
             {errors.email ? <FieldError errors={[errors.email]} /> : null}
+            {/*
+             * 狀態講的是 session 裡那個地址。改到一半就不顯示,免得「已驗證」看起來
+             * 像是在說剛打的新地址。`undefined` 是舊版 server,沒這個欄位就不猜。
+             */}
+            {!dirtyFields.email && session?.email_verified_at !== undefined ? (
+              <EmailVerificationStatus verifiedAt={session.email_verified_at} />
+            ) : null}
           </Field>
         </div>
 
