@@ -20,6 +20,7 @@
   "all_shares_label_text": "Text",
   "all_shares_load_error": "Failed to load shares",
   "all_shares_owner_anonymous": "Anonymous",
+  "all_shares_owner_deleted": "Deleted account",
   "all_shares_page_title": "All shares",
   "all_shares_status_active": "Active",
   "all_shares_status_inactive": "Inactive",

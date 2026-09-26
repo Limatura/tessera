@@ -20,6 +20,7 @@
   "all_shares_label_text": "テキスト",
   "all_shares_load_error": "共有の読み込みに失敗しました",
   "all_shares_owner_anonymous": "匿名",
+  "all_shares_owner_deleted": "削除されたアカウント",
   "all_shares_page_title": "全体の共有",
   "all_shares_status_active": "有効",
   "all_shares_status_inactive": "無効",

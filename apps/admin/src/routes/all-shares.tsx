@@ -24,6 +24,7 @@ import { AdminShell } from "@/components/admin-shell";
 import { Pager, pageSearchSchema } from "@/components/pager";
 import { PAGE_SIZE, useAllShares } from "@/hooks/use-admin";
 import { useSession } from "@/hooks/use-auth";
+import { isDeletedUsername } from "@/lib/accounts";
 import { formatBytes } from "@/lib/format";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
@@ -64,6 +65,18 @@ function shareLabel(share: AdminShare): string {
   return share.kind === "text"
     ? m.all_shares_label_text()
     : m.all_shares_label_file_count({ count: share.file_count });
+}
+
+/** null 是匿名上傳;"gone-" 開頭是帳號已被刪除,兩者都跟真的帳號名分開顯示。 */
+function ownerLabel(share: AdminShare): string {
+  const { owner_username: ownerUsername } = share;
+  if (!ownerUsername) {
+    return m.all_shares_owner_anonymous();
+  }
+  if (isDeletedUsername(ownerUsername)) {
+    return m.all_shares_owner_deleted();
+  }
+  return ownerUsername;
 }
 
 function AllSharesComponent() {
@@ -128,14 +141,7 @@ function AllSharesComponent() {
                       {shareLabel(share)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {/* null 是匿名上傳;帳號刪掉之後這裡仍是那個 id,不會變 null。 */}
-                      {share.owner_id ? (
-                        <span className="font-mono text-xs">
-                          {share.owner_id}
-                        </span>
-                      ) : (
-                        m.all_shares_owner_anonymous()
-                      )}
+                      {ownerLabel(share)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatBytes(share.size_bytes)}
