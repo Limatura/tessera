@@ -6,11 +6,15 @@ Code: `storage/mod.rs`, `storage/placement.rs`, `storage/first_write.rs`, `db/re
 
 ## What a backend is here
 
-`storage.url` configures one backend, named `default`. More can be added at runtime through `POST /api/v1/admin/backends`; those live in the `storage_backends` table with their credentials sealed.
+Every backend is a row in the `storage_backends` table, with its URL and options sealed. There is no other kind. Rows are added, changed and removed at runtime through `/api/v1/admin/storage/backends` or `tessera-server backends`, and the pool is rebuilt on the spot.
 
-`storage::Pool` holds both: `open` maps a name to a live store, `configured` holds the rows.
+A fresh instance has no rows, so start-up writes one (`storage::seed`): `default`, a local directory at `blobs` under `server.data_dir`, marked as where new uploads go. Only into an empty table, so an operator who replaced it with a bucket does not get it back on the next start. Nothing about it is special after that; it can be repointed, retired or removed like any other.
 
-Every `file_segments` row names the backend it lives on. A file stored before backends were configurable reads as `default`, because there was nowhere else it could have been.
+`storage::Pool` holds the open stores (`open`, by name) and the rows they came from (`configured`). A row that will not open is logged and left out of `open`, and shares on it answer `503` until it is fixed; the others keep working.
+
+Every `file_segments` row names the backend it lives on. A file stored before backends were recorded reads as `default`, because there was nowhere else it could have been.
+
+Deleting a share, by hand or by the sweep, removes each object from the backend its segment names, and the daily reconciliation lists every open backend for orphans, not only the default one.
 
 ## Two different capability questions
 
@@ -32,12 +36,7 @@ WebDAV's only upload verb is a whole-body `PUT`. `object_store` has no streaming
 
 ## Sending browsers to the bucket
 
-Downloads (`retrieval.md`) and upload parts (`resumable.md`) can go between the browser and the store directly, without crossing this server. It is off unless an operator turns it on, per backend:
-
-| Backend | Switch |
-| --- | --- |
-| The one from `storage.url` | the `storage.direct_access` setting |
-| A stored one | `direct_access` on `POST /api/v1/admin/storage/backends`, or `PATCH /api/v1/admin/storage/backends/{name}` |
+Downloads (`retrieval.md`) and upload parts (`resumable.md`) can go between the browser and the store directly, without crossing this server. It is off unless an operator turns it on, per backend: `direct_access` on `POST /api/v1/admin/storage/backends`, or `PATCH /api/v1/admin/storage/backends/{name}`.
 
 `PATCH` exists so the switch can be flipped without sending the credentials again; they are sealed and never shown.
 

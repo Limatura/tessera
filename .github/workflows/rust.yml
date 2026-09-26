@@ -925,7 +925,7 @@ jobs:
 
           mkdir -p /tmp/fuzz
           TESSERA_DATABASE__URL='sqlite:///tmp/fuzz/fuzz.db?mode=rwc' \
-          TESSERA_STORAGE__URL=/tmp/fuzz/blobs \
+          TESSERA_SERVER__DATA_DIR=/tmp/fuzz \
           TESSERA_SERVER__PORT=13999 \
             "$CARGO_TARGET_DIR/debug/tessera-server" > /tmp/fuzz/server.log 2>&1 &
           echo $! > /tmp/fuzz/server.pid

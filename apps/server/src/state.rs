@@ -48,13 +48,11 @@ pub enum ServiceStatus {
 
 /// Everything about where blobs go, as one argument.
 ///
-/// The store, its multipart view, the pool and the key that opens the pool's
-/// rows are one subject: taking three from here and the fourth from elsewhere
-/// gives a state whose backends and whose key disagree.
+/// The pool and the key that opens its rows are one subject: taking one from
+/// here and the other from elsewhere gives a state whose backends and whose
+/// key disagree.
 #[derive(Debug, Clone)]
 pub struct Storage {
-    /// Where new content goes when nothing else claims it.
-    pub default: crate::storage::Stores,
     /// Every backend that opened, and what they were opened from.
     pub pool: crate::storage::Pool,
     /// What seals and opens a stored backend's credentials.
@@ -128,11 +126,6 @@ pub struct AppState {
     /// on restart; see [`Throttles`] for why, and why there is more than one
     /// counter.
     pub throttles: Arc<Throttles>,
-    /// Blob store: the one new content is written to.
-    ///
-    /// Reading goes through [`AppState::backend`] instead, because a file
-    /// records which backend holds it and that may not be this one any more.
-    pub storage: Arc<dyn ObjectStore>,
     /// The stored backends, and the key that opens them.
     ///
     /// Holds the sealer, so the one place that can read a credential is the one
@@ -140,9 +133,8 @@ pub struct AppState {
     pub storage_backends: crate::db::repository::storage_backend::StorageBackendRepository,
     /// Every configured backend, by name.
     ///
-    /// An `ArcSwap` because the set is meant to be changeable while the process
-    /// runs, the same shape as `mailer`. Today it is built once from
-    /// `storage.url` and holds a single entry.
+    /// An `ArcSwap` because the set changes while the process runs, when one
+    /// is added or removed from the panel. The same shape as `mailer`.
     pub backends: Arc<ArcSwap<crate::storage::Pool>>,
     /// Keeps the first upload into a location that does not exist yet from
     /// racing its siblings. See
@@ -151,11 +143,6 @@ pub struct AppState {
     /// Bytes arriving right now, which no table knows about yet. See
     /// [`InFlight`](crate::storage::in_flight::InFlight).
     pub in_flight: Arc<crate::storage::in_flight::InFlight>,
-    /// The same store when it can hold a multipart upload open across requests.
-    ///
-    /// `None` on a local filesystem, where a resumable upload appends to a
-    /// partial file instead. See `upload::sink`.
-    pub multipart: Option<crate::storage::Multipart>,
     /// Upload sessions.
     pub uploads: UploadRepository,
     /// Where the frontend is read from: the compiled-in bundle, or a directory.
@@ -277,14 +264,9 @@ impl AppState {
 
     /// Whether browsers may be sent to the named backend directly.
     ///
-    /// The one from `storage.url` answers from the configuration, the stored
-    /// ones from their rows. A name that is neither is not a backend anybody
-    /// should be sent to.
+    /// A name with no row is not a backend anybody should be sent to.
     #[must_use]
     pub fn direct_access(&self, name: &str) -> bool {
-        if name == crate::storage::DEFAULT_BACKEND {
-            return self.config().storage.direct_access;
-        }
         self.backends
             .load()
             .configured
@@ -346,12 +328,6 @@ impl AppState {
         assets: crate::assets::Source,
     ) -> Self {
         let Storage {
-            default:
-                crate::storage::Stores {
-                    store: storage,
-                    multipart,
-                    ..
-                },
             pool: backends,
             sealer,
         } = storage;
@@ -392,7 +368,6 @@ impl AppState {
             settings: SettingRepository::new(db.clone(), sealer),
             events: AccessEventRepository::new(db.clone()),
             uploads: UploadRepository::new(db.clone()),
-            multipart,
             assets: Arc::new(assets),
             oidc: Arc::new(crate::auth::oidc::discovery::Discovery::default()),
             oidc_keys: Arc::new(crate::auth::oidc::jwks::Keys::default()),
@@ -420,7 +395,6 @@ impl AppState {
             db,
             storage_backends,
             backends: Arc::new(ArcSwap::from_pointee(backends)),
-            storage,
             status: Arc::new(RwLock::new(ServiceStatus::Starting)),
             started_at: OffsetDateTime::now_utc(),
         }

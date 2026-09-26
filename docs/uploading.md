@@ -57,7 +57,7 @@ flowchart TD
 | Role     | the quota on their role, or the guest role when anonymous |
 | Instance | `storage.max_total_bytes`                                 |
 
-Plus a per-backend ceiling: `storage.capacity_bytes` for the backend built from `storage.url`, or the `capacity_bytes` column for a configured one.
+Plus a per-backend ceiling: the backend's `capacity_bytes`.
 
 ### Checked twice, on purpose
 

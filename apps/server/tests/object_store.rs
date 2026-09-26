@@ -235,9 +235,9 @@ fn storage_options() -> std::collections::BTreeMap<String, String> {
 async fn app() -> TestApp {
     let url = storage_url();
     let options = storage_options();
-    TestApp::with_config(move |config| {
-        config.storage.url = url;
-        config.storage.options = options;
+    TestApp::with_backend(move |backend| {
+        backend.url = url;
+        backend.options = options;
     })
     .await
 }
@@ -354,14 +354,15 @@ async fn deleting_a_share_removes_its_object() {
     let keys = app
         .state
         .shares
-        .object_keys_of(share.id)
+        .objects_of(share.id)
         .await
         .expect("the keys");
     assert_eq!(keys.len(), 1, "expected one object");
 
-    for key in &keys {
+    for (backend, key) in &keys {
         app.state
-            .storage
+            .backend(backend)
+            .expect("an open backend")
             .head(&object_store::path::Path::from(key.as_str()))
             .await
             .expect("the object should be there before the delete");
@@ -382,10 +383,11 @@ async fn deleting_a_share_removes_its_object() {
     )
     .await;
 
-    for key in &keys {
+    for (backend, key) in &keys {
         assert!(
             app.state
-                .storage
+                .backend(backend)
+                .expect("an open backend")
                 .head(&object_store::path::Path::from(key.as_str()))
                 .await
                 .is_err(),
@@ -428,12 +430,11 @@ async fn a_file_is_read_from_the_bucket_it_names() {
     // The name every file in this test recorded, pointed at the *other*
     // bucket. Nothing was copied there, so the bytes cannot be found unless the
     // reader is ignoring the name.
-    let elsewhere = tessera_server::storage::build(&tessera_server::config::StorageConfig {
+    let elsewhere = tessera_server::storage::build(&tessera_server::storage::Target {
         url: second,
         // The same options as the first, for the same reason: a store that
         // cannot be opened would fail this test's assertion by accident.
         options: storage_options(),
-        ..tessera_server::config::StorageConfig::default()
     })
     .expect("open the second bucket");
     app.state.replace_backends(tessera_server::storage::Pool {
@@ -441,7 +442,7 @@ async fn a_file_is_read_from_the_bucket_it_names() {
             tessera_server::storage::DEFAULT_BACKEND.to_owned(),
             tessera_server::storage::Stores::plain(elsewhere),
         )]),
-        configured: Vec::new(),
+        configured: app.state.backends.load().configured.clone(),
     });
 
     assert_ne!(

@@ -273,14 +273,9 @@ pub async fn create(
             .backend_multipart(&backend)
             .as_ref()
             .map(|handle| &handle.0),
-        // The local directory only exists for the backend built from
-        // `storage.url`. Anywhere else is a remote store, and one that cannot
-        // hold a multipart open cannot hold a resumable upload either; see
-        // `Sink::open`.
-        (backend == crate::storage::DEFAULT_BACKEND)
-            .then(|| local_root(&state))
-            .flatten()
-            .as_ref(),
+        // A remote store that cannot hold a multipart open cannot hold a
+        // resumable upload either; see `Sink::open`.
+        state.backends.load().local_root(&backend).as_ref(),
         &key,
     )
     .await?;
@@ -980,14 +975,6 @@ fn sink_for(state: &AppState, upload: &Upload) -> Result<Sink> {
         );
         Error::Unavailable
     })
-}
-
-/// Where partial files live when the store is a local filesystem.
-///
-/// `None` when it is not one, in which case there is a multipart handle to use
-/// instead. The two are exclusive by construction; see `storage`.
-fn local_root(state: &AppState) -> Option<std::path::PathBuf> {
-    crate::storage::local_path(&state.config().storage.url).map(std::path::PathBuf::from)
 }
 
 /// A `NewFile` for a finished upload.

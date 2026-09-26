@@ -140,14 +140,14 @@ pub struct SecurityConfig {
     /// Seals the settings that are kept in the database and read back, as 64
     /// hexadecimal characters.
     ///
-    /// Empty, the default, means those settings cannot be stored at all: the
-    /// panel refuses them rather than writing a credential in plaintext. See
+    /// Empty, the default, uses a key made on the first start and kept in
+    /// `secret.key` under `server.data_dir`. Set one (`openssl rand -hex 32`)
+    /// to keep it out of that directory, and out of any backup of it. See
     /// [`security::secret`](crate::security::secret) for what that protects
     /// against and what it does not.
     ///
-    /// Generate one with `openssl rand -hex 32`. It belongs in the
-    /// environment, nowhere near a backup of the rows it protects; losing it
-    /// means every sealed setting has to be entered again.
+    /// Losing it, either way, means every sealed setting and every backend
+    /// has to be entered again.
     pub secret_key: String,
 }
 
@@ -1177,6 +1177,15 @@ pub struct ServerConfig {
     /// compiled-in bundle would quietly serve yesterday's build.
     #[serde(default)]
     pub assets_dir: String,
+
+    /// Where this instance keeps what it writes for itself.
+    ///
+    /// Two things, both only on a first start: the key sealed settings are
+    /// kept under, as `secret.key`, when `security.secret_key` is not set; and
+    /// the first storage backend, a directory `blobs` inside this one, when
+    /// there is none yet. Relative paths are taken from the working directory.
+    #[serde(default = "default_data_dir")]
+    pub data_dir: String,
     /// Origins allowed to call the API from a browser. Empty means same-origin
     /// only, the right default for the single-binary deployment.
     pub cors_allowed_origins: Vec<String>,
@@ -1266,24 +1275,6 @@ pub struct StorageConfig {
     /// costs the file.
     pub reconcile_grace_hours: u64,
 
-    /// Where blobs live.
-    ///
-    /// A bare path is a local directory, created if missing. Anything with a
-    /// scheme is handed to `object_store`:
-    /// `s3://bucket/prefix`, `gs://bucket`, `az://container`,
-    /// `https://host/dav`, `memory://`.
-    pub url: String,
-
-    /// How much the backend from `url` may hold, in bytes. `0` is no limit.
-    ///
-    /// The stored backends carry their own figure in the table; this one is
-    /// configured where its URL is, because it has no row.
-    ///
-    /// Distinct from `max_total_bytes`, which covers the whole instance. This
-    /// is what one bucket takes before uploads go elsewhere, so a free tier can
-    /// be stopped short of the provider's own limit.
-    pub capacity_bytes: u64,
-
     /// Whether one file may be spread across several backends.
     ///
     /// Off by default. It buys a file larger than any single account will hold:
@@ -1298,31 +1289,6 @@ pub struct StorageConfig {
     /// A file is only split when nothing can take it whole. See
     /// `docs/splitting.md`.
     pub split_across_backends: bool,
-
-    /// Whether browsers may be sent to the backend from `url` directly, to
-    /// download a file or to write an upload's parts.
-    ///
-    /// Off by default. Turn it on only if a browser can reach that store: an
-    /// S3-compatible bucket on the public internet, not one on a home network
-    /// that only this server can see. Nothing here can check, since the network
-    /// that matters is the downloader's.
-    ///
-    /// Only S3 and GCS can be sent to; anything else keeps going through this
-    /// server with this on. The stored backends carry their own flag.
-    pub direct_access: bool,
-
-    /// Backend-specific options, passed through verbatim.
-    ///
-    /// Keys are whatever the chosen backend understands (`aws_region`,
-    /// `endpoint`, `allow_http`, …). The standard `AWS_*`, `GOOGLE_*` and
-    /// `AZURE_*` environment variables are merged in automatically, so
-    /// credentials need not be written into a file that might get committed;
-    /// anything set here wins over the environment.
-    ///
-    /// A `BTreeMap`, so iteration is deterministic and any log or error listing
-    /// the options comes out in the same order twice.
-    #[serde(default)]
-    pub options: BTreeMap<String, String>,
 }
 
 /// How log records are rendered.
@@ -1347,6 +1313,12 @@ pub struct TelemetryConfig {
     pub ansi: bool,
 }
 
+/// `data`, beside the default database, so a fresh checkout keeps everything
+/// it writes in one place.
+fn default_data_dir() -> String {
+    "data".to_owned()
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         Self {
@@ -1361,6 +1333,7 @@ impl Default for ServerConfig {
             part_size_bytes: 8 * 1024 * 1024,
             public_url: String::new(),
             assets_dir: String::new(),
+            data_dir: default_data_dir(),
             cors_allowed_origins: Vec::new(),
             trusted_proxies: Vec::new(),
             trusted_proxy: false,
@@ -1382,14 +1355,10 @@ impl Default for DatabaseConfig {
 impl Default for StorageConfig {
     fn default() -> Self {
         Self {
-            url: "data/blobs".to_owned(),
-            options: BTreeMap::new(),
             // No limit: the usual deployment is one person on their own
             // hardware. `Config::load` warns if anonymous uploads are also on.
             max_total_bytes: 0,
-            capacity_bytes: 0,
             split_across_backends: false,
-            direct_access: false,
             reconcile_interval_hours: 24,
             reconcile_grace_hours: 24,
         }
@@ -2106,7 +2075,6 @@ impl Config {
     pub fn validate(&self) -> Result<(), ConfigError> {
         self.server.validate()?;
         self.database.validate()?;
-        self.storage.validate()?;
         self.features.validate()?;
         self.auth.validate()?;
         self.share.validate()?;
@@ -2352,6 +2320,12 @@ impl ServerConfig {
                 reason: "must be at least 1 byte".to_owned(),
             });
         }
+        if self.data_dir.trim().is_empty() {
+            return Err(ConfigError::Invalid {
+                field: "server.data_dir",
+                reason: "must name a directory".to_owned(),
+            });
+        }
         if let Err(entry) = TrustedProxies::parse(&self.trusted_proxies) {
             return Err(ConfigError::Invalid {
                 field: "server.trusted_proxies",
@@ -2404,21 +2378,6 @@ impl DatabaseConfig {
                 detail: format!("database.url uses the {} scheme", backend.as_str()),
             })
         }
-    }
-}
-
-impl StorageConfig {
-    fn validate(&self) -> Result<(), ConfigError> {
-        // Shallow by design. `object_store` knows which schemes are compiled
-        // in and whether the options parse; `storage::build` reports that at
-        // start-up, and a copy here would be a second list to keep in step.
-        if self.url.trim().is_empty() {
-            return Err(ConfigError::Invalid {
-                field: "storage.url",
-                reason: "must name a directory or an object-store URL".to_owned(),
-            });
-        }
-        Ok(())
     }
 }
 
@@ -2710,7 +2669,7 @@ mod tests {
     })]
     #[case::zero_pool("database.max_connections", |c: &mut Config| c.database.max_connections = 0)]
     #[case::bad_url("database.url", |c: &mut Config| c.database.url = "mongodb://x".to_owned())]
-    #[case::empty_storage("storage.url", |c: &mut Config| c.storage.url = "  ".to_owned())]
+    #[case::empty_data_dir("server.data_dir", |c: &mut Config| c.server.data_dir = "  ".to_owned())]
     // A log on with no retention keeps nothing while reading as if it keeps
     // something.
     #[case::log_without_retention("share.access_log.retention_days", |c: &mut Config| {

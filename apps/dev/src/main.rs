@@ -42,16 +42,12 @@ async fn main() -> std::io::Result<()> {
         .nth(1)
         .unwrap_or_else(|| "http://localhost:8787".to_owned());
 
-    let key = secret_key(Path::new(ENV_FILE))?;
     let oidc = format!("http://127.0.0.1:{OIDC_PORT}");
     let github = format!("http://127.0.0.1:{GITHUB_PORT}");
     let scanner = format!("http://127.0.0.1:{SCANNER_PORT}/scan");
 
     let settings = [
         ("TESSERA_SERVER__PUBLIC_URL", public_url.as_str()),
-        // So the panel can store the sealed settings too, and so the key does
-        // not change between runs and orphan what it sealed last time.
-        ("TESSERA_SECURITY__SECRET_KEY", key.as_str()),
         ("TESSERA_AUTH__OIDC__ISSUER", oidc.as_str()),
         ("TESSERA_AUTH__OIDC__CLIENT_ID", CLIENT_ID),
         ("TESSERA_AUTH__OIDC__CLIENT_SECRET", CLIENT_SECRET),
@@ -86,28 +82,6 @@ async fn main() -> std::io::Result<()> {
 
     announce(&public_url);
     tokio::signal::ctrl_c().await
-}
-
-/// The key from the last run, or a new one.
-///
-/// Kept, because the panel seals what it stores with it: a new key each run
-/// would leave every secret saved in the panel last time unreadable.
-fn secret_key(file: &Path) -> std::io::Result<String> {
-    if let Ok(previous) = std::fs::read_to_string(file)
-        && let Some(key) = previous
-            .lines()
-            .find_map(|line| line.strip_prefix("TESSERA_SECURITY__SECRET_KEY="))
-            .map(|key| key.trim_matches('\''))
-            .filter(|key| key.len() == 64)
-    {
-        return Ok(key.to_owned());
-    }
-    let mut bytes = [0_u8; 32];
-    getrandom::fill(&mut bytes).map_err(|error| std::io::Error::other(error.to_string()))?;
-    Ok(bytes.iter().fold(String::new(), |mut out, byte| {
-        write!(out, "{byte:02x}").ok();
-        out
-    }))
 }
 
 #[expect(

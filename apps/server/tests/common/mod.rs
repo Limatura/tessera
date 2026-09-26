@@ -29,16 +29,18 @@ use http_body_util::BodyExt as _;
 use tempfile::TempDir;
 use tessera_server::{
     api,
-    config::{Config, DatabaseConfig, StorageConfig},
+    config::{Config, DatabaseConfig},
     db,
+    db::repository::storage_backend::{StorageBackend, StorageBackendRepository},
     security::secret::Sealer,
     state::{AppState, ServiceStatus, Storage},
     storage,
-    storage::{Backends, DEFAULT_BACKEND, Pool},
+    storage::Pool,
 };
 use tower::ServiceExt as _;
 
-/// A fully assembled app plus the temporary directory its blob store lives in.
+/// A fully assembled app plus the temporary directory it keeps its data in:
+/// the key file and the seeded backend's blobs.
 ///
 /// The directory is held here, not dropped at construction time. Dropping
 /// a [`TempDir`] deletes it, which would pull the storage root out from under the
@@ -73,66 +75,123 @@ impl TestApp {
     /// feature switched on, since the fixture otherwise mirrors the shipped
     /// defaults.
     pub(crate) async fn with_config(adjust: impl FnOnce(&mut Config)) -> Self {
-        Self::build_with(IN_MEMORY_SQLITE, ServiceStatus::Ready, adjust).await
+        Self::build_with(IN_MEMORY_SQLITE, ServiceStatus::Ready, adjust, |_| {}).await
+    }
+
+    /// Same, with the seeded backend changed before the app opens it: pointed
+    /// at a bucket, given a ceiling, let browsers reach it.
+    pub(crate) async fn with_backend(adjust: impl FnOnce(&mut StorageBackend)) -> Self {
+        Self::build_with(IN_MEMORY_SQLITE, ServiceStatus::Ready, |_| {}, adjust).await
+    }
+
+    /// Both at once.
+    pub(crate) async fn with_config_and_backend(
+        config: impl FnOnce(&mut Config),
+        backend: impl FnOnce(&mut StorageBackend),
+    ) -> Self {
+        Self::build_with(IN_MEMORY_SQLITE, ServiceStatus::Ready, config, backend).await
     }
 
     /// Same, against an arbitrary database URL, used by the backend suite,
     /// which has to prove the *other* backends serve identical responses.
     pub(crate) async fn with_database(url: &str, status: ServiceStatus) -> Self {
-        Self::build_with(url, status, |_| {}).await
+        Self::build_with(url, status, |_| {}, |_| {}).await
     }
 
+    /// Assembled the way `main` does it: the key resolved from the data
+    /// directory, the first backend seeded into an empty table, and every row
+    /// opened from there.
     async fn build_with(
         url: &str,
         status: ServiceStatus,
         adjust: impl FnOnce(&mut Config),
+        adjust_backend: impl FnOnce(&mut StorageBackend),
     ) -> Self {
-        let blob_root = tempfile::tempdir().expect("temp dir");
+        let data_dir = tempfile::tempdir().expect("temp dir");
 
         let mut config = Config {
             database: DatabaseConfig {
                 url: url.to_owned(),
                 ..Default::default()
             },
-            storage: StorageConfig {
-                url: blob_root.path().join("blobs").display().to_string(),
-                ..Default::default()
-            },
             ..Config::default()
         };
+        config.server.data_dir = data_dir.path().display().to_string();
+        // A database the whole suite shares outlives each fixture's directory,
+        // and with it the key a made one would have sealed its rows with.
+        let shared = url != IN_MEMORY_SQLITE;
+        if shared {
+            config.security.secret_key = "5e".repeat(32);
+        }
         adjust(&mut config);
 
         let db = db::connect(&config.database).await.expect("database pool");
         db::migrate(&db).await.expect("migrations");
-        let default = storage::build_with_multipart(&config.storage).expect("local store");
+
+        let sealer = Sealer::for_config(&config).expect("a usable key");
+        let backends = StorageBackendRepository::new(db.clone(), sealer.clone());
+        let now = OffsetDateTime::now_utc();
+        let fresh = storage::seed(&backends, &config.server.data_dir, now)
+            .await
+            .expect("seed");
+        assert!(shared || fresh, "a fresh database has no backends");
+        let mut seeded = backends
+            .all()
+            .await
+            .expect("backends")
+            .into_iter()
+            .find(|backend| backend.name == storage::DEFAULT_BACKEND)
+            .expect("the seeded one");
+        // On a shared database the row is whichever fixture wrote it first;
+        // this one's files go in its own directory.
+        seeded.url = data_dir.path().join("blobs").display().to_string();
+        adjust_backend(&mut seeded);
+        backends
+            .put(&seeded, now)
+            .await
+            .expect("adjust the seeded one");
+        let configured = backends.all().await.expect("backends");
+        let pool = Pool {
+            open: storage::build_all(&configured),
+            configured,
+        };
 
         let assets =
             tessera_server::assets::Source::resolve(&config.server.assets_dir).expect("assets_dir");
-        // The one backend the fixture has, under the name every file records.
-        let pool = Pool {
-            open: Backends::from([(DEFAULT_BACKEND.to_owned(), default.clone())]),
-            configured: Vec::new(),
-        };
-        // Built before the configuration is moved, from the same value `main`
-        // reads, or a test that sets a key gets a fixture that ignores it.
-        let sealer = Sealer::new(&config.security.secret_key).expect("a usable key");
-        let state = AppState::new(
-            Arc::new(config),
-            db,
-            Storage {
-                default,
-                pool,
-                sealer,
-            },
-            assets,
-        );
+        let state = AppState::new(Arc::new(config), db, Storage { pool, sealer }, assets);
         state.set_status(status);
 
         Self {
             router: api::build(state.clone()),
             state,
-            _blob_root: blob_root,
+            _blob_root: data_dir,
         }
+    }
+
+    /// The store behind the seeded backend, where every upload in a test that
+    /// adds no other backend lands.
+    pub(crate) fn seeded_store(&self) -> Arc<dyn object_store::ObjectStore> {
+        self.state
+            .backend(storage::DEFAULT_BACKEND)
+            .expect("the seeded backend is open")
+    }
+
+    /// Puts `stores` behind the seeded backend, keeping its row, so a test can
+    /// hand it a store that fills up, refuses, or holds nothing.
+    pub(crate) fn swap_seeded_store(&self, stores: storage::Stores) {
+        let mut pool = (*self.state.backends.load_full()).clone();
+        pool.open
+            .insert(storage::DEFAULT_BACKEND.to_owned(), stores);
+        self.state.replace_backends(pool);
+    }
+
+    /// The pool as it stands with one more backend beside the others, opened
+    /// as given rather than from its URL.
+    pub(crate) fn pool_with(&self, row: StorageBackend, stores: storage::Stores) -> Pool {
+        let mut pool = (*self.state.backends.load_full()).clone();
+        pool.open.insert(row.name.clone(), stores);
+        pool.configured.push(row);
+        pool
     }
 
     /// Issues a `GET` and returns the response.
@@ -786,7 +845,7 @@ impl<'a> Shares<'a> {
                     scan: None,
                     size_bytes: 1_048_576,
                     storage: StorageLocation::Object {
-                        backend: DEFAULT_BACKEND.to_owned(),
+                        backend: storage::DEFAULT_BACKEND.to_owned(),
                         key: format!("2026/08/{}", self.suffix),
                     },
                 }),
@@ -801,11 +860,7 @@ impl<'a> Shares<'a> {
             Some("bmFtZQ".repeat(100)),
             "a sealed name must survive the round trip"
         );
-        let keys = self
-            .repository
-            .object_keys_of(share.id)
-            .await
-            .expect("query");
+        let keys = self.repository.objects_of(share.id).await.expect("query");
         assert_eq!(keys.len(), 1, "an object-backed share names its object");
     }
 

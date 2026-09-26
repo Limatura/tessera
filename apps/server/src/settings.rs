@@ -53,6 +53,9 @@ const FIXED_AT_BOOT: &[&str] = &[
     "server.max_body_bytes",
     // The SPA is read off disk once and embedded in the router's state.
     "server.assets_dir",
+    // Where the key file and the first backend were put on the first start.
+    // Moving it later would leave both behind.
+    "server.data_dir",
     // Read once to build the sealer every stored backend is opened with.
     // Changing it at runtime would leave the process holding backends it can no
     // longer re-seal, and the panel reporting a key that opens nothing.
@@ -71,10 +74,8 @@ const SECRETS: &[&str] = &[
     // Only read on first run, and only to create the first account. Storing it
     // would keep a password in a table for ever to do a job already done.
     "auth.admin_password",
-    // Both carry credentials in the URL: `postgres://user:pass@…`,
-    // `s3://key:secret@…`.
+    // Carries credentials in the URL: `postgres://user:pass@…`.
     "database.url",
-    "storage.url",
     // Opens every stored backend credential. A panel that could read it back
     // would make the encryption decorative.
     "security.secret_key",
@@ -272,7 +273,7 @@ mod tests {
 
     #[test]
     fn credentials_that_cannot_be_stored_at_all_are_refused() {
-        for key in ["auth.admin_password", "storage.url", "security.secret_key"] {
+        for key in ["auth.admin_password", "database.url", "security.secret_key"] {
             assert!(
                 matches!(admits(key), Err(Refusal::Secret | Refusal::FixedAtBoot)),
                 "`{key}` holds a credential and must not be stored"
@@ -436,8 +437,8 @@ pub fn describe(overrides: &BTreeMap<String, serde_json::Value>) -> Vec<View> {
                 |value| (value.clone(), Source::Panel),
             );
 
-            // A credential is named, never handed back. `database.url` and
-            // `storage.url` carry a password inside them, and this list is read
+            // A credential is named, never handed back. `database.url` can
+            // carry a password inside it, and this list is read
             // by an endpoint and printed by a command, both of which end up
             // pasted into issues. Whoever needs the value has the environment
             // it came from.

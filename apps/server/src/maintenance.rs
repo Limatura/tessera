@@ -19,10 +19,7 @@ use time::OffsetDateTime;
 use tokio_stream::StreamExt as _;
 use tokio_util::sync::CancellationToken;
 
-use crate::{
-    db::repository::share::{ShareRepository, ShareRepositoryError},
-    state::AppState,
-};
+use crate::{db::repository::share::ShareRepositoryError, state::AppState};
 
 /// How often to sweep.
 ///
@@ -142,33 +139,46 @@ struct Reclaimed {
     bytes: u64,
 }
 
-/// Walks the owned prefix and removes what is both unreferenced and old.
+/// Walks the owned prefix of every open backend and removes what is both
+/// unreferenced and old.
+///
+/// Every backend, since an upload can leave an orphan on whichever one it was
+/// placed on. The live set is keys alone, not keys per backend: keys are unique
+/// across all of them, so a key named anywhere protects its object everywhere,
+/// which errs the safe way.
 async fn remove_orphans(state: &AppState, live: HashSet<String>, cutoff: i64) -> Reclaimed {
-    let mut listing = state.storage.list(Some(&ObjectPath::from(OWNED_PREFIX)));
+    let pool = state.backends.load_full();
     let mut reclaimed = Reclaimed { count: 0, bytes: 0 };
 
-    while let Some(entry) = listing.next().await {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(error) => {
-                tracing::warn!(%error, "could not list the store; stopping this pass");
-                break;
+    // In name order, so a pass that hits the cap stops at the same place each
+    // time rather than wherever the hash map happened to put it.
+    let mut open: Vec<_> = pool.open.iter().collect();
+    open.sort_unstable_by_key(|(name, _)| *name);
+    for (name, stores) in open {
+        let mut listing = stores.store.list(Some(&ObjectPath::from(OWNED_PREFIX)));
+        while let Some(entry) = listing.next().await {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    tracing::warn!(backend = name, %error, "could not list a backend; skipping the rest of it");
+                    break;
+                }
+            };
+            if entry.last_modified.timestamp() > cutoff || live.contains(entry.location.as_ref()) {
+                continue;
             }
-        };
-        if entry.last_modified.timestamp() > cutoff || live.contains(entry.location.as_ref()) {
-            continue;
-        }
-        if !remove_object(&state.storage, entry.location.as_ref()).await {
-            continue;
-        }
-        reclaimed.count += 1;
-        reclaimed.bytes = reclaimed.bytes.saturating_add(entry.size);
-        if reclaimed.count >= ORPHANS_PER_PASS {
-            tracing::info!(
-                cap = ORPHANS_PER_PASS,
-                "reconciliation hit its per-pass cap; the rest goes next pass"
-            );
-            break;
+            if !remove_object(&stores.store, entry.location.as_ref()).await {
+                continue;
+            }
+            reclaimed.count += 1;
+            reclaimed.bytes = reclaimed.bytes.saturating_add(entry.size);
+            if reclaimed.count >= ORPHANS_PER_PASS {
+                tracing::info!(
+                    cap = ORPHANS_PER_PASS,
+                    "reconciliation hit its per-pass cap; the rest goes next pass"
+                );
+                return reclaimed;
+            }
         }
     }
     reclaimed
@@ -283,30 +293,32 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
     // Content first, rows second, and not only for tidiness: the row is what
     // records which object to delete, so releasing the bytes has to happen while
     // there is still something pointing at them.
-    report(
-        "dead shares' content",
-        reap_dead_content(&state.shares, &state.storage, now).await,
-    );
+    report("dead shares' content", reap_dead_content(state, now).await);
     report(
         "shares past their retention",
-        sweep_dead_shares(
-            &state.shares,
-            &state.storage,
-            now,
-            state.config().share.retention(),
-        )
-        .await,
+        sweep_dead_shares(state, now, state.config().share.retention()).await,
     );
 }
 
-/// Removes every one of a share's objects, and says whether all of them went.
+/// Removes every one of a share's objects, each from the backend holding it,
+/// and says whether all of them went.
 ///
 /// One failure stops the share being marked, because a share marked clean with
 /// an object still in the store is an object nothing will ever look for again.
-async fn remove_every_object(storage: &Arc<dyn ObjectStore>, keys: &[String]) -> bool {
+/// A backend that did not open counts as one: its objects are still there.
+async fn remove_every_object(state: &AppState, objects: &[(String, String)]) -> bool {
     let mut all_gone = true;
-    for key in keys {
-        if !remove_object(storage, key).await {
+    for (backend, key) in objects {
+        let Some(store) = state.backend(backend) else {
+            tracing::warn!(
+                backend,
+                key,
+                "the backend holding a dead share's object is not open"
+            );
+            all_gone = false;
+            continue;
+        };
+        if !remove_object(&store, key).await {
             all_gone = false;
         }
     }
@@ -324,17 +336,17 @@ async fn remove_every_object(storage: &Arc<dyn ObjectStore>, keys: &[String]) ->
 /// Separating them is what stops a burn-after-reading share occupying its full
 /// size for a week after the one person meant to have it already did.
 async fn reap_dead_content(
-    shares: &ShareRepository,
-    storage: &Arc<dyn ObjectStore>,
+    state: &AppState,
     now: OffsetDateTime,
 ) -> Result<u64, ShareRepositoryError> {
+    let shares = &state.shares;
     let mut reaped: u64 = 0;
     for share in shares.find_reapable(now, SHARES_PER_PASS).await? {
         // Every object, not the first: a share can hold several, and stopping
         // after one leaves the rest paid for and unreachable once the rows
         // naming them are gone.
-        let keys = shares.object_keys_of(share.id).await?;
-        if !remove_every_object(storage, &keys).await {
+        let objects = shares.objects_of(share.id).await?;
+        if !remove_every_object(state, &objects).await {
             // The rows stay, still naming what to delete, so the next pass finds
             // them again. Marking them `gone` here would strand those bytes.
             continue;
@@ -376,11 +388,11 @@ async fn remove_object(storage: &Arc<dyn ObjectStore>, key: &str) -> bool {
 /// deliver. An object without its row is an orphan: invisible, but findable by
 /// listing the store, and harmless until then.
 async fn sweep_dead_shares(
-    shares: &ShareRepository,
-    storage: &Arc<dyn ObjectStore>,
+    state: &AppState,
     now: OffsetDateTime,
     retention: Duration,
 ) -> Result<u64, ShareRepositoryError> {
+    let shares = &state.shares;
     let cutoff = now.saturating_sub(
         time::Duration::try_from(retention).unwrap_or_else(|_| time::Duration::days(7)),
     );
@@ -390,8 +402,8 @@ async fn sweep_dead_shares(
         // Usually already gone, since `reap_dead_content` runs first, but a
         // disabled share reaches retention with its objects intact, and so does
         // anything the reaper could not delete earlier.
-        let keys = shares.object_keys_of(share.id).await?;
-        if !remove_every_object(storage, &keys).await {
+        let objects = shares.objects_of(share.id).await?;
+        if !remove_every_object(state, &objects).await {
             // The rows stay. They are the only record of what to remove, so
             // dropping them now would strand those bytes; the next pass tries
             // again.

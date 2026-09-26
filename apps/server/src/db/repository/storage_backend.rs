@@ -238,23 +238,6 @@ impl StorageBackendRepository {
         Ok(changed.rows_affected == 1)
     }
 
-    /// Takes the flag off every backend.
-    ///
-    /// How the one from `storage.url` becomes the destination again: it has no
-    /// row to set, so it is the default by nothing else claiming it.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`StorageBackendError`] if the write fails.
-    pub async fn clear_default(&self, now: OffsetDateTime) -> Result<(), StorageBackendError> {
-        StorageBackendEntity::update_many()
-            .col_expr(storage_backend::Column::IsDefault, false.into())
-            .col_expr(storage_backend::Column::UpdatedAt, now.into())
-            .exec(&self.connection)
-            .await?;
-        Ok(())
-    }
-
     fn open(&self, model: storage_backend::Model) -> Result<StorageBackend, StorageBackendError> {
         let url = self.sealer.open(&model.url)?;
         let options = serde_json::from_str(&self.sealer.open(&model.options)?).map_err(|_| {

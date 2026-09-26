@@ -34,12 +34,12 @@ pub fn reopen(state: &AppState, segment: &Segment) -> Option<sink::Sink> {
             id: id.clone(),
         });
     }
-    // The partial file only exists for the backend built from `storage.url`,
-    // that is the only one that can be a local directory.
-    if segment.backend != crate::storage::DEFAULT_BACKEND {
-        return None;
-    }
-    crate::storage::local_path(&state.config().storage.url).map(|root| sink::Sink::Appending {
-        path: std::path::PathBuf::from(root).join(format!("{}.part", segment.object_key)),
-    })
+    // Otherwise a partial file, which only a local directory has.
+    state
+        .backends
+        .load()
+        .local_root(&segment.backend)
+        .map(|root| sink::Sink::Appending {
+            path: root.join(format!("{}.part", segment.object_key)),
+        })
 }

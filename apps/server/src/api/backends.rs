@@ -33,15 +33,14 @@ use crate::{
 
 /// One backend, as the panel draws it.
 ///
-/// Five booleans answering five unrelated questions: where new uploads go,
-/// whether this one still takes them, whether the process can reach it, whether
-/// browsers may be sent to it, and whether it comes from the environment.
-/// Collapsing any pair into an enum would invent a state the system does not
-/// have, since a read-only backend can be the default and an unreachable one can
-/// be either.
+/// Four booleans answering four unrelated questions: where new uploads go,
+/// whether this one still takes them, whether the process can reach it, and
+/// whether browsers may be sent to it. Collapsing any pair into an enum would
+/// invent a state the system does not have, since a read-only backend can be
+/// the default and an unreachable one can be either.
 #[expect(
     clippy::struct_excessive_bools,
-    reason = "five independent facts about one backend; see above"
+    reason = "four independent facts about one backend; see above"
 )]
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct BackendResponse {
@@ -77,12 +76,6 @@ pub struct BackendResponse {
     /// Only S3 and GCS can be sent to. On anything else this may be `true` and
     /// still change nothing.
     pub direct_access: bool,
-    /// Whether it comes from `storage.url` instead of this table.
-    ///
-    /// The one that does cannot be edited or removed from here: it is where
-    /// everything written before backends existed lives, and it is configured
-    /// in the environment.
-    pub from_environment: bool,
 }
 
 /// Body of `POST /admin/storage/backends`.
@@ -155,10 +148,9 @@ pub async fn list(
 ///
 /// # Errors
 ///
-/// `400` when the URL will not open or the name is the environment's, `401`
-/// when nothing was signed in, `403` when the caller may not write settings,
-/// `404` when this instance has no administration, `409` when no
-/// `security.secret_key` is set.
+/// `400` when the URL will not open, `401` when nothing was signed in, `403`
+/// when the caller may not write settings, `404` when this instance has no
+/// administration.
 #[utoipa::path(
     post,
     path = "/admin/storage/backends",
@@ -167,11 +159,10 @@ pub async fn list(
     request_body = BackendRequest,
     responses(
         (status = 200, description = "The backend as it now stands", body = BackendResponse),
-        (status = 400, description = "The URL will not open, or the name is reserved", body = crate::error::ErrorBody),
+        (status = 400, description = "The URL will not open", body = crate::error::ErrorBody),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 403, description = "May not write settings", body = crate::error::ErrorBody),
         (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
-        (status = 409, description = "No security.secret_key, so credentials cannot be stored", body = crate::error::ErrorBody),
     ),
     security(("session" = [])),
 )]
@@ -182,7 +173,6 @@ pub async fn add(
 ) -> Result<Json<BackendResponse>> {
     require_admin_feature(&state)?;
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
-    refuse_reserved(&body.name)?;
 
     let backend = StorageBackend {
         name: body.name.clone(),
@@ -219,9 +209,9 @@ pub async fn add(
 ///
 /// # Errors
 ///
-/// `400` when the name is the environment's, `401` when nothing was signed in,
-/// `403` when the caller may not write settings, `404` when no backend has that
-/// name, `409` when it still holds content.
+/// `401` when nothing was signed in, `403` when the caller may not write
+/// settings, `404` when no backend has that name, `409` when it still holds
+/// content.
 #[utoipa::path(
     delete,
     path = "/admin/storage/backends/{name}",
@@ -230,7 +220,6 @@ pub async fn add(
     params(("name" = String, Path, description = "Which backend")),
     responses(
         (status = 204, description = "Removed", body = ()),
-        (status = 400, description = "The name is the environment's", body = crate::error::ErrorBody),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 403, description = "May not write settings", body = crate::error::ErrorBody),
         (status = 404, description = "No such backend", body = crate::error::ErrorBody),
@@ -245,7 +234,6 @@ pub async fn remove(
 ) -> Result<StatusCode> {
     require_admin_feature(&state)?;
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
-    refuse_reserved(&name)?;
 
     if !state
         .storage_backends
@@ -259,7 +247,7 @@ pub async fn remove(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// Turns direct access on or off for a stored backend.
+/// Turns direct access on or off for a backend.
 ///
 /// # Why this is not another `POST` of the whole backend
 ///
@@ -269,9 +257,8 @@ pub async fn remove(
 ///
 /// # Errors
 ///
-/// `400` for the backend from `storage.url`, whose switch is the
-/// `storage.direct_access` setting. `401` when nothing was signed in, `403`
-/// when the caller may not write settings, `404` when no backend has that name.
+/// `401` when nothing was signed in, `403` when the caller may not write
+/// settings, `404` when no backend has that name.
 #[utoipa::path(
     patch,
     path = "/admin/storage/backends/{name}",
@@ -281,7 +268,6 @@ pub async fn remove(
     request_body = UpdateBackendRequest,
     responses(
         (status = 200, description = "The backend as it now stands", body = BackendResponse),
-        (status = 400, description = "The backend from storage.url is changed through its setting", body = crate::error::ErrorBody),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 403, description = "May not write settings", body = crate::error::ErrorBody),
         (status = 404, description = "No such backend", body = crate::error::ErrorBody),
@@ -296,11 +282,6 @@ pub async fn update(
 ) -> Result<Json<BackendResponse>> {
     require_admin_feature(&state)?;
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
-    if name == crate::storage::DEFAULT_BACKEND {
-        return Err(Error::bad_request(
-            "`default` is the backend from storage.url; its switch is the storage.direct_access setting",
-        ));
-    }
 
     if !state
         .storage_backends
@@ -345,49 +326,23 @@ pub async fn set_default(
     require_admin_feature(&state)?;
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
 
-    // The environment's one becomes the default by nothing else claiming it,
-    // as clearing the flag everywhere does.
-    let chosen = if name == crate::storage::DEFAULT_BACKEND {
-        state
-            .storage_backends
-            .clear_default(OffsetDateTime::now_utc())
-            .await
-            .map_err(describe_failure)?;
-        true
-    } else {
-        state
-            .storage_backends
-            .set_default(&name, OffsetDateTime::now_utc())
-            .await
-            .map_err(describe_failure)?
-    };
-    if !chosen {
+    if !state
+        .storage_backends
+        .set_default(&name, OffsetDateTime::now_utc())
+        .await
+        .map_err(describe_failure)?
+    {
         return Err(Error::NotFound);
     }
     reload(&state).await?;
     one(&state, &name).await
 }
 
-/// Refuses a name that belongs to the environment.
-///
-/// The backend from `storage.url` has no row, so writing one under its name
-/// would create a second definition of the same thing. The configured one wins
-/// at start-up, so the stored one would be silently ignored.
-fn refuse_reserved(name: &str) -> Result<()> {
-    if name == crate::storage::DEFAULT_BACKEND {
-        return Err(Error::bad_request(
-            "`default` is the backend from storage.url; change it in the environment",
-        ));
-    }
-    Ok(())
-}
-
 /// Proves the backend opens before it is written down.
 fn open_or_refuse(backend: &StorageBackend) -> Result<()> {
-    crate::storage::build(&crate::config::StorageConfig {
+    crate::storage::build(&crate::storage::Target {
         url: backend.url.clone(),
         options: backend.options.clone(),
-        ..crate::config::StorageConfig::default()
     })
     .map(|_| ())
     .map_err(|error| Error::bad_request(format!("that backend will not open: {error}")))
@@ -403,8 +358,7 @@ async fn reload(state: &AppState) -> Result<()> {
         .all()
         .await
         .map_err(describe_failure)?;
-    let (open, _) = crate::storage::build_all(&state.config().storage, &configured)
-        .map_err(|error| Error::bad_request(format!("could not reopen the backends: {error}")))?;
+    let open = crate::storage::build_all(&configured);
     state.replace_backends(crate::storage::Pool { open, configured });
     Ok(())
 }
@@ -429,17 +383,7 @@ async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
     let pool = state.backends.load();
     let taken = |name: &str| used.get(name).copied().unwrap_or(0);
 
-    let mut listed = vec![BackendResponse {
-        name: crate::storage::DEFAULT_BACKEND.to_owned(),
-        is_default: !pool.configured.iter().any(|backend| backend.is_default),
-        capacity_bytes: Some(state.config().storage.capacity_bytes).filter(|bytes| *bytes > 0),
-        used_bytes: taken(crate::storage::DEFAULT_BACKEND),
-        read_only: false,
-        reachable: pool.open.contains_key(crate::storage::DEFAULT_BACKEND),
-        direct_access: state.config().storage.direct_access,
-        from_environment: true,
-    }];
-    listed.extend(pool.configured.iter().map(|backend| BackendResponse {
+    let listed = pool.configured.iter().map(|backend| BackendResponse {
         name: backend.name.clone(),
         is_default: backend.is_default,
         capacity_bytes: backend.capacity_bytes.filter(|bytes| *bytes > 0),
@@ -447,15 +391,15 @@ async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
         read_only: backend.read_only,
         reachable: pool.open.contains_key(&backend.name),
         direct_access: backend.direct_access,
-        from_environment: false,
-    }));
-    Ok(Json(listed))
+    });
+    Ok(Json(listed.collect()))
 }
 
 /// Turns a repository failure into the answer the caller should get.
 ///
-/// The two that are not internal errors are the two an operator can act on: no
-/// key configured, and a backend that still holds files.
+/// The two that are not internal errors are the two an operator can act on: a
+/// stored credential the key will not open, and a backend that still holds
+/// files.
 fn describe_failure(error: StorageBackendError) -> Error {
     match error {
         StorageBackendError::Secret(inner) => Error::Conflict(inner.to_string()),
