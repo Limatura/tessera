@@ -1484,7 +1484,62 @@ async fn the_listing_says_who_uploaded_each_share() {
         .find(|row| row["filename"] == "nobodys.bin")
         .expect("the anonymous upload");
     assert_eq!(mine["owner_id"], admin_id);
+    assert_eq!(
+        mine["owner_username"], "first",
+        "who, without a lookup per row"
+    );
     assert!(nobodys["owner_id"].is_null(), "anonymous means nobody");
+    assert!(nobodys["owner_username"].is_null());
+}
+
+/// A share outliving its uploader still says whose it was, as the name the
+/// account was left with.
+#[tokio::test]
+async fn a_deleted_uploader_is_named_by_what_is_left_of_them() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (theirs, id) = register(&app, "second").await;
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=left-behind.bin")
+                .header(header::COOKIE, &theirs),
+            Body::from(b"theirs".to_vec()),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    expect_status(
+        app.empty(
+            Method::DELETE,
+            &format!("/api/v1/admin/users/{id}"),
+            Auth::Cookie(&admin),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    let page = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    // Removing an account leaves its shares working for whoever holds the code.
+    let row = page["data"]
+        .as_array()
+        .expect("a list")
+        .iter()
+        .find(|row| row["filename"] == "left-behind.bin")
+        .expect("the share outlives its uploader");
+    assert_eq!(row["owner_id"], id);
+    assert_eq!(row["owner_username"], format!("gone-{}", id.to_lowercase()));
 }
 
 /// Reading every share and deleting every share are separate powers.

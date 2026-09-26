@@ -279,6 +279,45 @@ impl UserRepository {
         )
     }
 
+    /// The names of several accounts at once, for a listing that shows who
+    /// owns each row.
+    ///
+    /// One query for the page, not one per row. A deleted account answers with
+    /// the tombstone name it was left with; an id with no row is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails or a stored name no
+    /// longer parses.
+    pub async fn usernames_of(
+        &self,
+        ids: &[UserId],
+    ) -> Result<std::collections::HashMap<UserId, Username>, UserRepositoryError> {
+        if ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows: Vec<(String, String)> = UserEntity::find()
+            .select_only()
+            .column(user::Column::Id)
+            .column(user::Column::Username)
+            .filter(user::Column::Id.is_in(ids.iter().map(ToString::to_string)))
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        rows.into_iter()
+            .map(|(id, name)| {
+                let fail = |source| CorruptRow {
+                    id: id.clone(),
+                    source,
+                };
+                Ok((
+                    UserId::parse(&id).map_err(fail)?,
+                    Username::parse_privileged(&name).map_err(fail)?,
+                ))
+            })
+            .collect()
+    }
+
     /// Finds an account by name.
     ///
     /// Takes a [`Username`], not a `&str`, so the caller cannot forget to

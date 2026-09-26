@@ -1274,6 +1274,13 @@ pub struct AdminShareResponse {
     /// keeps this answerable. `null` means the upload was anonymous, a
     /// different fact worth telling apart.
     pub owner_id: Option<String>,
+    /// The uploader's account name, or `null` for an anonymous upload.
+    ///
+    /// Beside the id so the listing can say who without a request per row. An
+    /// account deleted since answers with the name its row was left with,
+    /// which starts `gone-`.
+    #[schema(example = "alice")]
+    pub owner_username: Option<String>,
     /// Whether a visitor could still open it.
     pub active: bool,
     /// When it was uploaded, RFC 3339.
@@ -1283,7 +1290,12 @@ pub struct AdminShareResponse {
 }
 
 impl AdminShareResponse {
-    fn build(share: &Share, content: &Content, now: OffsetDateTime) -> Self {
+    fn build(
+        share: &Share,
+        content: &Content,
+        owners: &std::collections::HashMap<tessera_core::UserId, tessera_core::Username>,
+        now: OffsetDateTime,
+    ) -> Self {
         Self {
             id: share.id.to_string(),
             kind: share.kind.as_str().to_owned(),
@@ -1296,6 +1308,10 @@ impl AdminShareResponse {
             bytes_served: share.bytes_served,
             bytes_redirected: share.bytes_redirected,
             owner_id: share.user_id.map(|id| id.to_string()),
+            owner_username: share
+                .user_id
+                .and_then(|id| owners.get(&id))
+                .map(ToString::to_string),
             active: matches!(share.availability_at(now), Availability::Available),
             created_at: format_timestamp(share.created_at),
             expires_at: share.expires_at.map(format_timestamp),
@@ -1373,6 +1389,10 @@ pub async fn list_shares(
     let (limit, offset) = page_bounds(&params)?;
     let shares = state.shares.list_all(limit, offset).await?;
     let contents = state.shares.contents_for(&shares).await?;
+    let mut owner_ids: Vec<_> = shares.iter().filter_map(|share| share.user_id).collect();
+    owner_ids.sort_unstable();
+    owner_ids.dedup();
+    let owners = state.users.usernames_of(&owner_ids).await?;
     let now = OffsetDateTime::now_utc();
 
     Ok(Json(AdminSharePage {
@@ -1381,7 +1401,7 @@ pub async fn list_shares(
             .filter_map(|share| {
                 contents
                     .get(&share.id)
-                    .map(|content| AdminShareResponse::build(share, content, now))
+                    .map(|content| AdminShareResponse::build(share, content, &owners, now))
             })
             .collect(),
         meta: crate::api::shares::PageMeta {

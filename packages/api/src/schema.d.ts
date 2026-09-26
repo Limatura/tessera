@@ -1951,6 +1951,15 @@ export interface components {
              */
             owner_id?: string | null;
             /**
+             * @description The uploader's account name, or `null` for an anonymous upload.
+             *
+             *     Beside the id so the listing can say who without a request per row. An
+             *     account deleted since answers with the name its row was left with,
+             *     which starts `gone-`.
+             * @example alice
+             */
+            owner_username?: string | null;
+            /**
              * Format: int64
              * @description How many bytes it holds.
              */

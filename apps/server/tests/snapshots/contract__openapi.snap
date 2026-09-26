@@ -249,6 +249,14 @@ expression: document
               "null"
             ]
           },
+          "owner_username": {
+            "description": "The uploader's account name, or `null` for an anonymous upload.\n\nBeside the id so the listing can say who without a request per row. An\naccount deleted since answers with the name its row was left with,\nwhich starts `gone-`.",
+            "example": "alice",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "size_bytes": {
             "description": "How many bytes it holds.",
             "format": "int64",
