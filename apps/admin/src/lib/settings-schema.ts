@@ -15,7 +15,8 @@ import * as m from "@/paraglide/messages";
  *
  * - `FIXED_AT_BOOT`（`server.max_body_bytes`...）—— PUT 會被拒，而 settings 是整批
  *   驗證，混進去會連同一批的合法欄位一起退回。要顯示就用唯讀欄位。
- * - `SECRET`（`storage.url`...）—— 讀不到也寫不了，只能用環境變數。
+ * - `SECRET`（`scan.authorization`、儲存 backend 憑證...）—— 讀不到也寫不了，只能
+ *   透過對應的專用端點設定。
  * - `SEALED`（`*.client_secret`、`mail.username` / `mail.password`）—— 寫得進去、讀不
  *   回來。欄位收在這裡，但語意是「留空 = 不改動，有填 = 覆寫」，不是目前的值。
  *
@@ -84,7 +85,8 @@ export type SiteSettingsValues = z.infer<typeof siteSettingsSchema>;
 
 // ---- 存儲配置：server.part_size_bytes ----
 //
-// `storage.url` 不在這裡：它是 SECRET，URL 帶帳密，面板讀不到也改不了。
+// 儲存位置不是設定：每個 backend 是 `storage_backends` 表裡的一列，從
+// `/admin/storage/backends` 管，不透過這裡的 `PUT /admin/settings`。
 
 /** S3 拒絕最後一片以外小於 5 MiB 的 part。 */
 export const MIN_PART_SIZE_BYTES = 5 * 1024 * 1024;
