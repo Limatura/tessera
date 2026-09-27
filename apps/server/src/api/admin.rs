@@ -1225,7 +1225,9 @@ pub async fn set_user_roles(
     let wanted = body
         .role
         .as_deref()
-        .map(|role| RoleId::parse(role).map_err(|_| Error::NotFound))
+        // A name where an id belongs is a mistake in the request, not a role
+        // that is missing, and the two want different fixes.
+        .map(|role| RoleId::parse(role).map_err(|_| Error::invalid("role", "not_an_identifier")))
         .transpose()?;
 
     // What the account would end up holding, checked against what the caller

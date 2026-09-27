@@ -3398,3 +3398,31 @@ async fn writing_a_backend_needs_more_than_reading_one() {
     );
     drop(owner);
 }
+
+/// A role named where its id belongs is a malformed request, not a missing
+/// role: the fix is on the client, and a `404` sent the panel looking for a
+/// role that exists.
+#[tokio::test]
+async fn a_role_given_by_name_is_refused_as_malformed() {
+    let app = TestApp::ready().await;
+    let (admin, _) = register(&app, "first").await;
+    let (_, id) = register(&app, "second").await;
+
+    let refused = body_json(
+        expect_status(
+            app.json(
+                Method::PUT,
+                &format!("/api/v1/admin/users/{id}/roles"),
+                Auth::Cookie(&admin),
+                &serde_json::json!({ "role": "admin" }),
+            )
+            .await,
+            StatusCode::BAD_REQUEST,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(refused["code"], "value_invalid", "{refused}");
+    assert_eq!(refused["details"]["field"], "role");
+    assert_eq!(refused["details"]["rule"], "not_an_identifier");
+}
