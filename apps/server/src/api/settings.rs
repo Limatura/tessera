@@ -22,7 +22,7 @@ use crate::{
     },
     auth::extract::CurrentUser,
     config::Config,
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     settings::{self, Refusal, Source},
     state::AppState,
 };
@@ -287,16 +287,14 @@ async fn resolve(
 ) -> Result<(BTreeMap<String, serde_json::Value>, Config)> {
     for key in changes.keys() {
         if let Err(refusal) = settings::admits(key) {
-            return Err(Error::bad_request(match refusal {
-                Refusal::Unknown => format!("`{key}` is not a setting this version has"),
-                Refusal::Secret => format!(
-                    "`{key}` holds a credential and is set through the environment, not here"
-                ),
-                Refusal::FixedAtBoot => format!(
-                    "`{key}` cannot change while the server is running, so it is set through \
-                     the environment"
-                ),
-            }));
+            let code = match refusal {
+                Refusal::Unknown => ErrorCode::SettingUnknown,
+                Refusal::Secret => ErrorCode::SettingSecret,
+                Refusal::FixedAtBoot => ErrorCode::SettingFixedAtBoot,
+            };
+            return Err(Error::new(code)
+                .with_detail("key", key.as_str())
+                .with_message(format!("`{key}`: {}", code.message())));
         }
     }
 
@@ -312,15 +310,17 @@ async fn resolve(
     // The proof that it works, before anything is written. A value that will
     // not load is refused here, not dropped at the next start-up.
     let (config, rejected) = Config::load_with_overrides(&candidate)
-        .map_err(|error| Error::bad_request(error.to_string()))?;
+        .map_err(|error| Error::new(ErrorCode::SettingInvalid).with_message(error.to_string()))?;
     if let Some(bad) = rejected
         .into_iter()
         .find(|bad| changes.contains_key(&bad.key))
     {
-        return Err(Error::bad_request(format!(
-            "`{}` will not be accepted: {}",
-            bad.key, bad.reason
-        )));
+        return Err(Error::new(ErrorCode::SettingInvalid)
+            .with_detail("key", bad.key.as_str())
+            .with_message(format!(
+                "`{}` will not be accepted: {}",
+                bad.key, bad.reason
+            )));
     }
     Ok((candidate, config))
 }
@@ -441,18 +441,20 @@ pub async fn probe_oidc_discovery(
 
     let issuer = issuer_of(&body.url);
     if issuer.is_empty() {
-        return Err(Error::bad_request("give the provider's address"));
+        return Err(Error::new(ErrorCode::ValueEmpty)
+            .with_detail("field", "issuer")
+            .with_message("give the provider's address"));
     }
     // The same rule the issuer setting enforces, so this cannot reach anything
     // that could not be configured directly.
     if !crate::auth::oidc::is_private_or_tls(&issuer) {
-        return Err(Error::bad_request(
-            "an identity provider must be https, unless it is on a private address",
-        ));
+        return Err(Error::new(ErrorCode::ProviderInsecure));
     }
     let provider = crate::auth::oidc::discovery::probe(&issuer)
         .await
-        .map_err(|error| Error::bad_request(error.to_string()))?;
+        .map_err(|error| {
+            Error::new(ErrorCode::ProviderUnreachable).with_message(error.to_string())
+        })?;
     Ok(Json(DiscoveryProbeResponse {
         issuer: provider.issuer.clone(),
         scopes_supported: provider.scopes_supported.clone(),
@@ -527,10 +529,12 @@ pub async fn update(
     // caller has already seen them.
     let consequences = consequences_of(&state, &state.config(), &config, &body.changes).await?;
     if !consequences.is_empty() && !body.confirm {
-        return Err(Error::Conflict(format!(
-            "this removes {}. Send `confirm: true` to go ahead.",
-            describe_consequences(&consequences)
-        )));
+        return Err(
+            Error::new(ErrorCode::ConfirmationRequired).with_message(format!(
+                "this removes {}. Send `confirm: true` to go ahead.",
+                describe_consequences(&consequences)
+            )),
+        );
     }
 
     let now = OffsetDateTime::now_utc();

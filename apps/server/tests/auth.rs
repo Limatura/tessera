@@ -3512,3 +3512,149 @@ async fn without_mail_there_is_no_verification() {
         StatusCode::NOT_FOUND
     );
 }
+
+// ── 錯誤碼 ────────────────────────────────────────────────────────────────
+
+/// The failures a sign-in or account form meets, each with a code of its own
+/// and the details a translated message needs. Before this they were all
+/// `unauthorized`, `bad_request` or `conflict`, and a client could only show
+/// the English sentence.
+#[tokio::test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "one walk through the forms, each step a request and its code"
+)]
+async fn each_account_failure_has_its_own_code() {
+    let app = TestApp::with_config(|config| {
+        config.auth.password.min_length = 12;
+        config.auth.password.require_digit = true;
+    })
+    .await;
+    let strong = "a passphrase with digits 42";
+    let cookie = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "member",
+                "email": "member@example.com",
+                "password": strong,
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let cookie = session_cookie(&cookie);
+
+    let code_of = |body: serde_json::Value| body["code"].as_str().unwrap_or_default().to_owned();
+
+    // Signing in with the wrong password.
+    let wrong = body_json(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/login",
+            Auth::None,
+            &serde_json::json!({ "identifier": "member", "password": "not the one at all" }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(code_of(wrong), "invalid_credentials");
+
+    // The current password, given to confirm a change, is wrong.
+    let wrong = body_json(
+        app.json(
+            Method::PATCH,
+            "/api/v1/auth/password",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({
+                "current_password": "not the one at all",
+                "new_password": "another passphrase 43",
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(code_of(wrong), "current_password_incorrect");
+
+    // A password the policy refuses names the rule and its figures.
+    let short = body_json(
+        app.json(
+            Method::PATCH,
+            "/api/v1/auth/password",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "current_password": strong, "new_password": "short 1" }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(short["code"], "value_length", "{short}");
+    assert_eq!(short["details"]["field"], "password");
+    assert_eq!(short["details"]["min"], 12);
+    let no_digit = body_json(
+        app.json(
+            Method::PATCH,
+            "/api/v1/auth/password",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({
+                "current_password": strong,
+                "new_password": "a long passphrase without numbers",
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(no_digit["code"], "value_invalid", "{no_digit}");
+    assert_eq!(no_digit["details"]["rule"], "needs_digit");
+
+    // A name somebody else has.
+    let taken = body_json(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "member",
+                "email": "other@example.com",
+                "password": strong,
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(code_of(taken), "username_taken");
+
+    // An API token where only a browser session may act.
+    let created = body_json(
+        expect_status(
+            app.json(
+                Method::POST,
+                "/api/v1/tokens",
+                Auth::Cookie(&cookie),
+                &serde_json::json!({ "name": "automation" }),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let secret = created["secret"].as_str().expect("a secret");
+    let refused = body_json(
+        app.json(
+            Method::PATCH,
+            "/api/v1/auth/password",
+            Auth::Bearer(secret),
+            &serde_json::json!({ "current_password": strong, "new_password": "another passphrase 43" }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(code_of(refused), "session_required");
+
+    // And without any credential at all.
+    let anonymous = body_json(app.empty(Method::GET, "/api/v1/sessions", Auth::None).await).await;
+    assert_eq!(code_of(anonymous), "not_signed_in");
+}

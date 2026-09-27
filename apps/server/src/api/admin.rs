@@ -49,7 +49,7 @@ use crate::{
         session::SessionEnding,
         share::{Availability, Content, Share},
     },
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -167,7 +167,7 @@ async fn holds(state: &AppState, user: UserId, permission: Permission) -> Result
 /// "is an administrator" answer.
 pub(super) fn admitted(current: &CurrentUser, permission: Permission) -> Result<()> {
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
     current.require(permission)
 }
@@ -287,20 +287,19 @@ pub async fn update_user(
         && body.is_admin == Some(false)
         && state.roles.holders_of(Permission::RolesWrite).await? <= 1
     {
-        return Err(Error::Conflict(
+        return Err(Error::new(ErrorCode::LastAdministrator).with_message(
             "this is the only administrator; grant the flag to somebody else first".to_owned(),
         ));
     }
 
     let now = OffsetDateTime::now_utc();
     if let Some(wanted) = body.state.as_deref() {
-        let wanted: AccountState = wanted
-            .parse()
-            .map_err(|_| Error::bad_request("`state` must be `active` or `disabled`"))?;
+        let wanted: AccountState = wanted.parse().map_err(|_| {
+            Error::invalid("state", "one_of").with_message("`state` must be `active` or `disabled`")
+        })?;
         if wanted == AccountState::Deleted {
-            return Err(Error::bad_request(
-                "removing an account scrubs it; use DELETE rather than this field",
-            ));
+            return Err(Error::invalid("state", "use_delete")
+                .with_message("removing an account scrubs it; use DELETE rather than this field"));
         }
         // Suspending an account that holds the keys is the same lock-out as
         // demoting it, reached by another door.
@@ -308,7 +307,7 @@ pub async fn update_user(
             && holds_the_keys
             && state.roles.holders_of(Permission::RolesWrite).await? <= 1
         {
-            return Err(Error::Conflict(
+            return Err(Error::new(ErrorCode::LastAdministrator).with_message(
                 "this is the only administrator; grant the flag to somebody else first".to_owned(),
             ));
         }
@@ -387,7 +386,7 @@ pub async fn delete_user(
 
     let holds_the_keys = holds(&state, user.id, Permission::RolesWrite).await?;
     if holds_the_keys && state.roles.holders_of(Permission::RolesWrite).await? <= 1 {
-        return Err(Error::Conflict(
+        return Err(Error::new(ErrorCode::LastAdministrator).with_message(
             "this is the only administrator; grant the flag to somebody else first".to_owned(),
         ));
     }
@@ -564,7 +563,8 @@ pub async fn create_invite(
     admitted(&current, Permission::InvitesCreate)?;
 
     if body.uses < 1 {
-        return Err(Error::bad_request("an invite has to admit at least one"));
+        return Err(Error::out_of_range("uses", Some(1), None)
+            .with_message("an invite has to admit at least one"));
     }
 
     let now = OffsetDateTime::now_utc();
@@ -574,7 +574,10 @@ pub async fn create_invite(
             i64::try_from(days)
                 .map(time::Duration::days)
                 .map(|span| now.saturating_add(span))
-                .map_err(|_| Error::bad_request("that is more days than a calendar has"))
+                .map_err(|_| {
+                    Error::out_of_range("expires_in_days", Some(1), None)
+                        .with_message("that is more days than a calendar has")
+                })
         })
         .transpose()?;
 
@@ -838,7 +841,9 @@ impl RoleRequest {
             .iter()
             .map(|name| {
                 name.parse::<Permission>().map_err(|_| {
-                    Error::bad_request(format!("`{name}` is not a permission this version has"))
+                    Error::new(ErrorCode::UnknownPermission)
+                        .with_detail("permission", name.as_str())
+                        .with_message(format!("`{name}` is not a permission this version has"))
                 })
             })
             .collect()
@@ -847,9 +852,13 @@ impl RoleRequest {
     fn name(&self) -> Result<String> {
         let name = self.name.trim();
         if name.is_empty() || name.len() > ROLE_NAME_LIMIT {
-            return Err(Error::bad_request(format!(
-                "a role name must be between 1 and {ROLE_NAME_LIMIT} characters"
-            )));
+            return Err(Error::new(ErrorCode::ValueLength)
+                .with_detail("field", "name")
+                .with_detail("min", 1)
+                .with_detail("max", ROLE_NAME_LIMIT)
+                .with_message(format!(
+                    "a role name must be between 1 and {ROLE_NAME_LIMIT} characters"
+                )));
         }
         Ok(name.to_owned())
     }
@@ -1004,7 +1013,7 @@ pub async fn create_role(
     refuse_escalation(&current, &permissions)?;
 
     if state.roles.find_by_name(&name).await?.is_some() {
-        return Err(Error::Conflict("a role already has that name".to_owned()));
+        return Err(Error::new(ErrorCode::RoleNameTaken));
     }
     let role = state
         .roles
@@ -1068,7 +1077,7 @@ pub async fn update_role(
     if let Some(clash) = state.roles.find_by_name(&name).await?
         && clash.id != role_id
     {
-        return Err(Error::Conflict("a role already has that name".to_owned()));
+        return Err(Error::new(ErrorCode::RoleNameTaken));
     }
 
     // A built-in role means the same thing on every instance, and that is its
@@ -1080,7 +1089,7 @@ pub async fn update_role(
     // ordinary accounts do less, make a role and point `auth.default_role` at
     // it.
     if existing.is_system && permissions != existing.permissions {
-        return Err(Error::Conflict(
+        return Err(Error::new(ErrorCode::BuiltinRoleImmutable).with_message(
             "a built-in role's permissions cannot be changed; make a role of your own and point              auth.default_role at it"
                 .to_owned(),
         ));
@@ -1093,9 +1102,7 @@ pub async fn update_role(
         && state.roles.holders_of(Permission::RolesWrite).await?
             <= state.roles.member_count(role_id).await?
     {
-        return Err(Error::Conflict(
-            "that would leave nobody able to administer this instance".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::LastAdministrator));
     }
 
     let now = OffsetDateTime::now_utc();
@@ -1166,17 +1173,14 @@ pub async fn delete_role(
         && state.roles.holders_of(Permission::RolesWrite).await?
             <= state.roles.member_count(role_id).await?
     {
-        return Err(Error::Conflict(
-            "that would leave nobody able to administer this instance".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::LastAdministrator));
     }
 
     match state.roles.delete(role_id).await? {
         RoleChange::Done => Ok(StatusCode::NO_CONTENT),
         RoleChange::NoSuchRole => Err(Error::NotFound),
-        RoleChange::Seeded => Err(Error::Conflict(
-            "the roles this instance was seeded with cannot be removed".to_owned(),
-        )),
+        RoleChange::Seeded => Err(Error::new(ErrorCode::BuiltinRoleImmutable)
+            .with_message("the roles this instance was seeded with cannot be removed".to_owned())),
     }
 }
 
@@ -1244,9 +1248,7 @@ pub async fn set_user_roles(
     let losing_the_keys =
         held.allows(Permission::RolesWrite) && !resulting.allows(Permission::RolesWrite);
     if losing_the_keys && state.roles.holders_of(Permission::RolesWrite).await? <= 1 {
-        return Err(Error::Conflict(
-            "that would leave nobody able to administer this instance".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::LastAdministrator));
     }
 
     if state

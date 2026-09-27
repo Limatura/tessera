@@ -107,7 +107,7 @@ export function PasswordResetForm({
           }
           const errorBody =
             error instanceof Error && "code" in error && "message" in error
-              ? (error as components["schemas"]["ErrorBody"])
+              ? (error as unknown as components["schemas"]["ErrorBody"])
               : null;
           toast.add({
             description: errorBody?.message ?? "Failed to reset password",

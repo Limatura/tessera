@@ -8,7 +8,7 @@
 
 use crate::{
     db::repository::share::Encryption,
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -35,33 +35,33 @@ pub(crate) fn requested(
 ) -> Result<Option<Encryption>> {
     let Some(encryption) = encryption else {
         if key_salt.is_some() {
-            return Err(Error::bad_request(
-                "`key_salt` is for `encryption=password`; send both or neither",
-            ));
+            return Err(Error::new(ErrorCode::EncryptionInvalid)
+                .with_detail("field", "key_salt")
+                .with_message("`key_salt` is for `encryption=password`; send both or neither"));
         }
         return Ok(None);
     };
     // A malformed-request error, not a 403: the caller is not refused for who
     // they are, and `/capabilities` already said so.
     if !state.config().features.encryption {
-        return Err(Error::bad_request(
-            "this instance does not accept end-to-end encrypted shares",
-        ));
+        return Err(Error::new(ErrorCode::EncryptionDisabled));
     }
     match (encryption, key_salt) {
         ("link", None) => Ok(Some(Encryption::Link)),
-        ("link", Some(_)) => Err(Error::bad_request(
-            "a key carried in the link has no salt; drop `key_salt`",
-        )),
+        ("link", Some(_)) => Err(Error::new(ErrorCode::EncryptionInvalid)
+            .with_detail("field", "key_salt")
+            .with_message("a key carried in the link has no salt; drop `key_salt`")),
         ("password", Some(salt)) if is_base64url(&salt) && salt.len() == SALT_CHARS => {
             Ok(Some(Encryption::Password { salt }))
         }
-        ("password", _) => Err(Error::bad_request(
-            "`encryption=password` needs `key_salt`: 16 bytes as unpadded URL-safe base64",
-        )),
-        _ => Err(Error::bad_request(
-            "`encryption` must be `link` or `password`",
-        )),
+        ("password", _) => Err(Error::new(ErrorCode::EncryptionInvalid)
+            .with_detail("field", "key_salt")
+            .with_message(
+                "`encryption=password` needs `key_salt`: 16 bytes as unpadded URL-safe base64",
+            )),
+        _ => Err(Error::new(ErrorCode::EncryptionInvalid)
+            .with_detail("field", "encryption")
+            .with_message("`encryption` must be `link` or `password`")),
     }
 }
 
@@ -75,9 +75,11 @@ pub(crate) fn checked(value: Option<String>, field: &'static str) -> Result<Opti
         return Ok(None);
     };
     if value.is_empty() || value.len() > MAX_SEALED || !is_base64url(&value) {
-        return Err(Error::bad_request(format!(
-            "`{field}` must be unpadded URL-safe base64, at most {MAX_SEALED} characters"
-        )));
+        return Err(Error::new(ErrorCode::EncryptionInvalid)
+            .with_detail("field", field)
+            .with_message(format!(
+                "`{field}` must be unpadded URL-safe base64, at most {MAX_SEALED} characters"
+            )));
     }
     Ok(Some(value))
 }
@@ -102,7 +104,9 @@ pub(crate) fn coherent(
         (sealed, "only an encrypted share takes sealed descriptions")
     };
     match wrong.iter().find(|(_, given)| *given) {
-        Some((field, _)) => Err(Error::bad_request(format!("`{field}`: {why}"))),
+        Some((field, _)) => Err(Error::new(ErrorCode::EncryptionInvalid)
+            .with_detail("field", *field)
+            .with_message(format!("`{field}`: {why}"))),
         None => Ok(()),
     }
 }
@@ -137,10 +141,8 @@ mod tests {
 
     #[test]
     fn a_plain_name_on_an_encrypted_share_is_named_in_the_refusal() {
-        let refusal = coherent(true, &[("filename", true)], &[("sealed_name", false)])
-            .unwrap_err()
-            .to_string();
-        assert!(refusal.contains("filename"), "got: {refusal}");
+        let refusal = coherent(true, &[("filename", true)], &[("sealed_name", false)]).unwrap_err();
+        assert_eq!(refusal.details()["field"], "filename");
         assert!(coherent(false, &[("filename", true)], &[("sealed_name", false)]).is_ok());
         assert!(coherent(false, &[], &[("sealed_name", true)]).is_err());
     }

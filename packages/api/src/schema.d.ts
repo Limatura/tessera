@@ -2428,16 +2428,26 @@ export interface components {
         ErrorBody: {
             /** @description Stable identifier the client can branch on. */
             code: components["schemas"]["ErrorCode"];
-            /** @description Human-readable explanation. Never contains internal details. */
+            /**
+             * @description What a translated message needs: the field, the limit, how long to
+             *     wait. Always an object, empty when the code says everything.
+             */
+            details: Record<string, never>;
+            /**
+             * @description English explanation, for logs and for a client with no translation of
+             *     `code`. Never contains internal details.
+             */
             message: string;
         };
         /**
          * @description Stable, machine-readable identifier for an [`Error`].
          *
-         *     Clients branch on this; the human-readable `message` is free to change.
+         *     One per thing a client should tell apart, in `snake_case`. Clients
+         *     branch on this and translate it; `message` is English and free to
+         *     change, and `details` carries what a translation needs.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "bad_request" | "payload_too_large" | "unauthorized" | "forbidden" | "password_change_required" | "gone" | "range_not_satisfiable" | "conflict" | "too_many_requests" | "scanning" | "insufficient_storage" | "unsupported_media_type" | "timeout" | "unavailable" | "internal";
+        ErrorCode: "not_found" | "not_signed_in" | "permission_denied" | "session_required" | "password_change_required" | "payload_too_large" | "insufficient_storage" | "range_not_satisfiable" | "too_many_requests" | "scanning" | "unsupported_media_type" | "timeout" | "unavailable" | "internal" | "invalid_body" | "invalid_query" | "invalid_path" | "body_empty" | "body_incomplete" | "body_length_mismatch" | "value_empty" | "value_length" | "value_invalid" | "value_reserved" | "value_out_of_range" | "conflicting_fields" | "invalid_credentials" | "current_password_incorrect" | "password_breached" | "registration_closed" | "invite_unusable" | "registration_link_unusable" | "reset_link_unusable" | "verification_link_unusable" | "username_taken" | "email_taken" | "account_exists" | "email_already_verified" | "last_administrator" | "last_sign_in_method" | "unknown_permission" | "role_name_taken" | "builtin_role_immutable" | "share_password_required" | "share_password_incorrect" | "share_expired" | "share_exhausted" | "share_is_file" | "share_encrypted" | "share_password_is_key" | "share_is_text" | "text_too_large" | "code_space_exhausted" | "archive_too_large_for_zip" | "encryption_disabled" | "encryption_invalid" | "upload_offset_mismatch" | "upload_exceeds_length" | "upload_conflict" | "upload_chunk_too_small" | "upload_parts_mismatch" | "upload_not_direct" | "upload_direct_unavailable" | "upload_abandoned" | "resumable_unsupported" | "setting_unknown" | "setting_secret" | "setting_fixed_at_boot" | "setting_invalid" | "confirmation_required" | "provider_insecure" | "provider_unreachable" | "backend_unreachable" | "backend_credential_unreadable" | "backend_in_use" | "invalid_hash_prefix" | "invalid_configuration";
         /** @description Body of a successful `GET /health`. */
         HealthResponse: {
             /**

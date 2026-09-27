@@ -42,7 +42,7 @@ use crate::{
         proxy::Origin,
         throttle::Decision,
     },
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -164,7 +164,9 @@ pub async fn upload(
     let mut received = 0_u64;
     let mut stream = body.into_data_stream();
     while let Some(chunk) = tokio_stream::StreamExt::next(&mut stream).await {
-        let chunk = chunk.map_err(|error| Error::bad_request(error.to_string()))?;
+        let chunk = chunk.map_err(|error| {
+            Error::new(ErrorCode::BodyIncomplete).with_message(error.to_string())
+        })?;
         received = received.saturating_add(to_u64(chunk.len()));
         if received > limit {
             return Err(Error::PayloadTooLarge);
@@ -191,11 +193,14 @@ fn offered(state: &AppState, signed_in: bool) -> Result<u64> {
 fn asked_for(bytes: Option<u64>, limit: u64) -> Result<u64> {
     match bytes {
         None => Ok(limit),
-        Some(0) => Err(Error::bad_request("`bytes` must be at least one")),
+        Some(0) => Err(Error::out_of_range("bytes", Some(1), Some(limit))
+            .with_message("`bytes` must be at least one")),
         Some(asked) if asked <= limit => Ok(asked),
-        Some(_) => Err(Error::bad_request(format!(
-            "this instance tests at most {limit} bytes at a time"
-        ))),
+        Some(_) => Err(
+            Error::out_of_range("bytes", Some(1), Some(limit)).with_message(format!(
+                "this instance tests at most {limit} bytes at a time"
+            )),
+        ),
     }
 }
 
@@ -267,8 +272,9 @@ mod tests {
         assert_eq!(asked_for(None, 100).unwrap(), 100);
         assert_eq!(asked_for(Some(40), 100).unwrap(), 40);
         assert!(asked_for(Some(0), 100).is_err());
-        let refusal = asked_for(Some(101), 100).unwrap_err().to_string();
-        assert!(refusal.contains("100"), "{refusal}");
+        let refusal = asked_for(Some(101), 100).unwrap_err();
+        assert_eq!(refusal.details()["max"], 100);
+        assert!(refusal.public_message().contains("100"));
     }
 
     /// The bytes must be worth timing: a proxy compressing a stream of zeroes

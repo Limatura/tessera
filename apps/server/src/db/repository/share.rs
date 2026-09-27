@@ -136,6 +136,7 @@ impl ShareKind {
             "file" => Ok(Self::File),
             _ => Err(DomainError::Malformed {
                 field: "kind",
+                rule: "one_of",
                 reason: "must be `text` or `file`",
             }),
         }
@@ -216,6 +217,7 @@ impl Encryption {
             (Some("password"), None) => Err(DomainError::Empty { field: "key_salt" }),
             (Some(_), _) => Err(DomainError::Malformed {
                 field: "encryption",
+                rule: "one_of",
                 reason: "must be `link` or `password`",
             }),
         }
@@ -432,6 +434,7 @@ impl Content {
                     size_bytes: u64::try_from(model.size_bytes).map_err(|_| {
                         fail(DomainError::Malformed {
                             field: "size_bytes",
+                            rule: "not_negative",
                             reason: "must not be negative",
                         })
                     })?,
@@ -582,10 +585,12 @@ impl StorageLocation {
             }),
             (Self::OBJECT, None) => Err(DomainError::Malformed {
                 field: "object_key",
+                rule: "required",
                 reason: "must be present when storage is `object`",
             }),
             _ => Err(DomainError::Malformed {
                 field: "storage",
+                rule: "one_of",
                 reason: "must be `inline`, `object` or `gone`",
             }),
         }

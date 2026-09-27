@@ -39,7 +39,7 @@ use time::OffsetDateTime;
 use crate::{
     auth::{password, secret::Secret, throttle::Decision},
     db::repository::share::{Availability, Share},
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -167,13 +167,11 @@ pub fn admit(share: &Share, ticket: Ticket) -> Result<()> {
         // has decided it should stop being a thing, and confirming it was real
         // serves no one.
         Availability::Disabled => Err(Error::NotFound),
-        Availability::Expired => Err(Error::Gone("this share has expired".to_owned())),
+        Availability::Expired => Err(Error::new(ErrorCode::ShareExpired)),
         // The retrieval this ticket paid for is the one that emptied the share,
         // so this is that reader collecting what they already bought.
         Availability::Exhausted if ticket == Ticket::Held => Ok(()),
-        Availability::Exhausted => Err(Error::Gone(
-            "this share has been retrieved as many times as it was allowed to be".to_owned(),
-        )),
+        Availability::Exhausted => Err(Error::new(ErrorCode::ShareExhausted)),
     }
 }
 
@@ -219,14 +217,14 @@ pub async fn unlock(
 
     let Some(presented) = presented else {
         throttles.record_failure(&throttles.share, &key, source);
-        return Err(Error::Unauthorized);
+        return Err(Error::new(ErrorCode::SharePasswordRequired));
     };
     if password::verify(presented, stored).await? {
         throttles.share.reset(&key);
         Ok(())
     } else {
         throttles.record_failure(&throttles.share, &key, source);
-        Err(Error::Unauthorized)
+        Err(Error::new(ErrorCode::SharePasswordIncorrect))
     }
 }
 
@@ -240,9 +238,7 @@ pub async fn unlock(
 pub async fn spend(state: &AppState, share: &Share) -> Result<Secret> {
     let now = OffsetDateTime::now_utc();
     if !state.shares.consume(share.id, now).await? {
-        return Err(Error::Gone(
-            "this share has been retrieved as many times as it was allowed to be".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::ShareExhausted));
     }
 
     // Issued with the idle window, not the ceiling. The ticket is renewed by

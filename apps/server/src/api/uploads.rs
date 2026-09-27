@@ -91,7 +91,7 @@ use crate::{
         share::{Encryption, NewFile, StorageLocation},
         upload::{NewUpload, Upload},
     },
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
     upload::sink::{Sink, TakenPart, part_count, split_into_parts},
 };
@@ -334,23 +334,26 @@ async fn named(
 ) -> Result<(Option<String>, Option<String>, Option<Encryption>)> {
     let filename = crate::api::shares::checked_filename(params.filename)?;
     let sealed_name = sealed::checked(params.sealed_name, "sealed_name")?;
-    let encryption = match share_id {
-        None => sealed::requested(state, params.encryption.as_deref(), params.key_salt)?,
-        Some(id) => {
-            if params.encryption.is_some() || params.key_salt.is_some() {
-                return Err(Error::bad_request(
+    let encryption =
+        match share_id {
+            None => sealed::requested(state, params.encryption.as_deref(), params.key_salt)?,
+            Some(id) => {
+                if params.encryption.is_some() || params.key_salt.is_some() {
+                    return Err(Error::new(ErrorCode::ConflictingFields)
+                    .with_detail("fields", serde_json::json!(["share", "encryption", "key_salt"]))
+                    .with_message(
                     "an upload into an existing share is sealed the way that share is; drop \
                      `encryption` and `key_salt`",
                 ));
+                }
+                state
+                    .shares
+                    .find_by_id(id)
+                    .await?
+                    .ok_or(Error::NotFound)?
+                    .encryption
             }
-            state
-                .shares
-                .find_by_id(id)
-                .await?
-                .ok_or(Error::NotFound)?
-                .encryption
-        }
-    };
+        };
     sealed::coherent(
         encryption.is_some(),
         &[("filename", filename.is_some())],
@@ -449,10 +452,9 @@ pub async fn append(
     // what keeps two clients from interleaving into a file that is neither of
     // theirs.
     if header_number(&headers, UPLOAD_OFFSET) != Some(upload.offset_bytes) {
-        return Err(Error::Conflict(format!(
-            "this upload is at {}",
-            upload.offset_bytes
-        )));
+        return Err(Error::new(ErrorCode::UploadOffsetMismatch)
+            .with_detail("offset", upload.offset_bytes)
+            .with_message(format!("this upload is at {}", upload.offset_bytes)));
     }
 
     let part_size = state.config().server.part_size_bytes;
@@ -470,7 +472,7 @@ pub async fn append(
             .saturating_add(u64::try_from(chunk.len()).unwrap_or(u64::MAX))
             > upload.declared_bytes
         {
-            return Err(Error::bad_request("that is more than this upload declared"));
+            return Err(Error::new(ErrorCode::UploadExceedsLength));
         }
         pending.extend_from_slice(&chunk);
 
@@ -509,9 +511,7 @@ pub async fn append(
                 )
                 .await?
             {
-                return Err(Error::Conflict(
-                    "another request moved this upload while it was being written".to_owned(),
-                ));
+                return Err(Error::new(ErrorCode::UploadConflict));
             }
         }
         pending = rest;
@@ -522,9 +522,11 @@ pub async fn append(
     // nothing to say why. A request that was not the last and moved nothing is
     // refused with the number it needed, which the `POST` already told it.
     if sink.buffers() && offset == upload.offset_bytes && offset < upload.declared_bytes {
-        return Err(Error::bad_request(format!(
-            "a chunk that is not the last must carry at least {part_size} bytes"
-        )));
+        return Err(Error::new(ErrorCode::UploadChunkTooSmall)
+            .with_detail("min_bytes", part_size)
+            .with_message(format!(
+                "a chunk that is not the last must carry at least {part_size} bytes"
+            )));
     }
 
     // Whatever did not fill a part is not recorded, so the client re-sends it.
@@ -651,20 +653,20 @@ pub async fn complete(
     // own recorded ids, and completing with the client's list would describe an
     // object neither half fully wrote.
     if !state.uploads.parts_of(upload.id).await?.is_empty() {
-        return Err(Error::Conflict(
-            "parts of this upload came through this server; finish it with PATCH".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::UploadNotDirect));
     }
 
     let parts = part_count(upload.declared_bytes, part_size(&state));
     if u64::try_from(body.etags.len()).ok() != Some(parts) {
-        return Err(Error::bad_request(format!(
-            "this upload is {parts} parts, and {} ETags were sent",
-            body.etags.len()
-        )));
+        return Err(Error::new(ErrorCode::UploadPartsMismatch)
+            .with_detail("expected", parts)
+            .with_message(format!(
+                "this upload is {parts} parts, and {} ETags were sent",
+                body.etags.len()
+            )));
     }
     if body.etags.iter().any(|etag| etag.trim().is_empty()) {
-        return Err(Error::bad_request("an ETag cannot be empty"));
+        return Err(Error::new(ErrorCode::ValueEmpty).with_detail("field", "etags"));
     }
 
     let taken = body
@@ -689,10 +691,12 @@ pub async fn complete(
             tracing::warn!(%error, upload = %upload.id, "could not delete an upload that came out the wrong size");
         }
         state.uploads.delete(upload.id).await?;
-        return Err(Error::bad_request(format!(
-            "the parts came to {size} bytes, and this upload declared {}",
-            upload.declared_bytes
-        )));
+        return Err(
+            Error::new(ErrorCode::UploadPartsMismatch).with_message(format!(
+                "the parts came to {size} bytes, and this upload declared {}",
+                upload.declared_bytes
+            )),
+        );
     }
 
     settle(&state, upload, size).await
@@ -775,7 +779,7 @@ async fn sign_part(
 }
 
 fn not_direct() -> Error {
-    Error::Conflict("this upload cannot take parts directly; send them with PATCH".to_owned())
+    Error::new(ErrorCode::UploadDirectUnavailable)
 }
 
 fn part_size(state: &AppState) -> u64 {
@@ -832,8 +836,10 @@ async fn settle(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
 
 /// Reads `Upload-Length`: how much the client says it will send.
 fn declared_length(headers: &HeaderMap) -> Result<u64> {
-    header_number(headers, UPLOAD_LENGTH)
-        .ok_or_else(|| Error::bad_request("`Upload-Length` must be a number of bytes"))
+    header_number(headers, UPLOAD_LENGTH).ok_or_else(|| {
+        Error::invalid("Upload-Length", "number")
+            .with_message("`Upload-Length` must be a number of bytes")
+    })
 }
 
 fn header_number(headers: &HeaderMap, name: &str) -> Option<u64> {
@@ -871,7 +877,7 @@ async fn continuable(
     let upload = state.uploads.find(id).await?.ok_or(Error::NotFound)?;
 
     if upload.expires_at <= OffsetDateTime::now_utc() {
-        return Err(Error::Gone("that upload was abandoned".to_owned()));
+        return Err(Error::new(ErrorCode::UploadAbandoned));
     }
 
     let owns = match (upload.user_id, current) {
@@ -943,9 +949,7 @@ async fn resolve_target(
         return Err(Error::NotFound);
     }
     if share.kind == crate::db::repository::share::ShareKind::Text {
-        return Err(Error::Conflict(
-            "that share holds text; a text share holds one thing".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::ShareIsText));
     }
     Ok(share.id)
 }

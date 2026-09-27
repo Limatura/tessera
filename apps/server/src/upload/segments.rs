@@ -120,9 +120,10 @@ impl<'a> Writer<'a> {
         let mut rest = chunk;
         while !rest.is_empty() {
             let Some(planned) = self.plan.get(self.at).cloned() else {
-                return Err(crate::error::Error::bad_request(
-                    "the body is longer than it said it would be",
-                ));
+                return Err(
+                    crate::error::Error::new(crate::error::ErrorCode::BodyLengthMismatch)
+                        .with_message("the body is longer than it said it would be"),
+                );
             };
 
             let room = planned.segment.length.saturating_sub(self.into_current);

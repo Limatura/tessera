@@ -109,6 +109,7 @@ impl RetrievalCode {
             if !in_alphabet {
                 return Err(DomainError::Malformed {
                     field: "code",
+                    rule: "code_alphabet",
                     reason: "may contain only digits and the letters A-Z, without I, L, O or U",
                 });
             }

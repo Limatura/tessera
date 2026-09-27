@@ -32,7 +32,7 @@ use crate::{
         session::{SessionEnding, SessionOrigin, StartedBy},
         user::User,
     },
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     mail::password_reset_letter,
     state::AppState,
 };
@@ -214,7 +214,7 @@ fn address_limit_key(email: &EmailAddress) -> String {
 /// holder of a code they were never given learn that it was once real, turning
 /// the registration form into a way to test codes instead of use one.
 pub(super) fn invite_refused() -> Error {
-    Error::bad_request("that invite code is not usable")
+    Error::new(ErrorCode::InviteUnusable)
 }
 
 /// Reads the invite a registration came in on, when this instance asks for one.
@@ -297,7 +297,7 @@ pub(super) async fn seed_role(state: &AppState, first: bool) -> Result<RoleId> {
     let wanted = &state.config().auth.default_role;
     let Some(role) = state.roles.find_by_name(wanted).await? else {
         tracing::error!(role = %wanted, "auth.default_role names a role that is not there");
-        return Err(Error::Conflict(
+        return Err(Error::new(ErrorCode::RegistrationClosed).with_message(
             "this instance is not configured to accept new accounts right now".to_owned(),
         ));
     };
@@ -335,7 +335,7 @@ pub async fn register(
     // Checked before anything is parsed, so a closed instance says so without
     // reading what was sent.
     if state.config().auth.registration == RegistrationPolicy::Closed {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::RegistrationClosed));
     }
 
     let username = Username::parse(&body.username)?;
@@ -357,7 +357,7 @@ pub async fn register(
     // only the second is a question strangers get to ask. An instance that does
     // not want even the first asked closes registration, refused above.
     if state.users.find_by_username(&username).await?.is_some() {
-        return Err(Error::Conflict("that username is taken".to_owned()));
+        return Err(Error::new(ErrorCode::UsernameTaken));
     }
 
     let invite = check_invite(&state, body.invite_code.as_deref()).await?;
@@ -370,9 +370,8 @@ pub async fn register(
     // Without one there is nothing to verify with, so this is all of it.
     // The ordinary case here: one person on a NAS who set the address.
     if state.users.find_by_email(&email).await?.is_some() {
-        return Err(Error::Conflict(
-            "an account already exists for that address".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::EmailTaken)
+            .with_message("an account already exists for that address".to_owned()));
     }
 
     let now = OffsetDateTime::now_utc();
@@ -417,9 +416,7 @@ pub async fn register(
             .is_some()
             || state.users.find_by_email(&user.email).await?.is_some()
         {
-            return Err(Error::Conflict(
-                "that username or address is already taken".to_owned(),
-            ));
+            return Err(Error::new(ErrorCode::AccountExists));
         }
         return Err(error.into());
     }
@@ -507,7 +504,7 @@ pub async fn login(
     // suspended account, which reopens the oracle the work above closes.
     let Some(user) = user.filter(|found| authenticated && found.state.may_sign_in()) else {
         throttles.record_failure(&throttles.login, &key, &origin.source);
-        return Err(Error::Unauthorized);
+        return Err(Error::new(ErrorCode::InvalidCredentials));
     };
 
     throttles.login.reset(&key);
@@ -627,14 +624,14 @@ pub async fn change_password(
     // A leaked API token must not be able to take the account. Requiring the
     // browser credential keeps a leaked token to what the token can do.
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
 
     // Widest bounds for the password being *presented*, the instance's policy
     // for the one being *chosen*. Otherwise raising `min_length` would leave
     // everyone below it unable to log in and unable to fix it.
     let supplied = Password::parse(body.current_password, PasswordPolicy::widest())
-        .map_err(|_| Error::Unauthorized)?;
+        .map_err(|_| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
     // An account with no password cannot confirm one. `Unauthorized`, not a
     // distinct answer: the caller is signed in, so there is nothing to
     // enumerate, and the fix is to set a password, not to guess again.
@@ -642,9 +639,9 @@ pub async fn change_password(
         .users
         .password_of(current.user.id)
         .await?
-        .ok_or(Error::Unauthorized)?;
+        .ok_or_else(|| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
     if !password::verify(supplied, stored).await? {
-        return Err(Error::Unauthorized);
+        return Err(Error::new(ErrorCode::CurrentPasswordIncorrect));
     }
 
     let replacement = Password::parse(body.new_password, state.config().auth.password)?;
@@ -952,7 +949,7 @@ pub async fn confirm_registration(
     // `Invite` still passes. The code was checked when the link was sent and is
     // charged below, so this link was genuinely issued.
     if state.config().auth.registration == RegistrationPolicy::Closed {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::RegistrationClosed));
     }
 
     let now = OffsetDateTime::now_utc();
@@ -962,9 +959,7 @@ pub async fn confirm_registration(
     // One message for unknown and expired alike. Telling them apart would let
     // the holder of a stale link learn that it was once real.
     let Some(pending) = found.filter(|pending| pending.is_usable_at(now)) else {
-        return Err(Error::bad_request(
-            "this confirmation link is not usable; register again",
-        ));
+        return Err(Error::new(ErrorCode::RegistrationLinkUnusable));
     };
 
     if state
@@ -973,7 +968,7 @@ pub async fn confirm_registration(
         .await?
         .is_some()
     {
-        return Err(Error::Conflict(
+        return Err(Error::new(ErrorCode::UsernameTaken).with_message(
             "that username was taken while this link was waiting; register again with another"
                 .to_owned(),
         ));
@@ -983,9 +978,7 @@ pub async fn confirm_registration(
     // conflict, since the address is not this caller's to be told about.
     if state.users.find_by_email(&pending.email).await?.is_some() {
         state.pending.finish(pending.id).await?;
-        return Err(Error::bad_request(
-            "this confirmation link is not usable; register again",
-        ));
+        return Err(Error::new(ErrorCode::RegistrationLinkUnusable));
     }
 
     // The place is charged here, where an account is about to exist. Two links
@@ -1036,7 +1029,7 @@ pub async fn confirm_registration(
             .is_some()
             || state.users.find_by_email(&user.email).await?.is_some()
         {
-            return Err(Error::Conflict(
+            return Err(Error::new(ErrorCode::AccountExists).with_message(
                 "that username or address was taken while this link was waiting; \
                  register again"
                     .to_owned(),
@@ -1229,9 +1222,7 @@ pub async fn confirm_password_reset(
     // and that is why the row survives being used, but saying so would let the
     // holder of a spent link learn it was once real.
     let Some(token) = found.filter(|token| token.is_usable_at(now)) else {
-        return Err(Error::bad_request(
-            "this reset link is not usable; ask for a new one",
-        ));
+        return Err(Error::new(ErrorCode::ResetLinkUnusable));
     };
 
     // Parsed before the token is spent. A password that fails the policy should
@@ -1243,9 +1234,7 @@ pub async fn confirm_password_reset(
     // The database decides who wins, so two clicks arriving together set the
     // password once.
     if !state.resets.spend(token.id, now).await? {
-        return Err(Error::bad_request(
-            "this reset link is not usable; ask for a new one",
-        ));
+        return Err(Error::new(ErrorCode::ResetLinkUnusable));
     }
 
     let hash = password::hash(password, state.config().auth.hashing).await?;
@@ -1350,19 +1339,19 @@ async fn reconfirm(state: &AppState, current: &CurrentUser, supplied: String) ->
     // A leaked API token must not be able to rename or remove the account, for
     // the same reason as changing a password.
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
-    let supplied =
-        Password::parse(supplied, PasswordPolicy::widest()).map_err(|_| Error::Unauthorized)?;
+    let supplied = Password::parse(supplied, PasswordPolicy::widest())
+        .map_err(|_| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
     let stored = state
         .users
         .password_of(current.user.id)
         .await?
-        .ok_or(Error::Unauthorized)?;
+        .ok_or_else(|| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
     if password::verify(supplied, stored).await? {
         Ok(())
     } else {
-        Err(Error::Unauthorized)
+        Err(Error::new(ErrorCode::CurrentPasswordIncorrect))
     }
 }
 
@@ -1408,10 +1397,12 @@ pub async fn update_account(
     let renamed = username != current.user.username;
     let moved = email != current.user.email;
     if renamed && state.users.find_by_username(&username).await?.is_some() {
-        return Err(Error::Conflict("that name is taken".to_owned()));
+        return Err(
+            Error::new(ErrorCode::UsernameTaken).with_message("that name is taken".to_owned())
+        );
     }
     if moved && state.users.find_by_email(&email).await?.is_some() {
-        return Err(Error::Conflict("that address is taken".to_owned()));
+        return Err(Error::new(ErrorCode::EmailTaken));
     }
 
     // Cleared when the address moves, kept otherwise. Correcting a typo in a
@@ -1485,7 +1476,7 @@ pub async fn delete_account(
     if current.permissions.allows(Permission::RolesWrite)
         && state.roles.holders_of(Permission::RolesWrite).await? <= 1
     {
-        return Err(Error::Conflict(
+        return Err(Error::new(ErrorCode::LastAdministrator).with_message(
             "you are the only administrator; give somebody else the role first".to_owned(),
         ));
     }

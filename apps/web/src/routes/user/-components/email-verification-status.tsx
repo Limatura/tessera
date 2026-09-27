@@ -17,7 +17,7 @@ const SECONDS_PER_MINUTE = 60;
 function errorDescription(error: VerificationRequestError): string {
   switch (error.code) {
     // 別處已經驗證過了。session 會被重抓,這個狀態列自己會換成「已驗證」。
-    case "conflict": {
+    case "email_already_verified": {
       return m.user_email_verification_already();
     }
     case "too_many_requests": {
@@ -69,7 +69,7 @@ export function EmailVerificationStatus({
         toast.add({
           description: errorDescription(error),
           title: m.user_email_verification_failed(),
-          type: error.code === "conflict" ? "info" : "error",
+          type: error.code === "email_already_verified" ? "info" : "error",
         }),
     });
   };

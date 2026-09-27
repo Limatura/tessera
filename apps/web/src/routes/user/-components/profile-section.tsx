@@ -73,7 +73,7 @@ export function ProfileSection() {
         // openapi-fetch 丟的是 ErrorBody;斷線時是 TypeError,沒有 code。
         onError: (error) => {
           const { code, message } = error as Partial<ErrorBody>;
-          if (code === "unauthorized") {
+          if (code === "current_password_incorrect") {
             setError("currentPassword", {
               message: m.user_profile_wrong_password(),
             });
@@ -81,7 +81,7 @@ export function ProfileSection() {
           }
           toast.add({
             description:
-              code === "conflict"
+              code === "username_taken" || code === "email_taken"
                 ? m.user_profile_taken()
                 : (message ?? m.common_try_again()),
             title: m.user_profile_save_failed(),

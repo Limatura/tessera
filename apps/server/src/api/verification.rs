@@ -18,7 +18,7 @@ use utoipa::ToSchema;
 use crate::{
     api::{AUTH_TAG, auth::require_accounts, extract::ApiJson},
     auth::{extract::CurrentUser, secret::Secret, throttle::Decision},
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     mail::verification_letter,
     state::AppState,
 };
@@ -37,7 +37,7 @@ pub struct VerificationConfirmRequest {
 /// all get the same message. Telling them apart would let the holder of a
 /// stale link learn it was once valid.
 fn not_usable() -> Error {
-    Error::bad_request("this confirmation link is not usable; ask for a new one")
+    Error::new(ErrorCode::VerificationLinkUnusable)
 }
 
 /// Sends the caller a link proving their address is theirs.
@@ -76,12 +76,10 @@ pub async fn request(State(state): State<AppState>, current: CurrentUser) -> Res
     // A leaked API token must not be usable to mail the account owner
     // repeatedly, and no script needs this.
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
     if current.user.email_verified_at.is_some() {
-        return Err(Error::Conflict(
-            "this address is already confirmed".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::EmailAlreadyVerified));
     }
 
     // Keyed on the address, since that is what receives the mail. An account

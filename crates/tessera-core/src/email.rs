@@ -95,6 +95,7 @@ impl EmailAddress {
         if trimmed.chars().any(|c| c.is_whitespace() || c.is_control()) {
             return Err(DomainError::Malformed {
                 field: "email",
+                rule: "no_spaces",
                 reason: "must not contain spaces or control characters",
             });
         }
@@ -102,6 +103,7 @@ impl EmailAddress {
         let Some((local, domain)) = trimmed.split_once('@') else {
             return Err(DomainError::Malformed {
                 field: "email",
+                rule: "missing_at",
                 reason: "must contain an `@`",
             });
         };
@@ -123,6 +125,7 @@ impl EmailAddress {
         if domain.contains('@') {
             return Err(DomainError::Malformed {
                 field: "email",
+                rule: "multiple_at",
                 reason: "must contain exactly one `@`",
             });
         }
@@ -130,6 +133,7 @@ impl EmailAddress {
         if local.is_empty() || domain.is_empty() {
             return Err(DomainError::Malformed {
                 field: "email",
+                rule: "empty_part",
                 reason: "must have text on both sides of the `@`",
             });
         }
@@ -137,6 +141,7 @@ impl EmailAddress {
         if local.chars().count() > Self::MAX_LOCAL_LENGTH {
             return Err(DomainError::Malformed {
                 field: "email",
+                rule: "local_part_too_long",
                 reason: "has a local part that is too long",
             });
         }
@@ -147,6 +152,7 @@ impl EmailAddress {
         if !domain.contains('.') || domain.starts_with('.') || domain.ends_with('.') {
             return Err(DomainError::Malformed {
                 field: "email",
+                rule: "missing_domain",
                 reason: "must have a domain such as `example.com`",
             });
         }
@@ -154,6 +160,7 @@ impl EmailAddress {
         if domain.contains("..") {
             return Err(DomainError::Malformed {
                 field: "email",
+                rule: "empty_domain_label",
                 reason: "has a domain with an empty label",
             });
         }

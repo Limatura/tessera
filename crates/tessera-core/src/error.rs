@@ -37,7 +37,11 @@ pub enum DomainError {
     Malformed {
         /// Field the caller supplied.
         field: &'static str,
-        /// What is wrong, phrased to be shown to the person who typed it.
+        /// Which rule it broke, as a stable `snake_case` name a client can
+        /// translate: `needs_digit`, `missing_at`.
+        rule: &'static str,
+        /// What is wrong, in English, for a log or a client with no
+        /// translation of `rule`.
         reason: &'static str,
     },
 

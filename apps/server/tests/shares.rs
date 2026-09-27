@@ -546,7 +546,16 @@ async fn every_rejection_keeps_the_error_envelope() {
             .unwrap_or_else(|_| panic!("{label}: expected an ErrorBody, got `{body}`"));
 
         assert_eq!(status, StatusCode::BAD_REQUEST, "{label}");
-        assert_eq!(parsed["code"], "bad_request", "{label}");
+        let expected = if label.contains("query") {
+            "invalid_query"
+        } else {
+            "invalid_body"
+        };
+        assert_eq!(parsed["code"], expected, "{label}");
+        assert!(
+            parsed["details"].is_object(),
+            "{label}: details is always an object"
+        );
         assert!(
             parsed["message"].as_str().is_some_and(|m| !m.is_empty()),
             "{label}: the message should say what was wrong: {parsed}"
@@ -674,7 +683,7 @@ async fn a_one_time_share_is_gone_after_its_retrieval() {
 
     let second = app.get(&format!("/s/{code}/raw")).await;
     assert_eq!(second.status(), StatusCode::GONE);
-    assert_eq!(body_json(second).await["code"], "gone");
+    assert_eq!(body_json(second).await["code"], "share_exhausted");
 
     // And an unused code is a different answer.
     let missing = app.get("/s/ZZZZZZZZ/raw").await;
@@ -1848,7 +1857,7 @@ async fn a_ticket_does_not_outlive_the_expiry() {
 
     let refused = app.get(&format!("/s/{code}/raw?t={ticket}")).await;
     assert_eq!(refused.status(), StatusCode::GONE);
-    assert_eq!(body_json(refused).await["code"], "gone");
+    assert_eq!(body_json(refused).await["code"], "share_expired");
 }
 
 /// Nor does it outrank an operator. A disabled share reads as "never existed"

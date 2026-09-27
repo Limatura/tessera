@@ -61,6 +61,7 @@ macro_rules! declare_id {
                     .map(Self)
                     .map_err(|_| DomainError::Malformed {
                         field: $field,
+                        rule: "not_an_identifier",
                         reason: "is not a valid identifier",
                     })
             }

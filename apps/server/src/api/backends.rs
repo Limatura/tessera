@@ -27,7 +27,7 @@ use crate::{
     },
     auth::extract::CurrentUser,
     db::repository::storage_backend::{StorageBackend, StorageBackendError},
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -345,7 +345,10 @@ fn open_or_refuse(backend: &StorageBackend) -> Result<()> {
         options: backend.options.clone(),
     })
     .map(|_| ())
-    .map_err(|error| Error::bad_request(format!("that backend will not open: {error}")))
+    .map_err(|error| {
+        Error::new(ErrorCode::BackendUnreachable)
+            .with_message(format!("that backend will not open: {error}"))
+    })
 }
 
 /// Rebuilds the pool so a change is live for the next request.
@@ -402,8 +405,12 @@ async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
 /// files.
 fn describe_failure(error: StorageBackendError) -> Error {
     match error {
-        StorageBackendError::Secret(inner) => Error::Conflict(inner.to_string()),
-        StorageBackendError::StillInUse { .. } => Error::Conflict(error.to_string()),
+        StorageBackendError::Secret(inner) => {
+            Error::new(ErrorCode::BackendCredentialUnreadable).with_message(inner.to_string())
+        }
+        StorageBackendError::StillInUse { .. } => {
+            Error::new(ErrorCode::BackendInUse).with_message(error.to_string())
+        }
         // A malformed row or a database failure is ours, not the caller's.
         other => {
             tracing::error!(error = %other, "a storage backend could not be read or written");

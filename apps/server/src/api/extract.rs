@@ -13,7 +13,7 @@
 //! These wrap the originals and route the rejection through [`Error`], so the
 //! shape holds everywhere. The rejection's own text is kept, because it
 //! describes what the caller sent ("missing field `password`"), the
-//! kind of detail [`Error::BadRequest`] may echo and far more useful than a
+//! kind of detail an error's `message` may echo and far more useful than a
 //! generic message.
 //!
 //! Every rejection becomes `400 bad_request`. Collapsing `415` and `422` into
@@ -32,7 +32,7 @@ use axum::{
 };
 use serde::de::DeserializeOwned;
 
-use crate::error::Error;
+use crate::error::{Error, ErrorCode};
 
 /// [`axum::Json`], rejecting with an [`ErrorBody`](crate::error::ErrorBody).
 #[derive(Debug, Clone, Copy, Default)]
@@ -95,13 +95,13 @@ where
 }
 
 fn describe_json(rejection: &JsonRejection) -> Error {
-    Error::bad_request(rejection.body_text())
+    Error::new(ErrorCode::InvalidBody).with_message(rejection.body_text())
 }
 
 fn describe_query(rejection: &QueryRejection) -> Error {
-    Error::bad_request(rejection.body_text())
+    Error::new(ErrorCode::InvalidQuery).with_message(rejection.body_text())
 }
 
 fn describe_path(rejection: &PathRejection) -> Error {
-    Error::bad_request(rejection.body_text())
+    Error::new(ErrorCode::InvalidPath).with_message(rejection.body_text())
 }

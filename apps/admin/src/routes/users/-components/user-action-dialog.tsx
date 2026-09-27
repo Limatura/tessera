@@ -142,8 +142,8 @@ function UserActionForm({
       </AlertDialogHeader>
       {error && (
         <p className="text-destructive text-sm" role="alert">
-          {/* 409 只會是「他是最後一個持有 roles:write 的人」,server 的訊息是英文。 */}
-          {error.code === "conflict"
+          {/* server 的訊息是英文，認得的 code 換成翻譯。 */}
+          {error.code === "last_administrator"
             ? m.users_action_last_admin_error()
             : (error.message ?? m.users_action_generic_error())}
         </p>

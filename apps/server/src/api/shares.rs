@@ -61,7 +61,7 @@ use crate::{
         },
         user::User,
     },
-    error::{Error, Result, Tier},
+    error::{Error, ErrorCode, Result, Tier},
     state::AppState,
 };
 
@@ -352,7 +352,7 @@ pub async fn create(
     }
 
     if params.max_uses == Some(0) {
-        return Err(Error::bad_request(
+        return Err(Error::out_of_range("max_uses", Some(1), None).with_message(
             "`max_uses` must be at least 1; omit it for a share that never runs out",
         ));
     }
@@ -401,7 +401,7 @@ pub async fn create(
 
     // Nothing to hand out, and the retrieval code it would occupy is not free.
     if size_bytes == 0 {
-        return Err(Error::bad_request("the request body is empty"));
+        return Err(Error::new(ErrorCode::BodyEmpty));
     }
 
     // Anonymous uploads get a token so their author can take one back. A
@@ -564,9 +564,8 @@ const MAX_PAGE_FIGURE: u64 = i64::MAX.unsigned_abs();
 pub fn page_bounds(params: &SharePageParams) -> Result<(u64, u64)> {
     for (name, value) in [("limit", params.limit), ("offset", params.offset)] {
         if value.is_some_and(|value| value > MAX_PAGE_FIGURE) {
-            return Err(Error::bad_request(format!(
-                "`{name}` must be at most {MAX_PAGE_FIGURE}"
-            )));
+            return Err(Error::out_of_range(name, None, Some(MAX_PAGE_FIGURE))
+                .with_message(format!("`{name}` must be at most {MAX_PAGE_FIGURE}")));
         }
     }
     Ok((
@@ -840,7 +839,9 @@ pub async fn patch(
 
     let supplied = share_password(&headers)?;
     if supplied.is_some() && body.remove_password {
-        return Err(Error::bad_request(
+        return Err(Error::new(ErrorCode::ConflictingFields)
+            .with_detail("fields", serde_json::json!(["X-Share-Password", "remove_password"]))
+            .with_message(
             "send `X-Share-Password` to set a password or `remove_password` to clear it, not both",
         ));
     }
@@ -851,7 +852,7 @@ pub async fn patch(
     if matches!(share.encryption, Some(Encryption::Password { .. }))
         && (body.remove_password || (supplied.is_some() && share.needs_password()))
     {
-        return Err(Error::bad_request(
+        return Err(Error::new(ErrorCode::SharePasswordIsKey).with_message(
             "this share's key comes from its password, so the password cannot be changed or \
              removed",
         ));
@@ -865,7 +866,12 @@ pub async fn patch(
         // ceiling has nothing to bypass.
         Some(None) => {
             if state.config().share.max_expiry().is_some() {
-                return Err(Error::bad_request(format!(
+                return Err(Error::out_of_range(
+                    "expires_in_hours",
+                    Some(1),
+                    Some(state.config().share.max_expiry_hours),
+                )
+                .with_message(format!(
                     "this instance keeps shares for at most {} hours, so `expires_in_hours` \
                      cannot be cleared",
                     state.config().share.max_expiry_hours
@@ -880,7 +886,7 @@ pub async fn patch(
         None => Change::Keep,
         Some(None) => Change::Set(None),
         Some(Some(0)) => {
-            return Err(Error::bad_request(
+            return Err(Error::out_of_range("max_uses", Some(1), None).with_message(
                 "`max_uses` must be at least 1; send null for a share that never runs out",
             ));
         }
@@ -1618,7 +1624,7 @@ async fn ceilings(state: &AppState, user: Option<&User>) -> Result<Vec<Ceiling>>
 ///
 /// # Errors
 ///
-/// Returns [`Error::BadRequest`] if it is too long or holds a control
+/// Returns `value_length` or `value_invalid` if it is too long or holds a control
 /// character.
 pub(crate) fn checked_filename(value: Option<String>) -> Result<Option<String>> {
     checked_label(value, "filename", MAX_TEXT_FIELD)
@@ -1707,9 +1713,7 @@ async fn ingest_into<'a>(
         // Checked as it arrives: a paste ten times the limit should stop at the
         // limit, not be read in full and then refused.
         if !stream_to_object && size_bytes > u64::try_from(text_limit).unwrap_or(u64::MAX) {
-            return Err(Error::bad_request(
-                "that is larger than this instance keeps as text; send it as a file instead",
-            ));
+            return Err(Error::new(ErrorCode::TextTooLarge).with_detail("max_bytes", text_limit));
         }
         arriving.reached(size_bytes);
         enforce_ceiling(
@@ -1806,7 +1810,8 @@ async fn finish(
             }
             let pieces = writer.finish().await?;
             let first = pieces.first().ok_or_else(|| {
-                Error::bad_request("upload state was lost part-way through the body")
+                Error::new(ErrorCode::BodyIncomplete)
+                    .with_message("upload state was lost part-way through the body")
             })?;
             Ok(Ingested {
                 // The legacy column keeps the first piece, all one column can
@@ -1873,7 +1878,7 @@ async fn finish(
 /// # Errors
 ///
 /// Returns [`Error::Timeout`] when nothing arrives for `stall`, or
-/// [`Error::BadRequest`] when the body ends part-way.
+/// `body_incomplete` when the body ends part-way.
 pub(crate) async fn next_chunk(body: &mut Body, stall: Duration) -> Result<Option<Bytes>> {
     while let Some(frame) = next_frame(body, stall).await? {
         if let Ok(data) = frame.into_data() {
@@ -1894,9 +1899,9 @@ pub(crate) async fn next_chunk(body: &mut Body, stall: Duration) -> Result<Optio
 /// See `api::timeout` for why the wall-clock budget is not applied here.
 async fn next_frame(body: &mut Body, stall: Duration) -> Result<Option<http_body::Frame<Bytes>>> {
     match tokio::time::timeout(stall, body.frame()).await {
-        Ok(Some(frame)) => frame
-            .map(Some)
-            .map_err(|error| Error::bad_request(format!("body ended early: {error}"))),
+        Ok(Some(frame)) => frame.map(Some).map_err(|error| {
+            Error::new(ErrorCode::BodyIncomplete).with_message(format!("body ended early: {error}"))
+        }),
         Ok(None) => Ok(None),
         Err(_) => Err(Error::Timeout),
     }
@@ -2049,7 +2054,7 @@ async fn insert_with_fresh_code(
             }
         }
     }
-    Err(Error::Conflict(
+    Err(Error::new(ErrorCode::CodeSpaceExhausted).with_message(
         "could not find an unused retrieval code; consider raising share.code_length".to_owned(),
     ))
 }
@@ -2075,14 +2080,14 @@ fn checked_label(value: Option<String>, field: &'static str, max: usize) -> Resu
         return Ok(None);
     }
     if value.chars().count() > max {
-        return Err(Error::bad_request(format!(
-            "`{field}` must be at most {max} characters"
-        )));
+        return Err(Error::new(ErrorCode::ValueLength)
+            .with_detail("field", field)
+            .with_detail("max", max)
+            .with_message(format!("`{field}` must be at most {max} characters")));
     }
     if value.chars().any(char::is_control) {
-        return Err(Error::bad_request(format!(
-            "`{field}` must not contain control characters"
-        )));
+        return Err(Error::invalid(field, "no_control_characters")
+            .with_message(format!("`{field}` must not contain control characters")));
     }
     Ok(Some(value))
 }
@@ -2148,13 +2153,25 @@ fn resolve_expiry(
     };
 
     if hours == 0 {
-        return Err(Error::bad_request(
-            "`expires_in_hours` must be at least 1; omit it for the instance default",
-        ));
+        return Err(Error::out_of_range(
+            "expires_in_hours",
+            Some(1),
+            state
+                .config()
+                .share
+                .max_expiry()
+                .map(|_| state.config().share.max_expiry_hours),
+        )
+        .with_message("`expires_in_hours` must be at least 1; omit it for the instance default"));
     }
     let requested = std::time::Duration::from_secs(hours.saturating_mul(3600));
     if ceiling.is_some_and(|limit| requested > limit) {
-        return Err(Error::bad_request(format!(
+        return Err(Error::out_of_range(
+            "expires_in_hours",
+            Some(1),
+            Some(state.config().share.max_expiry_hours),
+        )
+        .with_message(format!(
             "`expires_in_hours` must be at most {}",
             state.config().share.max_expiry_hours
         )));
@@ -2513,11 +2530,15 @@ pub async fn record_event(
         // misread what this endpoint is for, and saying so helps more than
         // repeating the two words it accepts.
         "download" | "retrieval" => {
-            return Err(Error::bad_request(
+            return Err(Error::invalid("kind", "server_counted").with_message(
                 "retrievals are counted by the server on the transfer path, not reported here",
             ));
         }
-        _ => return Err(Error::bad_request("`kind` must be `view` or `copy`")),
+        _ => {
+            return Err(
+                Error::invalid("kind", "one_of").with_message("`kind` must be `view` or `copy`")
+            );
+        }
     };
 
     // Keyed on the source, like the retrieval lookup: what varies is the code,
@@ -2611,9 +2632,7 @@ pub async fn add_file(
     }
 
     if share.kind == ShareKind::Text {
-        return Err(Error::Conflict(
-            "that share holds text; a text share holds one thing".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::ShareIsText));
     }
 
     let filename = checked_label(params.filename, "filename", MAX_TEXT_FIELD)?;

@@ -23,9 +23,23 @@ pub enum Error {
     #[error("not found")]
     NotFound,
 
-    /// The request itself was malformed.
-    #[error("{0}")]
-    BadRequest(String),
+    /// A refusal named by its own code.
+    ///
+    /// Every failure a client should tell apart has a code of its own, and this
+    /// is how a handler raises one: [`Error::new`], then any detail the client
+    /// needs to say it well. There is no variant that takes free text on its
+    /// own, so there is no way to refuse something without naming it.
+    #[error("{}", .code.message())]
+    Api {
+        /// What went wrong, for the client to branch on and translate.
+        code: ErrorCode,
+        /// English text for this occurrence, when the code's own is not
+        /// specific enough. For logs and for a client with no translation.
+        message: Option<String>,
+        /// Figures and names a translated message needs: which field, what
+        /// the limit is.
+        details: Details,
+    },
 
     /// The request body exceeded `server.max_body_bytes`.
     #[error("payload too large")]
@@ -62,14 +76,6 @@ pub enum Error {
     #[error("password change required")]
     PasswordChangeRequired,
 
-    /// The thing existed and does not any more.
-    ///
-    /// Distinct from [`Error::NotFound`] because a client can act on it: "that
-    /// code is wrong, check it" and "this expired" are different things to tell
-    /// a person, and only one of them is worth retyping.
-    #[error("gone")]
-    Gone(String),
-
     /// The `Range` asked for bytes the object does not have.
     ///
     /// Carries the real size so the response can say what *is* available, which
@@ -80,10 +86,6 @@ pub enum Error {
         /// Size of the object, in bytes.
         size: u64,
     },
-
-    /// The request conflicts with something that already exists.
-    #[error("{0}")]
-    Conflict(String),
 
     /// The caller has been asked to slow down.
     #[error("too many requests")]
@@ -108,7 +110,7 @@ pub enum Error {
 
     /// The body was not the type this route accepts.
     ///
-    /// Distinct from [`Error::BadRequest`] because it names something the
+    /// Its own variant because it names something the
     /// caller can fix without guessing: the tus `PATCH` takes exactly one
     /// content type, and a client that sends another has usually forgotten to
     /// set it at all.
@@ -151,110 +153,298 @@ pub enum Error {
     Config(#[from] crate::config::ConfigError),
 }
 
-/// Stable, machine-readable identifier for an [`Error`].
-///
-/// Clients branch on this; the human-readable `message` is free to change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum ErrorCode {
-    /// See [`Error::NotFound`].
-    NotFound,
-    /// See [`Error::BadRequest`].
-    BadRequest,
-    /// See [`Error::PayloadTooLarge`].
-    PayloadTooLarge,
-    /// See [`Error::Unauthorized`].
-    Unauthorized,
-    /// See [`Error::Forbidden`].
-    Forbidden,
-    /// See [`Error::PasswordChangeRequired`].
-    PasswordChangeRequired,
-    /// See [`Error::Gone`].
-    Gone,
-    /// See [`Error::RangeNotSatisfiable`].
-    RangeNotSatisfiable,
-    /// See [`Error::Conflict`].
-    Conflict,
-    /// See [`Error::TooManyRequests`].
-    TooManyRequests,
-    /// See [`Error::Scanning`].
-    Scanning,
-    /// See [`Error::InsufficientStorage`].
-    InsufficientStorage,
-    /// See [`Error::UnsupportedMediaType`].
-    UnsupportedMediaType,
-    /// See [`Error::Timeout`].
-    Timeout,
-    /// See [`Error::Unavailable`].
-    Unavailable,
-    /// Any failure whose cause is withheld from the caller.
-    Internal,
+/// Declares every [`ErrorCode`] with its status and English message, so the
+/// three cannot drift: a code without either does not compile.
+macro_rules! error_codes {
+    ($( $(#[doc = $doc:literal])* $code:ident => $status:ident, $message:literal; )*) => {
+        /// Stable, machine-readable identifier for an [`Error`].
+        ///
+        /// One per thing a client should tell apart, in `snake_case`. Clients
+        /// branch on this and translate it; `message` is English and free to
+        /// change, and `details` carries what a translation needs.
+        #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, ToSchema)]
+        #[serde(rename_all = "snake_case")]
+        pub enum ErrorCode {
+            $( $(#[doc = $doc])* $code, )*
+        }
+
+        impl ErrorCode {
+            /// Every code, for the tests that hold them to one format.
+            pub const ALL: &[Self] = &[$(Self::$code),*];
+
+            /// HTTP status this code maps to.
+            #[must_use]
+            pub const fn status(self) -> StatusCode {
+                match self {
+                    $(Self::$code => StatusCode::$status,)*
+                }
+            }
+
+            /// What to say when nothing more specific was given, in English.
+            #[must_use]
+            pub const fn message(self) -> &'static str {
+                match self {
+                    $(Self::$code => $message,)*
+                }
+            }
+        }
+    };
 }
+
+error_codes! {
+    // ── Any route ───────────────────────────────────────────────────────
+    /// Nothing by that name, or a feature this instance has switched off.
+    NotFound => NOT_FOUND, "the requested resource does not exist";
+    /// No credential, or one that has expired or been signed out.
+    NotSignedIn => UNAUTHORIZED, "sign in to do that";
+    /// Signed in, and the account's role does not allow this.
+    PermissionDenied => FORBIDDEN, "your account is not allowed to do that";
+    /// An API token was used where only a browser session may act.
+    SessionRequired => FORBIDDEN, "this needs a signed-in browser session, not an API token";
+    /// The account must set a new password before anything else.
+    PasswordChangeRequired => FORBIDDEN, "set a new password before doing anything else";
+    /// The body is past `server.max_body_bytes`.
+    PayloadTooLarge => PAYLOAD_TOO_LARGE, "the request body exceeds the configured limit";
+    /// A storage ceiling would be passed. `details.tier`: `account`, `role` or `instance`.
+    InsufficientStorage => INSUFFICIENT_STORAGE, "there is no room for more content";
+    /// The `Range` asks for bytes that do not exist. `details.size`.
+    RangeNotSatisfiable => RANGE_NOT_SATISFIABLE, "the requested range is not available";
+    /// Too many attempts. `details.retry_after_secs`.
+    TooManyRequests => TOO_MANY_REQUESTS, "too many attempts; wait a little and try again";
+    /// Still being scanned for malware. `details.retry_after_secs`.
+    Scanning => LOCKED, "this is still being checked for malware; try again in a moment";
+    /// The body is not the content type this route takes.
+    UnsupportedMediaType => UNSUPPORTED_MEDIA_TYPE, "that content type is not accepted here";
+    /// Nothing arrived for too long.
+    Timeout => REQUEST_TIMEOUT, "nothing arrived for a while, so the request was dropped; try again";
+    /// Starting, stopping, or something this depends on is down.
+    Unavailable => SERVICE_UNAVAILABLE, "the service is not accepting requests right now";
+    /// A failure whose cause is withheld from the caller.
+    Internal => INTERNAL_SERVER_ERROR, "an internal error occurred";
+
+    // ── The shape of a request ──────────────────────────────────────────
+    /// The JSON body did not parse or had the wrong fields.
+    InvalidBody => BAD_REQUEST, "the request body is not what this expects";
+    /// The query string did not parse.
+    InvalidQuery => BAD_REQUEST, "the query parameters are not what this expects";
+    /// A path segment did not parse.
+    InvalidPath => BAD_REQUEST, "the address is not what this expects";
+    /// There was no body where one is needed.
+    BodyEmpty => BAD_REQUEST, "the request body is empty";
+    /// The body stopped before it was complete.
+    BodyIncomplete => BAD_REQUEST, "the request body ended before it was complete";
+    /// The body was longer or shorter than it said it would be.
+    BodyLengthMismatch => BAD_REQUEST, "the request body is not the length it declared";
+
+    // ── A value ─────────────────────────────────────────────────────────
+    /// Required and empty. `details.field`.
+    ValueEmpty => BAD_REQUEST, "a required value is empty";
+    /// Too short or too long. `details.field`, `min`, `max`, `actual`.
+    ValueLength => BAD_REQUEST, "a value is not an accepted length";
+    /// Broke a format rule. `details.field`, `rule`.
+    ValueInvalid => BAD_REQUEST, "a value is not in an accepted format";
+    /// Reserved by the system. `details.value`.
+    ValueReserved => BAD_REQUEST, "that value is reserved";
+    /// A number outside its range. `details.field`, and `min` and `max` where they apply.
+    ValueOutOfRange => BAD_REQUEST, "a number is outside the range this accepts";
+    /// Two fields that cannot be sent together. `details.fields`.
+    ConflictingFields => BAD_REQUEST, "those fields cannot be sent together";
+
+    // ── Accounts ────────────────────────────────────────────────────────
+    /// Signing in: no such account, wrong password, or an account that may not sign in.
+    InvalidCredentials => UNAUTHORIZED, "wrong username or password";
+    /// The current password, given to confirm a change, is wrong.
+    CurrentPasswordIncorrect => UNAUTHORIZED, "the current password is wrong";
+    /// The password is in a known breach.
+    PasswordBreached => BAD_REQUEST, "this password has appeared in a data breach; choose a different one";
+    /// This instance takes no new accounts.
+    RegistrationClosed => FORBIDDEN, "this instance is not accepting new accounts";
+    /// The invite code is unknown, spent or expired.
+    InviteUnusable => BAD_REQUEST, "that invite code is not usable";
+    /// The registration link is unknown, spent or expired.
+    RegistrationLinkUnusable => BAD_REQUEST, "this confirmation link is not usable; register again";
+    /// The password reset link is unknown, spent or expired.
+    ResetLinkUnusable => BAD_REQUEST, "this reset link is not usable; ask for a new one";
+    /// The address confirmation link is unknown, spent, expired, or for an address the account has left.
+    VerificationLinkUnusable => BAD_REQUEST, "this confirmation link is not usable; ask for a new one";
+    /// Another account has this name.
+    UsernameTaken => CONFLICT, "that username is taken";
+    /// Another account has this address.
+    EmailTaken => CONFLICT, "that address is taken";
+    /// The name or the address is taken; which is not said.
+    AccountExists => CONFLICT, "that username or address is already taken";
+    /// The address is already confirmed.
+    EmailAlreadyVerified => CONFLICT, "this address is already confirmed";
+    /// This would leave no account able to administer the instance.
+    LastAdministrator => CONFLICT, "that would leave nobody able to administer this instance";
+    /// This is the account's only way to sign in.
+    LastSignInMethod => CONFLICT, "that is the only way left into this account; set a password first";
+
+    // ── Roles ───────────────────────────────────────────────────────────
+    /// Not a permission this version has. `details.permission`.
+    UnknownPermission => BAD_REQUEST, "that is not a permission this version has";
+    /// Another role has this name.
+    RoleNameTaken => CONFLICT, "a role already has that name";
+    /// A role the instance was seeded with cannot be changed or removed.
+    BuiltinRoleImmutable => CONFLICT, "the roles this instance was seeded with cannot be changed or removed";
+
+    // ── Shares ──────────────────────────────────────────────────────────
+    /// The share needs its password, and none was sent.
+    SharePasswordRequired => UNAUTHORIZED, "this share needs its password";
+    /// The share's password is wrong.
+    SharePasswordIncorrect => UNAUTHORIZED, "that is not this share's password";
+    /// Past its expiry.
+    ShareExpired => GONE, "this share has expired";
+    /// Retrieved as many times as it allowed.
+    ShareExhausted => GONE, "this share has been retrieved as many times as it was allowed to be";
+    /// A file share, asked for as text.
+    ShareIsFile => BAD_REQUEST, "this share is a file; use /download instead";
+    /// An end-to-end encrypted share, asked for in a way that needs the plaintext.
+    ShareEncrypted => BAD_REQUEST, "this share is end-to-end encrypted; fetch it from /download and open it with its key";
+    /// The share's key comes from its password, so the password cannot change.
+    SharePasswordIsKey => BAD_REQUEST, "this share's key comes from its password, so the password cannot be changed or removed";
+    /// A text share, asked to take a file.
+    ShareIsText => CONFLICT, "that share holds text; a text share holds one thing";
+    /// Text too long to keep as text. `details.max_bytes`.
+    TextTooLarge => BAD_REQUEST, "that is larger than this instance keeps as text; send it as a file instead";
+    /// No unused retrieval code could be found.
+    CodeSpaceExhausted => CONFLICT, "could not find an unused retrieval code; the operator should raise share.code_length";
+    /// Too large for a zip archive.
+    ArchiveTooLargeForZip => BAD_REQUEST, "this share is too large for a zip; ask for it as tar or 7z instead";
+    /// This instance takes no end-to-end encrypted shares.
+    EncryptionDisabled => BAD_REQUEST, "this instance does not accept end-to-end encrypted shares";
+    /// The encryption parameters do not fit together.
+    EncryptionInvalid => BAD_REQUEST, "the encryption parameters are not usable";
+
+    // ── Uploads ─────────────────────────────────────────────────────────
+    /// The chunk starts somewhere other than where the upload is. `details.offset`.
+    UploadOffsetMismatch => CONFLICT, "this chunk does not start where the upload is";
+    /// More bytes than the upload declared.
+    UploadExceedsLength => BAD_REQUEST, "that is more than this upload declared";
+    /// Another request moved the upload while this one wrote.
+    UploadConflict => CONFLICT, "another request moved this upload while it was being written";
+    /// A chunk that is not the last is too small. `details.min_bytes`.
+    UploadChunkTooSmall => BAD_REQUEST, "a chunk that is not the last is too small";
+    /// The parts sent do not add up to the upload. `details.expected`.
+    UploadPartsMismatch => BAD_REQUEST, "the parts sent do not match this upload";
+    /// Parts went through this server; finish with `PATCH`.
+    UploadNotDirect => CONFLICT, "parts of this upload came through this server; finish it with PATCH";
+    /// Parts cannot go straight to this upload's store.
+    UploadDirectUnavailable => CONFLICT, "this upload cannot take parts directly; send them with PATCH";
+    /// The upload was abandoned and cleaned up.
+    UploadAbandoned => GONE, "that upload was abandoned";
+    /// This instance's store cannot hold a resumable upload.
+    ResumableUnsupported => BAD_REQUEST, "this instance's store cannot hold a resumable upload";
+
+    // ── Settings and backends ───────────────────────────────────────────
+    /// Not a setting this version has. `details.key`.
+    SettingUnknown => BAD_REQUEST, "that is not a setting this version has";
+    /// Holds a credential; set in the environment. `details.key`.
+    SettingSecret => BAD_REQUEST, "that setting holds a credential and is set through the environment";
+    /// Fixed at start-up; set in the environment. `details.key`.
+    SettingFixedAtBoot => BAD_REQUEST, "that setting cannot change while the server runs; set it through the environment";
+    /// The value will not load. `details.key` where one is to blame.
+    SettingInvalid => BAD_REQUEST, "that value is not accepted";
+    /// The change destroys something; send it again with `confirm: true`. `details.removes`.
+    ConfirmationRequired => CONFLICT, "this change removes data; send it again with `confirm: true`";
+    /// An identity provider over plain HTTP on a public address.
+    ProviderInsecure => BAD_REQUEST, "an identity provider must be https, unless it is on a private address";
+    /// The identity provider's discovery document could not be read.
+    ProviderUnreachable => BAD_REQUEST, "the identity provider could not be reached";
+    /// A storage backend that will not open.
+    BackendUnreachable => BAD_REQUEST, "that storage backend will not open";
+    /// A stored backend's credentials will not open with this key.
+    BackendCredentialUnreadable => CONFLICT, "a stored credential will not open with this key";
+    /// A backend that still holds files.
+    BackendInUse => CONFLICT, "that backend still holds files; move them off first";
+    /// A breach lookup prefix that is not five hex characters.
+    InvalidHashPrefix => BAD_REQUEST, "give the first five characters of the password's SHA-1, in hex";
+    /// Start-up configuration that will not work. Never reaches a client.
+    InvalidConfiguration => BAD_REQUEST, "the configuration is not usable";
+}
+
+/// What an error adds for a client to say it well, by name.
+pub type Details = serde_json::Map<String, serde_json::Value>;
 
 /// The JSON body returned for every non-2xx response.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct ErrorBody {
     /// Stable identifier the client can branch on.
     pub code: ErrorCode,
-    /// Human-readable explanation. Never contains internal details.
+    /// English explanation, for logs and for a client with no translation of
+    /// `code`. Never contains internal details.
     pub message: String,
-}
-
-impl ErrorCode {
-    /// HTTP status this code maps to.
-    #[must_use]
-    pub const fn status(self) -> StatusCode {
-        match self {
-            Self::NotFound => StatusCode::NOT_FOUND,
-            Self::BadRequest => StatusCode::BAD_REQUEST,
-            Self::Unauthorized => StatusCode::UNAUTHORIZED,
-            Self::Forbidden | Self::PasswordChangeRequired => StatusCode::FORBIDDEN,
-            Self::Gone => StatusCode::GONE,
-            Self::RangeNotSatisfiable => StatusCode::RANGE_NOT_SATISFIABLE,
-            Self::Conflict => StatusCode::CONFLICT,
-            Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
-            // `423 Locked`: the share exists and will be available, just not
-            // yet, and not because of anything the caller did.
-            Self::Scanning => StatusCode::LOCKED,
-            Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
-            Self::InsufficientStorage => StatusCode::INSUFFICIENT_STORAGE,
-            Self::UnsupportedMediaType => StatusCode::UNSUPPORTED_MEDIA_TYPE,
-            Self::Timeout => StatusCode::REQUEST_TIMEOUT,
-            Self::Unavailable => StatusCode::SERVICE_UNAVAILABLE,
-            Self::Internal => StatusCode::INTERNAL_SERVER_ERROR,
-        }
-    }
-
-    /// Generic, client-safe description of this class of failure.
-    #[must_use]
-    pub const fn message(self) -> &'static str {
-        match self {
-            Self::NotFound => "the requested resource does not exist",
-            Self::BadRequest => "the request could not be understood",
-            Self::Unauthorized => "sign in to do that",
-            Self::Forbidden => "your account is not allowed to do that",
-            Self::PasswordChangeRequired => "set a new password before doing anything else",
-            Self::Gone => "that is no longer available",
-            Self::RangeNotSatisfiable => "the requested range is not available",
-            Self::Conflict => "that already exists",
-            Self::TooManyRequests => "too many attempts; wait a little and try again",
-            Self::Scanning => "this is still being checked for malware; try again in a moment",
-            Self::PayloadTooLarge => "the request body exceeds the configured limit",
-            // The generic answer for the code. A real refusal says which
-            // ceiling it was, through `Error::public_message`.
-            Self::InsufficientStorage => "there is no room for more content",
-            Self::UnsupportedMediaType => "that content type is not accepted here",
-            Self::Timeout => "nothing arrived for a while, so the request was dropped; try again",
-            Self::Unavailable => "the service is not accepting requests right now",
-            Self::Internal => "an internal error occurred",
-        }
-    }
+    /// What a translated message needs: the field, the limit, how long to
+    /// wait. Always an object, empty when the code says everything.
+    #[schema(value_type = Object)]
+    pub details: Details,
 }
 
 impl Error {
-    /// Convenience constructor for [`Error::BadRequest`].
-    pub fn bad_request(message: impl Into<String>) -> Self {
-        Self::BadRequest(message.into())
+    /// A refusal with this code and nothing more.
+    #[must_use]
+    pub fn new(code: ErrorCode) -> Self {
+        Self::Api {
+            code,
+            message: None,
+            details: Details::new(),
+        }
+    }
+
+    /// The same, with English text for this occurrence in place of the
+    /// code's own. Only on [`Error::Api`]; anything else is returned as it was.
+    #[must_use]
+    pub fn with_message(self, text: impl Into<String>) -> Self {
+        match self {
+            Self::Api { code, details, .. } => Self::Api {
+                code,
+                message: Some(text.into()),
+                details,
+            },
+            other => other,
+        }
+    }
+
+    /// The same, with one more detail for the client. Only on [`Error::Api`].
+    #[must_use]
+    pub fn with_detail(self, key: &str, value: impl Into<serde_json::Value>) -> Self {
+        match self {
+            Self::Api {
+                code,
+                message,
+                mut details,
+            } => {
+                details.insert(key.to_owned(), value.into());
+                Self::Api {
+                    code,
+                    message,
+                    details,
+                }
+            }
+            other => other,
+        }
+    }
+
+    /// A number outside its range, with the bounds that apply.
+    #[must_use]
+    pub fn out_of_range(field: &str, min: Option<u64>, max: Option<u64>) -> Self {
+        let mut error = Self::new(ErrorCode::ValueOutOfRange).with_detail("field", field);
+        if let Some(min) = min {
+            error = error.with_detail("min", min);
+        }
+        if let Some(max) = max {
+            error = error.with_detail("max", max);
+        }
+        error
+    }
+
+    /// A value that broke a format rule, named as [`DomainError`](tessera_core::DomainError)
+    /// names one.
+    #[must_use]
+    pub fn invalid(field: &str, rule: &str) -> Self {
+        Self::new(ErrorCode::ValueInvalid)
+            .with_detail("field", field)
+            .with_detail("rule", rule)
     }
 
     /// Stable identifier for this error.
@@ -265,14 +455,18 @@ impl Error {
     #[must_use]
     pub const fn code(&self) -> ErrorCode {
         match self {
+            Self::Api { code, .. } => *code,
             Self::NotFound => ErrorCode::NotFound,
-            Self::BadRequest(_) | Self::Domain(_) => ErrorCode::BadRequest,
-            Self::Unauthorized => ErrorCode::Unauthorized,
-            Self::Forbidden => ErrorCode::Forbidden,
+            Self::Domain(error) => match error {
+                tessera_core::DomainError::Empty { .. } => ErrorCode::ValueEmpty,
+                tessera_core::DomainError::Length { .. } => ErrorCode::ValueLength,
+                tessera_core::DomainError::Reserved { .. } => ErrorCode::ValueReserved,
+                _ => ErrorCode::ValueInvalid,
+            },
+            Self::Unauthorized => ErrorCode::NotSignedIn,
+            Self::Forbidden => ErrorCode::PermissionDenied,
             Self::PasswordChangeRequired => ErrorCode::PasswordChangeRequired,
-            Self::Gone(_) => ErrorCode::Gone,
             Self::RangeNotSatisfiable { .. } => ErrorCode::RangeNotSatisfiable,
-            Self::Conflict(_) => ErrorCode::Conflict,
             Self::TooManyRequests { .. } => ErrorCode::TooManyRequests,
             Self::Scanning { .. } => ErrorCode::Scanning,
             Self::PayloadTooLarge => ErrorCode::PayloadTooLarge,
@@ -294,25 +488,63 @@ impl Error {
         self.code().status()
     }
 
-    /// Client-facing message.
+    /// Client-facing message, in English.
     ///
-    /// Only [`Error::BadRequest`] carries its own text, because only it describes
-    /// something the caller did. Everything else collapses to the generic message
-    /// for its code: a database or storage error can carry table names, paths and
-    /// credentials, and an anonymous file service hands this body to
-    /// unauthenticated strangers.
+    /// Internal failures collapse to the generic message for their code: a
+    /// database or storage error can carry table names, paths and credentials,
+    /// and an anonymous file service hands this body to unauthenticated
+    /// strangers.
     #[must_use]
     pub fn public_message(&self) -> String {
         match self {
-            // These carry text the caller needs and that is safe to echo: it
-            // describes what they sent, not what the server holds.
-            Self::BadRequest(message) | Self::Conflict(message) | Self::Gone(message) => {
-                message.clone()
-            }
+            // Written by a handler for the caller, about what they sent.
+            Self::Api {
+                message: Some(message),
+                ..
+            } => message.clone(),
             Self::Domain(error) => error.to_string(),
             Self::InsufficientStorage(tier) => tier.message().to_owned(),
             other => other.code().message().to_owned(),
         }
+    }
+
+    /// What a client needs beyond the code to say this well.
+    #[must_use]
+    pub fn details(&self) -> Details {
+        let mut details = Details::new();
+        let mut put = |key: &str, value: serde_json::Value| {
+            details.insert(key.to_owned(), value);
+        };
+        match self {
+            Self::Api { details, .. } => return details.clone(),
+            Self::Domain(error) => match error {
+                tessera_core::DomainError::Empty { field } => put("field", (*field).into()),
+                tessera_core::DomainError::Length {
+                    field,
+                    min,
+                    max,
+                    actual,
+                } => {
+                    put("field", (*field).into());
+                    put("min", (*min).into());
+                    put("max", (*max).into());
+                    put("actual", (*actual).into());
+                }
+                tessera_core::DomainError::Malformed { field, rule, .. } => {
+                    put("field", (*field).into());
+                    put("rule", (*rule).into());
+                }
+                tessera_core::DomainError::Reserved { value } => put("value", value.clone().into()),
+                _ => {}
+            },
+            Self::InsufficientStorage(tier) => put("tier", tier.name().into()),
+            Self::TooManyRequests { retry_after_secs } | Self::Scanning { retry_after_secs } => {
+                put("retry_after_secs", (*retry_after_secs).into());
+            }
+            Self::RangeNotSatisfiable { size } => put("size", (*size).into()),
+            _ => {}
+        }
+        details
     }
 
     /// The wire representation of this error.
@@ -321,6 +553,7 @@ impl Error {
         ErrorBody {
             code: self.code(),
             message: self.public_message(),
+            details: self.details(),
         }
     }
 }
@@ -376,6 +609,15 @@ pub enum Tier {
 }
 
 impl Tier {
+    /// How `details.tier` names it.
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Account => "account",
+            Self::Role => "role",
+            Self::Instance => "instance",
+        }
+    }
+
     /// What to tell the caller.
     const fn message(self) -> &'static str {
         match self {
@@ -427,9 +669,140 @@ mod tests {
     }
 
     #[test]
-    fn client_errors_keep_their_message() {
-        let err = Error::bad_request("`code` must be 6 characters");
+    fn a_refusal_carries_its_code_message_and_details() {
+        let err = Error::new(ErrorCode::ValueLength)
+            .with_message("`code` must be 6 characters")
+            .with_detail("field", "code");
         assert_eq!(err.status(), StatusCode::BAD_REQUEST);
-        assert_eq!(err.body().message, "`code` must be 6 characters");
+        let body = err.body();
+        assert_eq!(body.code, ErrorCode::ValueLength);
+        assert_eq!(body.message, "`code` must be 6 characters");
+        assert_eq!(body.details["field"], "code");
+    }
+
+    /// The format every code is held to, checked here so a new one cannot
+    /// slip in another shape: `snake_case` on the wire, an English message
+    /// that starts lower-case and ends without a full stop, like the rest.
+    #[test]
+    fn every_code_has_one_format() {
+        let mut seen = std::collections::HashSet::new();
+        for code in ErrorCode::ALL {
+            let wire = serde_json::to_value(code).expect("serialises");
+            let wire = wire.as_str().expect("a string");
+            assert!(
+                !wire.is_empty()
+                    && wire
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+                    && !wire.starts_with('_')
+                    && !wire.ends_with('_')
+                    && !wire.contains("__"),
+                "`{wire}` is not snake_case"
+            );
+            assert!(seen.insert(wire.to_owned()), "`{wire}` is declared twice");
+
+            let message = code.message();
+            assert!(
+                message.starts_with(|c: char| c.is_lowercase() || c == '`'),
+                "`{wire}`: the message should start lower-case: {message}"
+            );
+            assert!(
+                !message.ends_with('.'),
+                "`{wire}`: the message should not end with a full stop: {message}"
+            );
+            assert!(
+                code.status().is_client_error() || code.status().is_server_error(),
+                "`{wire}` maps to {}, which is not an error",
+                code.status()
+            );
+        }
+    }
+
+    /// Every rule name written anywhere, as a domain error's `rule` field or
+    /// the second argument to [`Error::invalid`], in this crate or the domain
+    /// one, is a name a client translates, so it has the codes' shape too.
+    /// Read off the source so a new rule cannot be added without passing this.
+    #[test]
+    fn every_rule_name_is_snake_case() {
+        fn walk(dir: &std::path::Path, found: &mut Vec<(String, String)>) {
+            for entry in std::fs::read_dir(dir).expect("a source directory") {
+                let path = entry.expect("an entry").path();
+                if path.is_dir() {
+                    walk(&path, found);
+                } else if path.extension().is_some_and(|ext| ext == "rs") {
+                    let text = std::fs::read_to_string(&path).expect("a source file");
+                    let file = path.display().to_string();
+                    for (at, _) in text.match_indices("rule: \"") {
+                        let name = text
+                            .get(at + 7..)
+                            .unwrap_or_default()
+                            .split('"')
+                            .next()
+                            .unwrap_or_default();
+                        found.push((file.clone(), name.to_owned()));
+                    }
+                    // `Error::invalid("field", "rule")`: the last literal
+                    // before the closing parenthesis.
+                    // This file names the pattern in order to look for it.
+                    if path.ends_with("src/error.rs") {
+                        continue;
+                    }
+                    for (at, _) in text.match_indices("Error::invalid(") {
+                        let call = text
+                            .get(at..)
+                            .unwrap_or_default()
+                            .split(')')
+                            .next()
+                            .unwrap_or_default();
+                        if call.trim_end().ends_with('"') {
+                            let name = call.rsplit('"').nth(1).unwrap_or_default();
+                            found.push((file.clone(), name.to_owned()));
+                        }
+                    }
+                }
+            }
+        }
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut found = Vec::new();
+        walk(&root.join("src"), &mut found);
+        walk(&root.join("../../crates/tessera-core/src"), &mut found);
+        assert!(
+            found.len() > 20,
+            "found only {} rules; is the walk broken?",
+            found.len()
+        );
+        for (file, name) in found {
+            assert!(
+                !name.is_empty()
+                    && name.chars().all(|c| c.is_ascii_lowercase() || c == '_')
+                    && !name.starts_with('_')
+                    && !name.ends_with('_'),
+                "{file}: rule `{name}` is not snake_case"
+            );
+        }
+    }
+
+    /// The rule names a `value_invalid` carries come from the domain crate,
+    /// and a client translates them, so they are held to the same shape.
+    #[test]
+    fn domain_errors_map_to_value_codes_with_their_rule() {
+        let err = Error::from(tessera_core::DomainError::Malformed {
+            field: "password",
+            rule: "needs_digit",
+            reason: "must contain a digit",
+        });
+        let body = err.body();
+        assert_eq!(body.code, ErrorCode::ValueInvalid);
+        assert_eq!(body.details["field"], "password");
+        assert_eq!(body.details["rule"], "needs_digit");
+
+        let err = Error::from(tessera_core::DomainError::Length {
+            field: "password",
+            min: 12,
+            max: 128,
+            actual: 3,
+        });
+        assert_eq!(err.body().code, ErrorCode::ValueLength);
+        assert_eq!(err.body().details["min"], 12);
     }
 }

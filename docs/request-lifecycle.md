@@ -65,10 +65,14 @@ The frontend is compiled into the binary with `rust-embed`. `server.assets_dir` 
 One `Error` enum in `error.rs`, one `ErrorCode` that clients branch on, and a body shape that never changes:
 
 ```json
-{ "code": "not_found", "message": "..." }
+{ "code": "value_length", "message": "...", "details": { "field": "password", "min": 12, "max": 1024, "actual": 7 } }
 ```
 
-The `code` is stable and machine-readable. The `message` is free to change and is for people.
+- **`code`** names the one thing that went wrong, in `snake_case`: `invalid_credentials`, `username_taken`, `share_expired`. It is what a client branches on and translates. The HTTP status says which class it is; the code says which case.
+- **`message`** is English, for logs, the CLI and a client with no translation of the code. Free to change.
+- **`details`** is always an object, holding what a translated message needs: which field, what the limit is, how long to wait. A field that broke a format rule carries the rule by name (`needs_digit`, `missing_at`), so the message can say which.
+
+Every code is declared once, in the `error_codes!` list, with its status and its message; the list is the enum, so the OpenAPI document and the frontend's generated types carry every value. A handler refuses something with `Error::new(ErrorCode::…)`, and there is no variant that takes free text on its own, so nothing can be refused without a code. Tests in `error.rs` hold every code, and every rule name in this crate and the domain one, to `snake_case`.
 
 Mapping happens in one place, so a handler returning `Err(Error::NotFound)` cannot accidentally produce a different status than another handler doing the same thing.
 

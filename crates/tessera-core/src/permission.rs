@@ -158,6 +158,7 @@ impl FromStr for Permission {
             .find(|permission| permission.as_str() == value)
             .ok_or(DomainError::Malformed {
                 field: "permission",
+                rule: "unknown_permission",
                 reason: "is not a permission this version has",
             })
     }

@@ -75,7 +75,7 @@ export function useRequestEmailVerification() {
       }
     },
     onError: (error: VerificationRequestError) => {
-      if (error.code === "conflict") {
+      if (error.code === "email_already_verified") {
         queryClient.invalidateQueries({
           queryKey: sessionQueryOptions.queryKey,
         });

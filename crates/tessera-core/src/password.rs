@@ -92,18 +92,21 @@ impl PasswordPolicy {
         if self.min_length < Self::FLOOR {
             return Err(DomainError::Malformed {
                 field: "auth.password.min_length",
+                rule: "below_minimum",
                 reason: "must be at least 8",
             });
         }
         if self.max_length > Self::CEILING {
             return Err(DomainError::Malformed {
                 field: "auth.password.max_length",
+                rule: "above_maximum",
                 reason: "must be at most 1024",
             });
         }
         if self.min_length > self.max_length {
             return Err(DomainError::Malformed {
                 field: "auth.password.min_length",
+                rule: "min_exceeds_max",
                 reason: "must not exceed the maximum length",
             });
         }
@@ -177,26 +180,28 @@ impl Password {
             && !(raw.chars().any(char::is_uppercase) && raw.chars().any(char::is_lowercase))
         {
             return Err(Self::lacks(
+                "needs_mixed_case",
                 "must contain an uppercase and a lowercase letter",
             ));
         }
         if policy.require_digit && !raw.chars().any(char::is_numeric) {
-            return Err(Self::lacks("must contain a digit"));
+            return Err(Self::lacks("needs_digit", "must contain a digit"));
         }
         if policy.require_symbol
             && !raw
                 .chars()
                 .any(|c| !c.is_alphanumeric() && !c.is_whitespace())
         {
-            return Err(Self::lacks("must contain a symbol"));
+            return Err(Self::lacks("needs_symbol", "must contain a symbol"));
         }
 
         Ok(Self(raw))
     }
 
-    const fn lacks(reason: &'static str) -> DomainError {
+    const fn lacks(rule: &'static str, reason: &'static str) -> DomainError {
         DomainError::Malformed {
             field: "password",
+            rule,
             reason,
         }
     }

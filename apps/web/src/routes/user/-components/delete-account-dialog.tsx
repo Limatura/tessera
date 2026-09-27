@@ -32,11 +32,11 @@ function errorMessage(error: Partial<ErrorBody> | null): string | null {
     return null;
   }
   switch (error.code) {
-    case "unauthorized": {
+    case "current_password_incorrect": {
       return m.user_profile_wrong_password();
     }
     // 最後一個持有 `roles:write` 的人刪掉自己,這台就再也沒人能發權限了。
-    case "conflict": {
+    case "last_administrator": {
       return m.user_danger_delete_last_admin();
     }
     default: {

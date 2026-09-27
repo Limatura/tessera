@@ -74,6 +74,7 @@ impl FromStr for AccountState {
             "deleted" => Ok(Self::Deleted),
             _ => Err(DomainError::Malformed {
                 field: "state",
+                rule: "one_of",
                 reason: "must be `active`, `disabled` or `deleted`",
             }),
         }

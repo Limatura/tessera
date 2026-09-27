@@ -119,6 +119,7 @@ impl Username {
         {
             return Err(DomainError::Malformed {
                 field: "username",
+                rule: "allowed_characters",
                 reason: "may contain only letters, digits, underscores and hyphens",
             });
         }
@@ -126,6 +127,7 @@ impl Username {
         if !normalised.starts_with(|c: char| c.is_ascii_alphanumeric()) {
             return Err(DomainError::Malformed {
                 field: "username",
+                rule: "starts_alphanumeric",
                 reason: "must start with a letter or a digit",
             });
         }

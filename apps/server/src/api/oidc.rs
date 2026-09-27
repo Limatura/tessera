@@ -43,7 +43,7 @@ use crate::{
         session::{SignedInWith, StartedBy},
         user::User,
     },
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -850,7 +850,7 @@ pub async fn link(
     // Same rule as changing a password: linking a provider opens a way into
     // the account, so a leaked API token must not be able to do it.
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
 
     let config = state.config();
@@ -915,7 +915,7 @@ pub async fn unlink(
 ) -> Result<Response> {
     require_accounts(&state)?;
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
 
     let attached = state.identities.identities_of(current.user.id).await?;
@@ -934,9 +934,7 @@ pub async fn unlink(
     // credential row for an account that never had one.
     let has_password = state.users.password_of(current.user.id).await?.is_some();
     if attached.len() == 1 && !has_password {
-        return Err(Error::Conflict(
-            "that is the only way left into this account; set a password first".to_owned(),
-        ));
+        return Err(Error::new(ErrorCode::LastSignInMethod));
     }
 
     state.identities.unlink(current.user.id, &provider).await?;

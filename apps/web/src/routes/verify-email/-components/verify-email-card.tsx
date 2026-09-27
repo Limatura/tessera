@@ -106,7 +106,7 @@ function describe(
     // 400 把「不存在、用過、過期、寄給舊地址」併成一句,server 刻意不分,這裡也不分。
     return {
       description:
-        error?.code === "bad_request"
+        error?.code === "verification_link_unusable"
           ? m.user_verify_email_unusable()
           : (error?.message ?? m.common_try_again()),
       title: m.auth_error(),

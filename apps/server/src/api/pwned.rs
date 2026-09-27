@@ -19,7 +19,7 @@ use crate::{
         pwned::{is_prefix, range},
         throttle::Decision,
     },
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -67,9 +67,7 @@ pub async fn range_of(
         }
     }
     if !is_prefix(&prefix) {
-        return Err(Error::bad_request(
-            "give the first five characters of the password's SHA-1, in hex",
-        ));
+        return Err(Error::new(ErrorCode::InvalidHashPrefix));
     }
 
     // Counted before the lookup, on every lookup: each is a third-party request

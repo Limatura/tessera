@@ -19,7 +19,7 @@ use crate::{
     },
     auth::extract::CurrentUser,
     db::repository::api_token::ApiToken,
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -186,7 +186,9 @@ fn requested_permissions(current: &CurrentUser, asked: Option<&[String]>) -> Res
         .iter()
         .map(|name| {
             name.parse::<Permission>().map_err(|_| {
-                Error::bad_request(format!("`{name}` is not a permission this version has"))
+                Error::new(ErrorCode::UnknownPermission)
+                    .with_detail("permission", name.as_str())
+                    .with_message(format!("`{name}` is not a permission this version has"))
             })
         })
         .collect::<Result<_>>()?;
@@ -225,18 +227,21 @@ pub async fn create(
     // access: revoking it does nothing, because whoever took it has already
     // issued three more under names that look like yours.
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
     current.require(Permission::TokensManage)?;
 
     let name = body.name.trim();
     if name.is_empty() {
-        return Err(Error::bad_request("`name` must not be empty"));
+        return Err(Error::new(ErrorCode::ValueEmpty).with_detail("field", "name"));
     }
     if name.chars().count() > MAX_NAME_LENGTH {
-        return Err(Error::bad_request(format!(
-            "`name` must be at most {MAX_NAME_LENGTH} characters"
-        )));
+        return Err(Error::new(ErrorCode::ValueLength)
+            .with_detail("field", "name")
+            .with_detail("max", MAX_NAME_LENGTH)
+            .with_message(format!(
+                "`name` must be at most {MAX_NAME_LENGTH} characters"
+            )));
     }
 
     let permissions = requested_permissions(&current, body.permissions.as_deref())?;
@@ -245,12 +250,22 @@ pub async fn create(
     let expires_at = match body.expires_in_days {
         None => None,
         Some(0) => {
-            return Err(Error::bad_request(
+            return Err(Error::out_of_range(
+                "expires_in_days",
+                Some(1),
+                Some(u64::from(MAX_EXPIRY_DAYS)),
+            )
+            .with_message(
                 "`expires_in_days` must be at least 1; omit it for a token that never expires",
             ));
         }
         Some(days) if days > MAX_EXPIRY_DAYS => {
-            return Err(Error::bad_request(format!(
+            return Err(Error::out_of_range(
+                "expires_in_days",
+                Some(1),
+                Some(u64::from(MAX_EXPIRY_DAYS)),
+            )
+            .with_message(format!(
                 "`expires_in_days` must be at most {MAX_EXPIRY_DAYS}"
             )));
         }
@@ -305,7 +320,7 @@ pub async fn revoke(
     // Same reasoning as creation: a leaked token must not be able to revoke the
     // owner's other credentials.
     if !current.credential.is_session() {
-        return Err(Error::Forbidden);
+        return Err(Error::new(ErrorCode::SessionRequired));
     }
     current.require(Permission::TokensManage)?;
 

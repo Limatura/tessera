@@ -40,7 +40,7 @@ use crate::{
         proxy::{Origin, UNPLACEABLE},
     },
     db::repository::share::{Content, FilePart, Share, ShareKind},
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -299,16 +299,12 @@ async fn raw(
     // retrievals. Anything that can be refused without looking at the content
     // belongs on this side of the gate.
     if share.kind != ShareKind::Text {
-        return Err(Error::bad_request(
-            "this share is a file; use /download instead",
-        ));
+        return Err(Error::new(ErrorCode::ShareIsFile));
     }
     // Sealed bytes labelled as UTF-8 text are useless to a reader; only the page
     // holding the key can turn them into the note.
     if share.encryption.is_some() {
-        return Err(Error::bad_request(
-            "this share is end-to-end encrypted; fetch it from /download and open it with its key",
-        ));
+        return Err(Error::new(ErrorCode::ShareEncrypted));
     }
     // Before `permit`: a share held for scanning must not use up a retrieval
     // on a request that is then turned away.
@@ -361,7 +357,7 @@ async fn download(
     // multi-file ones, so the rule depends only on public share fields and is
     // settled before a retrieval is spent or a locked share's file count leaks.
     if share.encryption.is_some() && share.kind == ShareKind::File && query.file.is_none() {
-        return Err(Error::bad_request(
+        return Err(Error::new(ErrorCode::ValueEmpty).with_detail("field", "file").with_message(
             "an end-to-end encrypted share is fetched one file at a time; add `?file=` with the \
              file's position, from zero",
         ));

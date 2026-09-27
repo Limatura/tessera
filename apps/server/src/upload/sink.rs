@@ -44,7 +44,7 @@ use object_store::{
     path::Path as ObjectPath,
 };
 
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorCode, Result};
 
 /// Where a part number starts. S3 counts from one.
 const FIRST_PART: i32 = 1;
@@ -126,9 +126,7 @@ impl Sink {
                 id,
             });
         }
-        let root = local_root.ok_or_else(|| {
-            Error::bad_request("this instance's store cannot hold a resumable upload")
-        })?;
+        let root = local_root.ok_or_else(|| Error::new(ErrorCode::ResumableUnsupported))?;
         let path = root.join(format!("{key}{REMAINDER_SUFFIX}"));
         if let Some(parent) = path.parent() {
             tokio::fs::create_dir_all(parent).await?;

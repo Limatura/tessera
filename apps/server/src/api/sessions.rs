@@ -23,7 +23,7 @@ use crate::{
     api::{SESSIONS_TAG, extract::ApiPath, tokens::format_timestamp},
     auth::extract::CurrentUser,
     db::repository::session::{Revocation, Session, SessionEnding},
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -99,7 +99,10 @@ impl SessionResponse {
 /// Returns the calling session's identifier, which every handler here needs
 /// anyway, to mark the current row or to spare it.
 fn require_session(current: &CurrentUser) -> Result<SessionId> {
-    current.credential.session_id().ok_or(Error::Forbidden)
+    current
+        .credential
+        .session_id()
+        .ok_or_else(|| Error::new(ErrorCode::SessionRequired))
 }
 
 /// Lists the caller's sign-ins, newest first.

@@ -19,7 +19,7 @@ use std::time::Duration;
 use sha1::{Digest as _, Sha1};
 
 use crate::{
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
     state::AppState,
 };
 
@@ -35,7 +35,7 @@ const PREFIX: usize = 5;
 ///
 /// # Errors
 ///
-/// [`Error::BadRequest`] when the password is in the list. Never otherwise: if
+/// `password_breached` when the password is in the list. Never otherwise: if
 /// the service is unreachable, answers oddly or is too slow, the password is
 /// accepted.
 pub async fn refuse_if_breached(state: &AppState, password: &tessera_core::Password) -> Result<()> {
@@ -49,9 +49,7 @@ pub async fn refuse_if_breached(state: &AppState, password: &tessera_core::Passw
     match lookup(&config.url, prefix).await {
         Ok(body) => {
             if breached(&body).any(|candidate| candidate.eq_ignore_ascii_case(suffix)) {
-                return Err(Error::bad_request(
-                    "this password has appeared in a data breach; choose a different one",
-                ));
+                return Err(Error::new(ErrorCode::PasswordBreached));
             }
             Ok(())
         }

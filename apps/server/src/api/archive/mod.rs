@@ -102,8 +102,8 @@ impl Format {
 /// passed. tar and 7z have no such limit, so they are never refused here.
 pub fn check_size(format: Format, total: u64) -> crate::error::Result<()> {
     if format == Format::Zip && total > zip::MAX_ARCHIVE_SIZE {
-        return Err(crate::error::Error::bad_request(
-            "this share is too large for a zip; ask for it as tar or 7z instead",
+        return Err(crate::error::Error::new(
+            crate::error::ErrorCode::ArchiveTooLargeForZip,
         ));
     }
     Ok(())

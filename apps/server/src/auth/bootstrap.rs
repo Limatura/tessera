@@ -21,7 +21,7 @@ use crate::{
         role::RoleRepository,
         user::{User, UserRepository},
     },
-    error::{Error, Result},
+    error::{Error, ErrorCode, Result},
 };
 
 /// Creates the first administrator if the instance has no accounts at all.
@@ -45,10 +45,12 @@ pub async fn ensure_admin(
     // stranger's sign-up into a refusal with no explanation anywhere they can
     // see. Refusing to start says it once, to the person who can fix it.
     if roles.find_by_name(&auth.default_role).await?.is_none() {
-        return Err(Error::bad_request(format!(
-            "auth.default_role: no role is called `{}`",
-            auth.default_role
-        )));
+        return Err(
+            Error::new(ErrorCode::InvalidConfiguration).with_message(format!(
+                "auth.default_role: no role is called `{}`",
+                auth.default_role
+            )),
+        );
     }
 
     if users.any_exist().await? {
@@ -57,10 +59,14 @@ pub async fn ensure_admin(
 
     // Privileged parsing: the shipped default is `admin`, which sits on the
     // reserved list precisely so no stranger can register it.
-    let username = Username::parse_privileged(&auth.admin_username)
-        .map_err(|error| Error::bad_request(format!("auth.admin_username: {error}")))?;
-    let email = EmailAddress::parse(&auth.admin_email)
-        .map_err(|error| Error::bad_request(format!("auth.admin_email: {error}")))?;
+    let username = Username::parse_privileged(&auth.admin_username).map_err(|error| {
+        Error::new(ErrorCode::InvalidConfiguration)
+            .with_message(format!("auth.admin_username: {error}"))
+    })?;
+    let email = EmailAddress::parse(&auth.admin_email).map_err(|error| {
+        Error::new(ErrorCode::InvalidConfiguration)
+            .with_message(format!("auth.admin_email: {error}"))
+    })?;
 
     let (password, generated) = admin_password(auth)?;
     let now = OffsetDateTime::now_utc();
@@ -114,13 +120,19 @@ fn admin_password(auth: &AuthConfig) -> Result<(Password, Option<String>)> {
         // Parsed against a policy that only has to accept our own output: an
         // operator who set `min_length` to 64 should not make start-up fail on
         // a generated password that is never typed.
-        let password = Password::parse(generated.clone(), PasswordPolicy::default())
-            .map_err(|_| Error::bad_request("could not generate an administrator password"))?;
+        let password =
+            Password::parse(generated.clone(), PasswordPolicy::default()).map_err(|_| {
+                Error::new(ErrorCode::InvalidConfiguration)
+                    .with_message("could not generate an administrator password")
+            })?;
         return Ok((password, Some(generated)));
     }
 
-    let password = Password::parse(auth.admin_password.clone(), auth.password)
-        .map_err(|error| Error::bad_request(format!("auth.admin_password: {error}")))?;
+    let password =
+        Password::parse(auth.admin_password.clone(), auth.password).map_err(|error| {
+            Error::new(ErrorCode::InvalidConfiguration)
+                .with_message(format!("auth.admin_password: {error}"))
+        })?;
     Ok((password, None))
 }
 
