@@ -8,8 +8,8 @@
 //! # The address
 //!
 //! `GET /users/@me` carries `email` and `verified`, both behind the `email`
-//! scope, and `email` may be null even with it. `verified` is what says the
-//! address belongs to the person rather than merely having been typed in.
+//! scope, and `email` may be null even with it. `verified` is what shows the
+//! address belongs to the user and was not merely typed in.
 
 use serde::Deserialize;
 
@@ -21,18 +21,18 @@ pub const AUTHORIZE: &str = "https://discord.com/oauth2/authorize";
 /// Where the code is exchanged.
 pub const TOKEN: &str = "https://discord.com/api/oauth2/token";
 
-/// The API root. A parameter at the call site so a test can point it elsewhere.
+/// The API root. Passed in at the call site so a test can point it elsewhere.
 pub const API: &str = "https://discord.com/api";
 
 /// The name this provider is stored under.
 const NAME: &str = "discord";
 
-/// What `GET /users/@me` gives back, of what is wanted.
+/// The fields wanted from `GET /users/@me`.
 #[derive(Debug, Deserialize)]
 struct User {
     /// The snowflake. Stable, unlike the username.
     id: String,
-    /// The username, for choosing one here.
+    /// The username, as a basis for one here.
     username: String,
     /// The display name, when set.
     #[serde(default)]
@@ -40,17 +40,17 @@ struct User {
     /// Behind the `email` scope, and null even then for some accounts.
     #[serde(default)]
     email: Option<String>,
-    /// Whether Discord says it checked the address.
+    /// Whether Discord says it verified the address.
     #[serde(default)]
     verified: bool,
 }
 
-/// Reads who just signed in.
+/// Reads who signed in.
 ///
 /// # Errors
 ///
 /// Returns [`IdentityError`] when Discord cannot be reached, refuses, or
-/// answers with something this does not understand.
+/// answers with something unexpected.
 pub async fn identify(api: &str, access_token: &str) -> Result<Identity, IdentityError> {
     let client = super::client(NAME)?;
     let user: User = super::read(
@@ -61,9 +61,9 @@ pub async fn identify(api: &str, access_token: &str) -> Result<Identity, Identit
     )
     .await?;
 
-    // An unverified address is dropped rather than carried with a flag. Every
-    // caller would have to remember to check it, and forgetting is the account
-    // takeover this exists to prevent.
+    // An unverified address is dropped, not carried with a flag. Every caller
+    // would have to remember to check it, and forgetting is the account
+    // takeover this prevents.
     let verified = user.verified;
     Ok(Identity {
         subject: user.id,

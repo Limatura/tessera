@@ -1,9 +1,9 @@
 //! A fake `OpenID Connect` provider.
 //!
-//! The discovery document, a sign-in page, and a token endpoint that hands
-//! back an ID token for whoever was typed in. The token is not signed: Tessera
-//! takes it from the token endpoint over a connection it opened, which is
-//! what makes it trustworthy, and never checks the signature.
+//! The discovery document, a sign-in page, and a token endpoint that returns
+//! an ID token for whoever was typed in. The token is unsigned: Tessera takes
+//! it from the token endpoint over a connection it opened, which is what makes
+//! it trustworthy, and never checks the signature.
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -123,8 +123,8 @@ async fn answer(State(shared): State<Shared>, Form(answer): Form<Answer>) -> Res
         "name": answer.name,
         "groups": groups,
     });
-    // Left out when the field is, which is how several providers behave and
-    // the case `auth.oidc.link_by_email` exists for.
+    // Omitted when the field is empty, as several providers do; this is the
+    // case `auth.oidc.link_by_email` exists for.
     if answer.email_verified.trim().is_empty()
         && let Some(fields) = claims.as_object_mut()
     {

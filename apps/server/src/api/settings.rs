@@ -47,12 +47,11 @@ pub struct SettingResponse {
     /// explain instead of only greying the field out.
     #[schema(example = "fixed_at_boot")]
     pub refusal: Option<String>,
-    /// Whether this holds a credential this endpoint will write and never
-    /// return.
+    /// Whether this holds a credential this endpoint writes but never returns.
     ///
     /// When true, `value` is a boolean saying whether one is set, never the
-    /// credential itself. A screen draws "configured" beside an empty field
-    /// rather than pre-filling it with something it cannot read back.
+    /// credential itself. A screen shows "configured" next to an empty field
+    /// instead of pre-filling something it cannot read back.
     pub secret: bool,
 }
 
@@ -368,9 +367,9 @@ pub async fn preview(
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiscoveryProbeRequest {
-    /// The issuer, or the `.well-known` URL copied from the provider's own
-    /// documentation. Either is accepted: the suffix is removed before the
-    /// document is fetched, and it is `issuer` that comes back.
+    /// The issuer, or the `.well-known` URL copied from the provider's docs.
+    /// Either works: the suffix is stripped before fetching, and `issuer` is
+    /// what comes back.
     #[schema(example = "https://id.example.com")]
     pub url: String,
 }
@@ -378,37 +377,36 @@ pub struct DiscoveryProbeRequest {
 /// What a provider says about itself, as the panel needs it.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct DiscoveryProbeResponse {
-    /// The provider's own name for itself, which is what `auth.oidc.issuer`
-    /// has to be set to.
+    /// The provider's own issuer value, which is what `auth.oidc.issuer` must
+    /// be set to.
     #[schema(example = "https://id.example.com")]
     pub issuer: String,
-    /// The scopes it advertises, for a form that offers them rather than
-    /// asking somebody to type them.
+    /// The scopes it advertises, so a form can offer them instead of having the
+    /// operator type them.
     pub scopes_supported: Vec<String>,
-    /// Whether it will tell this instance when somebody signs out.
+    /// Whether it notifies this instance when a user signs out.
     pub backchannel_logout_supported: bool,
-    /// The claims it says it can release. Without `email_verified` here,
-    /// `link_by_email = when_verified` will never link anybody through this
-    /// provider; `always` or signing in and attaching it is what is left.
+    /// The claims it advertises. Without `email_verified`,
+    /// `link_by_email = when_verified` will never link anyone through this
+    /// provider; the options left are `always`, or signing in and linking it.
     pub claims_supported: Vec<String>,
 }
 
-/// Reads a provider's discovery document, from here rather than the browser.
+/// Reads a provider's discovery document from the server, not the browser.
 ///
 /// # Why the server and not the panel
 ///
-/// Discovery only says a provider *should* let a browser read its document,
-/// and plenty do not: the panel's own fetch is refused by CORS on exactly the
-/// providers a self-hosted instance tends to use. This server has no origin,
-/// so the same fetch works, and it is the one sign-in will make: a document
-/// this reaches is one the sign-in path can reach too, which a browser could
-/// never establish.
+/// Discovery only says a provider *should* let browsers read its document, and
+/// many do not: the panel's own fetch is blocked by CORS on the very providers
+/// self-hosted instances tend to use. The server has no origin, so the fetch
+/// works, and it is the same fetch sign-in will make: a document reachable
+/// here is reachable from the sign-in path, which a browser could never
+/// confirm.
 ///
 /// # What it does not do
 ///
-/// Touch the cache. This is a URL somebody is trying out in a form; writing
-/// what it answered into the cache would let an unsaved value decide what a
-/// real sign-in talks to.
+/// Touch the cache. This is a URL being tried out in a form; caching its
+/// answer would let an unsaved value decide what a real sign-in talks to.
 ///
 /// # Errors
 ///
@@ -436,16 +434,16 @@ pub async fn probe_oidc_discovery(
     ApiJson(body): ApiJson<DiscoveryProbeRequest>,
 ) -> Result<Json<DiscoveryProbeResponse>> {
     require_admin_feature(&state)?;
-    // The write permission, as for `preview`: this reports on a change only
-    // somebody who could make it has any use for. It is also what keeps this
-    // from being a way for anybody else to make the server fetch a URL.
+    // The write permission, as for `preview`: this is only useful to someone
+    // who could make the change. It also stops anyone else using this to make
+    // the server fetch arbitrary URLs.
     admitted(&current, tessera_core::Permission::SettingsWrite)?;
 
     let issuer = issuer_of(&body.url);
     if issuer.is_empty() {
         return Err(Error::bad_request("give the provider's address"));
     }
-    // The rule the issuer setting itself keeps, so this cannot reach anywhere
+    // The same rule the issuer setting enforces, so this cannot reach anything
     // that could not be configured directly.
     if !crate::auth::oidc::is_private_or_tls(&issuer) {
         return Err(Error::bad_request(
@@ -465,11 +463,10 @@ pub async fn probe_oidc_discovery(
 
 /// The issuer inside whatever was pasted in.
 ///
-/// A person copies the `.well-known` URL out of the provider's documentation
-/// as often as they copy the issuer, and the difference is a suffix this can
-/// remove. Anything else is left alone: an address this does not recognise is
-/// better refused by the fetch, with the provider's own answer, than silently
-/// rewritten here.
+/// Operators copy the `.well-known` URL from provider docs as often as the
+/// issuer, and the difference is a suffix that can be stripped. Anything else
+/// is left alone: an unrecognised address is better refused by the fetch, with
+/// the provider's own answer, than silently rewritten here.
 fn issuer_of(url: &str) -> String {
     let trimmed = url.trim().trim_end_matches('/');
     trimmed

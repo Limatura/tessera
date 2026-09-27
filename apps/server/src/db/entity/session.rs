@@ -28,18 +28,17 @@ pub struct Model {
     pub created_ip: Option<String>,
     /// The `User-Agent` the session was started with, as it arrived.
     pub created_user_agent: Option<String>,
-    /// Which way of signing in started this session: `password` or `oidc`.
+    /// How this session signed in: `password` or `oidc`.
     ///
-    /// A provider can disable somebody, and a session that outlives that is
-    /// what single sign-on exists to prevent. What can be done about it depends
-    /// on what the provider supports, so the session has to know where it came
-    /// from.
+    /// A provider can disable a user, and a session outliving that is what
+    /// single sign-on exists to prevent. What can be done depends on the
+    /// provider, so the session records where it came from.
     pub origin: String,
     /// The provider's own identifier for its side of this session.
     ///
-    /// Written from the ID token's `sid` when the provider released one. It is
-    /// how a back-channel logout naming one session finds it, rather than
-    /// ending everything the account has open.
+    /// Taken from the ID token's `sid` when the provider sends one. It lets a
+    /// back-channel logout naming one session end just that one, instead of
+    /// everything the account has open.
     pub provider_sid: Option<String>,
     /// Why this session was ended early, if it was.
     ///

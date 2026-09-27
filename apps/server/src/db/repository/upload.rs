@@ -94,7 +94,7 @@ pub struct Upload {
     pub filename: Option<String>,
     /// What the uploader said it was.
     pub content_type: Option<String>,
-    /// How the share this creates will be sealed, or `None` for a plain one.
+    /// How the resulting share will be sealed, or `None` for a plain one.
     pub encryption: Option<Encryption>,
     /// The name and media type, sealed, for an encrypted share.
     pub sealed_name: Option<String>,
@@ -224,7 +224,7 @@ pub struct NewUpload {
     pub filename: Option<String>,
     /// What they said it is.
     pub content_type: Option<String>,
-    /// How the share this creates will be sealed.
+    /// How the resulting share will be sealed.
     pub encryption: Option<Encryption>,
     /// The name and media type, sealed.
     pub sealed_name: Option<String>,

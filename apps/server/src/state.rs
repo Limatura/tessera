@@ -48,9 +48,8 @@ pub enum ServiceStatus {
 
 /// Everything about where blobs go, as one argument.
 ///
-/// The pool and the key that opens its rows are one subject: taking one from
-/// here and the other from elsewhere gives a state whose backends and whose
-/// key disagree.
+/// The pool and the key that opens its rows belong together: taking them from
+/// different places gives a state whose backends and key disagree.
 #[derive(Debug, Clone)]
 pub struct Storage {
     /// Every backend that opened, and what they were opened from.
@@ -98,14 +97,14 @@ pub struct AppState {
     pub invites: InviteRepository,
     /// Registrations waiting on their address to be confirmed.
     pub pending: PendingRegistrationRepository,
-    /// Provider identities, and the sign-ins that are away at the provider.
+    /// Provider identities, and sign-ins in progress at the provider.
     pub identities: OidcRepository,
-    /// What each person has chosen about how the site looks to them.
+    /// Each user's choices about how the site looks to them.
     pub preferences: PreferenceRepository,
-    /// What the malware scanner has yet to look at, and its verdicts.
+    /// What the malware scanner has yet to check, and its verdicts.
     pub scans: crate::db::repository::scan::ScanRepository,
-    /// Wakes the scanner when something has been uploaded, so a share is not
-    /// held for up to a whole interval before anybody looks at it.
+    /// Wakes the scanner after an upload, so a share is not held for up to a
+    /// full interval before it is checked.
     pub scan_wake: Arc<tokio::sync::Notify>,
     /// The relay, when this instance has one.
     ///
@@ -135,8 +134,8 @@ pub struct AppState {
     pub storage_backends: crate::db::repository::storage_backend::StorageBackendRepository,
     /// Every configured backend, by name.
     ///
-    /// An `ArcSwap` because the set changes while the process runs, when one
-    /// is added or removed from the panel. The same shape as `mailer`.
+    /// An `ArcSwap` because the set changes at runtime when backends are added
+    /// or removed from the panel. Same pattern as `mailer`.
     pub backends: Arc<ArcSwap<crate::storage::Pool>>,
     /// Keeps the first upload into a location that does not exist yet from
     /// racing its siblings. See
@@ -149,16 +148,15 @@ pub struct AppState {
     pub uploads: UploadRepository,
     /// Where the frontend is read from: the compiled-in bundle, or a directory.
     pub assets: Arc<crate::assets::Source>,
-    /// What the identity provider says about itself, fetched once a day.
+    /// The identity provider's discovery document, fetched once a day.
     ///
-    /// Held here rather than built per request so that one sign-in pays for the
-    /// fetch and the rest of the day's do not.
+    /// Held here, not built per request, so one sign-in pays for the fetch and
+    /// the rest of the day's do not.
     pub oidc: Arc<crate::auth::oidc::discovery::Discovery>,
     /// The provider's signing keys, for back-channel logout only.
     ///
-    /// Separate from [`Self::oidc`] because they are fetched for a different
-    /// reason and from a different URL, and because most instances never touch
-    /// them at all.
+    /// Separate from [`Self::oidc`]: they are fetched for a different reason,
+    /// from a different URL, and most instances never need them.
     pub oidc_keys: Arc<crate::auth::oidc::jwks::Keys>,
     /// Fonts for link-preview cards, decoded once at start-up.
     ///
@@ -167,25 +165,24 @@ pub struct AppState {
     /// and nothing else: the route answers `404` and the page keeps its words.
     #[cfg(feature = "og-images")]
     pub cards: Option<Arc<crate::og::Cards>>,
-    /// How many cards may be drawn at once.
+    /// How many cards may be rendered at once.
     ///
-    /// Drawing is CPU work on a public, unthrottled route, and how much of it
-    /// one card is depends on a layout the operator wrote. Measured: eight
-    /// kilobytes of layout can be three milliseconds or sixteen seconds,
-    /// because a blur costs what it costs. Without a ceiling the answer to
-    /// "how much of this machine can pictures take" is "all of it", and the
-    /// rest of the service stops answering.
+    /// Rendering is CPU work on a public, unthrottled route, and its cost per
+    /// card depends on the operator's layout. Measured: eight kilobytes of
+    /// layout can take three milliseconds or sixteen seconds, since a blur
+    /// costs what it costs. Without a ceiling, images could take the whole
+    /// machine and the rest of the service would stop answering.
     ///
     /// Half the cores, at least one. Cards are the least important thing this
-    /// process does, and the half that is left is what keeps uploads and
-    /// retrievals moving while a crawler works through a sitemap.
+    /// process does, and the other half keeps uploads and downloads moving
+    /// while a crawler works through a sitemap.
     #[cfg(feature = "og-images")]
     pub card_renders: Arc<tokio::sync::Semaphore>,
     /// How far each store's clock is from this one, for download URLs that
     /// live seconds. See [`crate::storage::clock`].
     #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
     pub clocks: Arc<crate::storage::clock::Clocks>,
-    /// Cards already drawn, so a burst on one link draws once.
+    /// Cards already rendered, so a burst on one link renders once.
     #[cfg(feature = "og-images")]
     pub drawn_cards: Arc<crate::og::cache::Cards>,
     /// Current lifecycle status.
@@ -252,7 +249,7 @@ impl AppState {
             .and_then(|stores| stores.multipart.clone())
     }
 
-    /// The named backend as a signer, when a client may write a part to it
+    /// The named backend as a signer, when a client may write parts to it
     /// directly. See [`crate::storage::Stores::signer`].
     #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
     #[must_use]
@@ -264,9 +261,9 @@ impl AppState {
             .and_then(|stores| stores.signer.clone())
     }
 
-    /// Whether browsers may be sent to the named backend directly.
+    /// Whether browsers may be redirected to the named backend directly.
     ///
-    /// A name with no row is not a backend anybody should be sent to.
+    /// A name with no row is never a redirect target.
     #[must_use]
     pub fn direct_access(&self, name: &str) -> bool {
         self.backends
@@ -299,9 +296,8 @@ impl AppState {
     /// The throttles are updated, not rebuilt, because they hold the
     /// count of who has been failing to sign in. See [`Throttles::apply`].
     pub fn replace_config(&self, config: Arc<Config>) {
-        // The cached document belongs to the issuer it was fetched from. A new
-        // issuer means the endpoints, and the name we check `iss` against, are
-        // somebody else's.
+        // The cached document belongs to the issuer it came from. A new issuer
+        // means different endpoints and a different `iss` to check against.
         if config.auth.oidc.issuer != self.config().auth.oidc.issuer {
             self.oidc.forget();
             self.oidc_keys.forget();

@@ -1,27 +1,26 @@
 //! Measuring the line between a visitor and this instance.
 //!
-//! Two endpoints that move bytes nobody keeps: one sends them, one reads them
-//! and throws them away. The numbers a person cares about, megabits and
-//! milliseconds, are worked out in the browser from how long the transfer
-//! took; nothing here times anything, because the only clock that matters is
-//! at the other end.
+//! Two endpoints that move throwaway bytes: one sends them, one reads and
+//! discards them. Megabits and milliseconds are computed in the browser from
+//! how long the transfer took; nothing here times anything, since the only
+//! clock that matters is at the other end.
 //!
-//! The upload side reads its whole body inside the handler, so it is exempt
+//! The upload side reads its entire body inside the handler, so it is exempt
 //! from the wall-clock budget in [`crate::api::timeout`]: a budget there would
-//! cap the size a slow line could test rather than the time a stalled request
-//! may hold a slot.
+//! cap the size a slow line can test, not how long a stalled request may hold
+//! a slot.
 //!
-//! # What keeps this from being a tap
+//! # Keeping it from becoming free bandwidth
 //!
-//! It is off unless an operator turns it on, then for accounts only unless
-//! they open it, and a single test is capped at `speed.max_bytes` whoever asks.
-//! On top of that every test counts against `auth.throttle.speed`, keyed on
-//! the source, so an open instance still bounds what one address may take per
-//! hour. See [`SpeedConfig`](crate::config::SpeedConfig).
+//! Off unless the operator enables it, then accounts only unless they open it
+//! up, and every test capped at `speed.max_bytes`. Each test also counts
+//! against `auth.throttle.speed`, keyed on the source, so an open instance
+//! still bounds what one address can use per hour. See
+//! [`SpeedConfig`](crate::config::SpeedConfig).
 
-// `params(DownloadParams)` makes utoipa emit a fully-qualified path to the
-// type, and the generated code lands outside the function it decorates, so the
-// suppression is module-wide, as in `shares`.
+// `params(DownloadParams)` makes utoipa emit a fully-qualified path, and the
+// generated code lands outside the function, so the suppression is module-wide
+// as in `shares`.
 #![expect(
     unused_qualifications,
     reason = "emitted by utoipa's params(..), not written here"
@@ -58,9 +57,9 @@ const CHUNK: usize = 64 * 1024;
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct DownloadParams {
-    /// Bytes to send. Omit for as much as this instance allows; more than that
-    /// is refused rather than quietly shortened, so a client is never told it
-    /// measured a transfer it did not make.
+    /// Bytes to send. Omit for the instance maximum. Larger values are refused,
+    /// not silently shortened, so a client never reports a transfer it did not
+    /// make.
     #[param(example = 26_214_400_u64)]
     pub bytes: Option<u64>,
 }
@@ -73,7 +72,7 @@ pub struct SpeedUploadResponse {
     pub received_bytes: u64,
 }
 
-/// Sends `bytes` bytes that mean nothing.
+/// Sends `bytes` bytes of filler.
 ///
 /// # Errors
 ///
@@ -120,8 +119,8 @@ pub async fn download(
         header::CONTENT_TYPE,
         HeaderValue::from_static("application/octet-stream"),
     );
-    // A measurement of a cached response measures nothing, and a proxy that
-    // compressed this would be timing its own compressor.
+    // Timing a cached response measures nothing, and a compressing proxy would
+    // be timing its own compressor.
     out.insert(
         header::CACHE_CONTROL,
         HeaderValue::from_static("no-store, no-transform"),
@@ -132,7 +131,7 @@ pub async fn download(
     Ok(response)
 }
 
-/// Reads a body and throws it away.
+/// Reads a body and discards it.
 ///
 /// # Errors
 ///
@@ -160,8 +159,8 @@ pub async fn upload(
     let limit = offered(&state, current.is_some())?;
     spend(&state, &source)?;
 
-    // Read to the end, counting. Nothing is kept: a speed test that wrote
-    // anywhere would be an upload endpoint with no quota.
+    // Read to the end, counting. Nothing is kept: a speed test that stored
+    // anything would be an upload endpoint with no quota.
     let mut received = 0_u64;
     let mut stream = body.into_data_stream();
     while let Some(chunk) = tokio_stream::StreamExt::next(&mut stream).await {
@@ -176,10 +175,10 @@ pub async fn upload(
     }))
 }
 
-/// The cap for this caller, or `404` when the test is not theirs to run.
+/// The cap for this caller, or `404` when the test is not offered to them.
 ///
-/// Not `403`: an instance that does not offer this to visitors should look to
-/// one like an instance without the feature, which is what it is.
+/// Not `403`: to a visitor, an instance that does not offer this should look
+/// like one without the feature, which it effectively is.
 fn offered(state: &AppState, signed_in: bool) -> Result<u64> {
     let speed = state.config().speed;
     if !speed.enabled || (!speed.anonymous && !signed_in) {
@@ -188,7 +187,7 @@ fn offered(state: &AppState, signed_in: bool) -> Result<u64> {
     Ok(speed.max_bytes)
 }
 
-/// How much to send: what was asked for, or the whole allowance.
+/// How much to send: the requested amount, or the full allowance.
 fn asked_for(bytes: Option<u64>, limit: u64) -> Result<u64> {
     match bytes {
         None => Ok(limit),
@@ -221,20 +220,20 @@ const fn to_u64(value: usize) -> u64 {
     widened
 }
 
-/// Bytes that do not compress, made cheaply.
+/// Cheap incompressible bytes.
 ///
-/// Zeroes would measure a proxy's compressor rather than the line, and reading
-/// megabytes from the system's random source to throw away is a waste of it.
-/// An xorshift keeps the stream incompressible at a gigabyte a second.
+/// Zeroes would measure a proxy's compressor, not the line, and reading
+/// megabytes from the system random source only to discard them wastes it. An
+/// xorshift keeps the stream incompressible at a gigabyte a second.
 struct Filler {
     state: u64,
 }
 
 impl Filler {
     fn new() -> Self {
-        // Seeded per transfer, so two tests do not send the same bytes and
-        // meet a cache that notices. Nothing here is a secret, so the clock
-        // and a counter are seed enough.
+        // Seeded per transfer so two tests do not send identical bytes that a
+        // cache could notice. Nothing here is secret, so the clock and a
+        // counter are enough.
         static RUNS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let nanos = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -272,8 +271,8 @@ mod tests {
         assert!(refusal.contains("100"), "{refusal}");
     }
 
-    /// The bytes have to be worth timing: a proxy that compressed a stream of
-    /// zeroes would report a line nobody has.
+    /// The bytes must be worth timing: a proxy compressing a stream of zeroes
+    /// would report an impossibly fast line.
     #[test]
     fn the_filler_does_not_repeat_itself() {
         let mut filler = Filler::new();

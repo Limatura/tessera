@@ -1,17 +1,16 @@
 //! GitHub.
 //!
-//! # The two things that catch people
+//! # Two common pitfalls
 //!
 //! **The token endpoint answers form-encoded unless asked otherwise.** Without
 //! `Accept: application/json` it returns `access_token=...&scope=...`, which a
-//! JSON parser reads as a failure with no useful message.
+//! JSON parser rejects with no useful message.
 //!
-//! **`GET /user` answers `email: null` whenever the address is private**, which
-//! is the default for a lot of accounts. The address has to come from
-//! `GET /user/emails` instead, which needs the `user:email` scope, and the one
-//! to take is the entry that is both primary and verified. Taking the first
-//! entry, or taking `primary` without `verified`, hands out accounts to
-//! whoever added an unconfirmed address.
+//! **`GET /user` returns `email: null` whenever the address is private**, the
+//! default for many accounts. The address must come from `GET /user/emails`,
+//! which needs the `user:email` scope, and the right entry is the one both
+//! primary and verified. Taking the first entry, or `primary` without
+//! `verified`, hands accounts to whoever added an unconfirmed address.
 
 use serde::Deserialize;
 
@@ -26,10 +25,10 @@ pub const TOKEN: &str = "https://github.com/login/oauth/access_token";
 /// The API root on github.com.
 ///
 /// GitHub Enterprise Server serves the same API under the installation's own
-/// name at `/api/v3`, which is why this is worked out rather than fixed.
+/// host at `/api/v3`, which is why this is computed, not fixed.
 pub const API: &str = "https://api.github.com";
 
-/// Where this installation's endpoints are.
+/// This installation's endpoints.
 #[must_use]
 pub fn endpoints(base: Option<&str>) -> super::Endpoints {
     base.map_or_else(
@@ -46,8 +45,8 @@ pub fn endpoints(base: Option<&str>) -> super::Endpoints {
 
 /// Where its API is.
 ///
-/// github.com puts it on its own hostname; an Enterprise Server puts it under
-/// the same one at `/api/v3`.
+/// github.com uses a separate hostname; Enterprise Server uses the same one at
+/// `/api/v3`.
 #[must_use]
 pub fn api(base: Option<&str>) -> String {
     base.map_or_else(|| API.to_owned(), |base| format!("{base}/api/v3"))
@@ -56,13 +55,13 @@ pub fn api(base: Option<&str>) -> String {
 /// The name this provider is stored under.
 const NAME: &str = "github";
 
-/// GitHub asks for one and answers `403` without it.
+/// GitHub requires one and answers `403` without it.
 const USER_AGENT: &str = "tessera";
 
-/// What `GET /user` gives back, of what is wanted.
+/// The fields wanted from `GET /user`.
 #[derive(Debug, Deserialize)]
 struct User {
-    /// The numeric account id. Stable across a rename, which a login is not.
+    /// The numeric account id. Stable across renames, unlike the login.
     id: i64,
     /// The login, for choosing a username.
     login: String,
@@ -79,12 +78,12 @@ struct Address {
     verified: bool,
 }
 
-/// Reads who just signed in.
+/// Reads who signed in.
 ///
 /// # Errors
 ///
 /// Returns [`IdentityError`] when GitHub cannot be reached, refuses, or
-/// answers with something this does not understand.
+/// answers with something unexpected.
 pub async fn identify(api: &str, access_token: &str) -> Result<Identity, IdentityError> {
     let client = super::client(NAME)?;
     let user: User = super::read(
@@ -96,9 +95,8 @@ pub async fn identify(api: &str, access_token: &str) -> Result<Identity, Identit
     )
     .await?;
 
-    // Asked for separately and always, because `GET /user` cannot be trusted to
-    // carry it and a missing address has to be reported as a missing address
-    // rather than as a sign-in that half worked.
+    // Always fetched separately: `GET /user` may not carry it, and a missing
+    // address must be reported as such, not as a half-working sign-in.
     let addresses: Vec<Address> = super::read(
         NAME,
         client
@@ -107,9 +105,9 @@ pub async fn identify(api: &str, access_token: &str) -> Result<Identity, Identit
             .header(reqwest::header::USER_AGENT, USER_AGENT),
     )
     .await
-    // A token without `user:email` is refused here rather than at the top. The
-    // sign-in still fails, but as "no address" rather than as "GitHub refused",
-    // which is the difference between a scope to add and a mystery.
+    // A token without `user:email` is refused here, not at the top. The sign-in
+    // still fails, but as "no address" instead of "GitHub refused", which
+    // points at the missing scope instead of leaving a mystery.
     .unwrap_or_default();
 
     let primary = addresses

@@ -6,17 +6,17 @@ use sea_orm::entity::prelude::*;
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "identities")]
 pub struct Model {
-    /// Which provider vouched for this.
+    /// The provider that vouched for this.
     #[sea_orm(primary_key, auto_increment = false)]
     pub provider: String,
-    /// The provider's own identifier for the person: the `sub` claim. Stable
-    /// within one issuer and never reused, which is what makes it safe to key
-    /// on where an address would not be.
+    /// The provider's own identifier for the user: the `sub` claim. Stable
+    /// within one issuer and never reused, which makes it safe to key on where
+    /// an address would not be.
     #[sea_orm(primary_key, auto_increment = false)]
     pub subject: String,
     /// The account this identity signs in as.
     pub user_id: String,
-    /// When the identity was attached.
+    /// When the identity was linked.
     pub created_at: TimeDateTimeWithTimeZone,
 }
 

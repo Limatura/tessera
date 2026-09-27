@@ -230,15 +230,15 @@ async fn a_password_below_the_policy_is_refused_at_registration() {
     .await;
 }
 
-/// Turned on by the operator, a composition rule is held against a password
-/// being chosen, and the person is told which one they missed.
+/// When the operator enables a composition rule, it applies to a password being
+/// chosen, and the user is told which rule they missed.
 #[tokio::test]
 async fn a_password_missing_a_required_class_is_refused_at_registration() {
     let app = TestApp::with_config(|config| {
         config.auth.password.require_digit = true;
     })
     .await;
-    // The form finds out before the person types, not after they submit.
+    // The form learns the rules before the user types, not after submitting.
     let capabilities =
         body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
     assert_eq!(capabilities["account_password_requires_digit"], true);
@@ -3210,9 +3210,8 @@ async fn registration_cannot_take_a_tombstone_either() {
 
 /// An account can exist with no password at all.
 ///
-/// That is what signing in through an identity provider will create: no row
-/// in `credentials`. Written against the repository because no endpoint makes
-/// one yet.
+/// That is what signing in through an identity provider creates: no row in
+/// `credentials`. Written against the repository to test the storage alone.
 #[tokio::test]
 async fn an_account_can_have_no_password() {
     let app = TestApp::ready().await;
@@ -3252,11 +3251,11 @@ async fn an_account_can_have_no_password() {
     );
 }
 
-/// Signing in as an account with no password costs the same as signing in as an
-/// account that does not exist.
+/// Signing in as an account with no password costs the same as signing in as
+/// one that does not exist.
 ///
-/// Returning early for "this one has no password" would answer, to anyone who
-/// can time a request, which addresses belong to single sign-on users.
+/// Returning early for "no password" would tell anyone who can time a request
+/// which addresses belong to single sign-on users.
 #[tokio::test]
 async fn an_account_with_no_password_cannot_be_told_apart_by_timing() {
     let app = TestApp::ready().await;
@@ -3299,8 +3298,8 @@ async fn an_account_with_no_password_cannot_be_told_apart_by_timing() {
     assert_eq!(no_account, StatusCode::UNAUTHORIZED);
 
     // Both pay for a hash, so neither is an order of magnitude faster. A loose
-    // bound on purpose: this is a check that the dummy verification still
-    // happens, not a timing measurement.
+    // bound by design: this checks that the dummy verification still happens,
+    // it is not a timing measurement.
     let (quick, slow) = if took_existing < took_missing {
         (took_existing, took_missing)
     } else {
@@ -3312,7 +3311,7 @@ async fn an_account_with_no_password_cannot_be_told_apart_by_timing() {
     );
 }
 
-// ── 驗證 email ────────────────────────────────────────────────────────────
+// ── address verification ────────────────────────────────────────────
 
 async fn session_of(app: &TestApp, cookie: &str) -> serde_json::Value {
     body_json(
@@ -3357,8 +3356,8 @@ async fn follow_verification(app: &TestApp, token: &str) -> StatusCode {
     .status()
 }
 
-/// A link for `email`, issued the way the endpoint does, since the token
-/// otherwise exists only in the mail.
+/// A link for `email`, issued as the endpoint does, since the token otherwise
+/// exists only in the mail.
 #[expect(clippy::expect_used, reason = "a fixture reports by panicking")]
 async fn verification_link(app: &TestApp, username: &str, email: &str) -> String {
     let user = app
@@ -3383,7 +3382,7 @@ async fn verification_link(app: &TestApp, username: &str, email: &str) -> String
         .to_owned()
 }
 
-/// The account says whether its address is proven, and a new address is not.
+/// The account reports whether its address is verified, and a new address is not.
 #[tokio::test]
 async fn the_account_shows_whether_its_address_is_verified() {
     let app = app_with_mail().await;
@@ -3397,7 +3396,7 @@ async fn the_account_shows_whether_its_address_is_verified() {
     assert!(session_of(&app, &cookie).await["email_verified_at"].is_null());
 }
 
-/// Following the link proves the address, once.
+/// Following the link verifies the address, once.
 #[tokio::test]
 async fn a_verification_link_confirms_the_address_once() {
     let app = app_with_mail().await;
@@ -3422,8 +3421,8 @@ async fn a_verification_link_confirms_the_address_once() {
     );
 }
 
-/// A link proves the address it was sent to. Asking for one and then moving to
-/// an address you cannot receive must not get the new one confirmed.
+/// A link proves the address it was sent to. Requesting one and then switching
+/// to an address you cannot receive at must not verify the new one.
 #[tokio::test]
 async fn a_link_for_an_address_since_left_confirms_nothing() {
     let app = app_with_mail().await;
@@ -3439,8 +3438,8 @@ async fn a_link_for_an_address_since_left_confirms_nothing() {
     assert!(session_of(&app, &cookie).await["email_verified_at"].is_null());
 }
 
-/// Asking for a link: refused when there is nothing to prove, and counted
-/// against the address it goes to, since an account can set that to anyone's.
+/// Requesting a link: refused when there is nothing to verify, and counted
+/// against the recipient address, since an account can set it to anyone's.
 #[tokio::test]
 async fn asking_for_a_link_is_bounded() {
     let app = app_with_mail().await;
@@ -3452,8 +3451,8 @@ async fn asking_for_a_link_is_bounded() {
     );
 
     move_address(&app, &cookie, "elsewhere@example.com").await;
-    // The fixture's relay does not exist, and a request that waits for the
-    // send says so rather than claiming a mail went out.
+    // The fixture's relay does not exist, and a request that waits for the send
+    // reports that instead of claiming a mail went out.
     for _ in 0..3 {
         assert_eq!(
             ask_to_verify(&app, Auth::Cookie(&cookie)).await,
@@ -3499,7 +3498,7 @@ async fn an_api_token_cannot_ask_for_a_link() {
     );
 }
 
-/// No relay, no mail: both ends answer as the switched-off feature they are.
+/// No relay, no mail: both endpoints answer as a disabled feature.
 #[tokio::test]
 async fn without_mail_there_is_no_verification() {
     let app = TestApp::ready().await;

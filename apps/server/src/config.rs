@@ -106,7 +106,7 @@ pub struct Config {
     /// The picture a chat client shows for a share link.
     #[serde(default)]
     pub og: OgConfig,
-    /// How the site looks to somebody who has not chosen otherwise.
+    /// How the site looks to a visitor who has not picked a look of their own.
     #[serde(default)]
     pub appearance: AppearanceConfig,
     /// Where uploads are sent to be checked for malware. See [`ScanConfig`].
@@ -118,56 +118,47 @@ pub struct Config {
     /// Measuring the line to this instance. See [`SpeedConfig`].
     #[serde(default)]
     pub speed: SpeedConfig,
-    /// The one key this instance keeps recoverable secrets under. See
-    /// [`SecurityConfig`].
+    /// The key recoverable secrets are sealed under. See [`SecurityConfig`].
     #[serde(default)]
     pub security: SecurityConfig,
 }
 
 /// The key everything recoverable is stored under.
 ///
-/// # Why this is not `storage.secret_key` any more
-///
-/// It was, because a backend's URL was the first setting that had to be both
-/// stored and readable back. Five more followed: an identity provider's client
-/// secret, two OAuth ones, a relay's credentials, a scanner's. None of them
-/// has anything to do with object storage, and a name saying otherwise sent
-/// people looking for a bucket setting when what they needed was one
-/// environment variable.
+/// This used to be `storage.secret_key`, because a backend URL was the first
+/// setting that had to be stored and read back. Five more followed (an OIDC
+/// client secret, two OAuth ones, the mail relay's, the scanner's), none of
+/// them about object storage, and the old name sent operators looking for a
+/// bucket setting.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SecurityConfig {
-    /// Seals the settings that are kept in the database and read back, as 64
-    /// hexadecimal characters.
+    /// Seals the settings kept in the database, as 64 hex characters.
     ///
-    /// Empty, the default, uses a key made on the first start and kept in
+    /// Empty (the default) uses a key generated on first start and kept in
     /// `secret.key` under `server.data_dir`. Set one (`openssl rand -hex 32`)
-    /// to keep it out of that directory, and out of any backup of it. See
-    /// [`security::secret`](crate::security::secret) for what that protects
-    /// against and what it does not.
+    /// to keep it out of that directory and its backups. See
+    /// [`security::secret`](crate::security::secret) for what that does and
+    /// does not protect against.
     ///
-    /// Losing it, either way, means every sealed setting and every backend
-    /// has to be entered again.
+    /// Lose it and every sealed setting and backend has to be entered again.
     pub secret_key: String,
 }
 
-/// The speed test: sending bytes that mean nothing, to time them.
+/// The speed test: timing a transfer of meaningless bytes.
 ///
-/// # Why this is off by default
-///
-/// It is a tap. A person testing their line costs the instance the bytes they
-/// measure, and an open one costs whatever anybody cares to ask for. Every
-/// bound here exists because of that: it is off, then it is for accounts, and
-/// only then for anybody, and a single test is capped whoever asks.
+/// Off by default because every test costs the instance the bytes it moves,
+/// and an open endpoint costs whatever anyone asks for. Hence the layers: off,
+/// then accounts only, then everyone, with every single test capped.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SpeedConfig {
     /// Whether the endpoints exist at all.
     pub enabled: bool,
-    /// Whether somebody without an account may use them.
+    /// Whether visitors without an account may use them.
     ///
-    /// Off means a visitor sees nothing: the capability says the test is not
-    /// available, and the endpoints answer as if they were not mounted.
+    /// When off, a visitor sees nothing: the capability reports the test as
+    /// unavailable and the endpoints answer as if they were not mounted.
     pub anonymous: bool,
     /// The most one test may move, in each direction.
     pub max_bytes: u64,
@@ -178,9 +169,8 @@ impl Default for SpeedConfig {
         Self {
             enabled: false,
             anonymous: false,
-            // Enough to measure a fast line for a couple of seconds, small
-            // enough that the per-source limit bounds an hour at a few
-            // hundred megabytes.
+            // Enough for a couple of seconds on a fast line; the per-source
+            // limit then bounds an hour at a few hundred megabytes.
             max_bytes: 25 * 1024 * 1024,
         }
     }
@@ -201,17 +191,13 @@ impl SpeedConfig {
 
 /// What the instance calls itself.
 ///
-/// Written into `index.html` on the way out, for the same reason the
-/// appearance is: the tab says the operator's name from the first paint rather
-/// than after the scripts run. See [`crate::assets`].
+/// Written into `index.html` as it is served, like the appearance, so the tab
+/// shows the operator's name on first paint. See [`crate::assets`].
 ///
-/// # Not search engine optimisation
-///
-/// A file drop does not want its share pages indexed, and the tags that would
-/// chase rankings are not here; see the decision recorded with the settings
-/// the panel deliberately does not offer. These two are what an operator needs
-/// to put their own name on the thing: the tab, and the line a chat client
-/// shows under a link to the instance itself.
+/// This is not SEO. Share pages should not be indexed, so ranking tags are left
+/// out (see the settings the panel does not offer). These two cover what an
+/// operator needs to brand the instance: the tab title and the line a chat
+/// client shows under a link to it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SiteConfig {
@@ -259,27 +245,22 @@ impl SiteConfig {
 
 /// A malware scanner this instance hands uploads to.
 ///
-/// # Why a service and not a library
+/// A separate service, not a library: ClamAV's signatures are hundreds of
+/// megabytes and change daily, so bundling them would bloat the image and
+/// leave it out of date. An operator who wants scanning runs a scanner and
+/// points this at it.
 ///
-/// The engine is somebody else's program. ClamAV's signatures alone are
-/// hundreds of megabytes and change daily; built in, they would be most of the
-/// image and always out of date. An operator who wants scanning runs a scanner
-/// and says where it is.
-///
-/// # What happens to a file
-///
-/// It is recorded, then read back from the store and sent to the scanner in
-/// the background: a large one takes minutes, and one written straight to a
-/// bucket never passed through here to be scanned on the way. Until a verdict
-/// comes back its share cannot be downloaded. A scanner that cannot be reached
-/// holds nothing up: the file is served and scanned when it is back. See
-/// `docs/scanning.md`.
+/// A recorded file is read back from the store and scanned in the background,
+/// since large files take minutes and files written straight to a bucket never
+/// passed through the server. Its share cannot be downloaded until a verdict
+/// comes back. If the scanner is unreachable nothing is held up: the file is
+/// served and scanned once the scanner returns. See `docs/scanning.md`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ScanConfig {
-    /// The scanner. Empty, the default, is no scanning.
+    /// The scanner. Empty (the default) disables scanning.
     ///
-    /// `clamd://host:3310` for a ClamAV daemon, or an `http://` or `https://`
+    /// `clamd://host:3310` for a ClamAV daemon, or an `http://` / `https://`
     /// URL that takes the file as a `POST` body and answers
     /// `{"clean": true}` or `{"clean": false, "threat": "..."}`.
     pub url: String,
@@ -315,25 +296,18 @@ impl ScanConfig {
     }
 }
 
-/// The instance's own answer to the three appearance questions.
+/// The instance's default answer to the three appearance questions.
 ///
-/// What a signed-out visitor sees, and what a signed-in person sees for
-/// whichever of the three they have not chosen themselves. Served into
-/// `index.html` so the page is already the right colour on the first paint
-/// rather than after the scripts run; see [`crate::assets`].
+/// Applies to signed-out visitors, and to signed-in users for whichever of the
+/// three they have not set. Served into `index.html` so the page has the right
+/// colours on first paint; see [`crate::assets`].
 ///
-/// # Why three settings rather than one
-///
-/// The panel's key list is read off this structure, and a nested object is a
-/// group of settings rather than a setting, so one key holding all three is not
-/// a shape it can express. Three is no worse in practice: `PUT /admin/settings`
-/// takes every change in one request and the configuration is swapped once at
-/// the end, so nobody loads a page between the mode changing and the accent.
-///
-/// The gain is that the value is checked by being parsed. A key holding a blob
-/// of JSON would need its own validation, written by hand, kept in step with
-/// this list; here an unknown accent is refused by the same code that refuses
-/// an unknown anything else.
+/// Three settings instead of one because the panel's key list is read off this
+/// struct, and a nested object is treated as a group, not a setting.
+/// `PUT /admin/settings` applies all changes in one swap, so no page load can
+/// see the mode changed but not the accent. Keeping them separate also means
+/// the values are validated by parsing, instead of by hand-written checks on
+/// a JSON blob.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct AppearanceConfig {
@@ -348,9 +322,8 @@ pub struct AppearanceConfig {
 impl Default for AppearanceConfig {
     fn default() -> Self {
         Self {
-            // Following the device is the only default that is nobody's
-            // opinion: a visitor who has set their system to dark has already
-            // said what they want.
+            // Following the device is the only neutral default, and a visitor
+            // who set their system to dark has already chosen.
             mode: Mode::System,
             theme: Theme::Default,
             accent: Accent::Violet,
@@ -360,24 +333,18 @@ impl Default for AppearanceConfig {
 
 /// What one plain OAuth 2.0 provider needs.
 ///
-/// Derived rather than written out: every field's empty value is the right
-/// one, and `Config::default` fills in the scopes and the name per provider,
-/// because those are the only two that differ between them.
+/// `Default` is derived: every empty value is correct, and `Config::default`
+/// fills in the two per-provider fields, the scopes and the name.
 ///
-/// # Why this is not [`OidcConfig`] with fields left empty
+/// Not an [`OidcConfig`] with empty fields: OIDC is configured by issuer and
+/// discovers the rest. GitHub and Discord publish no discovery document, so
+/// their endpoints live in their adapters and only the client credentials are
+/// configured here.
 ///
-/// An OIDC provider is configured by naming it: one issuer, and everything
-/// else comes out of a document it publishes. GitHub and Discord publish no
-/// such document, so their endpoints are written into the adapter that speaks
-/// to them and there is nothing here to configure. What is left is the pair of
-/// values that identify this installation to them.
-///
-/// The scopes are here too, and they are not decoration. GitHub will not
-/// release a verified address without `user:email`, and Discord will not
-/// release one without `email`, so an operator who narrows these has an
-/// instance that refuses every sign-in with `no_address`. Defaulted to what
-/// works, and validated so that removing one is refused at start-up rather
-/// than discovered by the first person to try.
+/// The scopes matter. GitHub will not release a verified address without
+/// `user:email`, nor Discord without `email`, and without one every sign-in
+/// fails with `no_address`. They default to what works, and removing a
+/// required one is refused at start-up.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct OauthConfig {
@@ -387,86 +354,78 @@ pub struct OauthConfig {
     pub client_secret: String,
     /// What to ask the provider for.
     pub scopes: Vec<String>,
-    /// Where the provider lives, when it is not where it usually lives.
+    /// The provider's base URL, when it is not the usual one.
     ///
     /// For GitHub Enterprise Server, which serves the same endpoints under an
-    /// organisation's own name. Empty means github.com.
-    ///
-    /// Discord ignores this: there is no self-hosted Discord, so there is
-    /// nowhere else for it to be.
+    /// organisation's own host. Empty means github.com. Discord ignores this;
+    /// it cannot be self-hosted.
     pub base_url: String,
     /// What to write on the button. Empty falls back to the provider's name.
     pub display_name: String,
-    /// Whether an address the provider says it checked may attach to an
-    /// account that already has it.
+    /// Whether an address the provider has verified may attach to an existing
+    /// account with that address.
     ///
-    /// Off by default, and the reason is the same as for OIDC: anybody can
-    /// obtain an account at either of these in under a minute, so an instance
-    /// that both registers strangers and matches on an address is handing out
-    /// other people's accounts.
+    /// Off by default, as for OIDC: an account at either provider takes a
+    /// minute to create, so an instance that lets strangers register and also
+    /// matches on address is giving away other people's accounts.
     pub link_by_verified_email: bool,
-    /// Whether signing in here for the first time makes an account. See
+    /// Whether a first sign-in here creates an account. See
     /// [`ProviderRegistration`].
     ///
-    /// **Neither of these has groups to narrow it down**: `always` lets every
-    /// account at the provider open one here.
+    /// **Neither provider has groups to restrict this**: `always` lets every
+    /// account at the provider create one here.
     pub allow_registration: ProviderRegistration,
 }
 
 /// Signing in through an identity provider.
 ///
-/// An empty `issuer` is the default and turns everything off: nothing is
-/// mounted, nothing is advertised, and start-up says nothing. The same shape as
-/// [`MailConfig`], for the same reason — an instance that does not use this
-/// should not have to think about it.
+/// An empty `issuer` (the default) turns everything off: nothing is mounted,
+/// advertised or logged. Same as [`MailConfig`]: an instance that does not use
+/// this should not have to think about it.
 ///
-/// # What this decides and what it does not
+/// The provider decides **who may sign in**; tessera decides **what they may
+/// do**. An admitted account lands in `auth.default_role` and is moved by an
+/// administrator, like one registered with a password.
 ///
-/// The provider decides **who may sign in**. tessera decides **what they may
-/// do**: an account admitted here lands in `auth.default_role` and is moved by
-/// an administrator, exactly as one that registered with a password.
-///
-/// Group claims are read for one purpose only, [`OidcConfig::required_group`],
-/// and never mapped onto roles. Mapping would need a table of group names to
-/// roles, a rule for somebody in two of them, an answer for a group being
-/// renamed, and a way to keep an administrator's manual change from being
-/// overwritten on the next sign-in. On an instance with a handful of accounts
-/// that is a great deal of machinery to save setting a menu once per person.
+/// Group claims are read only for [`OidcConfig::required_group`] and never
+/// mapped to roles. Mapping would need a group-to-role table, a rule for
+/// members of two groups, handling for renamed groups, and a way to stop the
+/// next sign-in overwriting an administrator's change. For an instance with a
+/// handful of accounts, that is a lot of machinery to avoid setting a menu
+/// once per person.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct OidcConfig {
     /// The provider's issuer URL, from which everything else is discovered.
     ///
     /// Empty turns this off. Otherwise it must be `https`, and it is compared
-    /// against the `iss` claim by exact string equality, which is what the
-    /// specification requires.
+    /// with the `iss` claim by exact string equality, as the spec requires.
     pub issuer: String,
 
     /// This instance, as registered with the provider.
     pub client_id: String,
 
-    /// The secret issued alongside `client_id`.
+    /// The secret issued with `client_id`.
     ///
-    /// In [`SECRETS`](crate::settings), so the admin panel can write it and
-    /// never read it back.
+    /// Listed in [`SECRETS`](crate::settings), so the admin panel can write it
+    /// but never read it back.
     pub client_secret: String,
 
     /// What to ask the provider for.
     ///
-    /// `openid` is required by the specification and is added if it is missing.
-    /// `email` is required by us: an account needs an address, and a sign-in
-    /// that arrives without one is refused rather than making the column
-    /// nullable — see the `m20260905` migration.
+    /// `openid` is required by the spec and added if missing. `email` is
+    /// required by tessera: an account needs an address, so a sign-in without
+    /// one is refused instead of making the column nullable (see the
+    /// `m20260905` migration).
     pub scopes: Vec<String>,
 
-    /// Only admit people in this group. Empty admits everybody the provider
+    /// Only admit members of this group. Empty admits everyone the provider
     /// authenticates.
     ///
-    /// This is the answer to the sharpest problem with single sign-on on a
-    /// small instance: a provider serving several applications authenticates
-    /// everybody who has an account with it, and "the provider knows them" is
-    /// not "they should have an account here". With only Google configured it
-    /// would otherwise be every Google account there is.
+    /// A provider serving several applications authenticates all of its users,
+    /// and being known to the provider does not mean someone should have an
+    /// account here. With only Google configured, that would be every Google
+    /// account.
     pub required_group: String,
 
     /// Which claim carries the groups. `groups` for Authentik and Authelia,
@@ -486,69 +445,63 @@ pub struct OidcConfig {
     pub allow_registration: ProviderRegistration,
 }
 
-/// Whether a provider may make accounts, apart from `auth.registration`.
+/// Whether a provider may create accounts, independently of
+/// `auth.registration`.
 ///
-/// # Why this is not just `auth.registration`
+/// `auth.registration` used to cover both password sign-up and accounts
+/// created on a first provider sign-in, so an instance could not close the
+/// first and keep the second. That is the usual setup with a self-run
+/// provider: accounts are made there, this instance has no sign-up form, and
+/// users the provider admits should not wait for an administrator here.
 ///
-/// That one setting decided both registering with a password and a provider
-/// making an account on a first sign-in, so an instance could not close the
-/// first and keep the second. That is exactly what somebody running their own
-/// provider wants: accounts are made there, this instance should have no
-/// sign-up form of its own, and the people the provider lets through should
-/// not have to wait for an administrator to make them an account here too.
-///
-/// Three answers and not a switch, so that leaving it alone changes nothing:
-/// `inherit` is what every instance did before this existed.
+/// Three values instead of a switch so the default changes nothing: `inherit`
+/// is the behaviour from before this setting existed.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ProviderRegistration {
     /// As `auth.registration` says, invitation included.
     #[default]
     Inherit,
-    /// Always, whatever `auth.registration` says, and without an invitation:
-    /// being let through by the provider is what admits somebody.
+    /// Always, regardless of `auth.registration` and without an invitation.
+    /// Being admitted by the provider is enough.
     Always,
-    /// Never. Only accounts that already exist, or are attached by their
-    /// owners, can sign in this way.
+    /// Never. Only existing accounts, or ones their owners have linked, can
+    /// sign in this way.
     Never,
 }
 
-/// When an identity provider's address may attach a sign-in to an account
-/// that already has it.
+/// When an identity provider's address may attach a sign-in to the existing
+/// account with that address.
 ///
-/// # Why three answers and not a switch
+/// This used to be a switch that also required `email_verified`. Many
+/// providers do not send it: Synology's SSO Server lacks the claim, Entra ID
+/// omits it for work accounts, and Authentik's default mapping always sends
+/// `false`. With those the switch had no effect, and the first sign-in failed
+/// with `address_taken` while the panel said linking was on.
 ///
-/// It was a switch, and it also required the provider to say
-/// `email_verified`. Plenty of providers do not: Synology's SSO Server does not
-/// have the claim at all, Entra ID leaves it out for work accounts, and
-/// Authentik's default mapping sends `false` whatever the truth. Against
-/// those the switch did nothing, on or off, and the first person to sign in
-/// was refused with `address_taken` while the panel said linking was on.
-///
-/// So the operator says how far they trust this provider's addresses. Only
-/// for the identity provider: GitHub and Discord never hand over an address
-/// they have not checked, so there is nothing for a third answer to change.
+/// So the operator states how far they trust the provider's addresses. This
+/// applies to OIDC only: GitHub and Discord never hand over an unverified
+/// address, so a third value would change nothing there.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, utoipa::ToSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum LinkByEmail {
-    /// Never. A sign-in whose address is taken is refused, and the person
-    /// signs in with their password and attaches the provider from there.
+    /// Never. A sign-in whose address is taken is refused; the user signs in
+    /// with their password and links the provider from there.
     #[default]
     Never,
     /// When the provider says `email_verified` is true.
     WhenVerified,
-    /// Whatever the provider says about it.
+    /// Regardless of what the provider says.
     ///
-    /// **Anybody who can make the provider vouch for an address can take
-    /// over the account that has it here.** Right for a provider the operator
-    /// runs and whose accounts they hand out; wrong for one that lets anybody
-    /// sign up with any address.
+    /// **Anyone who can get the provider to vouch for an address can take over
+    /// the account with that address here.** Fine for a provider the operator
+    /// runs and hands out accounts on; wrong for one with open sign-up.
     Always,
 }
 
 impl LinkByEmail {
-    /// Whether an address the provider did or did not say it checked may
-    /// attach to an existing account.
+    /// Whether an address, verified by the provider or not, may attach to an
+    /// existing account.
     #[must_use]
     pub const fn allows(self, verified: bool) -> bool {
         match self {
@@ -610,7 +563,7 @@ impl Default for OidcConfig {
 }
 
 impl OidcConfig {
-    /// Whether this instance signs anybody in through a provider.
+    /// Whether this instance offers sign-in through a provider.
     #[must_use]
     pub fn is_configured(&self) -> bool {
         !self.issuer.trim().is_empty()
@@ -625,12 +578,10 @@ impl OidcConfig {
         if !self.is_configured() {
             return Ok(());
         }
-        // `http` would put the authorisation code and the client secret on the
-        // wire in the clear, and the specification's exemption from verifying
-        // the token's signature is *only* available because the channel is TLS.
-        //
-        // The one exception is a loopback address, where those bytes never
-        // reach a network to be read off. See [`is_private_or_tls`].
+        // Over `http` the authorisation code and client secret travel in the
+        // clear, and the spec only lets us skip verifying the token signature
+        // because the channel is TLS. Loopback is exempt: those bytes never
+        // reach a network. See [`is_private_or_tls`].
         if !crate::auth::oidc::is_private_or_tls(&self.issuer) {
             return Err(ConfigError::Invalid {
                 field: "auth.oidc.issuer",
@@ -740,34 +691,27 @@ pub struct FeatureConfig {
 
     /// Whether uploads may be end-to-end encrypted.
     ///
-    /// Off by default. It protects visitors from the operator, so it is worth
-    /// something on an instance run for strangers and nothing on one run for
-    /// oneself, and it costs features: an encrypted share has no preview, no
-    /// archive download and nothing a server-side reader can use. See
-    /// `docs/encryption.md`.
+    /// Off by default. It protects visitors from the operator, which matters on
+    /// an instance run for strangers and not on a personal one, and it costs
+    /// features: an encrypted share has no preview, no archive download, and
+    /// nothing a server-side reader can use. See `docs/encryption.md`.
     ///
-    /// Turning it off stops new encrypted shares. The ones already made stay
-    /// retrievable, since the server never needed to understand them to hand
-    /// them out.
+    /// Turning it off stops new encrypted shares. Existing ones stay
+    /// downloadable, since the server never had to understand them.
     pub encryption: bool,
 }
 
-/// Checking a new password against the passwords known to have leaked.
+/// Checking a new password against known leaked passwords.
 ///
-/// # What is sent
+/// Only the first five characters of the password's SHA-1 are sent. The
+/// service returns every known hash with that prefix and the comparison
+/// happens here (the k-anonymity model the Pwned Passwords API is built on),
+/// so neither the password nor enough of its hash to identify it leaves the
+/// process.
 ///
-/// The first five characters of the password's SHA-1, and nothing else. The
-/// service answers with every hash it knows that starts with those five, and
-/// the comparison happens here. That is the k-anonymity model the Pwned
-/// Passwords API is built around: the password does not leave this process,
-/// and neither does enough of its hash to identify it.
-///
-/// # Off by default, and never in the way
-///
-/// It is a request to somebody else's service on a path that has to work, so
-/// an operator opts in. When it is on and the service cannot be reached, the
-/// password is accepted: a breach list that is down must not stop somebody
-/// registering or resetting a password they have already lost.
+/// Off by default, since it puts a third-party request on a path that has to
+/// work. When on and the service is unreachable, the password is accepted: an
+/// outage must not block registering or resetting a lost password.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct PwnedConfig {
@@ -775,9 +719,9 @@ pub struct PwnedConfig {
     pub enabled: bool,
     /// Where the range API lives, without a trailing slash.
     ///
-    /// The official service by default. An operator who would rather not
-    /// depend on it, or whose instance has no way out to the internet, can run
-    /// one of the self-hosted implementations and point this at it.
+    /// The official service by default. Point this at a self-hosted
+    /// implementation to avoid depending on it, or when the instance has no
+    /// internet access.
     pub url: String,
 }
 
@@ -1178,12 +1122,12 @@ pub struct ServerConfig {
     #[serde(default)]
     pub assets_dir: String,
 
-    /// Where this instance keeps what it writes for itself.
+    /// Where this instance keeps files it writes for itself.
     ///
-    /// Two things, both only on a first start: the key sealed settings are
-    /// kept under, as `secret.key`, when `security.secret_key` is not set; and
-    /// the first storage backend, a directory `blobs` inside this one, when
-    /// there is none yet. Relative paths are taken from the working directory.
+    /// Two, both only on first start: `secret.key`, the key for sealed
+    /// settings, when `security.secret_key` is not set; and a `blobs`
+    /// directory as the first storage backend, when there is none. Relative
+    /// paths are resolved from the working directory.
     #[serde(default = "default_data_dir")]
     pub data_dir: String,
     /// Origins allowed to call the API from a browser. Empty means same-origin
@@ -1526,9 +1470,9 @@ impl Limit {
 pub struct ThrottleConfig {
     /// How many keys to track before expired ones are swept.
     ///
-    /// A memory ceiling, not a security setting: every key is a string an
-    /// unauthenticated stranger chose, so this is how much memory they may
-    /// make the process hold. Shared by every counter.
+    /// A memory ceiling, not a security setting: each key is a string chosen by
+    /// an unauthenticated client, so this caps how much memory they can make
+    /// the process hold. Shared by every counter.
     #[serde(default = "default_tracked_keys")]
     pub max_tracked_keys: usize,
 
@@ -1554,14 +1498,13 @@ pub struct ThrottleConfig {
     /// Failed share passwords, keyed on the code and the source.
     #[serde(default = "default_login_limit")]
     pub share: Limit,
-    /// Speed tests, keyed on the source. Counted on every test run, not on
-    /// failures: what is limited is how much of the line one address may
-    /// spend.
+    /// Speed tests, keyed on the source. Every test counts, not just failures:
+    /// the limit is how much bandwidth one address may use.
     #[serde(default = "default_speed_limit")]
     pub speed: Limit,
-    /// Breach-list lookups from a form being typed into, keyed on the source.
-    /// Counted on every lookup: each one is a request to somebody else's
-    /// service made on a stranger's behalf.
+    /// Breach-list lookups while a form is being typed into, keyed on the
+    /// source. Every lookup counts, since each is a third-party request made
+    /// on an anonymous client's behalf.
     #[serde(default = "default_pwned_limit")]
     pub pwned: Limit,
 }
@@ -1651,12 +1594,11 @@ impl Default for AuthConfig {
     fn default() -> Self {
         Self {
             oidc: OidcConfig::default(),
-            // The scopes each provider needs to release a *verified* address,
-            // which is the whole reason to ask for one. GitHub answers
-            // `email: null` on `/user` when the address is private, so the
-            // address has to be read from `/user/emails`, and that needs
-            // `user:email`. Discord returns `email` and `verified` on
-            // `/users/@me`, both behind `email`.
+            // The scopes each provider needs to release a *verified* address.
+            // GitHub answers `email: null` on `/user` for a private address,
+            // which then has to come from `/user/emails` and needs `user:email`.
+            // Discord returns `email` and `verified` on `/users/@me` behind
+            // `email`.
             github: OauthConfig {
                 scopes: vec!["read:user".to_owned(), "user:email".to_owned()],
                 display_name: "GitHub".to_owned(),

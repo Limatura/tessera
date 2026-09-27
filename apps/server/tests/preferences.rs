@@ -1,4 +1,4 @@
-//! One person's own preferences, and the instance's default underneath them.
+//! One user's own preferences, and the instance default underneath them.
 
 mod common;
 
@@ -18,8 +18,8 @@ async fn an_app_with_an_account() -> TestApp {
 
 /// Bootstraps an account and signs in as it.
 ///
-/// Any account will do; these endpoints need somebody signed in and nothing
-/// else. The administrator is simply the one a fresh instance already has.
+/// Any account will do; these endpoints only need a signed-in user. The
+/// administrator is just the one a fresh instance already has.
 ///
 /// See `common/mod.rs`: the test-code exemption only reaches code inside a
 /// `#[test]` body, so a helper has to restate it.
@@ -79,8 +79,8 @@ async fn put_preferences(
     body_json(response).await
 }
 
-/// Somebody who has never opened the setting is described by an empty object,
-/// not by a copy of whatever the instance's default happens to be that day.
+/// A user who never opened the setting is an empty object, not a copy of
+/// whatever the instance default happens to be that day.
 #[tokio::test]
 async fn having_chosen_nothing_reads_as_an_empty_object() {
     let app = an_app_with_an_account().await;
@@ -92,8 +92,8 @@ async fn having_chosen_nothing_reads_as_an_empty_object() {
     );
 }
 
-/// The round trip the frontend actually makes: save three names, read them
-/// back on the next device.
+/// The round trip the frontend makes: save three names, read them back on the
+/// next device.
 #[tokio::test]
 async fn a_choice_survives_the_round_trip() {
     let app = an_app_with_an_account().await;
@@ -110,7 +110,7 @@ async fn a_choice_survives_the_round_trip() {
 }
 
 /// Choosing one thing must not silently choose the other two, or the instance
-/// default stops reaching anybody who ever touched the setting.
+/// default stops reaching every user who ever touched the setting.
 #[tokio::test]
 async fn choosing_one_thing_leaves_the_rest_following_the_instance() {
     let app = an_app_with_an_account().await;
@@ -122,8 +122,8 @@ async fn choosing_one_thing_leaves_the_rest_following_the_instance() {
     assert_eq!(get_preferences(&app, &cookie).await, only_accent);
 }
 
-/// The whole object is replaced, so an empty one is how somebody goes back to
-/// following the instance for everything.
+/// The whole object is replaced, so sending an empty one is how a user goes
+/// back to following the instance for everything.
 #[tokio::test]
 async fn an_empty_object_clears_what_was_chosen() {
     let app = an_app_with_an_account().await;
@@ -151,16 +151,16 @@ async fn an_empty_object_clears_what_was_chosen() {
 }
 
 /// These names become attributes on the `<html>` element, so anything outside
-/// the lists has to stop here rather than at the point of rendering.
+/// the lists must stop here, not at render time.
 #[tokio::test]
 async fn a_name_outside_the_lists_is_refused() {
     let app = an_app_with_an_account().await;
     let cookie = a_session(&app).await;
 
     for body in [
-        // A derived struct deserializer takes a sequence as its fields in
-        // order, so this was a valid appearance with everything unset while
-        // the contract said it was an object. Found by the contract fuzzer.
+        // A derived struct deserializer reads a sequence as its fields in
+        // order, so this was a valid appearance with everything unset although
+        // the contract says object. Found by the contract fuzzer.
         serde_json::json!({ "appearance": [null, null] }),
         serde_json::json!({ "appearance": ["dark", "sepia", "rose"] }),
         serde_json::json!({ "appearance": "dark" }),
@@ -180,7 +180,7 @@ async fn a_name_outside_the_lists_is_refused() {
     );
 }
 
-/// Preferences are per person, so they need somebody to be per.
+/// Preferences are per user, so they need a signed-in user.
 #[tokio::test]
 async fn anonymous_callers_are_refused() {
     let app = TestApp::ready().await;
@@ -204,9 +204,8 @@ async fn anonymous_callers_are_refused() {
     .await;
 }
 
-/// The point of writing the colours into the page from here: a visitor who is
-/// not signed in, and has no local storage to read, still gets the operator's
-/// instance rather than a white flash.
+/// Why the server writes the colours into the page: a signed-out visitor with
+/// no local storage still gets the operator's look instead of a white flash.
 #[tokio::test]
 async fn the_page_carries_the_instances_appearance() {
     let app = TestApp::with_config(|config| {
@@ -226,7 +225,7 @@ async fn the_page_carries_the_instances_appearance() {
         "the entry point is the mutable pointer at the build"
     );
     // The entity tag describes what was sent, not the file on disk, or a proxy
-    // in front of this would keep serving the colours from before.
+    // in front would keep serving the old colours.
     let etag = response
         .headers()
         .get(header::ETAG)
@@ -252,8 +251,8 @@ async fn the_page_carries_the_instances_appearance() {
     );
 }
 
-/// A client-side route is the same page, so it carries the same colours. This
-/// is the common case in a single-page app: the first load is rarely `/`.
+/// A client-side route is the same page, so it gets the same colours. The
+/// common case in a single-page app: the first load is rarely `/`.
 #[tokio::test]
 async fn a_client_side_route_carries_them_too() {
     let app = TestApp::with_config(|config| {
@@ -294,8 +293,8 @@ async fn changing_the_setting_changes_the_page() {
     assert!(after.contains(r#"class="dark""#), "{after}");
 }
 
-/// The panel can rename the instance, and the empty title it refuses is
-/// refused by the same rule a configuration file would be.
+/// The panel can rename the instance, and refuses an empty title by the same
+/// rule a configuration file would.
 #[tokio::test]
 async fn the_panel_can_rename_the_instance() {
     let app = an_app_with_an_account().await;
@@ -328,8 +327,8 @@ async fn the_panel_can_rename_the_instance() {
     .await;
 }
 
-/// The same refusal as the per-person endpoint, on the instance's own value.
-/// It reaches the same `<html>` element by a different route.
+/// The same refusal as the per-user endpoint, on the instance's own value,
+/// which reaches the same `<html>` element by another route.
 #[tokio::test]
 async fn the_instance_default_refuses_a_name_outside_the_lists() {
     let app = an_app_with_an_account().await;

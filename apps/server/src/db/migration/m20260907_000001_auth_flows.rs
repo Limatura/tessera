@@ -1,7 +1,7 @@
-//! One table for a sign-in that is away at a provider, whichever kind.
+//! One table for sign-ins in progress at a provider, of either kind.
 //!
-//! The SQL lives in `sql/`, and the SQLite one carries the reasoning: why the
-//! table is replaced rather than altered, and why a nonce may be absent.
+//! The SQL lives in `sql/`, and the SQLite file carries the reasoning: why the
+//! table is replaced instead of altered, and why a nonce may be absent.
 
 use sea_orm_migration::prelude::*;
 

@@ -45,22 +45,21 @@ use markup5ever_rcdom::{Handle, NodeData, RcDom};
 ///
 /// `img` names a resource and takumi has no HTTP client, so it draws a hole.
 ///
-/// Inside SVG the same rule sorts the rest. `image` is `img` again: usvg is
-/// given a parser with its string href resolver disabled, exactly so that
-/// untrusted markup cannot read a local file, and the element therefore draws
-/// nothing. `text` and `tspan` draw nothing either, because usvg is compiled
-/// without its `text` feature. `foreignObject` is a way back into HTML from
-/// inside a subtree that has already been handed to a different renderer.
+/// The same rule covers most of SVG. `image` is `img` again: usvg's string
+/// href resolver is disabled so untrusted markup cannot read local files, so
+/// the element draws nothing. `text` and `tspan` draw nothing because usvg is
+/// built without its `text` feature. `foreignObject` would lead back into HTML
+/// from a subtree already handed to a different renderer.
 ///
-/// `use` is the odd one out: it works. It is absent because `href` is the only
-/// attribute that can point outside the document, and an allowlist with no
-/// href-shaped attribute in it is a simpler thing to be sure of than one with
-/// a rule about which values are local.
+/// `use` does work. It is left out because `href` is the only attribute that
+/// can point outside the document, and an allowlist without any href-like
+/// attribute is easier to reason about than one with rules on which values are
+/// local.
 ///
-/// `filter` and the `fe*` elements are absent for now, and not because they
-/// fail: they are the expensive ones, and `/{code}/og.png` is public and
-/// unthrottled. That cost is already reachable through `style` and wants
-/// answering once for both, rather than being half-avoided here.
+/// `filter` and the `fe*` elements are out for now, not because they fail but
+/// because they are expensive, and `/{code}/og.png` is public and unthrottled.
+/// That cost is already reachable through `style` and should be addressed once
+/// for both, not half-avoided here.
 const ELEMENTS: &[&str] = &[
     "div",
     "span",
@@ -85,22 +84,20 @@ const ELEMENTS: &[&str] = &[
 /// `style` and `tw`, plus what the SVG shapes above need to describe
 /// themselves.
 ///
-/// `tw` is takumi's own Tailwind implementation, not a stylesheet: it reads
-/// the utilities and turns them into styles itself, so a layout using it
-/// carries everything it needs. `class` is still absent for the reason `tw`
-/// used to be lumped in with: it names rules living somewhere this layout
-/// cannot see, and there is no stylesheet here to find them in.
+/// `tw` is takumi's own Tailwind implementation, not a stylesheet: it turns the
+/// utilities into styles itself, so a layout using it is self-contained.
+/// `class` stays out: it names rules defined somewhere this layout cannot see,
+/// and there is no stylesheet here to find them in.
 ///
-/// The list is not per element. A `div` carrying `cx` is meaningless rather
-/// than harmful, and takumi ignores it; a table of which attribute belongs to
-/// which element would be a great deal of upkeep to refuse something nobody
-/// writes by accident.
+/// The list is not per element. A `div` with `cx` is meaningless, not harmful,
+/// and takumi ignores it; a per-element table would be a lot of upkeep to
+/// refuse something no one writes by accident.
 ///
-/// The spellings are the ones the parser produces. Inside `<svg>` an HTML
-/// parser is in foreign-content mode and restores the camel case of the names
-/// it knows, so `viewBox` arrives as `viewBox` and not `viewbox`. There is a
-/// test for that, because it is the sort of thing that would otherwise be
-/// discovered by a card silently losing its coordinate system.
+/// Spellings match what the parser produces. Inside `<svg>` an HTML parser is
+/// in foreign-content mode and restores the camel case of names it knows, so
+/// `viewBox` arrives as `viewBox`, not `viewbox`. A test covers this, since
+/// otherwise the first sign would be a card silently losing its coordinate
+/// system.
 const ATTRIBUTES: &[&str] = &[
     "style",
     "tw",
@@ -213,11 +210,11 @@ pub fn check(html: &str) -> Result<(), Refused> {
             return Err(Refused::External(marker.to_owned()));
         }
     }
-    // `url(` is how a gradient or a clip path names another element of the
-    // same layout, `fill="url(#brand)"`, so refusing all of them would refuse
-    // the reason `linearGradient` is on the list above. A fragment points
-    // inside this document and can reach nothing; anything else is a resource
-    // takumi has no way to fetch and would draw as a hole.
+    // `url(` is how a gradient or clip path references another element in the
+    // same layout (`fill="url(#brand)"`), so refusing all of them would defeat
+    // having `linearGradient` on the list. A fragment points inside this
+    // document and can reach nothing; anything else is a resource takumi cannot
+    // fetch and would draw as a hole.
     if let Some(external) = external_reference(&lowered) {
         return Err(Refused::External(external));
     }
@@ -295,27 +292,24 @@ fn check_attributes(attrs: &[Attribute]) -> Result<(), Refused> {
 
 /// Refuses a `tw` utility takumi's Tailwind implementation does not know.
 ///
-/// This is the whole reason the module exists, in its clearest form. takumi
-/// parses the attribute with `filter_map`: a utility it does not recognise is
-/// dropped without a word, so `tw="flex supports-[display:grid]:grid"` lays
-/// out as `flex` alone and nothing anywhere says why. Its implementation is
-/// its own, covering a subset of Tailwind, which is exactly the situation in
-/// which somebody writes a class that is real in Tailwind and silent here.
+/// This is the clearest case for the whole module. takumi parses the attribute
+/// with `filter_map`, silently dropping utilities it does not recognise, so
+/// `tw="flex supports-[display:grid]:grid"` lays out as `flex` alone with no
+/// explanation. Its implementation covers only a subset of Tailwind, so a
+/// class that is valid Tailwind can easily be silently ignored here.
 ///
-/// Asking it, rather than keeping a list, means the answer is whatever the
-/// renderer that will draw the card actually accepts.
+/// Asking the renderer, instead of keeping a list, means the answer is
+/// whatever the renderer that draws the card accepts.
 fn check_utilities(value: &str) -> Result<(), Refused> {
     use std::str::FromStr as _;
 
     use takumi::prelude::TailwindValues;
 
-    // takumi exposes no way to ask how many utilities it understood, so the
-    // question is put as a comparison: a utility it dropped leaves the same
-    // value as parsing nothing at all.
+    // takumi cannot report how many utilities it understood, so compare: a
+    // dropped utility leaves the same value as parsing nothing at all.
     let Ok(nothing) = TailwindValues::from_str("") else {
-        // The empty string is not a parse it can fail. If it ever does, this
-        // check has no baseline to compare against and must not start
-        // refusing every layout on the instance.
+        // The empty string should never fail to parse. If it ever does, this
+        // check has no baseline and must not start refusing every layout.
         return Ok(());
     };
     for utility in value.split_whitespace() {
@@ -329,9 +323,9 @@ fn check_utilities(value: &str) -> Result<(), Refused> {
 
 /// The first `url(...)` in `lowered` that does not point inside this document.
 ///
-/// Whitespace is allowed after the parenthesis and the value may be quoted,
-/// because CSS allows both and a check that missed them would be a check
-/// anybody could step around by accident.
+/// Whitespace after the parenthesis and quoted values are both handled, since
+/// CSS allows them and a check that missed them would be easy to bypass by
+/// accident.
 fn external_reference(lowered: &str) -> Option<String> {
     let mut rest = lowered;
     while let Some(open) = rest.find("url(") {
@@ -447,8 +441,8 @@ mod tests {
         }
     }
 
-    /// A logo is the reason `svg` is here: shapes, a gradient and a clip path,
-    /// all of it inline, none of it naming anything this server has to fetch.
+    /// Logos are why `svg` is allowed: shapes, a gradient and a clip path, all
+    /// inline, none referencing anything the server would have to fetch.
     #[test]
     fn an_inline_drawing_is_accepted() {
         let layout = concat!(
@@ -463,12 +457,11 @@ mod tests {
         assert_eq!(check(layout), Ok(()));
     }
 
-    /// An HTML parser inside `<svg>` is in foreign-content mode and restores
-    /// the camel case of the names it knows. The allowlist is spelled to match
-    /// what it produces, so this is really asking whether that is still true:
-    /// if `viewBox` ever started arriving as `viewbox`, every drawing on every
-    /// instance would lose its coordinate system and the refusal here would be
-    /// the only warning anybody got.
+    /// Inside `<svg>` an HTML parser is in foreign-content mode and restores
+    /// the camel case of names it knows. The allowlist is spelled to match, so
+    /// this checks that still holds: if `viewBox` ever arrived as `viewbox`,
+    /// every drawing on every instance would lose its coordinate system and
+    /// this refusal would be the only warning.
     #[test]
     fn the_parser_keeps_the_camel_case_of_svg_names() {
         assert_eq!(
@@ -477,9 +470,8 @@ mod tests {
         );
     }
 
-    /// Inside SVG, `url(#id)` is how one element names another in the same
-    /// layout. Refusing every `url(` would refuse the reason gradients are on
-    /// the list.
+    /// Inside SVG, `url(#id)` is how one element references another in the same
+    /// layout. Refusing every `url(` would make gradients pointless.
     #[test]
     fn a_reference_to_this_document_is_allowed() {
         assert_eq!(
@@ -497,10 +489,10 @@ mod tests {
         }
     }
 
-    /// The elements that would draw nothing, each for its own reason: no
-    /// resolver, no text feature, no way back into HTML. All refused as firmly
-    /// as the ones that would be wrong, because a card that silently lost a
-    /// piece is discovered by a stranger.
+    /// Elements that would draw nothing, each for its own reason: no resolver,
+    /// no text feature, no way back into HTML. Refused as firmly as harmful
+    /// ones, since a card that silently lost a piece is noticed by a visitor,
+    /// not the operator.
     #[test]
     fn svg_that_would_draw_nothing_is_refused() {
         for (layout, expected) in [
@@ -520,8 +512,8 @@ mod tests {
         }
     }
 
-    /// takumi reads `tw` itself, so a layout using it carries everything it
-    /// needs and renders the same wherever that renderer runs.
+    /// takumi reads `tw` itself, so a layout using it is self-contained and
+    /// renders the same wherever the renderer runs.
     #[test]
     fn utility_classes_are_accepted() {
         assert_eq!(
@@ -532,10 +524,10 @@ mod tests {
         );
     }
 
-    /// The reason `tw` is checked and not merely allowed. takumi drops a
-    /// utility it does not know without a word, and its Tailwind is its own
-    /// subset, so a class that is real in Tailwind can be silent here.
-    /// `supports-[…]` is exactly that: valid Tailwind v4, nothing to takumi.
+    /// Why `tw` is checked and not merely allowed. takumi silently drops
+    /// utilities it does not know, and its Tailwind is a subset, so a valid
+    /// Tailwind class can do nothing here. `supports-[…]` is one: valid
+    /// Tailwind v4, unknown to takumi.
     #[test]
     fn a_utility_this_renderer_does_not_know_is_refused() {
         for (layout, expected) in [
@@ -552,9 +544,9 @@ mod tests {
         }
     }
 
-    /// `class` stays off the list. takumi reads it, but it names rules living
-    /// in a stylesheet that does not exist here, so it can only ever be a
-    /// layout that looks right to whoever wrote it.
+    /// `class` stays off the list. takumi reads it, but it refers to a
+    /// stylesheet that does not exist here, so the layout would only look right
+    /// to its author.
     #[test]
     fn a_class_name_is_still_refused() {
         assert!(matches!(

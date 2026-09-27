@@ -33,11 +33,11 @@ use crate::{
 
 /// One backend, as the panel draws it.
 ///
-/// Four booleans answering four unrelated questions: where new uploads go,
-/// whether this one still takes them, whether the process can reach it, and
-/// whether browsers may be sent to it. Collapsing any pair into an enum would
-/// invent a state the system does not have, since a read-only backend can be
-/// the default and an unreachable one can be either.
+/// Four booleans for four unrelated questions: where new uploads go, whether
+/// this one still accepts them, whether the process can reach it, and whether
+/// browsers may be redirected to it. Merging any pair into an enum would
+/// invent a state that does not exist, since a read-only backend can be the
+/// default and an unreachable one can be either.
 #[expect(
     clippy::struct_excessive_bools,
     reason = "four independent facts about one backend; see above"
@@ -70,11 +70,11 @@ pub struct BackendResponse {
     /// the credentials or the address. Worth showing prominently, because
     /// nothing else about the row looks wrong.
     pub reachable: bool,
-    /// Whether browsers are sent to it directly, to download a file or write an
-    /// upload's parts, instead of through this server.
+    /// Whether browsers are redirected to it directly, to download a file or
+    /// write an upload's parts, instead of going through this server.
     ///
-    /// Only S3 and GCS can be sent to. On anything else this may be `true` and
-    /// still change nothing.
+    /// Only S3 and GCS support this. On anything else it may be `true` and
+    /// change nothing.
     pub direct_access: bool,
 }
 
@@ -98,8 +98,8 @@ pub struct BackendRequest {
     /// Whether it should stop taking new content.
     #[serde(default)]
     pub read_only: bool,
-    /// Whether browsers may be sent to it directly. Only if a browser can reach
-    /// it; see [`BackendResponse::direct_access`].
+    /// Whether browsers may be redirected to it directly. Only if browsers can
+    /// reach it; see [`BackendResponse::direct_access`].
     #[serde(default)]
     pub direct_access: bool,
 }
@@ -108,7 +108,7 @@ pub struct BackendRequest {
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct UpdateBackendRequest {
-    /// Whether browsers may be sent to it directly.
+    /// Whether browsers may be redirected to it directly.
     pub direct_access: bool,
 }
 
@@ -142,9 +142,9 @@ pub async fn list(
 
 /// Adds a backend, or replaces one of the same name.
 ///
-/// The new one is opened and reachable to the next request. The pool is rebuilt
-/// here, not at the next restart, because "add a bucket, then restart"
-/// is what this feature exists to avoid.
+/// The new backend is open and usable from the next request. The pool is
+/// rebuilt now, not at the next restart, since avoiding "add a bucket, then
+/// restart" is the point of this feature.
 ///
 /// # Errors
 ///
@@ -249,11 +249,11 @@ pub async fn remove(
 
 /// Turns direct access on or off for a backend.
 ///
-/// # Why this is not another `POST` of the whole backend
+/// # Why not another `POST` of the whole backend
 ///
-/// That works, and replaces the row. But it needs the URL and credentials sent
-/// again, and those are sealed and never shown, so flipping one switch would
-/// mean finding the secret key for a bucket again.
+/// That works and replaces the row, but it needs the URL and credentials sent
+/// again. Those are sealed and never shown, so flipping one switch would mean
+/// digging up the bucket's secret key again.
 ///
 /// # Errors
 ///
@@ -398,7 +398,7 @@ async fn describe_all(state: &AppState) -> Result<Json<Vec<BackendResponse>>> {
 /// Turns a repository failure into the answer the caller should get.
 ///
 /// The two that are not internal errors are the two an operator can act on: a
-/// stored credential the key will not open, and a backend that still holds
+/// stored credential the key cannot open, and a backend that still holds
 /// files.
 fn describe_failure(error: StorageBackendError) -> Error {
     match error {

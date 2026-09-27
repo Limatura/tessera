@@ -93,17 +93,15 @@ impl std::fmt::Debug for Cards {
     }
 }
 
-/// The embedded faces, in the order they should be consulted.
+/// The embedded fonts, in lookup order.
 ///
-/// Latin first so that a name which is mostly ASCII is set in the face designed
-/// for it; the fallbacks behind it, each covering what the ones before it do
-/// not.
+/// Latin first, so a mostly-ASCII name is set in the font designed for it;
+/// each fallback covers what the ones before it do not.
 ///
-/// Named as well as embedded, because [`FACES`] is also what `GET /fonts/{name}`
-/// serves. An editor drawing the same card in a browser has to be given the
-/// same faces in the same order, or it reports a wrapping and a set of glyphs
-/// this server would not have produced, which is the one thing the person
-/// looking at it is checking.
+/// Named as well as embedded, because `GET /fonts/{name}` also serves
+/// [`FACES`]. An editor rendering the same card in a browser needs the same
+/// fonts in the same order, or its wrapping and glyphs differ from what this
+/// server produces, which is exactly what the operator is checking.
 pub const FACES: [(&str, &[u8]); 6] = [
     (
         "DejaVuSans.woff2",
@@ -308,8 +306,8 @@ fn layout(preview: &Preview, code: &str) -> String {
         Card::Sealed { chips, footer } => (
             SEALED_LABEL,
             ink::ACCENT,
-            // The headline is our own sentence, never the uploader's, so it is
-            // drawn the way a missing title is.
+            // The headline is our own sentence, not the uploader's, so it is
+            // drawn like a missing title.
             ink::FADED,
             chip_row(chips),
             escape(footer),

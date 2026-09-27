@@ -1,4 +1,4 @@
-//! What a malware scanner said about each file and note.
+//! What a malware scanner reported about each file and note.
 //!
 //! The SQL lives in `sql/`, and the SQLite file carries the reasoning.
 
@@ -8,7 +8,7 @@ pub(super) const SQLITE: &str = include_str!("sql/m20260919_000001_scan.sqlite.s
 pub(super) const POSTGRES: &str = include_str!("sql/m20260919_000001_scan.postgres.sql");
 pub(super) const MYSQL: &str = include_str!("sql/m20260919_000001_scan.mysql.sql");
 
-/// The index goes first: SQLite will not drop a column an index names.
+/// The index goes first: SQLite will not drop a column an index references.
 const DOWN: &str = "DROP INDEX file_shares_scan_state;\n\
                     ALTER TABLE text_shares DROP COLUMN scan_detail;\n\
                     ALTER TABLE text_shares DROP COLUMN scan_state;\n\

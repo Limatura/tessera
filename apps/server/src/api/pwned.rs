@@ -1,11 +1,11 @@
-//! Looking a password up in the breach list while it is being typed.
+//! Checking a password against the breach list while it is being typed.
 //!
-//! The same check sign-up, a change of password and a reset already make when
-//! the form is sent (see [`crate::auth::pwned`]), offered earlier so a person
-//! finds out before they submit rather than after. The browser hashes the
-//! password, sends the first five characters of the hash, and compares the
-//! suffixes that come back itself: the password never leaves it, and this
-//! server passes on nothing more than those five characters.
+//! The same check sign-up, password change and reset already run on submit
+//! (see [`crate::auth::pwned`]), offered earlier so the user finds out before
+//! submitting. The browser hashes the password, sends the first five
+//! characters of the hash, and compares the returned suffixes itself: the
+//! password never leaves it, and this server forwards only those five
+//! characters.
 
 use axum::{Json, extract::State};
 use serde::Serialize;
@@ -27,8 +27,8 @@ use crate::{
 #[derive(Debug, Serialize, ToSchema)]
 pub struct BreachedSuffixes {
     /// The remaining 35 characters of every breached hash under the prefix,
-    /// uppercase. The padding the service adds to hide how many there are is
-    /// taken out, so a match here is a real one.
+    /// uppercase. The service's padding entries, which hide the real count,
+    /// are removed, so any match here is real.
     #[schema(example = json!(["1E4C9B93F3F0682250B6CF8331B7EE68FD8"]))]
     pub suffixes: Vec<String>,
 }
@@ -38,9 +38,9 @@ pub struct BreachedSuffixes {
 /// # Errors
 ///
 /// `404` when this instance does not check passwords against the breach list,
-/// `400` for anything but five hex characters, `429` past this source's
-/// allowance, `503` when the breach list cannot be reached. A form treats the
-/// last as "no warning"; the check still runs when it is sent.
+/// `400` for anything but five hex characters, `429` when this source is over
+/// its limit, `503` when the breach list is unreachable. A form treats the
+/// last as "no warning"; the check still runs on submit.
 #[utoipa::path(
     get,
     path = "/auth/pwned/{prefix}",
@@ -72,8 +72,8 @@ pub async fn range_of(
         ));
     }
 
-    // Counted before the lookup, on every lookup: each one is a request to
-    // somebody else's service made on a stranger's behalf.
+    // Counted before the lookup, on every lookup: each is a third-party request
+    // made on an anonymous client's behalf.
     let counter = &state.throttles.pwned;
     if let Decision::Deny { retry_after } = counter.check(&source) {
         return Err(Error::TooManyRequests {

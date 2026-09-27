@@ -11,18 +11,18 @@ pub(super) const MYSQL: &str = include_str!("sql/m20260824_000001_single_role.my
 
 /// Rebuilds the join table with one row per account.
 ///
-/// Lossless for anything this migration produced, and lossy only for an
-/// instance that genuinely had an account in two roles before it ran. That
-/// second role is gone and nothing here remembers it.
+/// Lossless for anything this migration produced; lossy only for an instance
+/// that really had an account in two roles before it ran. The second role is
+/// dropped and not recorded anywhere.
 ///
 /// # Why the index goes first
 ///
-/// SQLite refuses `ALTER TABLE ... DROP COLUMN` while an index names the
-/// column, and says `error in index idx_users_role after drop column`. Postgres
-/// drops the index with the column and does not care that this ran first.
+/// SQLite refuses `ALTER TABLE ... DROP COLUMN` while an index references the
+/// column, failing with `error in index idx_users_role after drop column`.
+/// Postgres drops the index with the column and does not mind the order.
 ///
-/// It was missing because the test that would have caught it only ever ran
-/// against Postgres and MySQL, and SQLite is the default this ships with. See
+/// This was missed because the test that would have caught it only ran
+/// against Postgres and MySQL, while SQLite is the shipped default. See
 /// `a_rollback_runs_on_sqlite`.
 const DOWN: &str = "DROP INDEX IF EXISTS idx_users_role;\n\
                     CREATE TABLE IF NOT EXISTS user_roles (\n\

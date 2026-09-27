@@ -1,24 +1,22 @@
 //! What the provider says about itself.
 //!
 //! Every provider publishes its endpoints at
-//! `{issuer}/.well-known/openid-configuration`. Reading it once means an
-//! operator configures one URL rather than four, and means we notice when a
-//! provider moves an endpoint.
+//! `{issuer}/.well-known/openid-configuration`. Reading it means an operator
+//! configures one URL instead of four, and endpoint moves are picked up.
 //!
-//! # Why it is cached, and what happens when the fetch fails
+//! # Caching and fetch failures
 //!
-//! An issuer's document changes rarely and a sign-in should not wait on a
-//! second server that has nothing new to say. It is fetched on the first
-//! sign-in and kept for a day.
+//! The document rarely changes, and a sign-in should not wait on a second
+//! server with nothing new to say. It is fetched on the first sign-in and kept
+//! for a day.
 //!
-//! When a refresh fails and there is a previous copy, the previous copy is
-//! used: a provider having a bad minute should not stop people signing in with
-//! endpoints that have not moved in months. When there is no copy at all, the
-//! sign-in is refused and says so.
+//! If a refresh fails and a previous copy exists, that copy is used: a brief
+//! provider outage should not block sign-ins with endpoints that have not moved
+//! in months. With no copy at all, the sign-in is refused with a reason.
 //!
-//! Nothing is fetched at start-up. A provider that is slow or down would
-//! otherwise decide whether this process starts, and everything else it serves
-//! has nothing to do with signing in.
+//! Nothing is fetched at start-up. Otherwise a slow or down provider would
+//! decide whether the process starts, although nothing else it serves depends
+//! on sign-in.
 
 use std::{sync::Arc, time::Duration};
 
@@ -28,29 +26,29 @@ use time::OffsetDateTime;
 /// How long a fetched document is used before being fetched again.
 const TTL: Duration = Duration::from_hours(24);
 
-/// How long to wait on the provider. Short: a person is watching a browser tab.
+/// How long to wait on the provider. Short, since a user is waiting on a tab.
 const TIMEOUT: Duration = Duration::from_secs(10);
 
-/// The endpoints and capabilities this needs from a provider.
+/// The endpoints and capabilities needed from a provider.
 ///
-/// Deliberately a small subset. Everything else in the document is either not
-/// used here or is a promise we verify for ourselves anyway.
+/// A small subset. The rest of the document is either unused or something we
+/// verify ourselves anyway.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct Provider {
-    /// The provider's own name for itself. Compared to the configured issuer by
-    /// exact string equality, which the specification requires.
+    /// The provider's own issuer value. Compared to the configured issuer by
+    /// exact string equality, as the spec requires.
     pub issuer: String,
     /// Where the browser is sent.
     pub authorization_endpoint: String,
     /// Where the code is exchanged, server to server.
     pub token_endpoint: String,
-    /// Where an access token buys the claims that were not in the token.
+    /// Where an access token fetches the claims missing from the ID token.
     #[serde(default)]
     pub userinfo_endpoint: Option<String>,
-    /// Where to send somebody to sign out of the provider itself.
+    /// Where to send a user to sign out of the provider itself.
     ///
-    /// Absent from Google's document, which is why revocation cannot assume it
-    /// exists. See `docs/oidc.md`.
+    /// Google's document lacks it, so revocation cannot assume it exists. See
+    /// `docs/oidc.md`.
     #[serde(default)]
     pub end_session_endpoint: Option<String>,
     /// Where the signing keys are published.
@@ -59,24 +57,24 @@ pub struct Provider {
     /// this server opened, and a logout token does not. See `claims.rs`.
     #[serde(default)]
     pub jwks_uri: Option<String>,
-    /// Whether the provider will tell us when it signs somebody out.
+    /// Whether the provider notifies us when a user signs out there.
     #[serde(default)]
     pub backchannel_logout_supported: bool,
-    /// Which scopes it says it accepts.
+    /// The scopes it advertises.
     ///
-    /// Nothing here reads it: the scopes to ask for are the operator's choice
-    /// and are configured. It is carried so the panel can offer what the
-    /// provider advertises instead of making somebody type them.
+    /// Not read here: the scopes to request are configured by the operator.
+    /// Carried so the panel can offer what the provider advertises instead of
+    /// making the operator type them.
     #[serde(default)]
     pub scopes_supported: Vec<String>,
-    /// Which claims it says it can release.
+    /// The claims it advertises.
     ///
-    /// Carried for the panel, like the scopes: a provider that does not list
-    /// `email_verified` will never let `when_verified` link anybody, and saying
-    /// so when the document is read beats finding out from the first refusal.
+    /// Carried for the panel, like the scopes: if a provider does not list
+    /// `email_verified`, `when_verified` will never link anyone, and saying so
+    /// when the document is read beats learning it from the first refusal.
     #[serde(default)]
     pub claims_supported: Vec<String>,
-    /// Which PKCE methods it accepts. `S256` is required by us.
+    /// The PKCE methods it accepts. We require `S256`.
     #[serde(default)]
     pub code_challenge_methods_supported: Vec<String>,
 }
@@ -90,7 +88,7 @@ pub enum DiscoveryError {
     /// The document could not be fetched and nothing was cached.
     #[error("could not reach the identity provider: {0}")]
     Unreachable(String),
-    /// The document was fetched but is not one we can use.
+    /// The document was fetched but is not usable.
     #[error("the identity provider's configuration is not usable: {0}")]
     Unusable(String),
 }
@@ -147,9 +145,8 @@ impl Discovery {
                 Ok(provider)
             }
             Err(error) => {
-                // A previous copy beats no sign-ins at all. Endpoints do not
-                // usually move, and a provider having a bad minute is not a
-                // reason to lock everybody out.
+                // A stale copy beats no sign-ins at all. Endpoints rarely move,
+                // and a brief provider outage should not lock everyone out.
                 let stale = self
                     .cached
                     .lock()
@@ -166,23 +163,24 @@ impl Discovery {
         }
     }
 
-    /// Throws away what is cached, so the next sign-in fetches again.
+    /// Drops the cached document, so the next sign-in fetches again.
     ///
-    /// Called when the issuer changes: the document belongs to the old one.
+    /// Called when the issuer changes, since the document belongs to the old
+    /// one.
     pub fn forget(&self) {
         *self.cached.lock() = None;
     }
 }
 
-/// Reads a provider's document once, without touching the cache.
+/// Fetches a provider's document once, without touching the cache.
 ///
-/// For the panel, where somebody is trying a URL out: a document fetched from
-/// a URL that has not been saved must not become the one a sign-in uses.
+/// For the panel, while an operator is trying a URL: a document from an unsaved
+/// URL must not become the one sign-ins use.
 ///
 /// # Errors
 ///
 /// Returns [`DiscoveryError`] when the document cannot be fetched or is not
-/// one this can use.
+/// usable.
 pub async fn probe(issuer: &str) -> Result<Provider, DiscoveryError> {
     fetch(issuer.trim().trim_end_matches('/')).await
 }
@@ -213,9 +211,8 @@ async fn fetch(issuer: &str) -> Result<Provider, DiscoveryError> {
         .await
         .map_err(|error| DiscoveryError::Unusable(error.to_string()))?;
 
-    // The document naming a different issuer than the one it was fetched from
-    // is how a mix-up attack starts, and it is cheap to refuse here rather than
-    // once per sign-in.
+    // A document naming a different issuer than the one it came from is how a
+    // mix-up attack starts, and refusing it here is cheaper than per sign-in.
     if provider.issuer.trim_end_matches('/') != issuer {
         return Err(DiscoveryError::Unusable(format!(
             "it calls itself `{}`, but was fetched from `{issuer}`",
@@ -229,9 +226,8 @@ async fn fetch(issuer: &str) -> Result<Provider, DiscoveryError> {
             "its endpoints are not https".to_owned(),
         ));
     }
-    // Advertising nothing is not a refusal: the field is optional, and a
-    // provider that omits it may still accept `S256`. Advertising a list that
-    // excludes it is a refusal.
+    // An empty list is not a refusal: the field is optional, and a provider
+    // omitting it may still accept `S256`. A list without it is a refusal.
     if !provider.code_challenge_methods_supported.is_empty()
         && !provider
             .code_challenge_methods_supported
@@ -274,17 +270,16 @@ mod tests {
         ));
     }
 
-    /// A fetch that fails falls back to what was fetched before, because
-    /// endpoints do not move and a provider having a bad minute should not lock
-    /// everybody out.
+    /// A failed fetch falls back to the previous copy, since endpoints rarely
+    /// move and a brief provider outage should not lock everyone out.
     #[tokio::test]
     async fn a_failed_refresh_uses_the_previous_copy() {
         let discovery = Discovery::default();
         let now = OffsetDateTime::now_utc();
         *discovery.cached.lock() = Some(Cached {
             provider: Arc::new(provider("https://id.example")),
-            // Old enough that it will be refreshed, and the refresh will fail
-            // because nothing is listening there.
+            // Old enough to be refreshed, and the refresh fails because nothing
+            // is listening there.
             fetched_at: now - time::Duration::days(2),
         });
 
@@ -295,8 +290,8 @@ mod tests {
         assert_eq!(held.token_endpoint, "https://id.example/token");
     }
 
-    /// And with nothing cached, a failed fetch is a refusal rather than a
-    /// silent sign-in with no endpoints.
+    /// With nothing cached, a failed fetch is a refusal, not a sign-in with no
+    /// endpoints.
     #[tokio::test]
     async fn a_failed_first_fetch_is_refused() {
         let discovery = Discovery::default();

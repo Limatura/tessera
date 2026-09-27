@@ -1,8 +1,8 @@
-//! Checking new passwords against the passwords known to have leaked.
+//! Checking new passwords against known leaked passwords.
 //!
-//! The service here answers the way the real range API does, and records what
-//! it was asked, so the test can say what left the process: five characters of
-//! a hash, and nothing else.
+//! The service here answers like the real range API and records what it was
+//! asked, so the test can check what left the process: five characters of a
+//! hash, nothing else.
 
 #![expect(
     clippy::expect_used,
@@ -37,9 +37,9 @@ type Asked = Arc<Mutex<Vec<String>>>;
 
 /// A stand-in for the range API. `answer` decides what it does.
 ///
-/// No mail is configured on the apps that use it: with a relay, registering
-/// answers `202` and waits for a confirmation, and these tests are about the
-/// password, not the post.
+/// No mail is configured on the apps using it: with a relay, registering
+/// answers `202` and waits for confirmation, and these tests are about the
+/// password, not the mail.
 async fn range_api(answer: Option<StatusCode>) -> (String, Asked) {
     let asked: Asked = Arc::default();
     let recorder = Arc::clone(&asked);
@@ -103,7 +103,7 @@ async fn a_breached_password_is_refused_at_registration() {
     .await;
     assert!(body_string(refused).await.contains("data breach"));
 
-    // And what the service was told: the prefix, and only the prefix.
+    // And what the service was sent: the prefix, only the prefix.
     let asked = asked.lock().clone();
     assert_eq!(asked, vec![BREACHED_PREFIX.to_owned()]);
 
@@ -137,8 +137,8 @@ async fn a_breached_password_is_refused_when_changing_it() {
 }
 
 /// The reset routes exist only on an instance that can send mail, so this one
-/// has a relay configured. Registering there waits for a confirmation email,
-/// so the account is written straight to the table instead.
+/// has a relay. Registering there waits for a confirmation email, so the
+/// account is written straight to the table instead.
 #[tokio::test]
 async fn a_breached_password_is_refused_when_finishing_a_reset() {
     let (url, _) = range_api(None).await;
@@ -202,8 +202,8 @@ async fn a_breached_password_is_refused_when_finishing_a_reset() {
     .await;
 }
 
-/// The list being down must not stop anybody registering. It is advice, and
-/// the length and composition rules are what actually gate a password.
+/// The list being down must not block registration. It is advice; the length
+/// and composition rules are what actually gate a password.
 #[tokio::test]
 async fn a_service_that_is_down_lets_the_password_through() {
     let (url, _) = range_api(Some(StatusCode::INTERNAL_SERVER_ERROR)).await;
@@ -231,7 +231,7 @@ async fn nothing_is_asked_when_the_check_is_off() {
     assert!(asked.lock().is_empty());
 }
 
-/// The real service, to check the format this parses is the format it sends.
+/// The real service, to check the format parsed here matches what it sends.
 /// `#[ignore]`d: it needs the internet.
 #[tokio::test]
 #[ignore = "talks to api.pwnedpasswords.com"]
@@ -245,8 +245,8 @@ async fn the_real_service_still_answers_the_way_this_reads() {
     expect_status(register(&app, "hopeful", FRESH).await, StatusCode::CREATED).await;
 }
 
-/// Looking a prefix up while the form is typed into. What comes back is what
-/// the browser compares against: real matches only, without the padding.
+/// Looking up a prefix while the form is being filled in. The response is what
+/// the browser compares against: real matches only, no padding.
 #[tokio::test]
 async fn a_form_can_look_a_prefix_up_as_it_is_typed() {
     let (url, asked) = range_api(None).await;
@@ -256,7 +256,7 @@ async fn a_form_can_look_a_prefix_up_as_it_is_typed() {
         body_json(expect_status(app.get("/api/v1/capabilities").await, StatusCode::OK).await).await;
     assert_eq!(capabilities["account_password_breach_check"], true);
 
-    // Lowercase is accepted and passed on as the service spells it.
+    // Lowercase is accepted and forwarded in the service's spelling.
     let found =
         body_json(expect_status(app.get("/api/v1/auth/pwned/5baa6").await, StatusCode::OK).await)
             .await;
@@ -287,7 +287,7 @@ async fn only_a_prefix_is_accepted() {
     );
 }
 
-/// Off looks like an instance without the feature, and so does one without
+/// Disabled looks like an instance without the feature, and so does one without
 /// accounts, where there is no password to check.
 #[tokio::test]
 async fn an_instance_that_does_not_check_has_no_lookup() {
@@ -316,8 +316,8 @@ async fn an_instance_that_does_not_check_has_no_lookup() {
     .await;
 }
 
-/// The lookup cannot fall back the way the check does, so it says it could
-/// not answer. The form shows no warning, and the check runs when it is sent.
+/// The lookup has no fallback like the check does, so it reports that it could
+/// not answer. The form shows no warning, and the check runs on submit.
 #[tokio::test]
 async fn a_service_that_is_down_is_reported_as_unavailable() {
     let (url, _) = range_api(Some(StatusCode::INTERNAL_SERVER_ERROR)).await;
@@ -329,8 +329,8 @@ async fn a_service_that_is_down_is_reported_as_unavailable() {
     .await;
 }
 
-/// Every lookup counts, and on its own counter: a form typing through its
-/// allowance must not use up the same address's sign-in attempts.
+/// Every lookup counts, on its own counter: a form typing through its limit
+/// must not use up the same address's sign-in attempts.
 #[tokio::test]
 async fn one_source_gets_so_many_lookups() {
     let (url, _) = range_api(None).await;

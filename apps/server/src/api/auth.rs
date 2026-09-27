@@ -78,10 +78,9 @@ pub struct AccountResponse {
     /// `/capabilities`, which accounts for what has been used.
     #[schema(example = 10_737_418_240_u64)]
     pub quota_bytes: Option<u64>,
-    /// When the address was last proven to reach this person, or `null` if it
-    /// never has been.
+    /// When the address was last proven to reach this user, or `null` if never.
     ///
-    /// Set by confirming a registration, by a provider that vouches for the
+    /// Set by confirming a registration, by a provider vouching for the
     /// address, or by following the link from
     /// `POST /account/email/verification`. Cleared when the address changes.
     #[serde(with = "time::serde::rfc3339::option")]
@@ -494,12 +493,11 @@ pub async fn login(
         // pool, and `user` is still needed to build the response.
         password::verify(password, stored).await?
     } else {
-        // No account, a password the policy would not accept, or an account
-        // that has only ever signed in through a provider. All three pay for a
-        // hash: returning early would make any of them measurably faster than
-        // "wrong password", which is an account-enumeration oracle. The third
-        // case is the one that is easy to miss and would answer "is this
-        // address one of your single sign-on users".
+        // No account, a password the policy rejects, or a provider-only
+        // account. All three pay for a hash: returning early would make them
+        // measurably faster than "wrong password", an account-enumeration
+        // oracle. The third is easy to miss, and would reveal which addresses
+        // belong to single sign-on users.
         verify_against_nothing().await?;
         false
     };
@@ -637,10 +635,9 @@ pub async fn change_password(
     // everyone below it unable to log in and unable to fix it.
     let supplied = Password::parse(body.current_password, PasswordPolicy::widest())
         .map_err(|_| Error::Unauthorized)?;
-    // An account with no password cannot confirm one. `Unauthorized` rather
-    // than a distinct answer: the caller is already signed in, so there is
-    // nothing to enumerate, and the route that fixes this is setting a password
-    // rather than guessing again.
+    // An account with no password cannot confirm one. `Unauthorized`, not a
+    // distinct answer: the caller is signed in, so there is nothing to
+    // enumerate, and the fix is to set a password, not to guess again.
     let stored = state
         .users
         .password_of(current.user.id)

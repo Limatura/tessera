@@ -1,4 +1,5 @@
-//! Links that prove an account's address, for addresses registration did not.
+//! Links that prove an account's address, for addresses registration did not
+//! prove.
 //!
 //! The SQL lives in `sql/`, and the SQLite file carries the reasoning.
 
@@ -9,8 +10,8 @@ pub(super) const POSTGRES: &str =
     include_str!("sql/m20260926_000001_email_verifications.postgres.sql");
 pub(super) const MYSQL: &str = include_str!("sql/m20260926_000001_email_verifications.mysql.sql");
 
-/// Nothing depends on the rows: an unspent link lost to a rollback is asked for
-/// again.
+/// Nothing depends on the rows: an unused link lost to a rollback can be
+/// requested again.
 const DOWN: &str = "DROP TABLE IF EXISTS email_verifications;\n";
 
 #[derive(Debug, DeriveMigrationName)]

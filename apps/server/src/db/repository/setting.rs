@@ -23,19 +23,18 @@ pub struct SettingRepository {
     connection: DatabaseConnection,
     /// Opens and closes the values of the keys in `settings::SEALED`.
     ///
-    /// Held here so that ciphertext never leaves this type: every caller above
-    /// reads plaintext and writes plaintext, and none of them has to remember
-    /// which keys are which. Same arrangement as
-    /// [`StorageBackendRepository`](super::storage_backend::StorageBackendRepository).
+    /// Kept here so ciphertext never leaves this type: callers read and write
+    /// plaintext and never need to know which keys are sealed. Same approach
+    /// as [`StorageBackendRepository`](super::storage_backend::StorageBackendRepository).
     sealer: Sealer,
 }
 
-/// What a sealed value is stored behind.
+/// The prefix a sealed value is stored behind.
 ///
-/// Without it a row of ciphertext looks exactly like a row of plaintext, both
-/// to a person reading the table and to this code. With it, a value that has
-/// the marker and will not open is a key that changed, which is a different
-/// problem from a corrupt row and sends an operator somewhere different.
+/// Without it, ciphertext and plaintext rows look alike, to a person reading
+/// the table and to this code. With it, a marked value that will not open
+/// means a changed key, which is a different problem from a corrupt row and
+/// sends an operator elsewhere.
 const SEALED_PREFIX: &str = "sealed:";
 
 impl SettingRepository {
@@ -65,10 +64,10 @@ impl SettingRepository {
                             stored.insert(row.name, value);
                         }
                         Err(error) => {
-                            // Same posture as unparseable JSON above: losing one
-                            // override is recoverable, an instance that will not
-                            // start is not. Almost always a changed
-                            // `security.secret_key`, and the message says so.
+                            // Same stance as unparseable JSON above: losing one
+                            // override is recoverable, failing to start is not.
+                            // Almost always a changed `security.secret_key`,
+                            // and the message says so.
                             tracing::warn!(
                                 setting = %row.name,
                                 %error,
@@ -122,17 +121,15 @@ impl SettingRepository {
         Ok(())
     }
 
-    /// Removes one override, so the setting falls back to the layer below.
-    ///
     /// Turns a stored value into what the rest of the server reads.
     ///
-    /// A sealed key's value is opened. Anything else is passed through, so a
-    /// key that was never sealed costs nothing.
+    /// A sealed key's value is opened. Anything else passes through, so
+    /// unsealed keys cost nothing.
     ///
-    /// A sealed key whose stored value has no marker is left alone rather than
-    /// refused: it predates this, was written by hand, or the key moved onto
-    /// the list after it was stored. Refusing would turn a readable setting
-    /// into a boot failure.
+    /// A sealed key whose stored value has no marker is left as is, not
+    /// refused: it predates sealing, was written by hand, or the key joined the
+    /// list after it was stored. Refusing would turn a readable setting into a
+    /// boot failure.
     fn opened(
         &self,
         name: &str,
@@ -152,8 +149,8 @@ impl SettingRepository {
     /// # Errors
     ///
     /// Refuses when the key is sealed and there is no `security.secret_key`.
-    /// Written in plaintext, it would be the one thing sealing exists to
-    /// prevent, and the operator would only find out when the dump leaked.
+    /// Storing it in plaintext is what sealing exists to prevent, and the
+    /// operator would only find out when the dump leaked.
     fn closed(
         &self,
         name: &str,
@@ -162,16 +159,15 @@ impl SettingRepository {
         if !crate::settings::is_sealed(name) {
             return Ok(value.clone());
         }
-        // Only a string can be sealed. Anything else for one of these keys is a
-        // caller mistake, and storing it unsealed would be the wrong repair.
+        // Only strings can be sealed. Anything else for these keys is a caller
+        // mistake, and storing it unsealed would be the wrong fix.
         let Some(plain) = value.as_str() else {
             return Err(sea_orm::DbErr::Custom(format!(
                 "`{name}` holds a credential and must be a string"
             )));
         };
-        // Clearing one is `clear`, not setting it to nothing, and an empty
-        // string is worth storing as itself so that "set to blank" survives a
-        // round trip.
+        // Clearing is `clear`, not setting an empty value, and an empty string
+        // is stored as itself so "set to blank" survives a round trip.
         if plain.is_empty() {
             return Ok(value.clone());
         }
@@ -184,6 +180,8 @@ impl SettingRepository {
         )))
     }
 
+    /// Removes one override, so the setting falls back to the layer below.
+    ///
     /// # Errors
     ///
     /// Returns [`sea_orm::DbErr`] if the delete fails.
@@ -267,8 +265,8 @@ mod tests {
         );
     }
 
-    /// Everything else is untouched, so a key that was never sealed costs
-    /// nothing and reads exactly as it was written.
+    /// Everything else is untouched, so an unsealed key costs nothing and reads
+    /// back as written.
     #[tokio::test]
     async fn an_ordinary_setting_is_stored_as_itself() {
         let settings = repository(KEY).await;
@@ -295,8 +293,8 @@ mod tests {
         );
     }
 
-    /// Without a key there is nowhere safe to put one, and plaintext is the one
-    /// thing this exists to prevent.
+    /// Without a key there is nowhere safe to put one, and plaintext is what
+    /// this exists to prevent.
     #[tokio::test]
     async fn storing_a_credential_without_a_key_is_refused() {
         let settings = repository("").await;
@@ -313,9 +311,9 @@ mod tests {
         assert!(settings.all().await.expect("a read").is_empty());
     }
 
-    /// A key that changed leaves values nothing can open. Dropped with a
-    /// warning rather than failing the read: losing an override is
-    /// recoverable, an instance that will not start is not.
+    /// A changed key leaves values nothing can open. Dropped with a warning
+    /// instead of failing the read: losing an override is recoverable, failing
+    /// to start is not.
     #[tokio::test]
     async fn a_value_that_will_not_open_is_dropped_rather_than_fatal() {
         let settings = repository(KEY).await;
@@ -347,7 +345,7 @@ mod tests {
     }
 
     /// A row written before this key was sealed has no marker, and is read as
-    /// it stands rather than refused.
+    /// is instead of refused.
     #[tokio::test]
     async fn a_value_stored_before_sealing_still_reads() {
         let settings = repository(KEY).await;
@@ -366,8 +364,8 @@ mod tests {
         );
     }
 
-    /// Clearing one is `clear`. Setting it to nothing stores nothing, and has
-    /// to survive the round trip as nothing rather than as ciphertext.
+    /// Clearing is `clear`. Setting an empty value stores an empty value, and
+    /// it must round-trip as empty, not as ciphertext.
     #[tokio::test]
     async fn an_empty_credential_stays_empty() {
         let settings = repository(KEY).await;
@@ -383,8 +381,8 @@ mod tests {
         );
     }
 
-    /// Only a string can be sealed, and storing something else unsealed would
-    /// be the wrong repair.
+    /// Only strings can be sealed, and storing anything else unsealed would be
+    /// the wrong fix.
     #[tokio::test]
     async fn a_credential_that_is_not_a_string_is_refused() {
         let settings = repository(KEY).await;

@@ -1,15 +1,14 @@
 //! ClamAV's daemon, spoken to directly.
 //!
-//! `INSTREAM` over TCP: the command, then the file as length-prefixed chunks,
-//! then a zero length, and one line back. No library; the protocol is those
-//! four steps and a library would be a dependency for them.
+//! `INSTREAM` over TCP: the command, the file as length-prefixed chunks, a zero
+//! length, and one line back. No library; the protocol is those four steps.
 //!
 //! # The size limit
 //!
 //! clamd refuses a stream longer than its `StreamMaxLength` by answering
-//! `INSTREAM size limit exceeded` and closing the connection, which it may do
-//! while this side is still writing. So a failed write is not the end: the
-//! answer is read anyway, and it is what decides.
+//! `INSTREAM size limit exceeded` and closing the connection, possibly while
+//! this side is still writing. So a failed write is not the end: the answer is
+//! read anyway, and it decides.
 
 use bytes::Bytes;
 use tokio::{
@@ -59,8 +58,8 @@ where
         }
     }
     if !refused_mid_stream {
-        // The end of the stream. A clamd that has already answered and closed
-        // refuses this too, and its answer is still waiting to be read.
+        // End of stream. A clamd that already answered and closed refuses this
+        // too, and its answer is still waiting to be read.
         socket.write_all(&0_u32.to_be_bytes()).await.ok();
     }
 
@@ -115,8 +114,8 @@ mod tests {
         assert_eq!(parse(answer).unwrap(), expected);
     }
 
-    /// An error is not a verdict. Calling it clean would pass a file nobody
-    /// looked at.
+    /// An error is not a verdict. Calling it clean would pass a file no one
+    /// scanned.
     #[rstest]
     #[case::error("stream: Can't allocate memory ERROR\0")]
     #[case::nothing("")]

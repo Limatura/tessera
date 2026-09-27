@@ -1,8 +1,8 @@
-//! What the malware scanner has said, and what it still has to look at.
+//! What the malware scanner has reported, and what it still has to check.
 //!
-//! The verdicts live beside the content they describe, on `file_shares` and
+//! Verdicts live next to the content they describe, on `file_shares` and
 //! `text_shares`, so reading a share's content reads them too. This is the
-//! other side: the queue the scanner works through, and where it writes back.
+//! other side: the scanner's work queue and where it writes back.
 
 use sea_orm::{
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _,
@@ -19,16 +19,16 @@ use crate::db::entity::{
 /// What the scanner has said about one file or note.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Scan {
-    /// Waiting for a verdict. Its share is not handed out until there is one.
+    /// Waiting for a verdict. Its share is not served until there is one.
     Pending,
-    /// The scanner could not be reached. Handed out anyway, and asked again
-    /// once the scanner answers.
+    /// The scanner could not be reached. Served anyway, and rescanned once the
+    /// scanner is back.
     Deferred,
     /// Scanned, and nothing was found.
     Clean,
     /// Scanned, and the scanner named a threat. The share is switched off.
     Infected(String),
-    /// Not scanned, because there was nothing a scanner could look at.
+    /// Not scanned, because there was nothing a scanner could inspect.
     Skipped(Skip),
 }
 
@@ -37,12 +37,12 @@ pub enum Scan {
 pub enum Skip {
     /// Sealed on the uploader's machine; the server holds only ciphertext.
     Encrypted,
-    /// Larger than the scanner would take.
+    /// Larger than the scanner accepts.
     TooLarge,
 }
 
 impl Scan {
-    /// Whether this holds its share back from being handed out.
+    /// Whether this holds its share back from being served.
     #[must_use]
     pub const fn holds(&self) -> bool {
         matches!(self, Self::Pending)
@@ -61,9 +61,9 @@ impl Scan {
         }
     }
 
-    /// Reads the two columns back. `None` for content nobody asked the scanner
-    /// about, and for a spelling nothing writes, which is treated the same way
-    /// rather than holding a share back for ever over a bad row.
+    /// Reads the two columns back. `None` for content never sent to the
+    /// scanner, and for unknown values, which are treated the same instead of
+    /// holding a share back forever over a bad row.
     #[must_use]
     pub fn from_columns(state: Option<&str>, detail: Option<&str>) -> Option<Self> {
         Some(match (state?, detail) {
@@ -78,16 +78,16 @@ impl Scan {
     }
 }
 
-/// One thing the scanner has yet to look at.
+/// One item the scanner has yet to check.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Job {
     /// A file, by its own id, in the share `share_id`.
     File {
         /// The `file_shares` row.
         id: String,
-        /// The share it belongs to, which is switched off if it is infected.
+        /// The share it belongs to, which is disabled if it is infected.
         share_id: String,
-        /// Where it sits in that share, which is how its content is found.
+        /// Its position in that share, which is how its content is found.
         position: usize,
     },
     /// A note, which is its share's only content.
@@ -125,7 +125,7 @@ impl ScanRepository {
         Self { connection }
     }
 
-    /// Up to `limit` things in `state`, oldest first.
+    /// Up to `limit` items in `state`, oldest first.
     ///
     /// # Errors
     ///
@@ -161,7 +161,7 @@ impl ScanRepository {
             .collect())
     }
 
-    /// Writes down what the scanner said.
+    /// Records the scanner's verdict.
     ///
     /// # Errors
     ///
@@ -189,8 +189,8 @@ impl ScanRepository {
         Ok(())
     }
 
-    /// Moves everything still `pending` to `deferred`, so it is handed out
-    /// while the scanner cannot be reached. Returns how many moved.
+    /// Moves everything still `pending` to `deferred`, so it is served while
+    /// the scanner is unreachable. Returns how many moved.
     ///
     /// # Errors
     ///
@@ -213,8 +213,7 @@ impl ScanRepository {
         Ok(files.saturating_add(texts))
     }
 
-    /// Switches a share off, the way an administrator would, unless it already
-    /// is.
+    /// Disables a share, as an administrator would, unless it already is.
     ///
     /// # Errors
     ///
@@ -256,7 +255,7 @@ mod tests {
         );
     }
 
-    /// A row nobody can read must not hold its share back for ever.
+    /// An unreadable row must not hold its share back forever.
     #[test]
     fn an_unknown_spelling_holds_nothing() {
         assert_eq!(Scan::from_columns(Some("mystery"), None), None);

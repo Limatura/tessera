@@ -1,18 +1,17 @@
 //! Handing uploads to a malware scanner.
 //!
-//! The scanner is somebody else's program, reached over the network: ClamAV's
-//! daemon, or anything that speaks the small HTTP contract in [`http`]. See
+//! The scanner is a separate program reached over the network: ClamAV's
+//! daemon, or anything implementing the small HTTP contract in [`http`]. See
 //! [`crate::config::ScanConfig`] for why it is not built in, and
-//! `docs/scanning.md` for the whole arrangement.
+//! `docs/scanning.md` for the full picture.
 //!
-//! # The order of events
+//! # Order of events
 //!
-//! A file is recorded as `pending` the moment it is stored. [`worker`] reads it
+//! A file is recorded as `pending` as soon as it is stored. [`worker`] reads it
 //! back and sends it to the scanner; until the verdict is written, its share
-//! is not handed out. So a scan never happens inside the request that
-//! uploaded the file, which matters twice over: a large file takes minutes,
-//! and a file sent straight to a bucket never passed through this process at
-//! all.
+//! is not served. So scanning never happens inside the upload request, which
+//! matters for two reasons: a large file takes minutes, and a file written
+//! straight to a bucket never passed through this process.
 
 pub mod clamd;
 pub mod http;
@@ -31,8 +30,8 @@ use crate::{
     state::AppState,
 };
 
-/// How long a share held for scanning tells a client to wait before asking
-/// again. Most files are scanned in well under a second.
+/// How long a client is told to wait before retrying a share held for
+/// scanning. Most files are scanned in well under a second.
 pub const RETRY_AFTER_SECS: u64 = 3;
 
 /// What a scanner said about one stream of bytes.
@@ -42,14 +41,14 @@ pub enum Verdict {
     Clean,
     /// A threat, by the scanner's name for it.
     Infected(String),
-    /// More than the scanner will take.
+    /// Larger than the scanner accepts.
     TooLarge,
 }
 
 /// Why no verdict came back.
 ///
-/// Every cause is treated alike: the file is handed out and asked about again
-/// later. Which one it was only matters to whoever reads the log.
+/// Every cause is handled the same way: the file is served and rescanned later.
+/// Which one it was only matters in the log.
 #[derive(Debug, thiserror::Error)]
 pub enum Unreachable {
     /// Connecting, sending or reading failed.
@@ -58,7 +57,7 @@ pub enum Unreachable {
     /// The HTTP request failed.
     #[error("could not talk to the scanner: {0}")]
     Http(#[from] reqwest::Error),
-    /// The scanner answered something this does not understand.
+    /// The scanner answered with something unexpected.
     #[error("the scanner said something unexpected: {0}")]
     Answer(String),
     /// It took longer than [`worker::SCAN_TIMEOUT`].
@@ -69,9 +68,9 @@ pub enum Unreachable {
     Store(String),
 }
 
-/// Where a new file or note starts: `None` when no scanner is configured, so
-/// nothing is held for one; `skipped` when the content is sealed and there is
-/// nothing a scanner could read; `pending` otherwise.
+/// The initial scan state for a new file or note: `None` when no scanner is
+/// configured, so nothing waits on one; `skipped` when the content is sealed
+/// and unreadable to a scanner; `pending` otherwise.
 #[must_use]
 pub fn initial(state: &AppState, encrypted: bool) -> Option<Scan> {
     if !state.config().scan.is_enabled() {
@@ -84,10 +83,10 @@ pub fn initial(state: &AppState, encrypted: bool) -> Option<Scan> {
     })
 }
 
-/// Refuses to hand out content still waiting for a verdict.
+/// Refuses to serve content still waiting for a verdict.
 ///
-/// A share recorded while scanning was on and still pending when it was
-/// switched off is not held: nothing is left to deliver the verdict.
+/// A share recorded while scanning was on, still pending when it was turned
+/// off, is not held: nothing is left to deliver the verdict.
 ///
 /// # Errors
 ///

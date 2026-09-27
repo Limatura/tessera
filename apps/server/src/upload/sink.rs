@@ -140,9 +140,9 @@ impl Sink {
 
 /// How many parts an upload of `declared` bytes is cut into.
 ///
-/// What a client writing parts directly to the store has to agree with this
-/// server about. Every part but the last is `part_size`; the last is whatever
-/// remains. Zero for an empty upload, which has no parts to write.
+/// A client writing parts directly to the store must agree with this server
+/// on it. Every part but the last is `part_size`; the last is the remainder.
+/// Zero for an empty upload, which has no parts.
 #[must_use]
 pub const fn part_count(declared: u64, part_size: u64) -> u64 {
     if part_size == 0 {
@@ -479,8 +479,8 @@ mod part_rules {
             }
         }
     }
-    /// The arithmetic a client writing parts directly has to agree with. One
-    /// byte past a boundary is a whole extra part, and exactly on one is not.
+    /// The arithmetic a client writing parts directly must match. One byte past
+    /// a boundary is a whole extra part; exactly on one is not.
     #[test]
     fn a_direct_upload_is_cut_into_the_parts_a_client_expects() {
         assert_eq!(part_count(0, 8), 0, "an empty upload has nothing to write");

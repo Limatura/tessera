@@ -4,38 +4,34 @@
 //!
 //! An ID token is a JWT. The usual handling fetches the provider's JWKS,
 //! matches the `kid`, verifies the signature and only then reads the claims.
-//! That is not done here, and it is a conditional exemption rather than a
-//! shortcut.
+//! This code skips that under a conditional exemption; it is not a shortcut.
 //!
-//! `OpenID` Connect Core section 3.1.3.7 rule 6 says: when the ID token is
-//! received through direct communication between the client and the token
-//! endpoint, TLS server validation may be used to validate the issuer in place
-//! of checking the token signature. That is exactly this code path. The token
-//! arrives in the body of a response to a request this server made, to an
-//! `https` URL that came out of a document fetched from the configured issuer,
-//! over a connection whose certificate was checked. Nothing untrusted has
-//! carried it.
+//! `OpenID` Connect Core section 3.1.3.7 rule 6: when the ID token is received
+//! through direct communication between the client and the token endpoint, TLS
+//! server validation may be used to validate the issuer in place of checking
+//! the token signature. That is this code path. The token arrives in the
+//! response to a request this server made, to an `https` URL taken from a
+//! document fetched from the configured issuer, over a connection whose
+//! certificate was checked. Nothing untrusted has carried it.
 //!
-//! **The exemption ends the moment a token arrives any other way.** If an
-//! implicit or hybrid flow is ever added, the token comes back through the
-//! browser, and the browser is exactly the party the signature protects
-//! against. The same goes for a back-channel logout token, which the provider
-//! pushes to us unprompted. Either of those needs JWKS fetching, key rotation
-//! and signature verification added first. Adding the flow and leaving this as
-//! it is turns a documented exemption into a hole.
+//! **The exemption ends as soon as a token arrives any other way.** An
+//! implicit or hybrid flow returns the token through the browser, which is the
+//! party the signature protects against. A back-channel logout token is pushed
+//! to us unprompted. Either needs JWKS fetching, key rotation and signature
+//! verification. Adding such a flow without them turns a documented exemption
+//! into a hole.
 //!
-//! Everything the specification requires *besides* the signature is checked
-//! here: the issuer, the audience, expiry, and the nonce that ties the token to
-//! the sign-in that asked for it.
+//! Everything else the spec requires is checked here: the issuer, the
+//! audience, expiry, and the nonce tying the token to its sign-in.
 
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use serde::Deserialize;
 use time::OffsetDateTime;
 
-/// How much clock difference between here and the provider is tolerated.
+/// How much clock difference with the provider is tolerated.
 ///
-/// Small on purpose. It exists because two machines are never exactly in step,
-/// not to keep an expired token working.
+/// Kept small: it covers clocks that are slightly out of step, not expired
+/// tokens.
 const CLOCK_SKEW_SECONDS: i64 = 60;
 
 /// What an ID token says, before any of it is believed.
@@ -43,8 +39,8 @@ const CLOCK_SKEW_SECONDS: i64 = 60;
 pub struct Claims {
     /// Who issued it.
     pub iss: String,
-    /// The provider's identifier for the person. Stable, and never reused
-    /// within one issuer.
+    /// The provider's identifier for the user. Stable, and never reused within
+    /// one issuer.
     pub sub: String,
     /// Who it was issued for. A string or a list, hence [`Audience`].
     pub aud: Audience,
@@ -58,25 +54,25 @@ pub struct Claims {
     pub nonce: Option<String>,
     /// The provider's own identifier for the session it just started.
     ///
-    /// Optional, and only some providers release it. Recorded against the
-    /// session so a back-channel logout naming this `sid` can end that one
-    /// session rather than everything the account has open.
+    /// Optional, and only some providers send it. Stored with the session so a
+    /// back-channel logout naming this `sid` ends that session only, instead of
+    /// everything the account has open.
     #[serde(default)]
     pub sid: Option<String>,
     /// The address, when the provider released one.
     #[serde(default)]
     pub email: Option<String>,
-    /// Whether the provider says it checked that address.
+    /// Whether the provider says it verified that address.
     #[serde(default)]
     pub email_verified: Option<bool>,
     /// A display name, when there is one.
     #[serde(default)]
     pub name: Option<String>,
-    /// What the provider calls the person, when there is one.
+    /// The provider's name for the user, when there is one.
     #[serde(default)]
     pub preferred_username: Option<String>,
     /// Everything else, so a configured group claim can be looked up by name
-    /// without this struct having to know what it is called.
+    /// without this struct knowing it.
     #[serde(flatten)]
     pub rest: serde_json::Map<String, serde_json::Value>,
 }
@@ -130,18 +126,18 @@ pub enum ClaimsError {
     WrongNonce,
 }
 
-/// Reads the claims out of a token without checking anything about them.
+/// Reads the claims from a token without checking any of them.
 ///
-/// Split from [`verify`] so the checks read as a list rather than being
-/// tangled with base64 and JSON handling.
+/// Separate from [`verify`] so the checks read as a list, not tangled with
+/// base64 and JSON handling.
 ///
 /// # Errors
 ///
 /// Returns [`ClaimsError::Malformed`] or [`ClaimsError::Unreadable`] when the
 /// token is not a JWT whose payload deserialises.
 pub fn read(id_token: &str) -> Result<Claims, ClaimsError> {
-    // header.payload.signature. The signature is not used here; see the module
-    // documentation for why, and for when that stops being true.
+    // header.payload.signature. The signature is unused; see the module docs
+    // for why, and for when that stops being true.
     let mut parts = id_token.split('.');
     let (Some(_header), Some(payload), Some(_signature), None) =
         (parts.next(), parts.next(), parts.next(), parts.next())
@@ -155,7 +151,7 @@ pub fn read(id_token: &str) -> Result<Claims, ClaimsError> {
     serde_json::from_slice(&decoded).map_err(|error| ClaimsError::Unreadable(error.to_string()))
 }
 
-/// Reads a token and checks everything the specification asks for except the
+/// Reads a token and checks everything the spec asks for except the
 /// signature.
 ///
 /// # Errors
@@ -170,9 +166,8 @@ pub fn verify(
 ) -> Result<Claims, ClaimsError> {
     let claims = read(id_token)?;
 
-    // Exact string equality, which the specification requires. A trailing
-    // slash is the difference between two issuers as far as this is concerned,
-    // so it is trimmed on both sides rather than only one.
+    // Exact string equality, as the spec requires. A trailing slash would make
+    // two issuers differ, so it is trimmed on both sides.
     let expected = issuer.trim().trim_end_matches('/');
     if claims.iss.trim_end_matches('/') != expected {
         return Err(ClaimsError::WrongIssuer {
@@ -186,8 +181,8 @@ pub fn verify(
     if claims.exp + CLOCK_SKEW_SECONDS <= now.unix_timestamp() {
         return Err(ClaimsError::Expired);
     }
-    // A missing nonce is a failure, not an absence. The sign-in sent one, so a
-    // token without it is not the answer to that sign-in.
+    // A missing nonce is a failure. The sign-in sent one, so a token without it
+    // is not the answer to that sign-in.
     if claims.nonce.as_deref() != Some(nonce) {
         return Err(ClaimsError::WrongNonce);
     }
@@ -198,11 +193,11 @@ pub fn verify(
     Ok(claims)
 }
 
-/// The groups a claim holds, whatever shape the provider put them in.
+/// The groups a claim holds, in whatever shape the provider used.
 ///
-/// Providers disagree: some send a list of strings, some send one string, and
-/// some send a list of objects with a `name`. Anything else yields nothing,
-/// which fails closed when a required group is configured.
+/// Providers differ: a list of strings, a single string, or a list of objects
+/// with a `name`. Anything else yields nothing, which fails closed when a
+/// required group is configured.
 #[must_use]
 pub fn groups(value: Option<&serde_json::Value>) -> Vec<String> {
     match value {
@@ -226,8 +221,8 @@ pub fn groups(value: Option<&serde_json::Value>) -> Vec<String> {
 mod tests {
     use super::*;
 
-    /// Builds a token the way a provider would, minus the signature, which
-    /// nothing here reads.
+    /// Builds a token as a provider would, minus the signature, which nothing
+    /// here reads.
     fn token(payload: &serde_json::Value) -> String {
         let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#);
         let body = URL_SAFE_NO_PAD.encode(payload.to_string());
@@ -292,7 +287,7 @@ mod tests {
         ));
     }
 
-    /// And a trailing slash is not another issuer.
+    /// A trailing slash does not make it another issuer.
     #[test]
     fn a_trailing_slash_is_the_same_issuer() {
         let mut claims = payload();
@@ -301,8 +296,8 @@ mod tests {
         assert!(check(&claims).is_ok());
     }
 
-    /// A token issued for a different client at the same provider must not be
-    /// usable here, which is what checking the audience is for.
+    /// A token issued for another client at the same provider must not work
+    /// here. That is what the audience check is for.
     #[test]
     fn another_clients_token_is_refused() {
         let mut claims = payload();
@@ -327,8 +322,8 @@ mod tests {
         assert_eq!(check(&claims).unwrap_err(), ClaimsError::Expired);
     }
 
-    /// Two machines are never exactly in step, so a token that expired a
-    /// moment ago is still taken. A token that expired an hour ago is not.
+    /// Clocks drift, so a token that expired a moment ago is still accepted.
+    /// One that expired an hour ago is not.
     #[test]
     fn a_token_just_past_expiry_is_still_taken() {
         let mut claims = payload();
@@ -337,9 +332,8 @@ mod tests {
         assert!(check(&claims).is_ok());
     }
 
-    /// The nonce is what ties the token to the sign-in that asked for it.
-    /// Without that, a token obtained elsewhere could be replayed into a
-    /// callback here.
+    /// The nonce ties the token to the sign-in that asked for it. Without it, a
+    /// token obtained elsewhere could be replayed into a callback here.
     #[test]
     fn a_token_from_another_sign_in_is_refused() {
         let mut claims = payload();
@@ -364,9 +358,9 @@ mod tests {
         assert!(matches!(check(&claims), Err(ClaimsError::Unreadable(_))));
     }
 
-    /// The signature is not read, so what is in it changes nothing. Stated as
-    /// a test so that adding verification later fails here first and whoever
-    /// does it reads the module documentation.
+    /// The signature is not read, so its contents change nothing. A test so
+    /// that adding verification later fails here first and sends the author to
+    /// the module docs.
     #[test]
     fn the_signature_is_not_read() {
         let good = check(&payload()).expect("the claims");
@@ -393,7 +387,7 @@ mod tests {
     }
 
     /// Anything unrecognised yields nothing, so a configured required group
-    /// refuses rather than admits.
+    /// refuses instead of admitting.
     #[test]
     fn an_unrecognised_shape_yields_no_groups() {
         assert!(groups(None).is_empty());
@@ -401,7 +395,7 @@ mod tests {
         assert!(groups(Some(&serde_json::json!([{"id": 1}]))).is_empty());
     }
 
-    /// A claim this struct does not name is still reachable, which is how a
+    /// A claim this struct does not name is still reachable. That is how a
     /// configured group claim is looked up without hard-coding its name.
     #[test]
     fn an_unnamed_claim_is_still_reachable() {

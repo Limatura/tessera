@@ -22,8 +22,8 @@ mod scanner;
 
 use std::{fmt::Write as _, net::SocketAddr, path::Path};
 
-/// Where each fake listens. Fixed rather than picked by the system, so the
-/// settings written for one run stay right for the next.
+/// Where each fake listens. Fixed, not system-assigned, so the settings
+/// written for one run stay valid for the next.
 const OIDC_PORT: u16 = 9101;
 const GITHUB_PORT: u16 = 9102;
 const SCANNER_PORT: u16 = 9103;

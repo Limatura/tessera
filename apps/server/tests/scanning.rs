@@ -1,10 +1,10 @@
-//! Handing uploads to a malware scanner, against scanners that answer the way
-//! the real ones do.
+//! Handing uploads to a malware scanner, against scanners that behave like the
+//! real ones.
 //!
-//! The clamd here speaks `INSTREAM` over a real socket, and flags the EICAR
-//! test string as ClamAV does. The HTTP one speaks the contract in
-//! `scan::http`. Neither is a mock of this crate: both are the other end of a
-//! wire, so what is tested is what goes over it.
+//! The clamd here speaks `INSTREAM` over a real socket and flags the EICAR test
+//! string as ClamAV does. The HTTP one implements the contract in
+//! `scan::http`. Neither mocks this crate: both are the far end of a wire, so
+//! the tests cover what goes over it.
 
 #![expect(
     clippy::expect_used,
@@ -36,8 +36,8 @@ use tokio::{
 /// The industry's harmless test file. Every scanner flags it.
 const EICAR: &[u8] = br"X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*";
 
-/// A clamd that refuses anything longer than `limit` bytes, as `StreamMaxLength`
-/// makes the real one do.
+/// A clamd that refuses anything longer than `limit` bytes, as
+/// `StreamMaxLength` makes the real one do.
 async fn clamd(limit: usize) -> String {
     let listener = TcpListener::bind("127.0.0.1:0").await.expect("a port");
     let address = listener.local_addr().expect("an address");
@@ -64,7 +64,7 @@ async fn clamd(limit: usize) -> String {
                     }
                     received.extend(chunk);
                     if received.len() > limit {
-                        // What clamd does: answers, and hangs up mid-stream.
+                        // As clamd does: answers, and hangs up mid-stream.
                         socket
                             .write_all(b"INSTREAM size limit exceeded. ERROR\0")
                             .await
@@ -143,8 +143,8 @@ async fn scanning_with(url: String) -> TestApp {
     .await
 }
 
-/// Uploads `body` and returns the share's code and what the response said
-/// about scanning.
+/// Uploads `body` and returns the share's code and whether the response says
+/// it is being scanned.
 async fn upload(app: &TestApp, query: &str, body: &[u8]) -> (String, bool) {
     let share = body_json(
         expect_status(
@@ -172,11 +172,11 @@ async fn download(app: &TestApp, code: &str) -> axum::response::Response {
     app.get(&format!("/s/{code}/download")).await
 }
 
-/// What the scanner said about the first file or the note, as stored.
+/// The stored verdict for the first file or the note.
 ///
-/// Asserting on this and not only on whether a download works tells apart two
+/// Asserting on this, not only on whether a download works, distinguishes two
 /// outcomes that both serve the file: skipped as too large, and deferred
-/// because the scanner could not be reached.
+/// because the scanner was unreachable.
 async fn verdict(app: &TestApp, code: &str) -> Option<Scan> {
     let code = tessera_core::RetrievalCode::parse(code).expect("a code");
     let share = app
@@ -221,7 +221,7 @@ async fn a_clean_file_is_held_until_the_scanner_says_so() {
 
     run_once(&app.state).await;
 
-    // Still collectable: being turned away cost the one-time share nothing.
+    // Still downloadable: being turned away did not use up the one-time share.
     let served = expect_status(download(&app, &code).await, StatusCode::OK).await;
     let bytes = to_bytes(served.into_body(), usize::MAX)
         .await
@@ -229,8 +229,8 @@ async fn a_clean_file_is_held_until_the_scanner_says_so() {
     assert_eq!(&bytes[..], b"an ordinary file");
 }
 
-/// Switched off the way an operator switches a share off, so it answers as one
-/// does: as if it had never existed.
+/// Disabled the way an operator disables a share, so it answers the same way:
+/// as if it never existed.
 #[tokio::test]
 async fn an_infected_file_switches_its_share_off() {
     let app = scanning_with(clamd(usize::MAX).await).await;
@@ -260,8 +260,8 @@ async fn an_infected_note_is_switched_off_too() {
     .await;
 }
 
-/// The arrangement agreed for an outage: serve without a verdict, and ask once
-/// the scanner is back. An infected file is then caught late, not never.
+/// The agreed behaviour during an outage: serve without a verdict, and scan
+/// once the scanner is back. An infected file is caught late, not never.
 #[tokio::test]
 async fn while_the_scanner_is_down_files_are_served_and_scanned_later() {
     let app = scanning_with(nothing_there().await).await;
@@ -406,7 +406,7 @@ async fn switching_scanning_off_releases_what_it_was_holding() {
     expect_status(download(&app, &code).await, StatusCode::OK).await;
 }
 
-/// The same questions, put to a real ClamAV. Needs one listening at
+/// The same checks against a real ClamAV. Needs one listening at
 /// `TESSERA_TEST_CLAMD`, such as `clamd://127.0.0.1:3310` from the
 /// `clamav/clamav` image, so it is `#[ignore]`d like the database suites.
 #[tokio::test]
@@ -438,9 +438,9 @@ async fn a_real_clamd_agrees() {
     );
 }
 
-/// More waiting than the scanner is sent at once. Once it stops answering,
-/// the ones never sent are released too, rather than waiting a whole interval
-/// each for their turn to fail.
+/// More queued than the scanner is sent at once. Once it stops answering, the
+/// unsent ones are released too, instead of each waiting a full interval for
+/// its turn to fail.
 #[tokio::test]
 async fn once_the_scanner_is_down_nothing_else_waits_on_it() {
     let app = scanning_with(nothing_there().await).await;

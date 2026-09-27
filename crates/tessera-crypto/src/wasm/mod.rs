@@ -1,7 +1,7 @@
 //! The format, as the browser calls it.
 //!
-//! Thin on purpose. Every rule lives in the crate root and is tested there;
-//! this only translates types: bytes to slices, lengths to `BigInt`, errors to
+//! A thin layer. Every rule lives in the crate root and is tested there; this
+//! only converts types: bytes to slices, lengths to `BigInt`, errors to
 //! exceptions. The JavaScript that streams a file through these lives in
 //! `packages/crypto`.
 
@@ -37,7 +37,7 @@ impl ShareKey {
     }
 
     /// The key a password and an encoded salt derive. Takes a noticeable
-    /// fraction of a second, by design.
+    /// fraction of a second, as intended.
     ///
     /// # Errors
     ///

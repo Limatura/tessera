@@ -44,18 +44,18 @@ pub async fn enforce(State(state): State<AppState>, request: Request, next: Next
         .unwrap_or_else(|_| Error::Timeout.into_response())
 }
 
-/// Whether this request's body is bytes being sent to us over the caller's
+/// Whether this request's body is an upload streaming in over the caller's
 /// line.
 ///
-/// Matched on the path, not on `MatchedPath`, which axum fills in during
-/// routing and is not there yet: this layer wraps the router. The routes are
-/// named exactly, because `POST /shares/{code}/unlock` and
-/// `POST /shares/{code}/events` sit under the same prefix and are ordinary
-/// requests that should keep their budget.
+/// Matched on the path, not `MatchedPath`, which axum sets during routing and
+/// is not available yet since this layer wraps the router. The routes are
+/// listed exactly, because `POST /shares/{code}/unlock` and
+/// `POST /shares/{code}/events` share the prefix but are ordinary requests
+/// that keep their budget.
 ///
-/// The speed test's upload is here for the same reason as a file: the handler
-/// reads the whole body, so the budget would be a cap on the *size* a slow
-/// line can test rather than on how long a stalled request may hold a slot.
+/// The speed test upload is here for the same reason as a file: the handler
+/// reads the entire body, so the budget would cap the *size* a slow line can
+/// test instead of how long a stalled request may hold a slot.
 fn carries_an_upload(method: &Method, path: &str) -> bool {
     if method != Method::POST {
         return false;
@@ -82,8 +82,8 @@ mod tests {
             &Method::POST,
             "/api/v1/shares/abc123/files"
         ));
-        // A speed test on a slow line is a long request by design. Left in the
-        // budget, the test would stop at whatever fits in thirty seconds.
+        // A speed test on a slow line is meant to be a long request. Under the
+        // budget it would stop at whatever fits in thirty seconds.
         assert!(carries_an_upload(&Method::POST, "/api/v1/speed/upload"));
         assert!(!carries_an_upload(&Method::GET, "/api/v1/speed/upload"));
     }

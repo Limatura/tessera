@@ -1,33 +1,33 @@
 //! The provider's signing keys.
 //!
-//! Fetched only for back-channel logout. Everything else this module tree does
-//! reads a token that arrived over a channel this server opened, and `claims.rs`
-//! explains why that one does not need a signature. A logout token is pushed to
-//! us by somebody claiming to be the provider, so it does.
+//! Fetched only for back-channel logout. Everything else in this module tree
+//! reads tokens that arrived over a channel this server opened, and
+//! `claims.rs` explains why those need no signature check. A logout token is
+//! pushed to us by a caller claiming to be the provider, so it does.
 //!
 //! # Refetching, and why it is rate limited
 //!
-//! Providers rotate keys, and a token signed with a key this has never seen is
-//! the ordinary way that shows up. So an unknown `kid` refetches once.
+//! Providers rotate keys, and a token signed with an unseen key is the normal
+//! way that shows up. So an unknown `kid` triggers one refetch.
 //!
-//! The endpoint that reads these is unauthenticated by necessity: the provider
-//! is a server, not a browser, and has no credential here. Anyone can therefore
-//! post a token naming a `kid` that will never exist, and without a floor every
-//! one of those would be a request to the provider. A floor on how often this
-//! fetches is what keeps it from being an amplifier pointed at the provider.
+//! The endpoint that reads these has to be unauthenticated: the provider is a
+//! server with no credential here. So anyone can post a token naming a `kid`
+//! that will never exist, and without a floor each one would cause a request
+//! to the provider. The floor on fetch frequency keeps this from being an
+//! amplifier aimed at the provider.
 
 use std::{sync::Arc, time::Duration};
 
 use jsonwebtoken::{DecodingKey, jwk::JwkSet};
 use time::OffsetDateTime;
 
-/// The least time between two fetches, however many unknown key ids arrive.
+/// The minimum time between fetches, however many unknown key ids arrive.
 const REFETCH_FLOOR: Duration = Duration::from_mins(5);
 
 /// How long to wait on the provider.
 const TIMEOUT: Duration = Duration::from_secs(10);
 
-/// Why a key could not be had.
+/// Why a key could not be obtained.
 #[derive(Debug, thiserror::Error)]
 pub enum KeyError {
     /// The provider's document names no key set.
@@ -54,11 +54,11 @@ struct Cached {
     fetched_at: OffsetDateTime,
 }
 
-/// The provider's signing keys, as this process remembers them.
+/// The provider's signing keys, as cached by this process.
 ///
-/// There is no expiry. A key that is in the set is the same key however old the
-/// copy is, so nothing is gained by fetching on a timer; a rotation arrives as
-/// a key id that is not there, and that is what triggers a fetch.
+/// No expiry. A key in the set is the same key however old the copy, so
+/// fetching on a timer gains nothing; a rotation shows up as an unknown key id,
+/// which triggers a fetch.
 #[derive(Debug, Default)]
 pub struct Keys {
     cached: parking_lot::Mutex<Option<Cached>>,
@@ -89,9 +89,9 @@ impl Keys {
             return key;
         }
 
-        // Either nothing is cached, or what is cached does not have this key.
-        // Both are answered by fetching, and both are refused while a recent
-        // fetch already failed to produce it.
+        // Either nothing is cached, or the cache lacks this key. Both mean
+        // fetching, and both are refused while a recent fetch has already
+        // failed to produce it.
         let too_soon = held.is_some_and(|cached| {
             let age = now - cached.fetched_at;
             age.is_positive() && age < floor()
@@ -108,9 +108,9 @@ impl Keys {
         find(&keys, kid).unwrap_or_else(|| Err(KeyError::Unknown(kid.to_owned())))
     }
 
-    /// Throws away what is cached, so the next token fetches again.
+    /// Drops the cached keys, so the next token fetches again.
     ///
-    /// Called when the issuer changes: the keys belong to the old one.
+    /// Called when the issuer changes, since the keys belong to the old one.
     pub fn forget(&self) {
         *self.cached.lock() = None;
     }

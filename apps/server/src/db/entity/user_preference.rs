@@ -2,11 +2,11 @@
 
 use sea_orm::entity::prelude::*;
 
-/// A row of `user_preferences`: one person's choices.
+/// A row of `user_preferences`: one user's choices.
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "user_preferences")]
 pub struct Model {
-    /// Whose choices these are. One row per person, so this is the key.
+    /// Whose choices these are. One row per user, so this is the key.
     #[sea_orm(primary_key, auto_increment = false)]
     pub user_id: String,
     /// The appearance choices as JSON, `{}` when none have been made.

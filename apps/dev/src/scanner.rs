@@ -1,8 +1,8 @@
 //! A fake malware scanner, speaking the HTTP contract in `docs/scanning.md`.
 //!
 //! Flags the EICAR test string, as every real scanner does, and passes
-//! everything else. Answers `413` past a size small enough to reach on
-//! purpose, so the "too large to scan" path can be tried too.
+//! everything else. Answers `413` past a size small enough to hit in testing,
+//! so the "too large to scan" path can be tried too.
 
 use axum::{
     Json, Router,

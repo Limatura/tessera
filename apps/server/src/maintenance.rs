@@ -142,16 +142,16 @@ struct Reclaimed {
 /// Walks the owned prefix of every open backend and removes what is both
 /// unreferenced and old.
 ///
-/// Every backend, since an upload can leave an orphan on whichever one it was
-/// placed on. The live set is keys alone, not keys per backend: keys are unique
-/// across all of them, so a key named anywhere protects its object everywhere,
-/// which errs the safe way.
+/// Every backend, since an upload can leave an orphan wherever it was placed.
+/// The live set is keys only, not keys per backend: keys are unique across all
+/// backends, so a key referenced anywhere protects its object everywhere,
+/// which errs on the safe side.
 async fn remove_orphans(state: &AppState, live: HashSet<String>, cutoff: i64) -> Reclaimed {
     let pool = state.backends.load_full();
     let mut reclaimed = Reclaimed { count: 0, bytes: 0 };
 
     // In name order, so a pass that hits the cap stops at the same place each
-    // time rather than wherever the hash map happened to put it.
+    // time, not wherever the hash map put it.
     let mut open: Vec<_> = pool.open.iter().collect();
     open.sort_unstable_by_key(|(name, _)| *name);
     for (name, stores) in open {
@@ -287,9 +287,9 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         "unconfirmed registrations",
         state.pending.delete_expired(now).await,
     );
-    // A browser closed on the provider's login page leaves a row nothing will
-    // ever come back for. It holds no credential, only the values the callback
-    // would have been checked against, but it is unbounded growth otherwise.
+    // A browser closed on the provider's login page leaves a row that will
+    // never be used. It holds no credential, only the values the callback
+    // would check against, but would otherwise grow without bound.
     report(
         "abandoned provider sign-ins",
         state.identities.sweep_expired(now).await,
@@ -304,12 +304,12 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
     );
 }
 
-/// Removes every one of a share's objects, each from the backend holding it,
-/// and says whether all of them went.
+/// Removes all of a share's objects, each from the backend holding it, and
+/// reports whether all of them went.
 ///
-/// One failure stops the share being marked, because a share marked clean with
-/// an object still in the store is an object nothing will ever look for again.
-/// A backend that did not open counts as one: its objects are still there.
+/// One failure stops the share being marked: a share marked clean with an
+/// object still in the store leaves an object nothing will look for again. A
+/// backend that did not open counts as a failure, since its objects remain.
 async fn remove_every_object(state: &AppState, objects: &[(String, String)]) -> bool {
     let mut all_gone = true;
     for (backend, key) in objects {

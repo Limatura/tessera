@@ -1,17 +1,16 @@
 //! Signing in through an identity provider, over HTTP, against a real one.
 //!
-//! The provider is `common::provider::FakeProvider`: a loopback server that
-//! serves a discovery document and a token endpoint. Everything else is the
-//! shipped code, so what these prove is the wiring the unit tests cannot reach,
-//! which is the order the steps happen in and what each refusal does to the
-//! browser.
+//! The provider is `common::provider::FakeProvider`: a loopback server with a
+//! discovery document and a token endpoint. Everything else is the shipped
+//! code, so these cover what unit tests cannot: the order of the steps and
+//! what each refusal does to the browser.
 //!
-//! Every outcome here is a `303`, including every refusal. See `api/oidc.rs`
-//! for why. The assertions read the `Location`.
+//! Every outcome here is a `303`, refusals included (see `api/oidc.rs` for
+//! why). The assertions read the `Location`.
 //!
-//! `clippy.toml`'s test exemption only reaches code inside a `#[test]` body,
-//! and the helpers below sit outside one. Same reasoning as `common/mod.rs`: a
-//! fixture that cannot build what it needs has nothing to report but a failure.
+//! `clippy.toml`'s test exemption only covers code inside a `#[test]` body,
+//! and the helpers below are outside one. Same reasoning as `common/mod.rs`: a
+//! fixture that cannot build what it needs can only fail.
 #![expect(
     clippy::expect_used,
     clippy::panic,
@@ -48,9 +47,9 @@ async fn instance(provider: &FakeProvider) -> TestApp {
     .await
 }
 
-/// Reading a provider's document from the server, which is the point: the
-/// panel's own fetch is refused by providers that do not open CORS, and this
-/// server has no origin to be refused for.
+/// Reading a provider's document from the server. That is the point: the
+/// panel's own fetch is blocked by providers without CORS, and the server has
+/// no origin to be blocked for.
 #[tokio::test]
 async fn the_panel_can_read_a_provider_document_through_the_server() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -82,8 +81,8 @@ async fn the_panel_can_read_a_provider_document_through_the_server() {
             read["scopes_supported"],
             serde_json::json!(["openid", "email", "profile"])
         );
-        // What lets the panel say, before anybody is refused, that this
-        // provider cannot vouch for an address.
+        // Lets the panel warn, before any refusal, that this provider cannot
+        // vouch for an address.
         assert_eq!(
             read["claims_supported"],
             serde_json::json!(["sub", "email", "groups"])
@@ -92,8 +91,7 @@ async fn the_panel_can_read_a_provider_document_through_the_server() {
 }
 
 /// What it must not do: leave the tried-out document where a sign-in would
-/// pick it up. The configured provider is a different one, and it stays that
-/// way.
+/// pick it up. The configured provider is a different one and stays so.
 #[tokio::test]
 async fn reading_a_document_does_not_decide_what_sign_in_talks_to() {
     let configured = FakeProvider::start(CLIENT_ID).await;
@@ -142,7 +140,7 @@ async fn an_address_the_document_cannot_be_read_from_is_refused() {
         .await
     };
 
-    // Not https, and not a private address: the rule the issuer setting keeps.
+    // Not https and not a private address: the rule the issuer setting enforces.
     let plain = refuse(
         Auth::Cookie(&owner),
         "http://id.example.com",
@@ -151,14 +149,14 @@ async fn an_address_the_document_cannot_be_read_from_is_refused() {
     .await;
     assert!(body_string(plain).await.contains("https"));
     refuse(Auth::Cookie(&owner), "   ", StatusCode::BAD_REQUEST).await;
-    // Nothing listening: the provider's own failure, reported as it is.
+    // Nothing listening: the provider's own failure, reported as is.
     refuse(
         Auth::Cookie(&owner),
         "http://127.0.0.1:1",
         StatusCode::BAD_REQUEST,
     )
     .await;
-    // And it is not a fetch anybody can ask this server to make.
+    // And not a fetch just anyone can make this server perform.
     refuse(
         Auth::Cookie(&member),
         "http://127.0.0.1:1",
@@ -216,10 +214,10 @@ async fn leave(app: &TestApp, uri: &str, auth: Auth<'_>) -> Leaving {
     }
 }
 
-/// Answers the callback the way the provider's redirect would.
+/// Answers the callback as the provider's redirect would.
 ///
-/// The nonce goes in first, because a provider puts the one it was given into
-/// the token it issues, and refusing a token without it is the point.
+/// The nonce goes in first: a provider puts the one it was given into the
+/// token, and refusing a token without it is what is being tested.
 async fn come_back(app: &TestApp, provider: &FakeProvider, leaving: &Leaving) -> Response<Body> {
     provider.echo_nonce(&leaving.nonce);
     app.empty(
@@ -241,7 +239,7 @@ fn with_claim(claims: &mut serde_json::Value, key: &str, value: serde_json::Valu
     }
 }
 
-/// The claims a provider would release for somebody it is happy with.
+/// The claims a provider would release for a user it accepts.
 fn claims_for(subject: &str, email: &str) -> serde_json::Value {
     serde_json::json!({
         "sub": subject,
@@ -252,7 +250,7 @@ fn claims_for(subject: &str, email: &str) -> serde_json::Value {
     })
 }
 
-/// The whole point: a person nobody here has seen arrives from the provider and
+/// The main path: a user not seen here before arrives from the provider and
 /// leaves with a session.
 #[tokio::test]
 async fn a_stranger_the_provider_vouches_for_gets_an_account() {
@@ -270,7 +268,7 @@ async fn a_stranger_the_provider_vouches_for_gets_an_account() {
     assert_eq!(location(&response), "/");
     let cookie = session_cookie(&response);
 
-    // The session is real, and it belongs to an account built from the claims.
+    // The session is real, and belongs to an account built from the claims.
     let body = body_json(
         expect_status(
             app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&cookie))
@@ -287,8 +285,8 @@ async fn a_stranger_the_provider_vouches_for_gets_an_account() {
     );
 }
 
-/// And coming back a second time signs in as the same account rather than
-/// making another one, because the subject is what it is keyed on.
+/// Coming back a second time signs in as the same account instead of creating
+/// another, because the subject is the key.
 #[tokio::test]
 async fn the_same_subject_comes_back_to_the_same_account() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -301,8 +299,8 @@ async fn the_same_subject_comes_back_to_the_same_account() {
     let first = leave(&app, "/api/v1/auth/oidc/start", Auth::None).await;
     let first_cookie = session_cookie(&come_back(&app, &provider, &first).await);
 
-    // The provider now calls them something else. The subject is unchanged, so
-    // it is still the same person.
+    // The provider now uses a different name. The subject is unchanged, so it
+    // is still the same user.
     provider.will_say(Script {
         claims: serde_json::json!({
             "sub": "sub-1",
@@ -371,8 +369,8 @@ async fn a_callback_nobody_asked_for_is_refused() {
     }
 }
 
-/// The provider refusing is reported as a refusal, and the flow row goes with
-/// it rather than staying answerable.
+/// A provider refusal is reported as such, and the flow row is removed with it
+/// instead of staying answerable.
 #[tokio::test]
 async fn a_provider_that_refuses_is_reported_and_the_flow_is_spent() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -386,7 +384,7 @@ async fn a_provider_that_refuses_is_reported_and_the_flow_is_spent() {
     let response = come_back(&app, &provider, &state).await;
     assert_eq!(rejection(&response).as_deref(), Some("refused"));
 
-    // Spent, not left behind: the same state is now unknown.
+    // Used up, not left behind: the same state is now unknown.
     provider.will_say(Script {
         claims: claims_for("sub-1", "alice@example.com"),
         ..Script::default()
@@ -397,7 +395,7 @@ async fn a_provider_that_refuses_is_reported_and_the_flow_is_spent() {
     );
 }
 
-/// The provider saying no in the redirect, rather than at the token endpoint.
+/// The provider refusing in the redirect, not at the token endpoint.
 #[tokio::test]
 async fn a_provider_that_refuses_in_the_redirect_is_reported() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -418,8 +416,8 @@ async fn a_provider_that_refuses_in_the_redirect_is_reported() {
     assert_eq!(rejection(&response).as_deref(), Some("refused"));
 }
 
-/// A token for a different sign-in must not be usable, which is what the nonce
-/// is for. The provider here answers with one it made up.
+/// A token from another sign-in must not work; that is what the nonce is for.
+/// The provider here answers with a made-up one.
 #[tokio::test]
 async fn a_token_that_belongs_to_another_sign_in_is_refused() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -443,8 +441,8 @@ async fn a_token_that_belongs_to_another_sign_in_is_refused() {
     );
 }
 
-/// The `email` scope is optional in the specification, and an account here
-/// needs an address. The refusal names the case rather than saying "refused".
+/// The `email` scope is optional in the spec, and an account here needs an
+/// address. The refusal names the case instead of just saying "refused".
 #[tokio::test]
 async fn a_provider_that_releases_no_address_is_told_so() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -465,7 +463,7 @@ async fn a_provider_that_releases_no_address_is_told_so() {
     );
 }
 
-/// A provider that keeps the address out of the token releases it from
+/// A provider that leaves the address out of the token releases it from
 /// userinfo instead, and that is enough.
 #[tokio::test]
 async fn an_address_from_userinfo_is_enough() {
@@ -506,7 +504,7 @@ async fn with_alice(provider: &FakeProvider, link: LinkByEmail) -> TestApp {
     app
 }
 
-/// Signs in through the provider as somebody at `alice@example.com`, with
+/// Signs in through the provider as a user at `alice@example.com`, with
 /// `verified` as the provider's `email_verified`, or no claim at all.
 async fn arrives_as_alice(
     app: &TestApp,
@@ -547,10 +545,9 @@ async fn landed_on_alice(app: &TestApp, response: &Response<Body>) -> bool {
     common::field(&body, "username") == serde_json::json!("alice")
 }
 
-/// Synology's SSO Server has no `email_verified` claim at all, Entra ID leaves
-/// it out, and Authentik sends `false` by default. Against those the old
-/// switch did nothing whatever it was set to; these are the three answers
-/// that replaced it.
+/// Synology's SSO Server has no `email_verified` claim, Entra ID omits it, and
+/// Authentik sends `false` by default. With those the old switch did nothing
+/// either way; these are the three values that replaced it.
 #[tokio::test]
 async fn how_far_a_provider_is_trusted_decides_whether_it_links() {
     for (link, verified, links) in [
@@ -579,9 +576,9 @@ async fn how_far_a_provider_is_trusted_decides_whether_it_links() {
     }
 }
 
-/// A provider that puts the address in the token and says whether it checked
-/// it only in userinfo. Reading the verdict only when the address was missing
-/// from the token left these unverified for ever.
+/// A provider that puts the address in the token but the verified flag only in
+/// userinfo. Reading the flag only when the token lacked an address left these
+/// unverified for good.
 #[tokio::test]
 async fn a_verdict_from_userinfo_counts_for_an_address_from_the_token() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -603,8 +600,8 @@ async fn a_verdict_from_userinfo_counts_for_an_address_from_the_token() {
     assert!(landed_on_alice(&app, &response).await);
 }
 
-/// But only a verdict about the same address. Userinfo vouching for another
-/// one says nothing about the address the token carried.
+/// But only a verdict on the same address. Userinfo vouching for a different
+/// address says nothing about the one in the token.
 #[tokio::test]
 async fn a_verdict_about_another_address_does_not_count() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -626,8 +623,8 @@ async fn a_verdict_about_another_address_does_not_count() {
     assert_eq!(rejection(&response).as_deref(), Some("address_taken"));
 }
 
-/// With a group required, somebody outside it is refused even though the
-/// provider was happy to vouch for them.
+/// With a group required, a user outside it is refused even though the
+/// provider vouched for them.
 #[tokio::test]
 async fn somebody_outside_the_required_group_is_refused() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -653,7 +650,7 @@ async fn somebody_outside_the_required_group_is_refused() {
         Some("not_permitted")
     );
 
-    // And somebody inside it is not.
+    // And a user inside it is not.
     let mut inside = claims_for("sub-2", "bob@example.com");
     with_claim(
         &mut inside,
@@ -668,8 +665,8 @@ async fn somebody_outside_the_required_group_is_refused() {
     assert_eq!(location(&come_back(&app, &provider, &state).await), "/");
 }
 
-/// An instance that admits nobody new admits nobody new through the provider
-/// either. Being vouched for is not being invited.
+/// An instance closed to new accounts is closed to them through the provider
+/// too. Being vouched for is not being invited.
 #[tokio::test]
 async fn a_closed_instance_does_not_register_from_the_provider() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -695,10 +692,10 @@ async fn a_closed_instance_does_not_register_from_the_provider() {
     );
 }
 
-/// An instance run from its own identity provider: no sign-up form of its own,
-/// and the people the provider lets through get an account on their first
-/// sign-in, without an invitation. `auth.registration` alone could not say
-/// that; the per-provider setting can, in both directions.
+/// An instance run from its own identity provider: no sign-up form, and users
+/// the provider admits get an account on first sign-in without an invitation.
+/// `auth.registration` alone could not express that; the per-provider setting
+/// can, in both directions.
 #[tokio::test]
 async fn a_provider_can_make_accounts_whatever_registration_says() {
     use tessera_server::config::{ProviderRegistration, RegistrationPolicy};
@@ -764,8 +761,8 @@ async fn a_provider_can_make_accounts_whatever_registration_says() {
     }
 }
 
-/// `never` is about new accounts. Somebody who already signs in this way
-/// keeps doing so.
+/// `never` is about new accounts. A user who already signs in this way keeps
+/// doing so.
 #[tokio::test]
 async fn never_still_lets_an_existing_identity_in() {
     use tessera_server::config::ProviderRegistration;
@@ -798,14 +795,14 @@ async fn never_still_lets_an_existing_identity_in() {
     assert_eq!(location(&come_back(&app, &provider, &again).await), "/");
 }
 
-/// With no provider configured there is nothing to send anybody to, and the
-/// sign-in page is told rather than left waiting.
+/// With no provider configured there is nowhere to send anyone, and the
+/// sign-in page is told so instead of being left waiting.
 #[tokio::test]
 async fn an_instance_with_no_provider_says_so() {
     let app = TestApp::ready().await;
 
-    // Every provider is listed, the off ones included: a page has to ask
-    // before it can know, and an empty list would have to be interpreted.
+    // Every provider is listed, disabled ones included: a page cannot know
+    // without asking, and an empty list would need interpreting.
     let listed = providers(&app).await;
     assert_eq!(listed.len(), 3, "{listed:?}");
     assert!(
@@ -850,8 +847,8 @@ async fn a_configured_instance_advertises_its_provider() {
             .is_some_and(|it| !it.is_empty()),
         "a button with nothing written on it: {oidc}"
     );
-    // The other two are listed and off, because nothing configured them, and a
-    // name either way so a page never draws a blank button.
+    // The other two are listed as disabled, since nothing configured them, and
+    // still have a name so a page never draws a blank button.
     for name in ["github", "discord"] {
         let entry = listed
             .iter()
@@ -888,8 +885,8 @@ async fn attaching_a_provider_needs_the_browser_credential() {
     assert!(location(&response).starts_with(&provider.issuer));
 }
 
-/// Somebody who registered with a password attaches the provider and keeps the
-/// account they already had.
+/// A user who registered with a password links the provider and keeps their
+/// existing account.
 #[tokio::test]
 async fn a_password_account_can_attach_a_provider_and_detach_it() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -902,14 +899,14 @@ async fn a_password_account_can_attach_a_provider_and_detach_it() {
 
     let state = leave(&app, "/api/v1/auth/oidc/link", Auth::Cookie(&cookie)).await;
     let response = come_back(&app, &provider, &state).await;
-    // Already signed in, so nothing is issued and the account page is where
-    // this belongs.
+    // Already signed in, so no session is issued and the account page is the
+    // destination.
     assert_eq!(location(&response), "/account");
     assert!(!response.headers().contains_key(header::SET_COOKIE));
 
     let attached = identities(&app, &cookie).await;
     assert_eq!(attached.as_array().map(Vec::len), Some(1));
-    // A password is still there, so this is not the only way in.
+    // A password still exists, so this is not the only way in.
     assert_eq!(
         attached[0].get("is_last_way_in"),
         Some(&serde_json::json!(false))
@@ -931,8 +928,8 @@ async fn a_password_account_can_attach_a_provider_and_detach_it() {
     );
 }
 
-/// An account with no password and one identity cannot detach it, because
-/// nothing would be left to sign in with.
+/// An account with no password and one identity cannot unlink it: nothing
+/// would be left to sign in with.
 #[tokio::test]
 async fn the_last_way_into_an_account_cannot_be_detached() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -960,7 +957,7 @@ async fn the_last_way_into_an_account_cannot_be_detached() {
         )
         .await;
     assert_eq!(refused.status(), StatusCode::CONFLICT);
-    // And it really is still attached.
+    // And it is still linked.
     assert_eq!(
         identities(&app, &cookie).await.as_array().map(Vec::len),
         Some(1)
@@ -987,8 +984,8 @@ async fn detaching_what_was_never_attached_is_not_found() {
     );
 }
 
-/// A subject already attached to one account is refused rather than moved.
-/// Moving it would sign two people in as one.
+/// A subject linked to one account is refused, not moved. Moving it would
+/// sign two people in as one.
 #[tokio::test]
 async fn a_subject_cannot_be_attached_to_a_second_account() {
     let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1088,9 +1085,9 @@ async fn register(app: &TestApp, username: &str) -> String {
     session_cookie(&response)
 }
 
-/// The provider telling us somebody has signed out, over the endpoint it posts
-/// to. The signature is real here, unlike the ID token, because this is the one
-/// token nothing else vouches for.
+/// The provider reporting a sign-out, via the endpoint it posts to. The
+/// signature is real here, unlike the ID token, because nothing else vouches
+/// for this token.
 mod backchannel {
     use axum::http::{Method, Request, StatusCode, header};
 
@@ -1099,7 +1096,7 @@ mod backchannel {
         location, session_cookie, with_claim,
     };
 
-    /// Signs somebody in through the provider and returns their cookie.
+    /// Signs a user in through the provider and returns their cookie.
     async fn signed_in(app: &TestApp, provider: &FakeProvider, subject: &str) -> String {
         provider.will_say(Script {
             claims: claims_for(subject, &format!("{subject}@example.com")),
@@ -1151,7 +1148,7 @@ mod backchannel {
             == StatusCode::OK
     }
 
-    /// The whole point: the provider says somebody is out, and they are.
+    /// The main path: the provider says a user is signed out, and they are.
     #[tokio::test]
     async fn a_subject_logout_ends_that_persons_provider_sessions() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1196,7 +1193,7 @@ mod backchannel {
         );
     }
 
-    /// A `sid` names one session, not everything that person has open.
+    /// A `sid` names one session, not every session that user has open.
     #[tokio::test]
     async fn a_session_logout_ends_only_the_one_it_names() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1213,8 +1210,8 @@ mod backchannel {
         assert!(still_valid(&app, &phone).await, "only the laptop was named");
     }
 
-    /// The signature is the only thing that says who sent this, so a token
-    /// signed by a key the provider never published is worth nothing.
+    /// Only the signature identifies the sender, so a token signed by a key
+    /// the provider never published is worthless.
     #[tokio::test]
     async fn a_token_signed_by_an_unknown_key_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1229,8 +1226,8 @@ mod backchannel {
     }
 
     /// The forgery a key lookup cannot catch: the key id names a key the
-    /// provider really published, and the signature was made with another one.
-    /// Only verifying it says no.
+    /// provider did publish, but the signature was made with another. Only
+    /// verification rejects it.
     #[tokio::test]
     async fn a_token_signed_by_an_impostor_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1244,8 +1241,8 @@ mod backchannel {
         assert!(still_valid(&app, &alice).await);
     }
 
-    /// The same replay bound as the subject case, on the path that names one
-    /// session. They are two queries and only one of them was covered.
+    /// The same replay bound as the subject case, on the single-session path.
+    /// They are two queries and only one was covered.
     #[tokio::test]
     async fn a_kept_token_cannot_end_a_named_session_made_after_it() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1267,8 +1264,7 @@ mod backchannel {
         );
     }
 
-    /// An unsigned token is the classic way in, and is refused before any key
-    /// is looked up.
+    /// An unsigned token is the classic attack, refused before any key lookup.
     #[tokio::test]
     async fn an_unsigned_token_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1293,8 +1289,8 @@ mod backchannel {
         URL_SAFE_NO_PAD.encode(bytes)
     }
 
-    /// An ID token carries a `nonce`, and the specification forbids one here so
-    /// that an ID token cannot be replayed as a logout.
+    /// An ID token carries a `nonce`, and the spec forbids one here so an ID
+    /// token cannot be replayed as a logout.
     #[tokio::test]
     async fn an_id_token_replayed_as_a_logout_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1334,8 +1330,8 @@ mod backchannel {
         assert!(still_valid(&app, &alice).await);
     }
 
-    /// Signed by a key we trust, but claiming to come from somewhere else.
-    /// That is where a mix-up starts, and the issuer check is what stops it.
+    /// Signed by a trusted key but claiming another issuer. That is how a
+    /// mix-up starts, and the issuer check stops it.
     #[tokio::test]
     async fn a_token_from_another_issuer_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1350,7 +1346,7 @@ mod backchannel {
         assert!(still_valid(&app, &alice).await);
     }
 
-    /// Issued for somebody else's client at the same provider.
+    /// Issued for another client at the same provider.
     #[tokio::test]
     async fn a_token_for_another_client_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1364,9 +1360,9 @@ mod backchannel {
         assert!(still_valid(&app, &alice).await);
     }
 
-    /// A body with no token in it. Answered in the same shape as everything
-    /// else here: `Form<T>` would reject it with its own 422 and its own words,
-    /// which a provider cannot read and would retry for ever.
+    /// A body without a token. Answered in the same format as everything else
+    /// here: `Form<T>` would reject it with its own 422 and wording, which a
+    /// provider cannot parse and would retry forever.
     #[tokio::test]
     async fn a_body_with_no_token_is_refused_in_the_same_shape() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1395,7 +1391,7 @@ mod backchannel {
         }
     }
 
-    /// A token that names nobody has nothing to act on.
+    /// A token that names no one has nothing to act on.
     #[tokio::test]
     async fn a_token_naming_nobody_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1406,8 +1402,8 @@ mod backchannel {
         assert_eq!(push(&app, &token).await.status(), StatusCode::BAD_REQUEST);
     }
 
-    /// A kept copy cannot be used later to end a session made since. Without
-    /// this, replaying an old token would be a way to keep signing somebody out.
+    /// A kept copy cannot later end a session created since. Otherwise
+    /// replaying an old token would keep signing a user out.
     #[tokio::test]
     async fn a_kept_token_cannot_end_a_session_made_after_it() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1431,7 +1427,7 @@ mod backchannel {
         );
     }
 
-    /// One somebody kept for hours is refused outright.
+    /// One kept for hours is refused outright.
     #[tokio::test]
     async fn a_stale_token_is_refused() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1453,9 +1449,9 @@ mod backchannel {
         assert!(still_valid(&app, &alice).await);
     }
 
-    /// A subject nobody here has ever signed in as is reported as success. The
-    /// provider asked for a state that already holds, and a refusal would have
-    /// it retry something that cannot change.
+    /// A subject that never signed in here is reported as success. The
+    /// requested state already holds, and a refusal would make the provider
+    /// retry forever.
     #[tokio::test]
     async fn a_logout_for_somebody_we_do_not_know_is_not_an_error() {
         let provider = FakeProvider::start(CLIENT_ID).await;
@@ -1468,7 +1464,7 @@ mod backchannel {
         assert_eq!(push(&app, &token).await.status(), StatusCode::OK);
     }
 
-    /// Refusals answer in the shape the specification says a provider reads.
+    /// Refusals use the format the spec says a provider reads.
     #[tokio::test]
     async fn a_refusal_is_in_the_shape_a_provider_expects() {
         let provider = FakeProvider::start(CLIENT_ID).await;

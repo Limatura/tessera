@@ -1,25 +1,23 @@
-//! Leaving for the provider, and what has to be remembered until the browser
+//! Leaving for the provider, and what must be remembered until the browser
 //! comes back.
 //!
 //! # The redirect URI comes from configuration, never from the request
 //!
-//! Everywhere else the origin falls back to the `Host` header when
-//! `server.public_url` is unset, because getting it slightly wrong there means
-//! a preview card with a broken image. Here it would mean sending the
-//! authorisation code somewhere else: whoever controls the header controls
-//! where the provider delivers it.
+//! Elsewhere the origin falls back to the `Host` header when
+//! `server.public_url` is unset, since getting it slightly wrong only breaks a
+//! preview image. Here it would send the authorisation code elsewhere: whoever
+//! controls the header controls where the provider delivers it.
 //!
-//! So this reads `server.public_url` and refuses when it is empty. A provider
-//! also matches the redirect URI by exact string equality against what was
-//! registered with it, so a value that changes per request could not be
-//! registered anyway.
+//! So this reads `server.public_url` and refuses when it is empty. Providers
+//! also match the redirect URI exactly against what was registered, so a
+//! per-request value could not be registered anyway.
 //!
 //! # PKCE is not optional here
 //!
-//! The specification lets a confidential client skip it, on the grounds that
-//! the secret already proves who is exchanging the code. It is still sent,
-//! because it is the only thing that helps when a code leaks through a redirect
-//! chain, a proxy log or browser history, and it costs one hash.
+//! The spec lets a confidential client skip it, since the secret already
+//! proves who is exchanging the code. It is sent anyway: it is the only
+//! protection when a code leaks through a redirect chain, a proxy log or
+//! browser history, and it costs one hash.
 
 use argon2::password_hash::rand_core::{OsRng, RngCore as _};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
@@ -28,15 +26,14 @@ use url::Url;
 
 use crate::config::Config;
 
-/// Bytes behind each random value. 32 is what the rest of the server uses for
+/// Bytes behind each random value. 32, as used elsewhere in the server for
 /// anything that must not be guessed.
 const RANDOM_BYTES: usize = 32;
 
 /// The path a provider sends the browser back to.
 ///
-/// One per provider, because a provider matches this by exact string equality
-/// against what was registered with it, and two of them sharing an address
-/// would leave the callback guessing which one answered.
+/// One per provider: providers match it exactly against what was registered,
+/// and a shared path would leave the callback guessing which one answered.
 #[must_use]
 pub fn callback_path(provider: &str) -> String {
     format!("/api/v1/auth/{provider}/callback")
@@ -47,7 +44,7 @@ pub fn callback_path(provider: &str) -> String {
 pub enum Purpose {
     /// Signing in, and registering first if this subject is unknown.
     Login,
-    /// Attaching a provider to the account that is already signed in.
+    /// Linking a provider to the account already signed in.
     Link,
 }
 
@@ -63,9 +60,9 @@ impl Purpose {
 
     /// Reads back what [`Self::as_str`] wrote.
     ///
-    /// An unrecognised value is [`Self::Login`], which is the narrower of the
-    /// two: linking needs an account to link to, and treating a corrupt row as
-    /// a link would attach an identity to whoever happened to be signed in.
+    /// An unrecognised value is [`Self::Login`], the narrower of the two:
+    /// linking needs an account, and treating a corrupt row as a link would
+    /// attach an identity to whoever happened to be signed in.
     #[must_use]
     pub fn from_stored(value: &str) -> Self {
         if value == "link" {
@@ -98,7 +95,7 @@ impl Pkce {
     }
 }
 
-/// A high-entropy value in the alphabet a URL takes without escaping.
+/// A high-entropy value using only URL-safe characters.
 #[must_use]
 pub fn random_token() -> String {
     let mut bytes = [0_u8; RANDOM_BYTES];
@@ -140,16 +137,15 @@ pub fn start(leaving: Leaving<'_>) -> Result<Start, StartError> {
     let redirect_uri = redirect_uri(leaving.config, leaving.provider)?;
     let pkce = Pkce::generate();
     let state = random_token();
-    // Generated for every provider and sent only to the ones that will echo it
-    // back. A provider with no ID token has nothing to put it in, and storing
-    // one it was never given would make the callback compare against a value
-    // that could never match.
+    // Generated for every provider but sent only to those that echo it back.
+    // A provider without ID tokens has nowhere to put it, and storing one
+    // would make the callback compare against a value that can never match.
     let nonce = leaving.wants_nonce.then(random_token);
 
-    // Appending to the parsed URL rather than to the string: an authorisation
-    // endpoint is allowed to carry a query of its own, and at least one
-    // provider uses it to select a tenant. Building the string by hand would
-    // have to get the separator right and escape every value.
+    // Append to the parsed URL, not the string: an authorisation endpoint may
+    // carry its own query (at least one provider uses it to select a tenant),
+    // and building the string by hand means getting the separator and
+    // escaping right.
     let mut url = Url::parse(leaving.authorize)
         .map_err(|error| StartError::BadEndpoint(error.to_string()))?;
     url.query_pairs_mut()
@@ -172,14 +168,14 @@ pub fn start(leaving: Leaving<'_>) -> Result<Start, StartError> {
     })
 }
 
-/// What a sign-in needs to know before it can leave.
+/// What a sign-in needs before it can leave.
 ///
 /// A struct because the pieces come from three places: the provider's name,
-/// its endpoints (a constant for some, discovered for others), and this
-/// instance's own configuration.
+/// its endpoints (constant for some, discovered for others), and this
+/// instance's configuration.
 #[derive(Debug, Clone, Copy)]
 pub struct Leaving<'a> {
-    /// Which provider, as it is stored and as it appears in the callback path.
+    /// The provider, as stored and as it appears in the callback path.
     pub provider: &'a str,
     /// Where the browser is sent.
     pub authorize: &'a str,
@@ -234,8 +230,8 @@ mod tests {
         config
     }
 
-    /// The challenge is the hash of the verifier, which is the whole point: the
-    /// provider sees only the hash, so a stolen redirect cannot be exchanged.
+    /// The challenge is the hash of the verifier: the provider sees only the
+    /// hash, so a stolen redirect cannot be exchanged.
     #[test]
     fn the_challenge_is_the_hash_of_the_verifier() {
         let pkce = Pkce::generate();
@@ -307,8 +303,8 @@ mod tests {
         assert!(start.url.contains("&response_type=code"));
     }
 
-    /// Without a configured address there is nowhere safe to come back to, and
-    /// guessing from the request is how a code gets delivered to somebody else.
+    /// Without a configured address there is nowhere safe to return to, and
+    /// guessing from the request is how a code gets delivered to an attacker.
     #[test]
     fn no_public_url_is_a_refusal() {
         let mut config = config();
@@ -331,9 +327,8 @@ mod tests {
         );
     }
 
-    /// A provider with no ID token gets no nonce, and the redirect does not
-    /// carry one. Sending it anyway would be asking for an echo that cannot
-    /// come back.
+    /// A provider without ID tokens gets no nonce, and the redirect carries
+    /// none. Sending one would ask for an echo that can never come.
     #[test]
     fn a_provider_with_no_token_gets_no_nonce() {
         let config = config();
@@ -346,8 +341,8 @@ mod tests {
 
         assert!(start.nonce.is_none());
         assert!(!start.url.contains("nonce="), "{}", start.url);
-        // The state and the verifier are still there: they are what is left
-        // tying the callback to this sign-in.
+        // State and verifier remain: they are what still ties the callback to
+        // this sign-in.
         assert!(start.url.contains(&format!("state={}", start.state)));
         assert!(start.url.contains("code_challenge_method=S256"));
         assert!(start.url.contains(

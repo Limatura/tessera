@@ -9,8 +9,8 @@
 //!
 //! It is compiled twice: natively for the command line and to WebAssembly for
 //! the browser. One implementation means the two cannot disagree about the
-//! format, which is the failure that would matter most: a file one of them
-//! wrote and the other cannot read.
+//! format, and a file one wrote that the other cannot read is the failure that
+//! would matter most.
 //!
 //! So it does no IO of any kind, randomness included. Every key, nonce and salt
 //! is an argument, and the caller decides where the bytes came from.
@@ -38,10 +38,10 @@
 //! chunk that is now last was sealed as not being last.
 //!
 //! Every chunk but the last holds exactly [`CHUNK_LEN`] bytes. The last holds
-//! at least one, unless the whole content is empty, in which case there is one
-//! empty chunk. So a sealed length determines the content's length, and chunk
-//! `i` is always at the same offset: a `Range` request can fetch one without
-//! reading what comes before it.
+//! at least one, unless the content is empty, in which case there is a single
+//! empty chunk. So a sealed length determines the content length, and chunk
+//! `i` always sits at the same offset: a `Range` request can fetch it without
+//! reading what comes before.
 
 #[cfg(feature = "wasm")]
 pub mod wasm;
@@ -77,22 +77,22 @@ pub const SALT_LEN: usize = 16;
 
 /// Argon2id memory cost for a password, in KiB.
 ///
-/// Fixed by the format version, not chosen per share. Stored alongside each
-/// share, they would be one more thing a client has to be told and one more
-/// thing that can arrive wrong; if they need to rise, [`VERSION`] does.
+/// Fixed by the format version, not chosen per share. Stored per share, the
+/// parameters would be one more thing to send clients and one more thing that
+/// can arrive wrong; raising them means bumping [`VERSION`].
 ///
-/// Measured in a browser on a desktop, these take 130 to 160 ms.
+/// These take 130 to 160 ms in a desktop browser.
 pub const PASSWORD_MEMORY_KIB: u32 = 64 * 1024;
 
 /// Argon2id passes over memory for a password. See [`PASSWORD_MEMORY_KIB`].
 pub const PASSWORD_PASSES: u32 = 3;
 
-/// The shortest password a client should let a key be derived from.
+/// The shortest password a client should derive a key from.
 ///
-/// Not enforced by anything here, and not by the server, which never sees the
-/// password. It is the number clients agree to refuse below. Higher than an
-/// account's minimum because the threat is different: whoever holds the stored
-/// share can guess offline, at their own pace, with no throttle in the way.
+/// Not enforced here or by the server, which never sees the password; it is
+/// the threshold clients agree to refuse below. Higher than the account
+/// minimum because the threat differs: anyone holding the stored share can
+/// guess offline, at their own pace, with no throttling.
 pub const MIN_PASSWORD_CHARS: usize = 12;
 
 const KEY_LEN: usize = 32;
@@ -120,8 +120,8 @@ pub enum Error {
     Chunk,
     /// The content was altered, or the key is not the one it was sealed with.
     ///
-    /// One answer for both, because which of the two it was is exactly what a
-    /// forger would like to learn.
+    /// One variant for both: telling them apart is what a forger wants to
+    /// learn.
     #[error("the content was altered, or the key is wrong")]
     Unauthentic,
     /// The password could not be hashed. Only a password longer than four
@@ -186,10 +186,10 @@ impl ShareKey {
     /// What a client presents to the server as the share's password, for a
     /// share whose key came from one.
     ///
-    /// Derived from the key and not the password, so the server can refuse a
-    /// wrong guess and count retrievals as it does for any protected share,
-    /// while what it is handed opens nothing. Going back from this to the key
-    /// is inverting HKDF.
+    /// Derived from the key, not the password, so the server can reject wrong
+    /// guesses and count retrievals as for any protected share, while holding
+    /// nothing that opens the content. Recovering the key from this means
+    /// inverting HKDF.
     #[must_use]
     pub fn access_token(&self) -> String {
         let mut token = [0; KEY_LEN];
@@ -208,8 +208,7 @@ impl ShareKey {
     }
 }
 
-/// Prints nothing of the key. The whole point of the type is that it does not
-/// reach a log.
+/// Prints nothing of the key, so it cannot end up in a log.
 impl std::fmt::Debug for ShareKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("ShareKey(<redacted>)")
@@ -222,8 +221,8 @@ fn derive(salt: Option<&[u8]>, key: &[u8], info: &[u8], out: &mut [u8; KEY_LEN])
     let _ = Hkdf::<Sha256>::new(salt, key).expand(info, out);
 }
 
-/// The salt a password is stretched with. Public: it is stored with the share
-/// and handed to anyone who asks, since deriving the key needs it.
+/// The salt a password is stretched with. Not secret: it is stored with the
+/// share and handed to anyone who asks, since deriving the key needs it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Salt([u8; SALT_LEN]);
 
@@ -396,9 +395,8 @@ impl std::fmt::Debug for Sealer {
 
 /// Opens the chunks of one sealed object, in any order.
 ///
-/// Knowing the object's full length is what lets it open chunk `i` without the
-/// ones before it: the length says which chunk is last, and so which flag each
-/// was sealed with.
+/// Opening chunk `i` alone works because the object's full length is known: it
+/// says which chunk is last, and so which flag each chunk was sealed with.
 pub struct Opener {
     cipher: ChaCha20Poly1305,
     chunks: u64,
@@ -714,13 +712,13 @@ mod tests {
         assert!(!rendered.contains('7'), "leaked: {rendered}");
     }
 
-    /// Pinned output. The browser and the command line read each other's files
-    /// only while this holds, so a change here is a new format version, not a
-    /// test to update.
+    /// Pinned output. The browser and the command line can read each other's
+    /// files only while this holds, so a change here means a new format
+    /// version, not an updated test.
     ///
-    /// Not only this crate's own output frozen: the same values come out of
-    /// Python's `cryptography` (HKDF and ChaCha20-Poly1305) and the Argon2
-    /// reference implementation through `argon2-cffi`, given the inputs here.
+    /// The same values come out of Python's `cryptography` (HKDF and
+    /// ChaCha20-Poly1305) and the Argon2 reference implementation via
+    /// `argon2-cffi`, given these inputs.
     #[test]
     fn the_format_has_not_moved() {
         let key = ShareKey::from_random(std::array::from_fn(|i| u8::try_from(i).unwrap()));

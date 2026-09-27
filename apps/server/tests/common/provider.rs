@@ -1,12 +1,12 @@
-//! A stand-in identity provider, on a loopback port.
+//! A stand-in identity provider on a loopback port.
 //!
-//! Enough of one to drive the whole sign-in: the discovery document, the token
-//! endpoint, and optionally userinfo. It never checks a signature because
-//! nothing on the other side reads one, and it hands back exactly the claims a
-//! test asks for, which is what makes the refusals testable.
+//! Enough to drive a full sign-in: the discovery document, the token endpoint,
+//! and optionally userinfo. It never signs ID tokens, since nothing on the
+//! other side checks, and it returns exactly the claims a test asks for, which
+//! makes the refusals testable.
 //!
 //! Loopback and `http`, which `auth::oidc::is_private_or_tls` allows and
-//! nothing else does. A test cannot obtain a certificate a client would trust.
+//! nothing else does, since a test cannot get a certificate a client trusts.
 
 use std::{
     net::{Ipv4Addr, SocketAddr},
@@ -26,11 +26,11 @@ use tokio::net::TcpListener;
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Script {
     /// The claims to put in the ID token, minus `iss` and `aud`, which the
-    /// provider fills in so that a test cannot accidentally agree with itself.
+    /// provider fills in so a test cannot accidentally agree with itself.
     pub(crate) claims: serde_json::Value,
     /// Refuse the exchange with this OAuth error instead of issuing a token.
     pub(crate) refuse: Option<String>,
-    /// Claims to release from the userinfo endpoint rather than in the token.
+    /// Claims to release from the userinfo endpoint instead of in the token.
     pub(crate) userinfo: Option<serde_json::Value>,
 }
 
@@ -49,9 +49,9 @@ pub(crate) struct FakeProvider {
     script: Arc<Mutex<Script>>,
     /// Whether the current script pinned its own nonce.
     ///
-    /// Held here rather than read back off the claims, because by the time it
-    /// is read this provider may have written one of its own and the two are no
-    /// longer distinguishable.
+    /// Tracked here instead of read from the claims, because by then this
+    /// provider may have written its own and the two can no longer be told
+    /// apart.
     nonce_is_pinned: Mutex<bool>,
     handle: tokio::task::JoinHandle<()>,
 }
@@ -70,8 +70,7 @@ struct Shared {
 }
 
 impl FakeProvider {
-    /// Starts one on a port the operating system picks, so tests can run
-    /// alongside each other.
+    /// Starts one on an OS-assigned port, so tests can run in parallel.
     pub(crate) async fn start(client_id: &str) -> Self {
         let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
             .await
@@ -111,11 +110,11 @@ impl FakeProvider {
         *self.script.lock() = script;
     }
 
-    /// Puts the nonce from the authorisation request into the token, which is
-    /// what a provider does with it.
+    /// Puts the nonce from the authorisation request into the token, as a
+    /// provider does.
     ///
-    /// Skipped when the test pinned one: a token from somebody else's sign-in
-    /// is a case worth testing, and this must not quietly repair it.
+    /// Skipped when the test pinned one: a token from another sign-in is a
+    /// case worth testing, and this must not quietly fix it.
     pub(crate) fn echo_nonce(&self, nonce: &str) {
         if !*self.nonce_is_pinned.lock() {
             set(
@@ -175,23 +174,23 @@ async fn userinfo(State(shared): State<Shared>) -> Json<serde_json::Value> {
     )
 }
 
-/// A JWT whose signature is a fixed string, because nothing reads it. See the
-/// module documentation on `auth::oidc::claims` for why that is allowed here
-/// and where it stops being allowed.
+/// A JWT whose signature is a fixed string, since nothing reads it. See the
+/// module docs on `auth::oidc::claims` for why that is allowed here and where
+/// it stops being allowed.
 fn id_token(claims: &serde_json::Value) -> String {
     let header = URL_SAFE_NO_PAD.encode(br#"{"alg":"RS256","typ":"JWT"}"#);
     let body = URL_SAFE_NO_PAD.encode(claims.to_string());
     format!("{header}.{body}.not-checked")
 }
 
-/// The key this fixture signs logout tokens with, and the JWKS that describes
-/// it. A fixed pair rather than a generated one: generating RSA takes long
-/// enough to notice, and a test key is not a secret.
+/// The key this fixture signs logout tokens with, and the JWKS describing it.
+/// A fixed pair, not generated: RSA generation is noticeably slow, and a test
+/// key is not a secret.
 const SIGNING_KEY: &str = include_str!("keys/logout-signing.pem");
 
-/// A key the provider never published, for the case that matters most: a token
-/// whose `kid` names a real key but whose signature was made with another one.
-/// Nothing but verifying the signature catches that.
+/// A key the provider never published, for the most important case: a token
+/// whose `kid` names a real key but whose signature was made with another.
+/// Only signature verification catches that.
 const IMPOSTOR_KEY: &str = include_str!("keys/impostor.pem");
 const SIGNING_JWK: &str = include_str!("keys/logout-signing.jwk.json");
 
@@ -207,24 +206,24 @@ async fn jwks() -> Json<serde_json::Value> {
 impl FakeProvider {
     /// A signed back-channel logout token, as this provider would send one.
     ///
-    /// The caller supplies the claims so that a test can leave one out, or put
-    /// in one that must be refused.
+    /// The caller supplies the claims so a test can omit one, or include one
+    /// that must be refused.
     pub(crate) fn logout_token(claims: &serde_json::Value) -> String {
         Self::sign_with(claims, SIGNING_KID, SIGNING_KEY)
     }
 
     /// The same, signed as if by a key the provider does not publish.
     ///
-    /// The signature is real; the key id is not one the JWKS names, which is
-    /// what an unknown key looks like from the outside.
+    /// The signature is real; the key id is not in the JWKS, which is how an
+    /// unknown key looks from outside.
     pub(crate) fn logout_token_with_unknown_key(claims: &serde_json::Value) -> String {
         Self::sign_with(claims, "a-key-that-was-never-published", SIGNING_KEY)
     }
 
     /// A token claiming the published key id, signed with a different key.
     ///
-    /// The one forgery that a key lookup cannot catch: the `kid` resolves, the
-    /// key is found, and only checking the signature says no.
+    /// The one forgery a key lookup cannot catch: the `kid` resolves, the key
+    /// is found, and only the signature check rejects it.
     pub(crate) fn forged_logout_token(claims: &serde_json::Value) -> String {
         Self::sign_with(claims, SIGNING_KID, IMPOSTOR_KEY)
     }
@@ -259,11 +258,11 @@ impl FakeProvider {
     }
 }
 
-/// A stand-in GitHub or Discord, on a loopback port.
+/// A stand-in GitHub or Discord on a loopback port.
 ///
-/// Enough of one to drive a plain OAuth 2.0 sign-in: a token endpoint and the
-/// API call that says who just signed in. Neither publishes a discovery
-/// document, so there is nothing else to serve.
+/// Enough to drive a plain OAuth 2.0 sign-in: a token endpoint and the API
+/// call that identifies the user. Neither publishes a discovery document, so
+/// there is nothing else to serve.
 pub(crate) struct FakeOauth {
     pub(crate) base: String,
     answers: Arc<Mutex<serde_json::Value>>,
@@ -284,7 +283,7 @@ struct OauthShared {
 }
 
 impl FakeOauth {
-    /// Starts one on a port the operating system picks.
+    /// Starts one on an OS-assigned port.
     pub(crate) async fn start() -> Self {
         let listener = TcpListener::bind(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
             .await
@@ -300,10 +299,10 @@ impl FakeOauth {
             addresses: Arc::clone(&addresses),
         };
 
-        // The paths the real ones use, so a test exercises the same strings
-        // production builds. GitHub Enterprise Server serves its API under
-        // `/api/v3`; github.com puts it on its own hostname, and that
-        // difference is the whole reason `auth.github.base_url` exists.
+        // The real paths, so a test exercises the same strings production
+        // builds. GitHub Enterprise Server serves its API under `/api/v3`;
+        // github.com uses its own hostname, and that difference is why
+        // `auth.github.base_url` exists.
         let router = Router::new()
             .route("/login/oauth/access_token", post(oauth_token))
             .route("/api/v3/user", get(oauth_user))
@@ -324,7 +323,7 @@ impl FakeOauth {
         }
     }
 
-    /// What the API will say about whoever signs in next.
+    /// What the API will report about the next user to sign in.
     pub(crate) fn is(&self, user: serde_json::Value) {
         *self.answers.lock() = user;
     }

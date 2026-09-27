@@ -65,19 +65,18 @@ pub struct RetrievalQuery {
     /// still works.
     #[serde(default)]
     pub format: Format,
-    /// One file of a share that holds several, by its position from zero.
+    /// One file of a multi-file share, by zero-based position.
     ///
-    /// Served as that file alone, resumable and without an archive around it.
-    /// An encrypted share has to be fetched this way: an archive of sealed files
-    /// is something no archiver can open.
+    /// Served alone, resumable, without an archive around it. Encrypted shares
+    /// must be fetched this way, since no archiver can open an archive of
+    /// sealed files.
     pub file: Option<usize>,
 }
 
 /// Which file of a share a request is about. See [`RetrievalQuery::file`].
 ///
-/// Not `deny_unknown_fields`, unlike [`RetrievalQuery`]: the routes taking this
-/// read no query at all before, and a client sending one along must not start
-/// failing.
+/// Not `deny_unknown_fields`, unlike [`RetrievalQuery`]: these routes used to
+/// ignore the query entirely, and clients that send one must keep working.
 #[derive(Debug, Default, serde::Deserialize)]
 pub struct FileQuery {
     /// Its position, from zero.
@@ -165,12 +164,11 @@ async fn og_image(
     Ok((card_headers(&etag), png).into_response())
 }
 
-/// The headers a card carries, sent with the picture and with a `304` alike.
+/// The headers a card carries, on the image and on a `304` alike.
 ///
-/// Five minutes is long enough that an unfurler asked twice in a minute does
-/// not come back, and short enough that the countdown on the card is not stale
-/// by a day. What does the work for a crawler returning later is the tag, not
-/// the age.
+/// Five minutes keeps an unfurler asking twice in a minute from coming back,
+/// without leaving the card's countdown a day stale. Returning crawlers are
+/// handled by the tag, not the max-age.
 #[cfg(feature = "og-images")]
 fn card_headers(etag: &str) -> [(header::HeaderName, String); 3] {
     [
@@ -182,16 +180,14 @@ fn card_headers(etag: &str) -> [(header::HeaderName, String); 3] {
 
 /// An entity tag for the card this share would draw right now.
 ///
-/// Worked out from what would be drawn rather than from the drawing, which is
-/// the whole point: answering a returning unfurler then costs a lookup and two
-/// digests instead of a render.
+/// Computed from the inputs to the drawing, not the drawing itself, so a
+/// returning unfurler costs a lookup and two digests instead of a render.
 ///
-/// Everything the drawing reads goes in, and there are three of those. The
-/// preview is the words. The layout is the operator's, who can change it, and
-/// every card on the instance becomes a different picture when they do. And
-/// the code is drawn on the card itself, so two shares alike in every other
-/// way still draw two different pictures; leaving it out would let a crawler
-/// holding one be told the other had not changed.
+/// All three inputs go in. The preview is the text. The layout belongs to the
+/// operator, and changing it changes every card on the instance. The code is
+/// drawn on the card, so two otherwise identical shares still produce different
+/// images; leaving it out would let a crawler holding one be told the other had
+/// not changed.
 #[cfg(feature = "og-images")]
 fn card_etag(preview: &crate::api::preview::Preview, code: &str, layout: &str) -> String {
     use std::fmt::Write as _;
@@ -210,8 +206,8 @@ fn card_etag(preview: &crate::api::preview::Preview, code: &str, layout: &str) -
     let mut etag = String::with_capacity(66);
     etag.push('"');
     for byte in digest.finalize() {
-        // Writing into a String is infallible; the result is discarded rather
-        // than unwrapped so this stays panic-free.
+        // Writing into a String cannot fail; the result is discarded instead of
+        // unwrapped so this stays panic-free.
         let _ = write!(etag, "{byte:02x}");
     }
     etag.push('"');
@@ -221,8 +217,8 @@ fn card_etag(preview: &crate::api::preview::Preview, code: &str, layout: &str) -
 /// Whether the caller already holds this exact card.
 ///
 /// `If-None-Match` is a list, and `*` matches anything. A weak tag compares
-/// equal to its strong twin here, which is the right comparison: nothing on
-/// this route serves byte ranges, and a card is only ever handed over whole.
+/// equal to its strong twin here, which is correct: this route never serves
+/// byte ranges, only whole cards.
 #[cfg(feature = "og-images")]
 fn already_held(headers: &HeaderMap, etag: &str) -> bool {
     let Some(held) = headers
@@ -237,23 +233,22 @@ fn already_held(headers: &HeaderMap, etag: &str) -> bool {
     })
 }
 
-/// Draws the card, off the async runtime and behind a ceiling.
+/// Draws the card off the async runtime, under a concurrency ceiling.
 ///
-/// # Why not simply call the renderer
+/// # Why not call the renderer directly
 ///
-/// It is one synchronous call that takes milliseconds or seconds depending on
-/// a layout the operator wrote, and calling it here would park a runtime
-/// worker for that long. A handful at once would then be enough to stop this
-/// process answering anything at all, which is a great deal worse than a slow
-/// picture.
+/// It is one synchronous call taking milliseconds to seconds depending on the
+/// operator's layout, and would park a runtime worker that long. A handful at
+/// once could stop the process answering anything, which is far worse than a
+/// slow image.
 ///
-/// # Why the ceiling refuses rather than queues
+/// # Why the ceiling refuses instead of queueing
 ///
-/// There is no cancelling a render in progress: takumi hands back an image or
-/// it does not, so a caller who gave up leaves the work running anyway.
-/// Queueing would trade a refusal now for the same CPU spent plus a caller who
-/// waited for nothing. An unfurler told to come back does; a page that would
-/// have shown a picture shows none.
+/// A render cannot be cancelled: takumi returns an image or it does not, so a
+/// caller who gave up leaves the work running anyway. Queueing would trade a
+/// refusal now for the same CPU spent plus a caller waiting for nothing. An
+/// unfurler told to retry does; a page that would have shown an image shows
+/// none.
 #[cfg(feature = "og-images")]
 async fn draw(
     state: &AppState,
@@ -308,15 +303,15 @@ async fn raw(
             "this share is a file; use /download instead",
         ));
     }
-    // Sealed bytes labelled as UTF-8 text are nothing a reader can use, and
-    // only the page holding the key can turn them into the note.
+    // Sealed bytes labelled as UTF-8 text are useless to a reader; only the page
+    // holding the key can turn them into the note.
     if share.encryption.is_some() {
         return Err(Error::bad_request(
             "this share is end-to-end encrypted; fetch it from /download and open it with its key",
         ));
     }
-    // Before `permit`: a share held for its scan must not cost a retrieval
-    // for a request that is then turned away.
+    // Before `permit`: a share held for scanning must not use up a retrieval
+    // on a request that is then turned away.
     let content = state.shares.content_of(&share).await?;
     crate::scan::release(&state, &content)?;
     let payload = permit(
@@ -361,19 +356,18 @@ async fn download(
     // See `raw`: the admission decision needs the ticket, so it happens in
     // `permit`, not here.
     let share = gate::find(&state, &code, &source).await?;
-    // An archive of sealed files is something no archiver can open, so these
-    // are fetched a file at a time. Asked of every encrypted file share, not
-    // only those with several files: the rule then needs nothing the share
-    // does not already say publicly, and is settled before a retrieval is
-    // spent or a locked share's file count given away.
+    // No archiver can open an archive of sealed files, so these are fetched one
+    // file at a time. Applied to every encrypted file share, not only
+    // multi-file ones, so the rule depends only on public share fields and is
+    // settled before a retrieval is spent or a locked share's file count leaks.
     if share.encryption.is_some() && share.kind == ShareKind::File && query.file.is_none() {
         return Err(Error::bad_request(
             "an end-to-end encrypted share is fetched one file at a time; add `?file=` with the \
              file's position, from zero",
         ));
     }
-    // Never the media type the uploader claimed. Serving that back is the same
-    // stored-XSS hole as `/raw`, reached from the other direction.
+    // Never the uploader's claimed media type: serving it back is the same
+    // stored-XSS hole as `/raw`, from the other direction.
     //
     // Read before `permit`, for the reason `raw` gives.
     let content = narrowed(state.shares.content_of(&share).await?, query.file)?;
@@ -387,8 +381,8 @@ async fn download(
         &source,
     )
     .await?;
-    // After `permit`, so the password, the expiry and the access log have all
-    // had their say before anybody is sent anywhere.
+    // After `permit`, so the password, expiry and access log are all checked
+    // before the client is redirected anywhere.
     if matches!(payload, Payload::Content)
         && let Some(redirect) = redirect_to_store(&state, &share, &content, &headers).await
     {
@@ -411,38 +405,35 @@ async fn download(
     .await
 }
 
-/// Sends a download to the store itself, when that is safe to do.
+/// Redirects a download to the store itself, when that is safe.
 ///
-/// # When it is
+/// # When
 ///
-/// Only for a share that promises nothing about who gets the bytes or how often:
-/// no password and no use limit. A URL to the store is a bearer credential for
-/// its lifetime, so on a password-protected share it would be a copy of the
-/// file that needs no password, and on a one-time share a second collection
-/// the count never sees. Neither can be repaired at the store: a presigned URL
-/// cannot be limited to one use or one client.
+/// Only for shares that promise nothing about who gets the bytes or how often:
+/// no password and no use limit. A store URL is a bearer credential while it
+/// lives, so on a password-protected share it would be a passwordless copy, and
+/// on a one-time share an uncounted second download. The store cannot enforce
+/// either, since a presigned URL cannot be limited to one use or one client.
 ///
-/// Only for one file in one piece, on a backend whose operator has said a
-/// browser can reach it and which can sign a URL at all. An archive does not
-/// exist until it is sent, and a split file is several objects.
+/// Only for a single unsplit file, on a backend the operator has marked as
+/// browser-reachable and that can sign URLs. An archive does not exist until
+/// it is streamed, and a split file is several objects.
 ///
-/// # How long the URL lives
+/// # URL lifetime
 ///
 /// Fifteen seconds by the store's clock, which is measured first; see
-/// [`crate::storage::clock`]. Long enough to start a transfer, which the store
-/// then finishes whatever the time, and short enough that a URL copied out of
-/// the browser is not much of a gift. A resumed download comes back here for a
-/// fresh one.
+/// [`crate::storage::clock`]. Enough to start a transfer (the store finishes
+/// it regardless), and short enough that a URL copied out of the browser is
+/// worth little. A resumed download comes back here for a fresh one.
 ///
-/// # What is counted
+/// # Accounting
 ///
-/// What the request asked for, in `bytes_redirected`: the file, or the range.
-/// Not `bytes_served`, which counts what left this process as it left, and none
-/// did.
+/// The requested bytes (the file or the range) go into `bytes_redirected`, not
+/// `bytes_served`, which counts bytes leaving this process, and none did.
 ///
-/// Anything that does not work out answers `None`, and the download is served
-/// from here as it always was. Being sent somewhere is an optimisation; failing
-/// to be is not an error.
+/// Anything that does not work out returns `None`, and the download is served
+/// from here as usual. The redirect is an optimisation; not getting one is not
+/// an error.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 async fn redirect_to_store(
     state: &AppState,
@@ -451,8 +442,8 @@ async fn redirect_to_store(
     headers: &HeaderMap,
 ) -> Option<Response> {
     let (file, pieces) = direct_file(state, share, content)?;
-    // One object, because one URL names one object. A split file is handed over
-    // a piece at a time instead; see [`segments`].
+    // One URL names one object. A split file is served piece by piece instead;
+    // see [`segments`].
     let [piece] = pieces.as_slice() else {
         return None;
     };
@@ -460,10 +451,10 @@ async fn redirect_to_store(
     // A range this cannot read is left for `serve`, which answers `416`.
     let requested = requested_bytes(headers, file.size_bytes)?;
 
-    // The same name and the same opaque type this server would send, signed
-    // into the URL so the store answers with them. The hardening headers
-    // `serve` adds cannot travel this way; an attachment of an opaque type is
-    // what keeps the browser from rendering it instead.
+    // Same filename and opaque content type this server would send, signed into
+    // the URL so the store returns them. The hardening headers `serve` adds
+    // cannot be carried this way; an opaque-typed attachment is what stops the
+    // browser rendering it.
     let options = object_store::signer::SignedUrlOptions::new().with_query([
         ("response-content-disposition", content_disposition(content)),
         (
@@ -476,7 +467,7 @@ async fn redirect_to_store(
     Some(hand_over(location))
 }
 
-/// How many bytes a request asked for: the whole thing, or its range.
+/// How many bytes a request asked for: the full size, or its range.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 fn requested_bytes(headers: &HeaderMap, size: u64) -> Option<u64> {
     match headers
@@ -491,7 +482,7 @@ fn requested_bytes(headers: &HeaderMap, size: u64) -> Option<u64> {
     }
 }
 
-/// Writes down what was handed to a store. A failure here does not stop the
+/// Records what was handed to a store. A failure here does not stop the
 /// download, for the reason `record_access` gives.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 async fn count_redirected(state: &AppState, share: &Share, bytes: u64) {
@@ -500,14 +491,14 @@ async fn count_redirected(state: &AppState, share: &Share, bytes: u64) {
     }
 }
 
-/// How a file is stored, for a browser that will fetch the pieces itself.
+/// How a file is stored, for a browser that fetches the pieces itself.
 ///
-/// A file split across backends comes back as several objects, and the only way
-/// to save this server's bandwidth is for the browser to fetch each one and join
-/// them. That needs to know how many there are and how long each is.
+/// A file split across backends is several objects, and the only way to save
+/// this server's bandwidth is for the browser to fetch and join them, which
+/// needs their count and lengths.
 #[derive(Debug, serde::Serialize)]
 pub struct SegmentsResponse {
-    /// The whole file's size, so the browser can check what it joined.
+    /// The full file size, so the browser can check what it joined.
     pub size_bytes: u64,
     /// Its pieces, in order. A file that was never split has one.
     pub segments: Vec<SegmentPart>,
@@ -515,10 +506,9 @@ pub struct SegmentsResponse {
 
 /// One piece, as the listing describes it.
 ///
-/// No URL. One lives fifteen seconds and joining a large file takes minutes, so
-/// a list of them would be a list of expired URLs by the time the browser
-/// reached the end. Each is asked for when it is wanted, from
-/// `/s/{code}/segments/{index}`.
+/// No URL: each lives fifteen seconds and joining a large file takes minutes,
+/// so a list of them would have expired by the end. Each piece is requested
+/// when needed, from `/s/{code}/segments/{index}`.
 #[derive(Debug, serde::Serialize)]
 pub struct SegmentPart {
     /// Where it starts within the file.
@@ -527,15 +517,15 @@ pub struct SegmentPart {
     pub length: u64,
 }
 
-/// How this share is stored, for a browser that will join the pieces itself.
+/// How this share is stored, for a browser that joins the pieces itself.
 ///
-/// Answers `404` unless every piece could be fetched from its store directly,
-/// by the rules [`direct_file`] keeps: nothing to join is worth describing when
-/// the bytes would come through here anyway, and a client that gets a `404`
-/// uses `/download` as before.
+/// `404` unless every piece can be fetched from its store directly under the
+/// rules in [`direct_file`]: there is no point describing pieces whose bytes
+/// would come through here anyway, and on a `404` the client falls back to
+/// `/download`.
 ///
-/// Costs a retrieval no more than a `HEAD` does. Describing the layout is not
-/// handing anything over.
+/// Costs no more of a retrieval than a `HEAD`, since describing the layout
+/// hands nothing over.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 async fn segments(
     State(state): State<AppState>,
@@ -561,7 +551,7 @@ async fn segments(
     }))
 }
 
-/// Hands over one piece, by sending the browser to the store that holds it.
+/// Hands over one piece by redirecting the browser to the store holding it.
 ///
 /// The index is the position in [`SegmentsResponse::segments`], from zero.
 ///
@@ -597,8 +587,7 @@ async fn segment(
     Ok(hand_over(location))
 }
 
-/// A build with no store that can be fetched from directly has nothing to
-/// describe.
+/// A build with no directly fetchable store has nothing to describe.
 #[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
 #[expect(
     clippy::unused_async,
@@ -632,9 +621,8 @@ async fn segment(
 
 /// One piece of a file, wherever it lives.
 ///
-/// A file that was never split is one piece; a split one is its segments, in
-/// order. Having both shapes answer the same way is what lets the download
-/// path and the stitching path share their rules.
+/// An unsplit file is one piece; a split one is its segments, in order. Giving
+/// both the same shape lets the download and stitching paths share rules.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 struct Piece<'a> {
     backend: &'a str,
@@ -670,11 +658,11 @@ fn pieces(file: &FilePart) -> Option<Vec<Piece<'_>>> {
 /// The file a browser may fetch from the store itself, and where its pieces are.
 ///
 /// No password and no use limit, for the reasons [`redirect_to_store`] gives.
-/// One file, because an archive does not exist until it is sent. And **every**
-/// piece on a backend its operator has opened *and* that can sign a URL: a file
-/// half of which can be fetched directly is one the browser would join and then
-/// fail to finish. The switch alone is not enough — a local directory can have
-/// it on and still have nothing to sign with.
+/// One file, because an archive does not exist until it is streamed. And
+/// **every** piece on a backend the operator has opened *and* that can sign
+/// URLs: with only half the pieces directly fetchable, the browser would start
+/// joining and fail to finish. The switch alone is not enough, since a local
+/// directory can have it on with nothing to sign with.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 fn direct_file<'a>(
     state: &AppState,
@@ -724,15 +712,15 @@ fn hand_over(location: HeaderValue) -> Response {
         StatusCode::TEMPORARY_REDIRECT,
         [
             (header::LOCATION, location),
-            // A cached redirect replays a URL that has expired, and skips
-            // everything `permit` checks on the way to it.
+            // A cached redirect would replay an expired URL and skip everything
+            // `permit` checks.
             (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
         ],
     )
         .into_response()
 }
 
-/// The build with no store that can be sent a browser.
+/// The build with no store a browser can be sent to.
 #[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
 #[expect(
     clippy::unused_async,

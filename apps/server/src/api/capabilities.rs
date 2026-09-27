@@ -61,9 +61,9 @@ pub struct Capabilities {
 
     /// Whether this caller may run a speed test.
     ///
-    /// Per caller, not per instance: an instance can offer the test to
-    /// accounts and not to visitors, and a visitor should be shown the same
-    /// thing as on an instance that does not offer it at all.
+    /// Per caller, not per instance: an instance can offer the test to accounts
+    /// but not visitors, and a visitor should see the same as on an instance
+    /// without the test.
     pub speed_test: bool,
 
     /// Who may create an account. Meaningless when
@@ -81,8 +81,8 @@ pub struct Capabilities {
     pub account_password_min_length: usize,
 
     /// Whether an account password needs both an uppercase and a lowercase
-    /// letter. How a character is classed is on `PasswordPolicy`; a client that
-    /// classes them differently will pass a password the server refuses.
+    /// letter. Character classes are defined on `PasswordPolicy`; a client that
+    /// classifies differently will accept passwords the server refuses.
     pub account_password_requires_mixed_case: bool,
 
     /// Whether an account password needs a digit.
@@ -91,8 +91,8 @@ pub struct Capabilities {
     /// Whether an account password needs a symbol. A space is not one.
     pub account_password_requires_symbol: bool,
 
-    /// Whether a new account password is checked against known breaches, so
-    /// a form can look it up as it is typed; see `GET /auth/pwned/{prefix}`.
+    /// Whether a new account password is checked against known breaches, so a
+    /// form can look it up while typing; see `GET /auth/pwned/{prefix}`.
     pub account_password_breach_check: bool,
 
     /// Shortest password an uploader may put on a share.
@@ -203,7 +203,7 @@ impl Capabilities {
             admin,
             anonymous_upload,
             encryption,
-            // Filled in by the handler: it depends on who is asking.
+            // Set by the handler, since it depends on the caller.
             speed_test: false,
             registration: config.auth.registration,
             account_password_min_length: config.auth.password.min_length,
@@ -266,8 +266,8 @@ pub async fn capabilities(
     // refused at four kilobytes.
     let user = current.as_ref().map(|current| &current.user);
     capabilities.max_upload_bytes = max_file_bytes(&state, user).await?;
-    // A visitor on an instance that tests for accounts only is told what such
-    // an instance would tell them if it had no test at all.
+    // A visitor on an instance that offers the test to accounts only is told
+    // the same as if there were no test at all.
     let speed = state.config().speed;
     capabilities.speed_test = speed.enabled && (speed.anonymous || current.is_some());
     let may_see_totals = current

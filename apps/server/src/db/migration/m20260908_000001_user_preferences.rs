@@ -1,9 +1,8 @@
-//! One row per person for the choices that are theirs rather than the
-//! instance's.
+//! One row per user for choices that belong to the user, not the instance.
 //!
-//! The SQL lives in `sql/`, and the SQLite one carries the reasoning: why the
-//! identifier is the primary key, why the choices are one JSON column, and why
-//! the table is not named after the only column it starts with.
+//! The SQL lives in `sql/`, and the SQLite file carries the reasoning: why the
+//! user id is the primary key, why the choices are one JSON column, and why
+//! the table is not named after its only initial column.
 
 use sea_orm_migration::prelude::*;
 

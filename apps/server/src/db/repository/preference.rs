@@ -1,8 +1,8 @@
-//! Reading and writing one person's own preferences.
+//! Reading and writing one user's own preferences.
 //!
-//! Storage only. What names are allowed is [`tessera_core::Appearance`]'s
-//! decision, and it is made before a value reaches here: this module stores
-//! whatever that type says is valid and hands back the same.
+//! Storage only. Which names are allowed is decided by
+//! [`tessera_core::Appearance`] before a value gets here; this module stores
+//! whatever that type accepts and returns the same.
 
 use sea_orm::{ActiveValue::Set, DatabaseConnection, EntityTrait as _, sea_query::OnConflict};
 use tessera_core::{Appearance, UserId};
@@ -10,7 +10,7 @@ use time::OffsetDateTime;
 
 use crate::db::entity::user_preference::{self, Entity as UserPreferenceEntity};
 
-/// One person's preferences, as the rest of the server sees them.
+/// One user's preferences, as the rest of the server sees them.
 #[derive(Debug, Clone)]
 pub struct PreferenceRepository {
     connection: DatabaseConnection,
@@ -23,13 +23,12 @@ impl PreferenceRepository {
         Self { connection }
     }
 
-    /// What this person has chosen, empty when they have chosen nothing.
+    /// What this user has chosen, empty when nothing.
     ///
-    /// A stored value that will not parse is treated as nothing chosen rather
-    /// than as an error. The row can only get that way by hand, and the cost of
-    /// being wrong is that somebody sees the instance's default until they next
-    /// pick something. Refusing to answer would instead take the page down for
-    /// them.
+    /// A stored value that will not parse is treated as nothing chosen, not an
+    /// error. Only a hand edit can produce one, and the cost of being wrong is
+    /// that the user sees the instance default until they next choose.
+    /// Refusing to answer would break the page for them instead.
     ///
     /// # Errors
     ///
@@ -53,7 +52,7 @@ impl PreferenceRepository {
         )
     }
 
-    /// Replaces this person's appearance choices with `appearance`.
+    /// Replaces this user's appearance choices with `appearance`.
     ///
     /// # Errors
     ///
@@ -72,7 +71,7 @@ impl PreferenceRepository {
             appearance: Set(encoded),
             updated_at: Set(now),
         })
-        // One statement, not "look, then insert or update": the same person
+        // One statement, not "look, then insert or update": the same user
         // saving from two devices would otherwise both find nothing and both
         // insert.
         .on_conflict(

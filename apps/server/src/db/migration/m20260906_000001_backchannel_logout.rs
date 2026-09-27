@@ -1,8 +1,7 @@
-//! Acting on a provider telling us somebody has signed out.
+//! Acting on a provider's notice that a user has signed out.
 //!
-//! The SQL lives in `sql/`, and the SQLite one carries the reasoning: why the
-//! provider's own session identifier needs a column of its own rather than
-//! reusing `origin`.
+//! The SQL lives in `sql/`, and the SQLite file carries the reasoning: why the
+//! provider's session id needs its own column instead of reusing `origin`.
 
 use sea_orm_migration::prelude::*;
 

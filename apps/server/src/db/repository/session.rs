@@ -28,12 +28,11 @@ pub struct Session {
     pub last_seen_at: OffsetDateTime,
     /// When it stops being accepted.
     pub expires_at: OffsetDateTime,
-    /// Which way of signing in started this session: `password` or `oidc`.
+    /// How this session signed in: `password` or `oidc`.
     ///
-    /// A provider can disable somebody, and a session that outlives that is
-    /// what single sign-on exists to prevent. What can be done about that
-    /// depends on what the provider supports, so the session has to say where
-    /// it came from.
+    /// A provider can disable a user, and a session outliving that is what
+    /// single sign-on exists to prevent. What can be done depends on the
+    /// provider, so the session records where it came from.
     pub origin: String,
     /// Where the session started, when that could be established.
     ///
@@ -45,8 +44,8 @@ pub struct Session {
     pub created_user_agent: Option<String>,
     /// The provider's own identifier for its side of this session.
     ///
-    /// Written when the provider released a `sid`, which is what lets a
-    /// back-channel logout end one session rather than all of them.
+    /// Set when the provider released a `sid`, which lets a back-channel logout
+    /// end this one session instead of all of them.
     pub provider_sid: Option<String>,
     /// Why it was ended early, if it was.
     pub ended_reason: Option<SessionEnding>,
@@ -67,10 +66,10 @@ pub enum SessionEnding {
     PasswordChanged,
     /// A password reset did, which usually means the account was in trouble.
     PasswordReset,
-    /// The provider said this person has signed out.
+    /// The provider said this user signed out.
     ///
-    /// Its own reason rather than `Revoked`: somebody reading their session
-    /// list wants to know single sign-on ended it, not that they did.
+    /// Separate from `Revoked`: a user reading their session list should see
+    /// that single sign-on ended it, not that they did.
     ProviderLogout,
     /// The account was suspended.
     ///
@@ -113,12 +112,11 @@ impl SessionEnding {
     }
 }
 
-/// Which way of signing in started a session.
+/// How a session signed in.
 ///
-/// Stored because a provider can disable somebody, and a session that outlives
-/// that is exactly what single sign-on exists to prevent. What can be done
-/// about it depends on what the provider supports, so the session has to know
-/// where it came from.
+/// Stored because a provider can disable a user, and a session outliving that
+/// is what single sign-on exists to prevent. What can be done depends on the
+/// provider, so the session records where it came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SignedInWith {
     /// A password held here.
@@ -140,18 +138,17 @@ impl SignedInWith {
 
 /// How a session came to exist.
 ///
-/// A type rather than two more arguments, because they are one fact: the
-/// provider's session identifier only means anything for a session a provider
-/// started, and pairing them keeps a caller from supplying one without the
-/// other.
+/// A type instead of two more arguments because they are one fact: the
+/// provider's session id only means something for a provider-started session,
+/// and pairing them stops a caller supplying one without the other.
 #[derive(Debug, Clone, Copy)]
 pub struct StartedBy<'a> {
     /// Which way of signing in.
     pub credential: SignedInWith,
-    /// Which provider, when one started it.
+    /// The provider, when one started it.
     ///
     /// Stored in `origin`, matching `identities.provider`, so a logout token
-    /// from one provider cannot end a session another one started.
+    /// from one provider cannot end another provider's session.
     pub provider: &'a str,
     /// The provider's own identifier for its side, when it released one.
     pub provider_sid: Option<&'a str>,
@@ -288,8 +285,8 @@ impl SessionRepository {
             created_ip: origin.ip.clone(),
             created_user_agent: origin.bounded_user_agent(),
             ended_reason: None,
-            // The provider's name, not the word `oidc`, so that a second
-            // provider's sessions are distinguishable from the first's.
+            // The provider's name, not the word `oidc`, so a second provider's
+            // sessions can be told apart from the first's.
             origin: started_by.provider.to_owned(),
             provider_sid: started_by.provider_sid.map(str::to_owned),
         };
@@ -516,13 +513,12 @@ impl SessionRepository {
 
     /// Ends every live session an account started through a provider.
     ///
-    /// For a logout token that named a subject and no session. Sessions this
-    /// account signed into with a password are left alone: the provider has no
-    /// say over a credential it did not issue.
+    /// For a logout token naming a subject but no session. Password sessions
+    /// are left alone: the provider has no say over a credential it did not
+    /// issue.
     ///
-    /// Only sessions started before `issued_at`, so a logout token somebody
-    /// kept cannot end a session created after it. That is what stands in for
-    /// remembering every `jti` this has already seen.
+    /// Only sessions started before `issued_at`, so a kept logout token cannot
+    /// end a later session. That replaces remembering every `jti` seen.
     ///
     /// Returns how many were ended.
     ///
@@ -554,13 +550,12 @@ impl SessionRepository {
     /// Ends the one session a provider named.
     ///
     /// For a logout token carrying a `sid`, which is how a provider says "this
-    /// browser" rather than "everything they have open".
+    /// browser" instead of "every session".
     ///
-    /// Scoped to the provider as well as the identifier: two providers may use
-    /// the same string for unrelated sessions, and one has no business ending
-    /// the other's.
+    /// Scoped to the provider as well as the id: two providers may use the same
+    /// string for unrelated sessions, and one must not end the other's.
     ///
-    /// Returns how many were ended, which is zero or one.
+    /// Returns how many were ended: zero or one.
     ///
     /// # Errors
     ///

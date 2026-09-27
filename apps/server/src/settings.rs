@@ -53,7 +53,7 @@ const FIXED_AT_BOOT: &[&str] = &[
     "server.max_body_bytes",
     // The SPA is read off disk once and embedded in the router's state.
     "server.assets_dir",
-    // Where the key file and the first backend were put on the first start.
+    // Where the key file and first backend were created on first start.
     // Moving it later would leave both behind.
     "server.data_dir",
     // Read once to build the sealer every stored backend is opened with.
@@ -83,27 +83,25 @@ const SECRETS: &[&str] = &[
 
 /// Keys whose value is encrypted before it is stored, and never read back out.
 ///
-/// # Why these are stored at all when the others are not
+/// # Why these are stored when the others are not
 ///
-/// [`SECRETS`] holds keys that must not reach this table in any form. These are
-/// different: they are credentials an operator has every reason to set from the
-/// panel, and the alternative is worse. `mail.host` is already changeable and
-/// `mail.password` was not, so configuring a relay meant doing half of it in the
-/// panel and half in the environment, then restarting for the half that could
-/// not be done in the panel.
+/// [`SECRETS`] holds keys that must never reach this table. These differ: they
+/// are credentials an operator has every reason to set from the panel, and the
+/// alternative is worse. `mail.host` was already editable and `mail.password`
+/// was not, so configuring a relay meant half in the panel, half in the
+/// environment, and a restart for the second half.
 ///
 /// Recoverable and stored means a database dump is a credential leak, unless
-/// what opens it lives somewhere the dump does not. That is
-/// [`Sealer`](crate::security::secret::Sealer), keyed by `security.secret_key`
-/// from the environment. Without a key, storing one of these is refused rather
-/// than written in plaintext, which is what adding a storage backend already
-/// does.
+/// the key lives somewhere the dump does not. That is
+/// [`Sealer`](crate::security::secret::Sealer), keyed by `security.secret_key`.
+/// Without a key, storing one of these is refused instead of written in
+/// plaintext, as adding a storage backend already does.
 ///
 /// # What "never read back" means
 ///
-/// The panel may write these and may be told whether one is set. It is never
-/// given the value, so an endpoint that lists settings cannot hand a relay
-/// password to anybody who can read settings.
+/// The panel may write these and be told whether one is set, but never gets
+/// the value, so an endpoint listing settings cannot hand a relay password to
+/// anyone who can read settings.
 const SEALED: &[&str] = &[
     // The identity provider's own secret.
     "auth.oidc.client_secret",
@@ -111,7 +109,7 @@ const SEALED: &[&str] = &[
     // `SECRETS`.
     "mail.username",
     "mail.password",
-    // The same thing for the two providers that have no discovery document.
+    // The same for the two providers without a discovery document.
     "auth.github.client_secret",
     "auth.discord.client_secret",
     // Whatever the scanning service takes as a credential.
@@ -281,8 +279,8 @@ mod tests {
         }
     }
 
-    /// The other kind: written from the panel, encrypted at rest, and never
-    /// handed back. Being editable is the point, so these must not be refused.
+    /// The other kind: written from the panel, encrypted at rest, never handed
+    /// back. Being editable is the point, so these must not be refused.
     #[test]
     fn sealed_credentials_are_storable_and_never_returned() {
         for key in ["mail.password", "mail.username", "auth.oidc.client_secret"] {
@@ -298,7 +296,7 @@ mod tests {
         assert!(admits("security.secret_key").is_err());
     }
 
-    /// A sealed value never leaves as itself. What a screen gets is whether one
+    /// A sealed value never leaves as itself; a screen only learns whether one
     /// is set.
     #[test]
     fn a_sealed_value_is_described_as_a_boolean() {
@@ -324,7 +322,7 @@ mod tests {
         );
     }
 
-    /// And an unset one says so, rather than looking configured.
+    /// An unset one says so, instead of looking configured.
     #[test]
     fn an_unset_sealed_value_says_it_is_unset() {
         let view = describe(&BTreeMap::new());
@@ -388,11 +386,10 @@ pub struct View {
     pub editable: bool,
     /// Why not, when it may not.
     pub refusal: Option<Refusal>,
-    /// Whether this holds a credential the panel may write and never read.
+    /// Whether this holds a credential the panel may write but never read.
     ///
-    /// When true, `value` says whether one is set and never what it is. A
-    /// screen needs that much to draw "configured" beside a field it is asking
-    /// somebody to fill in again.
+    /// When true, `value` says whether one is set, never what it is. A screen
+    /// needs that to show "configured" next to a field it asks to be refilled.
     pub secret: bool,
 }
 
@@ -437,21 +434,20 @@ pub fn describe(overrides: &BTreeMap<String, serde_json::Value>) -> Vec<View> {
                 |value| (value.clone(), Source::Panel),
             );
 
-            // A credential is named, never handed back. `database.url` can
-            // carry a password inside it, and this list is read
-            // by an endpoint and printed by a command, both of which end up
-            // pasted into issues. Whoever needs the value has the environment
-            // it came from.
+            // A credential is named, never returned. `database.url` can embed a
+            // password, and this list is served by an endpoint and printed by a
+            // command, both of which end up pasted into issues. Whoever needs
+            // the value has the environment it came from.
             let value = if refusal == Some(Refusal::Secret) {
                 serde_json::Value::Null
             } else {
                 value
             };
 
-            // A sealed key is editable, so it is not caught above, and by the
-            // time it reaches here it has been opened. What a screen needs is
-            // whether one is set, which is a boolean; the value itself would
-            // be a relay password in a list somebody pastes into an issue.
+            // A sealed key is editable, so the check above does not catch it,
+            // and by now it has been opened. A screen only needs to know
+            // whether one is set; the value would be a relay password in a
+            // list someone pastes into an issue.
             let secret = is_sealed(&key);
             let value = if secret {
                 serde_json::Value::Bool(value.as_str().is_some_and(|held| !held.trim().is_empty()))

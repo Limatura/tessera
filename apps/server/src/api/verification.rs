@@ -1,13 +1,13 @@
 //! Proving an account can receive mail at its address.
 //!
-//! Registration proves it once, by making the account wait for a link. Nothing
-//! proved it for an address changed afterwards, or for an account that never
-//! waited: the first administrator, or one registered while no mail was
-//! configured. These two endpoints are that: a link sent on request, and the
-//! page it opens.
+//! Registration proves it once by making the account wait for a link. Nothing
+//! proved it for an address changed later, or for an account that never
+//! waited: the first administrator, or one registered while mail was not
+//! configured. These two endpoints cover that: a link sent on request, and
+//! the page it opens.
 //!
-//! Nothing on the server depends on the result yet. It is shown to the person,
-//! as `email_verified_at` on their account, so they can see which address they
+//! Nothing on the server depends on the result yet. It is shown to the user as
+//! `email_verified_at` on their account, so they can see which address they
 //! have confirmed.
 
 use axum::{extract::State, http::StatusCode};
@@ -31,27 +31,27 @@ pub struct VerificationConfirmRequest {
     pub token: String,
 }
 
-/// The one answer a link that cannot be used gets.
+/// The single answer for a link that cannot be used.
 ///
-/// Unknown, spent, expired and "sent to an address the account has since left"
-/// are one message. Telling them apart would let the holder of a stale link
-/// learn it was once real.
+/// Unknown, used, expired, and "sent to an address the account no longer has"
+/// all get the same message. Telling them apart would let the holder of a
+/// stale link learn it was once valid.
 fn not_usable() -> Error {
     Error::bad_request("this confirmation link is not usable; ask for a new one")
 }
 
-/// Sends a link to the caller's address that proves it is theirs.
+/// Sends the caller a link proving their address is theirs.
 ///
 /// Sent while the request waits, unlike a password reset: the caller is signed
-/// in and knows their own address, so there is nothing for the timing to give
-/// away, and a relay that is down is better said than hidden.
+/// in and knows their own address, so timing reveals nothing, and a down relay
+/// is better reported than hidden.
 ///
 /// # Errors
 ///
 /// `401` when not signed in, `403` when an API token was used, `404` when this
 /// instance has no accounts or sends no mail, `409` when the address is already
-/// confirmed, `429` when that address has been sent as many as the window
-/// allows, `503` when the relay would not take the message.
+/// confirmed, `429` when that address has hit the send limit for the window,
+/// `503` when the relay would not take the message.
 #[utoipa::path(
     post,
     path = "/account/email/verification",
@@ -73,8 +73,8 @@ pub async fn request(State(state): State<AppState>, current: CurrentUser) -> Res
     let Some(mailer) = state.mailer().as_ref().clone() else {
         return Err(Error::NotFound);
     };
-    // A leaked API token must not be a way to mail the account's owner on
-    // repeat, and nothing a script does needs this.
+    // A leaked API token must not be usable to mail the account owner
+    // repeatedly, and no script needs this.
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
@@ -84,9 +84,9 @@ pub async fn request(State(state): State<AppState>, current: CurrentUser) -> Res
         ));
     }
 
-    // Keyed on the address, because that is what receives the mail. An account
-    // can set its address to anybody's, and this must not be a way to fill a
-    // stranger's inbox.
+    // Keyed on the address, since that is what receives the mail. An account
+    // can set its address to anyone's, and this must not become a way to flood
+    // a stranger's inbox.
     let email = current.user.email.clone();
     let key = email.as_str().to_lowercase();
     let counter = &state.throttles.verification;
@@ -125,12 +125,12 @@ pub async fn request(State(state): State<AppState>, current: CurrentUser) -> Res
 
 /// Confirms an address from the link sent to it.
 ///
-/// Needs no session: the link is opened wherever the mail is read, which is
-/// often not where the account is signed in. Holding the link is the proof.
+/// Needs no session: the link is opened wherever the mail is read, often not
+/// where the account is signed in. Holding the link is the proof.
 ///
 /// # Errors
 ///
-/// `400` when the link is unknown, spent, expired, or was sent to an address the
+/// `400` when the link is unknown, used, expired, or was sent to an address the
 /// account no longer has. `404` when this instance has no accounts or sends no
 /// mail.
 #[utoipa::path(
@@ -163,13 +163,12 @@ pub async fn confirm(
         return Err(not_usable());
     };
 
-    // The database decides who wins, so two clicks confirm once.
+    // The database arbitrates, so two clicks confirm only once.
     if !state.verifications.spend(link.id, now).await? {
         return Err(not_usable());
     }
-    // Only if the account still has the address the link was sent to. One
-    // that has moved on since would otherwise be confirmed by mail that went
-    // somewhere else.
+    // Only if the account still has the address the link was sent to.
+    // Otherwise mail that went to the old address would confirm the new one.
     if !state
         .users
         .mark_email_verified(link.user_id, &link.email, now)

@@ -307,8 +307,8 @@ mod tests {
         );
     }
 
-    /// The counters have to come from the file, or `auth.throttle` is a page
-    /// of settings an operator can write and none the process reads.
+    /// The counters must come from the file, or `auth.throttle` is a page of
+    /// settings the operator can write and the process never reads.
     #[test]
     fn the_configured_limits_are_the_ones_enforced() {
         let mut config = ThrottleConfig::default();
@@ -425,12 +425,12 @@ pub struct Throttles {
     /// instead of three.
     pub registration: Throttle,
 
-    /// Address verification mails, keyed on the address they go to.
+    /// Address verification mails, keyed on the recipient address.
     ///
-    /// Its own counter for the reason [`Throttles::registration`] has one. An
-    /// account can set its address to anybody's, so without a limit of its
-    /// own this is a way to mail a stranger on repeat; sharing the reset
-    /// counter would let the same trick use up the stranger's resets instead.
+    /// A separate counter, for the same reason as [`Throttles::registration`].
+    /// An account can set its address to anyone's, so without its own limit
+    /// this could mail a stranger repeatedly; sharing the reset counter would
+    /// let the same trick use up the stranger's resets instead.
     pub verification: Throttle,
 
     /// Failed share-password attempts, keyed on the code and the source.
@@ -442,15 +442,15 @@ pub struct Throttles {
 
     /// Speed tests, keyed on the source.
     ///
-    /// Counted on every test rather than on failures, because there is no
-    /// failure to count: each test is a transfer somebody asked for, and what
-    /// has to be bounded is how many of them one address may ask for.
+    /// Every test counts, not just failures, since there are no failures to
+    /// count: each test is a requested transfer, and the limit is how many one
+    /// address may request.
     pub speed: Throttle,
 
     /// Breach-list lookups while a password is typed, keyed on the source.
     ///
-    /// Its own counter and not a share of [`Throttles::source`]: typing a
-    /// password must not spend the budget the same address signs in with.
+    /// A separate counter, not a share of [`Throttles::source`]: typing a
+    /// password must not use up the budget the same address signs in with.
     pub pwned: Throttle,
 }
 
@@ -523,8 +523,8 @@ pub const SOURCE_WINDOW: Duration = Duration::from_mins(1);
 /// Mails to one address before further requests are refused, counted separately
 /// for resets, registrations and address verification.
 ///
-/// Three covers a message that did not arrive and a second attempt, and is few
-/// enough that the inbox is not a place to hide an attack.
+/// Three covers a message that did not arrive plus a retry, and is few enough
+/// that the inbox cannot be used to bury an attack.
 pub const RESET_MAX_REQUESTS: u32 = 3;
 
 /// How long that limit lasts. Longer than the link itself, so asking again
@@ -534,15 +534,15 @@ pub const RESET_WINDOW: Duration = Duration::from_hours(1);
 /// Speed tests one source may run in an hour.
 ///
 /// Five at the default size is a little over a hundred megabytes each way per
-/// address per hour: enough to measure a line twice and compare, and bounded
+/// address per hour: enough to measure a line twice and compare, and small
 /// enough that an open instance is not a download mirror.
 pub const SPEED_MAX_TESTS: u32 = 5;
 
 /// Breach-list lookups one source may make in a minute.
 ///
-/// A form looks up once the local rules pass and the person has stopped typing,
-/// and remembers each prefix, so choosing a password is a handful. Thirty is
-/// room for somebody trying several, and not a free proxy for anybody else.
+/// A form looks up once the local rules pass and the user stops typing, and
+/// remembers each prefix, so choosing a password takes a handful. Thirty
+/// leaves room to try several without becoming a free proxy.
 pub const PWNED_MAX_LOOKUPS: u32 = 30;
 
 /// Codes tried and not found, from one source, before it is refused.

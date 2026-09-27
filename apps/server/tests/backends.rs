@@ -358,29 +358,15 @@ async fn the_scoped_totals_run_on_this_dialect() {
     );
 }
 
-/// Every migration rolls back, on this dialect, all the way to an empty
-/// database, and then forward again.
+/// A full rollback on SQLite, not `#[ignore]`d.
 ///
-/// Nothing ran `down` before this test existed, on any dialect, ever. The `up`
-/// path is exercised by every other test here; the rollbacks were written,
-/// reviewed and never executed. Four of them did not work on MySQL: two used
-/// `DROP INDEX IF EXISTS`, not syntax it has; one rebuilt a table with
-/// `TEXT` in its primary key, which `InnoDB` cannot index without a prefix
-/// length; and one dropped the last index a foreign key depended on. All four
-/// were found by running this, not by reading them.
-///
-/// Rolling forward again afterwards is half the point: a `down` that leaves the
-/// schema subtly different from where it started is a rollback that works once.
-/// The same, on SQLite, and not `#[ignore]`d.
-///
-/// The one above needs a server and so runs only where CI starts one, which is
-/// Postgres and MySQL. SQLite needs nothing, and it is the database this ships
-/// with by default, so the dialect most installations roll back on was the one
-/// nothing checked.
+/// The dialect test below needs a server, so it only runs where CI starts one:
+/// Postgres and MySQL. SQLite needs nothing and is the shipped default, yet it
+/// was the dialect nothing checked.
 ///
 /// It was broken when this was written: `m20260824_000001_single_role`'s
-/// rollback dropped `users.role_id` while `idx_users_role` still named it, and
-/// SQLite refuses that. Postgres drops the index along with the column and
+/// rollback dropped `users.role_id` while `idx_users_role` still referenced
+/// it, which SQLite refuses. Postgres drops the index with the column and
 /// never noticed.
 #[tokio::test]
 async fn a_rollback_runs_on_sqlite() {
@@ -415,6 +401,19 @@ async fn a_rollback_runs_on_sqlite() {
     db::close(conn).await;
 }
 
+/// Every migration rolls back on this dialect, all the way to an empty
+/// database, and then forward again.
+///
+/// Before this test, nothing had ever run `down`, on any dialect. The `up`
+/// path is exercised by every other test here; the rollbacks were written and
+/// reviewed but never executed. Four failed on MySQL: two used
+/// `DROP INDEX IF EXISTS`, which it lacks; one rebuilt a table with `TEXT` in
+/// its primary key, which `InnoDB` cannot index without a prefix length; and
+/// one dropped the last index a foreign key depended on. All four were found
+/// by running this, not by reading them.
+///
+/// Rolling forward again is half the point: a `down` that leaves the schema
+/// subtly different is a rollback that works once.
 #[tokio::test]
 #[ignore = "needs a live database; see the module docs"]
 async fn a_full_rollback_runs_on_this_dialect() {
@@ -450,16 +449,16 @@ async fn a_full_rollback_runs_on_this_dialect() {
     db::close(conn).await;
 }
 
-/// One person's preferences, written and read back on this dialect.
+/// One user's preferences, written and read back on this dialect.
 ///
 /// The same gap `auth_flows` fell into: nothing else in the suite writes to
-/// this table, so a migration that runs is not evidence that a row can be
-/// stored. MySQL is the one to be wrong about here, where `TEXT` cannot be a
-/// primary key without a prefix length and cannot carry a `DEFAULT` at all.
+/// this table, so a migration that runs proves nothing about storing a row.
+/// MySQL is the risky one, where `TEXT` cannot be a primary key without a
+/// prefix length and cannot have a `DEFAULT` at all.
 ///
-/// The upsert is the other half. Saving twice is the ordinary case, one device
-/// after another, and it is a single statement whose conflict clause each
-/// dialect spells differently.
+/// The upsert is the other half. Saving twice is normal (one device, then
+/// another), and it is one statement whose conflict clause each dialect
+/// spells differently.
 #[tokio::test]
 #[ignore = "needs a live database; see the module docs"]
 async fn preferences_round_trip_on_this_dialect() {
@@ -471,10 +470,10 @@ async fn preferences_round_trip_on_this_dialect() {
     let app = TestApp::with_database(&database_url(), ServiceStatus::Ready).await;
     let now = OffsetDateTime::now_utc();
 
-    // The row has a foreign key to `users`, so it needs somebody to belong to.
-    // Its own account rather than a shared one: this database survives the run,
-    // so a fixed name would collide with the previous invocation and the
-    // failure would say nothing about the schema.
+    // The row has a foreign key to `users`, so it needs an owner. A fresh
+    // account, not a shared one: this database outlives the run, so a fixed
+    // name would collide with the previous run and the failure would say
+    // nothing about the schema.
     let suffix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
@@ -503,8 +502,8 @@ async fn preferences_round_trip_on_this_dialect() {
         .await
         .expect("an account for the row to belong to");
 
-    // Nothing stored reads as nothing chosen, not as an error and not as the
-    // instance's default in disguise.
+    // Nothing stored reads as nothing chosen: not an error, and not the
+    // instance default in disguise.
     assert_eq!(
         app.state
             .preferences
@@ -533,8 +532,8 @@ async fn preferences_round_trip_on_this_dialect() {
         chosen
     );
 
-    // Saving again is an upsert, not a second row: one person, one row, on
-    // every dialect.
+    // Saving again is an upsert, not a second row: one user, one row, on every
+    // dialect.
     let narrowed = Appearance {
         accent: Some(Accent::Teal),
         ..Appearance::default()
@@ -556,18 +555,16 @@ async fn preferences_round_trip_on_this_dialect() {
     );
 }
 
-/// A sign-in that has left for a provider, written and read back on this
-/// dialect.
+/// A sign-in in progress at a provider, written and read back on this dialect.
 ///
-/// This exists because it was missing. `auth_flows` was added with its columns
-/// typed as `TEXT` on every dialect, copied from the SQLite file, and the suite
-/// went green: MySQL rejected the index and said so, but Postgres accepted a
-/// table nothing here ever wrote to. A time in a `text` column is a string, and
-/// `expires_at <= now` would have been a lexicographic comparison.
+/// This test was missing. `auth_flows` was added with every column typed
+/// `TEXT` on every dialect, copied from the SQLite file, and the suite passed:
+/// MySQL rejected the index and said so, but Postgres accepted a table nothing
+/// here ever wrote to. A time in a `text` column is a string, and
+/// `expires_at <= now` would have compared lexicographically.
 ///
-/// So the round trip matters more than the migration running. Anything that
-/// writes a column of the wrong type fails here rather than in a sweep that
-/// quietly stops collecting.
+/// So the round trip matters more than the migration running. A column of the
+/// wrong type fails here instead of in a sweep that quietly stops collecting.
 #[tokio::test]
 #[ignore = "needs a live database; see the module docs"]
 async fn a_provider_sign_in_round_trips_on_this_dialect() {
@@ -576,7 +573,7 @@ async fn a_provider_sign_in_round_trips_on_this_dialect() {
     let flow = Flow {
         state: format!("state-{}", now.unix_timestamp_nanos()),
         provider: "github".to_owned(),
-        // Absent, which is the case a `NOT NULL` column would have refused.
+        // Absent: the case a `NOT NULL` column would have refused.
         nonce: None,
         verifier: "a-verifier".to_owned(),
         purpose: Purpose::Login,
@@ -602,8 +599,8 @@ async fn a_provider_sign_in_round_trips_on_this_dialect() {
     assert!(taken.nonce.is_none());
     assert_eq!(taken.invite_code.as_deref(), Some("an-invite"));
 
-    // The one that a `text` column would get wrong: a comparison of times, not
-    // of strings. An expired row goes and a live one stays.
+    // What a `text` column would get wrong: comparing times, not strings. The
+    // expired row goes and the live one stays.
     let expired = Flow {
         state: format!("expired-{}", now.unix_timestamp_nanos()),
         expires_at: now - time::Duration::minutes(1),

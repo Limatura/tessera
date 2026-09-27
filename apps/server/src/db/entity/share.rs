@@ -59,7 +59,7 @@ pub struct Model {
     pub copy_count: i32,
     /// How many bytes this share has sent out. See the migration.
     pub bytes_served: i64,
-    /// How many bytes were asked for by requests sent to the store instead.
+    /// Bytes requested by downloads redirected to the store.
     pub bytes_redirected: i64,
     /// When the share was last touched, used to decide what is worth keeping.
     pub last_accessed_at: Option<TimeDateTimeWithTimeZone>,

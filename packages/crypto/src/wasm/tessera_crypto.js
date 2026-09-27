@@ -288,7 +288,7 @@ export class ShareKey {
     }
     /**
      * The key a password and an encoded salt derive. Takes a noticeable
-     * fraction of a second, by design.
+     * fraction of a second, as intended.
      *
      * # Errors
      *

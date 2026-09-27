@@ -489,9 +489,9 @@ async fn an_anonymous_session_does_not_spend_a_members_quota() {
 /// A resumable upload goes to a backend with room for it, not always the
 /// default.
 ///
-/// Direct uploads were placed and resumable ones were not, so an instance whose
-/// default had filled up refused every resumable upload while other backends
-/// sat empty.
+/// Direct uploads were placed but resumable ones were not, so an instance whose
+/// default was full refused every resumable upload while other backends sat
+/// empty.
 #[tokio::test]
 async fn a_resumable_upload_is_placed_like_any_other() {
     use tessera_server::db::repository::storage_backend::StorageBackend;
@@ -703,12 +703,12 @@ async fn every_segment_of_an_abandoned_upload_is_cleaned_up() {
     }
 }
 
-/// A local directory has nothing to sign, so an upload placed on one says so
-/// when it is opened, and the two direct endpoints refuse rather than hand out
-/// something that cannot work.
+/// A local directory has nothing to sign, so an upload placed on one reports
+/// that when opened, and the two direct endpoints refuse instead of handing
+/// out something that cannot work.
 ///
-/// Refused with `409` and not `404`: the session exists and is the caller's,
-/// it is the way of finishing it that does not apply.
+/// `409`, not `404`: the session exists and belongs to the caller; only this
+/// way of finishing it does not apply.
 #[tokio::test]
 async fn an_upload_to_a_local_directory_cannot_take_parts_directly() {
     let app = TestApp::ready().await;
@@ -758,8 +758,8 @@ async fn an_upload_to_a_local_directory_cannot_take_parts_directly() {
     .await;
 }
 
-/// The direct endpoints ask for the same proof `PATCH` does. Without the token
-/// a stranger learns nothing, not even that the session exists.
+/// The direct endpoints require the same proof as `PATCH`. Without the token a
+/// stranger learns nothing, not even that the session exists.
 #[tokio::test]
 async fn the_direct_endpoints_need_the_uploaders_token() {
     let app = TestApp::ready().await;

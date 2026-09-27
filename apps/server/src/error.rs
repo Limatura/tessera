@@ -94,11 +94,11 @@ pub enum Error {
 
     /// The content is waiting for the malware scanner's verdict.
     ///
-    /// Distinct from [`Error::Unavailable`] because it is about this share, not
-    /// the service, and it ends on its own: the client waits and asks again.
+    /// Distinct from [`Error::Unavailable`]: it concerns this share, not the
+    /// service, and resolves itself. The client waits and retries.
     #[error("still being scanned")]
     Scanning {
-        /// Seconds until it is worth asking again.
+        /// Seconds until a retry is worthwhile.
         retry_after_secs: u64,
     },
 
@@ -213,7 +213,7 @@ impl ErrorCode {
             Self::RangeNotSatisfiable => StatusCode::RANGE_NOT_SATISFIABLE,
             Self::Conflict => StatusCode::CONFLICT,
             Self::TooManyRequests => StatusCode::TOO_MANY_REQUESTS,
-            // `423 Locked`: the share is there and will be available, but not
+            // `423 Locked`: the share exists and will be available, just not
             // yet, and not because of anything the caller did.
             Self::Scanning => StatusCode::LOCKED,
             Self::PayloadTooLarge => StatusCode::PAYLOAD_TOO_LARGE,
@@ -335,10 +335,9 @@ impl IntoResponse for Error {
             tracing::debug!(error = %self, "request rejected");
         }
         // Some errors carry a header the client needs, each one HTTP already
-        // has for the purpose. A 429 or a 423 without `Retry-After` tells a
-        // client to wait but not for how long, so every client invents its own
-        // answer; a 416 without `Content-Range` does not say what range
-        // *would* have worked.
+        // defines for the purpose. A 429 or 423 without `Retry-After` says to
+        // wait but not how long, so every client guesses; a 416 without
+        // `Content-Range` does not say what range *would* have worked.
         let extra = match self {
             Self::TooManyRequests { retry_after_secs } | Self::Scanning { retry_after_secs } => {
                 Some((

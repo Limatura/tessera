@@ -23,8 +23,8 @@ pub struct Model {
     pub filename: Option<String>,
     /// Recorded, never echoed; see the migration on `file_shares`.
     pub content_type: Option<String>,
-    /// What the share this creates will be sealed as: `link`, `password`, or
-    /// `None` for a share the server can read.
+    /// How the resulting share will be sealed: `link`, `password`, or `None`
+    /// for a share the server can read.
     pub encryption: Option<String>,
     /// The salt a password-derived key is stretched with.
     pub key_salt: Option<String>,

@@ -105,8 +105,8 @@ impl AccessEventRepository {
 
     /// How many events one share has.
     ///
-    /// Counted rather than taken from the length of a page, which would report
-    /// the page size on every page but the last.
+    /// Counted, not taken from a page's length, which would report the page
+    /// size on every page but the last.
     ///
     /// # Errors
     ///

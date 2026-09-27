@@ -2,8 +2,8 @@
 
 use sea_orm::entity::prelude::*;
 
-/// A row of `auth_flows`: a sign-in that has left for a provider and has not
-/// come back yet.
+/// A row of `auth_flows`: a sign-in that has gone to a provider and not yet
+/// returned.
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "auth_flows")]
 pub struct Model {
@@ -27,7 +27,7 @@ pub struct Model {
     pub invite_code: Option<String>,
     /// When the browser left.
     pub created_at: TimeDateTimeWithTimeZone,
-    /// When this stops being answerable.
+    /// When this expires.
     pub expires_at: TimeDateTimeWithTimeZone,
 }
 

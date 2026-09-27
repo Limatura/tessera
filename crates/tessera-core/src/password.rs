@@ -9,11 +9,10 @@ use crate::DomainError;
 /// What a password must be to be accepted.
 ///
 /// Length, and optionally composition. The composition rules are off unless
-/// an operator turns them on. NIST 800-63B dropped them because they push
-/// people towards `Password1!` and away from the long passphrases that resist
-/// guessing, so a longer minimum is worth more than a wider alphabet. Some
-/// operators answer to a policy that still asks for them, which is why they
-/// exist at all.
+/// an operator enables them. NIST 800-63B dropped them because they push users
+/// toward `Password1!` and away from long passphrases that resist guessing, so
+/// a longer minimum is worth more than a wider alphabet. They exist for
+/// operators bound by a policy that still requires them.
 ///
 /// # Character classes
 ///
@@ -27,7 +26,7 @@ use crate::DomainError;
 /// | [`require_symbol`](Self::require_symbol) | not [`char::is_alphanumeric`], not [`char::is_whitespace`] | `/[^\p{Alphabetic}\p{N}\p{White_Space}]/u` |
 ///
 /// A space is not a symbol. Counting it would let any passphrase satisfy the
-/// rule, which is not what an operator who turned it on asked for.
+/// rule, which is not what an operator enabling it wants.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PasswordPolicy {
@@ -59,19 +58,19 @@ impl PasswordPolicy {
 
     /// The widest policy any instance could ever have had.
     ///
-    /// # What this is for
+    /// # Purpose
     ///
-    /// A policy describes passwords a person may *choose*. It must not describe
-    /// the ones they may *present*: an operator raising `min_length` from 8 to
-    /// 16 would otherwise lock out every account with a 12-character password,
-    /// not by refusing it but by rejecting the input before it reaches the
-    /// hash, so the person sees "wrong password" for a password that is right.
+    /// A policy describes passwords a user may *choose*, not ones they may
+    /// *present*. Otherwise raising `min_length` from 8 to 16 would lock out
+    /// every account with a 12-character password: the input would be rejected
+    /// before reaching the hash, and the user would see "wrong password" for
+    /// the right one.
     ///
-    /// So sign-in and change-password parse against this, and only choosing a
-    /// *new* password is checked against the configured policy. The bounds are
-    /// still real: they are the ones that make [`Password`] a meaningful type at
-    /// all, and they cap the work an unauthenticated request can ask for. The
-    /// composition rules are all off, for the same reason as the minimum.
+    /// So sign-in and change-password parse against this, and only a *new*
+    /// password is checked against the configured policy. The bounds are still
+    /// real: they make [`Password`] a meaningful type and cap the work an
+    /// unauthenticated request can cause. The composition rules are all off,
+    /// for the same reason as the minimum.
     #[must_use]
     pub const fn widest() -> Self {
         Self {
@@ -115,8 +114,8 @@ impl PasswordPolicy {
 impl Default for PasswordPolicy {
     fn default() -> Self {
         // The floor. An operator who wants longer passwords raises it; a
-        // default above it only turns away people the operator never asked to
-        // turn away.
+        // higher default would only turn away users the operator never meant
+        // to.
         Self {
             min_length: Self::FLOOR,
             max_length: 256,
@@ -149,9 +148,9 @@ pub struct Password(String);
 impl Password {
     /// Checks a password against `policy`.
     ///
-    /// The value is taken as-is: no trimming, no case folding, no normalisation.
-    /// A password is a byte sequence the user chose, and "helpfully" trimming a
-    /// trailing space would silently lock out anyone whose password ends in one.
+    /// The value is taken as-is: no trimming, case folding or normalisation. A
+    /// password is what the user chose, and trimming a trailing space would
+    /// silently lock out anyone whose password ends in one.
     ///
     /// # Errors
     ///
@@ -338,8 +337,8 @@ mod tests {
         assert!(Password::parse(raw, COMPOSED).is_ok());
     }
 
-    /// Off by default: a passphrase of lowercase words is the kind of password
-    /// the default should encourage, not refuse.
+    /// Off by default: a passphrase of lowercase words is what the default
+    /// should encourage, not refuse.
     #[test]
     fn the_default_policy_has_no_composition_rules() {
         assert!(Password::parse("correct horse battery staple", PasswordPolicy::default()).is_ok());

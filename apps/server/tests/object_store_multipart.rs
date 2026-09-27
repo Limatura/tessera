@@ -68,9 +68,8 @@ async fn app() -> TestApp {
     TestApp::with_backend(move |backend| backend.url = url).await
 }
 
-/// Uploads `bytes` and returns the retrieval code and its management token.
-/// Downloads a share the way a browser would: following a redirect to the store
-/// when this server sends one, and taking the body directly when it does not.
+/// Downloads a share as a browser would: following a redirect to the store
+/// when this server sends one, and reading the body directly otherwise.
 async fn fetch(app: &TestApp, code: &str) -> Vec<u8> {
     let response = app
         .empty(Method::GET, &format!("/s/{code}/download"), Auth::None)
@@ -99,7 +98,7 @@ async fn fetch(app: &TestApp, code: &str) -> Vec<u8> {
         .to_vec()
 }
 
-/// The same store, with the operator's word that a browser can reach it.
+/// The same store, with the operator's word that browsers can reach it.
 async fn direct_app() -> TestApp {
     let url = storage_url();
     let options = storage_options();
@@ -376,9 +375,9 @@ async fn a_file_split_across_two_buckets_survives_the_round_trip() {
         move |config| {
             config.storage.split_across_backends = true;
             config.server.part_size_bytes = part;
-            // Otherwise a small file would be stored in the row and never reach a
-            // bucket. This one is far too large for that, but the threshold is what
-            // decides it and a default that changed would change this test.
+            // Otherwise a small file would be stored inline in the row and
+            // never reach a bucket. This one is far too large for that, but the
+            // threshold decides, and a changed default would change this test.
             config.share.inline_threshold_bytes = 8;
         },
         move |backend| {
@@ -389,8 +388,8 @@ async fn a_file_split_across_two_buckets_survives_the_round_trip() {
     )
     .await;
 
-    // The second bucket, opened the way the server opens them, added under a
-    // name of its own and a ceiling to match.
+    // The second bucket, opened as the server opens them, added under its own
+    // name with a matching limit.
     app.state.replace_backends(app.pool_with(
         tessera_server::db::repository::storage_backend::StorageBackend {
             name: "cold".to_owned(),
@@ -466,7 +465,7 @@ fn open_bucket(url: &str) -> tessera_server::storage::Stores {
     .expect("open the bucket")
 }
 
-/// Whether the store under test can sign a part upload, by the scheme the
+/// Whether the store under test can sign part uploads, going by the scheme the
 /// suite was pointed at. See `storage::Stores::signer`.
 fn signs_part_uploads() -> bool {
     let url = storage_url();
@@ -492,8 +491,8 @@ async fn open_session(app: &TestApp, name: &str, length: usize) -> serde_json::V
     .await
 }
 
-/// Writes one part to the URL this server signed, and returns the `ETag` the
-/// store answered with.
+/// Writes one part to the URL this server signed, and returns the store's
+/// `ETag`.
 async fn put_part(app: &TestApp, id: &str, token: &str, number: usize, bytes: Vec<u8>) -> String {
     let signed = body_json(
         expect_status(
@@ -515,8 +514,8 @@ async fn put_part(app: &TestApp, id: &str, token: &str, number: usize, bytes: Ve
         .and_then(serde_json::Value::as_str)
         .expect("a url");
 
-    // A real HTTP client, not the router: the point is that the bytes go to the
-    // store without this server in the path.
+    // A real HTTP client, not the router: the bytes must go to the store
+    // without this server in the path.
     let response = reqwest::Client::new()
         .put(url)
         .body(bytes)
@@ -554,15 +553,15 @@ async fn complete(
     .await
 }
 
-/// The whole point: parts written straight to the store, finished here, and
-/// the file that comes back is the file that went in.
+/// The main path: parts written straight to the store, finished here, and the
+/// file read back matches the file sent.
 ///
-/// Two whole parts and a short tail, so the order the `ETag`s are listed in
-/// matters: a store that numbered them differently would join the file in the
-/// wrong order and the byte comparison would say where.
+/// Two full parts and a short tail, so the `ETag` order matters: a store that
+/// numbered them differently would join the file out of order, and the byte
+/// comparison would show where.
 ///
-/// Against a store with nothing to sign, the same session has to say it
-/// cannot take parts directly, and that is asserted instead.
+/// Against a store with nothing to sign, the session must report that it
+/// cannot take parts directly, which is asserted instead.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn parts_written_straight_to_the_store_come_back_as_one_file() {
@@ -599,9 +598,9 @@ async fn parts_written_straight_to_the_store_come_back_as_one_file() {
     );
 }
 
-/// A part URL cannot be limited to a length, so a client can write more than it
-/// declared. `complete` is where that is caught: the object is deleted, the
-/// session with it, and nothing is recorded as a file.
+/// A part URL cannot be limited to a length, so a client can write more than
+/// it declared. `complete` catches that: the object and the session are
+/// deleted, and no file is recorded.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn a_direct_upload_that_comes_out_the_wrong_size_is_refused() {
@@ -609,7 +608,7 @@ async fn a_direct_upload_that_comes_out_the_wrong_size_is_refused() {
         return;
     }
     let app = direct_app().await;
-    // One part, so the only part is also the last and may be any size at all.
+    // One part, so it is also the last and may be any size.
     let created = open_session(&app, "oversized.bin", 4096).await;
     let id = created["id"].as_str().expect("an id").to_owned();
     let token = created["token"].as_str().expect("a token").to_owned();
@@ -622,7 +621,7 @@ async fn a_direct_upload_that_comes_out_the_wrong_size_is_refused() {
         "the refusal should say what arrived: {body}"
     );
 
-    // The session went with the object, so there is nothing left to finish.
+    // The session was deleted with the object, so nothing is left to finish.
     expect_status(
         app.send(
             Request::builder()
@@ -672,7 +671,7 @@ async fn the_wrong_number_of_etags_is_refused_and_the_upload_can_still_finish() 
     );
 }
 
-/// A signer says a URL can be made, not that a browser can use it. Without the
+/// A signer means a URL can be made, not that browsers can use it. Without the
 /// operator's word, an upload to an S3 bucket still goes through this server.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
@@ -726,10 +725,9 @@ async fn stored(app: &TestApp, code: &str) -> tessera_server::db::repository::sh
         .expect("the share")
 }
 
-/// The point of the switch: a share that promises nothing about who or how often
-/// is handed to the store, the file that comes back is the file that went in,
-/// under the name it was uploaded as, and what was asked for is counted as
-/// redirected rather than as served.
+/// The point of the switch: a share with no password or use limit is handed to
+/// the store, the file read back matches the one sent, under its uploaded
+/// name, and the requested bytes are counted as redirected, not served.
 ///
 /// Against a store with nothing to sign, the same download is served from here.
 #[tokio::test]
@@ -826,8 +824,8 @@ async fn a_range_is_sent_to_the_store_and_counted_as_asked() {
 }
 
 /// A password and a use limit are promises about who gets the bytes and how
-/// often, and a URL to the store keeps neither. Those downloads stay here, and
-/// so does a `HEAD`, which is not a download at all.
+/// often, and a store URL keeps neither. Those downloads stay here, and so
+/// does a `HEAD`, which is not a download at all.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn a_password_or_a_use_limit_keeps_the_download_on_this_server() {
@@ -870,7 +868,7 @@ async fn a_password_or_a_use_limit_keeps_the_download_on_this_server() {
     .await;
 }
 
-/// Without the operator's word, nothing is sent anywhere.
+/// Without the operator's word, nothing is redirected.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn without_the_switch_downloads_stay_on_this_server() {
@@ -895,7 +893,7 @@ async fn listing(app: &TestApp, code: &str) -> Option<serde_json::Value> {
     Some(body_json(expect_status(response, StatusCode::OK).await).await)
 }
 
-/// Fetches one piece the way a browser joining them would.
+/// Fetches one piece as a browser joining them would.
 async fn piece(app: &TestApp, code: &str, index: usize) -> Vec<u8> {
     let response = app
         .empty(
@@ -922,8 +920,8 @@ async fn piece(app: &TestApp, code: &str, index: usize) -> Vec<u8> {
         .to_vec()
 }
 
-/// A file that was never split still has one piece, so a browser can join every
-/// share the same way instead of asking which kind it is.
+/// An unsplit file still has one piece, so a browser can join every share the
+/// same way without asking which kind it is.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn an_unsplit_file_is_one_piece() {
@@ -948,12 +946,12 @@ async fn an_unsplit_file_is_one_piece() {
     assert_eq!(stored(&app, &code).await.bytes_redirected, 300_000);
 }
 
-/// A share that promises something about who or how often has no listing, for
-/// the reason it has no redirect: a URL to the store keeps neither promise.
+/// A share that promises anything about who or how often has no listing, for
+/// the same reason it gets no redirect: a store URL keeps neither promise.
 ///
-/// The two are refused differently, and both are right. A locked share asks for
-/// its password first, exactly as `/download` does, so the answer says nothing
-/// about what is behind it. A counted one has nothing to hide and simply has no
+/// The two are refused differently, and both correctly. A locked share asks
+/// for its password first, as `/download` does, so the answer reveals nothing
+/// about what is behind it. A counted one has nothing to hide and just has no
 /// listing.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
@@ -985,11 +983,11 @@ async fn a_password_or_a_use_limit_has_no_segment_listing() {
     );
 }
 
-/// The reason this exists: a file cut across two buckets, listed as its pieces
-/// and joined from them, without a byte crossing this server.
+/// The reason this exists: a file split across two buckets, listed as its
+/// pieces and joined from them, with no byte passing through this server.
 ///
-/// The offsets are checked as they are used, so a listing that described the
-/// pieces in the wrong order would join into a file that does not match.
+/// Offsets are checked as they are used, so a listing that ordered the pieces
+/// wrong would join into a file that does not match.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn a_split_file_is_listed_and_joined_piece_by_piece() {
@@ -1000,9 +998,9 @@ async fn a_split_file_is_listed_and_joined_piece_by_piece() {
         panic!("TESSERA_TEST_STORAGE_URL_SECOND is not set; see the module docs");
     };
 
-    // The same shape as the round-trip test above: one part per bucket, and a
-    // file of one and a half parts, so it has to be cut and can only be cut on
-    // the part boundary.
+    // Same shape as the round-trip test above: one part per bucket, and a file
+    // of one and a half parts, so it must be split, and only on the part
+    // boundary.
     let part = 5 * 1024 * 1024_usize;
     let ceiling = u64::try_from(part).expect("a part size");
     let app = TestApp::with_config_and_backend(
