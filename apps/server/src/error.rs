@@ -606,8 +606,12 @@ pub enum Tier {
     /// The quota on the role the caller is in, or the guest role for an
     /// anonymous caller.
     Role,
-    /// `storage.max_total_bytes`.
+    /// `storage.max_total_bytes`, or every backend full.
     Instance,
+    /// No single backend has room for a file this size, though together they
+    /// do. A smaller file fits; so does this one with
+    /// `storage.split_across_backends` on.
+    Backend,
 }
 
 impl Tier {
@@ -617,6 +621,7 @@ impl Tier {
             Self::Account => "account",
             Self::Role => "role",
             Self::Instance => "instance",
+            Self::Backend => "backend",
         }
     }
 
@@ -626,6 +631,7 @@ impl Tier {
             Self::Account => "your storage quota is full",
             Self::Role => "the storage quota for your role is full",
             Self::Instance => "this instance has no room for more content",
+            Self::Backend => "no single storage backend has room for a file this size",
         }
     }
 }

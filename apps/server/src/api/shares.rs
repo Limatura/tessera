@@ -1419,8 +1419,29 @@ async fn place_where(
     Err(if pick(&all, size).is_some() {
         Error::PayloadTooLarge
     } else {
-        Error::InsufficientStorage(Tier::Instance)
+        Error::InsufficientStorage(short_of(&all, size))
     })
+}
+
+/// Which way the backends fall short of a file that none of them will take.
+///
+/// Full is not the only reason. Two backends with 27 MB and 22 MB left hold
+/// 49 MB between them and still cannot take 38 MB whole, and calling that
+/// "the instance is full" sends the reader looking for space that exists.
+fn short_of(pool: &[crate::storage::placement::Candidate], size: Option<u64>) -> Tier {
+    let Some(size) = size else {
+        return Tier::Instance;
+    };
+    let free: u64 = pool
+        .iter()
+        .filter(|candidate| !candidate.read_only)
+        .map(|candidate| candidate.free_bytes().unwrap_or(u64::MAX))
+        .fold(0, u64::saturating_add);
+    if free >= size {
+        Tier::Backend
+    } else {
+        Tier::Instance
+    }
 }
 
 /// Places the file and opens a multipart upload on the backend chosen.
@@ -1453,7 +1474,7 @@ async fn plan_object(
             split: true,
         };
         let plan = crate::storage::split::plan(&candidates, size, rules)
-            .ok_or(Error::InsufficientStorage(Tier::Instance))?;
+            .ok_or_else(|| Error::InsufficientStorage(short_of(&candidates, Some(size))))?;
         return Ok(plan
             .into_iter()
             .enumerate()

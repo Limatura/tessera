@@ -4247,6 +4247,23 @@ async fn a_file_bigger_than_every_backend_is_refused() {
         )
         .await;
     assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
+    // The room is there, just not in one place: saying the instance is full
+    // would send the reader looking for space that exists.
+    let body = body_json(refused).await;
+    assert_eq!(body["details"]["tier"], "backend", "{body}");
+
+    // More than both hold together is the instance being full.
+    let full = body_json(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=too-big.bin"),
+            Body::from(vec![1_u8; 8192]),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(full["details"]["tier"], "instance", "{full}");
 }
 
 /// Reporting the sum would tell a client it has 4 KiB when no single file over
