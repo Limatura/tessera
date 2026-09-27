@@ -25,9 +25,13 @@ export const WEB_ROUTES = {
 export function loginUrl(returnTo?: string): URL {
   const url = webUrl(WEB_ROUTES.login);
   if (returnTo) {
+    // router 給的路徑不含 basepath（正式環境的 `/admin`），要補回去，
+    // 不然登入完會被送回前台首頁而不是後台。
+    const mount = import.meta.env.BASE_URL.replace(/\/+$/u, "");
+    const path = returnTo.startsWith("/") ? `${mount}${returnTo}` : returnTo;
     url.searchParams.set(
       "redirect",
-      new URL(returnTo, window.location.origin).toString()
+      new URL(path, window.location.origin).toString()
     );
   }
   return url;
