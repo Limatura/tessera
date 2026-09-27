@@ -671,6 +671,51 @@ async fn the_wrong_number_of_etags_is_refused_and_the_upload_can_still_finish() 
     );
 }
 
+/// An `ETag` the store does not recognise is the client's list being wrong, not
+/// the server failing: `400`, and the upload stays open for the right list.
+#[tokio::test]
+#[ignore = "needs an object store; see the module docs"]
+async fn a_wrong_etag_is_refused_as_the_clients_mistake() {
+    if !signs_part_uploads() {
+        return;
+    }
+    let app = direct_app().await;
+    let sent = vec![7_u8; 4096];
+    let created = open_session(&app, "wrong-etag.bin", sent.len()).await;
+    let id = created["id"].as_str().expect("an id").to_owned();
+    let token = created["token"].as_str().expect("a token").to_owned();
+
+    let etag = put_part(&app, &id, &token, 1, sent.clone()).await;
+    let refused = body_json(
+        expect_status(
+            complete(
+                &app,
+                &id,
+                &token,
+                &["\"0123456789abcdef0123456789abcdef\"".to_owned()],
+            )
+            .await,
+            StatusCode::BAD_REQUEST,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(refused["code"], "upload_parts_mismatch", "{refused}");
+
+    let share = body_json(
+        expect_status(
+            complete(&app, &id, &token, &[etag]).await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(
+        fetch(&app, share["code"].as_str().expect("a code")).await,
+        sent
+    );
+}
+
 /// A signer means a URL can be made, not that browsers can use it. Without the
 /// operator's word, an upload to an S3 bucket still goes through this server.
 #[tokio::test]

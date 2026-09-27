@@ -254,8 +254,10 @@ impl Sink {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Storage`] if the store refuses to complete, or
-    /// [`Error::Io`] if the finished file cannot be moved into place.
+    /// `upload_parts_mismatch` when the store refuses the parts it was given,
+    /// which is the client's list being wrong and leaves the upload open to be
+    /// finished with the right one; [`Error::Storage`] for any other refusal,
+    /// or [`Error::Io`] if the finished file cannot be moved into place.
     pub async fn complete(&self, key: &str, parts: Vec<TakenPart>) -> Result<()> {
         match self {
             Self::Multipart { store, id } => {
@@ -268,7 +270,16 @@ impl Sink {
                 store
                     .complete_multipart(&ObjectPath::from(key), id, parts)
                     .await
-                    .map_err(Error::Storage)?;
+                    .map_err(|error| {
+                        if refuses_the_parts(&error) {
+                            Error::new(ErrorCode::UploadPartsMismatch).with_message(
+                                "the store would not put the upload together from those parts; \
+                                 check the ETags and send the list again",
+                            )
+                        } else {
+                            Error::Storage(error)
+                        }
+                    })?;
             }
             Self::Appending { path } => {
                 // The partial file becomes the object by losing its suffix. A
@@ -497,5 +508,46 @@ mod part_rules {
             0,
             "a zero part size is no parts, not a panic"
         );
+    }
+}
+
+/// Whether the store refused to complete because of the parts it was given.
+///
+/// Read off the error's text, because `object_store` reports every refusal as
+/// the same `Generic` error and carries the store's own reason only inside it.
+/// These are S3's codes, which GCS's XML API shares: a part that is not there
+/// or whose `ETag` does not match, parts out of order, a part below the minimum.
+/// Anything else, an outage included, stays a server error.
+fn refuses_the_parts(error: &object_store::Error) -> bool {
+    let text = format!("{error:?}");
+    ["InvalidPart", "EntityTooSmall"]
+        .iter()
+        .any(|code| text.contains(code))
+}
+
+#[cfg(test)]
+mod parts_tests {
+    use super::refuses_the_parts;
+
+    fn generic(message: &str) -> object_store::Error {
+        object_store::Error::Generic {
+            store: "S3",
+            source: message.to_owned().into(),
+        }
+    }
+
+    #[test]
+    fn a_wrong_part_list_is_the_clients_mistake() {
+        assert!(refuses_the_parts(&generic(
+            "<Error><Code>InvalidPart</Code><Message>One or more of the specified parts could not be found.</Message></Error>"
+        )));
+        assert!(refuses_the_parts(&generic("<Code>InvalidPartOrder</Code>")));
+        assert!(refuses_the_parts(&generic("<Code>EntityTooSmall</Code>")));
+    }
+
+    #[test]
+    fn anything_else_is_still_ours() {
+        assert!(!refuses_the_parts(&generic("connection refused")));
+        assert!(!refuses_the_parts(&generic("<Code>InternalError</Code>")));
     }
 }
