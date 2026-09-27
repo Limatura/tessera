@@ -9,7 +9,7 @@ pub(super) const SQLITE: &str = include_str!("sql/m20260917_000001_encryption.sq
 pub(super) const POSTGRES: &str = include_str!("sql/m20260917_000001_encryption.postgres.sql");
 pub(super) const MYSQL: &str = include_str!("sql/m20260917_000001_encryption.mysql.sql");
 
-/// None of these columns is named by an index, so SQLite can drop them directly.
+/// No index references these columns, so SQLite can drop them directly.
 const DOWN: &str = "ALTER TABLE uploads DROP COLUMN sealed_name;\n\
                     ALTER TABLE uploads DROP COLUMN key_salt;\n\
                     ALTER TABLE uploads DROP COLUMN encryption;\n\

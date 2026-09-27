@@ -1,9 +1,8 @@
 //! Signing in with an identity provider.
 //!
-//! The SQL lives in `sql/`, and the SQLite one carries the reasoning: why
-//! identities are rows rather than columns, why two of `users`'s columns become
-//! nullable, and why the in-flight sign-in state is a table rather than a
-//! cookie.
+//! The SQL lives in `sql/`, and the SQLite file carries the reasoning: why
+//! identities are rows and not columns, why two `users` columns become
+//! nullable, and why in-flight sign-in state is a table and not a cookie.
 
 use sea_orm_migration::prelude::*;
 

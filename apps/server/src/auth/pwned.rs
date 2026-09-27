@@ -1,18 +1,18 @@
-//! Looking a new password up in the passwords known to have leaked.
+//! Checking a new password against known leaked passwords.
 //!
 //! # What leaves this process
 //!
-//! Five characters of the password's SHA-1, in a URL. The service answers with
-//! every suffix it holds under that prefix, tens of thousands of them, and the
-//! match is found here. Nothing that identifies the password is sent, which is
-//! the whole point of the range API and the reason this can be on at all.
+//! Five characters of the password's SHA-1, in a URL. The service returns
+//! every suffix it holds under that prefix, tens of thousands, and the match
+//! happens here. Nothing identifying the password is sent; that is what the
+//! range API is for, and why this can be enabled at all.
 //!
 //! # Why a failure is not a refusal
 //!
-//! This sits on registration, on changing a password and on finishing a reset.
-//! All three have to work when somebody else's service does not, so anything
-//! short of "this password is in the list" lets the password through, with a
-//! line in the log. See [`PwnedConfig`](crate::config::PwnedConfig).
+//! This runs on registration, password change and reset completion, all of
+//! which must work when a third-party service does not. Anything short of
+//! "this password is in the list" lets the password through, with a log
+//! line. See [`PwnedConfig`](crate::config::PwnedConfig).
 
 use std::time::Duration;
 
@@ -25,7 +25,7 @@ use crate::{
 
 /// How long the lookup may take before the password is let through.
 ///
-/// Short: somebody is waiting on a form, and the fallback is to accept.
+/// Short: a user is waiting on a form, and the fallback is to accept.
 const TIMEOUT: Duration = Duration::from_secs(3);
 
 /// How many characters of the hash go in the URL. Fixed by the API.
@@ -35,9 +35,9 @@ const PREFIX: usize = 5;
 ///
 /// # Errors
 ///
-/// [`Error::BadRequest`] when the password is in the list. Never for anything
-/// else: a service that cannot be reached, answers oddly, or takes too long
-/// leaves the password accepted.
+/// [`Error::BadRequest`] when the password is in the list. Never otherwise: if
+/// the service is unreachable, answers oddly or is too slow, the password is
+/// accepted.
 pub async fn refuse_if_breached(state: &AppState, password: &tessera_core::Password) -> Result<()> {
     let config = state.config().auth.pwned.clone();
     if !config.enabled {
@@ -67,14 +67,14 @@ pub async fn refuse_if_breached(state: &AppState, password: &tessera_core::Passw
 /// client that finishes the comparison itself.
 ///
 /// The same k-anonymity the check above relies on, one hop further out: the
-/// browser sends this the prefix and never the password, and this sends the
-/// service the prefix and never anything else.
+/// browser sends this server only the prefix, and this server sends the
+/// service only the prefix.
 ///
 /// # Errors
 ///
-/// When the service cannot be reached or answers oddly. Unlike the check, this
-/// has nowhere to fall back to, so it says so; the check still runs when the
-/// form is sent.
+/// When the service is unreachable or answers oddly. Unlike the check, this
+/// has no fallback, so it reports the error; the check still runs when the
+/// form is submitted.
 pub async fn range(state: &AppState, prefix: &str) -> Result<Vec<String>, reqwest::Error> {
     let url = state.config().auth.pwned.url.clone();
     let body = lookup(&url, &prefix.to_ascii_uppercase()).await?;
@@ -94,8 +94,8 @@ async fn lookup(base: &str, prefix: &str) -> Result<String, reqwest::Error> {
         .build()?
         .get(format!("{}/range/{prefix}", base.trim_end_matches('/')))
         .header("user-agent", concat!("tessera/", env!("CARGO_PKG_VERSION")))
-        // Answers are padded with hashes that were never breached, so the size
-        // of the response says nothing about how many real matches it holds.
+        // Responses are padded with never-breached hashes, so the response size
+        // reveals nothing about how many real matches it holds.
         .header("add-padding", "true")
         .send()
         .await?
@@ -104,11 +104,11 @@ async fn lookup(base: &str, prefix: &str) -> Result<String, reqwest::Error> {
         .await
 }
 
-/// The suffixes in an answer that have been breached.
+/// The breached suffixes in a response.
 ///
-/// Each line is `SUFFIX:COUNT`. The padding entries the header asks for come
-/// back with a count of zero, and a password matching one of those has not
-/// been breached.
+/// Each line is `SUFFIX:COUNT`. The padding entries requested by the header
+/// come back with a count of zero, and matching one of those does not mean
+/// the password was breached.
 fn breached(body: &str) -> impl Iterator<Item = &str> {
     body.lines().filter_map(|line| {
         let line = line.trim();
@@ -136,8 +136,8 @@ fn hex(bytes: &[u8]) -> String {
 mod tests {
     use super::*;
 
-    /// The one hash everybody knows: `password` is `5BAA6…`, and the API is
-    /// asked for `5BAA6` and told nothing else.
+    /// The one hash everyone knows: `password` is `5BAA6…`, and only `5BAA6`
+    /// is sent to the API.
     #[test]
     fn only_five_characters_of_the_hash_identify_the_password() {
         let digest = hex(&Sha1::digest(b"password"));
@@ -154,9 +154,8 @@ mod tests {
         assert!(seen(body, "1E4C9B93F3F0682250B6CF8331B7EE68FD8"));
     }
 
-    /// Padding. A response asked to be padded carries hashes with a count of
-    /// zero, and treating one as a match would refuse a password nobody has
-    /// ever leaked.
+    /// Padding. A padded response carries hashes with a count of zero, and
+    /// treating one as a match would refuse a password that was never leaked.
     #[test]
     fn a_match_with_no_count_is_padding() {
         assert!(!seen(

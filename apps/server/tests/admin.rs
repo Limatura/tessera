@@ -295,7 +295,7 @@ async fn deleting_an_account_ends_what_it_was_holding() {
     assert!(name.starts_with("gone-"), "{name}");
     assert!(email.ends_with("@deleted.invalid"), "{email}");
     assert!(!name.contains("second"), "the original name is gone");
-    // Said outright, so a client need not recognise the tombstone name.
+    // Stated explicitly, so a client need not recognise the tombstone name.
     assert_eq!(gone["state"], "deleted");
     let kept = rows
         .iter()
@@ -304,9 +304,8 @@ async fn deleting_an_account_ends_what_it_was_holding() {
     assert_eq!(kept["state"], "active");
 }
 
-/// The listing and the answer to a change both say where an account stands, so
-/// a disabled one looks disabled, and switching it back is the one action that
-/// makes sense.
+/// The listing and the response to a change both report the account state, so
+/// a disabled account looks disabled and re-enabling it is the obvious action.
 #[tokio::test]
 async fn an_accounts_state_is_shown_and_follows_a_change() {
     let app = TestApp::ready().await;
@@ -1536,7 +1535,7 @@ async fn the_listing_says_who_uploaded_each_share() {
     assert!(nobodys["owner_username"].is_null());
 }
 
-/// A share outliving its uploader still says whose it was, as the name the
+/// A share outliving its uploader still shows whose it was, under the name the
 /// account was left with.
 #[tokio::test]
 async fn a_deleted_uploader_is_named_by_what_is_left_of_them() {
@@ -1575,7 +1574,7 @@ async fn a_deleted_uploader_is_named_by_what_is_left_of_them() {
         .await,
     )
     .await;
-    // Removing an account leaves its shares working for whoever holds the code.
+    // Deleting an account leaves its shares working for anyone with the code.
     let row = page["data"]
         .as_array()
         .expect("a list")
@@ -1749,8 +1748,8 @@ async fn suspending_an_account_stops_it_signing_in_but_keeps_its_shares_served()
     );
 }
 
-/// Suspending someone is not a demotion. `is_admin` rewrites the role whenever
-/// it is sent, so a patch that leaves it out must leave the role alone.
+/// Suspending an account is not a demotion. `is_admin` rewrites the role when
+/// sent, so a patch that omits it must leave the role alone.
 #[tokio::test]
 async fn suspending_an_account_keeps_its_role() {
     let app = TestApp::ready().await;
@@ -2368,9 +2367,6 @@ async fn admin_share(app: &TestApp, admin: &str) -> u64 {
         .expect("bytes_served in the listing")
 }
 
-/// `offset` used to be read and thrown away, so the second page of an access
-/// log was the first one again. The document advertised the parameter the
-/// whole time.
 /// One page of a share's access log.
 async fn access_log_page(
     app: &TestApp,
@@ -2390,6 +2386,8 @@ async fn access_log_page(
     .await
 }
 
+/// `offset` used to be read and ignored, so the second page of an access log
+/// was the first one again, while the docs advertised the parameter.
 #[tokio::test]
 async fn the_access_log_is_paged_and_offset_moves() {
     let app = TestApp::with_config(|config| {
@@ -2400,8 +2398,8 @@ async fn the_access_log_is_paged_and_offset_moves() {
     let share = upload(&app).await;
     let code = share["code"].as_str().expect("a code").to_owned();
 
-    // Three retrievals, so a page of one has somewhere to move to. `/download`
-    // rather than `/raw`, which is what the other access-log tests record with.
+    // Three retrievals, so a page of one has somewhere to move. `/download`,
+    // not `/raw`, as the other access-log tests use.
     for _ in 0..3 {
         expect_status(
             app.send(
@@ -2599,7 +2597,7 @@ async fn the_settings_list_marks_what_cannot_be_changed() {
     assert_eq!(find("server.data_dir")["refusal"], "fixed_at_boot");
 
     // The other kind: writable, encrypted at rest, and reported as a boolean
-    // saying whether one is set rather than as the credential.
+    // for whether one is set instead of the credential.
     let relay = find("mail.password");
     assert_eq!(relay["editable"], true);
     assert_eq!(relay["secret"], true);
@@ -2607,12 +2605,12 @@ async fn the_settings_list_marks_what_cannot_be_changed() {
     assert!(relay["refusal"].is_null());
 }
 
-/// A credential set from the panel comes back as "configured" and never as
-/// itself, and the value in the table is not the value that was sent.
+/// A credential set from the panel comes back as "configured", never as
+/// itself, and the stored value is not the value sent.
 #[tokio::test]
 async fn a_credential_set_from_the_panel_is_never_handed_back() {
-    // No key configured: the one made in the data directory seals it, as on a
-    // fresh instance nobody has set a variable for.
+    // No key configured: the one generated in the data directory seals it, as
+    // on a fresh instance with no variable set.
     let app = TestApp::ready().await;
     let (owner, _) = register(&app, "first").await;
 
@@ -2651,7 +2649,7 @@ async fn a_credential_set_from_the_panel_is_never_handed_back() {
         "the credential came back out of the settings endpoint"
     );
 
-    // And the process is using it, which is the point of storing it at all.
+    // And the process uses it, which is the point of storing it.
     assert_eq!(app.state.config().mail.password, "a-relay-password");
 }
 
@@ -2845,8 +2843,7 @@ async fn admin_reads_settings_but_does_not_write_them() {
 }
 
 /// The listing is read over HTTP and pasted into issues. `database.url` can
-/// carry a password inside it, so the endpoint names it and withholds what it
-/// is set to.
+/// embed a password, so the endpoint names it but withholds its value.
 #[tokio::test]
 async fn the_settings_endpoint_never_returns_a_credential() {
     let app = TestApp::ready().await;
@@ -3007,7 +3004,7 @@ async fn lengthening_a_retention_needs_no_confirmation() {
     .await;
 }
 
-// ── Quotas over HTTP ─────────────────────────────────────────────────────
+// ── quotas over HTTP ────────────────────────────────────────────────
 
 /// A role's quota has to travel with the rest of the role, or the panel would
 /// need a second screen for one number.
@@ -3121,7 +3118,7 @@ async fn an_account_quota_survives_a_patch_that_does_not_mention_it() {
     assert_eq!(cleared["quota_bytes"], serde_json::Value::Null);
 }
 
-// ── 儲存 backend ──────────────────────────────────────────────────────────
+// ── storage backends ────────────────────────────────────────────────
 
 /// The credentials are the reason this is a table and not a settings row, and
 /// a surface that echoed them back would leave the sealing protecting the
@@ -3202,8 +3199,8 @@ async fn a_backend_that_will_not_open_is_refused_before_it_is_stored() {
     );
 }
 
-/// The backend a fresh instance starts with is a row like any other: its
-/// switch flips, and once it holds nothing it can go.
+/// The backend a fresh instance starts with is an ordinary row: its switch
+/// flips, and once empty it can be removed.
 #[tokio::test]
 async fn the_seeded_backend_is_an_ordinary_one() {
     let app = TestApp::ready().await;
@@ -3265,9 +3262,9 @@ async fn a_new_backend_is_usable_without_a_restart() {
     );
 }
 
-/// Flipping the switch must not need the credentials again: they are sealed and
-/// never shown, so sending the whole backend a second time would mean digging
-/// out a bucket's secret key to change one boolean.
+/// Flipping the switch must not require the credentials again: they are sealed
+/// and never shown, so resending the whole backend would mean digging up a
+/// bucket's secret key to change one boolean.
 #[tokio::test]
 async fn direct_access_is_switched_without_sending_the_credentials_again() {
     let app = TestApp::ready().await;
@@ -3323,7 +3320,7 @@ async fn direct_access_is_switched_without_sending_the_credentials_again() {
     assert!(!app.state.direct_access("cold"));
 }
 
-/// A name that is no backend at all is `404`, not a switch set on nothing.
+/// A name that matches no backend is `404`, not a switch set on nothing.
 #[tokio::test]
 async fn switching_a_backend_that_is_not_there_is_not_found() {
     let app = TestApp::ready().await;

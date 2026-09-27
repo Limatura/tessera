@@ -21,7 +21,7 @@ pub struct Model {
     pub capacity_bytes: Option<i64>,
     /// Whether it still takes new content. Reads are unaffected.
     pub read_only: bool,
-    /// Whether browsers may be sent to it directly. See the migration.
+    /// Whether browsers may be redirected to it directly. See the migration.
     pub direct_access: bool,
     /// When it was added.
     pub created_at: TimeDateTimeWithTimeZone,

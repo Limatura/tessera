@@ -134,11 +134,11 @@ pub struct CreateShareParams {
     /// For `encryption=password`: the salt the password was stretched with, as
     /// 16 bytes of unpadded URL-safe base64. Handed to anyone who asks.
     pub key_salt: Option<String>,
-    /// For an encrypted file: its name and media type, sealed. Takes the place
-    /// of `filename`, and like it, makes this a file share.
+    /// For an encrypted file: its name and media type, sealed. Replaces
+    /// `filename` and, like it, makes this a file share.
     pub sealed_name: Option<String>,
-    /// For an encrypted share: its title and a note's language, sealed. Takes
-    /// the place of `title` and `language`.
+    /// For an encrypted share: its title and a note's language, sealed.
+    /// Replaces `title` and `language`.
     pub sealed_details: Option<String>,
 }
 
@@ -180,8 +180,8 @@ pub struct ShareResponse {
     pub key_salt: Option<String>,
     /// The title and a note's language, sealed, on an encrypted share.
     pub sealed_details: Option<String>,
-    /// Whether it is waiting for the malware scanner. It cannot be downloaded
-    /// until it is not; the answer then is `423` with `Retry-After`.
+    /// Whether it is waiting for the malware scanner. Until it is done,
+    /// downloads answer `423` with `Retry-After`.
     pub scanning: bool,
     /// How many retrievals remain, or `null` for unlimited.
     pub uses_remaining: Option<u32>,
@@ -226,9 +226,9 @@ pub struct SharedFile {
     pub filename: Option<String>,
     /// Its name and media type, sealed, in an encrypted share.
     pub sealed_name: Option<String>,
-    /// How many bytes it holds.
+    /// Its size in bytes.
     ///
-    /// Sealed bytes in an encrypted share, which is what a download sends.
+    /// For an encrypted share, the sealed size, which is what a download sends.
     pub size_bytes: u64,
 }
 
@@ -480,7 +480,7 @@ struct Described {
     sealed_details: Option<String>,
 }
 
-/// Takes the descriptive parameters out of a creation request and checks them,
+/// Takes the descriptive parameters out of a creation request and checks them
 /// together: an encrypted share may only describe itself sealed.
 fn described(state: &AppState, params: &mut CreateShareParams) -> Result<Described> {
     let filename = checked_label(params.filename.take(), "filename", MAX_TEXT_FIELD)?;
@@ -580,20 +580,19 @@ pub fn page_bounds(params: &SharePageParams) -> Result<(u64, u64)> {
 
 /// What a client needs to draw pagination, for any paged list.
 ///
-/// # Why the list endpoints have an envelope and nothing else does
+/// # Why only list endpoints have an envelope
 ///
-/// A paged response has two things in it: the rows, and facts about the
-/// collection they came from. Without somewhere to put the second, `total`
-/// ends up beside the rows under a name invented per endpoint, and a client
-/// reading two lists reads them two ways. Every other endpoint answers with
-/// one object and has nothing of the kind to carry, so wrapping those would
-/// add a level of nesting that says nothing.
+/// A paged response carries the rows and facts about the collection. Without a
+/// place for the latter, `total` ends up beside the rows under a per-endpoint
+/// name, and clients read each list differently. Other endpoints return a
+/// single object with nothing like that to carry, so wrapping them would only
+/// add nesting.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub struct PageMeta {
     /// How many exist in total, not how many are on this page.
     #[schema(example = 137)]
     pub total: u64,
-    /// The page size actually used, which is not always the one asked for.
+    /// The page size used, which is not always the one requested.
     #[schema(example = 50)]
     pub limit: u64,
     /// How many were skipped.
@@ -725,9 +724,8 @@ pub async fn delete(
 
 /// Deletes every object a share has, each from the backend that holds it.
 ///
-/// Not from the one new uploads go to: a key asked of a store that never had
-/// it comes back "not found", and the bytes stay where they are with nothing
-/// left pointing at them.
+/// Not from the backend new uploads go to: asking a store for a key it never
+/// had returns "not found", and the bytes would stay orphaned where they are.
 ///
 /// # Errors
 ///
@@ -846,10 +844,10 @@ pub async fn patch(
             "send `X-Share-Password` to set a password or `remove_password` to clear it, not both",
         ));
     }
-    // The key came from the password. What the server holds is a token derived
-    // from that key, so a different one locks out everybody who knows the real
-    // password, and none at all hands the sealed bytes to anyone. Setting the
-    // first is how a client that uploaded before it could choose one says it.
+    // The key came from the password, and the server holds a token derived from
+    // that key. A different token locks out everyone who knows the real
+    // password, and none hands the sealed bytes to anyone. Setting one is how a
+    // client that uploaded before choosing a password records it.
     if matches!(share.encryption, Some(Encryption::Password { .. }))
         && (body.remove_password || (supplied.is_some() && share.needs_password()))
     {
@@ -1255,11 +1253,11 @@ pub(crate) async fn place(state: &AppState, size: u64) -> Result<String> {
 
 /// The same, restricted to backends that can hold a resumable upload open.
 ///
-/// One with a multipart view can, and so can a local directory, where the
-/// appending sink writes a partial file beside it. Anything else (a WebDAV
-/// server, a store built without multipart) cannot, and placing a resumable
-/// upload on one anyway answers `400 this instance's store cannot hold a
-/// resumable upload` while another backend could have taken it.
+/// That is any backend with a multipart view, plus a local directory, where the
+/// appending sink writes a partial file alongside. Others (a WebDAV server, a
+/// store built without multipart) cannot, and placing a resumable upload there
+/// would fail with `400 this instance's store cannot hold a resumable upload`
+/// when another backend could have taken it.
 ///
 /// # Errors
 ///
@@ -2037,7 +2035,7 @@ async fn insert_with_fresh_code(
         share.code = generate_code(state.config().share.code_length)?;
         match state.shares.insert(&share, content).await {
             Ok(()) => {
-                // Whatever was just stored may be waiting on the scanner.
+                // What was just stored may be waiting on the scanner.
                 state.scan_wake.notify_one();
                 return Ok(share);
             }
@@ -2104,8 +2102,8 @@ fn share_password(headers: &HeaderMap) -> Result<Option<Password>> {
     Ok(Some(Password::parse(raw, gate::CHOOSING)?))
 }
 
-/// The media type to record for an upload: what it claimed, except on an
-/// encrypted share, where the real one is sealed with the name and the header
+/// The media type to record for an upload: the claimed one, except on an
+/// encrypted share, where the real type is sealed with the name and the header
 /// describes ciphertext.
 fn recorded_type(encrypted: bool, headers: &HeaderMap) -> Option<String> {
     if encrypted {
@@ -2252,9 +2250,8 @@ pub struct PublicShareResponse {
     pub has_password: bool,
     /// `link` or `password` for an end-to-end encrypted share, `null` otherwise.
     ///
-    /// Given before unlocking, with the salt below. A client whose key comes
-    /// from the password has to derive it before it can present the password
-    /// at all.
+    /// Sent before unlocking, with the salt below, since a client whose key
+    /// comes from the password must derive it before presenting the password.
     #[schema(example = "password")]
     pub encryption: Option<String>,
     /// The salt a password-derived key is stretched with, for `password`.
@@ -2272,9 +2269,9 @@ pub struct PublicShareResponse {
     pub language: Option<String>,
     /// Size of the content in bytes.
     pub size_bytes: Option<u64>,
-    /// Whether it is waiting for the malware scanner, and so cannot be
-    /// downloaded yet. `false` while locked: a locked share says nothing about
-    /// its content.
+    /// Whether it is waiting for the malware scanner and so cannot be
+    /// downloaded yet. `false` while locked, since a locked share reveals
+    /// nothing about its content.
     pub scanning: bool,
     /// How many retrievals remain, or `null` for unlimited.
     pub uses_remaining: Option<u32>,
@@ -2435,8 +2432,8 @@ pub async fn unlock(
     let share = gate::open(&state, &code, &source).await?;
     // The password first, so a wrong guess never costs the share a retrieval.
     gate::unlock(&state, &share, &headers, &source).await?;
-    // And the scan: a ticket for content that cannot be handed out yet would
-    // spend a one-time share on nothing.
+    // And the scan: a ticket for content that cannot be served yet would use up
+    // a one-time share for nothing.
     crate::scan::release(&state, &state.shares.content_of(&share).await?)?;
 
     let secret = gate::spend(&state, &share).await?;
@@ -2546,25 +2543,25 @@ pub async fn record_event(
 ///
 /// # Why files arrive one at a time
 ///
-/// One request carrying five files loses five when it drops at the fourth,
-/// exactly what uploading a folder of photographs over a home connection hits.
-/// A file that fails here is retried on its own.
+/// A request carrying five files loses all five when it drops at the fourth,
+/// which is what uploading a folder of photos over a home connection runs
+/// into. A file that fails here is retried alone.
 ///
 /// # Why the share exists before its second file
 ///
 /// There is no draft state. A share is created by its first file and grown by
-/// the rest, so nothing has to remember to finish, and an interrupted upload
-/// leaves a share holding what did arrive, not nothing.
+/// the rest, so nothing has to be finalised, and an interrupted upload leaves a
+/// share with what did arrive instead of nothing.
 ///
-/// The cost is that a link opened mid-upload shows part of the share. The link
-/// is handed out afterwards, by the person doing the upload.
+/// The cost is that a link opened mid-upload shows a partial share. The
+/// uploader hands out the link afterwards.
 ///
 /// # Errors
 ///
 /// `400` for a name that is unusable or described the wrong way for the share,
 /// `403` when the caller cannot show it is theirs, `404` when no share has that
 /// code, `409` when the share holds text, `413` when the body is too large,
-/// `507` when something is out of room. The body says whose ceiling that was.
+/// `507` when something is out of room. The body says whose limit it was.
 #[utoipa::path(
     post,
     path = "/shares/{code}/files",
@@ -2688,7 +2685,7 @@ pub struct AddFileParams {
     /// What to call this file.
     #[param(example = "holiday.jpg")]
     pub filename: Option<String>,
-    /// Its name and media type, sealed, when the share is encrypted. Takes the
-    /// place of `filename` there.
+    /// Its name and media type, sealed, when the share is encrypted. Replaces
+    /// `filename` there.
     pub sealed_name: Option<String>,
 }

@@ -1,11 +1,10 @@
-//! What an upload says about end-to-end encryption, checked before it is
-//! believed.
+//! Checking what an upload says about end-to-end encryption before trusting it.
 //!
 //! The server cannot tell ciphertext from anything else, so there is little to
-//! check about the content. What it can check is that a request is coherent:
-//! that it does not name a file in the clear on a share it calls encrypted,
-//! which would put exactly what encryption exists to hide into a column, and
-//! that what it hands back to clients is something a client could use.
+//! check about the content. It can check that a request is coherent: that it
+//! does not name a file in the clear on a share it calls encrypted, which
+//! would put what encryption hides into a column, and that what it returns to
+//! clients is usable.
 
 use crate::{
     db::repository::share::Encryption,
@@ -15,9 +14,9 @@ use crate::{
 
 /// Longest sealed description accepted, in characters.
 ///
-/// A file name of 255 bytes seals to 288 and encodes to 384. This leaves room
-/// for a media type and a long path beside it, and stops a column from becoming
-/// somewhere to keep a file.
+/// A 255-byte file name seals to 288 bytes and encodes to 384. This leaves room
+/// for a media type and a long path too, and stops the column being used as
+/// file storage.
 const MAX_SEALED: usize = 4096;
 
 /// How long a salt is once encoded: 16 bytes of unpadded base64.
@@ -42,8 +41,8 @@ pub(crate) fn requested(
         }
         return Ok(None);
     };
-    // Answered as a malformed request, not a 403: the caller is not refused
-    // for who they are, and `/capabilities` said so before they asked.
+    // A malformed-request error, not a 403: the caller is not refused for who
+    // they are, and `/capabilities` already said so.
     if !state.config().features.encryption {
         return Err(Error::bad_request(
             "this instance does not accept end-to-end encrypted shares",
@@ -85,9 +84,9 @@ pub(crate) fn checked(value: Option<String>, field: &'static str) -> Result<Opti
 
 /// Refuses a request that describes its content the wrong way for its share.
 ///
-/// On an encrypted share, a plain description is what encryption exists to
-/// keep off the server, so it is refused rather than stored and never shown.
-/// On a plain share, a sealed one is something nobody could open.
+/// On an encrypted share, a plain description is what encryption keeps off the
+/// server, so it is refused instead of stored and never shown. On a plain
+/// share, a sealed one could never be opened.
 ///
 /// # Errors
 ///

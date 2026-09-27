@@ -1,8 +1,7 @@
-//! Identities, and the sign-ins that are away at the provider.
+//! Identities, and sign-ins in progress at the provider.
 //!
-//! Two tables with one thing in common: both exist because a provider's answer
-//! arrives as a request we did not make, and both are how that request is tied
-//! back to something we did.
+//! Both tables exist because a provider's answer arrives as a request we did
+//! not make, and both tie that request back to one we did.
 
 use sea_orm::{
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _, Set,
@@ -32,8 +31,8 @@ pub struct Flow {
     pub provider: String,
     /// Expected inside the returned token.
     ///
-    /// Absent for a provider that issues no ID token, which is every plain
-    /// OAuth 2.0 one. What is left is `state`, made one-shot by
+    /// Absent for providers that issue no ID token, i.e. every plain OAuth 2.0
+    /// one. Those rely on `state`, made one-shot by
     /// [`OidcRepository::consume`], and the PKCE verifier below.
     pub nonce: Option<String>,
     /// The PKCE secret to send to the token endpoint.
@@ -44,20 +43,20 @@ pub struct Flow {
     pub user_id: Option<UserId>,
     /// An invitation to spend once the sign-in succeeds.
     pub invite_code: Option<String>,
-    /// When this stops being answerable.
+    /// When this expires.
     pub expires_at: OffsetDateTime,
 }
 
 /// One way an account signs in through a provider.
 #[derive(Debug, Clone)]
 pub struct Identity {
-    /// Which provider vouched for this.
+    /// The provider that vouched for this.
     pub provider: String,
-    /// The provider's own identifier for the person.
+    /// The provider's own identifier for the user.
     pub subject: String,
     /// The account it signs in as.
     pub user_id: UserId,
-    /// When it was attached.
+    /// When it was linked.
     pub created_at: OffsetDateTime,
 }
 
@@ -95,16 +94,15 @@ impl OidcRepository {
         Ok(())
     }
 
-    /// Takes a sign-in back, and only once.
+    /// Takes a sign-in back, exactly once.
     ///
-    /// The row is deleted whether or not it had expired, and the flow is
-    /// returned only if this call was the one that deleted it. That makes the
-    /// database the referee: a callback replayed, or opened twice from a
-    /// history entry, finds nothing the second time. Doing the same with a read
-    /// and then a delete leaves a window where both attempts see the row.
+    /// The row is deleted whether or not it expired, and the flow is returned
+    /// only if this call did the delete. The database arbitrates: a replayed
+    /// callback, or one reopened from history, finds nothing the second time.
+    /// A read followed by a delete would leave a window where both see the row.
     ///
-    /// Expiry is the caller's to judge, so it can say "this took too long"
-    /// rather than "no such sign-in".
+    /// Expiry is left to the caller, so it can say "this took too long" instead
+    /// of "no such sign-in".
     ///
     /// # Errors
     ///
@@ -142,10 +140,10 @@ impl OidcRepository {
         }))
     }
 
-    /// Removes sign-ins nobody came back for.
+    /// Removes abandoned sign-ins and returns how many.
     ///
-    /// Returns how many went. A browser closed on the provider's login page
-    /// leaves a row that nothing will ever present again.
+    /// A browser closed on the provider's login page leaves a row that nothing
+    /// will ever present again.
     ///
     /// # Errors
     ///
@@ -187,12 +185,12 @@ impl OidcRepository {
             .transpose()
     }
 
-    /// Attaches a provider's subject to an account.
+    /// Links a provider's subject to an account.
     ///
-    /// The primary key is `(provider, subject)`, so a subject already attached
-    /// to a different account is refused by the database rather than silently
-    /// moved. That is the failure worth being loud about: it means two people
-    /// are being told they are the same one.
+    /// The primary key is `(provider, subject)`, so a subject already linked to
+    /// another account is refused by the database instead of silently moved.
+    /// That failure should be loud: it means two people are being treated as
+    /// one.
     ///
     /// # Errors
     ///
@@ -214,9 +212,9 @@ impl OidcRepository {
         Ok(())
     }
 
-    /// Every way one account signs in through a provider.
+    /// Every provider identity linked to one account.
     ///
-    /// Ordered oldest first, so the list reads the way it was built.
+    /// Oldest first, in the order they were added.
     ///
     /// # Errors
     ///
@@ -243,9 +241,9 @@ impl OidcRepository {
 
     /// Detaches a provider from an account.
     ///
-    /// Returns whether a row went. Whether it was allowed to is decided above
-    /// this: an account with no password and no other identity would have no
-    /// way back in, and that check needs the credentials table too.
+    /// Returns whether a row was deleted. Whether that is allowed is decided by
+    /// the caller: an account with no password and no other identity would be
+    /// locked out, and that check needs the credentials table too.
     ///
     /// # Errors
     ///
@@ -341,8 +339,8 @@ mod tests {
         assert_eq!(taken.purpose, Purpose::Login);
     }
 
-    /// The whole reason the delete decides: a callback opened twice, or
-    /// replayed from history, must only work once.
+    /// The delete is what decides: a callback opened twice, or replayed from
+    /// history, must only work once.
     #[tokio::test]
     async fn a_sign_in_can_only_be_taken_once() {
         let (oidc, _users) = repositories().await;
@@ -353,7 +351,7 @@ mod tests {
     }
 
     /// An expired flow is still returned, so the caller can say "this took too
-    /// long" rather than "no such sign-in". It is still removed.
+    /// long" instead of "no such sign-in". It is still removed.
     #[tokio::test]
     async fn an_expired_sign_in_is_returned_and_removed() {
         let (oidc, _users) = repositories().await;
@@ -420,7 +418,7 @@ mod tests {
         );
     }
 
-    /// Two accounts claiming the same subject means somebody is about to be
+    /// Two accounts claiming the same subject means someone is about to be
     /// signed in as the wrong person. The primary key refuses it.
     #[tokio::test]
     async fn one_subject_cannot_be_claimed_by_two_accounts() {
@@ -459,9 +457,9 @@ mod tests {
         assert_eq!(left[0].provider, "keycloak");
     }
 
-    /// The way back into an instance whose provider went away: `reset-password`
-    /// on an account that never had one creates the credential row rather than
-    /// finding nothing to update.
+    /// Recovery for an instance whose provider went away: `reset-password` on
+    /// an account that never had a password creates the credential row instead
+    /// of finding nothing to update.
     #[tokio::test]
     async fn an_account_with_no_password_can_be_given_one() {
         let (_oidc, users) = repositories().await;
@@ -481,10 +479,10 @@ mod tests {
         assert!(users.password_of(user_id).await.expect("a query").is_some());
     }
 
-    /// A provider that issues no ID token stores no nonce, and that reads back
-    /// as absent rather than as an empty string. The two are different: one is
-    /// "there was never anything to check", the other is "the provider sent
-    /// nothing", and the second has to be refused.
+    /// A provider that issues no ID token stores no nonce, which reads back as
+    /// absent, not an empty string. The two differ: absent means there was
+    /// never anything to check, while an empty one means the provider sent
+    /// nothing, which must be refused.
     #[tokio::test]
     async fn a_flow_without_a_nonce_reads_back_as_absent() {
         let (oidc, _users) = repositories().await;
@@ -502,8 +500,8 @@ mod tests {
         assert!(taken.nonce.is_none());
     }
 
-    /// Unlinking is scoped to the account asking, so one person cannot detach
-    /// another person's provider by naming it.
+    /// Unlinking is scoped to the requesting account, so one user cannot
+    /// detach another's provider by naming it.
     #[tokio::test]
     async fn unlinking_only_touches_the_account_that_asked() {
         let (oidc, users) = repositories().await;

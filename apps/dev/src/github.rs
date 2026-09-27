@@ -2,8 +2,8 @@
 //! URL, with the API at `/api/v3`.
 //!
 //! The sign-in page asks who to be; the token and user endpoints then answer
-//! for that person. One person at a time, which is all a development machine
-//! signs in as.
+//! for that user. One user at a time, which is all a development machine
+//! needs.
 
 use std::sync::Arc;
 

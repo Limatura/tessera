@@ -1,37 +1,36 @@
-//! Sealing the settings that are stored and read back, so the database alone
+//! Sealing settings that are stored and read back, so the database alone
 //! cannot open them.
 //!
-//! # Why anything is encrypted here at all
+//! # Why anything is encrypted here
 //!
 //! Every other secret this software holds is either a hash (passwords, tokens)
-//! or lives outside the database (`database.url`). A backend's URL was the
-//! first thing that had to be both *recoverable*, since the
-//! process needs the key to talk to the bucket, and stored, since the point is
-//! that an operator can add one from the panel without a restart.
+//! or lives outside the database (`database.url`). A backend URL was the first
+//! value that had to be both *recoverable*, since the process needs the key to
+//! reach the bucket, and stored, so an operator can add one from the panel
+//! without a restart.
 //!
-//! It is no longer the only one: an identity provider's client secret, two
-//! OAuth ones, a relay's credentials and a scanner's all arrive the same way
-//! and are sealed with the same key. That is why the key is
-//! `security.secret_key` and not, as it was, `storage.secret_key` — the name
-//! sent people looking for a bucket setting.
+//! Others followed: an OIDC client secret, two OAuth ones, the mail relay's
+//! credentials and the scanner's, all sealed with the same key. That is why it
+//! is `security.secret_key` and no longer `storage.secret_key`; the old name
+//! sent operators looking for a bucket setting.
 //!
 //! Recoverable and stored means a database dump is a credential leak, unless
-//! the thing that opens it lives somewhere the dump does not. So the key is
-//! kept apart from the rows: in the environment when an operator sets one, and
-//! otherwise in a file of its own, `secret.key` under `server.data_dir`,
-//! written on the first start. See [`Sealer::resolve`].
+//! the key lives somewhere the dump does not. So the key is kept apart from the
+//! rows: in the environment when the operator sets one, otherwise in its own
+//! file, `secret.key` under `server.data_dir`, written on first start. See
+//! [`Sealer::resolve`].
 //!
-//! The file is the convenience and the environment the stronger choice. A
-//! backup that copies the whole data directory copies the key with the
-//! database, and an operator who cares about that sets the variable instead.
+//! The file is convenient; the environment is stronger. A backup that copies
+//! the whole data directory copies the key along with the database, and an
+//! operator who cares sets the variable instead.
 //!
 //! # What this is not
 //!
-//! Not a secrets manager, and not protection against a reader of the running
-//! process, since anything that can read `/proc` can read the key. It moves the
-//! blast radius of "the database file leaked" from "and now they have
-//! your buckets" to "and now they have some ciphertext", the realistic
-//! failure and the one an operator can do nothing about after the fact.
+//! Not a secrets manager, and no protection against a reader of the running
+//! process: anything that can read `/proc` can read the key. It changes a
+//! leaked database file from "and now they have your buckets" to "and now they
+//! have some ciphertext", the realistic failure and one an operator cannot fix
+//! after the fact.
 
 use aws_lc_rs::aead::{AES_256_GCM, Aad, NONCE_LEN, Nonce, RandomizedNonceKey};
 
@@ -40,9 +39,9 @@ use aws_lc_rs::aead::{AES_256_GCM, Aad, NONCE_LEN, Nonce, RandomizedNonceKey};
 pub enum SecretError {
     /// No key is configured, so nothing can be stored.
     ///
-    /// Refused, not fallen back to plaintext. An instance that quietly
-    /// stored recoverable credentials in a table would do the one thing this
-    /// module exists to prevent, and that surfaces only when the dump leaks.
+    /// Refused instead of falling back to plaintext. Quietly storing
+    /// recoverable credentials in a table is exactly what this module prevents,
+    /// and would only surface when the dump leaks.
     #[error(
         "security.secret_key is not set; add one to the environment before configuring a backend"
     )]
@@ -63,8 +62,8 @@ pub enum SecretError {
 
     /// The stored value will not open with this key.
     ///
-    /// Almost always a key that changed, and the message says so because the
-    /// other reading, corrupted rows, sends an operator to the wrong place.
+    /// Almost always a changed key. The message says so, because the other
+    /// explanation, corrupted rows, sends an operator to the wrong place.
     #[error("a stored credential will not open with this key; was security.secret_key changed?")]
     WillNotOpen,
 }
@@ -107,20 +106,20 @@ impl Sealer {
         Ok(Self(Some(key)))
     }
 
-    /// The key this instance seals with: `configured` when it is set, else
-    /// the one in `secret.key` under `data_dir`, made there if there is none.
+    /// The key this instance seals with: `configured` when set, else the one in
+    /// `secret.key` under `data_dir`, created there if missing.
     ///
-    /// # Why a key is made rather than asked for
+    /// # Why a key is generated instead of required
     ///
-    /// Without one, nothing sealed can be stored, and that is every backend
-    /// and every credential the panel takes. Asking for a variable before the
-    /// first start is one more thing to get wrong, for a value nobody needs
-    /// to know. The environment still wins, for an operator who wants the key
-    /// out of the data directory.
+    /// Without one nothing sealed can be stored, which covers every backend and
+    /// every credential the panel accepts. Requiring a variable before first
+    /// start is one more thing to get wrong, for a value no one needs to know.
+    /// The environment still wins, for an operator who wants the key out of
+    /// the data directory.
     ///
-    /// Created with `create_new`, so two processes starting at once (the
-    /// server and a command run beside it) end up with the one that got there
-    /// first, not one each.
+    /// Created with `create_new`, so two processes starting together (the
+    /// server and a command run alongside) both end up with whichever key was
+    /// written first.
     ///
     /// # Errors
     ///
@@ -160,17 +159,17 @@ impl Sealer {
                     );
                     return Self::new(&hex);
                 }
-                // Another process made it between the read and the write. Its
-                // key is the one to use, so read again.
+                // Another process created it between our read and write. Use
+                // its key: read again.
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
                 Err(error) => return Err(failed(error)),
             }
         }
     }
 
-    /// [`Sealer::resolve`] for an instance's configuration: the server and
-    /// every command that opens the database read the key the same way, so
-    /// what one seals the other opens.
+    /// [`Sealer::resolve`] for an instance's configuration. The server and
+    /// every command that opens the database resolve the key the same way, so
+    /// what one seals the other can open.
     ///
     /// # Errors
     ///
@@ -190,8 +189,8 @@ impl Sealer {
 
     /// Seals `plain`, returning the nonce and ciphertext as hex.
     ///
-    /// A fresh nonce per call, chosen by the library and not by us. Reusing
-    /// one under the same key is what breaks GCM, and the failure is silent.
+    /// A fresh nonce per call, chosen by the library. Reusing one under the
+    /// same key breaks GCM, silently.
     ///
     /// # Errors
     ///
@@ -208,8 +207,8 @@ impl Sealer {
         sealed.extend_from_slice(&buffer);
         Ok(sealed.iter().fold(String::new(), |mut hex, byte| {
             use core::fmt::Write as _;
-            // `write!` into a `String` cannot fail, and swallowing the result
-            // is what keeps this an infallible fold.
+            // `write!` into a `String` cannot fail; ignoring the result keeps
+            // this an infallible fold.
             let _ = write!(hex, "{byte:02x}");
             hex
         }))
@@ -246,12 +245,12 @@ impl Sealer {
     }
 }
 
-/// The name of the file [`Sealer::resolve`] keeps a made key in.
+/// The file [`Sealer::resolve`] stores a generated key in.
 pub const KEY_FILE: &str = "secret.key";
 
-/// Writes a new key to `path`, readable by this user alone, and returns it.
+/// Writes a new key to `path`, readable only by this user, and returns it.
 ///
-/// Fails with `AlreadyExists` rather than replacing one: a replaced key leaves
+/// Fails with `AlreadyExists` instead of replacing a key: that would leave
 /// everything sealed under the old one unreadable.
 fn create_key_file(path: &std::path::Path) -> std::io::Result<String> {
     use std::io::Write as _;
@@ -307,8 +306,8 @@ mod tests {
         );
     }
 
-    /// The stored form must not contain what it is protecting. A database dump
-    /// is not supposed to be a credential leak.
+    /// The stored form must not contain what it protects. A database dump must
+    /// not be a credential leak.
     #[test]
     fn the_stored_form_does_not_contain_the_secret() {
         let key = Sealer::new(KEY).expect("a key");
@@ -333,8 +332,8 @@ mod tests {
         );
     }
 
-    /// The message an operator gets has to send them to the key, not the rows:
-    /// a changed key looks exactly like corruption from the inside.
+    /// The message must point the operator at the key, not the rows: from the
+    /// inside, a changed key looks just like corruption.
     #[test]
     fn another_key_will_not_open_it() {
         let sealed = Sealer::new(KEY)
@@ -347,8 +346,8 @@ mod tests {
         ));
     }
 
-    /// Falling back to plaintext would do the one thing this module exists to
-    /// prevent, and that surfaces only when the dump leaks.
+    /// Falling back to plaintext is what this module exists to prevent, and it
+    /// would only surface when the dump leaks.
     #[test]
     fn without_a_key_nothing_is_stored() {
         let sealer = Sealer::new("").expect("no key");
@@ -368,8 +367,8 @@ mod tests {
         ));
     }
 
-    /// With nothing configured, a key is made once and the same one read back
-    /// after, or every restart would orphan what the last one sealed.
+    /// With nothing configured, a key is generated once and read back after,
+    /// or every restart would orphan what the previous one sealed.
     #[test]
     fn a_made_key_is_kept_and_reused() {
         let dir = tempfile::tempdir().expect("a directory");
@@ -405,8 +404,8 @@ mod tests {
         assert!(!dir.path().join(super::KEY_FILE).exists());
     }
 
-    /// A damaged file is reported, not replaced: a new key would leave every
-    /// sealed setting unreadable without a word.
+    /// A damaged file is reported, not replaced: a new key would silently leave
+    /// every sealed setting unreadable.
     #[test]
     fn a_damaged_key_file_is_not_replaced() {
         let dir = tempfile::tempdir().expect("a directory");
@@ -419,7 +418,7 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&path).expect("read"), "not a key");
     }
 
-    /// Whatever it prints, it must not be the key.
+    /// Whatever it prints must not be the key.
     #[test]
     fn debug_never_shows_the_key() {
         let shown = format!("{:?}", Sealer::new(KEY).expect("a key"));

@@ -47,12 +47,12 @@ pub enum Card {
         #[cfg(feature = "og-images")]
         snippet: Option<crate::og::code::Snippet>,
     },
-    /// End-to-end encrypted. The server has nothing to say about the content
-    /// but its size, and says that much because a download would anyway.
+    /// End-to-end encrypted. The server can say nothing about the content but
+    /// its size, and says that since a download would reveal it anyway.
     Sealed {
         /// The size, and a file count when there are several.
         chips: Vec<String>,
-        /// When it goes, and how many goes are left.
+        /// When it expires, and how many downloads are left.
         footer: String,
     },
     /// Password-protected. Only a title the uploader typed themselves appears.
@@ -97,8 +97,8 @@ impl Preview {
                     named: share.title.is_some(),
                 },
             },
-            // After the password, so a locked encrypted share is a locked
-            // share: it says no more than any other, size included.
+            // After the password check, so a locked encrypted share reveals no
+            // more than any other locked share, size included.
             Availability::Available if share.encryption.is_some() => Self {
                 title: "End-to-end encrypted share".to_owned(),
                 description: describe(share, content),
@@ -153,30 +153,29 @@ impl Preview {
 
     /// A digest of everything this preview would draw.
     ///
-    /// # Why this is worth having
+    /// # Why
     ///
-    /// It is an entity tag that can be worked out *without drawing the card*.
-    /// An unfurler that comes back to a link it has seen sends what it holds,
-    /// and answering that costs a lookup and a digest instead of a render.
+    /// It is an entity tag computable *without rendering the card*. An
+    /// unfurler returning to a link it has seen sends the tag it holds, and
+    /// answering costs a lookup and a digest instead of a render.
     ///
-    /// # Why a card that is counting down still has a stable one
+    /// # Why a counting-down card still has a stable one
     ///
-    /// Because the countdown is already coarse. `expires_in` rounds the way a
-    /// person speaks, deliberately: "a different sentence every time a crawler
-    /// looked" is the thing it exists to avoid. So the same share draws the
-    /// same bytes for as long as the sentence holds, and the digest of what is
-    /// drawn changes exactly when the picture would.
+    /// The countdown is already coarse. `expires_in` rounds the way people
+    /// speak, precisely to avoid a different sentence every time a crawler
+    /// looks. So a share renders the same bytes while the sentence holds, and
+    /// the digest changes exactly when the image would.
     ///
-    /// Everything drawn goes in, and nothing else does. A raw expiry would
-    /// make every request a different tag while the picture stayed identical,
-    /// which is the mistake this is shaped to avoid.
+    /// Everything drawn goes in, and nothing else. A raw expiry would give
+    /// every request a different tag for an identical image, which is the
+    /// mistake this avoids.
     #[must_use]
     pub fn fingerprint(&self) -> [u8; 32] {
         use sha2::{Digest as _, Sha256};
 
         let mut digest = Sha256::new();
         // Lengths as well as contents. Without them `["ab", "c"]` and
-        // `["a", "bc"]` are the same stream of bytes, and two different cards
+        // `["a", "bc"]` are the same byte stream, and two different cards
         // would share a tag.
         let mut field = |bytes: &[u8]| {
             digest.update(bytes.len().to_le_bytes());

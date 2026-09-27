@@ -1,6 +1,6 @@
 //! Signing in through an identity provider.
 //!
-//! Three endpoints, all reached by a browser navigating rather than by script:
+//! Three endpoints, all reached by browser navigation, not by script:
 //!
 //! - `GET /auth/oidc` says whether there is a provider and what to call it, so a sign-in page knows
 //!   whether to draw the button.
@@ -9,16 +9,14 @@
 //!
 //! # Why failures redirect instead of answering
 //!
-//! The callback is a top-level navigation. A `403` with a JSON body would be
-//! shown as raw JSON in the address bar, with no way back to the application.
-//! So every outcome, including every refusal, ends in a redirect to the sign-in
-//! page carrying a stable code in the query string, and the frontend turns that
-//! into a sentence.
+//! The callback is a top-level navigation, so a `403` with a JSON body would
+//! show raw JSON in the address bar with no way back to the app. Every
+//! outcome, refusals included, redirects to the sign-in page with a stable
+//! code in the query string, which the frontend turns into a sentence.
 //!
-//! The codes are deliberately coarse. "Your provider did not release an
-//! address" is worth saying because somebody can act on it; the difference
-//! between a wrong nonce and an expired token is not, and spelling it out tells
-//! whoever is probing which of their guesses was closer.
+//! The codes are coarse. "Your provider did not release an address" is worth
+//! saying because the user can act on it. Distinguishing a wrong nonce from an
+//! expired token is not, and would tell a prober which guess was closer.
 
 use axum::{
     extract::{Query, State},
@@ -49,21 +47,17 @@ use crate::{
     state::AppState,
 };
 
-/// The provider's name in `identities.provider`.
-///
-/// One provider today. The column exists so a second one is configuration
-/// rather than a migration, and this is the placeholder that becomes a
 /// The provider back-channel logout belongs to.
 ///
-/// Only `OpenID` Connect has one: it is the mechanism by which a provider tells
-/// us somebody signed out, and neither GitHub nor Discord has anything like
-/// it. Everywhere else the provider comes from the flow row or the path.
+/// Only `OpenID` Connect has one: it is how a provider reports that a user signed
+/// out, and GitHub and Discord have nothing like it. Everywhere else the
+/// provider comes from the flow row or the path.
 const PROVIDER: &str = OauthProvider::Oidc.as_str();
 
-/// How long a sign-in may take before the flow row stops being answerable.
+/// How long a sign-in may take before its flow row expires.
 ///
-/// Long enough for somebody to be asked for a second factor and go and find
-/// their phone. Not so long that abandoned rows pile up between sweeps.
+/// Long enough to be asked for a second factor and go find a phone; short
+/// enough that abandoned rows do not pile up between sweeps.
 const FLOW_TTL_MINUTES: i64 = 15;
 
 /// Where the browser is sent when it comes back.
@@ -89,8 +83,7 @@ pub struct ProviderResponse {
 pub struct StartQuery {
     /// An invitation to spend once the sign-in succeeds.
     ///
-    /// Carried in the flow row rather than through the provider, which never
-    /// sees it.
+    /// Kept in the flow row; the provider never sees it.
     #[serde(default)]
     pub invite: Option<String>,
 }
@@ -128,7 +121,7 @@ enum Rejection {
     AddressTaken,
     /// The account exists here but may not sign in.
     Disabled,
-    /// This provider identity already belongs to somebody else.
+    /// This provider identity is already linked to another account.
     AlreadyLinked,
 }
 
@@ -160,8 +153,8 @@ fn to(page: &str, query: Option<Rejection>) -> Response {
         Some(rejection) => format!("{page}?oidc_error={}", rejection.code()),
         None => page.to_owned(),
     };
-    // 303, not 302: the browser must follow this with a GET whatever it used
-    // to get here, and 302 leaves that to the implementation.
+    // 303, not 302: the browser must follow with a GET whatever method brought
+    // it here, and 302 leaves that to the implementation.
     (
         axum::http::StatusCode::SEE_OTHER,
         [(header::LOCATION, location)],
@@ -169,10 +162,10 @@ fn to(page: &str, query: Option<Rejection>) -> Response {
         .into_response()
 }
 
-/// Resolves where to send the browser, for whichever provider was asked for.
+/// Resolves where to send the browser for the requested provider.
 ///
-/// OIDC's endpoints come out of the document its issuer publishes; the other
-/// two are constants in their adapters. Both arrive here as the same thing.
+/// OIDC endpoints come from the issuer's discovery document; the other two are
+/// constants in their adapters. Both arrive here in the same form.
 async fn leaving_for(
     state: &AppState,
     config: &crate::config::Config,
@@ -216,8 +209,8 @@ async fn leaving_for(
 
 /// Whether this instance has an identity provider.
 ///
-/// Answered whether or not one is configured, because a sign-in page has to ask
-/// before it can know.
+/// Answers even when none is configured, since a sign-in page cannot know
+/// without asking.
 ///
 /// # Errors
 ///
@@ -235,9 +228,8 @@ pub async fn provider(State(state): State<AppState>) -> Result<Response> {
     require_accounts(&state)?;
     let config = state.config();
 
-    // Every provider, including the ones that are off. A sign-in page has to
-    // ask before it can know, and an instance that configures none gets a list
-    // of three `enabled: false` rather than an empty one it has to interpret.
+    // Every provider, including disabled ones, so an instance with none
+    // configured returns three `enabled: false` entries instead of an empty list.
     let listed: Vec<_> = OauthProvider::ALL
         .into_iter()
         .map(|provider| ProviderResponse {
@@ -253,8 +245,8 @@ pub async fn provider(State(state): State<AppState>) -> Result<Response> {
 ///
 /// # Errors
 ///
-/// `404` when accounts are switched off. Everything else is a redirect back to
-/// the sign-in page with a reason, because a browser is following this.
+/// `404` when accounts are switched off. Everything else redirects back to the
+/// sign-in page with a reason, since a browser is following this.
 #[utoipa::path(
     get,
     path = "/auth/{provider}/start",
@@ -312,7 +304,7 @@ pub async fn start(
 ///
 /// # Errors
 ///
-/// `404` when accounts are switched off. Everything else is a redirect, see the
+/// `404` when accounts are switched off. Everything else is a redirect; see the
 /// module documentation.
 #[utoipa::path(
     get,
@@ -331,9 +323,8 @@ pub async fn start(
 )]
 pub async fn callback(
     State(state): State<AppState>,
-    // Accepted so each provider has its own registered redirect URI, and then
-    // ignored: the flow row says which provider this belongs to, and that was
-    // written by the redirect rather than by whoever is calling now.
+    // Accepted so each provider can register its own redirect URI, then
+    // ignored: the flow row, written at redirect time, says which provider it is.
     axum::extract::Path(_name): axum::extract::Path<String>,
     ClientAddress(origin): ClientAddress,
     headers: HeaderMap,
@@ -341,9 +332,9 @@ pub async fn callback(
 ) -> Result<Response> {
     require_accounts(&state)?;
 
-    // The state is taken back first, whatever else the query says. A provider
-    // that refused still sends one, and leaving the row behind would mean an
-    // abandoned sign-in is answerable until the sweep runs.
+    // Consume the state first, whatever else the query says. A refusing
+    // provider still sends one, and a leftover row would keep an abandoned
+    // sign-in answerable until the sweep.
     let Some(state_value) = query.state else {
         return Ok(back(Some(Rejection::Stale)));
     };
@@ -362,9 +353,8 @@ pub async fn callback(
         return Ok(back(Some(Rejection::Refused)));
     };
 
-    // A link attempt was started by somebody already signed in, so its failures
-    // belong on the page they started from. Sending them to the sign-in page
-    // would read as having been signed out.
+    // A link attempt comes from a signed-in user, so its failures go back to
+    // the page it started from. The sign-in page would look like a sign-out.
     let page = match waiting.purpose {
         flow::Purpose::Login => SIGN_IN_PAGE,
         flow::Purpose::Link => ACCOUNT_PAGE,
@@ -376,11 +366,10 @@ pub async fn callback(
     }
 }
 
-/// Either a reason to send the browser back, or something that went wrong here.
+/// Either a reason to send the browser back, or an internal failure.
 ///
-/// Kept apart because the first is the person's business and the second is
-/// ours: a database that is down is a `500` with a request id, not a sentence
-/// on a sign-in page saying the provider refused.
+/// Kept apart because a database outage is a `500` with a request id, not a
+/// sign-in page saying the provider refused.
 enum Outcome {
     Rejected(Rejection),
     Failed(Error),
@@ -405,20 +394,17 @@ struct ComingBack<'a> {
     waiting: &'a crate::db::repository::oidc::Flow,
     /// The authorisation code.
     code: &'a str,
-    /// The address the provider was told to come back to, which the token
-    /// endpoint checks against what it saw.
+    /// The redirect URI sent to the provider; the token endpoint checks it
+    /// matches.
     redirect_uri: &'a str,
 }
 
-/// Turns an authorisation code into who just signed in.
+/// Turns an authorisation code into the identity that signed in.
 ///
 /// The one step where the two kinds of provider differ. An `OpenID` Connect
-/// exchange comes back with an ID token that already says who this is; a plain
-/// OAuth 2.0 one comes back with an access token and nothing else, so the
-/// answer has to be fetched from an API whose shape belongs to that provider.
-///
-/// Both leave as an [`OauthIdentity`], and nothing after this knows which it
-/// was.
+/// exchange returns an ID token that already identifies the user; plain OAuth
+/// 2.0 returns only an access token, so identity has to be fetched from a
+/// provider-specific API. Both end up as an [`OauthIdentity`].
 async fn identify(
     state: &AppState,
     config: &crate::config::Config,
@@ -441,15 +427,14 @@ async fn identify(
             let tokens = token::exchange(&document, config, code, &waiting.verifier, redirect_uri)
                 .await
                 .map_err(|error| {
-                    // Worth a log line: a wrong secret and an expired code
-                    // look the same to whoever is signing in, and different
-                    // to whoever set this up.
+                    // Worth logging: a wrong secret and an expired code look
+                    // the same to the user but not to the operator.
                     tracing::warn!(%error, "the token exchange failed");
                     Outcome::Rejected(Rejection::Refused)
                 })?;
 
-            // An OIDC flow always stored one. A row without it is one this
-            // version did not write, and there is nothing to check against.
+            // An OIDC flow always stores one. A row without it was written by
+            // another version, and there is nothing to check against.
             let nonce = waiting
                 .nonce
                 .as_deref()
@@ -466,10 +451,9 @@ async fn identify(
                 Outcome::Rejected(Rejection::Refused)
             })?;
 
-            // A provider that keeps the address, whether it checked it, or the
-            // groups out of the token releases them here instead. Asked for
-            // only when something is missing, so the ordinary case is one
-            // round trip rather than two.
+            // Some providers put the address, its verified flag or the groups
+            // in userinfo instead of the token. Only fetched when something is
+            // missing, so the usual case is one round trip.
             let wants_groups = !config.auth.oidc.required_group.trim().is_empty()
                 && !admit::is_in_required_group(&claims, &config.auth.oidc);
             if (claims.email.is_none() || claims.email_verified.is_none() || wants_groups)
@@ -525,14 +509,14 @@ async fn identify(
                     tracing::warn!(%error, "the provider would not say who signed in");
                     Outcome::Rejected(Rejection::Refused)
                 })?;
-            // No session identifier: neither of these tells us about its own
-            // session, so a back-channel logout naming one could never match.
+            // No session id: these providers do not report their own sessions,
+            // so a back-channel logout could never match one.
             Ok((identity, None))
         }
     }
 }
 
-/// Everything after the callback has been matched to a sign-in we started.
+/// Everything after the callback has been matched to one of our sign-ins.
 async fn finish(
     state: &AppState,
     waiting: &crate::db::repository::oidc::Flow,
@@ -566,16 +550,14 @@ async fn finish(
         .await?;
 
     // A link attempt ends here. The account is already signed in, so there is
-    // nothing to prove and no session to start: the only question is whether
-    // this subject is free to attach.
+    // no session to start; the only question is whether this subject is free.
     if waiting.purpose == flow::Purpose::Link {
         let owner = waiting.user_id.ok_or(Outcome::Rejected(Rejection::Stale))?;
         return match existing {
-            // Already attached to this very account. Nothing to do, and saying
-            // so as a failure would be wrong.
+            // Already linked to this account. Nothing to do, and not a failure.
             Some(attached) if attached.user_id == owner => Ok(to(ACCOUNT_PAGE, None)),
-            // Attached to somebody else. Refused rather than moved: two people
-            // are being told they are the same one.
+            // Linked to another account. Refused, not moved: that would merge
+            // two people into one.
             Some(_taken) => Err(Outcome::Rejected(Rejection::AlreadyLinked)),
             None => {
                 state
@@ -642,11 +624,10 @@ async fn attach(
     let existing = state.users.find_by_email(&address).await?;
 
     if let Some(found) = existing {
-        // Attaching to an account that already exists is how somebody who
-        // registered with a password starts using the provider without losing
-        // their shares. It is also how a stranger takes over that account if
-        // the provider does not check addresses, which is why the operator
-        // says how far this provider's addresses are to be trusted.
+        // Linking to an existing account lets a password user start using the
+        // provider without losing their shares. It is also how a stranger
+        // takes over that account if the provider does not verify addresses,
+        // hence the per-provider trust setting.
         if !provider.may_link(&config, identity.email_verified) {
             return Err(Outcome::Rejected(Rejection::AddressTaken));
         }
@@ -660,7 +641,7 @@ async fn attach(
     register(state, provider, identity, address, waiting, now).await
 }
 
-/// Creates an account for a subject nobody here has seen.
+/// Creates an account for a subject not seen here before.
 async fn register(
     state: &AppState,
     provider: OauthProvider,
@@ -672,25 +653,23 @@ async fn register(
     let config = state.config();
     let invite = match provider.registration(&config) {
         ProviderRegistration::Never => return Err(Outcome::Rejected(Rejection::NotInvited)),
-        // The provider letting somebody through is what admits them: that is
-        // the whole point of saying so per provider, so there is no invitation
-        // to ask for.
+        // Admission by the provider is the point of setting this per provider,
+        // so no invitation is asked for.
         ProviderRegistration::Always => None,
         ProviderRegistration::Inherit => {
             if config.auth.registration == crate::config::RegistrationPolicy::Closed {
                 return Err(Outcome::Rejected(Rejection::NotInvited));
             }
-            // The same rule as registering with a password: an instance that
-            // asks for an invitation asks the provider's users for one too.
-            // Being admitted by the provider is not being admitted here.
+            // Same rule as password registration: an instance that requires
+            // invitations requires them from provider users too.
             check_invite(state, waiting.invite_code.as_deref())
                 .await
                 .map_err(|_ignored| Outcome::Rejected(Rejection::NotInvited))?
         }
     };
 
-    // Collisions are settled by asking, one candidate at a time, so this
-    // cannot be the pure function the rest of `admit` is.
+    // Collisions are resolved by querying one candidate at a time, so this
+    // cannot be a pure function like the rest of `admit`.
     let username = pick_username(state, identity)
         .await?
         .ok_or(Outcome::Rejected(Rejection::AddressTaken))?;
@@ -714,15 +693,14 @@ async fn register(
         state: AccountState::Active,
         deleted_at: None,
         deleted_by: None,
-        // The provider says it checked; that is the whole reason to trust it
-        // enough to have got this far.
+        // The provider says it verified the address, which is why we trust it.
         email_verified_at: identity.email_verified.then_some(now),
         created_at: now,
         updated_at: now,
     };
 
-    // No credential row: an account that has only ever used a provider has no
-    // password, and that is what "no row" means.
+    // No credential row: a provider-only account has no password, and that is
+    // what a missing row means.
     state.users.insert(&user, None).await?;
     state
         .identities
@@ -736,8 +714,8 @@ async fn pick_username(
     state: &AppState,
     identity: &OauthIdentity,
 ) -> std::result::Result<Option<tessera_core::Username>, Outcome> {
-    // `username_for` wants a synchronous predicate, so the names it would try
-    // are collected first and looked up together.
+    // `username_for` takes a synchronous predicate, so the candidate names are
+    // collected first and looked up together.
     let mut taken = std::collections::BTreeSet::new();
     for _round in 0..8 {
         let chosen = admit::username_for(identity, |candidate| taken.contains(candidate.as_str()));
@@ -752,10 +730,10 @@ async fn pick_username(
     Ok(None)
 }
 
-/// Folds what the userinfo endpoint said into the claims.
+/// Folds the userinfo response into the claims.
 ///
-/// The token wins where both have a value: it is the document the checks above
-/// were run against, and userinfo is a second call that only fills gaps.
+/// The token wins where both have a value: the checks above ran against it,
+/// and userinfo only fills gaps.
 fn merge(claims: &mut claims::Claims, extra: serde_json::Map<String, serde_json::Value>) {
     if claims.email.is_none() {
         claims.email = extra
@@ -763,12 +741,12 @@ fn merge(claims: &mut claims::Claims, extra: serde_json::Map<String, serde_json:
             .and_then(serde_json::Value::as_str)
             .map(str::to_owned);
     }
-    // Filled on its own and not only with the address. A provider may put the
-    // address in the token and say whether it checked it only in userinfo,
-    // and reading the one without the other left it unverified for ever.
+    // Filled independently of the address. A provider may put the address in
+    // the token and the verified flag only in userinfo; reading one without
+    // the other left accounts unverified for good.
     //
-    // Only when userinfo is talking about the same address: a verdict on some
-    // other address says nothing about this one.
+    // Only when userinfo refers to the same address: a verdict on another
+    // address says nothing about this one.
     let same_address = extra
         .get("email")
         .and_then(serde_json::Value::as_str)
@@ -798,15 +776,14 @@ fn merge(claims: &mut claims::Claims, extra: serde_json::Map<String, serde_json:
 /// One way an account signs in through a provider.
 #[derive(Debug, Serialize, ToSchema)]
 pub struct IdentityResponse {
-    /// Which provider vouched for this.
+    /// The provider that vouched for this.
     pub provider: String,
     /// When it was attached.
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
     /// Whether removing this one would leave the account with no way in.
     ///
-    /// Sent rather than left for the client to work out: the client would need
-    /// to know whether a password exists, which nothing else tells it.
+    /// Computed here because the client cannot tell whether a password exists.
     pub is_last_way_in: bool,
 }
 
@@ -851,7 +828,7 @@ pub async fn identities(
 /// # Errors
 ///
 /// `401` when nothing was signed in, `403` when authenticated with an API
-/// token. Everything else is a redirect, because a browser is following this.
+/// token. Everything else is a redirect, since a browser is following this.
 #[utoipa::path(
     get,
     path = "/auth/{provider}/link",
@@ -870,8 +847,8 @@ pub async fn link(
     SelfServiceUser(current): SelfServiceUser,
 ) -> Result<Response> {
     require_accounts(&state)?;
-    // The same rule as changing a password. Attaching a provider is a way into
-    // the account, so a leaked API token must not be able to add one.
+    // Same rule as changing a password: linking a provider opens a way into
+    // the account, so a leaked API token must not be able to do it.
     if !current.credential.is_session() {
         return Err(Error::Forbidden);
     }
@@ -949,12 +926,11 @@ pub async fn unlink(
         return Err(Error::NotFound);
     }
 
-    // An account with no password and no other identity would have no way back
-    // in, and nothing above this layer would notice until somebody tried to
-    // sign in. Checked here rather than in the repository because it needs the
-    // credentials table as well as this one.
+    // An account with no password and no other identity would be locked out,
+    // unnoticed until the next sign-in attempt. Checked here, not in the
+    // repository, because it needs the credentials table too.
     //
-    // The way out is `reset-password` on the machine, which creates a
+    // The recovery path is `reset-password` on the server, which creates a
     // credential row for an account that never had one.
     let has_password = state.users.password_of(current.user.id).await?.is_some();
     if attached.len() == 1 && !has_password {
@@ -967,13 +943,11 @@ pub async fn unlink(
     Ok(axum::http::StatusCode::NO_CONTENT.into_response())
 }
 
-/// Reads `logout_token` out of a form-encoded body.
+/// Reads `logout_token` from a form-encoded body.
 ///
-/// Parsed here rather than with `Form<T>`, which answers its own `422` in its
-/// own words when a field is missing. This endpoint answers a provider, and a
-/// provider reads `{"error", "error_description"}` or nothing; a `422` carrying
-/// `Failed to deserialize form body` is neither documented nor parseable by
-/// one, and it would keep retrying.
+/// Not `Form<T>`, which answers a missing field with its own `422`. The caller
+/// is a provider that expects `{"error", "error_description"}` or nothing, and
+/// would keep retrying on a `422` saying `Failed to deserialize form body`.
 fn logout_token_in(body: &str) -> Option<String> {
     form_urlencoded::parse(body.as_bytes())
         .find(|(key, _value)| key == "logout_token")
@@ -985,23 +959,22 @@ fn logout_token_in(body: &str) -> Option<String> {
 ///
 /// # Why this answers in the OAuth error shape
 ///
-/// Every other endpoint here answers `{"code": ..., "message": ...}`. This one
-/// answers `{"error": ..., "error_description": ...}`, because the caller is
-/// not a client of this API. It is an identity provider following `OpenID`
-/// Connect Back-Channel Logout 1.0, and section 2.8 says what it expects to
-/// read when it is refused. A provider that cannot parse the refusal will keep
-/// retrying a token that will never work.
+/// Every other endpoint answers `{"code": ..., "message": ...}`. This one
+/// answers `{"error": ..., "error_description": ...}` because the caller is an
+/// identity provider following `OpenID` Connect Back-Channel Logout 1.0, whose
+/// section 2.8 defines the refusal format. A provider that cannot parse the
+/// refusal keeps retrying a token that will never work.
 ///
 /// # Why it is unauthenticated
 ///
-/// The caller is a server with no account here. What stands in for a credential
-/// is the token's signature, checked against keys fetched from the configured
-/// issuer. See `auth::oidc::logout`.
+/// The caller is a server with no account here. The token's signature, checked
+/// against keys from the configured issuer, stands in for a credential. See
+/// `auth::oidc::logout`.
 ///
 /// # Errors
 ///
-/// `404` when accounts are switched off. A token that cannot be believed is a
-/// `400` with the reason, never a `500`.
+/// `404` when accounts are switched off. An untrustworthy token is a `400`
+/// with the reason, never a `500`.
 #[utoipa::path(
     post,
     path = "/auth/oidc/backchannel-logout",
@@ -1030,11 +1003,10 @@ pub async fn backchannel_logout(State(state): State<AppState>, body: String) -> 
     }
 }
 
-/// The refusal shape section 2.8 says a provider reads.
+/// The refusal format a provider reads, per section 2.8.
 fn refused(reason: &str) -> Response {
-    // Logged, because a provider that cannot log anybody out is a silent
-    // failure of the thing single sign-on is for, and the operator has to be
-    // able to see why.
+    // Logged: a provider unable to log users out is a silent failure of what
+    // single sign-on is for, and the operator needs to see why.
     tracing::warn!(%reason, "refused a back-channel logout");
     (
         axum::http::StatusCode::BAD_REQUEST,
@@ -1049,9 +1021,8 @@ fn refused(reason: &str) -> Response {
 
 /// Verifies a logout token and ends what it names.
 ///
-/// The error is a string rather than a type because every one of them leaves
-/// here as the same `400` with the same shape, and the provider reads it as
-/// prose.
+/// The error is a plain string: every failure leaves as the same `400`, and the
+/// provider reads it as prose.
 async fn end_sessions(state: &AppState, token: &str) -> std::result::Result<(), String> {
     let config = state.config();
     if !config.auth.oidc.is_configured() {
@@ -1083,8 +1054,8 @@ async fn end_sessions(state: &AppState, token: &str) -> std::result::Result<(), 
     let issued_at = OffsetDateTime::from_unix_timestamp(claims.iat)
         .map_err(|_ignored| "the logout token's `iat` is not a time".to_owned())?;
 
-    // A `sid` names one session; a `sub` names everything that person has open.
-    // A token may carry both, and then the narrower one is what was meant.
+    // `sid` names one session; `sub` names all of that user's sessions. When a
+    // token carries both, the narrower one is meant.
     let ended = if let Some(sid) = claims.sid.as_deref().filter(|sid| !sid.trim().is_empty()) {
         state
             .sessions
@@ -1099,9 +1070,9 @@ async fn end_sessions(state: &AppState, token: &str) -> std::result::Result<(), 
             .await
             .map_err(|error| error.to_string())?
         else {
-            // Nobody here has ever signed in as that subject. Reported as
-            // success: the provider asked for a state that already holds, and
-            // a refusal would have it retry something that cannot change.
+            // No account has ever signed in as that subject. Reported as
+            // success: the requested state already holds, and a refusal would
+            // make the provider retry forever.
             return Ok(());
         };
         state

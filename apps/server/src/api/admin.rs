@@ -59,9 +59,9 @@ use crate::{
 pub struct UpdateUserRequest {
     /// Whether this account administers the instance.
     ///
-    /// Omitted leaves its role as it is. Sending it always rewrites the role
+    /// Omit to leave the role unchanged. Sending it always rewrites the role
     /// (`true` to `owner`, `false` to none), so a client changing only `state`
-    /// or a quota must leave it out, or it demotes the account as a side effect.
+    /// or a quota must omit it, or it demotes the account as a side effect.
     #[serde(default)]
     pub is_admin: Option<bool>,
     /// `active` to let it in, `disabled` to suspend it.
@@ -95,9 +95,9 @@ pub struct UpdateUserRequest {
 
 /// One account, as an administrator sees it.
 ///
-/// What a person sees of themselves, plus the one thing only somebody else
-/// needs: whether the account may sign in. A person never sees their own
-/// `state` as anything but active, since a disabled one cannot sign in to ask.
+/// What a user sees of themselves, plus the one thing only an administrator
+/// needs: whether the account may sign in. Users never see their own `state`
+/// as anything but active, since a disabled account cannot sign in to ask.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct AdminUserResponse {
     /// The account, as its owner sees it.
@@ -127,8 +127,8 @@ pub enum UserState {
     Active,
     /// Stopped from signing in. Its shares keep serving.
     Disabled,
-    /// Removed. What is left keeps its shares attributable; the name is a
-    /// tombstone and identifies nobody.
+    /// Removed. The remaining row keeps its shares attributable; the name is a
+    /// tombstone that identifies no one.
     Deleted,
 }
 
@@ -665,11 +665,11 @@ pub struct StatsResponse {
     /// Counted over the shares still here, so a swept share takes its tally
     /// with it and this falls when one goes.
     pub bytes_served: u64,
-    /// How many bytes downloads sent straight to a store asked for.
+    /// Bytes requested by downloads redirected straight to a store.
     ///
-    /// Requested, not delivered: the store does not say what it sent, so an
-    /// abandoned download counts in full here. Separate from `bytes_served`
-    /// so that one keeps meaning what left this machine.
+    /// Requested, not delivered: the store does not report what it sent, so an
+    /// abandoned download counts in full. Kept separate so `bytes_served` still
+    /// means what left this machine.
     pub bytes_redirected: u64,
     /// The ceiling from `storage.max_total_bytes`, or `null` when unset.
     ///
@@ -712,10 +712,10 @@ pub async fn stats(
     let quota = state.config().storage.max_total_bytes;
 
     Ok(Json(StatsResponse {
-        // Deleted ones included, which is what this counted before `count`
-        // learned the filter. Whether a dashboard should count tombstones as
-        // accounts is a real question and a different change; this one is not
-        // the place to alter a number somebody may be watching.
+        // Deleted accounts included, as this counted before `count` got the
+        // filter. Whether a dashboard should count tombstones is a fair
+        // question for a separate change, not a reason to silently shift a
+        // number someone may be watching.
         accounts: state.users.count(true).await?,
         // Counted over the permission, not `users.is_admin`. That column is a
         // mirror kept for rollback and decides nothing; once roles can be
@@ -1303,7 +1303,7 @@ pub struct AdminShareResponse {
     /// Not `size_bytes` times `use_count`: a range request, a resumed download
     /// and an abandoned one all send some other amount.
     pub bytes_served: u64,
-    /// How many bytes downloads of it sent straight to a store asked for.
+    /// Bytes requested by its downloads redirected straight to a store.
     /// Requested, not delivered.
     pub bytes_redirected: u64,
     /// Who uploaded it, or `null` for an anonymous upload.
@@ -1314,9 +1314,9 @@ pub struct AdminShareResponse {
     pub owner_id: Option<String>,
     /// The uploader's account name, or `null` for an anonymous upload.
     ///
-    /// Beside the id so the listing can say who without a request per row. An
-    /// account deleted since answers with the name its row was left with,
-    /// which starts `gone-`.
+    /// Included next to the id so the listing can show it without a request
+    /// per row. An account deleted since returns its tombstone name, which
+    /// starts with `gone-`.
     #[schema(example = "alice")]
     pub owner_username: Option<String>,
     /// Whether a visitor could still open it.
@@ -1477,13 +1477,13 @@ pub struct AccessLogResponse {
     pub meta: AccessLogMeta,
 }
 
-/// [`PageMeta`](crate::api::shares::PageMeta) plus the one fact this list needs
-/// that the others do not.
+/// [`PageMeta`](crate::api::shares::PageMeta) plus the one extra fact this list
+/// needs.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, ToSchema)]
 pub struct AccessLogMeta {
     /// How many events this share has, not how many are on this page.
     pub total: u64,
-    /// The page size actually used.
+    /// The page size used.
     pub limit: u64,
     /// How many were skipped.
     pub offset: u64,
@@ -1544,8 +1544,8 @@ pub async fn share_access_log(
         return Err(Error::NotFound);
     }
 
-    // `offset` used to be read and thrown away, so the document advertised a
-    // parameter that did nothing and a second page returned the first one.
+    // `offset` used to be read and ignored, so the docs advertised a parameter
+    // that did nothing and the second page returned the first.
     let (limit, offset) = page_bounds(&params)?;
     let events = state.events.for_share(share_id, limit, offset).await?;
 

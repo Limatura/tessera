@@ -147,7 +147,7 @@ async fn sealing(options: &Options) -> Result<Sealing> {
         )));
     }
     let salt = Salt::from_random(names::random()?);
-    // Deliberately slow, so off the thread that drives the network.
+    // Slow by design (Argon2id), so off the thread that drives the network.
     let key = tokio::task::spawn_blocking(move || ShareKey::from_password(&password, &salt))
         .await
         .map_err(|error| Error::Io(std::io::Error::other(error)))??;
@@ -282,9 +282,9 @@ const fn worth_retrying(error: &Error) -> bool {
 /// What a file looked like when its upload started.
 ///
 /// Resending part of a sealed file means sealing it again under the same
-/// nonce. If the file changed in between, that would be two different contents
-/// under one nonce, which is the one thing a stream cipher cannot survive, so a
-/// changed file stops the upload instead.
+/// nonce. If the file changed in between, two different contents would share
+/// one nonce, which a stream cipher cannot survive, so a changed file stops
+/// the upload instead.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Fingerprint {
     len: u64,

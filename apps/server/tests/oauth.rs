@@ -1,16 +1,15 @@
-//! Signing in with GitHub or Discord, over HTTP, against a provider that runs.
+//! Signing in with GitHub or Discord, over HTTP, against a running provider.
 //!
-//! The plumbing these share with `OpenID` Connect is covered by `oidc.rs`: the
-//! one-shot `state`, the registration policy, choosing a username, attaching to
-//! an account that already exists. What is here is what those two do
-//! differently, which is how they answer the question of who just signed in.
+//! What these share with `OpenID` Connect is covered by `oidc.rs`: the one-shot
+//! `state`, the registration policy, username selection, linking to an existing
+//! account. This covers what the two do differently: how they report who
+//! signed in.
 //!
-//! GitHub is driven end to end, because `auth.github.base_url` exists for
-//! GitHub Enterprise Server and a test can point it at a server it controls.
-//! Discord has no self-hosted edition and so no such setting, and inventing one
-//! to make a test easier would be a configuration knob that lies about why it
-//! is there. Its adapter is exercised directly instead, which is where
-//! everything Discord-specific lives.
+//! GitHub is driven end to end, since `auth.github.base_url` exists for GitHub
+//! Enterprise Server and a test can point it at a server it controls. Discord
+//! has no self-hosted edition and so no such setting, and adding one for a
+//! test would be a knob that misrepresents why it exists. Its adapter, where
+//! everything Discord-specific lives, is exercised directly instead.
 #![expect(
     clippy::expect_used,
     clippy::panic,
@@ -30,7 +29,7 @@ use tessera_server::config::Config;
 const CLIENT_ID: &str = "tessera";
 const PUBLIC_URL: &str = "https://tessera.example";
 
-/// An instance whose GitHub is the one this test is running.
+/// An instance whose GitHub is the one this test runs.
 async fn instance(github: &FakeOauth) -> TestApp {
     let base = github.base.clone();
     TestApp::with_config(move |config: &mut Config| {
@@ -87,9 +86,9 @@ async fn come_back(app: &TestApp, state: &str) -> Response<Body> {
     .await
 }
 
-/// The same setting for GitHub, and the one that matters most there: with no
-/// groups to narrow it, `always` opens this instance to every GitHub account,
-/// so it has to work exactly as written and nothing wider.
+/// The same setting for GitHub, where it matters most: with no groups to
+/// narrow it, `always` opens this instance to every GitHub account, so it must
+/// work exactly as written and no wider.
 #[tokio::test]
 async fn github_makes_accounts_only_as_its_own_setting_says() {
     use tessera_server::config::{ProviderRegistration, RegistrationPolicy};
@@ -140,7 +139,7 @@ async fn github_makes_accounts_only_as_its_own_setting_says() {
     }
 }
 
-/// The whole point.
+/// The main path.
 #[tokio::test]
 async fn a_github_account_signs_in() {
     let github = FakeOauth::start().await;
@@ -175,8 +174,8 @@ async fn a_github_account_signs_in() {
 }
 
 /// The account is keyed on the numeric id, not the login. A GitHub login can be
-/// changed, and a released one can be claimed by somebody else, so keying on it
-/// would hand an account to whoever picked the name up.
+/// changed and a released one claimed by another user, so keying on it would
+/// hand the account to whoever took the name.
 #[tokio::test]
 async fn a_renamed_github_account_is_still_the_same_account() {
     let github = FakeOauth::start().await;
@@ -188,7 +187,7 @@ async fn a_renamed_github_account_is_still_the_same_account() {
     github.is(serde_json::json!({ "id": 4_242, "login": "alice" }));
     let first = session_cookie(&come_back(&app, &leave(&app).await).await);
 
-    // Same person, new name, and the address changed too.
+    // Same user, new name, and a new address too.
     github.is(serde_json::json!({ "id": 4_242, "login": "alice-renamed" }));
     github.addresses(serde_json::json!([
         { "email": "elsewhere@example.com", "primary": true, "verified": true },
@@ -198,7 +197,7 @@ async fn a_renamed_github_account_is_still_the_same_account() {
     assert_eq!(id_of(&app, &first).await, id_of(&app, &second).await);
 }
 
-/// And two different accounts that happen to share a login are two accounts.
+/// Two different accounts that share a login are still two accounts.
 #[tokio::test]
 async fn two_github_ids_are_two_accounts() {
     let github = FakeOauth::start().await;
@@ -219,9 +218,9 @@ async fn two_github_ids_are_two_accounts() {
     assert_ne!(id_of(&app, &first).await, id_of(&app, &second).await);
 }
 
-/// `GET /user` answers `email: null` when the address is private, which is the
-/// default for plenty of accounts. The address has to come from
-/// `GET /user/emails`, and this is that.
+/// `GET /user` returns `email: null` when the address is private, the default
+/// for many accounts. The address must come from `GET /user/emails`, which is
+/// what this tests.
 #[tokio::test]
 async fn a_private_address_is_still_found() {
     let github = FakeOauth::start().await;
@@ -250,8 +249,8 @@ async fn a_private_address_is_still_found() {
     );
 }
 
-/// An address somebody added and never confirmed is not theirs. Taking it would
-/// let anyone claim an account by typing in its owner's address.
+/// An address added but never confirmed is not the user's. Taking it would let
+/// anyone claim an account by typing in its owner's address.
 #[tokio::test]
 async fn an_unverified_address_is_not_an_address() {
     let github = FakeOauth::start().await;
@@ -266,9 +265,8 @@ async fn an_unverified_address_is_not_an_address() {
     assert_eq!(rejection(&response).as_deref(), Some("no_address"));
 }
 
-/// And neither is one that is verified but belongs to a different entry than
-/// the primary. Taking the first verified one instead would pick an address the
-/// person may not use.
+/// Nor is a verified address that is not the primary entry. Taking the first
+/// verified one instead could pick an address the user may not use.
 #[tokio::test]
 async fn a_verified_address_that_is_not_primary_is_not_taken() {
     let github = FakeOauth::start().await;
@@ -284,14 +282,14 @@ async fn a_verified_address_that_is_not_primary_is_not_taken() {
     assert_eq!(rejection(&response).as_deref(), Some("no_address"));
 }
 
-/// A token without `user:email` cannot read the addresses at all. Reported as
-/// a missing address, which names a scope to add, rather than as a refusal.
+/// A token without `user:email` cannot read the addresses. Reported as a
+/// missing address, which points at the scope to add, not as a refusal.
 #[tokio::test]
 async fn a_token_that_cannot_read_addresses_says_no_address() {
     let github = FakeOauth::start().await;
     let app = instance(&github).await;
     github.is(serde_json::json!({ "id": 7, "login": "alice" }));
-    // What the endpoint answers with when the scope is missing: not a list.
+    // What the endpoint returns without the scope: not a list.
     github.addresses(serde_json::json!({ "message": "Requires authentication" }));
 
     let response = come_back(&app, &leave(&app).await).await;
@@ -299,9 +297,9 @@ async fn a_token_that_cannot_read_addresses_says_no_address() {
     assert_eq!(rejection(&response).as_deref(), Some("no_address"));
 }
 
-/// The redirect carries no nonce, because there is no token to echo one back
-/// in. What ties the callback to this sign-in is the state, and the flow row
-/// makes that single-use.
+/// The redirect carries no nonce, since there is no token to echo one back.
+/// The callback is tied to this sign-in by the state, which the flow row makes
+/// single-use.
 #[tokio::test]
 async fn the_redirect_carries_no_nonce_and_the_state_works_once() {
     let github = FakeOauth::start().await;
@@ -365,8 +363,8 @@ async fn a_closed_instance_does_not_register_from_github() {
     assert_eq!(rejection(&response).as_deref(), Some("not_invited"));
 }
 
-/// A GitHub session records which provider started it, so a provider that later
-/// signs somebody out cannot end another one's sessions.
+/// A GitHub session records which provider started it, so a provider signing a
+/// user out later cannot end another provider's sessions.
 #[tokio::test]
 async fn a_github_session_records_github() {
     let github = FakeOauth::start().await;
@@ -413,9 +411,8 @@ async fn id_of(app: &TestApp, cookie: &str) -> serde_json::Value {
 }
 
 /// Discord, at the adapter. There is no self-hosted Discord and so no setting
-/// pointing at one, which is why this is here rather than driven through the
-/// endpoint like GitHub. What is Discord-specific is entirely in these
-/// answers.
+/// to point at one, which is why this is tested here instead of through the
+/// endpoint like GitHub. Everything Discord-specific is in these responses.
 mod discord {
     use tessera_server::auth::oauth::discord;
 
@@ -445,9 +442,9 @@ mod discord {
         assert!(identity.email_verified);
     }
 
-    /// An unverified address is dropped rather than carried with a flag.
-    /// Carrying it would leave every caller to remember to check, and
-    /// forgetting is an account takeover.
+    /// An unverified address is dropped, not carried with a flag. Carrying it
+    /// would leave every caller to remember to check, and forgetting is an
+    /// account takeover.
     #[tokio::test]
     async fn an_unverified_address_is_dropped() {
         let fake = FakeOauth::start().await;
@@ -466,8 +463,8 @@ mod discord {
         assert!(!identity.email_verified);
     }
 
-    /// `email` is null for some accounts even with the scope, and `verified`
-    /// is absent rather than false on others.
+    /// `email` is null for some accounts even with the scope, and `verified` is
+    /// absent, not false, on others.
     #[tokio::test]
     async fn a_missing_address_is_absent_rather_than_a_failure() {
         let fake = FakeOauth::start().await;
@@ -486,7 +483,7 @@ mod discord {
     #[tokio::test]
     async fn a_provider_that_refuses_is_an_error() {
         let fake = FakeOauth::start().await;
-        // Not a user object, which is what an expired token gets back.
+        // Not a user object: what an expired token gets back.
         fake.is(serde_json::json!({ "message": "401: Unauthorized" }));
 
         assert!(

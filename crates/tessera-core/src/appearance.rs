@@ -2,18 +2,18 @@
 //!
 //! # Why the colours are not here
 //!
-//! Every theme and every accent is a block of CSS in `packages/ui`, selected by
-//! an attribute on `<html>`. This crate, the database and the API only ever
-//! hold the name of one: `rose` is a string whose meaning lives in a stylesheet
-//! that goes through review like any other code.
+//! Every theme and accent is a block of CSS in `packages/ui`, selected by an
+//! attribute on `<html>`. This crate, the database and the API only hold the
+//! name: `rose` is a string whose meaning lives in a stylesheet reviewed like
+//! any other code.
 //!
-//! That split is deliberate rather than incidental. Colours are a design
-//! decision and belong in the design, versioned with it. And a value that never
-//! becomes anything but one of the names below cannot carry a stylesheet in it,
-//! which matters because these end up as attributes on an HTML element.
+//! Colours are a design decision and belong with the design, versioned with
+//! it. And a value that can only be one of the names below cannot smuggle in a
+//! stylesheet, which matters because these end up as attributes on an HTML
+//! element.
 //!
-//! Adding a colour is therefore two changes that have to land together: a
-//! variant here and the CSS that answers to it.
+//! So adding a colour takes two changes that land together: a variant here and
+//! the CSS for it.
 
 use serde::{Deserialize, Serialize};
 
@@ -113,18 +113,17 @@ impl Accent {
     }
 }
 
-/// One person's answer to the three questions, with room to have answered none.
+/// One user's answer to the three questions, any of which may be unanswered.
 ///
 /// # Why every field is optional
 ///
-/// Somebody who has picked an accent and left the rest alone should keep
-/// following the instance's default for the rest, including when the operator
-/// changes it. Storing the default alongside their one choice would freeze the
-/// other two at whatever they happened to be on the day they clicked, and there
-/// would be no way to tell that from having chosen them.
+/// A user who picked an accent and left the rest alone should keep following
+/// the instance default for the rest, including when the operator changes it.
+/// Storing the default next to their one choice would freeze the other two at
+/// that day's values, indistinguishable from having chosen them.
 ///
-/// So absent means "no opinion", and an empty [`Appearance`] is the shape
-/// somebody who has never opened the setting is described by.
+/// So absent means "no opinion", and an empty [`Appearance`] describes a user
+/// who never opened the setting.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 pub struct Appearance {
     /// Light, dark or the device's own answer.
@@ -138,19 +137,18 @@ pub struct Appearance {
     pub accent: Option<Accent>,
 }
 
-/// Read from a JSON object and from nothing else.
+/// Read from a JSON object and nothing else.
 ///
 /// # Why this is not derived
 ///
 /// A derived struct deserializer accepts a sequence as well as a map, taking
-/// the elements as fields in declaration order. So `[null, null]` arrives here
-/// as a valid [`Appearance`] with everything unset, even though the contract
-/// says this field is an object, and a fuzzer comparing the two found exactly
-/// that.
+/// the elements as fields in declaration order. So `[null, null]` would arrive
+/// as a valid [`Appearance`] with everything unset, although the contract says
+/// this field is an object. A fuzzer comparing the two found this.
 ///
-/// It is worth refusing rather than documenting. Positional appearance is not
-/// a thing anybody means to send, and the shape that is stored and the shape
-/// the API promises should not be two different answers.
+/// Refusing it is better than documenting it. No one means to send a
+/// positional appearance, and the stored shape and the API's promised shape
+/// should not disagree.
 impl<'de> Deserialize<'de> for Appearance {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         deserializer.deserialize_map(AppearanceVisitor)
@@ -175,9 +173,9 @@ impl<'de> serde::de::Visitor<'de> for AppearanceVisitor {
                 "mode" => appearance.mode = map.next_value()?,
                 "theme" => appearance.theme = map.next_value()?,
                 "accent" => appearance.accent = map.next_value()?,
-                // Named rather than ignored. A misspelt key is a preference
-                // that silently did not apply, and the person who sent it is a
-                // browser that cannot notice.
+                // Named, not ignored. A misspelt key is a preference that
+                // silently did not apply, and the sender is a browser that
+                // cannot notice.
                 other => {
                     return Err(M::Error::unknown_field(other, &["mode", "theme", "accent"]));
                 }
@@ -201,9 +199,8 @@ mod tests {
 
     use super::{Accent, Appearance, Mode, Theme};
 
-    /// The names are the contract with the stylesheet and with the stored rows,
-    /// so serialising must produce exactly what `as_str` says and nothing
-    /// prettier.
+    /// The names are the contract with the stylesheet and the stored rows, so
+    /// serialising must produce what `as_str` says, nothing prettier.
     #[rstest]
     #[case(Mode::System, "system")]
     #[case(Mode::Light, "light")]
@@ -244,8 +241,8 @@ mod tests {
         );
     }
 
-    /// The reason these are enums and not strings: what ends up in an HTML
-    /// attribute cannot be anything the caller felt like sending.
+    /// Why these are enums and not strings: what ends up in an HTML attribute
+    /// cannot be arbitrary caller input.
     #[rstest]
     #[case::unknown_accent(r#"{"accent":"chartreuse"}"#)]
     #[case::markup(r#"{"theme":"default\" onload=\"alert(1)"}"#)]
@@ -255,10 +252,9 @@ mod tests {
         assert!(serde_json::from_str::<Appearance>(json).is_err());
     }
 
-    /// A derived struct deserializer takes a sequence as its fields in order,
+    /// A derived struct deserializer reads a sequence as its fields in order,
     /// so `[null, null]` would have been a valid appearance with everything
-    /// unset. The contract says this is an object, and the two answers have to
-    /// agree.
+    /// unset. The contract says this is an object, and the two must agree.
     #[rstest]
     #[case::positional(r"[null, null]")]
     #[case::empty_sequence(r"[]")]
@@ -272,8 +268,8 @@ mod tests {
         );
     }
 
-    /// Somebody who has chosen nothing is described by an empty object, not by
-    /// a copy of the instance's default.
+    /// A user who has chosen nothing is an empty object, not a copy of the
+    /// instance default.
     #[test]
     fn having_chosen_nothing_serialises_as_an_empty_object() {
         let none = Appearance::default();
@@ -284,8 +280,8 @@ mod tests {
         );
     }
 
-    /// One choice is stored on its own; the other two stay absent so they keep
-    /// following whatever the operator sets.
+    /// One choice is stored alone; the other two stay absent so they keep
+    /// following the operator's setting.
     #[test]
     fn one_choice_leaves_the_others_absent() {
         let only_accent: Appearance =

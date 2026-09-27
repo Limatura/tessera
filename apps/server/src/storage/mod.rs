@@ -52,9 +52,9 @@ pub enum StorageError {
 pub struct Target {
     /// A bare path for a local directory, or an `object_store` URL.
     pub url: String,
-    /// Backend-specific options, passed through verbatim. The standard
-    /// `AWS_*`, `GOOGLE_*` and `AZURE_*` environment variables are merged in
-    /// underneath, so these win where both are set.
+    /// Backend-specific options, passed through as-is. The standard `AWS_*`,
+    /// `GOOGLE_*` and `AZURE_*` environment variables are merged in underneath,
+    /// so these win where both are set.
     pub options: BTreeMap<String, String>,
 }
 
@@ -155,10 +155,10 @@ impl Pool {
         self.configured.iter().find(|backend| backend.name == name)
     }
 
-    /// The directory a backend writes to, when it is a local one.
+    /// The directory a backend writes to, when it is local.
     ///
     /// A resumable upload into a local directory appends to a partial file
-    /// there, since a directory has no multipart upload to hold open.
+    /// there, since a directory has no multipart upload to keep open.
     #[must_use]
     pub fn local_root(&self, name: &str) -> Option<std::path::PathBuf> {
         self.row(name)
@@ -169,15 +169,15 @@ impl Pool {
 
 /// Builds the store for every stored backend.
 ///
-/// Every backend is a row. There is no other kind: a local directory is one
-/// like any bucket, written as the first row on a fresh instance by
-/// [`seed`], and an operator who wants only a bucket can remove it.
+/// Every backend is a row. A local directory is a row like any bucket, written
+/// first on a fresh instance by [`seed`], and an operator who wants only a
+/// bucket can remove it.
 ///
-/// A backend that will not build (a bucket that has gone, options this binary
-/// was compiled without, a directory it cannot write) is logged and left out,
-/// not fatal. Otherwise one unreachable bucket takes the others down, and an
-/// instance that keeps nothing in the directory it was seeded with would not
-/// start because that directory is gone.
+/// A backend that fails to build (a deleted bucket, options for a feature this
+/// binary lacks, an unwritable directory) is logged and skipped, not fatal.
+/// Otherwise one unreachable bucket would take the others down, and an
+/// instance that no longer uses its seeded directory would fail to start once
+/// that directory is gone.
 #[must_use]
 pub fn build_all(stored: &[crate::db::repository::storage_backend::StorageBackend]) -> Backends {
     let mut all = Backends::with_capacity(stored.len());
@@ -200,12 +200,12 @@ pub fn build_all(stored: &[crate::db::repository::storage_backend::StorageBacken
     all
 }
 
-/// Writes the first backend on an instance that has none: a local directory,
-/// `blobs` under `server.data_dir`, and the one new content goes to.
+/// Writes the first backend on an instance with none: a local directory,
+/// `blobs` under `server.data_dir`, which receives new content.
 ///
 /// Only when the table is empty, so an operator who replaced it with a bucket
-/// is not handed it back on the next start. Named [`DEFAULT_BACKEND`], which is
-/// what every file recorded before backends were rows names, so their bytes are
+/// does not get it back on the next start. Named [`DEFAULT_BACKEND`], the name
+/// every file recorded before backends were rows refers to, so their bytes are
 /// found where they always were.
 ///
 /// # Errors
@@ -262,15 +262,15 @@ pub struct Stores {
     /// Whether [`ObjectStoreExt::put_multipart`](object_store::ObjectStoreExt::put_multipart)
     /// works here. False only for the HTTP/WebDAV store; see the type's own documentation.
     pub put_multipart: bool,
-    /// The same store seen as a [`Signer`](object_store::signer::Signer), when a client may be
-    /// handed a URL to write one part of a multipart upload itself.
+    /// The same store as a [`Signer`](object_store::signer::Signer), when a
+    /// client may get a URL to write one part of a multipart upload itself.
     ///
-    /// S3 and GCS only. Both sign the `partNumber` and `uploadId` a part upload
-    /// needs into the URL, which is what makes a presigned part possible at
-    /// all. Azure signs a URL too, but a SAS covers the blob rather than the
-    /// request, and a client writing blocks there needs a different recipe
-    /// that nothing here speaks yet. A local directory and WebDAV have nothing
-    /// to sign: the bytes have to come through this server either way.
+    /// S3 and GCS only. Both sign the `partNumber` and `uploadId` into the URL,
+    /// which is what makes a presigned part possible. Azure signs URLs too, but
+    /// a SAS covers the blob, not the request, and writing blocks there needs a
+    /// different recipe nothing here implements yet. A local directory and
+    /// WebDAV have nothing to sign: the bytes pass through this server either
+    /// way.
     #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
     pub signer: Option<Arc<dyn object_store::signer::Signer>>,
 }
@@ -305,9 +305,9 @@ impl Stores {
 
 /// The name of the backend [`seed`] writes on a fresh instance.
 ///
-/// An ordinary row, which an operator may rename, repoint or remove like any
-/// other. The name matters only because files recorded before backends were
-/// rows name it, so the seeded one is where those bytes are found.
+/// An ordinary row, which an operator may rename, repoint or remove. The name
+/// matters only because files recorded before backends were rows refer to it,
+/// so the seeded backend is where those bytes are found.
 pub const DEFAULT_BACKEND: &str = "default";
 
 /// The same store, plus a handle to it as a [`MultipartStore`] when it is one.
@@ -423,11 +423,11 @@ where
     }
 }
 
-/// As [`prefixed_pair`], for a store that can also sign a part upload.
+/// As [`prefixed_pair`], for a store that can also sign part uploads.
 ///
-/// Its own function rather than a flag on the other one, because the extra
-/// view needs the store to implement [`Signer`](object_store::signer::Signer), and
-/// Azure's does while not being one this can use. See [`Stores::signer`].
+/// A separate function, not a flag, because the extra view needs the store to
+/// implement [`Signer`](object_store::signer::Signer), and Azure's does but is
+/// not usable here. See [`Stores::signer`].
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 fn prefixed_pair_signing<S>(
     store: S,
@@ -436,9 +436,9 @@ fn prefixed_pair_signing<S>(
 where
     S: ObjectStore + MultipartStore + object_store::signer::Signer,
 {
-    // The prefix has to be on the signer too. `PrefixStore` forwards
-    // `signed_url_opts` with its prefix applied, so a URL signed through it
-    // names the same object the multipart view opened.
+    // The signer needs the prefix too. `PrefixStore` forwards `signed_url_opts`
+    // with its prefix applied, so a URL signed through it names the same object
+    // the multipart view opened.
     if prefix.as_ref().is_empty() {
         let shared = Arc::new(store);
         let signer = as_signer(&shared);
@@ -503,8 +503,8 @@ fn build_local(path: &str) -> Result<Arc<dyn ObjectStore>, StorageError> {
 
 /// Merges configured options with the standard cloud credential variables.
 ///
-/// The backend's own option wins. It was set explicitly, even if an ambient
-/// `AWS_ACCESS_KEY_ID` in the environment disagrees.
+/// The backend's own option wins: it was set explicitly, even if an ambient
+/// `AWS_ACCESS_KEY_ID` disagrees.
 fn backend_options(target: &Target) -> BTreeMap<String, String> {
     let mut options: BTreeMap<String, String> = std::env::vars()
         .map(|(key, value)| (key.to_lowercase(), value))
@@ -647,14 +647,14 @@ const fn build_multipart_capable(
 /// How much each backend is holding, by name.
 pub type Usage = std::collections::HashMap<String, u64>;
 
-/// Every backend as the placer sees it: its ceiling, what it holds, and whether
-/// it still takes new content.
+/// Every backend as the placer sees it: its limit, its usage, and whether it
+/// still accepts new content.
 ///
 /// Usage is summed from the segments this instance wrote. See
 /// [`ShareRepository::bytes_per_backend`](crate::db::repository::share::ShareRepository::bytes_per_backend).
 ///
-/// A backend that is configured but did not open is left out: it can serve
-/// nothing, so placing an upload there would only move the failure later.
+/// A configured backend that failed to open is left out: it can serve nothing,
+/// so placing an upload there would only delay the failure.
 #[must_use]
 pub fn candidates(
     stored: &[crate::db::repository::storage_backend::StorageBackend],

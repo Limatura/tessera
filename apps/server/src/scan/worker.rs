@@ -1,15 +1,14 @@
-//! Works through what the scanner has yet to look at.
+//! Works through what the scanner has yet to check.
 //!
-//! Woken when something is uploaded, and every thirty seconds regardless, which
-//! is how a file uploaded while the scanner was down gets its turn once it is
-//! back.
+//! Woken on upload, and every thirty seconds regardless, which is how files
+//! uploaded while the scanner was down get scanned once it is back.
 //!
-//! # When the scanner cannot be reached
+//! # When the scanner is unreachable
 //!
-//! The file being sent is marked `deferred`, and so is everything else still
-//! `pending`: all of it is handed out from then on instead of waiting on a
-//! scanner that is not there. Each later pass tries the deferred ones again,
-//! and stops at the first that still gets no answer.
+//! The current file is marked `deferred`, along with everything else still
+//! `pending`, and all of it is served from then on instead of waiting on a
+//! missing scanner. Each later pass retries the deferred ones, stopping at the
+//! first that still gets no answer.
 
 use std::time::Duration;
 
@@ -35,11 +34,11 @@ pub const SCAN_TIMEOUT: Duration = Duration::from_mins(10);
 /// How long connecting may take before the scanner counts as unreachable.
 pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// How often the queue is looked at when nothing has woken it.
+/// How often the queue is checked when nothing has woken it.
 const INTERVAL: Duration = Duration::from_secs(30);
 
 /// How many files are with the scanner at once, so one large file does not
-/// keep every small one behind it waiting to be handed out.
+/// hold up every small one behind it.
 const PARALLEL: usize = 4;
 
 /// How many queued items are read at a time.
@@ -47,7 +46,7 @@ const BATCH: u64 = 32;
 
 /// Scans until `shutdown` is cancelled.
 pub async fn run(state: AppState, shutdown: CancellationToken) {
-    // Assumed on at start, so a process that starts with scanning off releases
+    // Assumed on at start, so a process starting with scanning off releases
     // whatever an earlier configuration left pending.
     let mut was_enabled = true;
     loop {
@@ -68,13 +67,13 @@ pub async fn run(state: AppState, shutdown: CancellationToken) {
 
 /// One pass: everything pending, then a batch of what was deferred.
 ///
-/// Public so the tests can drive the scanner one step at a time rather than
+/// Public so tests can drive the scanner one step at a time instead of
 /// waiting on a timer.
 pub async fn run_once(state: &AppState) {
     if !state.config().scan.is_enabled() {
         return;
     }
-    // Pending first: those are the shares somebody is waiting on.
+    // Pending first: those are the shares someone is waiting on.
     loop {
         let jobs = match state.scans.in_state(&Scan::Pending, BATCH).await {
             Ok(jobs) if !jobs.is_empty() => jobs,
@@ -119,8 +118,8 @@ async fn work_through(state: &AppState, jobs: Vec<Job>) -> bool {
         };
         match outcome {
             Ok(verdict) => settle(state, &job, verdict).await,
-            // The file, not the scanner: it could not be read back. Handed out
-            // like anything else nobody could scan, and tried again later.
+            // The file could not be read back; the scanner is fine. Served like
+            // anything else that could not be scanned, and retried later.
             Err(Unreachable::Store(reason)) => {
                 tracing::warn!(share = job.share_id(), %reason, "could not read a file to scan it");
                 record(state, &job, &Scan::Deferred).await;
@@ -136,7 +135,7 @@ async fn work_through(state: &AppState, jobs: Vec<Job>) -> bool {
     }
 }
 
-/// Everything still pending, once the scanner has stopped answering.
+/// Defers everything still pending, once the scanner has stopped answering.
 async fn defer_the_rest(state: &AppState) {
     if let Err(error) = state.scans.defer_all_pending().await {
         tracing::error!(%error, "could not release the shares waiting on the scanner");

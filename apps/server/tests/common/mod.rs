@@ -51,8 +51,7 @@ pub(crate) struct TestApp {
     _blob_root: TempDir,
 }
 
-/// Database every test uses unless it asks for something else. In-memory, so
-/// each test gets a private database and nothing has to be cleaned up.
+/// Stand-in identity and OAuth providers.
 pub(crate) mod provider;
 
 /// Database every test uses unless it asks for something else. In-memory, so
@@ -78,8 +77,8 @@ impl TestApp {
         Self::build_with(IN_MEMORY_SQLITE, ServiceStatus::Ready, adjust, |_| {}).await
     }
 
-    /// Same, with the seeded backend changed before the app opens it: pointed
-    /// at a bucket, given a ceiling, let browsers reach it.
+    /// Same, with the seeded backend adjusted before the app opens it: pointed
+    /// at a bucket, given a limit, made browser-reachable.
     pub(crate) async fn with_backend(adjust: impl FnOnce(&mut StorageBackend)) -> Self {
         Self::build_with(IN_MEMORY_SQLITE, ServiceStatus::Ready, |_| {}, adjust).await
     }
@@ -98,9 +97,9 @@ impl TestApp {
         Self::build_with(url, status, |_| {}, |_| {}).await
     }
 
-    /// Assembled the way `main` does it: the key resolved from the data
-    /// directory, the first backend seeded into an empty table, and every row
-    /// opened from there.
+    /// Assembled as `main` does: the key resolved from the data directory, the
+    /// first backend seeded into an empty table, and every row opened from
+    /// there.
     async fn build_with(
         url: &str,
         status: ServiceStatus,
@@ -117,8 +116,8 @@ impl TestApp {
             ..Config::default()
         };
         config.server.data_dir = data_dir.path().display().to_string();
-        // A database the whole suite shares outlives each fixture's directory,
-        // and with it the key a made one would have sealed its rows with.
+        // A database shared by the whole suite outlives each fixture's
+        // directory, and with it the generated key its rows were sealed with.
         let shared = url != IN_MEMORY_SQLITE;
         if shared {
             config.security.secret_key = "5e".repeat(32);
@@ -168,8 +167,8 @@ impl TestApp {
         }
     }
 
-    /// The store behind the seeded backend, where every upload in a test that
-    /// adds no other backend lands.
+    /// The store behind the seeded backend, where every upload lands in a test
+    /// that adds no other backend.
     pub(crate) fn seeded_store(&self) -> Arc<dyn object_store::ObjectStore> {
         self.state
             .backend(storage::DEFAULT_BACKEND)
@@ -185,8 +184,8 @@ impl TestApp {
         self.state.replace_backends(pool);
     }
 
-    /// The pool as it stands with one more backend beside the others, opened
-    /// as given rather than from its URL.
+    /// The pool with one more backend added, opened as given instead of from
+    /// its URL.
     pub(crate) fn pool_with(&self, row: StorageBackend, stores: storage::Stores) -> Pool {
         let mut pool = (*self.state.backends.load_full()).clone();
         pool.open.insert(row.name.clone(), stores);
@@ -839,8 +838,8 @@ impl<'a> Shares<'a> {
                     segments: Vec::new(),
                     filename: Some("專案.zip".to_owned()),
                     content_type: Some("application/zip".to_owned()),
-                    // Longer than the plain name's column would take, which is
-                    // why it is not that column.
+                    // Longer than the plain name column allows, which is why
+                    // it is not that column.
                     sealed_name: Some("bmFtZQ".repeat(100)),
                     scan: None,
                     size_bytes: 1_048_576,

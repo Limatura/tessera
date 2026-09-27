@@ -107,11 +107,11 @@ const UPLOAD_LENGTH: &str = "upload-length";
 const UPLOAD_TOKEN: &str = "x-upload-token";
 /// The only body type a `PATCH` may carry, per the specification.
 const OFFSET_CONTENT_TYPE: &str = "application/offset+octet-stream";
-/// How long a URL to write one part directly stays usable, at most.
+/// The longest a URL for writing one part directly stays valid.
 ///
-/// Long enough for one part on a slow uplink, and never past the session
-/// itself: a URL that outlives its session writes into a multipart upload the
-/// sweep has already aborted.
+/// Long enough for one part on a slow uplink, and never longer than the session:
+/// a URL outliving its session would write into a multipart upload the sweep
+/// has already aborted.
 const PART_URL_TTL: std::time::Duration = std::time::Duration::from_hours(1);
 
 /// Where a finished upload should land.
@@ -132,8 +132,8 @@ pub struct CreateUploadParams {
     pub encryption: Option<String>,
     /// For `encryption=password`: the salt, as for `POST /shares`.
     pub key_salt: Option<String>,
-    /// For a file in an encrypted share: its name and media type, sealed. Takes
-    /// the place of `filename`.
+    /// For a file in an encrypted share: its name and media type, sealed.
+    /// Replaces `filename`.
     pub sealed_name: Option<String>,
 }
 
@@ -159,16 +159,16 @@ pub struct UploadResponse {
     /// `null`
     /// when the uploader is signed in, since their credential already answers.
     pub token: Option<String>,
-    /// Whether the parts may go straight to the store instead of through here.
+    /// Whether parts may go straight to the store instead of through here.
     ///
     /// When `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`
     /// each part to, and `POST /uploads/{id}/complete` finishes with the `ETag`
-    /// each `PUT` answered. `PATCH` still works either way.
+    /// each `PUT` returned. `PATCH` works either way.
     ///
-    /// Decided by where this upload was placed, and by whether the operator
-    /// has said a browser can reach that store, which is why it is here and not
-    /// in the capabilities: an instance with an S3 bucket and a local directory
-    /// answers differently for different uploads.
+    /// Depends on where this upload was placed and whether the operator has
+    /// marked that store browser-reachable, which is why it is here and not in
+    /// the capabilities: an instance with an S3 bucket and a local directory
+    /// answers differently per upload.
     pub direct: bool,
 }
 
@@ -176,7 +176,7 @@ pub struct UploadResponse {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct PartUrlResponse {
     /// Where to `PUT` the part's bytes. The response carries an `ETag` header,
-    /// which is what `complete` needs back.
+    /// which `complete` needs back.
     pub url: String,
     /// When the URL stops working, RFC 3339.
     pub expires_at: String,
@@ -186,10 +186,9 @@ pub struct PartUrlResponse {
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct CompleteUploadRequest {
-    /// The `ETag` each part's `PUT` answered with, in part order from one.
+    /// The `ETag` each part's `PUT` returned, in part order from one.
     ///
-    /// Exactly as many as the upload has parts, as sent by the store: quotes
-    /// included, if it included them.
+    /// One per part, as the store sent it, quotes included if it included them.
     #[schema(example = json!(["\"3858f62230ac3c915f300c664312c11f\"", "\"9b2cf535f27731c974343645a3985328\""]))]
     pub etags: Vec<String>,
 }
@@ -273,7 +272,7 @@ pub async fn create(
             .backend_multipart(&backend)
             .as_ref()
             .map(|handle| &handle.0),
-        // A remote store that cannot hold a multipart open cannot hold a
+        // A remote store that cannot keep a multipart open cannot hold a
         // resumable upload either; see `Sink::open`.
         state.backends.load().local_root(&backend).as_ref(),
         &key,
@@ -324,10 +323,10 @@ pub async fn create(
         .into_response())
 }
 
-/// The file's name, sealed or not, and how the share it lands in is sealed.
+/// The file's name, sealed or not, and how the target share is sealed.
 ///
-/// An upload into an existing share is sealed the way that share is, so saying
-/// how alongside `code` is refused rather than believed.
+/// An upload into an existing share is sealed the way that share is, so
+/// specifying it alongside `code` is refused.
 async fn named(
     state: &AppState,
     share_id: Option<ShareId>,
@@ -541,19 +540,18 @@ pub async fn append(
 
 /// Hands out a URL to write one part straight to the store.
 ///
-/// # Why this exists
+/// # Why
 ///
-/// Every byte of a `PATCH` crosses this server twice: in from the uploader,
-/// out to the bucket. On a self-hosted instance those are often the same
-/// uplink. A part written to the store directly crosses it zero times.
+/// Every byte of a `PATCH` crosses this server twice, in from the uploader and
+/// out to the bucket, and on a self-hosted instance both often share one
+/// uplink. A part written directly to the store crosses it zero times.
 ///
 /// # What it does not check
 ///
-/// The part's size. The URL carries the part number and the upload it belongs
-/// to, both signed, but a length cannot be: `object_store` refuses to sign
-/// `content-length`. So a client may write a part of any size, and nothing
-/// finds out until `complete` asks the store how large the object came out.
-/// See [`complete`].
+/// The part's size. The URL signs the part number and upload id, but not a
+/// length: `object_store` refuses to sign `content-length`. So a client can
+/// write a part of any size, which is only caught when `complete` asks the
+/// store how large the object came out. See [`complete`].
 ///
 /// # Errors
 ///
@@ -609,20 +607,20 @@ pub async fn part_url(
 /// # Where the size is checked
 ///
 /// Here, and only here. A part URL cannot be limited to a length, so this
-/// completes the object and then asks the store how large it came out. One
-/// that is not the size the session declared, and was charged against the
-/// uploader's room for, is deleted and refused.
+/// completes the object and then asks the store for its size. An object that
+/// does not match the size the session declared, and was charged against the
+/// uploader's quota, is deleted and refused.
 ///
-/// Until then the extra bytes sit in the bucket. That is the cost of not
-/// having the bytes pass through here, and it is bounded by what a session
-/// that already passed the size and room checks can write before this runs.
+/// Until then the extra bytes sit in the bucket. That is the price of not
+/// proxying the bytes, bounded by what a session that already passed the size
+/// and quota checks can write before this runs.
 ///
 /// # Errors
 ///
-/// `400` when the number of `ETag`s is not the number of parts, or the object
-/// did not come out the declared size. `404` when there is no such session,
-/// `409` when this upload cannot take parts directly or has already had parts
-/// sent through this server, `410` when the session was abandoned.
+/// `400` when the number of `ETag`s does not match the number of parts, or the
+/// object did not come out the declared size. `404` when there is no such
+/// session, `409` when this upload cannot take parts directly or already had
+/// parts sent through this server, `410` when the session was abandoned.
 #[utoipa::path(
     post,
     path = "/uploads/{id}/complete",
@@ -649,9 +647,9 @@ pub async fn complete(
     let upload = continuable(&state, &id, current.as_ref(), &headers).await?;
     direct_signer(&state, &upload).ok_or_else(not_direct)?;
 
-    // One way or the other, not both. Parts this server wrote through `PATCH`
-    // have their own identifiers recorded, and completing with a client's list
-    // around them would describe an object neither half fully wrote.
+    // One way or the other, not both. Parts written through `PATCH` have their
+    // own recorded ids, and completing with the client's list would describe an
+    // object neither half fully wrote.
     if !state.uploads.parts_of(upload.id).await?.is_empty() {
         return Err(Error::Conflict(
             "parts of this upload came through this server; finish it with PATCH".to_owned(),
@@ -686,8 +684,8 @@ pub async fn complete(
     let size = store.head(&path).await?.size;
     if size != upload.declared_bytes {
         if let Err(error) = store.delete(&path).await {
-            // The reconciliation pass collects an object no share names, so
-            // this is late rather than lost.
+            // The reconciliation pass collects objects no share references, so
+            // this is delayed, not leaked.
             tracing::warn!(%error, upload = %upload.id, "could not delete an upload that came out the wrong size");
         }
         state.uploads.delete(upload.id).await?;
@@ -700,20 +698,19 @@ pub async fn complete(
     settle(&state, upload, size).await
 }
 
-/// The signer to hand out part URLs with, when this upload can take them.
+/// The signer for part URLs, when this upload can use them.
 ///
-/// Three things have to hold: the store it was placed on can sign a part
-/// upload, a multipart upload is open there, and there is at least one part to
-/// write. An empty upload has none, and a multipart upload cannot be completed
-/// with zero parts.
+/// Three conditions: the store it was placed on can sign part uploads, a
+/// multipart upload is open there, and there is at least one part. An empty
+/// upload has none, and a multipart upload cannot complete with zero parts.
 fn direct_signer(state: &AppState, upload: &Upload) -> Option<PartSigner> {
     if upload.multipart_id.is_none() || upload.declared_bytes == 0 {
         return None;
     }
     #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
     {
-        // The operator's word that a browser can reach this store. A signer
-        // says the URL can be made, not that anybody outside can use it.
+        // The operator's word that browsers can reach this store. A signer only
+        // means the URL can be made, not that it is usable from outside.
         if !state.direct_access(&upload.backend) {
             return None;
         }
@@ -726,12 +723,12 @@ fn direct_signer(state: &AppState, upload: &Upload) -> Option<PartSigner> {
     }
 }
 
-/// What hands out a part URL, in a build that can have one.
+/// What hands out part URLs, in builds that can.
 ///
-/// Only S3 and GCS sign a part upload, and `object_store` compiles its signing
-/// only for the cloud backends. A build with neither has nothing that could
-/// fill this, so it is a type with no values: every upload there answers
-/// `direct: false`, and the endpoints stay in the contract and refuse.
+/// Only S3 and GCS sign part uploads, and `object_store` compiles signing only
+/// for the cloud backends. A build with neither has an uninhabited type here:
+/// every upload answers `direct: false`, and the endpoints stay in the
+/// contract but refuse.
 #[cfg(any(feature = "storage-s3", feature = "storage-gcs"))]
 type PartSigner = std::sync::Arc<dyn object_store::signer::Signer>;
 #[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
@@ -760,8 +757,8 @@ async fn sign_part(
         .await?)
 }
 
-/// The build with nothing to sign never reaches here: [`direct_signer`] has no
-/// value to give, so the caller has already refused.
+/// A build without signing never gets here: [`direct_signer`] has no value to
+/// return, so the caller has already refused.
 #[cfg(not(any(feature = "storage-s3", feature = "storage-gcs")))]
 #[expect(
     clippy::unused_async,
@@ -796,16 +793,15 @@ async fn finish(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Res
     settle(state, upload, size_bytes).await
 }
 
-/// Records an upload whose object is already whole, and answers with the share.
+/// Records an upload whose object is complete, and answers with the share.
 ///
-/// The half of finishing that does not care how the parts arrived, shared by a
-/// `PATCH` that carried the last bytes and a `complete` after parts went
-/// straight to the store.
+/// The part of finishing that does not care how the parts arrived, shared by a
+/// `PATCH` carrying the last bytes and by `complete` after direct part uploads.
 async fn settle(state: &AppState, upload: Upload, size_bytes: u64) -> Result<Response> {
     let mut finished = upload.clone();
     finished.offset_bytes = size_bytes;
-    // The session carries how the share it lands in is sealed, whether that
-    // share is new or not.
+    // The session records how the target share is sealed, whether the share is
+    // new or not.
     let file = NewFile {
         scan: crate::scan::initial(state, upload.encryption.is_some()),
         ..finished_file(&finished)
@@ -986,7 +982,7 @@ pub(crate) fn finished_file(upload: &Upload) -> NewFile {
         filename: upload.filename.clone(),
         content_type: upload.content_type.clone(),
         sealed_name: upload.sealed_name.clone(),
-        // Decided by whoever records it, which knows whether a scanner is set up.
+        // Set by the recorder, which knows whether a scanner is configured.
         scan: None,
         size_bytes: upload.offset_bytes,
         storage: StorageLocation::Object {

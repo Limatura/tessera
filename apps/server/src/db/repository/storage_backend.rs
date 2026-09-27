@@ -27,12 +27,12 @@ pub struct StorageBackend {
     /// Whether it still takes new content. Reads are unaffected: a full backend
     /// and a retired one both keep serving what they already hold.
     pub read_only: bool,
-    /// Whether browsers may be sent to it directly, to download a file or to
-    /// write an upload's parts, instead of through this server.
+    /// Whether browsers may be redirected to it directly, to download a file or
+    /// write an upload's parts, instead of going through this server.
     ///
-    /// Off unless an operator turns it on, because only they can know whether
-    /// a browser can reach the store at all: a bucket on a home network is
-    /// reachable from this server and from nobody else.
+    /// Off unless the operator enables it, since only they know whether
+    /// browsers can reach the store: a bucket on a home network is reachable
+    /// from this server and no one else.
     pub direct_access: bool,
 }
 
@@ -213,12 +213,12 @@ impl StorageBackendRepository {
         Ok(chosen.rows_affected == 1)
     }
 
-    /// Turns direct access on or off for one backend. Returns whether there was
-    /// one by that name.
+    /// Turns direct access on or off for one backend. Returns whether a backend
+    /// by that name exists.
     ///
-    /// Its own write, not a second `put`. `put` re-seals the URL and options,
-    /// which the caller would have to send again, and the credentials are the
-    /// one thing this API never hands back.
+    /// A separate write, not a second `put`. `put` re-seals the URL and
+    /// options, which the caller would have to resend, and credentials are
+    /// never handed back by this API.
     ///
     /// # Errors
     ///

@@ -13,15 +13,15 @@ pub struct Model {
     pub user_id: String,
     /// The address the link was sent to, and the only one it can prove.
     pub email: String,
-    /// SHA-256 of the token. Never the token itself: the link in the email is
-    /// the only copy that ever exists.
+    /// SHA-256 of the token, never the token itself: the link in the email is
+    /// the only copy.
     #[sea_orm(unique)]
     pub secret_hash: String,
     /// When the link was sent.
     pub created_at: TimeDateTimeWithTimeZone,
     /// When it stops working.
     pub expires_at: TimeDateTimeWithTimeZone,
-    /// When it was spent, if it was.
+    /// When it was used, if it was.
     pub used_at: Option<TimeDateTimeWithTimeZone>,
 }
 

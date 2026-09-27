@@ -165,9 +165,8 @@ impl<T> Change<T> {
 
 /// How an end-to-end encrypted share's key is held.
 ///
-/// The server never has the key either way. What it holds is enough for a
-/// client to know how to get one: nothing, or the salt to stretch a password
-/// with.
+/// The server never has the key. It holds only what a client needs to obtain
+/// it: nothing, or the salt to stretch a password with.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Encryption {
     /// In the link, after `#`.
@@ -175,7 +174,7 @@ pub enum Encryption {
     /// Derived from a password.
     Password {
         /// What the password is stretched with: 16 bytes, as unpadded URL-safe
-        /// base64. Public, since a client needs it before it can present the
+        /// base64. Public, since a client needs it before presenting the
         /// password.
         salt: String,
     },
@@ -204,8 +203,8 @@ impl Encryption {
     ///
     /// # Errors
     ///
-    /// [`DomainError`] for a spelling nothing writes, or a password share with
-    /// no salt, which no client could open.
+    /// [`DomainError`] for an unknown value, or a password share with no salt,
+    /// which no client could open.
     pub fn from_columns(
         encryption: Option<&str>,
         salt: Option<String>,
@@ -231,9 +230,9 @@ pub struct NewFile {
     /// The media type the uploader claimed. Recorded, never echoed.
     pub content_type: Option<String>,
     /// The name and media type, sealed, when the share is encrypted. The two
-    /// fields above are `None` then.
+    /// fields above are `None` in that case.
     pub sealed_name: Option<String>,
-    /// Where the malware scanner starts it: `None` when no scanner is set up.
+    /// The initial scan state: `None` when no scanner is configured.
     pub scan: Option<Scan>,
     /// How many bytes.
     pub size_bytes: u64,
@@ -288,7 +287,7 @@ pub enum NewContent {
         language: Option<String>,
         /// The text itself.
         body: Vec<u8>,
-        /// Where the malware scanner starts it.
+        /// The initial scan state.
         scan: Option<Scan>,
     },
 }
@@ -315,7 +314,7 @@ pub struct FilePart {
     pub content_type: Option<String>,
     /// The name and media type, sealed, in an encrypted share.
     pub sealed_name: Option<String>,
-    /// What the malware scanner said, or `None` if it was never asked.
+    /// The scanner's verdict, or `None` if it was never scanned.
     pub scan: Option<Scan>,
     /// How many bytes.
     pub size_bytes: u64,
@@ -330,7 +329,7 @@ pub struct FilePart {
 pub struct TextPart {
     /// Syntax-highlighting hint.
     pub language: Option<String>,
-    /// What the malware scanner said, or `None` if it was never asked.
+    /// The scanner's verdict, or `None` if it was never scanned.
     pub scan: Option<Scan>,
     /// How many bytes the text is.
     pub size_bytes: u64,
@@ -380,8 +379,8 @@ impl Content {
         }
     }
 
-    /// Whether a verdict is still awaited for anything here, which keeps the
-    /// share from being handed out. See [`Scan::holds`].
+    /// Whether anything here still awaits a verdict, which keeps the share from
+    /// being served. See [`Scan::holds`].
     #[must_use]
     pub fn awaiting_scan(&self) -> bool {
         match self {
@@ -498,10 +497,10 @@ pub enum StorageLocation {
     Object {
         /// Which configured backend holds it.
         ///
-        /// Recorded per file, not read from which backend is the default now,
-        /// which can change. Without this, sending new uploads somewhere else
-        /// leaves every existing share reading as present and failing to
-        /// deliver, with nothing saying where the bytes went.
+        /// Recorded per file, not inferred from the current default, which can
+        /// change. Otherwise redirecting new uploads elsewhere would leave
+        /// every existing share looking present but failing to deliver, with
+        /// no record of where the bytes went.
         backend: String,
         /// Key as it was written. Stored, not recomputed, so the layout can
         /// change later without moving existing objects.
@@ -631,7 +630,7 @@ pub struct Share {
     /// How the content was sealed, or `None` for a share the server can read.
     pub encryption: Option<Encryption>,
     /// The title and a note's language, sealed, on an encrypted share. The
-    /// plain title and language are `None` there.
+    /// plain title and language are `None` in that case.
     pub sealed_details: Option<String>,
 
     /// JSON describing how to draw the OG image. Unused.
@@ -651,13 +650,13 @@ pub struct Share {
     /// Bytes that left this process, not bytes that reached anybody. See the
     /// migration for what a proxy in front does to the difference.
     pub bytes_served: u64,
-    /// How many bytes were asked for by requests this server sent to the store
-    /// instead of serving itself.
+    /// Bytes requested by downloads this server redirected to the store instead
+    /// of serving.
     ///
     /// Requested, not delivered: nothing reports what a store actually sent.
-    /// Kept apart from [`Share::bytes_served`] for that reason, since folding it
-    /// in would make that figure count whole files for abandoned downloads,
-    /// the one thing it was built not to do.
+    /// Kept apart from [`Share::bytes_served`] for that reason; folding it in
+    /// would make that figure count whole files for abandoned downloads, which
+    /// it was built to avoid.
     pub bytes_redirected: u64,
     /// When the share was last touched.
     pub last_accessed_at: Option<OffsetDateTime>,
@@ -1000,21 +999,19 @@ impl ShareRepository {
     ///
     /// # Why a list
     ///
-    /// A sweep that removed the first and stopped would leave the rest paid for
-    /// and unreachable, a leak nothing can find once the row that named them is
-    /// gone.
+    /// A sweep that removed only the first would leave the rest paid for and
+    /// unreachable, a leak nothing can find once the row naming them is gone.
     ///
     /// # Why the backend with each
     ///
-    /// A share's files can be on different backends, and one file's pieces
-    /// too. Deleting a key from the wrong store finds nothing there, which the
-    /// sweep reads as "already gone", so the bytes stay where they are with no
-    /// row left to say so.
+    /// A share's files can be on different backends, and so can one file's
+    /// pieces. Deleting a key from the wrong store finds nothing, which the
+    /// sweep reads as "already gone", so the bytes stay behind with no row to
+    /// record them.
     ///
-    /// Read from `file_segments`, one row per piece. A file with none is one
-    /// written before those were recorded, and its bytes are on the seeded
-    /// backend under the key its own row names. Text has no objects: its
-    /// content is its row.
+    /// Read from `file_segments`, one row per piece. A file with none predates
+    /// segment tracking; its bytes are on the seeded backend under the key its
+    /// own row names. Text has no objects: its content is the row.
     ///
     /// # Errors
     ///
@@ -1534,7 +1531,7 @@ impl ShareRepository {
         Ok(())
     }
 
-    /// Adds to what requests sent to the store asked for.
+    /// Adds to the bytes requested by redirected downloads.
     ///
     /// # Errors
     ///
@@ -1556,7 +1553,7 @@ impl ShareRepository {
         Ok(())
     }
 
-    /// What requests sent to the store asked for, over the shares still here.
+    /// Bytes requested by redirected downloads, over shares that still exist.
     ///
     /// # Errors
     ///

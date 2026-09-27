@@ -191,8 +191,8 @@ pub fn password_reset_letter(to: &str, link: &str, minutes: u64) -> Letter {
 /// Composes the message that proves an account can receive mail at its
 /// address.
 ///
-/// Asked for from a signed-in account, but the wording still tells a reader
-/// who did not ask that ignoring it changes nothing.
+/// Requested by a signed-in account, but the wording still tells a reader who
+/// did not request it that ignoring it changes nothing.
 #[must_use]
 pub fn verification_letter(to: &str, link: &str, hours: u64) -> Letter {
     Letter {

@@ -36,14 +36,14 @@ expression: document
         "type": "object"
       },
       "AccessLogMeta": {
-        "description": "[`PageMeta`](crate::api::shares::PageMeta) plus the one fact this list needs\nthat the others do not.",
+        "description": "[`PageMeta`](crate::api::shares::PageMeta) plus the one extra fact this list\nneeds.",
         "properties": {
           "enabled": {
             "description": "Whether this instance is recording at all.\n\nAn empty list means the share was never fetched, or that recording is\noff. A screen that cannot tell those apart reports the second as the\nfirst.",
             "type": "boolean"
           },
           "limit": {
-            "description": "The page size actually used.",
+            "description": "The page size used.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -99,7 +99,7 @@ expression: document
             "type": "string"
           },
           "email_verified_at": {
-            "description": "When the address was last proven to reach this person, or `null` if it\nnever has been.\n\nSet by confirming a registration, by a provider that vouches for the\naddress, or by following the link from\n`POST /account/email/verification`. Cleared when the address changes.",
+            "description": "When the address was last proven to reach this user, or `null` if never.\n\nSet by confirming a registration, by a provider vouching for the\naddress, or by following the link from\n`POST /account/email/verification`. Cleared when the address changes.",
             "example": "2026-09-26T08:00:00Z",
             "format": "date-time",
             "type": [
@@ -197,7 +197,7 @@ expression: document
             "type": "boolean"
           },
           "bytes_redirected": {
-            "description": "How many bytes downloads of it sent straight to a store asked for.\nRequested, not delivered.",
+            "description": "Bytes requested by its downloads redirected straight to a store.\nRequested, not delivered.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -250,7 +250,7 @@ expression: document
             ]
           },
           "owner_username": {
-            "description": "The uploader's account name, or `null` for an anonymous upload.\n\nBeside the id so the listing can say who without a request per row. An\naccount deleted since answers with the name its row was left with,\nwhich starts `gone-`.",
+            "description": "The uploader's account name, or `null` for an anonymous upload.\n\nIncluded next to the id so the listing can show it without a request\nper row. An account deleted since returns its tombstone name, which\nstarts with `gone-`.",
             "example": "alice",
             "type": [
               "string",
@@ -316,7 +316,7 @@ expression: document
             "type": "object"
           }
         ],
-        "description": "One account, as an administrator sees it.\n\nWhat a person sees of themselves, plus the one thing only somebody else\nneeds: whether the account may sign in. A person never sees their own\n`state` as anything but active, since a disabled one cannot sign in to ask."
+        "description": "One account, as an administrator sees it.\n\nWhat a user sees of themselves, plus the one thing only an administrator\nneeds: whether the account may sign in. Users never see their own `state`\nas anything but active, since a disabled account cannot sign in to ask."
       },
       "BackendRequest": {
         "additionalProperties": false,
@@ -333,7 +333,7 @@ expression: document
             ]
           },
           "direct_access": {
-            "description": "Whether browsers may be sent to it directly. Only if a browser can reach\nit; see [`BackendResponse::direct_access`].",
+            "description": "Whether browsers may be redirected to it directly. Only if browsers can\nreach it; see [`BackendResponse::direct_access`].",
             "type": "boolean"
           },
           "name": {
@@ -368,7 +368,7 @@ expression: document
         "type": "object"
       },
       "BackendResponse": {
-        "description": "One backend, as the panel draws it.\n\nFour booleans answering four unrelated questions: where new uploads go,\nwhether this one still takes them, whether the process can reach it, and\nwhether browsers may be sent to it. Collapsing any pair into an enum would\ninvent a state the system does not have, since a read-only backend can be\nthe default and an unreachable one can be either.",
+        "description": "One backend, as the panel draws it.\n\nFour booleans for four unrelated questions: where new uploads go, whether\nthis one still accepts them, whether the process can reach it, and whether\nbrowsers may be redirected to it. Merging any pair into an enum would\ninvent a state that does not exist, since a read-only backend can be the\ndefault and an unreachable one can be either.",
         "properties": {
           "capacity_bytes": {
             "description": "How much it may hold, or `null` for no limit.\n\nTyped in by the operator: object stores have no capacity API, and on a\nfree tier the limit belongs to the account's plan, which no API reports.",
@@ -381,7 +381,7 @@ expression: document
             ]
           },
           "direct_access": {
-            "description": "Whether browsers are sent to it directly, to download a file or write an\nupload's parts, instead of through this server.\n\nOnly S3 and GCS can be sent to. On anything else this may be `true` and\nstill change nothing.",
+            "description": "Whether browsers are redirected to it directly, to download a file or\nwrite an upload's parts, instead of going through this server.\n\nOnly S3 and GCS support this. On anything else it may be `true` and\nchange nothing.",
             "type": "boolean"
           },
           "is_default": {
@@ -423,7 +423,7 @@ expression: document
         "description": "The breached suffixes under one prefix.",
         "properties": {
           "suffixes": {
-            "description": "The remaining 35 characters of every breached hash under the prefix,\nuppercase. The padding the service adds to hide how many there are is\ntaken out, so a match here is a real one.",
+            "description": "The remaining 35 characters of every breached hash under the prefix,\nuppercase. The service's padding entries, which hide the real count,\nare removed, so any match here is real.",
             "example": [
               "1E4C9B93F3F0682250B6CF8331B7EE68FD8"
             ],
@@ -446,7 +446,7 @@ expression: document
             "type": "boolean"
           },
           "account_password_breach_check": {
-            "description": "Whether a new account password is checked against known breaches, so\na form can look it up as it is typed; see `GET /auth/pwned/{prefix}`.",
+            "description": "Whether a new account password is checked against known breaches, so a\nform can look it up while typing; see `GET /auth/pwned/{prefix}`.",
             "type": "boolean"
           },
           "account_password_min_length": {
@@ -460,7 +460,7 @@ expression: document
             "type": "boolean"
           },
           "account_password_requires_mixed_case": {
-            "description": "Whether an account password needs both an uppercase and a lowercase\nletter. How a character is classed is on `PasswordPolicy`; a client that\nclasses them differently will pass a password the server refuses.",
+            "description": "Whether an account password needs both an uppercase and a lowercase\nletter. Character classes are defined on `PasswordPolicy`; a client that\nclassifies differently will accept passwords the server refuses.",
             "type": "boolean"
           },
           "account_password_requires_symbol": {
@@ -529,7 +529,7 @@ expression: document
             "type": "integer"
           },
           "speed_test": {
-            "description": "Whether this caller may run a speed test.\n\nPer caller, not per instance: an instance can offer the test to\naccounts and not to visitors, and a visitor should be shown the same\nthing as on an instance that does not offer it at all.",
+            "description": "Whether this caller may run a speed test.\n\nPer caller, not per instance: an instance can offer the test to accounts\nbut not visitors, and a visitor should see the same as on an instance\nwithout the test.",
             "type": "boolean"
           },
           "storage_remaining_bytes": {
@@ -596,7 +596,7 @@ expression: document
         "description": "Body of `POST /uploads/{id}/complete`.",
         "properties": {
           "etags": {
-            "description": "The `ETag` each part's `PUT` answered with, in part order from one.\n\nExactly as many as the upload has parts, as sent by the store: quotes\nincluded, if it included them.",
+            "description": "The `ETag` each part's `PUT` returned, in part order from one.\n\nOne per part, as the store sent it, quotes included if it included them.",
             "example": [
               "\"3858f62230ac3c915f300c664312c11f\"",
               "\"9b2cf535f27731c974343645a3985328\""
@@ -788,7 +788,7 @@ expression: document
         "description": "Body of `POST /admin/settings/oidc/discovery`.",
         "properties": {
           "url": {
-            "description": "The issuer, or the `.well-known` URL copied from the provider's own\ndocumentation. Either is accepted: the suffix is removed before the\ndocument is fetched, and it is `issuer` that comes back.",
+            "description": "The issuer, or the `.well-known` URL copied from the provider's docs.\nEither works: the suffix is stripped before fetching, and `issuer` is\nwhat comes back.",
             "example": "https://id.example.com",
             "type": "string"
           }
@@ -802,23 +802,23 @@ expression: document
         "description": "What a provider says about itself, as the panel needs it.",
         "properties": {
           "backchannel_logout_supported": {
-            "description": "Whether it will tell this instance when somebody signs out.",
+            "description": "Whether it notifies this instance when a user signs out.",
             "type": "boolean"
           },
           "claims_supported": {
-            "description": "The claims it says it can release. Without `email_verified` here,\n`link_by_email = when_verified` will never link anybody through this\nprovider; `always` or signing in and attaching it is what is left.",
+            "description": "The claims it advertises. Without `email_verified`,\n`link_by_email = when_verified` will never link anyone through this\nprovider; the options left are `always`, or signing in and linking it.",
             "items": {
               "type": "string"
             },
             "type": "array"
           },
           "issuer": {
-            "description": "The provider's own name for itself, which is what `auth.oidc.issuer`\nhas to be set to.",
+            "description": "The provider's own issuer value, which is what `auth.oidc.issuer` must\nbe set to.",
             "example": "https://id.example.com",
             "type": "string"
           },
           "scopes_supported": {
-            "description": "The scopes it advertises, for a form that offers them rather than\nasking somebody to type them.",
+            "description": "The scopes it advertises, so a form can offer them instead of having the\noperator type them.",
             "items": {
               "type": "string"
             },
@@ -921,11 +921,11 @@ expression: document
             "type": "string"
           },
           "is_last_way_in": {
-            "description": "Whether removing this one would leave the account with no way in.\n\nSent rather than left for the client to work out: the client would need\nto know whether a password exists, which nothing else tells it.",
+            "description": "Whether removing this one would leave the account with no way in.\n\nComputed here because the client cannot tell whether a password exists.",
             "type": "boolean"
           },
           "provider": {
-            "description": "Which provider vouched for this.",
+            "description": "The provider that vouched for this.",
             "type": "string"
           }
         },
@@ -1021,10 +1021,10 @@ expression: document
         ]
       },
       "PageMeta": {
-        "description": "What a client needs to draw pagination, for any paged list.\n\n# Why the list endpoints have an envelope and nothing else does\n\nA paged response has two things in it: the rows, and facts about the\ncollection they came from. Without somewhere to put the second, `total`\nends up beside the rows under a name invented per endpoint, and a client\nreading two lists reads them two ways. Every other endpoint answers with\none object and has nothing of the kind to carry, so wrapping those would\nadd a level of nesting that says nothing.",
+        "description": "What a client needs to draw pagination, for any paged list.\n\n# Why only list endpoints have an envelope\n\nA paged response carries the rows and facts about the collection. Without a\nplace for the latter, `total` ends up beside the rows under a per-endpoint\nname, and clients read each list differently. Other endpoints return a\nsingle object with nothing like that to carry, so wrapping them would only\nadd nesting.",
         "properties": {
           "limit": {
-            "description": "The page size actually used, which is not always the one asked for.",
+            "description": "The page size used, which is not always the one requested.",
             "example": 50,
             "format": "int64",
             "minimum": 0,
@@ -1060,7 +1060,7 @@ expression: document
             "type": "string"
           },
           "url": {
-            "description": "Where to `PUT` the part's bytes. The response carries an `ETag` header,\nwhich is what `complete` needs back.",
+            "description": "Where to `PUT` the part's bytes. The response carries an `ETag` header,\nwhich `complete` needs back.",
             "type": "string"
           }
         },
@@ -1155,10 +1155,10 @@ expression: document
         "type": "object"
       },
       "PreferencesResponse": {
-        "description": "One person's preferences.\n\nOne field so far. Language, time zone and clock format are the ones already\nasked for, and each will be another field here rather than another endpoint.",
+        "description": "One user's preferences.\n\nOne field so far. Language, time zone and clock format have been requested,\nand each will be another field here, not another endpoint.",
         "properties": {
           "appearance": {
-            "description": "The appearance choices, `{}` when none have been made.\n\n`mode` is one of `light`, `dark`, `system`; `theme` one of `default`,\n`graphite`, `sepia`; `accent` one of `violet`, `rose`, `orange`,\n`amber`, `green`, `teal`, `blue`. Any of the three may be absent,\nmeaning this person has no opinion and follows the instance.",
+            "description": "The appearance choices, `{}` when none have been made.\n\n`mode` is one of `light`, `dark`, `system`; `theme` one of `default`,\n`graphite`, `sepia`; `accent` one of `violet`, `rose`, `orange`,\n`amber`, `green`, `teal`, `blue`. Any of the three may be absent,\nmeaning the user has no opinion and follows the instance.",
             "type": "object"
           }
         },
@@ -1223,7 +1223,7 @@ expression: document
             ]
           },
           "encryption": {
-            "description": "`link` or `password` for an end-to-end encrypted share, `null` otherwise.\n\nGiven before unlocking, with the salt below. A client whose key comes\nfrom the password has to derive it before it can present the password\nat all.",
+            "description": "`link` or `password` for an end-to-end encrypted share, `null` otherwise.\n\nSent before unlocking, with the salt below, since a client whose key\ncomes from the password must derive it before presenting the password.",
             "example": "password",
             "type": [
               "string",
@@ -1268,7 +1268,7 @@ expression: document
             ]
           },
           "scanning": {
-            "description": "Whether it is waiting for the malware scanner, and so cannot be\ndownloaded yet. `false` while locked: a locked share says nothing about\nits content.",
+            "description": "Whether it is waiting for the malware scanner and so cannot be\ndownloaded yet. `false` while locked, since a locked share reveals\nnothing about its content.",
             "type": "boolean"
           },
           "sealed_details": {
@@ -1617,7 +1617,7 @@ expression: document
             ]
           },
           "secret": {
-            "description": "Whether this holds a credential this endpoint will write and never\nreturn.\n\nWhen true, `value` is a boolean saying whether one is set, never the\ncredential itself. A screen draws \"configured\" beside an empty field\nrather than pre-filling it with something it cannot read back.",
+            "description": "Whether this holds a credential this endpoint writes but never returns.\n\nWhen true, `value` is a boolean saying whether one is set, never the\ncredential itself. A screen shows \"configured\" next to an empty field\ninstead of pre-filling something it cannot read back.",
             "type": "boolean"
           },
           "source": {
@@ -1783,7 +1783,7 @@ expression: document
             "type": "string"
           },
           "scanning": {
-            "description": "Whether it is waiting for the malware scanner. It cannot be downloaded\nuntil it is not; the answer then is `423` with `Retry-After`.",
+            "description": "Whether it is waiting for the malware scanner. Until it is done,\ndownloads answer `423` with `Retry-After`.",
             "type": "boolean"
           },
           "sealed_details": {
@@ -1870,7 +1870,7 @@ expression: document
             ]
           },
           "size_bytes": {
-            "description": "How many bytes it holds.\n\nSealed bytes in an encrypted share, which is what a download sends.",
+            "description": "Its size in bytes.\n\nFor an encrypted share, the sealed size, which is what a download sends.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -1907,7 +1907,7 @@ expression: document
             "type": "integer"
           },
           "bytes_redirected": {
-            "description": "How many bytes downloads sent straight to a store asked for.\n\nRequested, not delivered: the store does not say what it sent, so an\nabandoned download counts in full here. Separate from `bytes_served`\nso that one keeps meaning what left this machine.",
+            "description": "Bytes requested by downloads redirected straight to a store.\n\nRequested, not delivered: the store does not report what it sent, so an\nabandoned download counts in full. Kept separate so `bytes_served` still\nmeans what left this machine.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
@@ -2096,7 +2096,7 @@ expression: document
         "description": "Body of `PATCH /admin/storage/backends/{name}`.",
         "properties": {
           "direct_access": {
-            "description": "Whether browsers may be sent to it directly.",
+            "description": "Whether browsers may be redirected to it directly.",
             "type": "boolean"
           }
         },
@@ -2139,7 +2139,7 @@ expression: document
         "description": "Body of `PATCH /admin/users/{id}`.",
         "properties": {
           "is_admin": {
-            "description": "Whether this account administers the instance.\n\nOmitted leaves its role as it is. Sending it always rewrites the role\n(`true` to `owner`, `false` to none), so a client changing only `state`\nor a quota must leave it out, or it demotes the account as a side effect.",
+            "description": "Whether this account administers the instance.\n\nOmit to leave the role unchanged. Sending it always rewrites the role\n(`true` to `owner`, `false` to none), so a client changing only `state`\nor a quota must omit it, or it demotes the account as a side effect.",
             "type": [
               "boolean",
               "null"
@@ -2375,7 +2375,7 @@ expression: document
     },
     "/api/v1/account/email/verification": {
       "post": {
-        "description": "Sent while the request waits, unlike a password reset: the caller is signed\nin and knows their own address, so there is nothing for the timing to give\naway, and a relay that is down is better said than hidden.\n\n# Errors\n\n`401` when not signed in, `403` when an API token was used, `404` when this\ninstance has no accounts or sends no mail, `409` when the address is already\nconfirmed, `429` when that address has been sent as many as the window\nallows, `503` when the relay would not take the message.",
+        "description": "Sent while the request waits, unlike a password reset: the caller is signed\nin and knows their own address, so timing reveals nothing, and a down relay\nis better reported than hidden.\n\n# Errors\n\n`401` when not signed in, `403` when an API token was used, `404` when this\ninstance has no accounts or sends no mail, `409` when the address is already\nconfirmed, `429` when that address has hit the send limit for the window,\n`503` when the relay would not take the message.",
         "operationId": "request_email_verification",
         "responses": {
           "202": {
@@ -2447,7 +2447,7 @@ expression: document
             "session": []
           }
         ],
-        "summary": "Sends a link to the caller's address that proves it is theirs.",
+        "summary": "Sends the caller a link proving their address is theirs.",
         "tags": [
           "auth"
         ]
@@ -2455,7 +2455,7 @@ expression: document
     },
     "/api/v1/account/email/verification/confirm": {
       "post": {
-        "description": "Needs no session: the link is opened wherever the mail is read, which is\noften not where the account is signed in. Holding the link is the proof.\n\n# Errors\n\n`400` when the link is unknown, spent, expired, or was sent to an address the\naccount no longer has. `404` when this instance has no accounts or sends no\nmail.",
+        "description": "Needs no session: the link is opened wherever the mail is read, often not\nwhere the account is signed in. Holding the link is the proof.\n\n# Errors\n\n`400` when the link is unknown, used, expired, or was sent to an address the\naccount no longer has. `404` when this instance has no accounts or sends no\nmail.",
         "operationId": "confirm_email_verification",
         "requestBody": {
           "content": {
@@ -3210,7 +3210,7 @@ expression: document
     },
     "/api/v1/admin/settings/oidc/discovery": {
       "post": {
-        "description": "# Why the server and not the panel\n\nDiscovery only says a provider *should* let a browser read its document,\nand plenty do not: the panel's own fetch is refused by CORS on exactly the\nproviders a self-hosted instance tends to use. This server has no origin,\nso the same fetch works, and it is the one sign-in will make: a document\nthis reaches is one the sign-in path can reach too, which a browser could\nnever establish.\n\n# What it does not do\n\nTouch the cache. This is a URL somebody is trying out in a form; writing\nwhat it answered into the cache would let an unsaved value decide what a\nreal sign-in talks to.\n\n# Errors\n\n`400` for an address this instance would not accept as an issuer, or one\nthe provider's document cannot be read from. `401`, `403` and `404` as for\n[`list`].",
+        "description": "# Why the server and not the panel\n\nDiscovery only says a provider *should* let browsers read its document, and\nmany do not: the panel's own fetch is blocked by CORS on the very providers\nself-hosted instances tend to use. The server has no origin, so the fetch\nworks, and it is the same fetch sign-in will make: a document reachable\nhere is reachable from the sign-in path, which a browser could never\nconfirm.\n\n# What it does not do\n\nTouch the cache. This is a URL being tried out in a form; caching its\nanswer would let an unsaved value decide what a real sign-in talks to.\n\n# Errors\n\n`400` for an address this instance would not accept as an issuer, or one\nthe provider's document cannot be read from. `401`, `403` and `404` as for\n[`list`].",
         "operationId": "probe_oidc_discovery",
         "requestBody": {
           "content": {
@@ -3279,7 +3279,7 @@ expression: document
             "session": []
           }
         ],
-        "summary": "Reads a provider's discovery document, from here rather than the browser.",
+        "summary": "Reads a provider's discovery document from the server, not the browser.",
         "tags": [
           "admin"
         ]
@@ -3731,7 +3731,7 @@ expression: document
         ]
       },
       "post": {
-        "description": "The new one is opened and reachable to the next request. The pool is rebuilt\nhere, not at the next restart, because \"add a bucket, then restart\"\nis what this feature exists to avoid.\n\n# Errors\n\n`400` when the URL will not open, `401` when nothing was signed in, `403`\nwhen the caller may not write settings, `404` when this instance has no\nadministration.",
+        "description": "The new backend is open and usable from the next request. The pool is\nrebuilt now, not at the next restart, since avoiding \"add a bucket, then\nrestart\" is the point of this feature.\n\n# Errors\n\n`400` when the URL will not open, `401` when nothing was signed in, `403`\nwhen the caller may not write settings, `404` when this instance has no\nadministration.",
         "operationId": "add_storage_backend",
         "requestBody": {
           "content": {
@@ -3884,7 +3884,7 @@ expression: document
         ]
       },
       "patch": {
-        "description": "# Why this is not another `POST` of the whole backend\n\nThat works, and replaces the row. But it needs the URL and credentials sent\nagain, and those are sealed and never shown, so flipping one switch would\nmean finding the secret key for a bucket again.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write\nsettings, `404` when no backend has that name.",
+        "description": "# Why not another `POST` of the whole backend\n\nThat works and replaces the row, but it needs the URL and credentials sent\nagain. Those are sealed and never shown, so flipping one switch would mean\ndigging up the bucket's secret key again.\n\n# Errors\n\n`401` when nothing was signed in, `403` when the caller may not write\nsettings, `404` when no backend has that name.",
         "operationId": "update_storage_backend",
         "parameters": [
           {
@@ -4528,7 +4528,7 @@ expression: document
     },
     "/api/v1/auth/oidc/backchannel-logout": {
       "post": {
-        "description": "# Why this answers in the OAuth error shape\n\nEvery other endpoint here answers `{\"code\": ..., \"message\": ...}`. This one\nanswers `{\"error\": ..., \"error_description\": ...}`, because the caller is\nnot a client of this API. It is an identity provider following `OpenID`\nConnect Back-Channel Logout 1.0, and section 2.8 says what it expects to\nread when it is refused. A provider that cannot parse the refusal will keep\nretrying a token that will never work.\n\n# Why it is unauthenticated\n\nThe caller is a server with no account here. What stands in for a credential\nis the token's signature, checked against keys fetched from the configured\nissuer. See `auth::oidc::logout`.\n\n# Errors\n\n`404` when accounts are switched off. A token that cannot be believed is a\n`400` with the reason, never a `500`.",
+        "description": "# Why this answers in the OAuth error shape\n\nEvery other endpoint answers `{\"code\": ..., \"message\": ...}`. This one\nanswers `{\"error\": ..., \"error_description\": ...}` because the caller is an\nidentity provider following `OpenID` Connect Back-Channel Logout 1.0, whose\nsection 2.8 defines the refusal format. A provider that cannot parse the\nrefusal keeps retrying a token that will never work.\n\n# Why it is unauthenticated\n\nThe caller is a server with no account here. The token's signature, checked\nagainst keys from the configured issuer, stands in for a credential. See\n`auth::oidc::logout`.\n\n# Errors\n\n`404` when accounts are switched off. An untrustworthy token is a `400`\nwith the reason, never a `500`.",
         "operationId": "backchannel_logout",
         "requestBody": {
           "content": {
@@ -4844,7 +4844,7 @@ expression: document
     },
     "/api/v1/auth/providers": {
       "get": {
-        "description": "Answered whether or not one is configured, because a sign-in page has to ask\nbefore it can know.\n\n# Errors\n\n`404` when accounts are switched off.",
+        "description": "Answers even when none is configured, since a sign-in page cannot know\nwithout asking.\n\n# Errors\n\n`404` when accounts are switched off.",
         "operationId": "provider",
         "responses": {
           "200": {
@@ -4879,7 +4879,7 @@ expression: document
     },
     "/api/v1/auth/pwned/{prefix}": {
       "get": {
-        "description": "# Errors\n\n`404` when this instance does not check passwords against the breach list,\n`400` for anything but five hex characters, `429` past this source's\nallowance, `503` when the breach list cannot be reached. A form treats the\nlast as \"no warning\"; the check still runs when it is sent.",
+        "description": "# Errors\n\n`404` when this instance does not check passwords against the breach list,\n`400` for anything but five hex characters, `429` when this source is over\nits limit, `503` when the breach list is unreachable. A form treats the\nlast as \"no warning\"; the check still runs on submit.",
         "operationId": "pwned_range",
         "parameters": [
           {
@@ -5146,7 +5146,7 @@ expression: document
     },
     "/api/v1/auth/{provider}/callback": {
       "get": {
-        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect, see the\nmodule documentation.",
+        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect; see the\nmodule documentation.",
         "operationId": "callback",
         "parameters": [
           {
@@ -5209,7 +5209,7 @@ expression: document
     },
     "/api/v1/auth/{provider}/link": {
       "get": {
-        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with an API\ntoken. Everything else is a redirect, because a browser is following this.",
+        "description": "# Errors\n\n`401` when nothing was signed in, `403` when authenticated with an API\ntoken. Everything else is a redirect, since a browser is following this.",
         "operationId": "link",
         "parameters": [
           {
@@ -5260,7 +5260,7 @@ expression: document
     },
     "/api/v1/auth/{provider}/start": {
       "get": {
-        "description": "# Errors\n\n`404` when accounts are switched off. Everything else is a redirect back to\nthe sign-in page with a reason, because a browser is following this.",
+        "description": "# Errors\n\n`404` when accounts are switched off. Everything else redirects back to the\nsign-in page with a reason, since a browser is following this.",
         "operationId": "start",
         "parameters": [
           {
@@ -5374,7 +5374,7 @@ expression: document
         ]
       },
       "put": {
-        "description": "# Why an unknown name is a `400` and not a shrug\n\nThese end up as attributes on the `<html>` element. Refusing anything\noutside the lists is the whole of the check, and it belongs here rather than\nat the point of rendering, where a value has already been stored and\nwhatever wrote it has already gone.\n\n# Errors\n\n`400` when a name is not one this build knows, `401` when nothing was signed\nin.",
+        "description": "# Why an unknown name is a `400`\n\nThese end up as attributes on the `<html>` element. Refusing anything\noutside the lists is the entire check, and it belongs here, not at render\ntime, when the value is already stored and its writer long gone.\n\n# Errors\n\n`400` when a name is not one this build knows, `401` when nothing was signed\nin.",
         "operationId": "update_preferences",
         "requestBody": {
           "content": {
@@ -5742,7 +5742,7 @@ expression: document
             }
           },
           {
-            "description": "For an encrypted file: its name and media type, sealed. Takes the place\nof `filename`, and like it, makes this a file share.",
+            "description": "For an encrypted file: its name and media type, sealed. Replaces\n`filename` and, like it, makes this a file share.",
             "in": "query",
             "name": "sealed_name",
             "required": false,
@@ -5751,7 +5751,7 @@ expression: document
             }
           },
           {
-            "description": "For an encrypted share: its title and a note's language, sealed. Takes\nthe place of `title` and `language`.",
+            "description": "For an encrypted share: its title and a note's language, sealed.\nReplaces `title` and `language`.",
             "in": "query",
             "name": "sealed_details",
             "required": false,
@@ -6171,7 +6171,7 @@ expression: document
     },
     "/api/v1/shares/{code}/files": {
       "post": {
-        "description": "# Why files arrive one at a time\n\nOne request carrying five files loses five when it drops at the fourth,\nexactly what uploading a folder of photographs over a home connection hits.\nA file that fails here is retried on its own.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to remember to finish, and an interrupted upload\nleaves a share holding what did arrive, not nothing.\n\nThe cost is that a link opened mid-upload shows part of the share. The link\nis handed out afterwards, by the person doing the upload.\n\n# Errors\n\n`400` for a name that is unusable or described the wrong way for the share,\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room. The body says whose ceiling that was.",
+        "description": "# Why files arrive one at a time\n\nA request carrying five files loses all five when it drops at the fourth,\nwhich is what uploading a folder of photos over a home connection runs\ninto. A file that fails here is retried alone.\n\n# Why the share exists before its second file\n\nThere is no draft state. A share is created by its first file and grown by\nthe rest, so nothing has to be finalised, and an interrupted upload leaves a\nshare with what did arrive instead of nothing.\n\nThe cost is that a link opened mid-upload shows a partial share. The\nuploader hands out the link afterwards.\n\n# Errors\n\n`400` for a name that is unusable or described the wrong way for the share,\n`403` when the caller cannot show it is theirs, `404` when no share has that\ncode, `409` when the share holds text, `413` when the body is too large,\n`507` when something is out of room. The body says whose limit it was.",
         "operationId": "add_share_file",
         "parameters": [
           {
@@ -6194,7 +6194,7 @@ expression: document
             }
           },
           {
-            "description": "Its name and media type, sealed, when the share is encrypted. Takes the\nplace of `filename` there.",
+            "description": "Its name and media type, sealed, when the share is encrypted. Replaces\n`filename` there.",
             "in": "query",
             "name": "sealed_name",
             "required": false,
@@ -6407,7 +6407,7 @@ expression: document
         "operationId": "speed_download",
         "parameters": [
           {
-            "description": "Bytes to send. Omit for as much as this instance allows; more than that\nis refused rather than quietly shortened, so a client is never told it\nmeasured a transfer it did not make.",
+            "description": "Bytes to send. Omit for the instance maximum. Larger values are refused,\nnot silently shortened, so a client never reports a transfer it did not\nmake.",
             "example": 26214400,
             "in": "query",
             "name": "bytes",
@@ -6466,7 +6466,7 @@ expression: document
             "bearer": []
           }
         ],
-        "summary": "Sends `bytes` bytes that mean nothing.",
+        "summary": "Sends `bytes` bytes of filler.",
         "tags": [
           "speed"
         ]
@@ -6543,7 +6543,7 @@ expression: document
             "bearer": []
           }
         ],
-        "summary": "Reads a body and throws it away.",
+        "summary": "Reads a body and discards it.",
         "tags": [
           "speed"
         ]
@@ -6772,7 +6772,7 @@ expression: document
             }
           },
           {
-            "description": "For a file in an encrypted share: its name and media type, sealed. Takes\nthe place of `filename`.",
+            "description": "For a file in an encrypted share: its name and media type, sealed.\nReplaces `filename`.",
             "in": "query",
             "name": "sealed_name",
             "required": false,
@@ -6980,7 +6980,7 @@ expression: document
     },
     "/api/v1/uploads/{id}/complete": {
       "post": {
-        "description": "# Where the size is checked\n\nHere, and only here. A part URL cannot be limited to a length, so this\ncompletes the object and then asks the store how large it came out. One\nthat is not the size the session declared, and was charged against the\nuploader's room for, is deleted and refused.\n\nUntil then the extra bytes sit in the bucket. That is the cost of not\nhaving the bytes pass through here, and it is bounded by what a session\nthat already passed the size and room checks can write before this runs.\n\n# Errors\n\n`400` when the number of `ETag`s is not the number of parts, or the object\ndid not come out the declared size. `404` when there is no such session,\n`409` when this upload cannot take parts directly or has already had parts\nsent through this server, `410` when the session was abandoned.",
+        "description": "# Where the size is checked\n\nHere, and only here. A part URL cannot be limited to a length, so this\ncompletes the object and then asks the store for its size. An object that\ndoes not match the size the session declared, and was charged against the\nuploader's quota, is deleted and refused.\n\nUntil then the extra bytes sit in the bucket. That is the price of not\nproxying the bytes, bounded by what a session that already passed the size\nand quota checks can write before this runs.\n\n# Errors\n\n`400` when the number of `ETag`s does not match the number of parts, or the\nobject did not come out the declared size. `404` when there is no such\nsession, `409` when this upload cannot take parts directly or already had\nparts sent through this server, `410` when the session was abandoned.",
         "operationId": "complete_upload",
         "parameters": [
           {
@@ -7072,7 +7072,7 @@ expression: document
     },
     "/api/v1/uploads/{id}/parts/{number}": {
       "get": {
-        "description": "# Why this exists\n\nEvery byte of a `PATCH` crosses this server twice: in from the uploader,\nout to the bucket. On a self-hosted instance those are often the same\nuplink. A part written to the store directly crosses it zero times.\n\n# What it does not check\n\nThe part's size. The URL carries the part number and the upload it belongs\nto, both signed, but a length cannot be: `object_store` refuses to sign\n`content-length`. So a client may write a part of any size, and nothing\nfinds out until `complete` asks the store how large the object came out.\nSee [`complete`].\n\n# Errors\n\n`404` when there is no such session or no such part, `409` when this upload\ncannot take parts directly, `410` when the session was abandoned.",
+        "description": "# Why\n\nEvery byte of a `PATCH` crosses this server twice, in from the uploader and\nout to the bucket, and on a self-hosted instance both often share one\nuplink. A part written directly to the store crosses it zero times.\n\n# What it does not check\n\nThe part's size. The URL signs the part number and upload id, but not a\nlength: `object_store` refuses to sign `content-length`. So a client can\nwrite a part of any size, which is only caught when `complete` asks the\nstore how large the object came out. See [`complete`].\n\n# Errors\n\n`404` when there is no such session or no such part, `409` when this upload\ncannot take parts directly, `410` when the session was abandoned.",
         "operationId": "upload_part_url",
         "parameters": [
           {

@@ -1,10 +1,10 @@
-//! Any scanner that speaks this contract over HTTP.
+//! Any scanner implementing this contract over HTTP.
 //!
-//! The file is the `POST` body, streamed. `200` with `{"clean": true}` or
+//! The file is the streamed `POST` body. `200` with `{"clean": true}` or
 //! `{"clean": false, "threat": "..."}` is a verdict; `413` means too large to
-//! scan, and is treated like clamd's size limit; anything else, including no
-//! answer, means the scanner is unavailable and the file is asked about again
-//! later. `Authorization` carries `scan.authorization` when that is set.
+//! scan, handled like clamd's size limit; anything else, including no answer,
+//! means the scanner is unavailable and the file is retried later.
+//! `Authorization` carries `scan.authorization` when set.
 
 use bytes::Bytes;
 use serde::Deserialize;

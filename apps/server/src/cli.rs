@@ -771,10 +771,11 @@ pub async fn settings(config: &Config, action: SettingsAction) -> anyhow::Result
         .with_context(|| format!("could not open the database at `{}`", config.database.url))?;
     // No migrations, for the same reason `reset-password` runs none: a tool
     // that quietly rewrites the schema is the last thing to run against a
-    // database you are unsure about. On an instance that has never started,
-    // the table does not exist and the error says so.
-    // The same sealer the server builds, from the same place, so a credential
-    // written here opens there and the other way round.
+    // database you are unsure about. On a never-started instance the table
+    // does not exist and the error says so.
+    //
+    // The same sealer the server builds, from the same source, so credentials
+    // written here open there and vice versa.
     let sealer = crate::security::secret::Sealer::for_config(config)
         .context("the key for sealed settings is not usable")?;
     let store = SettingRepository::new(db.clone(), sealer);
@@ -1480,9 +1481,9 @@ mod settings_tests {
         );
     }
 
-    /// JSON first, so a number arrives as a number. Falling back to a string is
-    /// what makes `settings set mail.host smtp.example.com` work without the
-    /// operator quoting it for JSON as well as for the shell.
+    /// JSON first, so a number arrives as a number. The string fallback lets
+    /// `settings set mail.host smtp.example.com` work without quoting for JSON
+    /// as well as the shell.
     #[test]
     fn values_are_read_as_json_then_as_text() {
         assert_eq!(parse_value("10"), serde_json::json!(10));

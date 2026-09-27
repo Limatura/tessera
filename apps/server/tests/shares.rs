@@ -3477,7 +3477,7 @@ async fn capabilities_shows_an_administrator_the_tighter_of_the_two() {
     );
 }
 
-// ── 孤兒物件對帳 ──────────────────────────────────────────────────────────
+// ── reconciling orphaned objects ────────────────────────────────────
 //
 // Everything else the sweep does deletes what the database knows about. This
 // walks the store instead, so the tests that matter are the ones about what it
@@ -3631,7 +3631,7 @@ async fn an_in_flight_uploads_object_survives() {
     );
 }
 
-// ── 單檔上限的分層 ────────────────────────────────────────────────────────
+// ── per-file size limits by layer ───────────────────────────────────
 
 /// Sets a role's single-file limit by name.
 #[expect(
@@ -3784,7 +3784,7 @@ async fn capabilities_reports_the_callers_own_file_limit() {
     assert_eq!(capabilities["max_upload_bytes"], 4096);
 }
 
-// ── 每個檔案記自己在哪個 backend ──────────────────────────────────────────
+// ── each file records its own backend ───────────────────────────────
 
 /// What this change is for: without it, pointing the configuration at
 /// another store leaves every existing share reading as present and failing to
@@ -3852,7 +3852,7 @@ async fn an_unconfigured_backend_is_unavailable_not_missing() {
     );
 }
 
-// ── 存在 DB 裡的 backend ──────────────────────────────────────────────────
+// ── backends stored in the database ─────────────────────────────────
 
 /// The credentials are the reason this is not a settings row. A dump that hands
 /// over the buckets is the failure an operator can do nothing about afterwards.
@@ -4023,7 +4023,7 @@ async fn only_one_backend_takes_new_uploads() {
     assert_eq!(defaults, vec!["cold".to_owned()]);
 }
 
-// ── 容量與放置 ────────────────────────────────────────────────────────────
+// ── capacity and placement ──────────────────────────────────────────
 
 /// Registers a second, empty backend and returns the pool holding both.
 fn pool_with_second(
@@ -4049,11 +4049,11 @@ fn pool_with_second(
     )
 }
 
-/// A dead share's bytes are removed from the backend that holds them.
+/// A dead share's bytes are removed from the backend holding them.
 ///
-/// Asking the default for a key it never had answers "not found", which the
-/// sweep takes as "already gone": the share is marked clean and the bytes stay
-/// on the other backend with nothing left pointing at them.
+/// Asking the default for a key it never had returns "not found", which the
+/// sweep treats as "already gone": the share is marked clean and the bytes
+/// stay orphaned on the other backend.
 #[tokio::test]
 async fn a_dead_share_is_reaped_from_the_backend_holding_it() {
     let app = TestApp::with_config_and_backend(
@@ -4094,7 +4094,7 @@ async fn a_dead_share_is_reaped_from_the_backend_holding_it() {
 }
 
 /// Deleting a share removes its bytes from the backend holding them, for the
-/// same reason the sweep has to.
+/// same reason the sweep must.
 #[tokio::test]
 async fn deleting_a_share_removes_its_bytes_from_their_backend() {
     let app = TestApp::with_config_and_backend(
@@ -4136,8 +4136,8 @@ async fn deleting_a_share_removes_its_bytes_from_their_backend() {
     );
 }
 
-/// Orphans are looked for on every backend, not only the default: an upload
-/// can leave one on whichever backend it was placed on.
+/// Orphans are searched for on every backend, not only the default: an upload
+/// can leave one wherever it was placed.
 #[tokio::test]
 async fn an_orphan_on_another_backend_is_removed() {
     let app = TestApp::with_config(|config| config.storage.reconcile_grace_hours = 1).await;
@@ -5165,10 +5165,10 @@ async fn abandoning_a_writer_leaves_nothing_behind() {
     }
 }
 
-/// `count` empty in-memory backends, each with the same ceiling.
+/// `count` empty in-memory backends, each with the same limit.
 ///
-/// The first under the seeded one's name, and the default, so files recorded
-/// there are read from the pool and not from the fixture's directory.
+/// The first uses the seeded backend's name and is the default, so files
+/// recorded there are read from the pool, not the fixture's directory.
 fn equal_backends(count: usize, each: u64) -> tessera_server::storage::Pool {
     let mut open = tessera_server::storage::Backends::new();
     let mut configured = Vec::new();
@@ -5412,13 +5412,12 @@ async fn the_card_for_a_locked_share_draws_without_the_file_name() {
     expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
 }
 
-/// The saving that matters at any volume: an unfurler that comes back gets a
-/// `304` and nothing is drawn.
+/// The saving that matters at any volume: a returning unfurler gets a `304`
+/// and nothing is rendered.
 ///
-/// The tag is worked out from what the card would say, not from the card, so
+/// The tag is computed from what the card would say, not the card itself, so
 /// answering costs a lookup and two digests. Without it every repeat visit to
-/// every share link is a fresh render, and the number of share links only ever
-/// goes up.
+/// every share link is a fresh render, and share links only accumulate.
 #[tokio::test]
 async fn a_crawler_that_comes_back_is_told_nothing_changed() {
     let app = TestApp::ready().await;
@@ -5473,7 +5472,7 @@ async fn a_crawler_that_comes_back_is_told_nothing_changed() {
         .expect("the body");
     assert!(body.is_empty(), "a 304 has no body");
 
-    // A tag that is not this card's still draws it.
+    // A tag that is not this card's still renders it.
     let stale = app
         .send(
             Request::builder()
@@ -5485,13 +5484,12 @@ async fn a_crawler_that_comes_back_is_told_nothing_changed() {
     assert_eq!(stale.status(), StatusCode::OK);
 }
 
-/// The other half of the saving: several unfurlers arriving at once, none of
-/// them holding anything, all wanting the same picture. The first draws it and
-/// the rest are handed what it drew.
+/// The other half of the saving: several unfurlers arriving at once, none
+/// holding anything, all wanting the same image. The first renders it and the
+/// rest get the same bytes.
 ///
-/// Asserted on the bytes rather than on a counter, because identical bytes is
-/// the property that matters: a cache that served a *different* card would be
-/// worse than no cache.
+/// Asserted on the bytes, not a counter, because identical bytes is what
+/// matters: a cache serving a *different* card would be worse than none.
 #[tokio::test]
 async fn a_card_is_drawn_once_and_handed_out_after_that() {
     let app = TestApp::ready().await;
@@ -5525,8 +5523,8 @@ async fn a_card_is_drawn_once_and_handed_out_after_that() {
         "the drawn card was not kept"
     );
 
-    // No conditional header, so this is the burst case and not the returning
-    // crawler: it has to come back as a picture, and as the same one.
+    // No conditional header, so this is the burst case, not the returning
+    // crawler: it must come back as an image, and the same one.
     let again = to_bytes(
         expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK)
             .await
@@ -5538,16 +5536,16 @@ async fn a_card_is_drawn_once_and_handed_out_after_that() {
     assert_eq!(first, again);
 }
 
-/// Two shares alike in every word still draw two different cards, because the
-/// retrieval code is on the picture. This is the collision worth having a test
-/// for: a crawler holding one would otherwise be told the other had not
-/// changed, and show a card carrying somebody else's code.
+/// Two shares identical in every word still render different cards, because
+/// the retrieval code is on the image. This collision is worth a test: a
+/// crawler holding one would otherwise be told the other had not changed, and
+/// show a card with another share's code.
 #[tokio::test]
 async fn two_shares_that_differ_only_by_code_do_not_share_a_tag() {
     let app = TestApp::ready().await;
     let mut tags = Vec::new();
-    // Same name, same body, same everything the card says. Only the code the
-    // server assigns is different.
+    // Same name, same body, same card text. Only the server-assigned code
+    // differs.
     for _ in 0..2 {
         let created = body_json(
             expect_status(
@@ -5578,7 +5576,7 @@ async fn two_shares_that_differ_only_by_code_do_not_share_a_tag() {
     assert_ne!(tags[0], tags[1]);
 }
 
-/// Two shares that would draw different words must not share a tag either.
+/// Two shares whose cards would say different things must not share a tag.
 #[tokio::test]
 async fn two_different_cards_do_not_share_a_tag() {
     let app = TestApp::ready().await;
@@ -5613,9 +5611,9 @@ async fn two_different_cards_do_not_share_a_tag() {
     assert_ne!(tags[0], tags[1]);
 }
 
-/// Changing the layout changes every card on the instance, so it has to change
+/// Changing the layout changes every card on the instance, so it must change
 /// every tag too. Otherwise the operator saves a new design and every crawler
-/// that has been round already keeps the old one.
+/// that already visited keeps the old one.
 #[tokio::test]
 async fn changing_the_layout_changes_the_tag() {
     let app = TestApp::ready().await;
@@ -5805,12 +5803,12 @@ async fn a_layout_that_is_no_longer_allowed_falls_back() {
     expect_status(app.get(&format!("/s/{code}/og.png")).await, StatusCode::OK).await;
 }
 
-/// A local directory has nothing to sign, so switching direct access on for it
-/// must leave downloads exactly as they were rather than send anybody anywhere.
+/// A local directory has nothing to sign, so enabling direct access on it must
+/// leave downloads unchanged instead of redirecting anywhere.
 #[tokio::test]
 async fn direct_access_on_a_local_directory_still_serves_from_here() {
     let app = TestApp::with_backend(|backend| backend.direct_access = true).await;
-    // Past the inline threshold, so the file is an object and not a row.
+    // Past the inline threshold, so the file is an object, not a row.
     let sent: Vec<u8> = (0..200_000_u32)
         .map(|i| u8::try_from(i % 251).unwrap_or(0))
         .collect();
@@ -5841,8 +5839,8 @@ async fn direct_access_on_a_local_directory_still_serves_from_here() {
     assert_eq!(got.as_ref(), sent.as_slice());
 }
 
-/// The listing is only worth having when the browser could fetch the pieces
-/// itself. On a local directory it could not, so there is nothing to describe.
+/// The listing is only useful when the browser could fetch the pieces itself.
+/// On a local directory it cannot, so there is nothing to describe.
 #[tokio::test]
 async fn a_local_directory_has_no_segment_listing() {
     let app = TestApp::with_backend(|backend| backend.direct_access = true).await;

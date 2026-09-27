@@ -172,8 +172,8 @@ pub async fn handler(
     }
 
     if let Some(asset) = load(source, &path) {
-        // The entry point is the one asset that is rewritten on the way out,
-        // so it cannot take the plain path even when it was asked for by name.
+        // The entry point is the one asset rewritten on the way out, so it
+        // cannot take the plain path even when requested by name.
         if path == INDEX {
             return serve_index(&state);
         }
@@ -196,20 +196,18 @@ pub async fn handler(
     serve_index(&state)
 }
 
-/// Serves the entry point with the instance's appearance already on it.
+/// Serves the entry point with the instance's appearance already applied.
 ///
 /// # Why the server writes the colours in
 ///
-/// The alternative is for the page to load, paint, and then have a script
-/// discover what the operator chose and repaint. On a dark instance that is a
-/// white flash on every navigation, which is the one thing a person notices
-/// about a theme they did not ask for.
+/// Otherwise the page loads, paints, and then a script finds the operator's
+/// choice and repaints. On a dark instance that is a white flash on every
+/// navigation, the one thing everyone notices about a theme.
 ///
-/// Only the instance's own default goes in. A signed-in person's own choice is
-/// applied by the frontend from what it has stored locally, because doing it
-/// here would mean resolving a session on the static-asset path and an
-/// `index.html` that differs per visitor, so no two of them could share a
-/// cached copy.
+/// Only the instance default goes in. A signed-in user's own choice is applied
+/// by the frontend from local storage; doing it here would mean resolving a
+/// session on the static-asset path and a per-visitor `index.html` that no
+/// cache could share.
 fn serve_index(state: &crate::state::AppState) -> Response {
     let Some(asset) = load(&state.assets, INDEX) else {
         return not_found();
@@ -222,15 +220,14 @@ fn serve_index(state: &crate::state::AppState) -> Response {
     html_page(page)
 }
 
-/// An HTML body this server assembled, with an entity tag over what was
+/// An HTML body assembled by this server, with an entity tag over what was
 /// actually sent.
 ///
-/// [`respond`] derives its tag from the bytes on disk, and those stop being the
-/// bytes sent the moment anything is spliced in. Carrying that tag anyway would
-/// be worse than carrying none: nothing here answers a conditional request, but
-/// a proxy in front of one would, and it would serve the colours from before
-/// the operator changed them. Hashing what is about to go out costs one digest
-/// over a few kilobytes and keeps the tag true.
+/// [`respond`] derives its tag from the bytes on disk, which stop matching as
+/// soon as anything is spliced in. Keeping that tag would be worse than none:
+/// nothing here answers conditional requests, but a proxy in front would, and
+/// it would serve the colours from before the operator changed them. Hashing
+/// the outgoing body costs one digest over a few kilobytes.
 fn html_page(body: String) -> Response {
     let etag = quoted_etag(&Sha256::digest(body.as_bytes()).into());
     (
@@ -244,11 +241,11 @@ fn html_page(body: String) -> Response {
         .into_response()
 }
 
-/// Puts the instance's name in the tab, and its description under its links.
+/// Puts the instance's name in the tab and its description under its links.
 ///
-/// Both come from `site.*`, so an operator's own name is on the page from the
-/// first paint rather than after the scripts run, and a link to the instance
-/// itself unfurls as something other than whatever the bundle was built with.
+/// Both come from `site.*`, so the operator's name shows from first paint, and
+/// a link to the instance unfurls with it instead of whatever the bundle was
+/// built with.
 fn named(html: &str, site: &crate::config::SiteConfig) -> String {
     let page = retitled(html, &site.title);
     if site.description.trim().is_empty() {
@@ -263,9 +260,9 @@ fn named(html: &str, site: &crate::config::SiteConfig) -> String {
 
 /// Replaces what is between `<title>` and `</title>`.
 ///
-/// A document without both is returned unchanged: a name in the tab is worth
-/// having and is not worth a page that does not load. The value is escaped,
-/// since an operator may put anything in it.
+/// A document without both is returned unchanged: a name in the tab is not
+/// worth a page that fails to load. The value is escaped, since an operator
+/// may put anything in it.
 fn retitled(html: &str, title: &str) -> String {
     let lowered = html.to_ascii_lowercase();
     let Some(open) = lowered.find("<title").and_then(|start| {
@@ -292,23 +289,22 @@ fn retitled(html: &str, title: &str) -> String {
 
 /// Writes the instance's appearance onto the `<html>` element.
 ///
-/// `data-theme` and `data-accent` name a block of CSS in `packages/ui`;
-/// `class="dark"` is what the stylesheet's dark variant hangs off, so it
-/// appears only for an instance that chose dark outright. `data-mode` carries
-/// the choice itself, because "the operator picked light" and "the operator
-/// left it to the device" are different instructions to the frontend and the
-/// absence of a class cannot tell them apart.
+/// `data-theme` and `data-accent` select CSS blocks in `packages/ui`.
+/// `class="dark"` drives the stylesheet's dark variant, so it appears only when
+/// the instance chose dark outright. `data-mode` carries the choice itself,
+/// since "the operator picked light" and "the operator left it to the device"
+/// mean different things to the frontend and a missing class cannot tell them
+/// apart.
 ///
-/// A document with no `<html>` is returned unchanged. The colours are worth
-/// having; they are not worth a page that does not load.
+/// A document with no `<html>` is returned unchanged. The colours are not worth
+/// a page that fails to load.
 ///
-/// # Why this can build markup by concatenation
+/// # Why concatenation is safe here
 ///
-/// Every value here comes from [`tessera_core::Mode`], [`tessera_core::Theme`]
-/// or [`tessera_core::Accent`], whose `as_str` returns one of a fixed set of
-/// lowercase words. There is no input to escape, and no way for an operator to
-/// put one anywhere else: a value that is not on the list is refused when the
-/// setting is saved.
+/// Every value comes from [`tessera_core::Mode`], [`tessera_core::Theme`] or
+/// [`tessera_core::Accent`], whose `as_str` returns one of a fixed set of
+/// lowercase words. There is nothing to escape, and an operator cannot inject
+/// anything else: unknown values are refused when the setting is saved.
 fn with_appearance(html: &str, appearance: crate::config::AppearanceConfig) -> String {
     use tessera_core::Mode;
 
@@ -336,9 +332,9 @@ fn with_appearance(html: &str, appearance: crate::config::AppearanceConfig) -> S
 /// Where the opening `<html …>` tag ends, in bytes.
 ///
 /// `end` is the offset of its `>`, so an attribute inserted there lands inside
-/// the tag. `None` when the document has no such tag, which the placeholder
-/// page and both real bundles do have; a build that somehow did not would lose
-/// the colours rather than the page.
+/// the tag. `None` when the document has no such tag. The placeholder page and
+/// both real bundles have one; a build that did not would lose the colours,
+/// not the page.
 struct HtmlTag {
     end: usize,
 }
@@ -347,7 +343,7 @@ fn html_tag(html: &str) -> Option<HtmlTag> {
     let lowered = html.to_ascii_lowercase();
     let open = lowered.find("<html")?;
     // `<htmlfoo>` is not the tag. Anything else that can follow the name is
-    // either whitespace before an attribute or the close.
+    // whitespace before an attribute, or the closing `>`.
     let after = lowered.get(open + "<html".len()..)?;
     if !after.starts_with(|c: char| c.is_ascii_whitespace() || c == '>') {
         return None;
@@ -405,10 +401,9 @@ async fn serve_share_page(
         return respond(&state.assets, INDEX, asset);
     };
     let config = state.config();
-    // The share page is the entry point with more spliced into it, so it gets
-    // the instance's colours for the same reason every other page does.
-    // The instance's name, but not its description: the share's own is spliced
-    // in below, and two would be one too many.
+    // The share page is the entry point with more spliced in, so it gets the
+    // instance's colours like every other page. It gets the instance's name
+    // but not its description: the share's own is spliced in below.
     let html = retitled(
         &with_appearance(html, config.appearance),
         &config.site.title,
@@ -461,32 +456,30 @@ fn respond(source: &Source, path: &str, asset: Asset) -> Response {
         .into_response()
 }
 
-/// Serves one of the faces the card renderer draws with.
+/// Serves one of the fonts the card renderer uses.
 ///
-/// # Why the browser needs these at all
+/// # Why the browser needs these
 ///
-/// An editor previewing a card layout runs the same renderer, and a renderer
-/// without the same faces reports a different wrapping and a different set of
-/// glyphs. That is worst exactly where an operator is least able to check it
-/// by eye: a CJK filename set in a fallback face the server does not have.
+/// An editor previewing a card layout runs the same renderer, and without the
+/// same fonts it wraps text differently and picks different glyphs. That hurts
+/// most where the operator can least check by eye: a CJK filename falling back
+/// to a font the server does not have.
 ///
-/// # What a reverse proxy in front of this sees
+/// # Caching behind a reverse proxy
 ///
-/// Three and a half megabytes of faces, so what matters is that the proxy can
-/// serve them itself rather than asking again. Two headers do that.
+/// This is three and a half megabytes of fonts, so the proxy should serve them
+/// itself without asking again. Two headers do that.
 ///
-/// `immutable` with a year is honest here in a way it is not for most things:
-/// the bytes are compiled into the binary, so they cannot change without the
-/// binary changing, and a new binary is a new deployment. It is the same
-/// reasoning the hashed bundle assets get, and it means the download is paid
-/// once for a whole site rather than once per operator.
+/// `immutable` with a one-year max-age is accurate here: the bytes are compiled
+/// into the binary, so they change only with a new binary, which is a new
+/// deployment. The hashed bundle assets get the same treatment.
 ///
 /// `font/woff2` matters because woff2 is already compressed. Without the type,
-/// this server's own compression layer and whatever sits in front of it would
-/// each spend CPU making the bytes slightly larger.
+/// this server's compression layer and whatever sits in front would each spend
+/// CPU making the bytes slightly larger.
 ///
-/// The name is matched against the list, not turned into a path, so there is
-/// no traversal to get wrong and nothing here reads a filesystem.
+/// The name is matched against a list, not turned into a path, so there is no
+/// traversal to get wrong and no filesystem access.
 #[cfg(feature = "og-images")]
 pub async fn font(axum::extract::Path(name): axum::extract::Path<String>) -> Response {
     let Some((_, bytes)) = crate::og::FACES
@@ -629,9 +622,9 @@ mod tests {
         assert_eq!(strip_locale_prefix("s/ABC123"), "s/ABC123");
     }
 
-    /// The attributes land inside the opening tag, after whatever was already
-    /// on it. Putting them anywhere else produces a page that still loads and
-    /// is still the wrong colour, which is the failure worth a test.
+    /// The attributes land inside the opening tag, after any existing ones.
+    /// Anywhere else gives a page that loads but has the wrong colours, which
+    /// is the failure worth testing.
     #[test]
     fn the_appearance_lands_inside_the_html_tag() {
         let page = with_appearance(
@@ -649,10 +642,10 @@ mod tests {
         assert!(page.contains(expected), "{page}");
     }
 
-    /// `class="dark"` is what the stylesheet's dark variant hangs off, so it
-    /// must appear for a dark instance and for nothing else. `data-mode`
-    /// carries the choice either way, because an absent class cannot say
-    /// whether the operator picked light or left it to the device.
+    /// `class="dark"` drives the stylesheet's dark variant, so it must appear
+    /// for a dark instance and nothing else. `data-mode` carries the choice
+    /// either way, since a missing class cannot say whether the operator picked
+    /// light or left it to the device.
     #[rstest]
     #[case::dark(tessera_core::Mode::Dark, true)]
     #[case::light(tessera_core::Mode::Light, false)]
@@ -675,8 +668,8 @@ mod tests {
         );
     }
 
-    /// Losing the colours is acceptable; losing the page is not. Every one of
-    /// these comes back byte for byte.
+    /// Losing the colours is acceptable; losing the page is not. Each of these
+    /// comes back byte for byte.
     #[rstest]
     #[case::no_html_tag("<p>hello</p>")]
     #[case::a_word_starting_with_html("<htmlish>")]
@@ -688,8 +681,8 @@ mod tests {
         );
     }
 
-    /// The default is the one every visitor of a fresh instance sees, so it is
-    /// worth stating rather than leaving to whichever variant came first.
+    /// Every visitor of a fresh instance sees the default, so it is pinned here
+    /// instead of left to whichever variant came first.
     #[test]
     fn the_default_instance_follows_the_device() {
         let page = with_appearance("<html>", crate::config::AppearanceConfig::default());
@@ -699,8 +692,8 @@ mod tests {
         assert!(!page.contains("class="), "{page}");
     }
 
-    /// The operator's name reaches the tab, and anything they typed into it is
-    /// escaped: the value goes between tags on a page served from this origin.
+    /// The operator's name reaches the tab, escaped: the value goes between
+    /// tags on a page served from this origin.
     #[test]
     fn the_instance_name_goes_in_the_title() {
         let site = crate::config::SiteConfig {
@@ -735,8 +728,8 @@ mod tests {
         );
     }
 
-    /// As with the colours: a page that does not load is worse than a page
-    /// with the wrong name on the tab.
+    /// As with the colours: the wrong name on the tab beats a page that does
+    /// not load.
     #[rstest]
     #[case::no_title("<html><head></head></html>")]
     #[case::unterminated("<html><head><title>Tessera</head></html>")]

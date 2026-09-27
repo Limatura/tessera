@@ -1,8 +1,7 @@
 //! Links that prove an account's address, as rows.
 //!
-//! The same shape as [`password_reset`](super::password_reset), with the
-//! address the link was sent to kept beside it: that address is the only one a
-//! link can prove.
+//! Same shape as [`password_reset`](super::password_reset), plus the address
+//! the link was sent to: the only address a link can prove.
 
 use sea_orm::{
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, Set, sea_query::Expr,
@@ -29,7 +28,7 @@ pub struct EmailVerification {
     pub email: EmailAddress,
     /// When it stops working.
     pub expires_at: OffsetDateTime,
-    /// When it was spent, if it was.
+    /// When it was used, if it was.
     pub used_at: Option<OffsetDateTime>,
 }
 
@@ -70,7 +69,7 @@ impl EmailVerificationRepository {
 
     /// Records a link for `email` and returns the secret to put in the mail.
     ///
-    /// Returned, never stored: only its digest reaches the database.
+    /// Returned, never stored: only its digest is saved.
     ///
     /// # Errors
     ///
@@ -115,10 +114,10 @@ impl EmailVerificationRepository {
             .transpose()
     }
 
-    /// Marks a link as spent, and only if it was not already.
+    /// Marks a link as used, only if it was not already.
     ///
-    /// Returns whether this call was the one that spent it, decided by the
-    /// database so two clicks produce one winner.
+    /// Returns whether this call used it. The database decides, so two clicks
+    /// produce one winner.
     ///
     /// # Errors
     ///
@@ -137,7 +136,7 @@ impl EmailVerificationRepository {
         Ok(result.rows_affected == 1)
     }
 
-    /// Removes links that are past their expiry.
+    /// Removes expired links.
     ///
     /// # Errors
     ///

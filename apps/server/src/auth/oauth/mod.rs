@@ -2,26 +2,25 @@
 //!
 //! # Why these are hand-written and OIDC is not
 //!
-//! An `OpenID` Connect provider is configured by naming it. It publishes a
-//! document saying where its endpoints are, and it answers with an ID token
-//! whose shape the specification fixes, so `auth::oidc` works against any of
-//! them without knowing which.
+//! An `OpenID` Connect provider is configured by name. It publishes a document
+//! listing its endpoints and returns an ID token whose shape the spec fixes, so
+//! `auth::oidc` works with any of them without knowing which.
 //!
 //! GitHub and Discord publish no such document and issue no such token. Their
-//! endpoints are constants, and the only way to find out who just signed in is
-//! to call an API whose shape is theirs alone. So each is an adapter rather
-//! than a row of configuration, and adding a third means writing a third.
+//! endpoints are constants, and the only way to learn who signed in is to call
+//! a provider-specific API. So each is an adapter, not a configuration row, and
+//! a third provider means writing a third adapter.
 //!
-//! # What is shared and what is not
+//! # What is shared
 //!
 //! Everything after "who is this" is shared with OIDC: the flow row, the
-//! one-shot `state`, PKCE, the registration policy, choosing a username,
-//! attaching to an existing account. See `api::oidc`.
+//! one-shot `state`, PKCE, the registration policy, username selection, linking
+//! to an existing account. See `api::oidc`.
 //!
-//! What is not shared is the absence of a nonce. An ID token carries one and
-//! it is what ties the token to the sign-in that asked for it. There is no
-//! token here to carry one, so the callback is tied to its sign-in by `state`
-//! alone, which the flow table makes single-use by deleting the row.
+//! The difference is the nonce. An ID token carries one to tie it to the
+//! sign-in that asked for it. There is no such token here, so the callback is
+//! tied to its sign-in by `state` alone, which the flow table makes single-use
+//! by deleting the row.
 
 pub mod discord;
 pub mod github;
@@ -32,9 +31,8 @@ use crate::config::{Config, OauthConfig};
 
 /// Which provider a flow belongs to.
 ///
-/// The string form is what `identities.provider` and `sessions.origin` hold,
-/// so the two line up and a session can be traced to the identity that started
-/// it.
+/// The string form is what `identities.provider` and `sessions.origin` store,
+/// so a session can be traced to the identity that started it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Provider {
     /// Any `OpenID` Connect provider, configured by its issuer.
@@ -46,8 +44,7 @@ pub enum Provider {
 }
 
 impl Provider {
-    /// Every provider this version knows, in the order a sign-in page lists
-    /// them.
+    /// Every provider this version knows, in sign-in page order.
     pub const ALL: [Self; 3] = [Self::Oidc, Self::GitHub, Self::Discord];
 
     /// How it is stored, and how it appears in a URL.
@@ -73,8 +70,8 @@ impl Provider {
 
     /// The `auth.github` or `auth.discord` block, for the two that have one.
     ///
-    /// `None` for OIDC, which is configured by [`OidcConfig`] instead and has
-    /// an issuer where these have an adapter.
+    /// `None` for OIDC, which is configured by [`OidcConfig`] and has an issuer
+    /// instead of an adapter.
     ///
     /// [`OidcConfig`]: crate::config::OidcConfig
     #[must_use]
@@ -106,7 +103,7 @@ impl Provider {
             .trim();
         if configured.is_empty() {
             match self {
-                // No good guess at what an operator calls their own provider.
+                // No sensible guess at what an operator calls their provider.
                 Self::Oidc => "Single sign-on".to_owned(),
                 Self::GitHub => "GitHub".to_owned(),
                 Self::Discord => "Discord".to_owned(),
@@ -116,7 +113,7 @@ impl Provider {
         }
     }
 
-    /// Whether a first sign-in through this provider makes an account.
+    /// Whether a first sign-in through this provider creates an account.
     #[must_use]
     pub fn registration(self, config: &Config) -> crate::config::ProviderRegistration {
         self.oauth(config)
@@ -125,8 +122,8 @@ impl Provider {
             })
     }
 
-    /// Whether an address from this provider may attach to an account that
-    /// already has it, given whether the provider said it checked it.
+    /// Whether an address from this provider may attach to the existing account
+    /// with that address, given whether the provider says it verified it.
     #[must_use]
     pub fn may_link(self, config: &Config, verified: bool) -> bool {
         self.oauth(config).map_or_else(
@@ -136,26 +133,24 @@ impl Provider {
     }
 }
 
-/// Who signed in, in the one shape everything after this understands.
+/// Who signed in, in the one shape everything downstream understands.
 ///
-/// Deliberately the same fields `auth::oidc::claims` produces, so the code that
-/// turns one of these into an account does not know which kind of provider it
-/// came from.
+/// The same fields `auth::oidc::claims` produces, so the code that turns this
+/// into an account does not know which kind of provider it came from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Identity {
-    /// The provider's own identifier, and never a name.
+    /// The provider's own identifier, never a name.
     ///
     /// Discord's documentation says a username is "not unique across the
-    /// platform". A GitHub login can be changed, and a released one can be
-    /// claimed by somebody else. Keying on either is an account takeover
-    /// waiting for somebody to notice, so this is the numeric id and the
-    /// snowflake.
+    /// platform", and a GitHub login can be changed and a released one claimed
+    /// by another user. Keying on either is an account takeover in waiting, so
+    /// this is the numeric id or the snowflake.
     pub subject: String,
-    /// The address, when the provider released one it says it has checked.
+    /// The address, when the provider released one it says it verified.
     pub email: Option<String>,
-    /// Whether the provider says it checked it.
+    /// Whether the provider says it verified it.
     pub email_verified: bool,
-    /// What the provider calls them, for choosing a username.
+    /// The provider's name for the user, for choosing a username.
     pub preferred_username: Option<String>,
     /// A display name, when there is one.
     pub name: Option<String>,
@@ -172,7 +167,7 @@ pub enum IdentityError {
         /// What went wrong.
         reason: String,
     },
-    /// It answered, but not with something this understands.
+    /// It answered, but with something unexpected.
     #[error("{provider} answered with something unexpected: {reason}")]
     Unreadable {
         /// Which one.
@@ -207,10 +202,10 @@ pub struct Endpoints {
 }
 
 impl Provider {
-    /// The two addresses this provider's flow uses.
+    /// The two URLs this provider's flow uses.
     ///
-    /// Constants, except where an operator runs their own GitHub. `None` for
-    /// OIDC, whose endpoints come out of discovery and change with the issuer.
+    /// Constants, except for a self-hosted GitHub. `None` for OIDC, whose
+    /// endpoints come from discovery and depend on the issuer.
     #[must_use]
     pub fn endpoints(self, config: &Config) -> Option<Endpoints> {
         match self {
@@ -233,9 +228,9 @@ impl Provider {
         }
     }
 
-    /// The provider's own address, when one is configured.
+    /// The provider's configured base URL, if any.
     ///
-    /// Only GitHub reads it, and only because GitHub Enterprise Server exists.
+    /// Only GitHub reads it, for GitHub Enterprise Server.
     fn base(self, config: &Config) -> Option<&str> {
         self.oauth(config)
             .map(|oauth| oauth.base_url.trim().trim_end_matches('/'))
@@ -250,8 +245,8 @@ impl Provider {
     /// or answers with something unexpected.
     pub async fn identify(self, api: &str, access_token: &str) -> Result<Identity, IdentityError> {
         match self {
-            // An OIDC identity comes out of the ID token, which arrived with
-            // the exchange. Nothing to ask.
+            // An OIDC identity comes from the ID token that arrived with the
+            // exchange. Nothing to ask.
             Self::Oidc => Err(IdentityError::Unreadable {
                 provider: "oidc",
                 reason: "an OpenID Connect identity is read from the id token".to_owned(),
@@ -266,9 +261,9 @@ impl Provider {
 ///
 /// # Why this is not `auth::oidc::token::exchange`
 ///
-/// That one asks for an ID token and reads one back. This asks for nothing but
-/// an access token, and GitHub answers form-encoded unless told otherwise, so
-/// the `Accept` header is doing real work rather than being polite.
+/// That one requests and reads an ID token. This asks only for an access
+/// token, and GitHub answers form-encoded unless told otherwise, so the
+/// `Accept` header is required, not a courtesy.
 ///
 /// # Errors
 ///
@@ -298,16 +293,16 @@ pub async fn exchange(
         client
             .post(&endpoints.token)
             .form(&form)
-            // GitHub returns `access_token=...&scope=...` without this, which a
-            // JSON parser reports as a failure with nothing useful in it.
+            // Without this GitHub returns `access_token=...&scope=...`, which a
+            // JSON parser rejects with an unhelpful error.
             .header(reqwest::header::ACCEPT, "application/json"),
     )
     .await
 }
 
-/// A client with the timeout every one of these calls wants.
+/// A client with the timeout all of these calls use.
 ///
-/// Short, because somebody is watching a browser tab.
+/// Short, because a user is waiting on a browser tab.
 fn client(provider: &'static str) -> Result<reqwest::Client, IdentityError> {
     reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(10))
@@ -318,7 +313,7 @@ fn client(provider: &'static str) -> Result<reqwest::Client, IdentityError> {
         })
 }
 
-/// Sends a request and reads the answer, with the same three failures named
+/// Sends a request and parses the answer, reporting the same three failures
 /// the same way for both adapters.
 async fn read<T: serde::de::DeserializeOwned>(
     provider: &'static str,
@@ -361,8 +356,7 @@ mod tests {
         assert_eq!(Provider::parse("nonsense"), None);
     }
 
-    /// A name is what goes on a button, so an empty one is a button with
-    /// nothing written on it.
+    /// The name goes on a button, so an empty one is a blank button.
     #[test]
     fn an_unset_name_falls_back_to_the_providers_own() {
         let config = Config::default();
@@ -380,8 +374,8 @@ mod tests {
         assert_eq!(Provider::GitHub.display_name(&config), "Company GitHub");
     }
 
-    /// Nothing is offered until it is configured, and each is configured on its
-    /// own.
+    /// Nothing is offered until configured, and each provider is configured
+    /// independently.
     #[test]
     fn each_provider_is_offered_only_once_it_is_configured() {
         let mut config = Config::default();

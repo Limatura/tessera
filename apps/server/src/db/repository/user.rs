@@ -209,9 +209,9 @@ impl UserRepository {
 
     /// This account's password hash, or `None` when it has never had one.
     ///
-    /// A separate query rather than a field on [`User`]: the hash is wanted on
-    /// two paths — signing in and confirming a password — and joined onto every
-    /// other read of an account for nothing.
+    /// A separate query, not a field on [`User`]: only signing in and
+    /// confirming a password need the hash, and joining it onto every other
+    /// account read would be wasted work.
     ///
     /// # Errors
     ///
@@ -236,8 +236,8 @@ impl UserRepository {
             created_at: Set(now),
             updated_at: Set(now),
         };
-        // Upsert: an account may be setting its first password or replacing an
-        // existing one, and the caller does not care which.
+        // Upsert: the account may be setting its first password or replacing
+        // one, and the caller does not care which.
         CredentialEntity::insert(row)
             .on_conflict(
                 sea_query::OnConflict::column(credential::Column::UserId)
@@ -282,8 +282,8 @@ impl UserRepository {
     /// The names of several accounts at once, for a listing that shows who
     /// owns each row.
     ///
-    /// One query for the page, not one per row. A deleted account answers with
-    /// the tombstone name it was left with; an id with no row is absent.
+    /// One query per page, not per row. A deleted account returns its
+    /// tombstone name; an id with no row is absent.
     ///
     /// # Errors
     ///
@@ -360,9 +360,9 @@ impl UserRepository {
 
     /// One page of accounts, newest first.
     ///
-    /// Paged now, having been a bare list. The reasoning for not paging it was
-    /// that this instance has a handful of accounts, and that holds for the
-    /// panel and not for an instance that opened registration.
+    /// This used to be an unpaged list, on the grounds that an instance has a
+    /// handful of accounts. That holds for the panel, not for an instance with
+    /// open registration.
     ///
     /// # Errors
     ///
@@ -393,8 +393,8 @@ impl UserRepository {
 
     /// How many accounts exist.
     ///
-    /// Takes the same filter the listing does, so the total describes the
-    /// collection being paged rather than a different one.
+    /// Takes the same filter as the listing, so the total describes the
+    /// collection being paged.
     ///
     /// # Errors
     ///
@@ -437,12 +437,12 @@ impl UserRepository {
         Ok(result.rows_affected == 1)
     }
 
-    /// Records that the account's address is proven, if it is still `email`.
+    /// Marks the account's address verified, if it is still `email`.
     ///
     /// Conditional on the address, not only the account: a link sent to an
-    /// address the account has since moved away from proves nothing about the
-    /// new one. The check is in the same statement as the write, so an address
-    /// changed between reading the link and following it cannot slip through.
+    /// address the account has since changed proves nothing about the new one.
+    /// The check and the write are one statement, so an address changed
+    /// between reading the link and following it cannot slip through.
     ///
     /// Returns whether the account changed.
     ///
@@ -887,8 +887,8 @@ mod tests {
     }
 
     /// Passwords never reach the database in the clear, and since the move to
-    /// `credentials` an account does not carry one at all: the only thing that
-    /// can be written is a hash, through `set_password_hash`.
+    /// `credentials` an account row has no password field: the only thing
+    /// that can be written is a hash, via `set_password_hash`.
     #[test]
     fn an_account_carries_no_password_of_any_kind() {
         let password = Password::parse("a passphrase here", PasswordPolicy::default()).unwrap();

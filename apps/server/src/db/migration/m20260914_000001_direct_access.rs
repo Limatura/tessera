@@ -1,5 +1,5 @@
-//! Sending a browser straight to the store: the switch that allows it, and the
-//! count of what was sent there.
+//! Redirecting browsers straight to the store: the switch that allows it, and
+//! the count of bytes sent there.
 //!
 //! The SQL lives in `sql/`, and the SQLite file carries the reasoning.
 
@@ -9,7 +9,7 @@ pub(super) const SQLITE: &str = include_str!("sql/m20260914_000001_direct_access
 pub(super) const POSTGRES: &str = include_str!("sql/m20260914_000001_direct_access.postgres.sql");
 pub(super) const MYSQL: &str = include_str!("sql/m20260914_000001_direct_access.mysql.sql");
 
-/// Neither column is named by an index, so SQLite can drop both directly.
+/// No index references either column, so SQLite can drop both directly.
 const DOWN: &str = "ALTER TABLE shares DROP COLUMN bytes_redirected;\n\
                     ALTER TABLE storage_backends DROP COLUMN direct_access;\n";
 

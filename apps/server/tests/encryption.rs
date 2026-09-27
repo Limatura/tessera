@@ -1,9 +1,8 @@
-//! End-to-end encrypted shares, as the server sees them: opaque bytes, sealed
+//! End-to-end encrypted shares from the server's side: opaque bytes, sealed
 //! descriptions, and the rules that keep either from leaking in the clear.
 //!
 //! Nothing here encrypts anything. The server cannot tell ciphertext from any
-//! other bytes, so what these check is what it stores, what it hands back, and
-//! what it refuses.
+//! other bytes, so these check what it stores, returns and refuses.
 
 mod common;
 
@@ -82,9 +81,9 @@ async fn an_instance_that_has_not_turned_it_on_refuses_encrypted_shares() {
     assert!(body_string(refused).await.contains("encrypted"));
 }
 
-/// What the uploader sealed comes back as it went in, and nothing about the
-/// content is stored in the clear: not the claimed media type either, which
-/// describes ciphertext on an encrypted share.
+/// What the uploader sealed comes back unchanged, and nothing about the content
+/// is stored in the clear, including the claimed media type, which describes
+/// ciphertext on an encrypted share.
 #[tokio::test]
 async fn an_encrypted_file_share_keeps_only_what_was_sealed() {
     let app = encrypting().await;
@@ -133,9 +132,9 @@ async fn an_encrypted_file_share_keeps_only_what_was_sealed() {
     );
 }
 
-/// An archive of sealed files is something no archiver opens, so an encrypted
-/// share is fetched a file at a time, and asking for the whole is refused
-/// before it costs a retrieval.
+/// No archiver can open an archive of sealed files, so an encrypted share is
+/// fetched one file at a time, and requesting the whole is refused before it
+/// uses a retrieval.
 #[tokio::test]
 async fn an_encrypted_share_is_fetched_one_file_at_a_time() {
     let app = encrypting().await;
@@ -152,8 +151,8 @@ async fn an_encrypted_share_is_fetched_one_file_at_a_time() {
         .expect("a token")
         .to_owned();
 
-    // A plain name on an encrypted share is what encryption exists to keep off
-    // the server.
+    // A plain name on an encrypted share is what encryption keeps off the
+    // server.
     expect_status(
         post(
             &app,
@@ -184,7 +183,7 @@ async fn an_encrypted_share_is_fetched_one_file_at_a_time() {
     .await;
     assert!(body_string(whole).await.contains("?file="));
 
-    // Still collectable: the refusal did not spend its one retrieval.
+    // Still downloadable: the refusal did not use its one retrieval.
     let ticket = body_json(
         expect_status(
             app.empty(
@@ -222,8 +221,8 @@ async fn an_encrypted_share_is_fetched_one_file_at_a_time() {
     .await;
 }
 
-/// The same parameter works for a share the server can read, as one file on
-/// its own instead of an archive.
+/// The same parameter works on a share the server can read, returning one file
+/// alone instead of an archive.
 #[tokio::test]
 async fn one_file_of_a_plain_share_comes_without_an_archive() {
     let app = TestApp::ready().await;
@@ -290,9 +289,9 @@ async fn a_request_that_describes_its_content_the_wrong_way_is_refused() {
         "/api/v1/shares?encryption=link&filename=plain.txt",
         "/api/v1/shares?encryption=link&title=plain",
         "/api/v1/shares?encryption=link&language=rust",
-        // Sealed descriptions nobody could open.
+        // Sealed descriptions no one could open.
         "/api/v1/shares?sealed_name=AAAA",
-        // Keys that no client could hold.
+        // Keys no client could hold.
         "/api/v1/shares?encryption=link&key_salt=AwMDAwMDAwMDAwMDAwMDAw",
         "/api/v1/shares?encryption=password",
         "/api/v1/shares?encryption=password&key_salt=short",
@@ -305,7 +304,7 @@ async fn a_request_that_describes_its_content_the_wrong_way_is_refused() {
 }
 
 /// A client whose key comes from the password needs the salt before it can
-/// derive the token it presents as that password.
+/// derive the token it presents as the password.
 #[tokio::test]
 async fn a_locked_password_share_still_gives_its_salt() {
     let app = encrypting().await;
@@ -360,7 +359,7 @@ async fn a_password_that_a_key_came_from_cannot_be_changed_or_removed() {
         app.send(builder, Body::from(body.to_string()))
     };
 
-    // Set once, by a client that uploaded before it had one to give.
+    // Set once, by a client that uploaded before it had a password to give.
     expect_status(
         patch(Some("first-token"), serde_json::json!({})).await,
         StatusCode::OK,
@@ -376,7 +375,7 @@ async fn a_password_that_a_key_came_from_cannot_be_changed_or_removed() {
         StatusCode::BAD_REQUEST,
     )
     .await;
-    // Other settings are still the uploader's to change.
+    // Other settings remain the uploader's to change.
     expect_status(
         patch(None, serde_json::json!({ "max_uses": 2 })).await,
         StatusCode::OK,
@@ -384,7 +383,7 @@ async fn a_password_that_a_key_came_from_cannot_be_changed_or_removed() {
     .await;
 }
 
-/// The page an unfurler reads, and the card's placeholders, say it is
+/// The page an unfurler reads, and the card's placeholders, say the share is
 /// encrypted and how large it is, and nothing the uploader sealed.
 #[tokio::test]
 async fn the_link_preview_of_an_encrypted_share_names_nothing() {
@@ -450,8 +449,8 @@ async fn a_resumable_upload_can_make_an_encrypted_share() {
     assert_eq!(finished["files"][0]["sealed_name"], "bmFtZQ");
     assert_eq!(finished["files"][0]["filename"], serde_json::Value::Null);
 
-    // Into an existing share, the upload is sealed the way that share is, so
-    // saying how is refused, and so is a plain name.
+    // An upload into an existing share is sealed as that share is, so
+    // specifying how is refused, and so is a plain name.
     let code = code_of(&finished);
     let management = finished["management_token"].as_str().expect("a token");
     for uri in [
@@ -474,9 +473,8 @@ async fn a_resumable_upload_can_make_an_encrypted_share() {
     }
 }
 
-/// Turning the switch off stops new encrypted shares, and leaves the ones that
-/// exist retrievable: handing them out never needed the server to understand
-/// them.
+/// Turning the switch off stops new encrypted shares and leaves existing ones
+/// downloadable: serving them never required the server to understand them.
 #[tokio::test]
 async fn switching_it_off_leaves_existing_encrypted_shares_retrievable() {
     let app = encrypting().await;

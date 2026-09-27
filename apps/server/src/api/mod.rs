@@ -118,7 +118,7 @@ pub const ADMIN_TAG: &str = "admin";
 /// Tag grouping share creation and management.
 pub const SHARES_TAG: &str = "shares";
 
-/// Tag for the endpoints a person uses on their own preferences.
+/// Tag for the endpoints a user uses on their own preferences.
 pub const PREFERENCES_TAG: &str = "preferences";
 
 /// Name of the cookie-based security scheme in the generated document.
@@ -324,11 +324,10 @@ fn versioned_routes() -> OpenApiRouter<AppState> {
         .merge(upload_routes())
 }
 
-/// What a person does to their own account: their sign-ins and their
-/// preferences.
+/// What a user does to their own account: sign-ins and preferences.
 ///
-/// Grouped for the same reason the three below are: [`versioned_routes`] should
-/// stay readable as one page.
+/// Grouped, like the three below, so [`versioned_routes`] stays readable as one
+/// page.
 fn account_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(sessions::list, sessions::revoke_others))
@@ -353,8 +352,7 @@ fn share_routes() -> OpenApiRouter<AppState> {
 
 /// The storage backends, under `/admin/storage`.
 ///
-/// Its own group so [`admin_routes`] stays one page, which is the same reason the
-/// others are split out.
+/// A separate group so [`admin_routes`] stays one page, as with the others.
 fn backend_routes() -> OpenApiRouter<AppState> {
     OpenApiRouter::new()
         .routes(routes!(backends::list, backends::add))
@@ -389,8 +387,8 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::remove_user_shares))
 }
 
-/// The faces the card renderer draws with, for an editor that has to draw the
-/// same card in a browser. Only on an instance that has a card renderer.
+/// The fonts the card renderer uses, for an editor that renders the same card
+/// in a browser. Only on instances with a card renderer.
 fn font_routes() -> Router<AppState> {
     #[cfg(feature = "og-images")]
     {
@@ -440,9 +438,9 @@ pub fn build(state: AppState) -> Router {
             OPENAPI_PATH,
             axum::routing::get(move || std::future::ready(Json(contract))),
         )
-        // Ahead of the fallback, which would otherwise answer these with a 404
-        // for a missing asset. Outside the contract for the same reason the
-        // share routes are: this is where a stylesheet points, not an API.
+        // Before the fallback, which would answer these with a missing-asset
+        // 404. Outside the contract, like the share routes: a stylesheet
+        // points here, it is not an API.
         .merge(font_routes())
         // Attached before the state is applied because the fallback needs it:
         // `/s/{code}` is served from the bundle like any client-side route, but

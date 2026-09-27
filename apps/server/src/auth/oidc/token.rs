@@ -1,20 +1,18 @@
 //! Exchanging the code for a token, server to server.
 //!
-//! This is the request the whole flow is arranged around. It is the only part
-//! of the exchange the browser is not involved in, and that is what makes the
-//! rest of the handling safe: see `claims.rs` for what follows from the token
-//! arriving here rather than through a redirect.
+//! The flow is built around this request. It is the only step the browser is
+//! not part of, which is what makes the rest safe: see `claims.rs` for what
+//! follows from the token arriving here and not through a redirect.
 //!
-//! # How this client proves who it is
+//! # How this client authenticates
 //!
 //! With a secret configured, HTTP basic authentication, which every provider
-//! is required to support and which keeps the secret out of the request body
-//! and therefore out of anything that logs bodies.
+//! must support and which keeps the secret out of the request body and so out
+//! of anything that logs bodies.
 //!
-//! With no secret, the client identifies itself in the body and nothing more.
-//! That is a public client, and it is only safe because PKCE is always sent:
-//! the code alone buys nothing without the verifier, which never left this
-//! process.
+//! Without a secret, the client only identifies itself in the body. That is a
+//! public client, safe only because PKCE is always sent: the code is useless
+//! without the verifier, which never leaves this process.
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use serde::Deserialize;
@@ -22,24 +20,24 @@ use serde::Deserialize;
 use super::discovery::Provider;
 use crate::config::Config;
 
-/// How long to wait on the token endpoint. A person is watching a browser tab.
+/// How long to wait on the token endpoint. A user is waiting on a browser tab.
 const TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 
 /// What the token endpoint returned.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Tokens {
-    /// The token this flow exists to get.
+    /// The token this flow exists to obtain.
     pub id_token: String,
-    /// Buys the claims the ID token did not carry, from the userinfo endpoint.
+    /// Fetches the claims missing from the ID token, from the userinfo endpoint.
     #[serde(default)]
     pub access_token: Option<String>,
 }
 
 /// What the token endpoint returned when it refused.
 ///
-/// Reported rather than flattened into one message: `invalid_grant` from a
-/// code that was already spent and `invalid_client` from a wrong secret are
-/// different problems for whoever is configuring this.
+/// Kept structured, not flattened into one message: `invalid_grant` from an
+/// already-used code and `invalid_client` from a wrong secret are different
+/// problems for the operator.
 #[derive(Debug, Clone, Deserialize)]
 struct Refusal {
     error: String,
@@ -82,13 +80,13 @@ pub async fn exchange(
         ("code", code),
         ("redirect_uri", redirect_uri),
         ("code_verifier", verifier),
-        // Sent whether or not the secret is, because a provider matches the
-        // code against the client it was issued to and basic authentication is
-        // not the only way it may look.
+        // Always sent, secret or not: a provider matches the code against the
+        // client it was issued to, and basic auth is not the only place it may
+        // look.
         ("client_id", client_id),
     ];
     if secret.is_empty() {
-        // A public client. The verifier above is what stands in for the secret.
+        // A public client. The verifier above stands in for the secret.
     } else {
         form.push(("client_secret", secret));
     }
@@ -99,10 +97,9 @@ pub async fn exchange(
         .map_err(|error| TokenError::Unreachable(error.to_string()))?;
     let mut request = client.post(&provider.token_endpoint).form(&form);
     if !secret.is_empty() {
-        // Both are sent: basic is what the specification requires a provider to
-        // accept, and the body copy is what the ones configured for
-        // `client_secret_post` read. A provider takes the one it is set up for
-        // and ignores the other.
+        // Both are sent: providers must accept basic, and those configured for
+        // `client_secret_post` read the body. Each uses the one it is set up
+        // for and ignores the other.
         request = request.header(reqwest::header::AUTHORIZATION, basic(client_id, secret));
     }
 
@@ -118,8 +115,8 @@ pub async fn exchange(
         .map_err(|error| TokenError::Unreadable(error.to_string()))?;
 
     if !status.is_success() {
-        // The specification says a refusal is a JSON object naming the reason.
-        // When it is not, the status is all there is to report.
+        // The spec says a refusal is a JSON object naming the reason. When it
+        // is not, the status is all there is to report.
         let refusal = serde_json::from_str::<Refusal>(&body).map_or_else(
             |_ignored| format!("it answered {status}"),
             |refusal| match refusal.error_description {
@@ -135,10 +132,10 @@ pub async fn exchange(
 
 /// Asks the userinfo endpoint for the claims the ID token did not carry.
 ///
-/// Some providers keep `email` and the group claim out of the token to keep it
-/// small, and release them here instead. A provider with no userinfo endpoint,
-/// or one that refuses, yields nothing rather than failing the sign-in: what is
-/// missing is decided by the caller, which knows whether it needed anything.
+/// Some providers leave `email` and the group claim out of the token to keep
+/// it small and release them here. No userinfo endpoint, or a refusal, yields
+/// nothing instead of failing the sign-in: the caller knows what it needed and
+/// decides.
 pub async fn userinfo(
     provider: &Provider,
     access_token: &str,
@@ -162,9 +159,8 @@ pub async fn userinfo(
 
 /// An HTTP basic authentication header value.
 ///
-/// The specification requires the two halves to be form-urlencoded before they
-/// are joined, because a colon in either would otherwise split the pair in the
-/// wrong place.
+/// The spec requires both halves to be form-urlencoded before joining, since a
+/// colon in either would split the pair in the wrong place.
 fn basic(client_id: &str, secret: &str) -> String {
     let encode =
         |value: &str| form_urlencoded::byte_serialize(value.as_bytes()).collect::<String>();
@@ -177,7 +173,7 @@ mod tests {
     use super::*;
 
     /// A colon in a secret would split the pair in the wrong place if the
-    /// halves were joined raw, which is why the specification encodes them.
+    /// halves were joined raw, which is why the spec encodes them.
     #[test]
     fn the_basic_header_encodes_both_halves() {
         let header = basic("tessera", "se:cr et");

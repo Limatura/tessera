@@ -285,8 +285,8 @@ async fn root_serves_the_embedded_spa() {
     assert!(body_string(response).await.contains("<!doctype html>"));
 }
 
-/// An editor drawing the same card in a browser needs the same faces, so they
-/// are served rather than only embedded.
+/// An editor rendering the same card in a browser needs the same fonts, so they
+/// are served, not only embedded.
 #[cfg(feature = "og-images")]
 #[tokio::test]
 async fn the_card_faces_are_served() {
@@ -306,9 +306,8 @@ async fn the_card_faces_are_served() {
         "woff2 is already compressed; the type is what stops this server and \
          any proxy in front of it from spending CPU compressing it again"
     );
-    // The bytes are compiled into the binary and cannot change without the
-    // binary changing, so a proxy may keep them and the download is paid once
-    // for a whole site.
+    // The bytes are compiled into the binary and change only with it, so a
+    // proxy may cache them and the download is paid once per site.
     assert_eq!(
         headers
             .get(header::CACHE_CONTROL)
@@ -324,7 +323,7 @@ async fn the_card_faces_are_served() {
 }
 
 /// The name is matched against the list, never turned into a path, so these
-/// are simply names that are not on it.
+/// are just names not on it.
 #[cfg(feature = "og-images")]
 #[tokio::test]
 async fn a_face_that_is_not_ours_is_a_404() {
@@ -342,9 +341,9 @@ async fn a_face_that_is_not_ours_is_a_404() {
     }
 }
 
-/// Every face the renderer registers is reachable, or an editor loading the
-/// list from `og::FACES` asks for one that is not there and previews in a
-/// face this server would not have used.
+/// Every font the renderer registers is reachable. Otherwise an editor loading
+/// the list from `og::FACES` requests a missing one and previews in a font
+/// this server would not use.
 #[cfg(feature = "og-images")]
 #[tokio::test]
 async fn every_face_the_renderer_uses_is_reachable() {
@@ -503,8 +502,7 @@ fn the_compression_predicate_skips_opaque_media_types() {
     }
 }
 
-/// The operator's own name, from the first paint rather than after the
-/// scripts run, and on the instance's own links.
+/// The operator's own name, from first paint, and on the instance's own links.
 #[tokio::test]
 async fn the_instance_says_what_the_operator_called_it() {
     let app = TestApp::with_config(|config| {
@@ -520,8 +518,8 @@ async fn the_instance_says_what_the_operator_called_it() {
         "{page}"
     );
 
-    // A share page keeps the share's own description and takes the instance's
-    // name for the site it belongs to.
+    // A share page keeps the share's own description and uses the instance's
+    // name for the site.
     let created = expect_status(
         app.send(
             Request::builder()

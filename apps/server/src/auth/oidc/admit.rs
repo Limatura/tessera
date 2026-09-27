@@ -1,23 +1,22 @@
 //! Turning a provider's claims into a name and a decision.
 //!
 //! Everything here is a pure function of the claims and the configuration. The
-//! parts that need the database, and the order they happen in, are in
-//! `api/oidc.rs`.
+//! parts that need the database, and their order, are in `api/oidc.rs`.
 
 use tessera_core::Username;
 
 use super::claims::{self, Claims};
 use crate::config::OidcConfig;
 
-/// Whether the provider's answer clears the configured group requirement.
+/// Whether the provider's answer meets the configured group requirement.
 ///
-/// With no `required_group` set, everyone the provider admits is admitted. With
-/// one set, the named group has to appear in the configured claim.
+/// With no `required_group`, everyone the provider admits is admitted. With
+/// one, the group must appear in the configured claim.
 ///
-/// It fails closed in every way it can fail: a claim that is absent, empty, or
-/// in a shape this does not recognise yields no groups, and no groups never
-/// contains the required one. A provider that silently stopped releasing the
-/// claim locks people out, which is the direction to be wrong in.
+/// It fails closed in every way: a claim that is absent, empty or of an
+/// unrecognised shape yields no groups, which never contain the required one.
+/// A provider that silently stops releasing the claim locks users out, which
+/// is the right direction to fail in.
 #[must_use]
 pub fn is_in_required_group(claims: &Claims, config: &OidcConfig) -> bool {
     let required = config.required_group.trim();
@@ -30,15 +29,14 @@ pub fn is_in_required_group(claims: &Claims, config: &OidcConfig) -> bool {
 
 /// A name for an account being created from a provider's claims.
 ///
-/// The provider's own name for the person is tried first, then the local part
-/// of the address, then a fixed stem. Each candidate is squeezed into what a
-/// username may be rather than refused: a person signing in for the first time
-/// cannot fix a name that a provider chose, so an unusable one has to become a
-/// usable one here.
+/// Tries the provider's name for the user, then the address's local part,
+/// then a fixed stem. Each candidate is coerced into a valid username instead
+/// of refused: a first-time user cannot fix a name the provider chose, so an
+/// unusable one has to be made usable here.
 ///
-/// `taken` decides collisions. It is asked in order, so the first free name
-/// wins, and the suffix is a number because a name with a random tail is one
-/// nobody recognises as theirs.
+/// `taken` resolves collisions. It is asked in order, so the first free name
+/// wins, and the suffix is a number because a random tail is unrecognisable
+/// to its owner.
 pub fn username_for(
     identity: &crate::auth::oauth::Identity,
     mut taken: impl FnMut(&Username) -> bool,
@@ -66,9 +64,9 @@ pub fn username_for(
         {
             return Some(name);
         }
-        // Numbered rather than random: `alice2` is recognisably the same
-        // person's account, and a random tail is not. The ceiling is a
-        // stopping condition, not a limit anybody is expected to reach.
+        // Numbered, not random: `alice2` is recognisably the same person, a
+        // random tail is not. The ceiling is a stopping condition, not a limit
+        // anyone is expected to reach.
         for suffix in 2..=99_u32 {
             let mut numbered = stem.clone();
             numbered.truncate(Username::MAX_LENGTH - suffix.to_string().len());
@@ -83,11 +81,11 @@ pub fn username_for(
     None
 }
 
-/// Makes a candidate into something [`Username::parse`] might accept.
+/// Coerces a candidate into something [`Username::parse`] might accept.
 ///
-/// Lower-cases, drops what the rules do not allow, and trims to length. Returns
-/// nothing when there is nothing usable left, so the caller moves on to the
-/// next candidate rather than trying to register an empty name.
+/// Lowercases, drops disallowed characters, and trims to length. Returns
+/// nothing when nothing usable is left, so the caller moves to the next
+/// candidate instead of registering an empty name.
 fn squeeze(raw: &str) -> Option<String> {
     let kept: String = raw
         .trim()
@@ -95,8 +93,8 @@ fn squeeze(raw: &str) -> Option<String> {
         .chars()
         .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-')
         .collect();
-    // A name has to start with a letter or a digit, and separators at the end
-    // are the kind of thing an address local part leaves behind.
+    // A name must start with a letter or digit, and trailing separators are
+    // typical leftovers from an address local part.
     let trimmed = kept
         .trim_start_matches(|c: char| !c.is_ascii_alphanumeric())
         .trim_end_matches(['_', '-']);
@@ -104,8 +102,8 @@ fn squeeze(raw: &str) -> Option<String> {
         return None;
     }
     let mut stem: String = trimmed.chars().take(Username::MAX_LENGTH).collect();
-    // Short enough to be refused on its own, but a numbered form of it would
-    // pass. Padding keeps a two-letter provider name usable.
+    // Too short alone, though a numbered form would pass. Padding keeps a
+    // two-letter provider name usable.
     while stem.chars().count() < Username::MIN_LENGTH {
         stem.push('0');
     }
@@ -135,8 +133,8 @@ mod tests {
         OidcConfig::default()
     }
 
-    /// What the claims above look like once they are the one shape everything
-    /// after the provider understands.
+    /// The claims above, converted to the shape everything downstream of the
+    /// provider understands.
     fn identity(fields: &serde_json::Value) -> crate::auth::oauth::Identity {
         let claims = claims(fields);
         crate::auth::oauth::Identity {
@@ -176,8 +174,8 @@ mod tests {
         ));
     }
 
-    /// A provider that stopped releasing the claim locks people out rather
-    /// than letting everybody in, which is the direction to be wrong in.
+    /// A provider that stops releasing the claim locks users out instead of
+    /// letting everyone in, which is the right direction to fail in.
     #[test]
     fn a_missing_claim_admits_nobody() {
         let mut config = config();
@@ -241,8 +239,8 @@ mod tests {
         assert_eq!(name.as_str(), "alicesmith");
     }
 
-    /// A person signing in for the first time cannot fix a name the provider
-    /// chose, so an unusable one is made usable rather than refused.
+    /// A first-time user cannot fix a name the provider chose, so an unusable
+    /// one is made usable, not refused.
     #[test]
     fn a_name_that_would_be_refused_is_squeezed_into_shape() {
         for (raw, expected) in [
@@ -263,7 +261,7 @@ mod tests {
     }
 
     /// A reserved name is refused by `Username::parse`, so it falls through to
-    /// the next candidate rather than being handed out.
+    /// the next candidate instead of being handed out.
     #[test]
     fn a_reserved_name_is_not_handed_out() {
         let name = username_for(
@@ -310,8 +308,8 @@ mod tests {
         assert!(name.as_str().ends_with('2'));
     }
 
-    /// Nothing usable anywhere still produces a name, because refusing here
-    /// would mean a person who cannot sign in and cannot do anything about it.
+    /// With nothing usable anywhere, a name is still produced: refusing here
+    /// would leave a user who cannot sign in and cannot do anything about it.
     #[test]
     fn there_is_always_a_last_resort() {
         let name = username_for(&identity(&serde_json::json!({})), free).expect("a name");
@@ -319,8 +317,8 @@ mod tests {
         assert_eq!(name.as_str(), "user");
     }
 
-    /// Unless every numbered form is taken too, which is a real answer rather
-    /// than a name handed to the wrong person.
+    /// Unless every numbered form is taken too. That is a real answer, better
+    /// than handing a name to the wrong person.
     #[test]
     fn everything_taken_yields_nothing() {
         assert!(username_for(&identity(&serde_json::json!({})), |_taken| true).is_none());

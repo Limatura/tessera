@@ -265,12 +265,11 @@ fn announce_docs(config: &Config, local_addr: SocketAddr) {
     }
 }
 
-/// Starts the work that runs beside the server, and returns the part that is
-/// joined at shutdown.
+/// Starts the background tasks, and returns the one joined at shutdown.
 ///
-/// The sweep is joined, so the pool is never closed under a `DELETE`. The
-/// malware scanner is not: a scan cut off at shutdown leaves its file
-/// `pending`, and the next start picks it up.
+/// The sweep is joined, so the pool is never closed mid-`DELETE`. The malware
+/// scanner is not: a scan cut off at shutdown leaves its file `pending`, and
+/// the next start picks it up.
 fn start_background(state: &AppState, shutdown: &CancellationToken) -> tokio::task::JoinHandle<()> {
     tokio::spawn(tessera_server::scan::worker::run(
         state.clone(),
@@ -380,9 +379,9 @@ fn resolve_assets(configured: &str) -> anyhow::Result<tessera_server::assets::So
 
 /// Opens every backend, writing the first one on a fresh instance.
 ///
-/// Split out so `main` stays under the line limit. Reading the backends needs
-/// the key, and one that will not open them is fatal here: starting anyway
-/// would present them as gone, not locked.
+/// Split out to keep `main` under the line limit. Reading the backends needs
+/// the key, and a key that cannot open them is fatal here: starting anyway
+/// would show them as gone instead of locked.
 async fn open_stores(
     config: &Config,
     db: &sea_orm::DatabaseConnection,

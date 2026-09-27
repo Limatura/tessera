@@ -4,9 +4,9 @@ use sea_orm::entity::prelude::*;
 
 /// A row of `credentials`: one account's password, when it has one.
 ///
-/// No row means no password. That is what an account which has only ever signed
-/// in through an identity provider looks like, and it is why this is a table
-/// rather than a nullable column on `users` — see the migration.
+/// No row means no password, as for an account that has only ever signed in
+/// through an identity provider. That is why this is a table and not a
+/// nullable column on `users`; see the migration.
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
 #[sea_orm(table_name = "credentials")]
 pub struct Model {
