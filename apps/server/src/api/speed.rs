@@ -67,7 +67,7 @@ pub struct DownloadParams {
 
 /// What an upload test read.
 #[derive(Debug, Serialize, ToSchema)]
-pub struct UploadResponse {
+pub struct SpeedUploadResponse {
     /// How many bytes arrived. The client times its own request and divides.
     #[schema(example = 26_214_400_u64)]
     pub received_bytes: u64,
@@ -144,7 +144,7 @@ pub async fn download(
     tag = SPEED_TAG,
     request_body(content = Vec<u8>, description = "Anything; it is counted and dropped", content_type = "application/octet-stream"),
     responses(
-        (status = 200, description = "How much arrived", body = UploadResponse),
+        (status = 200, description = "How much arrived", body = SpeedUploadResponse),
         (status = 404, description = "Not offered here", body = crate::error::ErrorBody),
         (status = 413, description = "More than this instance allows", body = crate::error::ErrorBody),
         (status = 429, description = "Too many tests from this source", body = crate::error::ErrorBody),
@@ -156,7 +156,7 @@ pub async fn upload(
     MaybeUser(current): MaybeUser,
     ClientAddress(Origin { source, .. }): ClientAddress,
     body: Body,
-) -> Result<axum::Json<UploadResponse>> {
+) -> Result<axum::Json<SpeedUploadResponse>> {
     let limit = offered(&state, current.is_some())?;
     spend(&state, &source)?;
 
@@ -171,7 +171,7 @@ pub async fn upload(
             return Err(Error::PayloadTooLarge);
         }
     }
-    Ok(axum::Json(UploadResponse {
+    Ok(axum::Json(SpeedUploadResponse {
         received_bytes: received,
     }))
 }

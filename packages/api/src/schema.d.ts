@@ -3160,6 +3160,15 @@ export interface components {
          * @enum {string}
          */
         Source: "default" | "environment" | "panel";
+        /** @description What an upload test read. */
+        SpeedUploadResponse: {
+            /**
+             * Format: int64
+             * @description How many bytes arrived. The client times its own request and divides.
+             * @example 26214400
+             */
+            received_bytes: number;
+        };
         /**
          * @description What one instance is holding, at a glance.
          *
@@ -3389,14 +3398,51 @@ export interface components {
              */
             state?: string | null;
         };
-        /** @description What an upload test read. */
+        /** @description A session that has just been opened. */
         UploadResponse: {
             /**
-             * Format: int64
-             * @description How many bytes arrived. The client times its own request and divides.
-             * @example 26214400
+             * @description Whether the parts may go straight to the store instead of through here.
+             *
+             *     When `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`
+             *     each part to, and `POST /uploads/{id}/complete` finishes with the `ETag`
+             *     each `PUT` answered. `PATCH` still works either way.
+             *
+             *     Decided by where this upload was placed, and by whether the operator
+             *     has said a browser can reach that store, which is why it is here and not
+             *     in the capabilities: an instance with an S3 bucket and a local directory
+             *     answers differently for different uploads.
              */
-            received_bytes: number;
+            direct: boolean;
+            /** @description Identifier, and the last segment of the URL to continue at. */
+            id: string;
+            /**
+             * Format: int64
+             * @description How much was declared.
+             */
+            length: number;
+            /**
+             * Format: int64
+             * @description How much has arrived. Zero, here.
+             */
+            offset: number;
+            /**
+             * Format: int64
+             * @description How much to send per chunk, in bytes.
+             *
+             *     A chunk that is not the last is accepted only up to a multiple of this;
+             *     the rest comes back as a lower offset and has to be re-sent. Sending
+             *     exact multiples avoids that entirely.
+             */
+            part_size: number;
+            /**
+             * @description Proof that a later request is the same uploader, for an anonymous one.
+             *
+             *     **Store this.** It is shown once, and without it the upload cannot be
+             *     resumed after the page is closed, the situation resuming exists for.
+             *     `null`
+             *     when the uploader is signed in, since their credential already answers.
+             */
+            token?: string | null;
         };
         /** @description Body of `PUT /admin/users/{id}/roles`. */
         UserRolesRequest: {
@@ -6637,7 +6683,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UploadResponse"];
+                    "application/json": components["schemas"]["SpeedUploadResponse"];
                 };
             };
             /** @description Not offered here */
