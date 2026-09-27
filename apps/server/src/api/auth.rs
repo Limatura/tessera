@@ -232,8 +232,8 @@ pub(super) fn invite_refused() -> Error {
 ///
 /// # Errors
 ///
-/// `400` when the instance asks for a code and the one given is unknown, spent,
-/// expired or absent.
+/// `400` when the instance asks for a code: `invite_required` when none was
+/// given, `invite_unusable` when the one given is unknown, spent or expired.
 pub(super) async fn check_invite(state: &AppState, code: Option<&str>) -> Result<Option<Invite>> {
     if state.config().auth.registration != RegistrationPolicy::Invite {
         // An open instance ignores one instead of refusing it, so a client can
@@ -241,9 +241,11 @@ pub(super) async fn check_invite(state: &AppState, code: Option<&str>) -> Result
         return Ok(None);
     }
 
+    // Its own code, not the refusal below: nothing is being guessed at, and
+    // the form should ask for a code rather than call one wrong.
     let code = code.map(str::trim).filter(|code| !code.is_empty());
     let Some(code) = code else {
-        return Err(invite_refused());
+        return Err(Error::new(ErrorCode::InviteRequired));
     };
 
     let found = state

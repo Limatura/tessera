@@ -885,6 +885,7 @@
           "current_password_incorrect",
           "password_breached",
           "registration_closed",
+          "invite_required",
           "invite_unusable",
           "registration_link_unusable",
           "reset_link_unusable",

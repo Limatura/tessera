@@ -3658,3 +3658,48 @@ async fn each_account_failure_has_its_own_code() {
     let anonymous = body_json(app.empty(Method::GET, "/api/v1/sessions", Auth::None).await).await;
     assert_eq!(code_of(anonymous), "not_signed_in");
 }
+
+/// No code at all and a code that will not do are different things to tell a
+/// person: one asks for a code, the other says this one is wrong.
+#[tokio::test]
+async fn a_missing_invite_is_not_a_wrong_one() {
+    let app =
+        TestApp::with_config(|config| config.auth.registration = RegistrationPolicy::Invite).await;
+    let code_of = |body: &serde_json::Value| body["code"].as_str().unwrap_or_default().to_owned();
+
+    for missing in [None, Some("   ")] {
+        let body = body_json(
+            app.json(
+                Method::POST,
+                "/api/v1/auth/register",
+                Auth::None,
+                &serde_json::json!({
+                    "username": "nocode",
+                    "email": "nocode@example.com",
+                    "password": PASSWORD,
+                    "invite_code": missing,
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(code_of(&body), "invite_required", "{missing:?}: {body}");
+    }
+
+    let body = body_json(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "badcode",
+                "email": "badcode@example.com",
+                "password": PASSWORD,
+                "invite_code": "not-a-code",
+            }),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(code_of(&body), "invite_unusable", "{body}");
+}

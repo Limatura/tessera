@@ -259,6 +259,8 @@ error_codes! {
     PasswordBreached => BAD_REQUEST, "this password has appeared in a data breach; choose a different one";
     /// This instance takes no new accounts.
     RegistrationClosed => FORBIDDEN, "this instance is not accepting new accounts";
+    /// This instance takes accounts by invite, and none was given.
+    InviteRequired => BAD_REQUEST, "this instance takes new accounts by invite; give an invite code";
     /// The invite code is unknown, spent or expired.
     InviteUnusable => BAD_REQUEST, "that invite code is not usable";
     /// The registration link is unknown, spent or expired.
