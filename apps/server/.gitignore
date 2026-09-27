@@ -4,8 +4,10 @@
 *.db-shm
 *.db-wal
 
-# rust-embed source directory: populated by the web build, never committed.
+# rust-embed source directories: populated by the web and admin builds, never
+# committed.
 /assets/dist
+/assets/admin
 
 # insta leaves these behind when a snapshot changes; review then `cargo insta accept`.
 *.snap.new

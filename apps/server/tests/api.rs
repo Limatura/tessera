@@ -377,6 +377,32 @@ async fn missing_asset_is_a_404_rather_than_the_spa() {
     .await;
 }
 
+/// The admin panel is its own bundle at `/admin/`: every route in it opens the
+/// panel's entry point, not the site's, and a missing file there is a 404.
+#[tokio::test]
+async fn the_admin_panel_is_served_under_its_prefix() {
+    let app = TestApp::ready().await;
+    let site = body_string(expect_status(app.get("/").await, StatusCode::OK).await).await;
+    let panel = body_string(expect_status(app.get("/admin/").await, StatusCode::OK).await).await;
+    assert!(panel.contains("<!doctype html>"));
+    assert_ne!(panel, site, "`/admin/` served the site, not the panel");
+
+    for route in ["/admin", "/admin/users", "/admin/settings/storage"] {
+        let body = body_string(expect_status(app.get(route).await, StatusCode::OK).await).await;
+        assert_eq!(body, panel, "{route} is a route in the panel");
+    }
+    expect_status(
+        app.get("/admin/assets/does-not-exist.js").await,
+        StatusCode::NOT_FOUND,
+    )
+    .await;
+
+    // Only the prefix itself, not every path that starts with the word.
+    let lookalike =
+        body_string(expect_status(app.get("/administrator").await, StatusCode::OK).await).await;
+    assert_eq!(lookalike, site);
+}
+
 #[tokio::test]
 async fn path_traversal_is_refused() {
     let app = TestApp::ready().await;

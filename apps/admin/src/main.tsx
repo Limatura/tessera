@@ -17,6 +17,8 @@ const queryClient = new QueryClient({
 });
 
 const router = createRouter({
+  // 跟 vite 的 `base` 一致：正式環境是 `/admin`，dev 是根路徑。
+  basepath: import.meta.env.BASE_URL,
   context: { queryClient },
   defaultPendingComponent: () => <Loader />,
   defaultPreload: "intent",

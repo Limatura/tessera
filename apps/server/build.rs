@@ -1,11 +1,12 @@
-//! Prepares the directory that `rust-embed` compiles the SPA out of.
+//! Prepares the directories that `rust-embed` compiles the two SPAs out of.
 //!
-//! `rust-embed` needs its folder to exist at compile time, but `apps/web/dist` is a
-//! build output that may not have been produced yet (a fresh clone, a backend-only
-//! CI job, `cargo run` during API work). Instead of making every `cargo build`
-//! depend on a pnpm build, this script mirrors the web bundle into
-//! `apps/server/assets/dist` when it exists and drops in a placeholder page when it
-//! does not. The server therefore always compiles, and always serves *something*.
+//! `rust-embed` needs its folder to exist at compile time, but `apps/web/dist` and
+//! `apps/admin/dist` are build outputs that may not have been produced yet (a
+//! fresh clone, a backend-only CI job, `cargo run` during API work). Instead of
+//! making every `cargo build` depend on a pnpm build, this script mirrors each
+//! bundle into `apps/server/assets/` when it exists and drops in a placeholder
+//! page when it does not. The server therefore always compiles, and always serves
+//! *something*.
 //!
 //! Errors are returned, not panicked. Cargo prints the `Err` and fails the
 //! build: the same outcome without tripping the crate's `panic` lint.
@@ -40,33 +41,79 @@ cargo build --release</code></pre>
 </html>
 "#;
 
+/// The same, for the admin panel at `/admin/`.
+const ADMIN_PLACEHOLDER: &str = r#"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tessera admin</title>
+<style>
+  body { font: 16px/1.6 system-ui, sans-serif; margin: 4rem auto; max-width: 40rem; padding: 0 1rem; }
+  code { background: #eee; padding: .15em .4em; border-radius: .25em; }
+</style>
+</head>
+<body>
+<h1>tessera admin</h1>
+<p>No admin panel was embedded in this binary.</p>
+<p>Build it and recompile:</p>
+<pre><code>pnpm --filter admin build
+cargo build --release</code></pre>
+</body>
+</html>
+"#;
+
 fn main() -> Result<(), Box<dyn Error>> {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?);
-    let embed_dir = manifest_dir.join("assets").join("dist");
+    println!("cargo::rerun-if-changed=build.rs");
 
-    // Overridable so a release pipeline can point at an artifact directory instead
-    // of the in-repo web workspace.
-    println!("cargo::rerun-if-env-changed=TESSERA_WEB_DIST");
-    let source = env::var_os("TESSERA_WEB_DIST").map_or_else(
-        || manifest_dir.join("..").join("web").join("dist"),
+    mirror(
+        &manifest_dir,
+        "web",
+        "TESSERA_WEB_DIST",
+        "dist",
+        PLACEHOLDER,
+    )?;
+    mirror(
+        &manifest_dir,
+        "admin",
+        "TESSERA_ADMIN_DIST",
+        "admin",
+        ADMIN_PLACEHOLDER,
+    )?;
+
+    emit_build_revision(manifest_dir.as_path());
+
+    Ok(())
+}
+
+/// Copies `apps/<app>/dist` into `assets/<into>`, or leaves a placeholder.
+///
+/// The source is overridable through `override_var`, so a release pipeline can
+/// point at an artifact directory instead of the in-repo workspace.
+fn mirror(
+    manifest_dir: &Path,
+    app: &str,
+    override_var: &str,
+    into: &str,
+    placeholder: &str,
+) -> Result<(), Box<dyn Error>> {
+    let embed_dir = manifest_dir.join("assets").join(into);
+    println!("cargo::rerun-if-env-changed={override_var}");
+    let source = env::var_os(override_var).map_or_else(
+        || manifest_dir.join("..").join(app).join("dist"),
         PathBuf::from,
     );
     println!("cargo::rerun-if-changed={}", source.display());
-    println!("cargo::rerun-if-changed=build.rs");
 
     fs::create_dir_all(&embed_dir)?;
-
     if source.is_dir() {
         clear_dir(&embed_dir)?;
         copy_dir(&source, &embed_dir)?;
     }
-
     if is_empty(&embed_dir)? {
-        fs::write(embed_dir.join("index.html"), PLACEHOLDER)?;
+        fs::write(embed_dir.join("index.html"), placeholder)?;
     }
-
-    emit_build_revision(manifest_dir.as_path());
-
     Ok(())
 }
 

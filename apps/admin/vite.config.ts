@@ -4,7 +4,10 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // 正式 build 由 apps/server 嵌進 binary、掛在 `/admin/` 底下，資源路徑要帶這個
+  // 前綴；dev server 還是在根路徑，開發流程不變。
+  base: command === "build" ? "/admin/" : "/",
   plugins: [
     tailwindcss(),
     tanstackRouter({
@@ -37,4 +40,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));
