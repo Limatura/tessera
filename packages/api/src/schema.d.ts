@@ -50,17 +50,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Sends a link to the caller's address that proves it is theirs.
+         * Sends the caller a link proving their address is theirs.
          * @description Sent while the request waits, unlike a password reset: the caller is signed
-         *     in and knows their own address, so there is nothing for the timing to give
-         *     away, and a relay that is down is better said than hidden.
+         *     in and knows their own address, so timing reveals nothing, and a down relay
+         *     is better reported than hidden.
          *
          *     # Errors
          *
          *     `401` when not signed in, `403` when an API token was used, `404` when this
          *     instance has no accounts or sends no mail, `409` when the address is already
-         *     confirmed, `429` when that address has been sent as many as the window
-         *     allows, `503` when the relay would not take the message.
+         *     confirmed, `429` when that address has hit the send limit for the window,
+         *     `503` when the relay would not take the message.
          */
         post: operations["request_email_verification"];
         delete?: never;
@@ -80,12 +80,12 @@ export interface paths {
         put?: never;
         /**
          * Confirms an address from the link sent to it.
-         * @description Needs no session: the link is opened wherever the mail is read, which is
-         *     often not where the account is signed in. Holding the link is the proof.
+         * @description Needs no session: the link is opened wherever the mail is read, often not
+         *     where the account is signed in. Holding the link is the proof.
          *
          *     # Errors
          *
-         *     `400` when the link is unknown, spent, expired, or was sent to an address the
+         *     `400` when the link is unknown, used, expired, or was sent to an address the
          *     account no longer has. `404` when this instance has no accounts or sends no
          *     mail.
          */
@@ -323,21 +323,20 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reads a provider's discovery document, from here rather than the browser.
+         * Reads a provider's discovery document from the server, not the browser.
          * @description # Why the server and not the panel
          *
-         *     Discovery only says a provider *should* let a browser read its document,
-         *     and plenty do not: the panel's own fetch is refused by CORS on exactly the
-         *     providers a self-hosted instance tends to use. This server has no origin,
-         *     so the same fetch works, and it is the one sign-in will make: a document
-         *     this reaches is one the sign-in path can reach too, which a browser could
-         *     never establish.
+         *     Discovery only says a provider *should* let browsers read its document, and
+         *     many do not: the panel's own fetch is blocked by CORS on the very providers
+         *     self-hosted instances tend to use. The server has no origin, so the fetch
+         *     works, and it is the same fetch sign-in will make: a document reachable
+         *     here is reachable from the sign-in path, which a browser could never
+         *     confirm.
          *
          *     # What it does not do
          *
-         *     Touch the cache. This is a URL somebody is trying out in a form; writing
-         *     what it answered into the cache would let an unsaved value decide what a
-         *     real sign-in talks to.
+         *     Touch the cache. This is a URL being tried out in a form; caching its
+         *     answer would let an unsaved value decide what a real sign-in talks to.
          *
          *     # Errors
          *
@@ -506,9 +505,9 @@ export interface paths {
         put?: never;
         /**
          * Adds a backend, or replaces one of the same name.
-         * @description The new one is opened and reachable to the next request. The pool is rebuilt
-         *     here, not at the next restart, because "add a bucket, then restart"
-         *     is what this feature exists to avoid.
+         * @description The new backend is open and usable from the next request. The pool is
+         *     rebuilt now, not at the next restart, since avoiding "add a bucket, then
+         *     restart" is the point of this feature.
          *
          *     # Errors
          *
@@ -546,11 +545,11 @@ export interface paths {
         head?: never;
         /**
          * Turns direct access on or off for a backend.
-         * @description # Why this is not another `POST` of the whole backend
+         * @description # Why not another `POST` of the whole backend
          *
-         *     That works, and replaces the row. But it needs the URL and credentials sent
-         *     again, and those are sealed and never shown, so flipping one switch would
-         *     mean finding the secret key for a bucket again.
+         *     That works and replaces the row, but it needs the URL and credentials sent
+         *     again. Those are sealed and never shown, so flipping one switch would mean
+         *     digging up the bucket's secret key again.
          *
          *     # Errors
          *
@@ -775,23 +774,22 @@ export interface paths {
          * Ends the sessions a provider says are over.
          * @description # Why this answers in the OAuth error shape
          *
-         *     Every other endpoint here answers `{"code": ..., "message": ...}`. This one
-         *     answers `{"error": ..., "error_description": ...}`, because the caller is
-         *     not a client of this API. It is an identity provider following `OpenID`
-         *     Connect Back-Channel Logout 1.0, and section 2.8 says what it expects to
-         *     read when it is refused. A provider that cannot parse the refusal will keep
-         *     retrying a token that will never work.
+         *     Every other endpoint answers `{"code": ..., "message": ...}`. This one
+         *     answers `{"error": ..., "error_description": ...}` because the caller is an
+         *     identity provider following `OpenID` Connect Back-Channel Logout 1.0, whose
+         *     section 2.8 defines the refusal format. A provider that cannot parse the
+         *     refusal keeps retrying a token that will never work.
          *
          *     # Why it is unauthenticated
          *
-         *     The caller is a server with no account here. What stands in for a credential
-         *     is the token's signature, checked against keys fetched from the configured
-         *     issuer. See `auth::oidc::logout`.
+         *     The caller is a server with no account here. The token's signature, checked
+         *     against keys from the configured issuer, stands in for a credential. See
+         *     `auth::oidc::logout`.
          *
          *     # Errors
          *
-         *     `404` when accounts are switched off. A token that cannot be believed is a
-         *     `400` with the reason, never a `500`.
+         *     `404` when accounts are switched off. An untrustworthy token is a `400`
+         *     with the reason, never a `500`.
          */
         post: operations["backchannel_logout"];
         delete?: never;
@@ -943,8 +941,8 @@ export interface paths {
         };
         /**
          * Whether this instance has an identity provider.
-         * @description Answered whether or not one is configured, because a sign-in page has to ask
-         *     before it can know.
+         * @description Answers even when none is configured, since a sign-in page cannot know
+         *     without asking.
          *
          *     # Errors
          *
@@ -971,9 +969,9 @@ export interface paths {
          * @description # Errors
          *
          *     `404` when this instance does not check passwords against the breach list,
-         *     `400` for anything but five hex characters, `429` past this source's
-         *     allowance, `503` when the breach list cannot be reached. A form treats the
-         *     last as "no warning"; the check still runs when it is sent.
+         *     `400` for anything but five hex characters, `429` when this source is over
+         *     its limit, `503` when the breach list is unreachable. A form treats the
+         *     last as "no warning"; the check still runs on submit.
          */
         get: operations["pwned_range"];
         put?: never;
@@ -1072,7 +1070,7 @@ export interface paths {
          * Where the provider sends the browser back.
          * @description # Errors
          *
-         *     `404` when accounts are switched off. Everything else is a redirect, see the
+         *     `404` when accounts are switched off. Everything else is a redirect; see the
          *     module documentation.
          */
         get: operations["callback"];
@@ -1096,7 +1094,7 @@ export interface paths {
          * @description # Errors
          *
          *     `401` when nothing was signed in, `403` when authenticated with an API
-         *     token. Everything else is a redirect, because a browser is following this.
+         *     token. Everything else is a redirect, since a browser is following this.
          */
         get: operations["link"];
         put?: never;
@@ -1118,8 +1116,8 @@ export interface paths {
          * Sends the browser to the identity provider.
          * @description # Errors
          *
-         *     `404` when accounts are switched off. Everything else is a redirect back to
-         *     the sign-in page with a reason, because a browser is following this.
+         *     `404` when accounts are switched off. Everything else redirects back to the
+         *     sign-in page with a reason, since a browser is following this.
          */
         get: operations["start"];
         put?: never;
@@ -1173,12 +1171,11 @@ export interface paths {
         get: operations["get_preferences"];
         /**
          * Replaces the caller's own preferences.
-         * @description # Why an unknown name is a `400` and not a shrug
+         * @description # Why an unknown name is a `400`
          *
          *     These end up as attributes on the `<html>` element. Refusing anything
-         *     outside the lists is the whole of the check, and it belongs here rather than
-         *     at the point of rendering, where a value has already been stored and
-         *     whatever wrote it has already gone.
+         *     outside the lists is the entire check, and it belongs here, not at render
+         *     time, when the value is already stored and its writer long gone.
          *
          *     # Errors
          *
@@ -1413,25 +1410,25 @@ export interface paths {
          * Adds another file to a share.
          * @description # Why files arrive one at a time
          *
-         *     One request carrying five files loses five when it drops at the fourth,
-         *     exactly what uploading a folder of photographs over a home connection hits.
-         *     A file that fails here is retried on its own.
+         *     A request carrying five files loses all five when it drops at the fourth,
+         *     which is what uploading a folder of photos over a home connection runs
+         *     into. A file that fails here is retried alone.
          *
          *     # Why the share exists before its second file
          *
          *     There is no draft state. A share is created by its first file and grown by
-         *     the rest, so nothing has to remember to finish, and an interrupted upload
-         *     leaves a share holding what did arrive, not nothing.
+         *     the rest, so nothing has to be finalised, and an interrupted upload leaves a
+         *     share with what did arrive instead of nothing.
          *
-         *     The cost is that a link opened mid-upload shows part of the share. The link
-         *     is handed out afterwards, by the person doing the upload.
+         *     The cost is that a link opened mid-upload shows a partial share. The
+         *     uploader hands out the link afterwards.
          *
          *     # Errors
          *
          *     `400` for a name that is unusable or described the wrong way for the share,
          *     `403` when the caller cannot show it is theirs, `404` when no share has that
          *     code, `409` when the share holds text, `413` when the body is too large,
-         *     `507` when something is out of room. The body says whose ceiling that was.
+         *     `507` when something is out of room. The body says whose limit it was.
          */
         post: operations["add_share_file"];
         delete?: never;
@@ -1478,7 +1475,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Sends `bytes` bytes that mean nothing.
+         * Sends `bytes` bytes of filler.
          * @description # Errors
          *
          *     `404` when the instance does not offer the test, or does not offer it to
@@ -1504,7 +1501,7 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Reads a body and throws it away.
+         * Reads a body and discards it.
          * @description # Errors
          *
          *     As [`download`], and `413` when the body runs past `speed.max_bytes`.
@@ -1657,20 +1654,20 @@ export interface paths {
          * @description # Where the size is checked
          *
          *     Here, and only here. A part URL cannot be limited to a length, so this
-         *     completes the object and then asks the store how large it came out. One
-         *     that is not the size the session declared, and was charged against the
-         *     uploader's room for, is deleted and refused.
+         *     completes the object and then asks the store for its size. An object that
+         *     does not match the size the session declared, and was charged against the
+         *     uploader's quota, is deleted and refused.
          *
-         *     Until then the extra bytes sit in the bucket. That is the cost of not
-         *     having the bytes pass through here, and it is bounded by what a session
-         *     that already passed the size and room checks can write before this runs.
+         *     Until then the extra bytes sit in the bucket. That is the price of not
+         *     proxying the bytes, bounded by what a session that already passed the size
+         *     and quota checks can write before this runs.
          *
          *     # Errors
          *
-         *     `400` when the number of `ETag`s is not the number of parts, or the object
-         *     did not come out the declared size. `404` when there is no such session,
-         *     `409` when this upload cannot take parts directly or has already had parts
-         *     sent through this server, `410` when the session was abandoned.
+         *     `400` when the number of `ETag`s does not match the number of parts, or the
+         *     object did not come out the declared size. `404` when there is no such
+         *     session, `409` when this upload cannot take parts directly or already had
+         *     parts sent through this server, `410` when the session was abandoned.
          */
         post: operations["complete_upload"];
         delete?: never;
@@ -1688,19 +1685,18 @@ export interface paths {
         };
         /**
          * Hands out a URL to write one part straight to the store.
-         * @description # Why this exists
+         * @description # Why
          *
-         *     Every byte of a `PATCH` crosses this server twice: in from the uploader,
-         *     out to the bucket. On a self-hosted instance those are often the same
-         *     uplink. A part written to the store directly crosses it zero times.
+         *     Every byte of a `PATCH` crosses this server twice, in from the uploader and
+         *     out to the bucket, and on a self-hosted instance both often share one
+         *     uplink. A part written directly to the store crosses it zero times.
          *
          *     # What it does not check
          *
-         *     The part's size. The URL carries the part number and the upload it belongs
-         *     to, both signed, but a length cannot be: `object_store` refuses to sign
-         *     `content-length`. So a client may write a part of any size, and nothing
-         *     finds out until `complete` asks the store how large the object came out.
-         *     See [`complete`].
+         *     The part's size. The URL signs the part number and upload id, but not a
+         *     length: `object_store` refuses to sign `content-length`. So a client can
+         *     write a part of any size, which is only caught when `complete` asks the
+         *     store how large the object came out. See [`complete`].
          *
          *     # Errors
          *
@@ -1771,8 +1767,8 @@ export interface components {
             user_agent?: string | null;
         };
         /**
-         * @description [`PageMeta`](crate::api::shares::PageMeta) plus the one fact this list needs
-         *     that the others do not.
+         * @description [`PageMeta`](crate::api::shares::PageMeta) plus the one extra fact this list
+         *     needs.
          */
         AccessLogMeta: {
             /**
@@ -1785,7 +1781,7 @@ export interface components {
             enabled: boolean;
             /**
              * Format: int64
-             * @description The page size actually used.
+             * @description The page size used.
              */
             limit: number;
             /**
@@ -1815,10 +1811,9 @@ export interface components {
             email: string;
             /**
              * Format: date-time
-             * @description When the address was last proven to reach this person, or `null` if it
-             *     never has been.
+             * @description When the address was last proven to reach this user, or `null` if never.
              *
-             *     Set by confirming a registration, by a provider that vouches for the
+             *     Set by confirming a registration, by a provider vouching for the
              *     address, or by following the link from
              *     `POST /account/email/verification`. Cleared when the address changes.
              * @example 2026-09-26T08:00:00Z
@@ -1900,7 +1895,7 @@ export interface components {
             active: boolean;
             /**
              * Format: int64
-             * @description How many bytes downloads of it sent straight to a store asked for.
+             * @description Bytes requested by its downloads redirected straight to a store.
              *     Requested, not delivered.
              */
             bytes_redirected: number;
@@ -1953,9 +1948,9 @@ export interface components {
             /**
              * @description The uploader's account name, or `null` for an anonymous upload.
              *
-             *     Beside the id so the listing can say who without a request per row. An
-             *     account deleted since answers with the name its row was left with,
-             *     which starts `gone-`.
+             *     Included next to the id so the listing can show it without a request
+             *     per row. An account deleted since returns its tombstone name, which
+             *     starts with `gone-`.
              * @example alice
              */
             owner_username?: string | null;
@@ -1975,9 +1970,9 @@ export interface components {
         /**
          * @description One account, as an administrator sees it.
          *
-         *     What a person sees of themselves, plus the one thing only somebody else
-         *     needs: whether the account may sign in. A person never sees their own
-         *     `state` as anything but active, since a disabled one cannot sign in to ask.
+         *     What a user sees of themselves, plus the one thing only an administrator
+         *     needs: whether the account may sign in. Users never see their own `state`
+         *     as anything but active, since a disabled account cannot sign in to ask.
          */
         AdminUserResponse: components["schemas"]["AccountResponse"] & {
             /** @description Whether it may sign in, or has been deleted. */
@@ -1992,8 +1987,8 @@ export interface components {
              */
             capacity_bytes?: number | null;
             /**
-             * @description Whether browsers may be sent to it directly. Only if a browser can reach
-             *     it; see [`BackendResponse::direct_access`].
+             * @description Whether browsers may be redirected to it directly. Only if browsers can
+             *     reach it; see [`BackendResponse::direct_access`].
              */
             direct_access?: boolean;
             /**
@@ -2016,11 +2011,11 @@ export interface components {
         /**
          * @description One backend, as the panel draws it.
          *
-         *     Four booleans answering four unrelated questions: where new uploads go,
-         *     whether this one still takes them, whether the process can reach it, and
-         *     whether browsers may be sent to it. Collapsing any pair into an enum would
-         *     invent a state the system does not have, since a read-only backend can be
-         *     the default and an unreachable one can be either.
+         *     Four booleans for four unrelated questions: where new uploads go, whether
+         *     this one still accepts them, whether the process can reach it, and whether
+         *     browsers may be redirected to it. Merging any pair into an enum would
+         *     invent a state that does not exist, since a read-only backend can be the
+         *     default and an unreachable one can be either.
          */
         BackendResponse: {
             /**
@@ -2033,11 +2028,11 @@ export interface components {
              */
             capacity_bytes?: number | null;
             /**
-             * @description Whether browsers are sent to it directly, to download a file or write an
-             *     upload's parts, instead of through this server.
+             * @description Whether browsers are redirected to it directly, to download a file or
+             *     write an upload's parts, instead of going through this server.
              *
-             *     Only S3 and GCS can be sent to. On anything else this may be `true` and
-             *     still change nothing.
+             *     Only S3 and GCS support this. On anything else it may be `true` and
+             *     change nothing.
              */
             direct_access: boolean;
             /** @description Whether new uploads go here. */
@@ -2072,8 +2067,8 @@ export interface components {
         BreachedSuffixes: {
             /**
              * @description The remaining 35 characters of every breached hash under the prefix,
-             *     uppercase. The padding the service adds to hide how many there are is
-             *     taken out, so a match here is a real one.
+             *     uppercase. The service's padding entries, which hide the real count,
+             *     are removed, so any match here is real.
              * @example [
              *       "1E4C9B93F3F0682250B6CF8331B7EE68FD8"
              *     ]
@@ -2106,8 +2101,8 @@ export interface components {
              */
             access_log: boolean;
             /**
-             * @description Whether a new account password is checked against known breaches, so
-             *     a form can look it up as it is typed; see `GET /auth/pwned/{prefix}`.
+             * @description Whether a new account password is checked against known breaches, so a
+             *     form can look it up while typing; see `GET /auth/pwned/{prefix}`.
              */
             account_password_breach_check: boolean;
             /**
@@ -2124,8 +2119,8 @@ export interface components {
             account_password_requires_digit: boolean;
             /**
              * @description Whether an account password needs both an uppercase and a lowercase
-             *     letter. How a character is classed is on `PasswordPolicy`; a client that
-             *     classes them differently will pass a password the server refuses.
+             *     letter. Character classes are defined on `PasswordPolicy`; a client that
+             *     classifies differently will accept passwords the server refuses.
              */
             account_password_requires_mixed_case: boolean;
             /** @description Whether an account password needs a symbol. A space is not one. */
@@ -2219,9 +2214,9 @@ export interface components {
             /**
              * @description Whether this caller may run a speed test.
              *
-             *     Per caller, not per instance: an instance can offer the test to
-             *     accounts and not to visitors, and a visitor should be shown the same
-             *     thing as on an instance that does not offer it at all.
+             *     Per caller, not per instance: an instance can offer the test to accounts
+             *     but not visitors, and a visitor should see the same as on an instance
+             *     without the test.
              */
             speed_test: boolean;
             /**
@@ -2260,10 +2255,9 @@ export interface components {
         /** @description Body of `POST /uploads/{id}/complete`. */
         CompleteUploadRequest: {
             /**
-             * @description The `ETag` each part's `PUT` answered with, in part order from one.
+             * @description The `ETag` each part's `PUT` returned, in part order from one.
              *
-             *     Exactly as many as the upload has parts, as sent by the store: quotes
-             *     included, if it included them.
+             *     One per part, as the store sent it, quotes included if it included them.
              * @example [
              *       "\"3858f62230ac3c915f300c664312c11f\"",
              *       "\"9b2cf535f27731c974343645a3985328\""
@@ -2401,32 +2395,32 @@ export interface components {
         /** @description Body of `POST /admin/settings/oidc/discovery`. */
         DiscoveryProbeRequest: {
             /**
-             * @description The issuer, or the `.well-known` URL copied from the provider's own
-             *     documentation. Either is accepted: the suffix is removed before the
-             *     document is fetched, and it is `issuer` that comes back.
+             * @description The issuer, or the `.well-known` URL copied from the provider's docs.
+             *     Either works: the suffix is stripped before fetching, and `issuer` is
+             *     what comes back.
              * @example https://id.example.com
              */
             url: string;
         };
         /** @description What a provider says about itself, as the panel needs it. */
         DiscoveryProbeResponse: {
-            /** @description Whether it will tell this instance when somebody signs out. */
+            /** @description Whether it notifies this instance when a user signs out. */
             backchannel_logout_supported: boolean;
             /**
-             * @description The claims it says it can release. Without `email_verified` here,
-             *     `link_by_email = when_verified` will never link anybody through this
-             *     provider; `always` or signing in and attaching it is what is left.
+             * @description The claims it advertises. Without `email_verified`,
+             *     `link_by_email = when_verified` will never link anyone through this
+             *     provider; the options left are `always`, or signing in and linking it.
              */
             claims_supported: string[];
             /**
-             * @description The provider's own name for itself, which is what `auth.oidc.issuer`
-             *     has to be set to.
+             * @description The provider's own issuer value, which is what `auth.oidc.issuer` must
+             *     be set to.
              * @example https://id.example.com
              */
             issuer: string;
             /**
-             * @description The scopes it advertises, for a form that offers them rather than
-             *     asking somebody to type them.
+             * @description The scopes it advertises, so a form can offer them instead of having the
+             *     operator type them.
              */
             scopes_supported: string[];
         };
@@ -2481,11 +2475,10 @@ export interface components {
             /**
              * @description Whether removing this one would leave the account with no way in.
              *
-             *     Sent rather than left for the client to work out: the client would need
-             *     to know whether a password exists, which nothing else tells it.
+             *     Computed here because the client cannot tell whether a password exists.
              */
             is_last_way_in: boolean;
-            /** @description Which provider vouched for this. */
+            /** @description The provider that vouched for this. */
             provider: string;
         };
         /**
@@ -2546,19 +2539,18 @@ export interface components {
         /**
          * @description What a client needs to draw pagination, for any paged list.
          *
-         *     # Why the list endpoints have an envelope and nothing else does
+         *     # Why only list endpoints have an envelope
          *
-         *     A paged response has two things in it: the rows, and facts about the
-         *     collection they came from. Without somewhere to put the second, `total`
-         *     ends up beside the rows under a name invented per endpoint, and a client
-         *     reading two lists reads them two ways. Every other endpoint answers with
-         *     one object and has nothing of the kind to carry, so wrapping those would
-         *     add a level of nesting that says nothing.
+         *     A paged response carries the rows and facts about the collection. Without a
+         *     place for the latter, `total` ends up beside the rows under a per-endpoint
+         *     name, and clients read each list differently. Other endpoints return a
+         *     single object with nothing like that to carry, so wrapping them would only
+         *     add nesting.
          */
         PageMeta: {
             /**
              * Format: int64
-             * @description The page size actually used, which is not always the one asked for.
+             * @description The page size used, which is not always the one requested.
              * @example 50
              */
             limit: number;
@@ -2581,7 +2573,7 @@ export interface components {
             expires_at: string;
             /**
              * @description Where to `PUT` the part's bytes. The response carries an `ETag` header,
-             *     which is what `complete` needs back.
+             *     which `complete` needs back.
              */
             url: string;
         };
@@ -2656,10 +2648,10 @@ export interface components {
             privileged: boolean;
         };
         /**
-         * @description One person's preferences.
+         * @description One user's preferences.
          *
-         *     One field so far. Language, time zone and clock format are the ones already
-         *     asked for, and each will be another field here rather than another endpoint.
+         *     One field so far. Language, time zone and clock format have been requested,
+         *     and each will be another field here, not another endpoint.
          */
         PreferencesResponse: {
             /**
@@ -2668,7 +2660,7 @@ export interface components {
              *     `mode` is one of `light`, `dark`, `system`; `theme` one of `default`,
              *     `graphite`, `sepia`; `accent` one of `violet`, `rose`, `orange`,
              *     `amber`, `green`, `teal`, `blue`. Any of the three may be absent,
-             *     meaning this person has no opinion and follows the instance.
+             *     meaning the user has no opinion and follows the instance.
              */
             appearance: Record<string, never>;
         };
@@ -2708,9 +2700,8 @@ export interface components {
             /**
              * @description `link` or `password` for an end-to-end encrypted share, `null` otherwise.
              *
-             *     Given before unlocking, with the salt below. A client whose key comes
-             *     from the password has to derive it before it can present the password
-             *     at all.
+             *     Sent before unlocking, with the salt below, since a client whose key
+             *     comes from the password must derive it before presenting the password.
              * @example password
              */
             encryption?: string | null;
@@ -2730,9 +2721,9 @@ export interface components {
             /** @description Syntax-highlighting hint. */
             language?: string | null;
             /**
-             * @description Whether it is waiting for the malware scanner, and so cannot be
-             *     downloaded yet. `false` while locked: a locked share says nothing about
-             *     its content.
+             * @description Whether it is waiting for the malware scanner and so cannot be
+             *     downloaded yet. `false` while locked, since a locked share reveals
+             *     nothing about its content.
              */
             scanning: boolean;
             /** @description The title and a note's language, sealed, on an encrypted share. */
@@ -2982,12 +2973,11 @@ export interface components {
              */
             refusal?: string | null;
             /**
-             * @description Whether this holds a credential this endpoint will write and never
-             *     return.
+             * @description Whether this holds a credential this endpoint writes but never returns.
              *
              *     When true, `value` is a boolean saying whether one is set, never the
-             *     credential itself. A screen draws "configured" beside an empty field
-             *     rather than pre-filling it with something it cannot read back.
+             *     credential itself. A screen shows "configured" next to an empty field
+             *     instead of pre-filling something it cannot read back.
              */
             secret: boolean;
             /** @description Which layer supplied it. */
@@ -3097,8 +3087,8 @@ export interface components {
              */
             path: string;
             /**
-             * @description Whether it is waiting for the malware scanner. It cannot be downloaded
-             *     until it is not; the answer then is `423` with `Retry-After`.
+             * @description Whether it is waiting for the malware scanner. Until it is done,
+             *     downloads answer `423` with `Retry-After`.
              */
             scanning: boolean;
             /** @description The title and a note's language, sealed, on an encrypted share. */
@@ -3149,9 +3139,9 @@ export interface components {
             sealed_name?: string | null;
             /**
              * Format: int64
-             * @description How many bytes it holds.
+             * @description Its size in bytes.
              *
-             *     Sealed bytes in an encrypted share, which is what a download sends.
+             *     For an encrypted share, the sealed size, which is what a download sends.
              */
             size_bytes: number;
         };
@@ -3191,11 +3181,11 @@ export interface components {
             administrators: number;
             /**
              * Format: int64
-             * @description How many bytes downloads sent straight to a store asked for.
+             * @description Bytes requested by downloads redirected straight to a store.
              *
-             *     Requested, not delivered: the store does not say what it sent, so an
-             *     abandoned download counts in full here. Separate from `bytes_served`
-             *     so that one keeps meaning what left this machine.
+             *     Requested, not delivered: the store does not report what it sent, so an
+             *     abandoned download counts in full. Kept separate so `bytes_served` still
+             *     means what left this machine.
              */
             bytes_redirected: number;
             /**
@@ -3325,7 +3315,7 @@ export interface components {
         };
         /** @description Body of `PATCH /admin/storage/backends/{name}`. */
         UpdateBackendRequest: {
-            /** @description Whether browsers may be sent to it directly. */
+            /** @description Whether browsers may be redirected to it directly. */
             direct_access: boolean;
         };
         /** @description Body of `PUT /me/preferences`. */
@@ -3364,9 +3354,9 @@ export interface components {
             /**
              * @description Whether this account administers the instance.
              *
-             *     Omitted leaves its role as it is. Sending it always rewrites the role
+             *     Omit to leave the role unchanged. Sending it always rewrites the role
              *     (`true` to `owner`, `false` to none), so a client changing only `state`
-             *     or a quota must leave it out, or it demotes the account as a side effect.
+             *     or a quota must omit it, or it demotes the account as a side effect.
              */
             is_admin?: boolean | null;
             /**
@@ -3401,16 +3391,16 @@ export interface components {
         /** @description A session that has just been opened. */
         UploadResponse: {
             /**
-             * @description Whether the parts may go straight to the store instead of through here.
+             * @description Whether parts may go straight to the store instead of through here.
              *
              *     When `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`
              *     each part to, and `POST /uploads/{id}/complete` finishes with the `ETag`
-             *     each `PUT` answered. `PATCH` still works either way.
+             *     each `PUT` returned. `PATCH` works either way.
              *
-             *     Decided by where this upload was placed, and by whether the operator
-             *     has said a browser can reach that store, which is why it is here and not
-             *     in the capabilities: an instance with an S3 bucket and a local directory
-             *     answers differently for different uploads.
+             *     Depends on where this upload was placed and whether the operator has
+             *     marked that store browser-reachable, which is why it is here and not in
+             *     the capabilities: an instance with an S3 bucket and a local directory
+             *     answers differently per upload.
              */
             direct: boolean;
             /** @description Identifier, and the last segment of the URL to continue at. */
@@ -6164,13 +6154,13 @@ export interface operations {
                  */
                 key_salt?: string;
                 /**
-                 * @description For an encrypted file: its name and media type, sealed. Takes the place
-                 *     of `filename`, and like it, makes this a file share.
+                 * @description For an encrypted file: its name and media type, sealed. Replaces
+                 *     `filename` and, like it, makes this a file share.
                  */
                 sealed_name?: string;
                 /**
-                 * @description For an encrypted share: its title and a note's language, sealed. Takes
-                 *     the place of `title` and `language`.
+                 * @description For an encrypted share: its title and a note's language, sealed.
+                 *     Replaces `title` and `language`.
                  */
                 sealed_details?: string;
             };
@@ -6453,8 +6443,8 @@ export interface operations {
                  */
                 filename?: string;
                 /**
-                 * @description Its name and media type, sealed, when the share is encrypted. Takes the
-                 *     place of `filename` there.
+                 * @description Its name and media type, sealed, when the share is encrypted. Replaces
+                 *     `filename` there.
                  */
                 sealed_name?: string;
             };
@@ -6612,9 +6602,9 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Bytes to send. Omit for as much as this instance allows; more than that
-                 *     is refused rather than quietly shortened, so a client is never told it
-                 *     measured a transfer it did not make.
+                 * @description Bytes to send. Omit for the instance maximum. Larger values are refused,
+                 *     not silently shortened, so a client never reports a transfer it did not
+                 *     make.
                  * @example 26214400
                  */
                 bytes?: number;
@@ -6876,8 +6866,8 @@ export interface operations {
                 /** @description For `encryption=password`: the salt, as for `POST /shares`. */
                 key_salt?: string;
                 /**
-                 * @description For a file in an encrypted share: its name and media type, sealed. Takes
-                 *     the place of `filename`.
+                 * @description For a file in an encrypted share: its name and media type, sealed.
+                 *     Replaces `filename`.
                  */
                 sealed_name?: string;
             };

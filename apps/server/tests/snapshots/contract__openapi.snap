@@ -2183,7 +2183,7 @@ expression: document
         "description": "A session that has just been opened.",
         "properties": {
           "direct": {
-            "description": "Whether the parts may go straight to the store instead of through here.\n\nWhen `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`\neach part to, and `POST /uploads/{id}/complete` finishes with the `ETag`\neach `PUT` answered. `PATCH` still works either way.\n\nDecided by where this upload was placed, and by whether the operator\nhas said a browser can reach that store, which is why it is here and not\nin the capabilities: an instance with an S3 bucket and a local directory\nanswers differently for different uploads.",
+            "description": "Whether parts may go straight to the store instead of through here.\n\nWhen `true`, `GET /uploads/{id}/parts/{number}` hands out a URL to `PUT`\neach part to, and `POST /uploads/{id}/complete` finishes with the `ETag`\neach `PUT` returned. `PATCH` works either way.\n\nDepends on where this upload was placed and whether the operator has\nmarked that store browser-reachable, which is why it is here and not in\nthe capabilities: an instance with an S3 bucket and a local directory\nanswers differently per upload.",
             "type": "boolean"
           },
           "id": {
