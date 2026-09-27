@@ -1729,7 +1729,7 @@ async fn ingest_into<'a>(
         };
         size_bytes = size_bytes.saturating_add(u64::try_from(chunk.len()).unwrap_or(u64::MAX));
         if size_bytes > limit {
-            return Err(Error::PayloadTooLarge);
+            return Err(Error::new(ErrorCode::PayloadTooLarge).with_detail("limit_bytes", limit));
         }
         // Checked as it arrives: a paste ten times the limit should stop at the
         // limit, not be read in full and then refused.

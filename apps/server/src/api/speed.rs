@@ -169,7 +169,7 @@ pub async fn upload(
         })?;
         received = received.saturating_add(to_u64(chunk.len()));
         if received > limit {
-            return Err(Error::PayloadTooLarge);
+            return Err(Error::new(ErrorCode::PayloadTooLarge).with_detail("limit_bytes", limit));
         }
     }
     Ok(axum::Json(SpeedUploadResponse {

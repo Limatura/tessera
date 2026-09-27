@@ -233,11 +233,11 @@ pub async fn create(
     // `server.max_body_bytes` for themselves has not raised it for strangers.
     // Refused here, not at the first `PATCH`, so the client learns before it
     // starts sending.
-    if declared
-        > crate::api::shares::max_file_bytes(&state, current.as_ref().map(|current| &current.user))
-            .await?
-    {
-        return Err(Error::PayloadTooLarge);
+    let limit =
+        crate::api::shares::max_file_bytes(&state, current.as_ref().map(|current| &current.user))
+            .await?;
+    if declared > limit {
+        return Err(Error::new(ErrorCode::PayloadTooLarge).with_detail("limit_bytes", limit));
     }
     // Checked before a byte is accepted, not as they arrive. An upload that
     // cannot possibly fit should be refused while the client can still act

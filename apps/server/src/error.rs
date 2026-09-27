@@ -203,7 +203,8 @@ error_codes! {
     SessionRequired => FORBIDDEN, "this needs a signed-in browser session, not an API token";
     /// The account must set a new password before anything else.
     PasswordChangeRequired => FORBIDDEN, "set a new password before doing anything else";
-    /// The body is past `server.max_body_bytes`.
+    /// Larger than this caller may send in one file. `details.limit_bytes`,
+    /// when the refusal comes from a limit rather than from where it would go.
     PayloadTooLarge => PAYLOAD_TOO_LARGE, "the request body exceeds the configured limit";
     /// A storage ceiling would be passed. `details.tier`: `account`, `role` or `instance`.
     InsufficientStorage => INSUFFICIENT_STORAGE, "there is no room for more content";

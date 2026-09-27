@@ -3680,12 +3680,33 @@ async fn a_role_can_be_held_below_the_instance_limit() {
         StatusCode::CREATED,
     )
     .await;
-    assert_eq!(
-        upload_as(&app, &cookie, "?filename=big.bin", &vec![2_u8; 8000])
-            .await
-            .status(),
-        StatusCode::PAYLOAD_TOO_LARGE,
-    );
+    let refused = body_json(
+        expect_status(
+            upload_as(&app, &cookie, "?filename=big.bin", &vec![2_u8; 8000]).await,
+            StatusCode::PAYLOAD_TOO_LARGE,
+        )
+        .await,
+    )
+    .await;
+    // The figure a client needs to say "at most 4 KiB", on both ways in.
+    assert_eq!(refused["details"]["limit_bytes"], 4096, "{refused}");
+    let resumable = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/uploads?filename=big.bin")
+                    .header(header::COOKIE, &cookie)
+                    .header("upload-length", "8000"),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::PAYLOAD_TOO_LARGE,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(resumable["details"]["limit_bytes"], 4096, "{resumable}");
 }
 
 /// Nearest wins in both directions, so one person can be raised without
