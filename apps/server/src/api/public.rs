@@ -303,7 +303,9 @@ async fn raw(
     // the caller's mistake, and a mistake must not cost the share one of its
     // retrievals. Anything that can be refused without looking at the content
     // belongs on this side of the gate.
-    if share.kind != ShareKind::Text {
+    // A link's address reads as text too, for a client that wants to show
+    // where it goes rather than go there.
+    if !matches!(share.kind, ShareKind::Text | ShareKind::Link) {
         return Err(Error::new(ErrorCode::ShareIsFile));
     }
     // Sealed bytes labelled as UTF-8 text are useless to a reader; only the page
@@ -382,6 +384,9 @@ async fn download(
         &source,
     )
     .await?;
+    if share.kind == ShareKind::Link {
+        return follow(&state, &share).await;
+    }
     // After `permit`, so the password, expiry and access log are all checked
     // before the client is redirected anywhere.
     if matches!(payload, Payload::Content)
@@ -418,6 +423,41 @@ async fn download(
         },
     )
     .await
+}
+
+/// Sends the client to where a link share points.
+///
+/// After `permit`, like everything else a download hands out: the password,
+/// the expiry, the use limit and the access log all apply to a link as they do
+/// to a file.
+///
+/// `302`, and never cached. A cached redirect would skip every one of those
+/// checks on the next visit, and a permanent one would outlive the share.
+/// Without a referrer, so the page it lands on is not told this share's code.
+async fn follow(state: &AppState, share: &Share) -> Result<Response> {
+    let text = state
+        .shares
+        .text_of(share.id)
+        .await?
+        .ok_or(Error::NotFound)?;
+    // Checked when it was stored, so this only fails on a row that was
+    // changed behind the server's back.
+    let location = std::str::from_utf8(&text.content)
+        .ok()
+        .and_then(|address| HeaderValue::from_str(address).ok())
+        .ok_or(Error::NotFound)?;
+    Ok((
+        StatusCode::FOUND,
+        [
+            (header::LOCATION, location),
+            (header::CACHE_CONTROL, HeaderValue::from_static("no-store")),
+            (
+                header::REFERRER_POLICY,
+                HeaderValue::from_static("no-referrer"),
+            ),
+        ],
+    )
+        .into_response())
 }
 
 /// Redirects a download to the store itself, when that is safe.

@@ -109,6 +109,11 @@ pub struct ShareBody(
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct CreateShareParams {
+    /// `link` to make a share that sends whoever opens it to the web address in
+    /// the body, an `http` or `https` URL. Omit for a file or a note, which the
+    /// other parameters tell apart.
+    #[param(example = "link")]
+    pub kind: Option<String>,
     /// Original file name. Its presence is what makes this a file share rather
     /// than a note.
     #[param(example = "project.zip")]
@@ -158,7 +163,7 @@ pub struct ShareResponse {
     /// links. The caller already knows the origin it called.
     #[schema(example = "/s/0ZPQ4M7K")]
     pub path: String,
-    /// `text` or `file`.
+    /// `text`, `file` or `link`.
     #[schema(example = "file")]
     pub kind: String,
     /// Display name.
@@ -437,6 +442,7 @@ pub async fn create(
         updated_at: now,
     };
 
+    let scan = crate::scan::initial(&state, encryption.is_some());
     let content = match kind {
         ShareKind::File => NewContent::File(NewFile {
             segments,
@@ -446,17 +452,11 @@ pub async fn create(
             // stored XSS on our own origin.
             content_type: recorded_type(encryption.is_some(), &headers),
             sealed_name,
-            scan: crate::scan::initial(&state, encryption.is_some()),
+            scan,
             size_bytes,
             storage,
         }),
-        ShareKind::Text => NewContent::Text {
-            language,
-            // Text is its own row and `ingest` refuses anything it could not
-            // hold, so this is always present by the time a share exists.
-            body: inline.unwrap_or_default(),
-            scan: crate::scan::initial(&state, encryption.is_some()),
-        },
+        ShareKind::Text | ShareKind::Link => written(kind, language, inline, scan)?,
     };
     let share = insert_with_fresh_code(&state, share, &content).await?;
     let content = state.shares.content_of(&share).await?;
@@ -468,9 +468,69 @@ pub async fn create(
     Ok((StatusCode::CREATED, Json(response)).into_response())
 }
 
+/// The row a note or a link is kept in.
+///
+/// `body` is always present by the time a share exists: text is its own row,
+/// and `ingest` refuses anything it could not hold.
+fn written(
+    kind: ShareKind,
+    language: Option<String>,
+    body: Option<Vec<u8>>,
+    scan: Option<crate::db::repository::scan::Scan>,
+) -> Result<NewContent> {
+    let body = body.unwrap_or_default();
+    Ok(if kind == ShareKind::Link {
+        // An address, not content: there is nothing in it for a scanner to
+        // find, and what it points at can change after any verdict.
+        NewContent::Text {
+            language: None,
+            body: link_target(&body)?.into_bytes(),
+            scan: None,
+        }
+    } else {
+        NewContent::Text {
+            language,
+            body,
+            scan,
+        }
+    })
+}
+
+/// The longest web address a link share takes, in bytes. Past two thousand
+/// or so, browsers and servers along the way start refusing it anyway.
+const MAX_LINK_BYTES: usize = 2048;
+
+/// The address a link share sends people to, checked: `http` or `https`, with
+/// a host.
+///
+/// Anything else is refused rather than stored. A `javascript:` or `data:`
+/// address in a `Location` header is at best a broken redirect, and this
+/// server's name on it makes it worth trying.
+fn link_target(body: &[u8]) -> Result<String> {
+    let refused = || {
+        Error::invalid("url", "http_url")
+            .with_message("the body must be one `http` or `https` address")
+    };
+    if body.len() > MAX_LINK_BYTES {
+        return Err(Error::new(ErrorCode::ValueLength)
+            .with_detail("field", "url")
+            .with_detail("max", MAX_LINK_BYTES)
+            .with_message(format!(
+                "the address must be at most {MAX_LINK_BYTES} bytes"
+            )));
+    }
+    let text = std::str::from_utf8(body).map_err(|_| refused())?.trim();
+    let url = url::Url::parse(text).map_err(|_| refused())?;
+    if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none_or(str::is_empty) {
+        return Err(refused());
+    }
+    Ok(url.into())
+}
+
 /// What a new share says about itself, each part checked.
 struct Described {
-    /// A name, sealed or not, is what makes a share a file share.
+    /// `link` if asked for; otherwise a name, sealed or not, is what makes a
+    /// share a file share.
     kind: ShareKind,
     filename: Option<String>,
     title: Option<String>,
@@ -483,10 +543,36 @@ struct Described {
 /// Takes the descriptive parameters out of a creation request and checks them
 /// together: an encrypted share may only describe itself sealed.
 fn described(state: &AppState, params: &mut CreateShareParams) -> Result<Described> {
+    let link = match params.kind.take().as_deref() {
+        None => false,
+        Some("link") => true,
+        Some(_) => {
+            return Err(Error::invalid("kind", "one_of")
+                .with_message("`kind` must be `link`, or omitted for a file or a note"));
+        }
+    };
+    if link {
+        // The server has to read the address to send anyone to it, and there
+        // is nothing to name or highlight.
+        let unwanted = [
+            ("filename", params.filename.is_some()),
+            ("sealed_name", params.sealed_name.is_some()),
+            ("language", params.language.is_some()),
+            ("encryption", params.encryption.is_some()),
+            ("key_salt", params.key_salt.is_some()),
+            ("sealed_details", params.sealed_details.is_some()),
+        ];
+        if let Some((field, _)) = unwanted.iter().find(|(_, given)| *given) {
+            return Err(Error::invalid(field, "not_for_link")
+                .with_message(format!("`{field}` does not apply to a link share")));
+        }
+    }
     let filename = checked_label(params.filename.take(), "filename", MAX_TEXT_FIELD)?;
     let sealed_name = sealed::checked(params.sealed_name.take(), "sealed_name")?;
     let described = Described {
-        kind: if filename.is_some() || sealed_name.is_some() {
+        kind: if link {
+            ShareKind::Link
+        } else if filename.is_some() || sealed_name.is_some() {
             ShareKind::File
         } else {
             ShareKind::Text
@@ -2652,7 +2738,7 @@ pub async fn add_file(
         return Err(Error::NotFound);
     }
 
-    if share.kind == ShareKind::Text {
+    if share.kind != ShareKind::File {
         return Err(Error::new(ErrorCode::ShareIsText));
     }
 

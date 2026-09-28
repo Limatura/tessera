@@ -450,6 +450,28 @@ async fn serve_share_page(
     let Some((share, content)) = preview_target(state, code).await else {
         return serve_index(state);
     };
+    // A link with nothing to ask goes straight on, through the download route
+    // so that route's checks and access log are the only ones. A password
+    // needs the page to ask for it. A use limit needs a person to click:
+    // whatever unfurls a link follows it the moment it is pasted, and would
+    // spend a one-time link before anyone opened it.
+    if share.kind == crate::db::repository::share::ShareKind::Link
+        && !share.needs_password()
+        && share.use_limit.is_none()
+        && matches!(
+            share.availability_at(time::OffsetDateTime::now_utc()),
+            crate::db::repository::share::Availability::Available
+        )
+    {
+        return (
+            StatusCode::FOUND,
+            [
+                (header::LOCATION, format!("/s/{}/download", share.code)),
+                (header::CACHE_CONTROL, "no-store".to_owned()),
+            ],
+        )
+            .into_response();
+    }
     let Ok(html) = std::str::from_utf8(&asset.bytes) else {
         return respond(&state.assets, INDEX, asset);
     };

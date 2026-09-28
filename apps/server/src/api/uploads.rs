@@ -948,7 +948,7 @@ async fn resolve_target(
     if !owns && !holds_token {
         return Err(Error::NotFound);
     }
-    if share.kind == crate::db::repository::share::ShareKind::Text {
+    if share.kind != crate::db::repository::share::ShareKind::File {
         return Err(Error::new(ErrorCode::ShareIsText));
     }
     Ok(share.id)

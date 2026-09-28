@@ -3091,7 +3091,7 @@ export interface components {
             /** @description The salt a password-derived key was stretched with, for `password`. */
             key_salt?: string | null;
             /**
-             * @description `text` or `file`.
+             * @description `text`, `file` or `link`.
              * @example file
              */
             kind: string;
@@ -6149,6 +6149,13 @@ export interface operations {
     create_share: {
         parameters: {
             query?: {
+                /**
+                 * @description `link` to make a share that sends whoever opens it to the web address in
+                 *     the body, an `http` or `https` URL. Omit for a file or a note, which the
+                 *     other parameters tell apart.
+                 * @example link
+                 */
+                kind?: string;
                 /**
                  * @description Original file name. Its presence is what makes this a file share rather
                  *     than a note.

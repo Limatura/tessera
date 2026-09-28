@@ -26,12 +26,16 @@ pub struct Words {
     pub shared_files: fn(usize) -> String,
     /// The headline of a note with no title.
     pub shared_note: &'static str,
+    /// The headline of a link with no title.
+    pub shared_link: &'static str,
     /// The eyebrow above several files.
     pub label_folder: &'static str,
     /// The eyebrow above one file.
     pub label_file: &'static str,
     /// The eyebrow above a note.
     pub label_note: &'static str,
+    /// The eyebrow above a link.
+    pub label_link: &'static str,
     /// The eyebrow on an encrypted share's card.
     pub label_sealed: &'static str,
     /// The eyebrow on a locked share's card.
@@ -79,9 +83,11 @@ static EN: Words = Words {
     shared_file: "Shared file",
     shared_files: |count| format!("{count} shared files"),
     shared_note: "Shared note",
+    shared_link: "Shared link",
     label_folder: "SHARED FOLDER",
     label_file: "SHARED FILE",
     label_note: "SHARED NOTE",
+    label_link: "SHARED LINK",
     label_sealed: "END-TO-END ENCRYPTED",
     label_locked: "PASSWORD PROTECTED",
     label_gone: "NO LONGER AVAILABLE",
@@ -112,9 +118,11 @@ static ZH_TW: Words = Words {
     shared_file: "分享的檔案",
     shared_files: |count| format!("{count} 個分享的檔案"),
     shared_note: "分享的文字",
+    shared_link: "分享的連結",
     label_folder: "分享的資料夾",
     label_file: "分享的檔案",
     label_note: "分享的文字",
+    label_link: "分享的連結",
     label_sealed: "端對端加密",
     label_locked: "受密碼保護",
     label_gone: "已失效",
@@ -139,9 +147,11 @@ static JA: Words = Words {
     shared_file: "共有ファイル",
     shared_files: |count| format!("{count} 件の共有ファイル"),
     shared_note: "共有テキスト",
+    shared_link: "共有リンク",
     label_folder: "共有フォルダー",
     label_file: "共有ファイル",
     label_note: "共有テキスト",
+    label_link: "共有リンク",
     label_sealed: "エンドツーエンド暗号化",
     label_locked: "パスワード保護",
     label_gone: "失効済み",

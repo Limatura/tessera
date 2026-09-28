@@ -138,6 +138,10 @@ impl Preview {
                         many => (said.shared_files)(many.len()),
                     },
                     ShareKind::Text => said.shared_note.to_owned(),
+                    // Not the address. A link that reaches this page has a
+                    // password or a use limit, and naming where it goes is
+                    // what those are there to hold back.
+                    ShareKind::Link => said.shared_link.to_owned(),
                 }),
                 facts.description(),
                 Card::Open {
@@ -145,6 +149,7 @@ impl Preview {
                         ShareKind::File if content.files().len() > 1 => said.label_folder,
                         ShareKind::File => said.label_file,
                         ShareKind::Text => said.label_note,
+                        ShareKind::Link => said.label_link,
                     },
                     chips: chips(share, content, said),
                     footer: facts.footer(),
@@ -328,6 +333,10 @@ impl Preview {
 
 /// The short facts that sit beside the headline on the picture.
 fn chips(share: &Share, content: &Content, said: &Words) -> Vec<String> {
+    // How long an address is says nothing anyone wants to know.
+    if share.kind == ShareKind::Link {
+        return Vec::new();
+    }
     let mut chips = vec![human_size(content.size_bytes())];
     if share.kind == ShareKind::File {
         let count = content.files().len();
@@ -343,7 +352,7 @@ fn chips(share: &Share, content: &Content, said: &Words) -> Vec<String> {
 /// Apart because the card and the description want different subsets: the
 /// card shows the size as a chip, so its footer leaves it out.
 struct Facts {
-    size: String,
+    size: Option<String>,
     expires: Option<String>,
     left: Option<String>,
 }
@@ -352,8 +361,9 @@ impl Facts {
     fn of(share: &Share, content: &Content, now: time::OffsetDateTime, said: &Words) -> Self {
         Self {
             size: match share.kind {
-                ShareKind::File => human_size(content.size_bytes()),
-                ShareKind::Text => (said.text_of)(&human_size(content.size_bytes())),
+                ShareKind::File => Some(human_size(content.size_bytes())),
+                ShareKind::Text => Some((said.text_of)(&human_size(content.size_bytes()))),
+                ShareKind::Link => None,
             },
             expires: share
                 .expires_at
@@ -366,7 +376,8 @@ impl Facts {
 
     /// Everything, for the description a chat client shows under the title.
     fn description(&self) -> String {
-        std::iter::once(&self.size)
+        self.size
+            .iter()
             .chain(&self.expires)
             .chain(&self.left)
             .map(String::as_str)

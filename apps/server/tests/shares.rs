@@ -5921,3 +5921,161 @@ async fn a_local_directory_has_no_segment_listing() {
         expect_status(app.get(&path).await, StatusCode::NOT_FOUND).await;
     }
 }
+
+/// A link share sends whoever opens it to its address, through the same checks
+/// a download goes through.
+#[tokio::test]
+async fn a_link_share_redirects_to_its_address() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "?kind=link", b"  https://example.com/a?b=c  ").await;
+    assert_eq!(share["kind"], "link");
+    let code = share["code"].as_str().expect("a code").to_owned();
+
+    // The share page itself goes straight on, by way of the download route.
+    let page = expect_status(app.get(&format!("/s/{code}")).await, StatusCode::FOUND).await;
+    assert_eq!(
+        page.headers()[header::LOCATION],
+        format!("/s/{code}/download")
+    );
+
+    let followed = expect_status(
+        app.get(&format!("/s/{code}/download")).await,
+        StatusCode::FOUND,
+    )
+    .await;
+    assert_eq!(
+        followed.headers()[header::LOCATION],
+        "https://example.com/a?b=c"
+    );
+    assert_eq!(followed.headers()[header::CACHE_CONTROL], "no-store");
+    assert_eq!(followed.headers()[header::REFERRER_POLICY], "no-referrer");
+
+    // The address reads as text too.
+    let raw = expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+    assert_eq!(body_string(raw).await, "https://example.com/a?b=c");
+}
+
+/// A password is asked for by the page, and a use limit waits for a person:
+/// an unfurler following the link would spend a one-time link on its own.
+#[tokio::test]
+async fn a_guarded_link_waits_for_the_page() {
+    let app = TestApp::ready().await;
+    let once = upload(&app, "?kind=link&max_uses=1", b"https://example.com/").await;
+    let once = once["code"].as_str().expect("a code").to_owned();
+    expect_status(app.get(&format!("/s/{once}")).await, StatusCode::OK).await;
+    expect_status(
+        app.get(&format!("/s/{once}/download")).await,
+        StatusCode::FOUND,
+    )
+    .await;
+    expect_status(
+        app.get(&format!("/s/{once}/download")).await,
+        StatusCode::GONE,
+    )
+    .await;
+
+    let locked = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/v1/shares?kind=link")
+                    .header("x-share-password", "1234"),
+                Body::from("https://example.com/secret"),
+            )
+            .await,
+            StatusCode::CREATED,
+        )
+        .await,
+    )
+    .await;
+    let locked = locked["code"].as_str().expect("a code").to_owned();
+    let page =
+        body_string(expect_status(app.get(&format!("/s/{locked}")).await, StatusCode::OK).await)
+            .await;
+    assert!(!page.contains("example.com/secret"), "{page}");
+    expect_status(
+        app.get(&format!("/s/{locked}/download")).await,
+        StatusCode::UNAUTHORIZED,
+    )
+    .await;
+
+    let ticket = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/shares/{locked}/unlock"))
+                    .header("x-share-password", "1234"),
+                Body::empty(),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await["ticket"]
+        .as_str()
+        .expect("a ticket")
+        .to_owned();
+    let followed = expect_status(
+        app.get(&format!("/s/{locked}/download?t={ticket}")).await,
+        StatusCode::FOUND,
+    )
+    .await;
+    assert_eq!(
+        followed.headers()[header::LOCATION],
+        "https://example.com/secret"
+    );
+}
+
+#[tokio::test]
+async fn a_link_must_be_a_web_address() {
+    let app = TestApp::ready().await;
+    for (query, body, rule) in [
+        ("?kind=link", &b"javascript:alert(1)"[..], "http_url"),
+        ("?kind=link", b"ftp://example.com/", "http_url"),
+        ("?kind=link", b"https://", "http_url"),
+        ("?kind=link", b"not a url", "http_url"),
+        ("?kind=link", b"\xff\xfe", "http_url"),
+        (
+            "?kind=link&filename=a.txt",
+            b"https://example.com/",
+            "not_for_link",
+        ),
+        (
+            "?kind=link&language=rust",
+            b"https://example.com/",
+            "not_for_link",
+        ),
+        ("?kind=folder", b"https://example.com/", "one_of"),
+    ] {
+        let refused = expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(format!("/api/v1/shares{query}")),
+                Body::from(body.to_vec()),
+            )
+            .await,
+            StatusCode::BAD_REQUEST,
+        )
+        .await;
+        let refused = body_json(refused).await;
+        assert_eq!(refused["details"]["rule"], rule, "{query}: {refused}");
+    }
+
+    let long = format!("https://example.com/{}", "a".repeat(3000));
+    let refused = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?kind=link"),
+            Body::from(long),
+        )
+        .await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    assert_eq!(body_json(refused).await["code"], "value_length");
+}

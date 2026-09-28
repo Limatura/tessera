@@ -118,6 +118,11 @@ pub enum ShareKind {
     Text,
     /// An uploaded file.
     File,
+    /// A web address that opening the share goes to.
+    ///
+    /// Stored as a note whose body is the address: the same row, the same
+    /// size accounting, and nothing new to reap.
+    Link,
 }
 
 impl ShareKind {
@@ -127,6 +132,7 @@ impl ShareKind {
         match self {
             Self::Text => "text",
             Self::File => "file",
+            Self::Link => "link",
         }
     }
 
@@ -134,10 +140,11 @@ impl ShareKind {
         match raw {
             "text" => Ok(Self::Text),
             "file" => Ok(Self::File),
+            "link" => Ok(Self::Link),
             _ => Err(DomainError::Malformed {
                 field: "kind",
                 rule: "one_of",
-                reason: "must be `text` or `file`",
+                reason: "must be `text`, `file` or `link`",
             }),
         }
     }
@@ -1102,7 +1109,7 @@ impl ShareRepository {
                 let ids: Vec<String> = files.iter().map(|file| file.id.clone()).collect();
                 Content::from_files(&files, &self.segments_of(&ids).await?)
             }
-            ShareKind::Text => Ok(self
+            ShareKind::Text | ShareKind::Link => Ok(self
                 .text_of(share.id)
                 .await?
                 .map_or(Content::Gone, |text| Content::from_text(&text))),
@@ -1165,7 +1172,9 @@ impl ShareRepository {
                     files_by_share.get(&key).map_or(&[][..], Vec::as_slice),
                     &backends,
                 )?,
-                ShareKind::Text => texts_by_share.remove(&key).unwrap_or(Content::Gone),
+                ShareKind::Text | ShareKind::Link => {
+                    texts_by_share.remove(&key).unwrap_or(Content::Gone)
+                }
             };
             resolved.insert(share.id, content);
         }
@@ -1662,7 +1671,9 @@ impl ShareRepository {
             // share is reapable on its own row alone. Hence a subquery rather
             // than a join, which would drop every text share.
             .filter(
-                share::Column::Kind.eq(ShareKind::Text.as_str()).or(
+                share::Column::Kind
+                    .is_in([ShareKind::Text.as_str(), ShareKind::Link.as_str()])
+                    .or(
                     share::Column::Id.in_subquery(
                         Query::select()
                             .column(file_share::Column::ShareId)

@@ -1846,7 +1846,7 @@
             ]
           },
           "kind": {
-            "description": "`text` or `file`.",
+            "description": "`text`, `file` or `link`.",
             "example": "file",
             "type": "string"
           },
@@ -5808,6 +5808,16 @@
         "description": "# Errors\n\n`401` when the instance requires an account to upload, `400` when a parameter\nis unusable, `413` when the body exceeds the configured limit, `409` when no\nunused code could be found.",
         "operationId": "create_share",
         "parameters": [
+          {
+            "description": "`link` to make a share that sends whoever opens it to the web address in\nthe body, an `http` or `https` URL. Omit for a file or a note, which the\nother parameters tell apart.",
+            "example": "link",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "description": "Original file name. Its presence is what makes this a file share rather\nthan a note.",
             "example": "project.zip",
