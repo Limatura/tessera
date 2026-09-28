@@ -46,6 +46,7 @@ use crate::{
     db::repository::{
         invite::Invite,
         role::{Role, RoleChange, RoleFields},
+        scan::Scan,
         session::SessionEnding,
         share::{Availability, Content, Share},
     },
@@ -1325,10 +1326,67 @@ pub struct AdminShareResponse {
     pub owner_username: Option<String>,
     /// Whether a visitor could still open it.
     pub active: bool,
+    /// Why a visitor can or cannot open it. `active` is `true` only for
+    /// `available`.
+    pub status: AdminShareStatus,
+    /// What the malware scanner said: `pending`, `deferred`, `clean`,
+    /// `infected` or `skipped`, or `null` if it was never sent to one.
+    ///
+    /// For several files, the one that matters most: `infected` over
+    /// `pending` over `deferred` over `skipped` over `clean`.
+    #[schema(example = "infected")]
+    pub scan_state: Option<String>,
+    /// The threat the scanner named for `infected`, or why it was `skipped`
+    /// (`encrypted` or `too_large`). `null` otherwise.
+    #[schema(example = "Eicar-Test-Signature")]
+    pub scan_detail: Option<String>,
     /// When it was uploaded, RFC 3339.
     pub created_at: String,
     /// When it stops being served, RFC 3339, or `null` if it never does.
     pub expires_at: Option<String>,
+}
+
+/// Why a share can or cannot be opened.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AdminShareStatus {
+    /// A visitor can open it, with the password if it has one.
+    Available,
+    /// Switched off, because the malware scanner found a threat in it. See
+    /// `scan_detail`.
+    Disabled,
+    /// Past its expiry.
+    Expired,
+    /// Downloaded as many times as it allows.
+    Exhausted,
+}
+
+impl From<Availability> for AdminShareStatus {
+    fn from(availability: Availability) -> Self {
+        match availability {
+            Availability::Available => Self::Available,
+            Availability::Disabled => Self::Disabled,
+            Availability::Expired => Self::Expired,
+            Availability::Exhausted => Self::Exhausted,
+        }
+    }
+}
+
+/// The verdict that says most about a share, from every file or note in it.
+fn weightiest_scan(content: &Content) -> Option<&Scan> {
+    let weight = |scan: &Scan| match scan {
+        Scan::Infected(_) => 4,
+        Scan::Pending => 3,
+        Scan::Deferred => 2,
+        Scan::Skipped(_) => 1,
+        Scan::Clean => 0,
+    };
+    let scans: Vec<&Scan> = match content {
+        Content::Files(files) => files.iter().filter_map(|file| file.scan.as_ref()).collect(),
+        Content::Text(text) => text.scan.iter().collect(),
+        Content::Gone => Vec::new(),
+    };
+    scans.into_iter().max_by_key(|scan| weight(scan))
 }
 
 impl AdminShareResponse {
@@ -1338,6 +1396,12 @@ impl AdminShareResponse {
         owners: &std::collections::HashMap<tessera_core::UserId, tessera_core::Username>,
         now: OffsetDateTime,
     ) -> Self {
+        let status = share.availability_at(now);
+        let (scan_state, scan_detail) = weightiest_scan(content)
+            .map(Scan::columns)
+            .map_or((None, None), |(state, detail)| {
+                (Some(state.to_owned()), detail)
+            });
         Self {
             id: share.id.to_string(),
             kind: share.kind.as_str().to_owned(),
@@ -1354,7 +1418,10 @@ impl AdminShareResponse {
                 .user_id
                 .and_then(|id| owners.get(&id))
                 .map(ToString::to_string),
-            active: matches!(share.availability_at(now), Availability::Available),
+            active: matches!(status, Availability::Available),
+            status: status.into(),
+            scan_state,
+            scan_detail,
             created_at: format_timestamp(share.created_at),
             expires_at: share.expires_at.map(format_timestamp),
         }

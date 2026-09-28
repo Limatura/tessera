@@ -257,11 +257,31 @@ expression: document
               "null"
             ]
           },
+          "scan_detail": {
+            "description": "The threat the scanner named for `infected`, or why it was `skipped`\n(`encrypted` or `too_large`). `null` otherwise.",
+            "example": "Eicar-Test-Signature",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "scan_state": {
+            "description": "What the malware scanner said: `pending`, `deferred`, `clean`,\n`infected` or `skipped`, or `null` if it was never sent to one.\n\nFor several files, the one that matters most: `infected` over\n`pending` over `deferred` over `skipped` over `clean`.",
+            "example": "infected",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "size_bytes": {
             "description": "How many bytes it holds.",
             "format": "int64",
             "minimum": 0,
             "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/AdminShareStatus",
+            "description": "Why a visitor can or cannot open it. `active` is `true` only for\n`available`."
           }
         },
         "required": [
@@ -272,9 +292,20 @@ expression: document
           "bytes_served",
           "bytes_redirected",
           "active",
+          "status",
           "created_at"
         ],
         "type": "object"
+      },
+      "AdminShareStatus": {
+        "description": "Why a share can or cannot be opened.",
+        "enum": [
+          "available",
+          "disabled",
+          "expired",
+          "exhausted"
+        ],
+        "type": "string"
       },
       "AdminUserPage": {
         "description": "A page of accounts.",

@@ -246,6 +246,59 @@ async fn an_infected_file_switches_its_share_off() {
     .await;
 }
 
+/// A disabled share looks like any inactive one unless the listing says why.
+#[tokio::test]
+async fn the_admin_listing_says_a_share_was_switched_off_for_a_threat() {
+    let app = scanning_with(clamd(usize::MAX).await).await;
+    let registered = expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "first",
+                "email": "first@example.com",
+                "password": "correct horse battery staple",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    let admin = common::session_cookie(&registered);
+    upload(&app, "?filename=eicar.com", EICAR).await;
+    upload(&app, "?filename=fine.txt", b"an ordinary file").await;
+    run_once(&app.state).await;
+
+    let page = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/admin/shares", Auth::Cookie(&admin))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    let row = |name: &str| {
+        page["data"]
+            .as_array()
+            .expect("rows")
+            .iter()
+            .find(|row| row["filename"] == name)
+            .cloned()
+            .expect("the share")
+    };
+    let infected = row("eicar.com");
+    assert_eq!(infected["active"], false);
+    assert_eq!(infected["status"], "disabled");
+    assert_eq!(infected["scan_state"], "infected");
+    assert_eq!(infected["scan_detail"], "Eicar-Test-Signature");
+    let fine = row("fine.txt");
+    assert_eq!(fine["status"], "available");
+    assert_eq!(fine["scan_state"], "clean");
+    assert!(fine["scan_detail"].is_null());
+}
+
 #[tokio::test]
 async fn an_infected_note_is_switched_off_too() {
     let app = scanning_with(clamd(usize::MAX).await).await;

@@ -20,6 +20,8 @@ It is recorded as `pending` the moment it is stored, and the scanner reads it ba
 | `skipped` | Handed out unscanned. `scan_detail` says why: `encrypted`, or `too_large` when the scanner refused the size. |
 | `deferred` | The scanner could not be reached. Handed out, and scanned once it is back. |
 
+The admin share listing (`GET /api/v1/admin/shares`) carries each share's `scan_state` and `scan_detail`, and a `status` of `disabled` for one switched off this way, so it can be told apart from one that expired or ran out of downloads.
+
 ## When the scanner is down
 
 Nothing waits on it. The file being sent is marked `deferred`, and so is everything else still `pending`, so every share is handed out as if scanning were off. Every pass, once every thirty seconds and whenever something is uploaded, the deferred files are tried again; a threat found then switches the share off late rather than never. Any answer that is not a verdict counts as down: a refused connection, a timeout, an HTTP `500`, a clamd error.

@@ -1955,11 +1955,36 @@ export interface components {
              */
             owner_username?: string | null;
             /**
+             * @description The threat the scanner named for `infected`, or why it was `skipped`
+             *     (`encrypted` or `too_large`). `null` otherwise.
+             * @example Eicar-Test-Signature
+             */
+            scan_detail?: string | null;
+            /**
+             * @description What the malware scanner said: `pending`, `deferred`, `clean`,
+             *     `infected` or `skipped`, or `null` if it was never sent to one.
+             *
+             *     For several files, the one that matters most: `infected` over
+             *     `pending` over `deferred` over `skipped` over `clean`.
+             * @example infected
+             */
+            scan_state?: string | null;
+            /**
              * Format: int64
              * @description How many bytes it holds.
              */
             size_bytes: number;
+            /**
+             * @description Why a visitor can or cannot open it. `active` is `true` only for
+             *     `available`.
+             */
+            status: components["schemas"]["AdminShareStatus"];
         };
+        /**
+         * @description Why a share can or cannot be opened.
+         * @enum {string}
+         */
+        AdminShareStatus: "available" | "disabled" | "expired" | "exhausted";
         /** @description A page of accounts. */
         AdminUserPage: {
             /** @description The accounts on this page, newest first. */
