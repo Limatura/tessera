@@ -384,7 +384,21 @@ async fn download(
     {
         return Ok(redirect);
     }
-    let disposition = HeaderValue::from_str(&content_disposition(&content))
+    // Plain text leaves as a text file, named so it opens in an editor. An
+    // encrypted note is ciphertext until the browser opens it, so it stays
+    // opaque, and its title and language are sealed anyway.
+    let (content_type, name) = match &content {
+        Content::Text(text) if share.encryption.is_none() => (
+            "text/plain; charset=utf-8",
+            text_name(
+                share.title.as_deref(),
+                &share.code.to_string(),
+                text.language.as_deref(),
+            ),
+        ),
+        _ => ("application/octet-stream", file_name(&content).to_owned()),
+    };
+    let disposition = HeaderValue::from_str(&attachment(&name))
         .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
     serve(
         &state,
@@ -393,7 +407,7 @@ async fn download(
         &headers,
         payload,
         Labels {
-            content_type: HeaderValue::from_static("application/octet-stream"),
+            content_type: HeaderValue::from_static(content_type),
             disposition,
             format: query.format,
         },
@@ -984,20 +998,63 @@ fn etag_for(share: &Share, content: &Content) -> String {
 /// real value; without the latter a Chinese or Japanese file name arrives
 /// mangled in most browsers.
 fn content_disposition(content: &Content) -> String {
-    // The single file's own name, or the archive's. A share with one file does
-    // not become an archive just because archives exist.
-    //
-    // The last component only, after either separator. A stored name is what
-    // the uploader sent, checked only for length and control characters, so it
-    // can carry the folder it came from or be nothing but separators. A header
-    // naming a path says where on the recipient's disk to put the file, which
-    // RFC 6266 tells us not to try.
-    let name = content
+    attachment(file_name(content))
+}
+
+/// The single file's own name, or the archive's. A share with one file does not
+/// become an archive just because archives exist.
+fn file_name(content: &Content) -> &str {
+    content
         .single_file()
-        .and_then(|file| file.filename.as_deref())
-        .and_then(|filename| filename.rsplit(['/', '\\']).next())
+        .and_then(|file| last_component(file.filename.as_deref()))
+        .unwrap_or("download")
+}
+
+/// The last component only, after either separator.
+///
+/// A stored name is what the uploader sent, checked only for length and control
+/// characters, so it can carry the folder it came from or be nothing but
+/// separators. A header naming a path says where on the recipient's disk to put
+/// the file, which RFC 6266 tells us not to try.
+fn last_component(name: Option<&str>) -> Option<&str> {
+    name.and_then(|name| name.rsplit(['/', '\\']).next())
         .filter(|last| !last.is_empty())
-        .unwrap_or("download");
+}
+
+/// What a note is saved as: its title, or its retrieval code, with the
+/// extension its language implies when the title does not carry one.
+///
+/// Without an extension the file opens in nothing useful, which is the whole
+/// complaint about calling it `download`.
+fn text_name(title: Option<&str>, code: &str, language: Option<&str>) -> String {
+    let stem = last_component(title.map(str::trim)).unwrap_or(code);
+    if std::path::Path::new(stem).extension().is_some() {
+        return stem.to_owned();
+    }
+    let extension = match language {
+        Some("javascript") => "js",
+        Some("typescript") => "ts",
+        Some("python") => "py",
+        Some("html") => "html",
+        Some("css") => "css",
+        Some("json") => "json",
+        Some("markdown") => "md",
+        Some("sql") => "sql",
+        Some("java") => "java",
+        Some("cpp") => "cpp",
+        Some("rust") => "rs",
+        Some("go") => "go",
+        Some("yaml") => "yaml",
+        Some("php") => "php",
+        Some("shellscript") => "sh",
+        Some("mermaid") => "mmd",
+        _ => "txt",
+    };
+    format!("{stem}.{extension}")
+}
+
+/// `Content-Disposition: attachment` for `name`.
+fn attachment(name: &str) -> String {
     // The fallback keeps anything printable ASCII, space included: `"my
     // file.zip"` is an ordinary name, and turning its space into an underscore
     // gains nothing. A quote or a backslash cannot survive, since the value
@@ -1400,6 +1457,27 @@ mod tests {
             value.contains("filename*=UTF-8''%E5%B0%88%E6%A1%88%20v2.zip"),
             "{value}"
         );
+    }
+
+    #[test]
+    fn a_note_is_named_for_its_title_or_code_and_language() {
+        assert_eq!(text_name(None, "ab12cd", Some("python")), "ab12cd.py");
+        assert_eq!(text_name(None, "ab12cd", None), "ab12cd.txt");
+        assert_eq!(text_name(None, "ab12cd", Some("plaintext")), "ab12cd.txt");
+        assert_eq!(
+            text_name(Some("notes"), "ab12cd", Some("markdown")),
+            "notes.md"
+        );
+        assert_eq!(
+            text_name(Some("main.rs"), "ab12cd", Some("rust")),
+            "main.rs"
+        );
+        assert_eq!(
+            text_name(Some("a/b/run"), "ab12cd", Some("shellscript")),
+            "run.sh"
+        );
+        assert_eq!(text_name(Some(" / "), "ab12cd", None), "ab12cd.txt");
+        assert_eq!(text_name(Some("  "), "ab12cd", None), "ab12cd.txt");
     }
 
     #[test]
