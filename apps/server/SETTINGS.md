@@ -299,6 +299,7 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 
 - `host: string` — SMTP 主機，空字串關閉所有寄信功能
 - `port: u16` — 預設 `587`（submission + STARTTLS）；`465` 是隱式 TLS，也常見
+- `tls: "auto" | "starttls" | "implicit" | "none"` — 連 relay 的加密方式，預設 `auto`（`465` 用 implicit，其他 port 用 STARTTLS）。`none` 完全不加密，給本機 postfix、relay container、Mailpit 這類內網 relay 用；寄信時主機解析出的位址必須全部是 private 或 loopback，否則拒寄
 - `username: string`（SEALED）— Resend 要求這裡填字面字串 `resend`
 - `password: string`（SEALED）— 多數 relay 這裡放的是 API key
 - `from: string` — `From:` 位址，網域必須在 relay 驗證過

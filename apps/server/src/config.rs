@@ -785,6 +785,9 @@ pub struct MailConfig {
     /// implicit TLS and also common.
     pub port: u16,
 
+    /// How the connection to the relay is encrypted. See [`MailTls`].
+    pub tls: MailTls,
+
     /// SMTP username. Resend wants the literal `resend` here.
     pub username: String,
 
@@ -815,6 +818,39 @@ pub struct MailConfig {
     pub registration_ttl_hours: u64,
 }
 
+/// How the connection to the mail relay is encrypted.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MailTls {
+    /// Whatever the port means: implicit TLS on 465, STARTTLS on anything
+    /// else.
+    Auto,
+    /// Opens in the clear and upgrades before anything is sent. Refuses a relay
+    /// that cannot upgrade.
+    Starttls,
+    /// TLS from the first byte.
+    Implicit,
+    /// No encryption at all, for a relay on this machine or this network: a
+    /// local postfix on port 25, a relay container, Mailpit.
+    ///
+    /// Only to private and loopback addresses. The password and every reset
+    /// link would otherwise cross the internet readable, so a host that
+    /// resolves anywhere else is refused when mail is sent.
+    None,
+}
+
+impl MailTls {
+    /// What `Auto` means on `port`; the others as they are.
+    #[must_use]
+    pub const fn on(self, port: u16) -> Self {
+        match self {
+            Self::Auto if port == 465 => Self::Implicit,
+            Self::Auto => Self::Starttls,
+            other => other,
+        }
+    }
+}
+
 /// The longest a reset link may be configured to last, in minutes.
 ///
 /// A day. Past that it has stopped being a way back in and become a second
@@ -832,6 +868,7 @@ impl Default for MailConfig {
         Self {
             host: String::new(),
             port: 587,
+            tls: MailTls::Auto,
             username: String::new(),
             password: String::new(),
             from: String::new(),

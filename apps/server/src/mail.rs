@@ -22,6 +22,10 @@ pub enum MailError {
     /// The relay refused it, or could not be reached.
     #[error("could not send the message: {0}")]
     Send(String),
+
+    /// `mail.tls` is `none` and the relay is not on a private network.
+    #[error("refusing to send mail unencrypted to {0}, which is not a private or loopback address")]
+    NotPrivate(String),
 }
 
 /// One outgoing message.
@@ -42,19 +46,36 @@ pub struct Letter {
 
 #[cfg(feature = "email")]
 mod smtp {
+    use std::net::{IpAddr, SocketAddr};
+
     use lettre::{
         AsyncSmtpTransport, AsyncTransport as _, Message, Tokio1Executor,
         message::header::ContentType, transport::smtp::authentication::Credentials,
     };
 
     use super::{Letter, MailError};
-    use crate::config::MailConfig;
+    use crate::config::{MailConfig, MailTls};
 
     /// A configured relay.
     #[derive(Clone)]
     pub struct Mailer {
-        transport: AsyncSmtpTransport<Tokio1Executor>,
+        route: Route,
         from: String,
+    }
+
+    /// How a message reaches the relay.
+    #[derive(Clone)]
+    enum Route {
+        /// Encrypted, one way or the other. Built once and reused.
+        Tls(AsyncSmtpTransport<Tokio1Executor>),
+        /// In the clear. Built per message, against the address the host
+        /// resolves to at that moment, once that address is known to be
+        /// private. See [`private_address`].
+        Plain {
+            host: String,
+            port: u16,
+            credentials: Option<Credentials>,
+        },
     }
 
     impl std::fmt::Debug for Mailer {
@@ -78,28 +99,38 @@ mod smtp {
                 return Ok(None);
             }
 
-            // `starttls_relay` for 587 and `relay` for everything else, because
-            // that is what the ports mean: 587 is submission, which opens in
-            // clear and upgrades, and 465 is implicit TLS from the first byte.
+            let credentials = (!config.username.is_empty())
+                .then(|| Credentials::new(config.username.clone(), config.password.clone()));
+
+            // By default, what the ports mean: 465 is implicit TLS from the
+            // first byte, and submission on 587 opens in clear and upgrades.
             // Getting this the wrong way round produces a handshake error that
-            // reads as a certificate problem.
-            let builder = if config.port == 587 {
-                AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.host)
-            } else {
-                AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host)
+            // reads as a certificate problem, which is why it can be set.
+            let builder = match config.tls.on(config.port) {
+                MailTls::Implicit => AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host),
+                MailTls::None => {
+                    return Ok(Some(Self {
+                        route: Route::Plain {
+                            host: config.host.clone(),
+                            port: config.port,
+                            credentials,
+                        },
+                        from: config.from.clone(),
+                    }));
+                }
+                MailTls::Auto | MailTls::Starttls => {
+                    AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.host)
+                }
             }
             .map_err(|error| MailError::Build(error.to_string()))?;
 
             let mut builder = builder.port(config.port);
-            if !config.username.is_empty() {
-                builder = builder.credentials(Credentials::new(
-                    config.username.clone(),
-                    config.password.clone(),
-                ));
+            if let Some(credentials) = credentials {
+                builder = builder.credentials(credentials);
             }
 
             Ok(Some(Self {
-                transport: builder.build(),
+                route: Route::Tls(builder.build()),
                 from: config.from.clone(),
             }))
         }
@@ -124,11 +155,113 @@ mod smtp {
                     .body(letter.body)
                     .map_err(|error| MailError::Build(error.to_string()))?;
 
-            self.transport
-                .send(message)
-                .await
-                .map(|_| ())
+            let sent = match &self.route {
+                Route::Tls(transport) => transport.send(message).await,
+                Route::Plain {
+                    host,
+                    port,
+                    credentials,
+                } => {
+                    let address = private_address(host, *port).await?;
+                    let mut builder = AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(
+                        address.ip().to_string(),
+                    )
+                    .port(address.port());
+                    if let Some(credentials) = credentials {
+                        builder = builder.credentials(credentials.clone());
+                    }
+                    builder.build().send(message).await
+                }
+            };
+            sent.map(|_| ())
                 .map_err(|error| MailError::Send(error.to_string()))
+        }
+    }
+
+    /// Where `host` resolves to, provided every address it resolves to is
+    /// private or loopback.
+    ///
+    /// Resolved here rather than checked once in configuration, because a
+    /// relay is usually named, `mailpit` or `postfix`, and a name can point
+    /// somewhere else tomorrow. The address checked is the address connected
+    /// to, so it cannot change in between.
+    async fn private_address(host: &str, port: u16) -> Result<SocketAddr, MailError> {
+        let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
+            .await
+            .map_err(|error| MailError::Send(format!("cannot resolve {host}: {error}")))?
+            .collect();
+        match addresses.first() {
+            Some(first) if addresses.iter().all(|address| is_private(address.ip())) => Ok(*first),
+            _ => Err(MailError::NotPrivate(host.to_owned())),
+        }
+    }
+
+    /// Loopback, RFC 1918, link-local, or an IPv6 unique local address.
+    fn is_private(ip: IpAddr) -> bool {
+        match ip {
+            IpAddr::V4(ip) => ip.is_loopback() || ip.is_private() || ip.is_link_local(),
+            IpAddr::V6(ip) => match ip.to_ipv4_mapped() {
+                Some(v4) => is_private(IpAddr::V4(v4)),
+                None => ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local(),
+            },
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn only_this_network_counts_as_private() {
+            for ip in [
+                "127.0.0.1",
+                "10.1.2.3",
+                "172.16.0.9",
+                "192.168.1.10",
+                "169.254.1.1",
+                "::1",
+                "fd00::1",
+                "fe80::1",
+                "::ffff:192.168.1.10",
+            ] {
+                assert!(is_private(ip.parse().expect("an address")), "{ip}");
+            }
+            for ip in ["8.8.8.8", "172.32.0.1", "2001:db8::1", "::ffff:8.8.8.8"] {
+                assert!(!is_private(ip.parse().expect("an address")), "{ip}");
+            }
+        }
+
+        #[tokio::test]
+        #[ignore = "wants Mailpit on 127.0.0.1:11025"]
+        async fn plain_mail_reaches_a_local_relay() {
+            let config = MailConfig {
+                host: "localhost".to_owned(),
+                port: 11025,
+                tls: MailTls::None,
+                from: "tessera@example.com".to_owned(),
+                public_url: "http://localhost".to_owned(),
+                ..MailConfig::default()
+            };
+            let mailer = Mailer::from_config(&config)
+                .expect("config")
+                .expect("a mailer");
+            mailer
+                .send(Letter {
+                    to: "someone@example.com".to_owned(),
+                    subject: "plain".to_owned(),
+                    body: "hello".to_owned(),
+                })
+                .await
+                .expect("sent");
+        }
+
+        #[tokio::test]
+        async fn a_public_relay_is_refused_in_the_clear() {
+            assert!(private_address("localhost", 25).await.is_ok());
+            assert!(matches!(
+                private_address("8.8.8.8", 25).await,
+                Err(MailError::NotPrivate(_))
+            ));
         }
     }
 }
