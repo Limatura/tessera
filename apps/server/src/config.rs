@@ -205,6 +205,13 @@ pub struct SiteConfig {
     pub title: String,
     /// The line under the instance's own links. Empty leaves it out.
     pub description: String,
+    /// The language of what the server writes for visitors: a share link's
+    /// preview and its card.
+    ///
+    /// The instance's, not the request's. Whatever unfurls a link fetches it
+    /// with no language preference of its own, and everyone in the channel
+    /// sees the one preview it made.
+    pub language: Language,
 }
 
 impl Default for SiteConfig {
@@ -212,8 +219,24 @@ impl Default for SiteConfig {
         Self {
             title: "Tessera".to_owned(),
             description: String::new(),
+            language: Language::default(),
         }
     }
+}
+
+/// A language the server can write in. The same three the web app ships.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Language {
+    /// English.
+    #[default]
+    #[serde(rename = "en")]
+    En,
+    /// Traditional Chinese, as written in Taiwan.
+    #[serde(rename = "zh-TW")]
+    ZhTw,
+    /// Japanese.
+    #[serde(rename = "ja")]
+    Ja,
 }
 
 impl SiteConfig {

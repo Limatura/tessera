@@ -462,11 +462,13 @@ async fn serve_share_page(
         &config.site.title,
     );
     let origin = crate::api::preview::origin(&config, headers);
-    let tags = Preview::of(&share, &content, time::OffsetDateTime::now_utc()).to_head_tags(
-        origin.as_deref(),
-        code,
-        &config.site.title,
-    );
+    let tags = Preview::of(
+        &share,
+        &content,
+        time::OffsetDateTime::now_utc(),
+        config.site.language,
+    )
+    .to_head_tags(origin.as_deref(), code, &config.site.title);
     html_page(splice_into_document(&html, &tags))
 }
 
@@ -752,6 +754,7 @@ mod tests {
         let site = crate::config::SiteConfig {
             title: "Acme <files> & co".to_owned(),
             description: String::new(),
+            ..Default::default()
         };
         let page = named("<html><head><title>Tessera</title></head></html>", &site);
         assert!(
@@ -766,6 +769,7 @@ mod tests {
         let site = crate::config::SiteConfig {
             title: "Acme".to_owned(),
             description: "  ".to_owned(),
+            ..Default::default()
         };
         let page = named("<html><head><title>t</title></head></html>", &site);
         assert!(!page.contains("description"), "{page}");

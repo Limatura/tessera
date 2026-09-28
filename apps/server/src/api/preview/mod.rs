@@ -20,7 +20,12 @@
 //!   channel. If a password-protected share announced its file name and size there, the password
 //!   would be decorative.
 
+mod words;
+
+pub use words::{Words, words};
+
 use crate::{
+    config::Language,
     db::repository::share::{Availability, Content, Share, ShareKind},
     state::AppState,
 };
@@ -41,7 +46,11 @@ pub enum Card {
         /// several.
         chips: Vec<String>,
         /// The line along the bottom: when it goes, and how many goes are left.
+        ///
+        /// Not the size, which the chips already show.
         footer: String,
+        /// When it goes, alone, for a layout that places it apart.
+        expires: Option<String>,
         /// The first lines of a text share, coloured. `None` for a file, and
         /// for a note whose body was not read.
         #[cfg(feature = "og-images")]
@@ -70,70 +79,93 @@ pub enum Card {
 pub struct Preview {
     title: String,
     description: String,
+    /// What the card's own words are written in.
+    language: Language,
     /// What the picture is allowed to draw. See [`Card`].
     pub card: Card,
 }
 
 impl Preview {
-    /// What a share should say about itself to a channel full of people.
+    /// What a share should say about itself to a channel full of people, in
+    /// `language`.
     #[must_use]
-    pub fn of(share: &Share, content: &Content, now: time::OffsetDateTime) -> Self {
-        match share.availability_at(now) {
-            Availability::Expired | Availability::Exhausted | Availability::Disabled => Self {
-                title: "Share unavailable".to_owned(),
-                description: "This share has expired or has already been collected.".to_owned(),
-                card: Card::Gone,
-            },
+    pub fn of(
+        share: &Share,
+        content: &Content,
+        now: time::OffsetDateTime,
+        language: Language,
+    ) -> Self {
+        let said = words(language);
+        let facts = Facts::of(share, content, now, said);
+        let (title, description, card) = match share.availability_at(now) {
+            Availability::Expired | Availability::Exhausted | Availability::Disabled => (
+                said.gone_title.to_owned(),
+                said.gone_description.to_owned(),
+                Card::Gone,
+            ),
             // A title is the one thing a locked share may say. The uploader
             // typed it as a label for other people; the file name came off
             // their disk, and they never agreed to publish that.
-            Availability::Available if share.needs_password() => Self {
-                title: share
+            Availability::Available if share.needs_password() => (
+                share
                     .title
                     .clone()
-                    .unwrap_or_else(|| "Password-protected share".to_owned()),
-                description: "Open the link and enter the password to see what this is.".to_owned(),
-                card: Card::Locked {
+                    .unwrap_or_else(|| said.locked_title.to_owned()),
+                said.locked_description.to_owned(),
+                Card::Locked {
                     named: share.title.is_some(),
                 },
-            },
+            ),
             // After the password check, so a locked encrypted share reveals no
             // more than any other locked share, size included.
-            Availability::Available if share.encryption.is_some() => Self {
-                title: "End-to-end encrypted share".to_owned(),
-                description: describe(share, content),
-                card: Card::Sealed {
-                    chips: chips(share, content),
-                    footer: describe(share, content),
+            Availability::Available if share.encryption.is_some() => (
+                said.sealed_title.to_owned(),
+                facts.description(),
+                Card::Sealed {
+                    chips: chips(share, content, said),
+                    footer: facts.footer(),
                 },
-            },
-            Availability::Available => Self {
-                title: share.title.clone().unwrap_or_else(|| match share.kind {
+            ),
+            Availability::Available => (
+                share.title.clone().unwrap_or_else(|| match share.kind {
                     ShareKind::File => match content.files() {
                         [only] => only
                             .filename
                             .clone()
-                            .unwrap_or_else(|| "Shared file".to_owned()),
+                            .unwrap_or_else(|| said.shared_file.to_owned()),
                         // A count, not the first name. Naming one of five
                         // discloses one of five.
-                        many => format!("{} shared files", many.len()),
+                        many => (said.shared_files)(many.len()),
                     },
-                    ShareKind::Text => "Shared note".to_owned(),
+                    ShareKind::Text => said.shared_note.to_owned(),
                 }),
-                description: describe(share, content),
-                card: Card::Open {
+                facts.description(),
+                Card::Open {
                     label: match share.kind {
-                        ShareKind::File if content.files().len() > 1 => "SHARED FOLDER",
-                        ShareKind::File => "SHARED FILE",
-                        ShareKind::Text => "SHARED NOTE",
+                        ShareKind::File if content.files().len() > 1 => said.label_folder,
+                        ShareKind::File => said.label_file,
+                        ShareKind::Text => said.label_note,
                     },
-                    chips: chips(share, content),
-                    footer: describe(share, content),
+                    chips: chips(share, content, said),
+                    footer: facts.footer(),
+                    expires: facts.expires,
                     #[cfg(feature = "og-images")]
                     snippet: None,
                 },
-            },
+            ),
+        };
+        Self {
+            title,
+            description,
+            language,
+            card,
         }
+    }
+
+    /// The phrases the card's own words come from.
+    #[must_use]
+    pub const fn words(&self) -> &'static Words {
+        words(self.language)
     }
 
     /// Attaches the first lines of a note's body, coloured.
@@ -183,12 +215,17 @@ impl Preview {
         };
         field(self.title.as_bytes());
         field(self.description.as_bytes());
+        // The card's own words, which the title and description do not always
+        // carry: a locked share's title is the uploader's in every language.
+        field(self.words().label_locked.as_bytes());
 
         match &self.card {
             Card::Open {
                 label,
                 chips,
                 footer,
+                // Part of `footer`, already counted.
+                expires: _,
                 #[cfg(feature = "og-images")]
                 snippet,
             } => {
@@ -290,47 +327,73 @@ impl Preview {
 }
 
 /// The short facts that sit beside the headline on the picture.
-fn chips(share: &Share, content: &Content) -> Vec<String> {
+fn chips(share: &Share, content: &Content, said: &Words) -> Vec<String> {
     let mut chips = vec![human_size(content.size_bytes())];
     if share.kind == ShareKind::File {
         let count = content.files().len();
         if count > 1 {
-            chips.push(format!("{count} files"));
+            chips.push((said.files)(count));
         }
     }
     chips
 }
 
-fn describe(share: &Share, content: &Content) -> String {
-    describe_at(share, content, time::OffsetDateTime::now_utc())
+/// What can be said about a share besides its name, each part on its own.
+///
+/// Apart because the card and the description want different subsets: the
+/// card shows the size as a chip, so its footer leaves it out.
+struct Facts {
+    size: String,
+    expires: Option<String>,
+    left: Option<String>,
 }
 
-fn describe_at(share: &Share, content: &Content, now: time::OffsetDateTime) -> String {
-    let mut parts = vec![match share.kind {
-        ShareKind::File => human_size(content.size_bytes()),
-        ShareKind::Text => format!("{} of text", human_size(content.size_bytes())),
-    }];
-    if let Some(when) = share.expires_at
-        && let Some(said) = expires_in(when, now)
-    {
-        parts.push(said);
+impl Facts {
+    fn of(share: &Share, content: &Content, now: time::OffsetDateTime, said: &Words) -> Self {
+        Self {
+            size: match share.kind {
+                ShareKind::File => human_size(content.size_bytes()),
+                ShareKind::Text => (said.text_of)(&human_size(content.size_bytes())),
+            },
+            expires: share
+                .expires_at
+                .and_then(|when| expires_in(when, now, said)),
+            left: share
+                .use_limit
+                .map(|limit| (said.left)(limit.saturating_sub(share.use_count))),
+        }
     }
-    if let Some(limit) = share.use_limit {
-        let left = limit.saturating_sub(share.use_count);
-        parts.push(if left == 1 {
-            "one retrieval left".to_owned()
-        } else {
-            format!("{left} retrievals left")
-        });
+
+    /// Everything, for the description a chat client shows under the title.
+    fn description(&self) -> String {
+        std::iter::once(&self.size)
+            .chain(&self.expires)
+            .chain(&self.left)
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(" · ")
     }
-    parts.join(" · ")
+
+    /// Everything but the size, for the card's footer.
+    fn footer(&self) -> String {
+        self.expires
+            .iter()
+            .chain(&self.left)
+            .map(String::as_str)
+            .collect::<Vec<_>>()
+            .join(" · ")
+    }
 }
 
 /// How long is left, rounded the way a person would say it.
 ///
 /// Coarse by design. A countdown to the second would be a different sentence
 /// every time a crawler looked, and this is a caption, not a timer.
-fn expires_in(when: time::OffsetDateTime, now: time::OffsetDateTime) -> Option<String> {
+fn expires_in(
+    when: time::OffsetDateTime,
+    now: time::OffsetDateTime,
+    said: &Words,
+) -> Option<String> {
     let left = when - now;
     if left <= time::Duration::ZERO {
         return None;
@@ -338,20 +401,17 @@ fn expires_in(when: time::OffsetDateTime, now: time::OffsetDateTime) -> Option<S
     let days = left.whole_days();
     if days >= 1 {
         return Some(if days == 1 {
-            "expires tomorrow".to_owned()
+            said.expires_tomorrow.to_owned()
         } else {
-            format!("expires in {days} days")
+            (said.expires_in_days)(days)
         });
     }
     let hours = left.whole_hours();
-    if hours >= 1 {
-        return Some(if hours == 1 {
-            "expires within the hour".to_owned()
-        } else {
-            format!("expires in {hours} hours")
-        });
-    }
-    Some("expires within the hour".to_owned())
+    Some(if hours > 1 {
+        (said.expires_in_hours)(hours)
+    } else {
+        said.expires_within_hour.to_owned()
+    })
 }
 
 /// A size the way a person would say it.
@@ -582,11 +642,63 @@ mod tests {
 
     /// Everything a preview produces about a locked share, as one haystack.
     fn everything_said(share: &Share, content: &Content) -> String {
-        let preview = Preview::of(share, content, OffsetDateTime::now_utc());
+        let preview = Preview::of(share, content, OffsetDateTime::now_utc(), Language::En);
         format!(
             "{} {} {:?}",
             preview.title, preview.description, preview.card
         )
+    }
+
+    /// The card's own words follow the instance's language; the uploader's
+    /// title and file name are left as they are.
+    #[test]
+    fn a_preview_is_written_in_the_instance_language() {
+        let preview = Preview::of(
+            &testing::share(ShareKind::File),
+            &named("報告.pdf"),
+            OffsetDateTime::now_utc(),
+            Language::ZhTw,
+        );
+        assert_eq!(preview.title, "報告.pdf");
+        assert!(
+            preview.description.contains("剩餘 5 次提取"),
+            "{}",
+            preview.description
+        );
+        let Card::Open {
+            label,
+            footer,
+            expires,
+            ..
+        } = &preview.card
+        else {
+            panic!("an open card: {:?}", preview.card);
+        };
+        assert_eq!(*label, "分享的檔案");
+        assert_eq!(expires.as_deref(), Some("2 天後到期"));
+        assert_eq!(footer, "2 天後到期 · 剩餘 5 次提取");
+    }
+
+    /// The size is a chip on the card, so the footer does not say it again.
+    /// The description has no chips and keeps it.
+    #[test]
+    fn the_card_says_the_size_once() {
+        let preview = Preview::of(
+            &testing::share(ShareKind::File),
+            &content(),
+            OffsetDateTime::now_utc(),
+            Language::En,
+        );
+        let Card::Open { chips, footer, .. } = &preview.card else {
+            panic!("an open card: {:?}", preview.card);
+        };
+        assert_eq!(chips, &["2.0 KiB"]);
+        assert!(!footer.contains("KiB"), "{footer}");
+        assert!(
+            preview.description.starts_with("2.0 KiB · "),
+            "{}",
+            preview.description
+        );
     }
 
     /// The rule this module exists for. A preview is shown to everyone in
@@ -657,6 +769,7 @@ mod tests {
             &share(ShareKind::Text),
             &content(),
             OffsetDateTime::now_utc(),
+            Language::En,
         )
         .with_snippet(text, Some("ts"));
         assert!(
@@ -673,7 +786,7 @@ mod tests {
 
         let mut locked = share(ShareKind::Text);
         locked.password_hash = Some("$argon2id$...".to_owned());
-        let locked = Preview::of(&locked, &content(), OffsetDateTime::now_utc())
+        let locked = Preview::of(&locked, &content(), OffsetDateTime::now_utc(), Language::En)
             .with_snippet(text, Some("ts"));
         assert!(
             matches!(locked.card, Card::Locked { .. }),
@@ -695,6 +808,7 @@ mod tests {
             &share(ShareKind::File),
             &content(),
             OffsetDateTime::now_utc(),
+            Language::En,
         )
         .to_head_tags(None, "ABCD1234", "Tessera");
 
@@ -710,6 +824,7 @@ mod tests {
             &share(ShareKind::File),
             &content(),
             OffsetDateTime::now_utc(),
+            Language::En,
         )
         .to_head_tags(Some("https://share.example"), "ABCD1234", "Tessera");
 
@@ -824,7 +939,7 @@ mod tests {
         let mut share = share(ShareKind::Text);
         share.title = Some(r#""><script>alert(1)</script>"#.to_owned());
 
-        let tags = Preview::of(&share, &content(), OffsetDateTime::now_utc())
+        let tags = Preview::of(&share, &content(), OffsetDateTime::now_utc(), Language::En)
             .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("<script"), "{tags}");
         assert!(tags.contains("&quot;&gt;&lt;script&gt;"), "{tags}");
@@ -845,7 +960,7 @@ mod tests {
         share.password_hash = Some("$argon2id$...".to_owned());
         let content = named("payroll.xlsx");
 
-        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc())
+        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc(), Language::En)
             .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("payroll"), "the file name leaked: {tags}");
         assert!(!tags.contains("2.0 KiB"), "the size leaked: {tags}");
@@ -861,8 +976,13 @@ mod tests {
         let mut share = share(ShareKind::File);
         share.password_hash = Some("$argon2id$...".to_owned());
 
-        let tags = Preview::of(&share, &named("payroll.xlsx"), OffsetDateTime::now_utc())
-            .to_head_tags(None, "ABCD1234", "Tessera");
+        let tags = Preview::of(
+            &share,
+            &named("payroll.xlsx"),
+            OffsetDateTime::now_utc(),
+            Language::En,
+        )
+        .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("payroll"), "{tags}");
         assert!(tags.contains("Password-protected"), "{tags}");
     }
@@ -873,7 +993,7 @@ mod tests {
         share.expires_at = Some(OffsetDateTime::now_utc() - time::Duration::hours(1));
         let content = named("gone.zip");
 
-        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc())
+        let tags = Preview::of(&share, &content, OffsetDateTime::now_utc(), Language::En)
             .to_head_tags(None, "ABCD1234", "Tessera");
         assert!(!tags.contains("gone.zip"), "{tags}");
         assert!(tags.contains("Share unavailable"), "{tags}");
@@ -885,7 +1005,7 @@ mod tests {
         share.use_limit = Some(3);
         let content = named("holiday.jpg");
 
-        let preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
+        let preview = Preview::of(&share, &content, OffsetDateTime::now_utc(), Language::En);
         assert_eq!(preview.title, "holiday.jpg");
         assert_eq!(preview.description, "2.0 KiB · 3 retrievals left");
     }
@@ -896,7 +1016,7 @@ mod tests {
         share.use_limit = Some(3);
         share.use_count = 2;
         assert!(
-            Preview::of(&share, &content(), OffsetDateTime::now_utc())
+            Preview::of(&share, &content(), OffsetDateTime::now_utc(), Language::En)
                 .description
                 .contains("one retrieval left")
         );

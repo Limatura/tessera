@@ -133,7 +133,12 @@ async fn og_image(
     let (share, content) = crate::api::preview::lookup(&state, &code)
         .await
         .ok_or(Error::NotFound)?;
-    let mut preview = Preview::of(&share, &content, OffsetDateTime::now_utc());
+    let mut preview = Preview::of(
+        &share,
+        &content,
+        OffsetDateTime::now_utc(),
+        state.config().site.language,
+    );
     // Read only for a note, and thrown away if the share turns out to be
     // locked. `with_snippet` decides that, so the read here is unconditional
     // and the discretion is not duplicated.

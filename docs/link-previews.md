@@ -2,7 +2,7 @@
 
 When a share link is pasted into Discord or Slack, the client fetches the URL and reads the HTML. It does not run JavaScript. So the `<meta>` tags must be in the bytes the server sends, and the preview image must be a real URL.
 
-Code: `api/preview.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag: `og-images`, on by default.
+Code: `api/preview/mod.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag: `og-images`, on by default.
 
 ## Where things are
 
@@ -10,6 +10,7 @@ Code: `api/preview.rs`, `og/mod.rs`, `og/code.rs`, `og/layout.rs`. Feature flag:
 | ------------------------------- | ------------------------------------- |
 | What a share may reveal         | `api::preview::Card`                  |
 | The meta tags                   | `api::preview::Preview::to_head_tags` |
+| Words, per language             | `api::preview::words`                 |
 | Tag injection into `index.html` | `assets::serve_share_page`            |
 | Drawing the card                | `og::Cards::draw_with`                |
 | Syntax colouring                | `og::code::highlight`                 |
@@ -100,6 +101,12 @@ At save (`Config::validate`) and at render. Rules can tighten after a layout is 
 
 Values come from the same `Card`. A locked share has no size, so `{{size}}` fills as empty string. The layout cannot opt out of this. The value simply isn't there.
 
+`{{footer}}` is the expiry and the downloads left, without the size, which `{{size}}` already carries.
+
+## Language
+
+The card's own words and the tags' fallback titles are written in `site.language` (`en`, `zh-TW` or `ja`; `en` by default). The instance's language, not the request's: a crawler sends no preference of its own, and everyone in the channel sees the one preview it made. A title or file name the uploader chose is shown as it is.
+
 ## Previewing a layout
 
 In the browser, with takumi's wasm build, so the editor and the server share an
@@ -136,7 +143,7 @@ Measured, 53 boxes with `filter: blur(40px)` take 16.4 seconds.
 Three things keep that from being the host's problem.
 
 **A returning unfurler is answered without drawing.** The entity tag is derived
-from what the card *would say* — `Preview::fingerprint` over the title, the
+from what the card _would say_ — `Preview::fingerprint` over the title, the
 words and the snippet, plus a digest of the layout — so it can be worked out
 from a lookup and two digests. `If-None-Match` then costs no render at all.
 

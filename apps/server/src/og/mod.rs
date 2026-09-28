@@ -210,6 +210,7 @@ fn placeholder_values<'a>(
     preview: &'a Preview,
     code: &'a str,
 ) -> std::collections::BTreeMap<&'static str, String> {
+    let said = preview.words();
     let mut values = std::collections::BTreeMap::new();
     values.insert("code", code.to_owned());
     values.insert("title", preview.title().to_owned());
@@ -219,36 +220,31 @@ fn placeholder_values<'a>(
             label,
             chips,
             footer,
+            expires,
             snippet,
         } => {
             values.insert("label", (*label).to_owned());
             values.insert("size", chips.join(" · "));
             values.insert("footer", footer.clone());
-            if let Some(when) = footer.split(" · ").find(|part| part.contains("expires")) {
-                values.insert("expires", when.to_owned());
+            if let Some(when) = expires {
+                values.insert("expires", when.clone());
             }
             if let Some(snippet) = snippet {
                 values.insert("language", snippet.language.clone());
             }
         }
         Card::Sealed { chips, footer } => {
-            values.insert("label", SEALED_LABEL.to_owned());
+            values.insert("label", said.label_sealed.to_owned());
             values.insert("size", chips.join(" · "));
             values.insert("footer", footer.clone());
         }
         Card::Locked { .. } => {
-            values.insert("label", "PASSWORD PROTECTED".to_owned());
-            values.insert(
-                "footer",
-                "Enter the password to see what this is".to_owned(),
-            );
+            values.insert("label", said.label_locked.to_owned());
+            values.insert("footer", said.locked_footer.to_owned());
         }
         Card::Gone => {
-            values.insert("label", "NO LONGER AVAILABLE".to_owned());
-            values.insert(
-                "footer",
-                "It expired, or it has already been collected".to_owned(),
-            );
+            values.insert("label", said.label_gone.to_owned());
+            values.insert("footer", said.gone_footer.to_owned());
         }
     }
     values
@@ -266,9 +262,6 @@ pub fn placeholder_values_for_test(
 ) -> std::collections::BTreeMap<&'static str, String> {
     placeholder_values(preview, code)
 }
-
-/// The eyebrow on an encrypted share's card.
-const SEALED_LABEL: &str = "END-TO-END ENCRYPTED";
 
 /// The card's palette, kept together so the three states cannot drift apart.
 mod ink {
@@ -289,11 +282,13 @@ mod ink {
 fn layout(preview: &Preview, code: &str) -> String {
     let code = escape(code);
     let headline = escape(preview.title());
+    let said = preview.words();
     let (label, label_ink, headline_ink, body, footer) = match &preview.card {
         Card::Open {
             label,
             chips,
             footer,
+            expires: _,
             // A note with one took the branch above; this arm is the file card.
             snippet: _,
         } => (
@@ -304,7 +299,7 @@ fn layout(preview: &Preview, code: &str) -> String {
             escape(footer),
         ),
         Card::Sealed { chips, footer } => (
-            SEALED_LABEL,
+            said.label_sealed,
             ink::ACCENT,
             // The headline is our own sentence, not the uploader's, so it is
             // drawn like a missing title.
@@ -313,20 +308,20 @@ fn layout(preview: &Preview, code: &str) -> String {
             escape(footer),
         ),
         Card::Locked { named } => (
-            "PASSWORD PROTECTED",
+            said.label_locked,
             ink::ACCENT,
             // An absent title is drawn quietly: it is our stand-in sentence, not
             // something the uploader wrote.
             if *named { ink::TEXT } else { ink::FADED },
             String::new(),
-            "Enter the password to see what this is".to_owned(),
+            escape(said.locked_footer),
         ),
         Card::Gone => (
-            "NO LONGER AVAILABLE",
+            said.label_gone,
             ink::FADED,
             ink::FADED,
             String::new(),
-            "It expired, or it has already been collected".to_owned(),
+            escape(said.gone_footer),
         ),
     };
     // A note with a snippet gets its own arrangement: the code is the picture,
@@ -340,7 +335,14 @@ fn layout(preview: &Preview, code: &str) -> String {
         ..
     } = &preview.card
     {
-        return note_layout(label, &headline, snippet, &escape(footer), &code);
+        return note_layout(
+            label,
+            &headline,
+            snippet,
+            &escape(footer),
+            &code,
+            said.and_more,
+        );
     }
 
     let mark = match &preview.card {
@@ -401,6 +403,7 @@ fn note_layout(
     snippet: &code::Snippet,
     footer: &str,
     code_text: &str,
+    and_more: &str,
 ) -> String {
     let language = escape(&snippet.language);
     format!(
@@ -426,7 +429,7 @@ fn note_layout(
         text = ink::TEXT,
         accent = ink::ACCENT,
         quiet = ink::QUIET,
-        block = code_block(snippet),
+        block = code_block(snippet, and_more),
     )
 }
 
@@ -435,7 +438,7 @@ fn note_layout(
 /// One `div` per line because takumi lays out with flexbox, where the newlines
 /// inside a `<pre>` are whitespace and the whole snippet would come out as a
 /// single line running off the card.
-fn code_block(snippet: &code::Snippet) -> String {
+fn code_block(snippet: &code::Snippet, and_more: &str) -> String {
     use std::fmt::Write as _;
 
     let mut lines = String::new();
@@ -464,8 +467,9 @@ fn code_block(snippet: &code::Snippet) -> String {
 
     let more = if snippet.truncated {
         format!(
-            r#"<div style="font-size:20px;color:{faded};margin-top:8px">…and more</div>"#,
+            r#"<div style="font-size:20px;color:{faded};margin-top:8px">{and_more}</div>"#,
             faded = ink::FADED,
+            and_more = escape(and_more),
         )
     } else {
         String::new()
@@ -552,7 +556,7 @@ mod tests {
         let now = time::OffsetDateTime::now_utc();
 
         let base = testing::share(ShareKind::Text);
-        let note = Preview::of(&base, &content, now).with_snippet(
+        let note = Preview::of(&base, &content, now, crate::config::Language::En).with_snippet(
             "export function withAuth(handler: Handler) {\n  return async (req: Request) => {\n    const token = req.headers.get(\"authorization\");\n    if (!token) return new Response(\"Unauthorized\", { status: 401 });\n\n    const session = await verifySession(token);\n    return handler(req, session);\n  };\n}\n\nexport default withAuth;\n",
             Some("ts"),
         );
@@ -561,7 +565,12 @@ mod tests {
             ("note", note),
             (
                 "file",
-                Preview::of(&testing::share(ShareKind::File), &content, now),
+                Preview::of(
+                    &testing::share(ShareKind::File),
+                    &content,
+                    now,
+                    crate::config::Language::En,
+                ),
             ),
         ] {
             let png = cards.draw(&preview, "K3P9XQ2M").expect("a card");

@@ -199,8 +199,9 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 
 - `title: string` — 分頁標題，也是連結預覽裡的站名，預設 `Tessera`。不可空白，最多 100 字
 - `description: string` — 連到這個站本身時，預覽顯示的說明，預設空（空 = 不輸出這個 meta）。最多 300 字
+- `language: "en" | "zh-TW" | "ja"` — 分享連結預覽（meta 標籤和 `og.png` 卡片）用的語言，預設 `en`。用站台的而不是請求的，因為 Discord 這類爬蟲不帶語言偏好
 
-兩個都會在 `index.html` 送出前寫進去，跟 `appearance.*` 一樣，第一次繪製就是對的，不用等 script。分享頁的說明用分享自己的，不會被這個蓋掉。
+`title`、`description` 會在 `index.html` 送出前寫進去，跟 `appearance.*` 一樣，第一次繪製就是對的，不用等 script。分享頁的說明用分享自己的，不會被這個蓋掉。
 
 **不做 SEO 相關欄位**（`keywords` 之類），理由見那張刻意不實作的決策記錄。
 

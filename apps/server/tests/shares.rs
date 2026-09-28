@@ -5804,8 +5804,12 @@ async fn a_configured_layout_still_cannot_describe_a_locked_share() {
     let (share, content) = tessera_server::api::preview::lookup(&app.state, &code)
         .await
         .expect("the share");
-    let preview =
-        tessera_server::api::preview::Preview::of(&share, &content, OffsetDateTime::now_utc());
+    let preview = tessera_server::api::preview::Preview::of(
+        &share,
+        &content,
+        OffsetDateTime::now_utc(),
+        tessera_server::config::Language::En,
+    );
     let filled = tessera_server::og::layout::fill(
         greedy,
         &tessera_server::og::placeholder_values_for_test(&preview, &code),
