@@ -230,6 +230,7 @@
   "user_danger_delete_shares": "共有したものもすべて削除する",
   "user_danger_delete_shares_on": "配布したリンクはすべて直ちに無効になります。",
   "user_danger_delete_shares_off": "配布したリンクは期限まで引き続き有効です。",
+  "user_danger_delete_admin_notice": "あなたは管理者です。このサーバーを管理できるのがあなただけの場合、削除する前に別のアカウントに管理権限を渡してください。",
   "user_danger_delete_last_admin": "このサーバーを管理できるのはあなただけです。先に別のアカウントに権限を渡してください。",
   "user_danger_delete_done": "アカウントを削除しました",
   "user_prefs_general": "一般",
