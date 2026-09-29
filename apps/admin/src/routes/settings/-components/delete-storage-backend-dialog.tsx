@@ -15,7 +15,10 @@ import * as m from "@/paraglide/messages";
 type Backend = components["schemas"]["BackendResponse"];
 type ErrorBody = components["schemas"]["ErrorBody"];
 
-/** `409` 代表這列還在持有內容——移除前得先把東西搬走，錯誤訊息直接顯示 server 給的原因。 */
+/**
+ * 後端只允許移除沒有檔案的 backend，還有檔案時回 `409 backend_in_use`，
+ * 不會發生「移除後內容讀不到」的情況，所以說明文字講的是這條規則。
+ */
 export function DeleteStorageBackendDialog({
   backend,
   open,
@@ -53,7 +56,7 @@ export function DeleteStorageBackendDialog({
         </AlertDialogHeader>
         {error && (
           <p className="text-destructive text-sm" role="alert">
-            {error.message ?? m.settings_storage_backends_delete_error()}
+            {deleteErrorMessage(error)}
           </p>
         )}
         <AlertDialogFooter>
@@ -76,4 +79,12 @@ export function DeleteStorageBackendDialog({
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+/** `backend_in_use` 給翻譯好的原因和下一步，其他錯誤沿用 server 的訊息。 */
+function deleteErrorMessage(error: ErrorBody): string {
+  if (error.code === "backend_in_use") {
+    return m.settings_storage_backends_delete_in_use();
+  }
+  return error.message ?? m.settings_storage_backends_delete_error();
 }

@@ -1,5 +1,5 @@
 import { IconLogin } from "@tabler/icons-react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { canAccessAdmin } from "@tessera/auth/permissions";
 import { AnimatedThemeToggler } from "@tessera/ui/components/animated-theme-toggler";
 import {
@@ -35,13 +35,15 @@ export function Header() {
   const locale = getLocale();
   const { data: session } = useSession();
   const logout = useLogout();
+  const navigate = useNavigate();
 
   // 後台每一頁都要權限，一頁都進不去的人點連結只會被 admin 的 route guard 原地送回來，
   // 所以入口乾脆不出現。真正的授權由 server 擋，這裡只是不要給進不去的門。
   const adminHref = canAccessAdmin(session) ? adminUrl()?.toString() : null;
 
+  // 登出後回首頁,停在需要登入的頁面只會留下一個已經失效的畫面(#363)。
   const handleLogout = () => {
-    logout.mutate();
+    logout.mutate(undefined, { onSuccess: () => navigate({ to: "/" }) });
   };
 
   return (
