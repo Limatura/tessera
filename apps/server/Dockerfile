@@ -59,6 +59,12 @@ COPY apps/admin apps/admin
 # panel, which this image serves at `/admin/`.
 RUN VITE_ADMIN_URL=/admin pnpm --filter web build && pnpm --filter admin build
 
+# Only the two bundles, for CI to measure how much of the binary they are
+# (`image-size.sh`). Never the default target: that is the last stage below.
+FROM scratch AS frontend-dist
+COPY --from=web /build/apps/web/dist web/
+COPY --from=web /build/apps/admin/dist admin/
+
 # ---------------------------------------------------------------------------
 # Stage 2 — compile
 # ---------------------------------------------------------------------------

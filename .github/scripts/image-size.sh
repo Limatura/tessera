@@ -18,6 +18,13 @@
 # not a third kind of size — it is the part of that number a Rust change moves,
 # and on this image it is nearly all of it.
 #
+# Under the binary, when `FRONTEND_DIR` holds the two exported bundles: how much
+# of it is the embedded web and admin SPAs, and the rest as the backend.
+# rust-embed stores the files as they are, so the bundles' bytes on disk are
+# what they add to the binary, give or take a few bytes of index per file. That
+# makes the disk figure the frontend and backend together, counted once; adding
+# the frontend bundle report to it would count the SPAs twice.
+#
 # `docker image inspect --format '{{.Size}}'` is deliberately absent. It was in
 # this table once and reported 17.6 MB for an image holding a 34.6 MB binary.
 # The cause was never established; what was established is that the field is not
@@ -34,6 +41,7 @@ set -euo pipefail
 IMAGE=${1:?usage: image-size.sh <image-tag>}
 
 BINARY_PATH=${BINARY_PATH:-/usr/local/bin/tessera-server}
+FRONTEND_DIR=${FRONTEND_DIR:-}
 BINARY_BUDGET_MB=${BINARY_BUDGET_MB:-0}
 ROOTFS_BUDGET_MB=${ROOTFS_BUDGET_MB:-0}
 
@@ -72,6 +80,13 @@ binary=$(stat -c%s "$STATE_DIR/binary")
 docker save "$IMAGE" -o "$STATE_DIR/image.tar"
 compressed=$("$(dirname "$0")/image-compressed-size.py" "$STATE_DIR/image.tar")
 
+frontend=""
+backend=""
+if [ -n "$FRONTEND_DIR" ] && [ -d "$FRONTEND_DIR" ]; then
+  frontend=$(find "$FRONTEND_DIR" -type f -printf '%s\n' | awk '{s+=$1} END{print s+0}')
+  backend=$(( binary - frontend ))
+fi
+
 rev=${GITHUB_SHA:-unknown}
 
 {
@@ -79,6 +94,10 @@ rev=${GITHUB_SHA:-unknown}
   echo "binary $binary"
   echo "rootfs $rootfs"
   echo "compressed $compressed"
+  if [ -n "$frontend" ]; then
+    echo "frontend $frontend"
+    echo "backend $backend"
+  fi
 } > "$CURRENT"
 
 # ------------------------------------------------------------------ baseline
@@ -94,6 +113,8 @@ baseline_field() {
 base_binary=$(baseline_field binary)
 base_rootfs=$(baseline_field rootfs)
 base_compressed=$(baseline_field compressed)
+base_frontend=$(baseline_field frontend)
+base_backend=$(baseline_field backend)
 base_rev=$(baseline_field rev)
 
 mb() { awk -v b="${1:-}" 'BEGIN { if (b == "") print "—"; else printf "%.1f MB", b / 1000000 }'; }
@@ -122,9 +143,13 @@ budget() { awk -v m="$1" 'BEGIN { if (m + 0 == 0) print "—"; else printf "%d M
   echo "| **下載大小**(docker pull 傳輸量) | **$(mb "$compressed")** | $(mb "$base_compressed") | $(delta "$compressed" "$base_compressed") | — |"
   echo "| **磁碟大小**(pull 完解開後) | **$(mb "$rootfs")** | $(mb "$base_rootfs") | $(delta "$rootfs" "$base_rootfs") | $(budget "$ROOTFS_BUDGET_MB") |"
   echo "| &nbsp;&nbsp;└ 其中執行檔 | $(mb "$binary") | $(mb "$base_binary") | $(delta "$binary" "$base_binary") | $(budget "$BINARY_BUDGET_MB") |"
+  if [ -n "$frontend" ]; then
+    echo "| &nbsp;&nbsp;&nbsp;&nbsp;├ 後端程式 | $(mb "$backend") | $(mb "$base_backend") | $(delta "$backend" "$base_backend") | — |"
+    echo "| &nbsp;&nbsp;&nbsp;&nbsp;└ 內嵌前端(web + admin) | $(mb "$frontend") | $(mb "$base_frontend") | $(delta "$frontend" "$base_frontend") | — |"
+  fi
   echo
   if [ -n "$base_rev" ]; then
-    echo "<sub>比較基準:main @ \`${base_rev:0:7}\` · 下載大小為各層 gzip 後加總,約等於 registry 實際存放的量</sub>"
+    echo "<sub>比較基準:main @ \`${base_rev:0:7}\` · 下載大小為各層 gzip 後加總,約等於 registry 實際存放的量 · 磁碟大小就是前後端加總,前端已經包在執行檔裡,不要再加上前端打包體積</sub>"
   else
     echo "<sub>這台 runner 還沒有基準 — 下一次 main build 成功後就會寫入</sub>"
   fi

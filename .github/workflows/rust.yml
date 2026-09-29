@@ -28,6 +28,15 @@ on:
       - "scripts/schema-docs.py"
       - "packages/crypto/src/wasm/**"
       - "scripts/crypto-wasm.sh"
+      # The image embeds both SPAs, so a frontend change moves its size too.
+      # Only `docker` runs for these; the `changes` filters keep the Rust jobs
+      # off.
+      - "apps/web/**"
+      - "apps/admin/**"
+      - "packages/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   pull_request:
     paths: *rust-paths
   workflow_dispatch:
@@ -108,10 +117,15 @@ jobs:
               - ".github/actions/**"
               - ".github/workflows/**"
             contract: *rust
-            # `apps/web` is embedded in the image.
+            # Both SPAs are embedded in the image.
             image:
               - "apps/server/**"
               - "apps/web/**"
+              - "apps/admin/**"
+              - "packages/**"
+              - "package.json"
+              - "pnpm-lock.yaml"
+              - "pnpm-workspace.yaml"
               - "crates/**"
               - "Cargo.toml"
               - "Cargo.lock"
@@ -768,11 +782,24 @@ jobs:
           build-args: |
             TESSERA_BUILD_REV=${{ github.sha }}
 
+      # The two bundles the binary embeds, so the report can split it into
+      # backend and frontend. Every layer is in the cache the step above just
+      # wrote, so this only copies files out.
+      - name: Export the embedded frontend
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: apps/server/Dockerfile
+          target: frontend-dist
+          outputs: type=local,dest=/tmp/tessera-image-size/frontend
+          cache-from: type=local,src=/tmp/tessera-buildx-cache
+
       # Smoke alarm for unintended growth, set at ~2x current. See image-size.sh.
       - name: Measure the footprint against its budget
         id: footprint
         run: .github/scripts/image-size.sh tessera-server:ci
         env:
+          FRONTEND_DIR: /tmp/tessera-image-size/frontend
           BINARY_BUDGET_MB: "40"
           ROOTFS_BUDGET_MB: "44"
 
