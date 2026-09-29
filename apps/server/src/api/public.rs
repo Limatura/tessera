@@ -397,18 +397,18 @@ async fn download(
     // Plain text leaves as a text file, named so it opens in an editor. An
     // encrypted note is ciphertext until the browser opens it, so it stays
     // opaque, and its title and language are sealed anyway.
-    let (content_type, name) = match &content {
+    let (content_type, disposition) = match &content {
         Content::Text(text) if share.encryption.is_none() => (
             "text/plain; charset=utf-8",
-            text_name(
+            attachment(&text_name(
                 share.title.as_deref(),
                 &share.code.to_string(),
                 text.language.as_deref(),
-            ),
+            )),
         ),
-        _ => ("application/octet-stream", file_name(&content).to_owned()),
+        _ => ("application/octet-stream", content_disposition(&content)),
     };
-    let disposition = HeaderValue::from_str(&attachment(&name))
+    let disposition = HeaderValue::from_str(&disposition)
         .unwrap_or_else(|_| HeaderValue::from_static("attachment"));
     serve(
         &state,
