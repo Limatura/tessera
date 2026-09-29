@@ -1,5 +1,4 @@
 import { IconAlertCircle, IconLogout, IconRefresh } from "@tabler/icons-react";
-import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@tessera/ui/components/button";
 import { toast } from "@tessera/ui/components/toast";
 import type * as React from "react";
@@ -12,7 +11,6 @@ import { DeleteAccountButton } from "./delete-account-dialog";
 
 export function DangerZone() {
   const logout = useLogout();
-  const navigate = useNavigate();
   const revokeOthers = useRevokeOtherSessions();
 
   const handleRevokeOthers = () => {
@@ -66,12 +64,7 @@ export function DangerZone() {
           action={
             <Button
               disabled={logout.isPending}
-              onClick={() =>
-                // 登出後回首頁,跟刪除帳號一樣(#363)。
-                logout.mutate(undefined, {
-                  onSuccess: () => navigate({ to: "/" }),
-                })
-              }
+              onClick={() => logout.mutate()}
               size="sm"
               type="button"
               variant="destructive"

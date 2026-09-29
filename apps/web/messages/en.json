@@ -230,7 +230,6 @@
   "user_danger_delete_shares": "Also delete everything I've shared",
   "user_danger_delete_shares_on": "Every link you've handed out stops working immediately.",
   "user_danger_delete_shares_off": "Links you've handed out keep working until they expire.",
-  "user_danger_delete_admin_notice": "You're an administrator. If you're the last person who can administer this server, give that permission to another account before deleting.",
   "user_danger_delete_last_admin": "You're the last person who can administer this server. Give the permission to another account first.",
   "user_danger_delete_done": "Account deleted",
   "user_prefs_general": "General",

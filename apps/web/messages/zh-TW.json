@@ -230,7 +230,6 @@
   "user_danger_delete_shares": "一併刪除我上傳的所有分享",
   "user_danger_delete_shares_on": "所有已發出的連結會立即失效。",
   "user_danger_delete_shares_off": "已發出的連結會繼續有效,直到各自到期。",
-  "user_danger_delete_admin_notice": "你是管理員。如果你是最後一位能管理這台伺服器的人，要先把管理權交給其他帳號才能刪除。",
   "user_danger_delete_last_admin": "您是最後一位能管理這台伺服器的人,請先把權限交給其他帳號。",
   "user_danger_delete_done": "帳號已刪除",
   "user_prefs_general": "一般",

@@ -1,4 +1,4 @@
-import { createRoute, redirect } from "@tanstack/react-router";
+import { createRoute } from "@tanstack/react-router";
 import { SidebarInset, SidebarProvider } from "@tessera/ui/components/sidebar";
 import * as React from "react";
 
@@ -14,12 +14,6 @@ import {
 } from "./-components/sortable-table";
 
 export const Route = createRoute({
-  // 開發用的示範頁，正式 build 不開放（側欄也只在 dev 顯示）。
-  beforeLoad: () => {
-    if (!import.meta.env.DEV) {
-      throw redirect({ to: "/" });
-    }
-  },
   component: DndDemoComponent,
   getParentRoute: () => rootRoute,
   path: "/dnd-demo",

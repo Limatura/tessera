@@ -67,6 +67,30 @@ export function canAccessAdmin(account: Account | null | undefined): boolean {
   return hasAnyPermission(account, ADMIN_ENTRY_PERMISSIONS);
 }
 
+/**
+ * 「沒有角色」跟 `guest` 在權限上都是空集合，差別只在語意：前者是操作者還沒處理，
+ * 後者是操作者看過了、刻意選了限制最嚴的角色。畫面上分開顯示，否則「忘了指派」會被
+ * 誤讀成「已經處理過」。
+ */
+const ROLE_LABELS: Record<string, string> = {
+  admin: "管理員",
+  guest: "訪客",
+  member: "一般成員",
+  owner: "擁有者",
+};
+
+export const UNASSIGNED_ROLE_LABEL = "未指派";
+
+export function roleLabel(role: string): string {
+  return ROLE_LABELS[role] ?? role;
+}
+
+/** 目前一個帳號只會在 0 或 1 個角色裡（見 m20260824_000001_single_role migration）。 */
+export function accountRoleLabel(account: Account | null | undefined): string {
+  const role = account?.roles.at(0);
+  return role ? roleLabel(role) : UNASSIGNED_ROLE_LABEL;
+}
+
 export function isUnassigned(account: Account | null | undefined): boolean {
   return (account?.roles.length ?? 0) === 0;
 }

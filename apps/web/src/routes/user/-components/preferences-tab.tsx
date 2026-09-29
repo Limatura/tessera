@@ -73,8 +73,7 @@ function LanguageField() {
         value={locale}
       >
         <SelectTrigger className="w-40">
-          {/* 沒給 children 的話會直接顯示原始值(例如 `zh-TW`),要換成顯示名稱(#388)。 */}
-          <SelectValue>{(value: Locale) => LOCALE_LABELS[value]}</SelectValue>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
@@ -113,7 +112,7 @@ function TimeFormatField() {
         value={timeFormat}
       >
         <SelectTrigger className="w-40">
-          <SelectValue>{(value: TimeFormat) => labels[value]}</SelectValue>
+          <SelectValue />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>

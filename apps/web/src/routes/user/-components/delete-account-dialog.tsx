@@ -1,7 +1,6 @@
 import { IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
-import { hasPermission, PERMISSIONS } from "@tessera/auth/permissions";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -24,7 +23,6 @@ import { toast } from "@tessera/ui/components/toast";
 import { useState } from "react";
 
 import { useDeleteAccount } from "@/hooks/use-account";
-import { useSession } from "@/hooks/use-auth";
 import * as m from "@/paraglide/messages";
 
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -74,10 +72,6 @@ export function DeleteAccountButton() {
 function DeleteAccountForm({ onCancel }: { onCancel: () => void }) {
   const navigate = useNavigate();
   const deleteAccount = useDeleteAccount();
-  const { data: session } = useSession();
-  // 前端不知道自己是不是「最後一位」管理員，只能先提醒；真的是的話後端會回
-  // `last_administrator`（#365）。
-  const isAdministrator = hasPermission(session, PERMISSIONS.rolesWrite);
   const [password, setPassword] = useState("");
   // 預設一併刪除:「刪掉我的帳號」多半也包括我傳出去的東西(見 DeleteAccountRequest)。
   const [deleteShares, setDeleteShares] = useState(true);
@@ -107,12 +101,6 @@ function DeleteAccountForm({ onCancel }: { onCancel: () => void }) {
           {m.user_danger_delete_confirm_description()}
         </AlertDialogDescription>
       </AlertDialogHeader>
-
-      {isAdministrator ? (
-        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-          {m.user_danger_delete_admin_notice()}
-        </p>
-      ) : null}
 
       <div className="space-y-4">
         <Field data-invalid={Boolean(error)}>

@@ -20,7 +20,7 @@ import {
 import { useState } from "react";
 
 import { useSetUserRole } from "@/hooks/use-admin";
-import { roleLabel, unassignedRoleLabel } from "@/lib/permissions";
+import { roleLabel, UNASSIGNED_ROLE_LABEL } from "@/lib/permissions";
 import * as m from "@/paraglide/messages";
 
 type Account = components["schemas"]["AccountResponse"];
@@ -75,9 +75,7 @@ function SetUserRoleForm({
   const setUserRole = useSetUserRole();
   const error = setUserRole.error as ErrorBody | null;
 
-  // API 收的是角色 id，但帳號上只帶角色名稱，要從角色清單查回 id（#354）。
-  const currentRole =
-    roles.find((r) => r.name === account.roles[0])?.id ?? null;
+  const currentRole = account.roles[0] ?? null;
   const [role, setRole] = useState<string | null>(currentRole);
 
   const onSubmit = (event: React.FormEvent) => {
@@ -108,22 +106,17 @@ function SetUserRoleForm({
             value={role ?? UNASSIGNED_VALUE}
           >
             <SelectTrigger id="user-role">
-              {/* value 現在是 id，觸發按鈕要換回角色名稱來顯示。 */}
-              <SelectValue placeholder={m.users_set_role_dialog_placeholder()}>
-                {(value: string) =>
-                  value === UNASSIGNED_VALUE
-                    ? unassignedRoleLabel()
-                    : roleLabel(roles.find((r) => r.id === value)?.name ?? "")
-                }
-              </SelectValue>
+              <SelectValue
+                placeholder={m.users_set_role_dialog_placeholder()}
+              />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
                 <SelectItem value={UNASSIGNED_VALUE}>
-                  {unassignedRoleLabel()}
+                  {UNASSIGNED_ROLE_LABEL}
                 </SelectItem>
                 {roles.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
+                  <SelectItem key={r.id} value={r.name}>
                     {roleLabel(r.name)}
                   </SelectItem>
                 ))}

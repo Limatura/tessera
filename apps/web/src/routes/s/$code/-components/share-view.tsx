@@ -9,12 +9,16 @@ import {
   CardTitle,
 } from "@tessera/ui/components/card";
 import { Field, FieldError, FieldGroup } from "@tessera/ui/components/field";
-import { Input } from "@tessera/ui/components/input";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+} from "@tessera/ui/components/input-otp";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import { cn } from "@tessera/ui/lib/utils";
+import { OTPInputContext } from "input-otp";
 import {
   Download,
-  Eye,
-  EyeOff,
   FileIcon,
   FileText,
   Home,
@@ -22,7 +26,7 @@ import {
   SearchX,
   TimerOff,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 
 import { buildTransferUrl, useShare, useShareTicket } from "@/lib/api/share";
 import { formatBytes } from "@/lib/format";
@@ -46,6 +50,8 @@ type PreviewPlan =
   | { type: "text" }
   | { type: "file"; Component: FilePreviewComponent }
   | { type: "none" };
+
+const PASSWORD_OTP_LENGTH = 8;
 
 export function ShareView({ code }: { code: string }) {
   const navigate = useNavigate();
@@ -241,10 +247,30 @@ function ShareSkeleton() {
   );
 }
 
-/**
- * 分享密碼的長度不固定(後端只規定至少 4 碼),所以用一般的密碼輸入框,
- * 不用固定格數的 OTP 輸入(#357)。
- */
+/** Same slot as the shared component, but renders a dot instead of the
+ * character — this field holds a password, not a code meant to be read. */
+function MaskedOTPSlot({ index }: { index: number }) {
+  const context = useContext(OTPInputContext);
+  const { char, hasFakeCaret, isActive } = context?.slots[index] ?? {};
+
+  return (
+    <div
+      className={cn(
+        "relative flex size-9 items-center justify-center border-y border-r border-input bg-input/20 text-sm outline-none transition-all first:rounded-l-md first:border-l last:rounded-r-md dark:bg-input/30",
+        isActive && "z-10 border-ring ring-2 ring-ring/30"
+      )}
+      data-active={isActive}
+    >
+      {char && <span className="size-1.5 rounded-full bg-foreground" />}
+      {hasFakeCaret && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-4 w-px animate-caret-blink bg-foreground duration-1000" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PasswordForm({
   error,
   onSubmit,
@@ -255,7 +281,6 @@ function PasswordForm({
   pending: boolean;
 }) {
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -266,35 +291,26 @@ function PasswordForm({
     <form onSubmit={handleSubmit}>
       <FieldGroup>
         <Field data-invalid={error}>
-          <div className="relative">
-            <Input
-              aria-invalid={error}
-              aria-label={m.share_password_placeholder()}
-              autoComplete="off"
-              autoFocus
-              className="pr-8"
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder={m.share_password_placeholder()}
-              type={showPassword ? "text" : "password"}
-              value={password}
-            />
-            <button
-              aria-label={
-                showPassword
-                  ? m.upload_result_password_hide()
-                  : m.upload_result_password_show()
-              }
-              className="-translate-y-1/2 absolute top-1/2 right-2 text-current/60 hover:text-current"
-              onClick={() => setShowPassword((value) => !value)}
-              type="button"
-            >
-              {showPassword ? (
-                <EyeOff className="size-3.5" />
-              ) : (
-                <Eye className="size-3.5" />
-              )}
-            </button>
-          </div>
+          <InputOTP
+            aria-invalid={error}
+            aria-label={m.share_password_placeholder()}
+            autoFocus
+            maxLength={PASSWORD_OTP_LENGTH}
+            onChange={setPassword}
+            value={password}
+          >
+            <InputOTPGroup className="mx-auto">
+              {Array.from({ length: 4 }, (_, index) => (
+                <MaskedOTPSlot index={index} key={index} />
+              ))}
+            </InputOTPGroup>
+            <InputOTPSeparator />
+            <InputOTPGroup className="mx-auto">
+              {Array.from({ length: 4 }, (_, index) => (
+                <MaskedOTPSlot index={index + 4} key={index + 4} />
+              ))}
+            </InputOTPGroup>
+          </InputOTP>
           {error && (
             <FieldError className="text-center">
               {m.share_password_incorrect()}
