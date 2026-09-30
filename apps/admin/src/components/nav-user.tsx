@@ -1,4 +1,4 @@
-import { IconDotsVertical, IconLogout } from "@tabler/icons-react";
+import { IconDotsVertical, IconHome, IconLogout } from "@tabler/icons-react";
 import {
   Avatar,
   AvatarFallback,
@@ -32,7 +32,7 @@ import {
 import { useLogout, useSession } from "@/hooks/use-auth";
 import { getLocale, setLocale } from "@/lib/locale";
 import { accountRoleLabel, isUnassigned } from "@/lib/permissions";
-import { loginUrl } from "@/lib/web-url";
+import { homeUrl, loginUrl } from "@/lib/web-url";
 import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";
 
@@ -112,6 +112,19 @@ export function NavUser() {
               </div>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            {/* 回到首頁 */}
+            <DropdownMenuItem
+              render={
+                <a
+                  aria-label={m.app_sidebar_back_to_site()}
+                  href={homeUrl().toString()}
+                />
+              }
+              className="justify-start"
+            >
+              <IconHome />
+              {m.app_sidebar_back_to_site()}
+            </DropdownMenuItem>
             <div className="px-2 py-1.5">
               <Select
                 onValueChange={(value) => setLocale(value as typeof locale)}

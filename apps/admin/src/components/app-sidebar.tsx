@@ -3,7 +3,6 @@ import {
   IconDashboard,
   IconDatabase,
   IconFiles,
-  IconHome,
   IconInnerShadowTop,
   IconKey,
   IconSettings,
@@ -28,7 +27,6 @@ import { NavUser } from "@/components/nav-user";
 import { useSession } from "@/hooks/use-auth";
 import type { Permission } from "@/lib/permissions";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
-import { homeUrl } from "@/lib/web-url";
 import * as m from "@/paraglide/messages";
 
 /** 設定的各個分頁。整組共用 `settings:read`，所以只在外層擋一次。 */
@@ -141,22 +139,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         )}
       </SidebarContent>
       <SidebarFooter>
-        {/* 前台不在這包 SPA 的 router 裡，用一般連結整頁跳過去（#359）。 */}
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              render={
-                <a
-                  aria-label={m.app_sidebar_back_to_site()}
-                  href={homeUrl().toString()}
-                />
-              }
-            >
-              <IconHome />
-              <span>{m.app_sidebar_back_to_site()}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
         <NavUser />
       </SidebarFooter>
     </Sidebar>
