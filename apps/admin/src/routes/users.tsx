@@ -127,13 +127,15 @@ function UsersComponent() {
       };
     }
     // 停用或刪掉自己要走前台的帳號設定(刪自己要密碼),這裡不給。
+    // 改自己的角色也不給:後端只擋「改完沒人能管理」,還有別的管理員時
+    // 首次啟動的 owner 會被自己降級(#351)。
     const isSelf = user.id === account?.id;
     return {
       disable: canSetState && !isSelf && user.state === "active",
       enable: canSetState && user.state === "disabled",
       remove: canDelete && !isSelf,
       removeShares: canRemoveShares,
-      setRole: canSetRole,
+      setRole: canSetRole && !isSelf,
     };
   };
 

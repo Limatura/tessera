@@ -117,7 +117,8 @@ function SetUserRoleForm({
                 }
               </SelectValue>
             </SelectTrigger>
-            <SelectContent>
+            {/* 預設會把選單疊在觸發按鈕上，在對話框裡會蓋住標題（#351），改成往下展開。 */}
+            <SelectContent alignItemWithTrigger={false}>
               <SelectGroup>
                 <SelectItem value={UNASSIGNED_VALUE}>
                   {unassignedRoleLabel()}
