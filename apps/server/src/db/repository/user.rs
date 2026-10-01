@@ -16,8 +16,9 @@
 //! table.
 
 use sea_orm::{
-    ActiveValue::Set, ColumnTrait as _, DatabaseConnection, EntityTrait as _, PaginatorTrait as _,
-    QueryFilter as _, QueryOrder as _, QuerySelect as _, sea_query,
+    ActiveValue::Set, ColumnTrait as _, ConnectionTrait, DatabaseConnection, EntityTrait as _,
+    PaginatorTrait as _, QueryFilter as _, QueryOrder as _, QuerySelect as _,
+    TransactionTrait as _, sea_query,
 };
 use tessera_core::{AccountState, DomainError, EmailAddress, RoleId, UserId, Username};
 use time::OffsetDateTime;
@@ -499,7 +500,14 @@ impl UserRepository {
     /// The identifier stays, because `shares.user_id` points at it and a share
     /// whose uploader is gone differs from one that was uploaded anonymously.
     /// The name and address are replaced with values that identify no person,
-    /// which also frees the originals. The password hash goes.
+    /// which also frees the originals.
+    ///
+    /// Everything else that is the person's goes, in the same transaction: the
+    /// password, the linked provider accounts, the preferences, outstanding
+    /// reset and verification links, sign-ins in progress, the sessions and the
+    /// API tokens. The row staying means `ON DELETE CASCADE` never fires, so
+    /// each table is cleared here by name. A table added later that points at
+    /// `users` belongs in `erase_personal_rows` too.
     ///
     /// # Why the sessions and tokens go too
     ///
@@ -520,6 +528,7 @@ impl UserRepository {
         now: OffsetDateTime,
     ) -> Result<bool, UserRepositoryError> {
         let (name, email) = tessera_core::tombstone(id);
+        let transaction = self.connection.begin().await?;
         let result = UserEntity::update_many()
             .col_expr(user::Column::State, AccountState::Deleted.as_str().into())
             .col_expr(user::Column::Username, name.as_str().into())
@@ -534,9 +543,66 @@ impl UserRepository {
             .col_expr(user::Column::UpdatedAt, now.into())
             .filter(user::Column::Id.eq(id.to_string()))
             .filter(user::Column::State.ne(AccountState::Deleted.as_str()))
-            .exec(&self.connection)
+            .exec(&transaction)
             .await?;
-        Ok(result.rows_affected == 1)
+        if result.rows_affected != 1 {
+            return Ok(false);
+        }
+        Self::erase_personal_rows(&transaction, id).await?;
+        transaction.commit().await?;
+        Ok(true)
+    }
+
+    /// Deletes every row in another table that belongs to `id`, for
+    /// [`Self::soft_delete`].
+    ///
+    /// Not shares and not uploads. A share outlives its uploader by design;
+    /// see above. An upload in progress holds a multipart upload on the store,
+    /// and only the sweep knows to abort it before the row goes.
+    async fn erase_personal_rows(
+        connection: &impl ConnectionTrait,
+        id: UserId,
+    ) -> Result<(), UserRepositoryError> {
+        use crate::db::entity::{
+            api_token, auth_flow, email_verification, identity, password_reset_token, session,
+            user_preference,
+        };
+
+        let id = id.to_string();
+        CredentialEntity::delete_many()
+            .filter(credential::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        identity::Entity::delete_many()
+            .filter(identity::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        user_preference::Entity::delete_many()
+            .filter(user_preference::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        password_reset_token::Entity::delete_many()
+            .filter(password_reset_token::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        email_verification::Entity::delete_many()
+            .filter(email_verification::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        auth_flow::Entity::delete_many()
+            .filter(auth_flow::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        session::Entity::delete_many()
+            .filter(session::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        // Its permission rows go with it, by the foreign key.
+        api_token::Entity::delete_many()
+            .filter(api_token::Column::UserId.eq(&id))
+            .exec(connection)
+            .await?;
+        Ok(())
     }
 
     /// Grants or removes the administrator flag.

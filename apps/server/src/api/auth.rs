@@ -1498,8 +1498,6 @@ pub async fn delete_account(
     {
         return Err(Error::NotFound);
     }
-    state.sessions.delete_all_for_user(current.user.id).await?;
-    state.tokens.delete_all_for_user(current.user.id).await?;
 
     tracing::info!(account = %current.user.id, "an account removed itself");
 

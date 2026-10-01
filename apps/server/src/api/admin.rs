@@ -406,12 +406,8 @@ pub async fn delete_user(
     {
         return Err(Error::NotFound);
     }
-
-    // The login history is the most identifying thing this service holds about
-    // a person: where they signed in from and on what. Removing the account
-    // without it would leave the part that matters most.
-    state.sessions.delete_all_for_user(user_id).await?;
-    state.tokens.delete_all_for_user(user_id).await?;
+    // `soft_delete` took the sessions, tokens, password and linked accounts
+    // with it, in one transaction.
 
     tracing::info!(account = %user_id, by = %current.user.id, "an account was removed");
     Ok(StatusCode::NO_CONTENT)
