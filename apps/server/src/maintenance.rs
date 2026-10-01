@@ -302,6 +302,53 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
         "shares past their retention",
         sweep_dead_shares(state, now, state.config().share.retention()).await,
     );
+    // Last, so the day's row counts what the passes above left behind.
+    record_the_day(state, now).await;
+}
+
+/// How long the dashboard's trend goes back. A year shows a season; the rows
+/// are a few dozen bytes each, so the bound is about the table not growing for
+/// ever rather than about room.
+const STATS_HISTORY_DAYS: i64 = 366;
+
+/// Writes today's row of what the instance holds, and drops the oldest.
+///
+/// Every pass, not once a day. The row is replaced each time, so it ends the
+/// day holding what the last pass saw, and a server restarted mid-day still
+/// records that day. See `db::repository::stats`.
+async fn record_the_day(state: &AppState, now: OffsetDateTime) {
+    let snapshot = async {
+        let (shares, live_shares) = state.shares.counts_at(now).await?;
+        Ok::<_, ShareRepositoryError>(crate::db::repository::stats::Snapshot {
+            stored_bytes: state.shares.total_stored_bytes().await?,
+            shares,
+            live_shares,
+            bytes_served: state.shares.total_bytes_served().await?,
+        })
+    }
+    .await;
+    match snapshot {
+        Ok(snapshot) => {
+            if let Err(error) = state
+                .stats
+                .record(now.to_offset(time::UtcOffset::UTC).date(), snapshot, now)
+                .await
+            {
+                tracing::warn!(?error, "could not record today's stats");
+            }
+        }
+        Err(error) => tracing::warn!(?error, "could not count today's stats"),
+    }
+    report(
+        "stats history past its window",
+        state
+            .stats
+            .delete_before(
+                now.to_offset(time::UtcOffset::UTC).date()
+                    - time::Duration::days(STATS_HISTORY_DAYS),
+            )
+            .await,
+    );
 }
 
 /// Removes all of a share's objects, each from the backend holding it, and

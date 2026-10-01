@@ -30,6 +30,7 @@
 | [auth_flows](auth_flows.md) | 9 | A sign-in that has left for a provider and has not come back. Holds the CSRF token, the PKCE secret, and the nonce when the provider issues one, until the callback arrives; then the row is deleted, which is what makes a callback answerable once. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. `nonce` is null for a plain OAuth 2.0 provider, which issues no token to put one in. | table |
 | [user_preferences](user_preferences.md) | 3 | One person's own choices, one row each. So far that is appearance: a mode, a neutral theme and an accent, held as JSON because language and time zone are already asked for and each would otherwise be a migration. Every field is optional, and absent means no opinion: somebody who picked only an accent keeps following the instance's default for the rest, including after the operator changes it. The names come from fixed lists in `tessera_core::appearance` and are checked before they are stored, because they end up as attributes on the `<html>` element. No colour is ever stored; each name selects a block of CSS that ships with the frontend. | table |
 | [email_verifications](email_verifications.md) | 7 |  | table |
+| [stats_snapshots](stats_snapshots.md) | 6 |  | table |
 
 ## Relations
 
@@ -306,6 +307,14 @@ erDiagram
   TEXT created_at
   TEXT expires_at
   TEXT used_at
+}
+"stats_snapshots" {
+  TEXT day PK
+  INTEGER stored_bytes
+  INTEGER shares
+  INTEGER live_shares
+  INTEGER bytes_served
+  TEXT recorded_at
 }
 ```
 

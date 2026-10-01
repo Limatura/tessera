@@ -91,6 +91,8 @@ pub struct AppState {
     pub events: AccessEventRepository,
     /// Outstanding password reset links.
     pub resets: PasswordResetRepository,
+    /// A row a day of what the instance held, for the dashboard's trend.
+    pub stats: crate::db::repository::stats::StatsRepository,
     /// Outstanding links proving an account's address.
     pub verifications: crate::db::repository::email_verification::EmailVerificationRepository,
     /// Invite codes, for an instance that is neither open nor closed.
@@ -352,6 +354,7 @@ impl AppState {
             users: UserRepository::new(db.clone()),
             roles: RoleRepository::new(db.clone()),
             resets: PasswordResetRepository::new(db.clone()),
+            stats: crate::db::repository::stats::StatsRepository::new(db.clone()),
             verifications:
                 crate::db::repository::email_verification::EmailVerificationRepository::new(
                     db.clone(),

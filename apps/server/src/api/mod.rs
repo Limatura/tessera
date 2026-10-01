@@ -373,6 +373,7 @@ fn admin_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(admin::list_invites, admin::create_invite))
         .routes(routes!(admin::revoke_invite))
         .routes(routes!(admin::stats))
+        .routes(routes!(admin::stats_history))
         .routes(routes!(admin::list_roles, admin::create_role))
         .routes(routes!(admin::update_role, admin::delete_role))
         .routes(routes!(admin::list_permissions))
