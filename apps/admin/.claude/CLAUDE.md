@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**@apps/admin** is the React admin dashboard for Tessera, an anonymous file courier service. It's an internal management console for operators — not exposed to end users. It covers server configuration (accounts, sign-in providers, mail, appearance, uploads, storage) and monitoring (recent shares, storage trend).
+**@apps/admin** is the React admin dashboard for Tessera, an anonymous file courier service. It's an internal management console for operators — not exposed to end users. It covers server configuration (accounts, sign-in providers, mail, appearance, uploads, storage) and monitoring (instance stats, storage trend, where content lives, recent shares).
 
 Unlike `apps/web`, this app is **not** embedded in the Rust binary — `apps/server/build.rs` only mirrors `apps/web/dist`. Admin ships separately (its own `Dockerfile` + `nginx.conf`) and sits behind a reverse proxy that puts it on the same domain as the frontend, so the session cookie is shared. All business logic lives in the backend API; this frontend is purely presentation and orchestration.
 
@@ -17,7 +17,7 @@ Unlike `apps/web`, this app is **not** embedded in the Rust binary — `apps/ser
 - **Tailwind CSS** + **shadcn/ui** (via @tessera/ui) for styling
 - **Paraglide** for i18n (cookie + Accept-Language strategy, same as apps/web)
 - **TanStack Table** for data tables (recent shares, etc.)
-- **Recharts** for charts (storage trend)
+- **Recharts** for charts (via `@tessera/ui/components/chart`: dashboard trends + storage location bars)
 - **dnd-kit** for drag-and-drop
 - **React Hook Form** + **Zod** for settings forms
 - **next-themes** for theme switching
@@ -39,7 +39,8 @@ src/
 │   ├── users.tsx                 # Accounts, roles, suspend / delete / end their shares (users:read)
 │   ├── all-shares.tsx            # Every share on the instance, delete any (shares:read:any)
 │   ├── invites.tsx               # Invite codes (invites:read)
-│   ├── dashboard/                # Stats cards, storage trend, recent shares (stats:read)
+│   ├── dashboard/                # Stats, trends, storage locations, current settings, recent shares (stats:read;
+│   │                             #   the settings / shares cards also need settings:read / shares:read:any)
 │   ├── roles/                    # Roles and what they permit (roles:read)
 │   ├── settings/                 # One route per section, all gated on settings:read
 │   │   ├── index.tsx             # No UI — redirects /settings to /settings/account
@@ -76,8 +77,6 @@ src/
 │   ├── settings-values.ts        # Readers for the untyped `value` off GET /admin/settings
 │   ├── format.ts
 │   └── locale.ts
-├── data/
-│   └── dashboard-mock.json       # Placeholder data until dashboard APIs exist
 ├── paraglide/                    # Generated i18n files (auto-created by Paraglide)
 └── index.css
 ```
@@ -151,13 +150,12 @@ Several of these keys break an instance quietly rather than loudly, so the forms
 ## State & Forms
 
 - **Form validation**: React Hook Form + Zod, schemas centralized in `src/lib/settings-schema.ts`
-- **Data tables**: TanStack Table for `recent-shares-table.tsx`
-- **Charts**: Recharts for `storage-trend-chart.tsx`
+- **Data tables**: plain `@tessera/ui` `Table` (TanStack Table is available for anything needing sorting/filtering)
 - **State management**: prefer local component state; escalate to Zustand only past 2+ levels of prop drilling (see Prop Drilling section below)
 
 ## Notes for Future Work
 
-1. **Dashboard data is mocked** (`src/data/dashboard-mock.json`) — stats cards, storage trend, and recent shares need real backend endpoints
+1. **Trends come from `GET /admin/stats/history`** (#410/#411): one entry per UTC day, recorded by the hourly sweep from the day that version was deployed, and a day the server was down has no entry. `dashboard/-components/trend-series.ts` fills those gaps with `null` so the chart breaks instead of drawing a straight line through them, and starts at the first recorded day rather than padding the requested range. Each metric (storage / shares / traffic) is its own chart with one y-axis — never put bytes and counts on two axes. Charts use `--primary` for the series that matters and `--muted-foreground` for context: the design system's `--chart-*` tokens are greys and cannot serve as categorical colours
 2. **Dropped for having no backend key**: the 網站資訊 section (site title/description/SEO keywords, admin-entry-on-home) and `upload.allowedFileTypes`. Do not re-add them as editable fields until `settings::keys()` actually lists them — `site.title`/`site.description` are tracked in #278; the other three are a deliberate no, with reasons, in #279.
 3. **dnd-demo route** is a scratch/demo route, shown only in dev: the sidebar hides it and the route redirects home in a production build
 4. **Account state comes from `AdminUserResponse.state`** (`active` / `disabled` / `deleted`). The users page offers 停用 or 重新啟用 depending on it and badges suspended accounts; `isDeletedAccount` reads it too. Only `owner_username` on the all-shares page, which carries no state, still falls back to the `gone-` prefix (`isDeletedUsername` in `src/lib/accounts.ts`). Never send `is_admin` on `PATCH /admin/users/{id}` unless changing it — it rewrites the role (`true` → owner, `false` → none)
