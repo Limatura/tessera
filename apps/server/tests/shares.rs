@@ -6079,3 +6079,26 @@ async fn a_link_must_be_a_web_address() {
     .await;
     assert_eq!(body_json(refused).await["code"], "value_length");
 }
+
+/// The column holds a signed 32-bit integer and the contract says so; a larger
+/// limit used to be accepted and quietly stored as a smaller one.
+#[tokio::test]
+async fn a_use_limit_past_the_column_is_refused() {
+    let app = TestApp::ready().await;
+    let refused = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?max_uses=2147483648"),
+            Body::from("hello"),
+        )
+        .await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    let refused = body_json(refused).await;
+    assert_eq!(refused["code"], "value_out_of_range");
+    assert_eq!(refused["details"]["max"], 2_147_483_647_u64);
+
+    upload(&app, "?max_uses=2147483647", b"hello").await;
+}

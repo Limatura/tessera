@@ -834,6 +834,81 @@ async fn stats_need_an_administrator_with_a_cookie() {
     );
 }
 
+/// The sweep writes today's row, replaces it on the same day, and the history
+/// endpoint returns the recorded days oldest first.
+#[tokio::test]
+async fn the_sweep_records_a_day_of_stats() {
+    let app = TestApp::with_config(|config| config.features.anonymous_upload = true).await;
+    let (admin, _) = register(&app, "first").await;
+    let today = OffsetDateTime::now_utc();
+    let yesterday = today - time::Duration::days(1);
+
+    tessera_server::maintenance::sweep_once(&app.state, yesterday).await;
+    expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::POST)
+                .uri("/api/v1/shares?filename=a.bin"),
+            Body::from(vec![0_u8; 300]),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    // Twice in a day is one row, holding the later pass.
+    tessera_server::maintenance::sweep_once(&app.state, today).await;
+    tessera_server::maintenance::sweep_once(&app.state, today).await;
+
+    let history = |query: &'static str| {
+        let admin = admin.clone();
+        let app = &app;
+        async move {
+            app.empty(
+                Method::GET,
+                &format!("/api/v1/admin/stats/history{query}"),
+                Auth::Cookie(&admin),
+            )
+            .await
+        }
+    };
+    let days = body_json(expect_status(history("").await, StatusCode::OK).await).await;
+    let days = days["data"].as_array().expect("days").clone();
+    assert_eq!(days.len(), 2, "{days:?}");
+    assert_eq!(days[0]["date"], yesterday.date().to_string());
+    assert_eq!(days[0]["stored_bytes"], 0);
+    assert_eq!(days[1]["date"], today.date().to_string());
+    assert_eq!(days[1]["stored_bytes"], 300);
+    assert_eq!(days[1]["shares"], 1);
+    assert_eq!(days[1]["live_shares"], 1);
+
+    // A range that ends yesterday leaves today out.
+    let only = format!("?from={}&to={}", yesterday.date(), yesterday.date());
+    let only = body_json(
+        expect_status(
+            app.empty(
+                Method::GET,
+                &format!("/api/v1/admin/stats/history{only}"),
+                Auth::Cookie(&admin),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(only["data"].as_array().expect("days").len(), 1);
+
+    for (query, rule) in [
+        ("?from=2026-13-01", "date"),
+        ("?from=2026-09-30&to=2026-09-01", "not_after_to"),
+        ("?from=2024-01-01&to=2026-01-01", "range_too_long"),
+    ] {
+        let refused =
+            body_json(expect_status(history(query).await, StatusCode::BAD_REQUEST).await).await;
+        assert_eq!(refused["details"]["rule"], rule, "{query}");
+    }
+}
+
 /// One permission at a time, the point of the change.
 ///
 /// Under the boolean, reaching any administrative endpoint meant reaching all

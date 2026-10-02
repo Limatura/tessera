@@ -27,6 +27,7 @@ pub mod session;
 pub mod setting;
 pub mod share;
 pub mod share_ticket;
+pub mod stats_snapshot;
 pub mod storage_backend;
 pub mod text_share;
 pub mod upload;

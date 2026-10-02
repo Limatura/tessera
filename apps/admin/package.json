@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --host",
-    "build": "vite build",
-    "serve": "vite preview",
-    "start": "vite",
-    "check-types": "vite build && tsc --noEmit"
+    "dev": "vp dev --host",
+    "build": "vp build",
+    "serve": "vp preview",
+    "start": "vp dev",
+    "check-types": "vp build && tsc --noEmit"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -48,6 +48,7 @@
     "postcss": "^8.5.24",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vite": "^8.1.5"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   }
 }

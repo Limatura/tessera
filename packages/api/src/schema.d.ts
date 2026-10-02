@@ -487,6 +487,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/stats/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reports what this instance held, one day at a time.
+         * @description Recorded by the hourly sweep, so it starts the day this version is first
+         *     deployed: what was swept before then is gone, size and all. A day's entry
+         *     is the last sweep of that day.
+         *
+         *     # Errors
+         *
+         *     `400` when a date is not `YYYY-MM-DD`, `from` is after `to`, or the range is
+         *     longer than 366 days; `401`, `403` and `404` as `/admin/stats`.
+         */
+        get: operations["instance_stats_history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/storage/backends": {
         parameters: {
             query?: never;
@@ -3194,14 +3221,50 @@ export interface components {
              */
             received_bytes: number;
         };
+        /** @description One day of what the instance held. */
+        StatsDay: {
+            /**
+             * Format: int64
+             * @description As `StatsResponse::bytes_served`, so it falls when a share is swept.
+             */
+            bytes_served: number;
+            /**
+             * @description The day, `YYYY-MM-DD` in UTC.
+             * @example 2026-09-30
+             */
+            date: string;
+            /**
+             * Format: int64
+             * @description As `StatsResponse::live_shares`.
+             */
+            live_shares: number;
+            /**
+             * Format: int64
+             * @description As `StatsResponse::shares`.
+             */
+            shares: number;
+            /**
+             * Format: int64
+             * @description As `StatsResponse::stored_bytes`, at the day's last sweep.
+             */
+            stored_bytes: number;
+        };
+        /** @description Days of history, oldest first. */
+        StatsHistoryResponse: {
+            /**
+             * @description One per day recorded in the range. A day the server was not running has
+             *     no entry, and history starts the day this version was first deployed.
+             */
+            data: components["schemas"]["StatsDay"][];
+        };
         /**
          * @description What one instance is holding, at a glance.
          *
          *     # Why this is not a metrics endpoint
          *
-         *     Four numbers an operator can act on, not a time series: "am I near the
-         *     quota", "how many people are on here", "is the sweep keeping up". Anything
-         *     wanting graphs wants Prometheus, a different endpoint.
+         *     Numbers an operator can act on: "am I near the quota", "how many people are
+         *     on here", "is the sweep keeping up". The dashboard's one trend, a day at a
+         *     time, is `/admin/stats/history`; anything finer wants Prometheus.
          */
         StatsResponse: {
             /**
@@ -4591,6 +4654,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StatsResponse"];
+                };
+            };
+            /** @description Not signed in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not an administrator, or authenticated with an API token */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description This instance has no administration */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    instance_stats_history: {
+        parameters: {
+            query?: {
+                /**
+                 * @description The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`, so
+                 *     the default is thirty days.
+                 * @example 2026-09-01
+                 */
+                from?: string;
+                /**
+                 * @description The last day, `YYYY-MM-DD` in UTC, included. Defaults to today.
+                 * @example 2026-09-30
+                 */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What this instance held, a day at a time */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsHistoryResponse"];
+                };
+            };
+            /** @description A date is malformed, or the range is backwards or too long */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
                 };
             };
             /** @description Not signed in */

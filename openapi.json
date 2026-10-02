@@ -2001,8 +2001,66 @@
         ],
         "type": "object"
       },
+      "StatsDay": {
+        "description": "One day of what the instance held.",
+        "properties": {
+          "bytes_served": {
+            "description": "As `StatsResponse::bytes_served`, so it falls when a share is swept.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "date": {
+            "description": "The day, `YYYY-MM-DD` in UTC.",
+            "example": "2026-09-30",
+            "type": "string"
+          },
+          "live_shares": {
+            "description": "As `StatsResponse::live_shares`.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "shares": {
+            "description": "As `StatsResponse::shares`.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "stored_bytes": {
+            "description": "As `StatsResponse::stored_bytes`, at the day's last sweep.",
+            "format": "int64",
+            "minimum": 0,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "stored_bytes",
+          "shares",
+          "live_shares",
+          "bytes_served"
+        ],
+        "type": "object"
+      },
+      "StatsHistoryResponse": {
+        "description": "Days of history, oldest first.",
+        "properties": {
+          "data": {
+            "description": "One per day recorded in the range. A day the server was not running has\nno entry, and history starts the day this version was first deployed.",
+            "items": {
+              "$ref": "#/components/schemas/StatsDay"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "type": "object"
+      },
       "StatsResponse": {
-        "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nFour numbers an operator can act on, not a time series: \"am I near the\nquota\", \"how many people are on here\", \"is the sweep keeping up\". Anything\nwanting graphs wants Prometheus, a different endpoint.",
+        "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nNumbers an operator can act on: \"am I near the quota\", \"how many people are\non here\", \"is the sweep keeping up\". The dashboard's one trend, a day at a\ntime, is `/admin/stats/history`; anything finer wants Prometheus.",
         "properties": {
           "accounts": {
             "description": "How many accounts exist.",
@@ -3806,6 +3864,95 @@
           }
         ],
         "summary": "Reports what this instance is holding.",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/stats/history": {
+      "get": {
+        "description": "Recorded by the hourly sweep, so it starts the day this version is first\ndeployed: what was swept before then is gone, size and all. A day's entry\nis the last sweep of that day.\n\n# Errors\n\n`400` when a date is not `YYYY-MM-DD`, `from` is after `to`, or the range is\nlonger than 366 days; `401`, `403` and `404` as `/admin/stats`.",
+        "operationId": "instance_stats_history",
+        "parameters": [
+          {
+            "description": "The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`, so\nthe default is thirty days.",
+            "example": "2026-09-01",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "The last day, `YYYY-MM-DD` in UTC, included. Defaults to today.",
+            "example": "2026-09-30",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsHistoryResponse"
+                }
+              }
+            },
+            "description": "What this instance held, a day at a time"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "A date is malformed, or the range is backwards or too long"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not signed in"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not an administrator, or authenticated with an API token"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "This instance has no administration"
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "summary": "Reports what this instance held, one day at a time.",
         "tags": [
           "admin"
         ]

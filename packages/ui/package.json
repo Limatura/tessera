@@ -12,7 +12,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vp test run"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -38,6 +38,6 @@
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "catalog:",
-    "vitest": "^4.1.11"
+    "vite-plus": "catalog:"
   }
 }

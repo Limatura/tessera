@@ -406,12 +406,8 @@ pub async fn delete_user(
     {
         return Err(Error::NotFound);
     }
-
-    // The login history is the most identifying thing this service holds about
-    // a person: where they signed in from and on what. Removing the account
-    // without it would leave the part that matters most.
-    state.sessions.delete_all_for_user(user_id).await?;
-    state.tokens.delete_all_for_user(user_id).await?;
+    // `soft_delete` took the sessions, tokens, password and linked accounts
+    // with it, in one transaction.
 
     tracing::info!(account = %user_id, by = %current.user.id, "an account was removed");
     Ok(StatusCode::NO_CONTENT)
@@ -641,9 +637,9 @@ pub async fn revoke_invite(
 ///
 /// # Why this is not a metrics endpoint
 ///
-/// Four numbers an operator can act on, not a time series: "am I near the
-/// quota", "how many people are on here", "is the sweep keeping up". Anything
-/// wanting graphs wants Prometheus, a different endpoint.
+/// Numbers an operator can act on: "am I near the quota", "how many people are
+/// on here", "is the sweep keeping up". The dashboard's one trend, a day at a
+/// time, is `/admin/stats/history`; anything finer wants Prometheus.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct StatsResponse {
     /// How many accounts exist.
@@ -736,6 +732,125 @@ pub async fn stats(
         quota_bytes: (quota > 0).then_some(quota),
         live_invites: state.invites.count_usable_at(now).await?,
     }))
+}
+
+/// Which days of history to return.
+#[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
+#[serde(deny_unknown_fields)]
+pub struct StatsHistoryParams {
+    /// The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`, so
+    /// the default is thirty days.
+    #[param(example = "2026-09-01")]
+    pub from: Option<String>,
+    /// The last day, `YYYY-MM-DD` in UTC, included. Defaults to today.
+    #[param(example = "2026-09-30")]
+    pub to: Option<String>,
+}
+
+/// One day of what the instance held.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct StatsDay {
+    /// The day, `YYYY-MM-DD` in UTC.
+    #[schema(example = "2026-09-30")]
+    pub date: String,
+    /// As `StatsResponse::stored_bytes`, at the day's last sweep.
+    pub stored_bytes: u64,
+    /// As `StatsResponse::shares`.
+    pub shares: u64,
+    /// As `StatsResponse::live_shares`.
+    pub live_shares: u64,
+    /// As `StatsResponse::bytes_served`, so it falls when a share is swept.
+    pub bytes_served: u64,
+}
+
+/// Days of history, oldest first.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
+pub struct StatsHistoryResponse {
+    /// One per day recorded in the range. A day the server was not running has
+    /// no entry, and history starts the day this version was first deployed.
+    pub data: Vec<StatsDay>,
+}
+
+/// The longest range one request may ask for, which is also how long history is
+/// kept.
+const MAX_HISTORY_DAYS: i64 = 366;
+
+/// Reports what this instance held, one day at a time.
+///
+/// Recorded by the hourly sweep, so it starts the day this version is first
+/// deployed: what was swept before then is gone, size and all. A day's entry
+/// is the last sweep of that day.
+///
+/// # Errors
+///
+/// `400` when a date is not `YYYY-MM-DD`, `from` is after `to`, or the range is
+/// longer than 366 days; `401`, `403` and `404` as `/admin/stats`.
+#[utoipa::path(
+    get,
+    path = "/admin/stats/history",
+    operation_id = "instance_stats_history",
+    tag = ADMIN_TAG,
+    params(StatsHistoryParams),
+    responses(
+        (status = 200, description = "What this instance held, a day at a time", body = StatsHistoryResponse),
+        (status = 400, description = "A date is malformed, or the range is backwards or too long", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
+        (status = 403, description = "Not an administrator, or authenticated with an API token", body = crate::error::ErrorBody),
+        (status = 404, description = "This instance has no administration", body = crate::error::ErrorBody),
+    ),
+    security(("session" = [])),
+)]
+pub async fn stats_history(
+    State(state): State<AppState>,
+    current: CurrentUser,
+    ApiQuery(params): ApiQuery<StatsHistoryParams>,
+) -> Result<Json<StatsHistoryResponse>> {
+    require_admin_feature(&state)?;
+    admitted(&current, Permission::StatsRead)?;
+
+    let today = OffsetDateTime::now_utc().date();
+    let to = day_param(params.to.as_deref(), "to")?.unwrap_or(today);
+    let from =
+        day_param(params.from.as_deref(), "from")?.unwrap_or_else(|| to - time::Duration::days(29));
+    if from > to {
+        return Err(
+            Error::invalid("from", "not_after_to").with_message("`from` must not be after `to`")
+        );
+    }
+    if (to - from).whole_days() >= MAX_HISTORY_DAYS {
+        return Err(Error::invalid("from", "range_too_long")
+            .with_detail("max_days", MAX_HISTORY_DAYS)
+            .with_message(format!("a range covers at most {MAX_HISTORY_DAYS} days")));
+    }
+
+    let data = state
+        .stats
+        .between(from, to)
+        .await?
+        .into_iter()
+        .map(|(day, snapshot)| StatsDay {
+            date: day.to_string(),
+            stored_bytes: snapshot.stored_bytes,
+            shares: snapshot.shares,
+            live_shares: snapshot.live_shares,
+            bytes_served: snapshot.bytes_served,
+        })
+        .collect();
+    Ok(Json(StatsHistoryResponse { data }))
+}
+
+/// A `YYYY-MM-DD` query parameter, or `None` when it was left out.
+fn day_param(value: Option<&str>, field: &str) -> Result<Option<time::Date>> {
+    let format = time::macros::format_description!("[year]-[month]-[day]");
+    value
+        .map(|value| {
+            time::Date::parse(value, format).map_err(|_| {
+                Error::invalid(field, "date")
+                    .with_message(format!("`{field}` must be a date, `YYYY-MM-DD`"))
+            })
+        })
+        .transpose()
 }
 
 /// One role, as the API describes it.

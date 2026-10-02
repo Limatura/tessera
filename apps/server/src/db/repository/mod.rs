@@ -20,6 +20,7 @@ pub mod scan;
 pub mod session;
 pub mod setting;
 pub mod share;
+pub mod stats;
 pub mod storage_backend;
 pub(crate) mod total;
 pub mod upload;

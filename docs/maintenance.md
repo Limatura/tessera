@@ -15,6 +15,8 @@ Code: `maintenance.rs`.
 | Session and token expiry | Rows nothing will present again |
 | `reconcile_once` | Objects in the store that no row names |
 
+Each pass also writes today's row of `stats_snapshots` (stored bytes, shares, live shares, bytes served), replacing the one an earlier pass wrote that day, and drops rows older than 366 days. That is the history behind `GET /admin/stats/history`. It starts the day it is first deployed: the sweep deletes a dead share's size along with it, so earlier days cannot be worked out afterwards.
+
 Dead shares matter most: they are the only ones holding bytes. A row is a couple of hundred; the payload can be gigabytes, and no database action reaches the blob store.
 
 ## Orphan reconciliation

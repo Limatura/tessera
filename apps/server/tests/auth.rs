@@ -3703,3 +3703,95 @@ async fn a_missing_invite_is_not_a_wrong_one() {
     .await;
     assert_eq!(code_of(&body), "invite_unusable", "{body}");
 }
+
+/// Deleting an account keeps the `users` row as a tombstone, so the foreign
+/// keys' `ON DELETE CASCADE` never fires. Everything else that is the person's
+/// has to be removed by name: the password, the linked provider accounts, the
+/// preferences, the sessions and tokens.
+#[tokio::test]
+async fn deleting_an_account_leaves_nothing_of_the_person() {
+    let app = TestApp::ready().await;
+    // The first account is the administrator, who cannot delete themselves.
+    register(&app, "first").await;
+    let session = register(&app, "alice").await;
+    let user = app
+        .state
+        .users
+        .find_by_username(&tessera_core::Username::parse("alice").expect("a name"))
+        .await
+        .expect("query")
+        .expect("the account");
+    let now = time::OffsetDateTime::now_utc();
+    app.state
+        .identities
+        .link("github", "12345", user.id, now)
+        .await
+        .expect("link a provider account");
+    expect_status(
+        app.json(
+            Method::PUT,
+            "/api/v1/me/preferences",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "appearance": { "accent": "rose" } }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    let rows = async |table: &str| -> i64 {
+        use sea_orm::{ConnectionTrait as _, Statement};
+        let backend = app.state.db.get_database_backend();
+        let row = app
+            .state
+            .db
+            .query_one_raw(Statement::from_string(
+                backend,
+                format!(
+                    "SELECT COUNT(*) AS n FROM {table} WHERE user_id = '{}'",
+                    user.id
+                ),
+            ))
+            .await
+            .expect("query")
+            .expect("a count");
+        row.try_get::<i64>("", "n").expect("a number")
+    };
+    for table in ["credentials", "identities", "user_preferences", "sessions"] {
+        assert_eq!(rows(table).await, 1, "{table} before");
+    }
+
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&session),
+            &serde_json::json!({ "current_password": PASSWORD }),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+
+    for table in [
+        "credentials",
+        "identities",
+        "user_preferences",
+        "sessions",
+        "api_tokens",
+        "password_reset_tokens",
+        "email_verifications",
+        "auth_flows",
+    ] {
+        assert_eq!(rows(table).await, 0, "{table} after");
+    }
+    // The tombstone stays, so a share can still say its uploader is gone.
+    assert!(
+        app.state
+            .users
+            .find_by_id(user.id)
+            .await
+            .expect("query")
+            .is_some()
+    );
+}

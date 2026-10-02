@@ -361,6 +361,9 @@ pub async fn create(
             "`max_uses` must be at least 1; omit it for a share that never runs out",
         ));
     }
+    if let Some(limit) = params.max_uses {
+        within_use_limit(limit)?;
+    }
     let Described {
         kind,
         filename,
@@ -525,6 +528,23 @@ fn link_target(body: &[u8]) -> Result<String> {
         return Err(refused());
     }
     Ok(url.into())
+}
+
+/// The most retrievals a share may allow: what the column holds.
+///
+/// The column is a signed 32-bit integer, so anything larger used to be stored
+/// as this instead, while the contract promised the request would be refused.
+const MAX_USE_LIMIT: u32 = i32::MAX.unsigned_abs();
+
+/// Refuses a use limit the column cannot hold, rather than storing a smaller one.
+fn within_use_limit(limit: u32) -> Result<u32> {
+    if limit > MAX_USE_LIMIT {
+        return Err(
+            Error::out_of_range("max_uses", Some(1), Some(u64::from(MAX_USE_LIMIT)))
+                .with_message(format!("`max_uses` must be at most {MAX_USE_LIMIT}")),
+        );
+    }
+    Ok(limit)
 }
 
 /// What a new share says about itself, each part checked.
@@ -976,7 +996,7 @@ pub async fn patch(
                 "`max_uses` must be at least 1; send null for a share that never runs out",
             ));
         }
-        Some(Some(limit)) => Change::Set(Some(limit)),
+        Some(Some(limit)) => Change::Set(Some(within_use_limit(limit)?)),
     };
 
     let password_hash = if body.remove_password {
