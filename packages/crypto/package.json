@@ -7,12 +7,12 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "vitest run"
+    "test": "vp test run"
   },
   "devDependencies": {
     "@tessera/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vitest": "^4.1.11"
+    "vite-plus": "catalog:"
   }
 }

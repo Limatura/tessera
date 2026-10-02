@@ -77,15 +77,14 @@ jobs:
       # about whether the types are right.
       - run: pnpm turbo run check-types --affected
 
-      # apps/docs is a separate git submodule (tessera-docs) with its own
-      # oxlint config. --disable-nested-config stops oxlint from walking into
-      # it and tripping over whatever config files live there — including a
-      # stale one that once conflicted with its current oxlint.config.ts.
+      # Format and lint, from the root vite.config.ts. apps/docs is a separate
+      # git submodule (tessera-docs) with its own config; Vite+ uses the root
+      # config and never a nested one, and apps/docs is in its ignore patterns.
       #
-      # Not filtered by --affected: oxlint has no per-package cost model here,
-      # it walks the whole tree in one process either way, so narrowing its
-      # input would only add bookkeeping for no saved work.
-      - run: pnpm exec ultracite check --disable-nested-config
+      # Not filtered by --affected: it walks the whole tree in one process
+      # either way, so narrowing its input would only add bookkeeping for no
+      # saved work.
+      - run: pnpm exec vp check
 
       # 純函式的單元測試(語言偵測、位元組格式化、PATCH 請求的組法)。
       # 不需要瀏覽器環境,所以跑得很快,放在最後當守門員。

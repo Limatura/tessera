@@ -2,13 +2,13 @@ import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, lazyPlugins } from "vite-plus";
 
 export default defineConfig(({ command }) => ({
   // 正式 build 由 apps/server 嵌進 binary、掛在 `/admin/` 底下，資源路徑要帶這個
   // 前綴；dev server 還是在根路徑，開發流程不變。
   base: command === "build" ? "/admin/" : "/",
-  plugins: [
+  plugins: lazyPlugins(() => [
     tailwindcss(),
     tanstackRouter({
       autoCodeSplitting: true,
@@ -23,7 +23,7 @@ export default defineConfig(({ command }) => ({
       // Accept-Language 做首次访问的默认值。
       strategy: ["cookie", "preferredLanguage", "baseLocale"],
     }),
-  ],
+  ]),
   resolve: {
     tsconfigPaths: true,
   },

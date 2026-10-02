@@ -3,10 +3,17 @@ import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
-import { defineConfig } from "vite";
+import { defineConfig, lazyPlugins } from "vite-plus";
 
 export default defineConfig({
-  plugins: [
+  test: {
+    // Vitest v4 compatibility: preserve mock call history.
+    // Remove after tests no longer rely on calls from setup or earlier tests.
+    // https://viteplus.dev/guide/vitest-v5#remove-unneeded-compatibility-settings
+    // https://vitest.dev/guide/migration/#clearmocks-is-enabled-by-default
+    clearMocks: false,
+  },
+  plugins: lazyPlugins(() => [
     tailwindcss(),
     tanstackRouter({
       autoCodeSplitting: true,
@@ -33,7 +40,7 @@ export default defineConfig({
         open: true,
         template: "list",
       }),
-  ],
+  ]),
   resolve: {
     tsconfigPaths: true,
   },
