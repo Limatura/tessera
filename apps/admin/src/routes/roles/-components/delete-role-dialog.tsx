@@ -10,6 +10,7 @@ import {
 import { Button } from "@tessera/ui/components/button";
 
 import { useDeleteRole } from "@/hooks/use-admin";
+import { apiErrorMessage } from "@/lib/api-error";
 import { roleLabel } from "@/lib/permissions";
 import * as m from "@/paraglide/messages";
 
@@ -53,7 +54,7 @@ export function DeleteRoleDialog({
         </AlertDialogHeader>
         {error && (
           <p className="text-destructive text-sm" role="alert">
-            {error.message ?? m.roles_delete_dialog_error()}
+            {apiErrorMessage(error, m.roles_delete_dialog_error())}
           </p>
         )}
         <AlertDialogFooter>

@@ -26,6 +26,7 @@ import { motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { deleteShare, updateShare } from "@/lib/upload";
 import type { ShareSettings, UploadResultData } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
@@ -70,8 +71,7 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
     } catch (error) {
       rollback();
       toast.add({
-        description:
-          error instanceof Error ? error.message : m.common_try_again(),
+        description: apiErrorMessage(error, m.common_try_again()),
         title: m.upload_result_update_failed(),
         type: "error",
       });
@@ -106,8 +106,7 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
       onReset();
     } catch (error) {
       toast.add({
-        description:
-          error instanceof Error ? error.message : m.common_try_again(),
+        description: apiErrorMessage(error, m.common_try_again()),
         title: m.upload_result_delete_failed(),
         type: "error",
       });

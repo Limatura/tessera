@@ -9,6 +9,7 @@ import { toast } from "@tessera/ui/components/toast";
 import { ChevronDown, Eye, EyeOff, Lock } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import type { ShareSettings } from "@/lib/upload";
 import { updateShare } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
@@ -58,8 +59,7 @@ export function SharePasswordField({
       setShowPassword(false);
     } catch (error) {
       toast.add({
-        description:
-          error instanceof Error ? error.message : m.common_try_again(),
+        description: apiErrorMessage(error, m.common_try_again()),
         title: m.upload_result_update_failed(),
         type: "error",
       });

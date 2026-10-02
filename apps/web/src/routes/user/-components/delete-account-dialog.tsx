@@ -25,6 +25,7 @@ import { useState } from "react";
 
 import { useDeleteAccount } from "@/hooks/use-account";
 import { useSession } from "@/hooks/use-auth";
+import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -42,7 +43,7 @@ function errorMessage(error: Partial<ErrorBody> | null): string | null {
       return m.user_danger_delete_last_admin();
     }
     default: {
-      return error.message ?? m.common_try_again();
+      return apiErrorMessage(error, m.common_try_again());
     }
   }
 }

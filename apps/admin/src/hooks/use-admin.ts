@@ -447,7 +447,7 @@ export function useSetDefaultStorageBackend() {
   });
 }
 
-/** `409` 代表這列還有內容，留給呼叫端讀 `error.message` 顯示。 */
+/** `409`（`backend_in_use`）代表這個後端還有檔案，由呼叫端翻譯顯示。 */
 export function useRemoveStorageBackend() {
   const queryClient = useQueryClient();
   return useMutation({

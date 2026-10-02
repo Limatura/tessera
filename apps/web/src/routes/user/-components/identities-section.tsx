@@ -1,6 +1,5 @@
 import { IconLink, IconUnlink } from "@tabler/icons-react";
 import { getRouteApi } from "@tanstack/react-router";
-import type { components } from "@tessera/api/schema";
 import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
 import { Skeleton } from "@tessera/ui/components/skeleton";
@@ -14,6 +13,7 @@ import {
   useProviders,
   useUnlinkIdentity,
 } from "@/hooks/use-identity-providers";
+import { apiErrorMessage } from "@/lib/api-error";
 import { oidcErrorMessage, startLink } from "@/lib/api/identity-provider";
 import { createDateTimeFormatter } from "@/lib/format";
 import { getLocale } from "@/lib/locale";
@@ -26,15 +26,11 @@ import { EmptyBox, Section } from "./section";
 const routeApi = getRouteApi("/user/");
 
 /**
- * 409 是「這是最後一個登入方式」，後端的 message 已經是寫給人看的句子（它知道
- * 有沒有密碼，前端不知道），直接顯示比自己編一句準。
- *
- * mutation 的 error 型別是 Error，但 openapi-fetch 丟出來的其實是 ErrorBody
- * ——網路層真的斷掉時丟的才是 Error。兩種都可能，所以看有沒有 message 再決定。
+ * 409 是「這是最後一個登入方式」（`last_sign_in_method`）：後端自己算過，它知道
+ * 有沒有密碼，前端不知道。
  */
 function errorMessage(error: unknown): string {
-  const body = error as Partial<components["schemas"]["ErrorBody"]>;
-  return body.message || m.common_try_again();
+  return apiErrorMessage(error, m.common_try_again());
 }
 
 /**

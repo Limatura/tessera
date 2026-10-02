@@ -17,6 +17,7 @@ import {
 } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import { roleLabel } from "@/lib/permissions";
 import * as m from "@/paraglide/messages";
 
@@ -178,7 +179,7 @@ function RoleEditorForm({
 
           {form.error && (
             <p className="text-destructive text-sm" role="alert">
-              {form.error.message ?? m.roles_editor_save_error()}
+              {apiErrorMessage(form.error, m.roles_editor_save_error())}
             </p>
           )}
         </FieldGroup>

@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
-import type { components } from "@tessera/api/schema";
 import { Button, buttonVariants } from "@tessera/ui/components/button";
 import {
   Card,
@@ -27,6 +26,7 @@ import { useRegister } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
 import { usePasswordBreach } from "@/hooks/use-password-breach";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
+import { apiErrorMessage } from "@/lib/api-error";
 import { registerSchemaFor } from "@/lib/api/auth-schema";
 import type { RegisterFormValues } from "@/lib/api/auth-schema";
 import { isBreachedPasswordError } from "@/lib/api/password-policy";
@@ -107,9 +107,10 @@ export function RegisterForm({
   });
 
   // A breached password is already reported on the password field.
-  const formError = isBreachedPasswordError(registerAccount.error)
-    ? null
-    : (registerAccount.error as components["schemas"]["ErrorBody"] | null);
+  const formError =
+    registerAccount.error && !isBreachedPasswordError(registerAccount.error)
+      ? apiErrorMessage(registerAccount.error)
+      : null;
 
   /*
    * 註冊關掉時整張表都不該出現 —— 讓人填完八個欄位再吃一個 403,是把 server 早就
@@ -275,9 +276,7 @@ export function RegisterForm({
                   </motion.div>
                   <motion.div variants={itemVariants}>
                     <Field>
-                      {formError && (
-                        <FieldError>{formError.message}</FieldError>
-                      )}
+                      {formError && <FieldError>{formError}</FieldError>}
                       <motion.div whileTap={{ scale: 0.98 }}>
                         <Button
                           className="w-full"

@@ -22,6 +22,7 @@ import { Controller, useForm } from "react-hook-form";
 import type { PasswordResetRequestError } from "@/hooks/use-auth";
 import { useRequestPasswordReset } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { ForgotPasswordFormValues } from "@/lib/api/auth-schema";
 import { forgotPasswordSchema } from "@/lib/api/auth-schema";
 import { containerVariants, itemVariants } from "@/lib/motion";
@@ -45,7 +46,7 @@ function errorDescription(error: PasswordResetRequestError): string {
       return m.auth_reset_request_unavailable();
     }
     default: {
-      return error.message ?? m.common_try_again();
+      return apiErrorMessage(error, m.common_try_again());
     }
   }
 }

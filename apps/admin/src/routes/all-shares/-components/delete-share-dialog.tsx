@@ -10,6 +10,7 @@ import {
 import { Button } from "@tessera/ui/components/button";
 
 import { useDeleteShare } from "@/hooks/use-admin";
+import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 type AdminShare = components["schemas"]["AdminShareResponse"];
@@ -56,7 +57,7 @@ export function DeleteShareDialog({
         </AlertDialogHeader>
         {error && (
           <p className="text-destructive text-sm" role="alert">
-            {error.message ?? m.all_shares_delete_dialog_error()}
+            {apiErrorMessage(error, m.all_shares_delete_dialog_error())}
           </p>
         )}
         <AlertDialogFooter>

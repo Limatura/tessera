@@ -58,8 +58,8 @@ export function useIdentities() {
 }
 
 /**
- * 解除綁定。409 代表這是最後一個登入方式 —— 後端自己算過（它知道有沒有密碼，
- * 前端不知道），message 是寫給人看的，直接顯示。
+ * 解除綁定。409（`last_sign_in_method`）代表這是最後一個登入方式 —— 後端自己算過
+ * （它知道有沒有密碼，前端不知道）。
  */
 export function useUnlinkIdentity() {
   const queryClient = useQueryClient();

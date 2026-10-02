@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react";
 
 import { useConfirmEmailVerification } from "@/hooks/use-account";
 import { useSession } from "@/hooks/use-auth";
+import { apiErrorMessage } from "@/lib/api-error";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
 
@@ -108,7 +109,7 @@ function describe(
       description:
         error?.code === "verification_link_unusable"
           ? m.user_verify_email_unusable()
-          : (error?.message ?? m.common_try_again()),
+          : apiErrorMessage(error, m.common_try_again()),
       title: m.auth_error(),
     };
   }

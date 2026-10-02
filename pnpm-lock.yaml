@@ -601,6 +601,13 @@ importers:
         version: 6.0.3
 
   packages/i18n:
+    dependencies:
+      '@tessera/api':
+        specifier: workspace:*
+        version: link:../api
+      '@tessera/ui':
+        specifier: workspace:*
+        version: link:../ui
     devDependencies:
       '@tessera/config':
         specifier: workspace:*
@@ -608,6 +615,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 6.0.3
+      vite-plus:
+        specifier: 'catalog:'
+        version: 1.0.0(@types/node@22.20.1)(@vitest/coverage-v8@5.0.1)(@vitest/ui@5.0.1)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.11)(typescript@6.0.3)(yaml@2.9.1)
 
   packages/ui:
     dependencies:

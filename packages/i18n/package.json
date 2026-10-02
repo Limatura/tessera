@@ -6,8 +6,16 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "scripts": {
+    "test": "vp test run"
+  },
+  "dependencies": {
+    "@tessera/api": "workspace:*",
+    "@tessera/ui": "workspace:*"
+  },
   "devDependencies": {
     "@tessera/config": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vite-plus": "catalog:"
   }
 }

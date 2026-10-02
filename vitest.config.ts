@@ -48,11 +48,12 @@ export default defineConfig({
       include: [
         "apps/web/src/**/*.ts",
         "packages/crypto/src/**/*.ts",
+        "packages/i18n/src/**/*.ts",
         "packages/ui/src/lib/**/*.ts",
       ],
       provider: "v8",
       reporter: ["text", "lcov"],
     },
-    projects: ["apps/web", "packages/crypto", "packages/ui"],
+    projects: ["apps/web", "packages/crypto", "packages/i18n", "packages/ui"],
   },
 });

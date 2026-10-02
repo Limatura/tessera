@@ -17,6 +17,7 @@ import {
 } from "@/hooks/use-admin";
 import type { AdminUser } from "@/lib/accounts";
 import { isDeletedAccount } from "@/lib/accounts";
+import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 type Account = AdminUser;
@@ -142,10 +143,9 @@ function UserActionForm({
       </AlertDialogHeader>
       {error && (
         <p className="text-destructive text-sm" role="alert">
-          {/* server 的訊息是英文，認得的 code 換成翻譯。 */}
           {error.code === "last_administrator"
             ? m.users_action_last_admin_error()
-            : (error.message ?? m.users_action_generic_error())}
+            : apiErrorMessage(error, m.users_action_generic_error())}
         </p>
       )}
       <AlertDialogFooter>
