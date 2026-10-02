@@ -10,8 +10,8 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "check-types": "turbo run check-types",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "vp test run",
+    "test:coverage": "vp test run --coverage",
     "dev:web": "turbo run dev -F web",
     "dev:admin": "turbo run dev -F admin",
     "dev:tui": "turbo run dev -F tui",
@@ -33,8 +33,8 @@
     "docker:up": "TESSERA_BUILD_REV=$(git describe --always --dirty --abbrev=12) docker compose up -d --build",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "check": "ultracite check",
-    "fix": "ultracite fix",
+    "check": "vp check",
+    "fix": "vp check --fix",
     "prepare": "husky",
     "docs:update": "git submodule update --remote apps/docs"
   },
@@ -44,15 +44,14 @@
   "devDependencies": {
     "@tessera/config": "workspace:*",
     "@types/node": "catalog:",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "catalog:",
     "husky": "9.1.7",
     "lint-staged": "^17.3.0",
-    "oxfmt": "0.62.0",
-    "oxlint": "1.77.0",
     "turbo": "^2.10.7",
     "typescript": "catalog:",
-    "ultracite": "7.9.4",
-    "vitest": "^4.1.11"
+    "ultracite": "7.12.2",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "packageManager": "pnpm@11.25.0"
 }

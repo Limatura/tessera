@@ -67,3 +67,4 @@ temp
 /tessera.yaml
 # Schemathesis's own cache.
 /.schemathesis/
+.vitest/

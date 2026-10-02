@@ -89,7 +89,7 @@ src/
 ```bash
 # From monorepo root
 pnpm dev:admin            # Start dev server + watch
-pnpm check                # Format + lint (Ultracite/Oxlint/Oxfmt)
+pnpm check                # Format + lint (Vite+ `vp check`, Ultracite rules)
 pnpm fix                  # Auto-fix linting and formatting issues
 
 # From apps/admin
@@ -178,8 +178,8 @@ This project uses **Ultracite**, a zero-config preset that enforces strict code 
 
 ## Quick Reference
 
-- **Format code**: `pnpm dlx ultracite fix`
-- **Check for issues**: `pnpm dlx ultracite check`
+- **Format code**: `pnpm fix`
+- **Check for issues**: `pnpm check`
 - **Diagnose setup**: `pnpm dlx ultracite doctor`
 
 Oxlint + Oxfmt (the underlying engine) provides robust linting and formatting. Most issues are automatically fixable.
@@ -429,7 +429,7 @@ export const Row = memo(function Row({ item }: RowProps) {
 
 ### 這些規則哪些是 lint 會擋的
 
-`oxlint.config.ts` 針對 `apps/web/src/**`、`apps/admin/src/**` 開了三條:
+根目錄 `vite.config.ts` 的 `lint` 針對 `apps/web/src/**`、`apps/admin/src/**` 開了三條:
 
 - `import/no-default-export` — 擋 default export(app 根目錄的 `vite.config.ts` 等設定檔不在範圍內)。
 - `react/function-component-definition` — 擋 `const Foo = () => <div />`。只看元件定義形式,元件內部的 handler、`map` callback 不受影響。
@@ -437,7 +437,7 @@ export const Row = memo(function Row({ item }: RowProps) {
 
 `no-use-before-define` 全域關掉,所以「輔助元件放檔案底部」不會被 lint 擋。
 
-lint 擋不到、要靠 code review 的部分:`handleXxx` / `onXxx` 命名、輔助元件何時該拆檔、底部 helper 誤寫成 `const`(TDZ)。(`react/jsx-handler-names` 有刻意關掉——它對 `field.onChange` 這種外部 API 的名字會系統性誤判,理由寫在 `oxlint.config.ts`。)
+lint 擋不到、要靠 code review 的部分:`handleXxx` / `onXxx` 命名、輔助元件何時該拆檔、底部 helper 誤寫成 `const`(TDZ)。(`react/jsx-handler-names` 有刻意關掉——它對 `field.onChange` 這種外部 API 的名字會系統性誤判,理由寫在根目錄 `vite.config.ts`。)
 
 ### 送出前自我檢查
 
@@ -460,4 +460,4 @@ Oxlint + Oxfmt's linter will catch most issues automatically. Focus your attenti
 
 ---
 
-Most formatting and common issues are automatically fixed by Oxlint + Oxfmt. Run `pnpm dlx ultracite fix` before committing to ensure compliance.
+Most formatting and common issues are automatically fixed by Oxlint + Oxfmt. Run `pnpm fix` (`vp check --fix`) before committing to ensure compliance.
