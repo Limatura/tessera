@@ -10,6 +10,7 @@ import { toast } from "@tessera/ui/components/toast";
 import type { VerificationRequestError } from "@/hooks/use-account";
 import { useRequestEmailVerification } from "@/hooks/use-account";
 import { useCapabilities } from "@/hooks/use-capabilities";
+import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 const SECONDS_PER_MINUTE = 60;
@@ -35,7 +36,7 @@ function errorDescription(error: VerificationRequestError): string {
       return m.user_email_verification_unavailable();
     }
     default: {
-      return error.message ?? m.common_try_again();
+      return apiErrorMessage(error, m.common_try_again());
     }
   }
 }

@@ -20,6 +20,7 @@ import {
 import { useState } from "react";
 
 import { useSetUserRole } from "@/hooks/use-admin";
+import { apiErrorMessage } from "@/lib/api-error";
 import { roleLabel, unassignedRoleLabel } from "@/lib/permissions";
 import * as m from "@/paraglide/messages";
 
@@ -135,7 +136,7 @@ function SetUserRoleForm({
 
         {error && (
           <p className="mt-2 text-destructive text-sm" role="alert">
-            {error.message ?? m.users_set_role_dialog_error()}
+            {apiErrorMessage(error, m.users_set_role_dialog_error())}
           </p>
         )}
       </form>

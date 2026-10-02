@@ -58,6 +58,17 @@ type ErrorBody = components["schemas"]["ErrorBody"];
 export type UploadSessionResponse = components["schemas"]["UploadResponse"];
 type PartUrlResponse = components["schemas"]["PartUrlResponse"];
 
+/**
+ * 失敗時丟的 `Error`。`message` 是 server 的英文（沒有回應本體時是狀態碼），
+ * 另外掛上 `code`、`details`，畫面才能用 `apiErrorMessage` 翻譯。
+ */
+function apiError(body: ErrorBody | null, fallback: string): Error {
+  const error = new Error(body?.message ?? fallback);
+  return body
+    ? Object.assign(error, { code: body.code, details: body.details })
+    : error;
+}
+
 export function upload(
   payload: UploadPayload,
   options: UploadOptions = {}
@@ -297,7 +308,7 @@ export async function deleteShare(
     const errorBody = (await response
       .json()
       .catch(() => null)) as ErrorBody | null;
-    throw new Error(errorBody?.message ?? `Delete failed: ${response.status}`);
+    throw apiError(errorBody, `Delete failed: ${response.status}`);
   }
 }
 
@@ -351,7 +362,7 @@ export async function updateShare(
     const errorBody = (await response
       .json()
       .catch(() => null)) as ErrorBody | null;
-    throw new Error(errorBody?.message ?? `Update failed: ${response.status}`);
+    throw apiError(errorBody, `Update failed: ${response.status}`);
   }
 }
 
@@ -420,8 +431,12 @@ function createShare(
         resolve(xhr.response as ShareResponse);
         return;
       }
-      const errorBody = xhr.response as ErrorBody | null;
-      reject(new Error(errorBody?.message ?? `Upload failed: ${xhr.status}`));
+      reject(
+        apiError(
+          xhr.response as ErrorBody | null,
+          `Upload failed: ${xhr.status}`
+        )
+      );
     });
 
     xhr.send(body);
@@ -579,9 +594,7 @@ async function createUploadSession(
     const errorBody = (await response
       .json()
       .catch(() => null)) as ErrorBody | null;
-    throw new Error(
-      errorBody?.message ?? `Upload session failed: ${response.status}`
-    );
+    throw apiError(errorBody, `Upload session failed: ${response.status}`);
   }
   return response.json() as Promise<UploadSessionResponse>;
 }
@@ -681,8 +694,12 @@ function patchPart(
         resolve({ done: false });
         return;
       }
-      const errorBody = xhr.response as ErrorBody | null;
-      reject(new Error(errorBody?.message ?? `Upload failed: ${xhr.status}`));
+      reject(
+        apiError(
+          xhr.response as ErrorBody | null,
+          `Upload failed: ${xhr.status}`
+        )
+      );
     });
 
     xhr.send(bytes);
@@ -713,9 +730,7 @@ async function completeUpload(
     const errorBody = (await response
       .json()
       .catch(() => null)) as ErrorBody | null;
-    throw new Error(
-      errorBody?.message ?? `Upload completion failed: ${response.status}`
-    );
+    throw apiError(errorBody, `Upload completion failed: ${response.status}`);
   }
   return response.json() as Promise<ShareResponse>;
 }

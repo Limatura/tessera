@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
-import type { components } from "@tessera/api/schema";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -23,6 +22,7 @@ import { Controller, useForm } from "react-hook-form";
 
 import { useLogin } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
+import { apiErrorMessage } from "@/lib/api-error";
 import { loginSchema } from "@/lib/api/auth-schema";
 import type { LoginFormValues } from "@/lib/api/auth-schema";
 import { oidcErrorMessage } from "@/lib/api/identity-provider";
@@ -62,7 +62,7 @@ export function LoginForm({
     });
   });
 
-  const formError = login.error as components["schemas"]["ErrorBody"] | null;
+  const formError = login.error ? apiErrorMessage(login.error) : null;
 
   /*
    * 第三方回來失敗時後端把人送回這頁並帶上代碼。認不得的代碼（後端加了新的、
@@ -149,12 +149,19 @@ export function LoginForm({
                             <FieldLabel htmlFor="password">
                               {m.auth_password()}
                             </FieldLabel>
-                            <Link
-                              className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                              to="/"
-                            >
-                              {m.auth_forgot_password()}
-                            </Link>
+                            {/*
+                              沒設寄信時這條路一定走不通（後端回 404），
+                              跟隱藏註冊連結一樣的理由。讀不到 capabilities
+                              時照常顯示 —— 少一個連結比多一個難發現。
+                            */}
+                            {capabilities?.password_reset === false ? null : (
+                              <Link
+                                className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                                to="/forgot-password"
+                              >
+                                {m.auth_forgot_password()}
+                              </Link>
+                            )}
                           </div>
                           <Input
                             {...field}
@@ -171,9 +178,7 @@ export function LoginForm({
                   </motion.div>
                   <motion.div variants={itemVariants}>
                     <Field>
-                      {formError && (
-                        <FieldError>{formError.message}</FieldError>
-                      )}
+                      {formError && <FieldError>{formError}</FieldError>}
                       <motion.div whileTap={{ scale: 0.98 }}>
                         <Button
                           className="w-full"

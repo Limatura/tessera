@@ -17,6 +17,7 @@ import {
 import { Input } from "@tessera/ui/components/input";
 import { Switch } from "@tessera/ui/components/switch";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 import { useStorageBackendForm } from "./use-storage-backend-form";
@@ -91,8 +92,10 @@ function StorageBackendEditorForm({
 
           {form.error && (
             <p className="text-destructive text-sm" role="alert">
-              {form.error.message ??
-                m.settings_storage_backends_editor_save_error()}
+              {apiErrorMessage(
+                form.error,
+                m.settings_storage_backends_editor_save_error()
+              )}
             </p>
           )}
         </FieldGroup>

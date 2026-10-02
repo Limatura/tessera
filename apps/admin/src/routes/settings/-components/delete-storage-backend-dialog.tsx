@@ -10,6 +10,7 @@ import {
 import { Button } from "@tessera/ui/components/button";
 
 import { useRemoveStorageBackend } from "@/hooks/use-admin";
+import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
 type Backend = components["schemas"]["BackendResponse"];
@@ -81,10 +82,10 @@ export function DeleteStorageBackendDialog({
   );
 }
 
-/** `backend_in_use` 給翻譯好的原因和下一步，其他錯誤沿用 server 的訊息。 */
+/** `backend_in_use` 在這裡多講一句下一步該怎麼做，其他錯誤照一般的翻譯。 */
 function deleteErrorMessage(error: ErrorBody): string {
   if (error.code === "backend_in_use") {
     return m.settings_storage_backends_delete_in_use();
   }
-  return error.message ?? m.settings_storage_backends_delete_error();
+  return apiErrorMessage(error, m.settings_storage_backends_delete_error());
 }

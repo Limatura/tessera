@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "@tanstack/react-router";
-import type { components } from "@tessera/api/schema";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -28,6 +27,7 @@ import { PasswordRequirements } from "@/components/password-requirements";
 import { usePasswordReset } from "@/hooks/use-auth";
 import { usePasswordBreach } from "@/hooks/use-password-breach";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
   isBreachedPasswordError,
   passwordSchemaFor,
@@ -85,7 +85,8 @@ export function PasswordResetForm({
     }
     if (!tokenFromUrl) {
       toast.add({
-        description: "Reset link is missing",
+        // 沒帶 token 跟 token 失效對使用者是同一件事：這條連結不能用，重新申請。
+        description: m.api_error_reset_link_unusable(),
         title: m.auth_error(),
         type: "error",
       });
@@ -105,12 +106,8 @@ export function PasswordResetForm({
             });
             return;
           }
-          const errorBody =
-            error instanceof Error && "code" in error && "message" in error
-              ? (error as unknown as components["schemas"]["ErrorBody"])
-              : null;
           toast.add({
-            description: errorBody?.message ?? "Failed to reset password",
+            description: apiErrorMessage(error),
             title: m.auth_error(),
             type: "error",
           });
@@ -156,9 +153,10 @@ export function PasswordResetForm({
     );
   }
 
-  const formError = isBreachedPasswordError(resetMutation.error)
-    ? null
-    : (resetMutation.error as components["schemas"]["ErrorBody"] | null);
+  const formError =
+    resetMutation.error && !isBreachedPasswordError(resetMutation.error)
+      ? apiErrorMessage(resetMutation.error)
+      : null;
 
   return (
     <div className={cn("flex flex-col gap-6", className)} {...props}>
@@ -248,9 +246,7 @@ export function PasswordResetForm({
                   </motion.div>
                   <motion.div variants={itemVariants}>
                     <Field>
-                      {formError && (
-                        <FieldError>{formError.message}</FieldError>
-                      )}
+                      {formError && <FieldError>{formError}</FieldError>}
                       <motion.div whileTap={{ scale: 0.98 }}>
                         <Button
                           className="w-full"

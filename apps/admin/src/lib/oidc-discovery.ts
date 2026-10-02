@@ -1,9 +1,7 @@
 import { api } from "@tessera/api";
-import type { components } from "@tessera/api/schema";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
-
-type ErrorBody = components["schemas"]["ErrorBody"];
 
 /**
  * 這次讀取的結論。
@@ -93,13 +91,12 @@ export async function readDiscovery(
 
   if (error) {
     /*
-     * 後端把 `DiscoveryError` 的訊息原樣放進 400 的 message，它已經說明了是
-     * 連不上、還是文件不能用（例如 issuer 對不起來、不接受 S256）。
+     * `provider_unreachable` 的原因（連不上、issuer 對不起來、不接受 S256）只在
+     * server 的 message 裡，翻譯會把它原樣接在句尾。
      */
-    const body = error as Partial<ErrorBody>;
     return {
       ok: false,
-      reason: body.message || m.settings_oidc_discovery_unreadable(),
+      reason: apiErrorMessage(error, m.settings_oidc_discovery_unreadable()),
     };
   }
 

@@ -1,6 +1,7 @@
 import { toast } from "@tessera/ui/components/toast";
 import { useState } from "react";
 
+import { apiErrorMessage } from "@/lib/api-error";
 import type { UploadResultData } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
@@ -67,8 +68,7 @@ export function useSubmitTransition() {
       setOrigin(null);
       if (!(error instanceof DOMException && error.name === "AbortError")) {
         toast.add({
-          description:
-            error instanceof Error ? error.message : m.common_try_again(),
+          description: apiErrorMessage(error, m.common_try_again()),
           title: m.upload_failed(),
           type: "error",
         });

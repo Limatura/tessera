@@ -7,15 +7,16 @@ import { readSetting } from "@/hooks/use-settings";
 import { useSettingsForm } from "@/hooks/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/use-settings-form";
 import {
+  MAIL_TLS_MODES,
   MAX_REGISTRATION_TTL_HOURS,
   MAX_RESET_TTL_MINUTES,
   mailSettingsSchema,
 } from "@/lib/settings-schema";
 import type { MailSettingsValues } from "@/lib/settings-schema";
-import { asNumber, asString, isSecretSet } from "@/lib/settings-values";
+import { asEnum, asNumber, asString, isSecretSet } from "@/lib/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SealedField, TextField } from "./form-fields";
+import { SealedField, SelectField, TextField } from "./form-fields";
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
@@ -35,8 +36,22 @@ const KEYS = {
   publicUrl: "mail.public_url",
   registrationTtlHours: "mail.registration_ttl_hours",
   resetTtlMinutes: "mail.reset_ttl_minutes",
+  tls: "mail.tls",
   username: "mail.username",
 } satisfies SettingsKeyMap<MailSettingsValues>;
+
+/**
+ * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale，
+ * 包成 const 只會在模組第一次載入時凍住語系。
+ */
+function tlsOptions() {
+  return [
+    { label: m.settings_mail_form_tls_auto(), value: "auto" },
+    { label: m.settings_mail_form_tls_starttls(), value: "starttls" },
+    { label: m.settings_mail_form_tls_implicit(), value: "implicit" },
+    { label: m.settings_mail_form_tls_none(), value: "none" },
+  ] as const;
+}
 
 const ENCODERS = {
   // SEALED：留空代表不改動，所以不要送這個 key。
@@ -80,6 +95,7 @@ function initialValues(settings: Settings): MailSettingsValues {
       readSetting(settings, KEYS.resetTtlMinutes),
       DEFAULT_RESET_TTL_MINUTES
     ),
+    tls: asEnum(readSetting(settings, KEYS.tls), MAIL_TLS_MODES, "auto"),
     username: "",
   };
 }
@@ -101,6 +117,7 @@ function MailSettingsFields({
   });
 
   const host = useWatch({ control: form.control, name: "host" });
+  const tls = useWatch({ control: form.control, name: "tls" });
 
   return (
     <form onSubmit={form.submit}>
@@ -141,6 +158,23 @@ function MailSettingsFields({
             />
           )}
         />
+
+        <Controller
+          control={form.control}
+          name="tls"
+          render={({ field, fieldState }) => (
+            <SelectField
+              description={m.settings_mail_form_tls_description()}
+              field={field}
+              fieldState={fieldState}
+              id="mail-tls"
+              label={m.settings_mail_form_tls_label()}
+              options={tlsOptions()}
+            />
+          )}
+        />
+
+        {tls === "none" && <MailTlsNoneWarning />}
 
         <Controller
           control={form.control}
@@ -247,5 +281,27 @@ function MailSettingsFields({
         />
       </FieldGroup>
     </form>
+  );
+}
+
+/**
+ * `none` 完全不加密，只給本機或內網的 relay 用（postfix、Mailpit 之類）。
+ *
+ * server 寄信時會檢查解析出的位址是不是 private/loopback，不是就拒寄 —— 這裡提前
+ * 說清楚，免得選了之後才在送信時碰壁。
+ */
+function MailTlsNoneWarning() {
+  return (
+    <div
+      className="flex flex-col gap-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
+      role="alert"
+    >
+      <p className="font-medium">
+        {m.settings_mail_form_tls_none_warning_title()}
+      </p>
+      <p className="text-muted-foreground">
+        {m.settings_mail_form_tls_none_warning_body()}
+      </p>
+    </div>
   );
 }

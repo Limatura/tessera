@@ -1,13 +1,11 @@
-import type { components } from "@tessera/api/schema";
 import type { DefaultValues, FieldValues, UseFormProps } from "react-hook-form";
 import { useForm } from "react-hook-form";
 
 import { useSession } from "@/hooks/use-auth";
 import { useUpdateSettings } from "@/hooks/use-settings";
+import { apiErrorMessage } from "@/lib/api-error";
 import { PERMISSIONS, hasPermission } from "@/lib/permissions";
 import * as m from "@/paraglide/messages";
-
-type ErrorBody = components["schemas"]["ErrorBody"];
 
 /** 表單欄位名 → server 的 dotted key。省略的欄位永遠不會被送出。 */
 export type SettingsKeyMap<TValues extends FieldValues> = Partial<
@@ -59,8 +57,7 @@ export function settingsErrorMessage(error: unknown): string | null {
   if (!error) {
     return null;
   }
-  const body = error as ErrorBody;
-  return body.message ?? m.settings_form_save_failed();
+  return apiErrorMessage(error, m.settings_form_save_failed());
 }
 
 /**

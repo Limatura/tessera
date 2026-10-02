@@ -16,6 +16,7 @@ import { z } from "zod";
 
 import { useUpdateAccount } from "@/hooks/use-account";
 import { useSession } from "@/hooks/use-auth";
+import { apiErrorMessage } from "@/lib/api-error";
 import { usernameSchema } from "@/lib/api/auth-schema";
 import * as m from "@/paraglide/messages";
 
@@ -72,7 +73,7 @@ export function ProfileSection() {
       {
         // openapi-fetch 丟的是 ErrorBody;斷線時是 TypeError,沒有 code。
         onError: (error) => {
-          const { code, message } = error as Partial<ErrorBody>;
+          const { code } = error as Partial<ErrorBody>;
           if (code === "current_password_incorrect") {
             setError("currentPassword", {
               message: m.user_profile_wrong_password(),
@@ -83,7 +84,7 @@ export function ProfileSection() {
             description:
               code === "username_taken" || code === "email_taken"
                 ? m.user_profile_taken()
-                : (message ?? m.common_try_again()),
+                : apiErrorMessage(error, m.common_try_again()),
             title: m.user_profile_save_failed(),
             type: "error",
           });
