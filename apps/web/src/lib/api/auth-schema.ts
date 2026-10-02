@@ -31,6 +31,12 @@ export const loginSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 
+export const forgotPasswordSchema = z.object({
+  email: z.email({ error: () => m.auth_email_invalid() }),
+});
+
+export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
+
 /**
  * Registration checks the password the instance would actually accept.
  *

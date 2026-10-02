@@ -19,7 +19,7 @@ import {
 import { Input } from "@tessera/ui/components/input";
 import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { PasswordRequirements } from "@/components/password-requirements";
@@ -45,6 +45,8 @@ export function RegisterForm({
   const registerAccount = useRegister();
   const policy = usePasswordPolicy();
   const { data: capabilities } = useCapabilities();
+  // 202（寄確認信）時留在這頁顯示提示；undefined 代表還沒送出或已直接建立帳號。
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
 
   /*
    * 邀請制才要求填碼。開放註冊時 server 根本不看這個欄位,在這裡擋人等於發明一條
@@ -93,7 +95,12 @@ export function RegisterForm({
         onSuccess: (account) => {
           // `account` is undefined when the server sent a confirmation link
           // instead of creating one outright — nothing to sign in to yet.
-          navigate({ to: account ? "/" : "/login" });
+          // 直接跳登入頁會讓人以為已經能登入，實際上帳號根本不存在。
+          if (account) {
+            navigate({ to: "/" });
+            return;
+          }
+          setPendingEmail(values.email);
         },
       }
     );
@@ -111,6 +118,16 @@ export function RegisterForm({
    */
   if (capabilities?.registration === "closed") {
     return <RegistrationClosed className={className} {...props} />;
+  }
+
+  if (pendingEmail) {
+    return (
+      <RegistrationPending
+        className={className}
+        email={pendingEmail}
+        {...props}
+      />
+    );
   }
 
   return (
@@ -285,6 +302,44 @@ export function RegisterForm({
                   </motion.div>
                 </FieldGroup>
               </form>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+    </div>
+  );
+}
+
+/** 已經送出 202，等使用者去信箱點確認連結。 */
+function RegistrationPending({
+  className,
+  email,
+  ...props
+}: React.ComponentProps<"div"> & { email: string }) {
+  return (
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <motion.div
+        animate="visible"
+        initial="hidden"
+        variants={containerVariants}
+      >
+        <motion.div variants={itemVariants}>
+          <Card className="border-border/60 bg-card/60 shadow-2xl shadow-black/5 backdrop-blur-2xl">
+            <CardHeader>
+              <CardTitle className="font-medium text-xl tracking-tight">
+                {m.auth_register_pending_title()}
+              </CardTitle>
+              <CardDescription>
+                {m.auth_register_pending_description({ email })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link
+                className={cn(buttonVariants({ variant: "outline" }), "w-full")}
+                to="/login"
+              >
+                {m.auth_back_to_login()}
+              </Link>
             </CardContent>
           </Card>
         </motion.div>

@@ -149,12 +149,19 @@ export function LoginForm({
                             <FieldLabel htmlFor="password">
                               {m.auth_password()}
                             </FieldLabel>
-                            <Link
-                              className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                              to="/"
-                            >
-                              {m.auth_forgot_password()}
-                            </Link>
+                            {/*
+                              沒設寄信時這條路一定走不通（後端回 404），
+                              跟隱藏註冊連結一樣的理由。讀不到 capabilities
+                              時照常顯示 —— 少一個連結比多一個難發現。
+                            */}
+                            {capabilities?.password_reset === false ? null : (
+                              <Link
+                                className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                                to="/forgot-password"
+                              >
+                                {m.auth_forgot_password()}
+                              </Link>
+                            )}
                           </div>
                           <Input
                             {...field}

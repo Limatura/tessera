@@ -252,6 +252,9 @@ const MAX_PORT = 65_535;
 /** `host` / `from` / `public_url` 這組要嘛全填要嘛全空，server 拒絕半套設定。 */
 const MAIL_TRIO = ["host", "from", "publicUrl"] as const;
 
+/** 對應 server 的 `mail.tls`。`none` 只給本機/內網 relay 用，見表單警告。 */
+export const MAIL_TLS_MODES = ["auto", "starttls", "implicit", "none"] as const;
+
 export const mailSettingsSchema = z
   // oxlint-disable-next-line sort-keys -- 依連線／寄件人／時效的敘事順序分組
   .object({
@@ -263,6 +266,8 @@ export const mailSettingsSchema = z
       .int()
       .min(1, { error: () => m.settings_schema_at_least({ n: 1 }) })
       .max(MAX_PORT),
+    // mail.tls
+    tls: z.enum(MAIL_TLS_MODES),
     // mail.username（SEALED，留空 = 不改動）
     username: z.string(),
     // mail.password（SEALED，留空 = 不改動）
