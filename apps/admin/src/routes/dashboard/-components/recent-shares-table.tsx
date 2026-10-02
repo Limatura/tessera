@@ -1,10 +1,14 @@
-import { Badge } from "@tessera/ui/components/badge";
+import { Link } from "@tanstack/react-router";
+import { buttonVariants } from "@tessera/ui/components/button";
 import {
   Card,
+  CardAction,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@tessera/ui/components/card";
+import { Skeleton } from "@tessera/ui/components/skeleton";
 import {
   Table,
   TableBody,
@@ -14,28 +18,22 @@ import {
   TableRow,
 } from "@tessera/ui/components/table";
 
-import mockData from "@/data/dashboard-mock.json";
-import { formatBytes } from "@/lib/format";
+import { ShareStatusBadge } from "@/components/share-status-badge";
+import { useRecentShares } from "@/hooks/use-admin";
+import { ownerLabel, shareLabel } from "@/lib/admin-shares";
+import { createDateTimeFormatter, formatBytes } from "@/lib/format";
+import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 
 /**
- * Mirrors the server's `AdminShareResponse` (apps/server/src/api/admin.rs).
- * Backed by static mock data until GET /admin/shares?limit=… is wired up.
+ * 全站最新的幾筆，用 `GET /admin/shares`（要 `shares:read:any`，儀表板的父層會先擋）。
+ * 要刪、要翻頁就去「全站分享」，這裡只看。
  */
-interface ShareRow {
-  id: string;
-  kind: "file" | "text";
-  filename: string | null;
-  fileCount: number;
-  sizeBytes: number;
-  owner: string | null;
-  active: boolean;
-  createdAt: string;
-}
-
-const rows: ShareRow[] = mockData.recentShares as ShareRow[];
-
 export function RecentSharesTable() {
+  const shares = useRecentShares();
+  const formatDate = createDateTimeFormatter(getLocale(), "auto");
+  const rows = shares.data?.data;
+
   return (
     <Card className="ring-foreground/10">
       <CardHeader>
@@ -43,65 +41,65 @@ export function RecentSharesTable() {
         <CardDescription>
           {m.dashboard_recent_shares_description()}
         </CardDescription>
+        <CardAction>
+          <Link
+            className={buttonVariants({ size: "sm", variant: "ghost" })}
+            search={{ page: 1 }}
+            to="/all-shares"
+          >
+            {m.dashboard_recent_shares_view_all()}
+          </Link>
+        </CardAction>
       </CardHeader>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{m.dashboard_recent_shares_column_content()}</TableHead>
-            <TableHead>{m.dashboard_recent_shares_column_size()}</TableHead>
-            <TableHead>{m.dashboard_recent_shares_column_owner()}</TableHead>
-            <TableHead>{m.dashboard_recent_shares_column_status()}</TableHead>
-            <TableHead>
-              {m.dashboard_recent_shares_column_created_at()}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.length === 0 && (
-            <TableRow>
-              <TableCell
-                colSpan={5}
-                className="h-24 text-center text-muted-foreground"
-              >
-                {m.dashboard_recent_shares_empty()}
-              </TableCell>
-            </TableRow>
-          )}
-          {rows.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell className="max-w-48 truncate font-medium">
-                {shareLabel(row)}
-              </TableCell>
-              <TableCell className="tabular-nums text-muted-foreground">
-                {formatBytes(row.sizeBytes)}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {row.owner ?? m.dashboard_recent_shares_guest()}
-              </TableCell>
-              <TableCell>
-                <Badge variant={row.active ? "outline" : "secondary"}>
-                  {row.active
-                    ? m.dashboard_recent_shares_active()
-                    : m.dashboard_recent_shares_inactive()}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {row.createdAt}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+      <CardContent>
+        {shares.isPending && <Skeleton className="h-48" />}
+        {shares.isError && (
+          <p className="text-destructive text-sm">
+            {m.all_shares_load_error()}
+          </p>
+        )}
+        {rows?.length === 0 && (
+          <p className="text-muted-foreground text-sm">
+            {m.dashboard_recent_shares_empty()}
+          </p>
+        )}
+        {rows && rows.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{m.all_shares_col_content()}</TableHead>
+                <TableHead>{m.all_shares_col_owner()}</TableHead>
+                <TableHead className="text-right">
+                  {m.all_shares_col_size()}
+                </TableHead>
+                <TableHead>{m.all_shares_col_status()}</TableHead>
+                <TableHead>{m.all_shares_col_created()}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((share) => (
+                <TableRow key={share.id}>
+                  <TableCell className="max-w-64 truncate font-medium">
+                    {shareLabel(share)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {ownerLabel(share)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatBytes(share.size_bytes)}
+                  </TableCell>
+                  <TableCell>
+                    <ShareStatusBadge status={share.status} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(share.created_at)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
     </Card>
-  );
-}
-
-function shareLabel(row: ShareRow) {
-  if (row.kind === "text") {
-    return m.dashboard_recent_shares_text_share();
-  }
-  return (
-    row.filename ??
-    m.dashboard_recent_shares_file_count({ count: row.fileCount })
   );
 }

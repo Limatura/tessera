@@ -204,6 +204,9 @@ function AdminLockoutWarning() {
           <code>tessera-server settings reset features.admin</code>{" "}
           {m.settings_feature_form_admin_lockout_description_2()}
         </p>
+        <p className="text-muted-foreground">
+          {m.settings_feature_form_lockout_docker_hint()}
+        </p>
       </div>
     </div>
   );
@@ -248,6 +251,9 @@ function LockoutConfirmDialog({
         <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">
           {keys.map((key) => `tessera-server settings reset ${key}`).join("\n")}
         </pre>
+        <p className="text-muted-foreground text-xs">
+          {m.settings_feature_form_lockout_docker_hint()}
+        </p>
         <Field>
           <FieldLabel htmlFor="features-lockout-confirm">
             {m.settings_feature_form_lockout_confirm_label({

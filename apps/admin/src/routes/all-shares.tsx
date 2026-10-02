@@ -1,7 +1,5 @@
 import { IconTrash } from "@tabler/icons-react";
 import { createRoute } from "@tanstack/react-router";
-import type { components } from "@tessera/api/schema";
-import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -22,9 +20,11 @@ import { useState } from "react";
 
 import { AdminShell } from "@/components/admin-shell";
 import { Pager, pageSearchSchema } from "@/components/pager";
+import { ShareStatusBadge } from "@/components/share-status-badge";
 import { PAGE_SIZE, useAllShares } from "@/hooks/use-admin";
 import { useSession } from "@/hooks/use-auth";
-import { isDeletedUsername } from "@/lib/accounts";
+import { ownerLabel, shareLabel } from "@/lib/admin-shares";
+import type { AdminShare } from "@/lib/admin-shares";
 import { formatBytes } from "@/lib/format";
 import { hasPermission, PERMISSIONS } from "@/lib/permissions";
 import { requirePermission } from "@/lib/route-guard";
@@ -32,8 +32,6 @@ import * as m from "@/paraglide/messages";
 
 import { Route as rootRoute } from "./__root";
 import { DeleteShareDialog } from "./all-shares/-components/delete-share-dialog";
-
-type AdminShare = components["schemas"]["AdminShareResponse"];
 
 /**
  * 全站的分享,用來找出該清掉的東西。跟「我的分享」不同:這裡看不到取件碼 ——
@@ -56,28 +54,6 @@ const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-/** 單一檔案時用檔名;文字跟多檔都沒有檔名,改說它是什麼。 */
-function shareLabel(share: AdminShare): string {
-  if (share.filename) {
-    return share.filename;
-  }
-  return share.kind === "text"
-    ? m.all_shares_label_text()
-    : m.all_shares_label_file_count({ count: share.file_count });
-}
-
-/** null 是匿名上傳;"gone-" 開頭是帳號已被刪除,兩者都跟真的帳號名分開顯示。 */
-function ownerLabel(share: AdminShare): string {
-  const { owner_username: ownerUsername } = share;
-  if (!ownerUsername) {
-    return m.all_shares_owner_anonymous();
-  }
-  if (isDeletedUsername(ownerUsername)) {
-    return m.all_shares_owner_deleted();
-  }
-  return ownerUsername;
-}
 
 function AllSharesComponent() {
   const { page } = Route.useSearch();
@@ -153,11 +129,7 @@ function AllSharesComponent() {
                       {dateFormatter.format(new Date(share.created_at))}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={share.active ? "secondary" : "outline"}>
-                        {share.active
-                          ? m.all_shares_status_active()
-                          : m.all_shares_status_inactive()}
-                      </Badge>
+                      <ShareStatusBadge status={share.status} />
                     </TableCell>
                     {canDelete && (
                       <TableCell>

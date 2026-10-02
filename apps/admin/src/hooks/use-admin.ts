@@ -81,6 +81,61 @@ export function allSharesQueryOptions(offset: number) {
   });
 }
 
+/** 儀表板上的最近幾筆。key 掛在全站分享底下，刪分享時會跟著失效。 */
+const RECENT_SHARES_LIMIT = 8;
+
+export const recentSharesQueryOptions = queryOptions({
+  queryFn: async () => {
+    const { data, error } = await api.GET("/api/v1/admin/shares", {
+      params: { query: { limit: RECENT_SHARES_LIMIT, offset: 0 } },
+    });
+    if (error) {
+      throw error;
+    }
+    return data;
+  },
+  queryKey: [...ALL_SHARES_QUERY_KEY, "recent"],
+});
+
+/** 全站的即時數字，不是時間序列 —— server 沒有留歷史（見 `StatsResponse`）。 */
+export const statsQueryOptions = queryOptions({
+  queryFn: async () => {
+    const { data, error } = await api.GET("/api/v1/admin/stats", {});
+    if (error) {
+      throw error;
+    }
+    return data;
+  },
+  queryKey: ["admin", "stats"],
+});
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * 最近 `days` 天，一天一筆。只帶 `from`，`to` 讓 server 用它自己的「今天」（UTC），
+ * 免得瀏覽器時鐘偏掉時要到明天的資料被回 400。
+ *
+ * 換範圍時留著上一份，圖不會先閃成空的。
+ */
+export function statsHistoryQueryOptions(days: number) {
+  return queryOptions({
+    placeholderData: keepPreviousData,
+    queryFn: async () => {
+      const from = new Date(Date.now() - (days - 1) * MS_PER_DAY)
+        .toISOString()
+        .slice(0, "YYYY-MM-DD".length);
+      const { data, error } = await api.GET("/api/v1/admin/stats/history", {
+        params: { query: { from } },
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    queryKey: ["admin", "stats", "history", days],
+  });
+}
+
 const STORAGE_BACKENDS_QUERY_KEY = ["admin", "storage", "backends"] as const;
 
 export const storageBackendsQueryOptions = queryOptions({
@@ -136,6 +191,18 @@ export function useUsers(offset: number, includeDeleted = false) {
 
 export function useAllShares(offset: number) {
   return useQuery(allSharesQueryOptions(offset));
+}
+
+export function useRecentShares() {
+  return useQuery(recentSharesQueryOptions);
+}
+
+export function useStats() {
+  return useQuery(statsQueryOptions);
+}
+
+export function useStatsHistory(days: number) {
+  return useQuery(statsHistoryQueryOptions(days));
 }
 
 export function useInvites() {
