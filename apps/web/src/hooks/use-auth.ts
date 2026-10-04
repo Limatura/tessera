@@ -1,6 +1,7 @@
 export type { PasswordResetRequestError } from "@tessera/auth/hooks";
 export {
   sessionQueryOptions,
+  useChangePassword,
   useConfirmRegistration,
   useLogin,
   useLogout,

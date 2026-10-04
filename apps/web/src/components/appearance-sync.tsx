@@ -28,7 +28,10 @@ import {
 export function AppearanceSync() {
   const { data: session } = useSession();
   const isSignedIn = Boolean(session);
-  const { data: personal } = usePreferences(isSignedIn);
+  // 強制改密碼期間偏好端點一律 403，先照站台預設走，改完 session 一變就會抓。
+  const { data: personal } = usePreferences(
+    isSignedIn && !session?.must_change_password
+  );
   const { setTheme } = useTheme();
 
   const mode = personal?.mode;

@@ -1,4 +1,5 @@
 import {
+  hashKey,
   queryOptions,
   useMutation,
   useQuery,
@@ -174,6 +175,38 @@ export function useConfirmRegistration() {
     },
     onSuccess: (account) => {
       queryClient.setQueryData(sessionQueryOptions.queryKey, account);
+    },
+  });
+}
+
+/**
+ * 改自己的密碼。
+ *
+ * 成功時 server 把其他 session 全部登出、這個瀏覽器換發一張新的，回應是改完的帳號
+ * （`must_change_password` 已是 `false`）。先蓋掉 session 快取，route guard 才會放人
+ * 離開改密碼頁；再讓其餘快取全部失效 —— 強制改密碼期間它們都是 `403`，`sessions`
+ * 列表也因為別處被登出而變了。
+ */
+export function useChangePassword() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      body: components["schemas"]["ChangePasswordRequest"]
+    ) => {
+      const { data, error } = await api.PATCH("/api/v1/auth/password", {
+        body,
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: (account) => {
+      queryClient.setQueryData(sessionQueryOptions.queryKey, account);
+      const session = hashKey(sessionQueryOptions.queryKey);
+      queryClient.invalidateQueries({
+        predicate: (query) => query.queryHash !== session,
+      });
     },
   });
 }
