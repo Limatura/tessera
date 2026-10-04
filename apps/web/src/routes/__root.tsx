@@ -17,6 +17,7 @@ import {
   getLocale,
   subscribeToLocale,
 } from "@/lib/locale";
+import { requirePasswordChanged } from "@/lib/route-guard";
 import * as m from "@/paraglide/messages";
 
 import "../index.css";
@@ -31,6 +32,8 @@ export interface RouterAppContext {
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
+  beforeLoad: ({ context, location }) =>
+    requirePasswordChanged(context.queryClient, location),
   component: RootComponent,
   head: () => ({
     links: [

@@ -17,24 +17,38 @@ export function webUrl(path: string): URL {
 
 /** 前台頁面集中在這裡，散落各處的字串之後改路徑會漏。 */
 export const WEB_ROUTES = {
+  changePassword: "/change-password",
   home: "/",
   login: "/login",
 } as const;
 
-/** 前台登入頁，可帶上登入後要回去的位址。 */
-export function loginUrl(returnTo?: string): URL {
-  const url = webUrl(WEB_ROUTES.login);
+/** 前台某頁，帶上做完之後要回來的後台位址（`?redirect=`）。 */
+function webUrlReturningTo(path: string, returnTo?: string): URL {
+  const url = webUrl(path);
   if (returnTo) {
     // router 給的路徑不含 basepath（正式環境的 `/admin`），要補回去，
-    // 不然登入完會被送回前台首頁而不是後台。
+    // 不然做完會被送回前台首頁而不是後台。
     const mount = import.meta.env.BASE_URL.replace(/\/+$/u, "");
-    const path = returnTo.startsWith("/") ? `${mount}${returnTo}` : returnTo;
+    const back = returnTo.startsWith("/") ? `${mount}${returnTo}` : returnTo;
     url.searchParams.set(
       "redirect",
-      new URL(path, window.location.origin).toString()
+      new URL(back, window.location.origin).toString()
     );
   }
   return url;
+}
+
+/** 前台登入頁，可帶上登入後要回去的位址。 */
+export function loginUrl(returnTo?: string): URL {
+  return webUrlReturningTo(WEB_ROUTES.login, returnTo);
+}
+
+/**
+ * 前台改密碼頁。帳號被要求改密碼時後台什麼都打不開，改完再帶回原本那頁。
+ * 後台沒有自己的改密碼頁，跟登入一樣交給前台。
+ */
+export function changePasswordUrl(returnTo?: string): URL {
+  return webUrlReturningTo(WEB_ROUTES.changePassword, returnTo);
 }
 
 /**
