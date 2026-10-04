@@ -5,14 +5,18 @@ import * as m from "@/paraglide/messages";
 
 export type AdminShare = components["schemas"]["AdminShareResponse"];
 
-/** 單一檔案時用檔名;文字跟多檔都沒有檔名,改說它是什麼。 */
+/** 單一檔案時用檔名;文字、連結跟多檔都沒有檔名,改說它是什麼。 */
 export function shareLabel(share: AdminShare): string {
   if (share.filename) {
     return share.filename;
   }
-  return share.kind === "text"
-    ? m.all_shares_label_text()
-    : m.all_shares_label_file_count({ count: share.file_count });
+  if (share.kind === "text") {
+    return m.all_shares_label_text();
+  }
+  if (share.kind === "link") {
+    return m.all_shares_label_link();
+  }
+  return m.all_shares_label_file_count({ count: share.file_count });
 }
 
 /** null 是匿名上傳;"gone-" 開頭是帳號已被刪除,兩者都跟真的帳號名分開顯示。 */

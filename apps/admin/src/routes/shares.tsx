@@ -96,7 +96,9 @@ function SharesComponent() {
                       {share.code}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary">{share.kind}</Badge>
+                      <Badge variant="secondary">
+                        {shareKindLabel(share.kind)}
+                      </Badge>
                       {share.has_password && (
                         <Badge className="ml-1" variant="outline">
                           {m.shares_needs_password()}
@@ -131,4 +133,22 @@ function SharesComponent() {
       </Card>
     </AdminShell>
   );
+}
+
+/** API 的 `kind` 是英文代碼,顯示前翻成介面語言;未知值原樣顯示,後端加新類型時不會空白。 */
+function shareKindLabel(kind: string): string {
+  switch (kind) {
+    case "text": {
+      return m.shares_kind_text();
+    }
+    case "file": {
+      return m.shares_kind_file();
+    }
+    case "link": {
+      return m.shares_kind_link();
+    }
+    default: {
+      return kind;
+    }
+  }
 }

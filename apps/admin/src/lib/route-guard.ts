@@ -6,7 +6,7 @@ import { sessionQueryOptions } from "@/hooks/use-auth";
 
 import type { Permission } from "./permissions";
 import { hasPermission, landingRoute } from "./permissions";
-import { homeUrl, loginUrl } from "./web-url";
+import { changePasswordUrl, homeUrl, loginUrl } from "./web-url";
 
 type Account = components["schemas"]["AccountResponse"];
 
@@ -24,20 +24,28 @@ function toLogin(href: string): never {
 }
 
 /**
- * 拿到目前登入的帳號，沒登入就轉去登入頁。
+ * 拿到目前登入的帳號，沒登入就轉去登入頁，被要求改密碼就轉去前台改密碼頁。
  *
  * `/auth/session` 401 時 `ensureQueryData` 會 throw，這裡不分辨是哪種錯誤 —— 網路斷線
  * 跟沒登入都送去登入頁，真的有登入就會自己跳回來。
+ *
+ * `must_change_password` 時 server 除了 session、登出、改密碼以外全回 `403`，
+ * 留在後台只會看到一整頁錯誤。
  */
 async function requireAccount(
   queryClient: QueryClient,
   href: string
 ): Promise<Account> {
+  let account: Account;
   try {
-    return await queryClient.ensureQueryData(sessionQueryOptions);
+    account = await queryClient.ensureQueryData(sessionQueryOptions);
   } catch {
     return toLogin(href);
   }
+  if (account.must_change_password) {
+    throw redirect({ href: changePasswordUrl(href).toString() });
+  }
+  return account;
 }
 
 /** 只要登入就能進的頁面。 */

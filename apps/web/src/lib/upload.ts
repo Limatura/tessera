@@ -250,10 +250,12 @@ function uploadLink(
   payload: LinkUploadPayload,
   options: UploadOptions
 ): Promise<UploadResultData> {
-  // 後端沒有 URL 縮短器/重新導向分享方式，連結會變成純文字分享，內容就是 URL 本身
-  return createShare(payload.url, { title: payload.url }, options).then(
-    toResult
-  );
+  // 不帶 title:title 上限 191 bytes,網址最長可到 2048,塞進去長網址會被拒。
+  // 結果畫面要顯示的網址就在手上,直接用。
+  return createShare(payload.url, { kind: "link" }, options).then((share) => ({
+    ...toResult(share),
+    fileName: payload.url,
+  }));
 }
 
 function toResult(share: ShareResponse): UploadResultData {
@@ -280,6 +282,8 @@ function hoursUntil(expiresAt: string | null | undefined): number | undefined {
 }
 
 interface ShareQuery {
+  /** 只有連結分享要帶;檔案跟文字由其他參數區分。 */
+  kind?: "link";
   filename?: string;
   title?: string;
   language?: string;

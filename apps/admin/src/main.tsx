@@ -1,9 +1,16 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { Loader } from "@tessera/ui/components/loader";
 import ReactDOM from "react-dom/client";
 
+import { apiErrorCode } from "./lib/api-error";
 import { applySiteAppearance } from "./lib/appearance";
+import { changePasswordUrl } from "./lib/web-url";
 import { routeTree } from "./routeTree.gen";
 
 const queryClient = new QueryClient({
@@ -14,6 +21,8 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
     },
   },
+  mutationCache: new MutationCache({ onError: redirectIfPasswordExpired }),
+  queryCache: new QueryCache({ onError: redirectIfPasswordExpired }),
 });
 
 const router = createRouter({
@@ -25,6 +34,18 @@ const router = createRouter({
   routeTree,
   scrollRestoration: true,
 });
+
+/**
+ * 任何請求回 `password_change_required` 就整頁送去前台改密碼頁。
+ *
+ * 進站時 route guard 已經看過 session，這裡接的是之後才變的情況（例如在後台操作到
+ * 一半被別的管理員重設了密碼）。改密碼頁在前台，只能整頁跳。
+ */
+function redirectIfPasswordExpired(error: unknown) {
+  if (apiErrorCode(error) === "password_change_required") {
+    window.location.assign(changePasswordUrl(router.state.location.href));
+  }
+}
 
 declare module "@tanstack/react-router" {
   interface Register {
