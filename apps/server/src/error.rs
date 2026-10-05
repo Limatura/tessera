@@ -23,12 +23,12 @@ pub enum Error {
     #[error("not found")]
     NotFound,
 
-    /// A refusal named by its own code.
+    /// A refusal with its own code.
     ///
-    /// Every failure a client should tell apart has a code of its own, and this
-    /// is how a handler raises one: [`Error::new`], then any detail the client
-    /// needs to say it well. There is no variant that takes free text on its
-    /// own, so there is no way to refuse something without naming it.
+    /// Every failure a client should tell apart has a code, and this is how a
+    /// handler raises one: [`Error::new`], then any detail the client needs to
+    /// phrase it. No variant takes free text alone, so nothing can be refused
+    /// without a code.
     #[error("{}", .code.message())]
     Api {
         /// What went wrong, for the client to branch on and translate.
@@ -110,10 +110,9 @@ pub enum Error {
 
     /// The body was not the type this route accepts.
     ///
-    /// Its own variant because it names something the
-    /// caller can fix without guessing: the tus `PATCH` takes exactly one
-    /// content type, and a client that sends another has usually forgotten to
-    /// set it at all.
+    /// A separate variant because the caller can fix it without guessing: the
+    /// tus `PATCH` takes exactly one content type, and a client sending another
+    /// has usually forgotten to set it.
     #[error("unsupported media type")]
     UnsupportedMediaType,
 
@@ -204,7 +203,7 @@ error_codes! {
     /// The account must set a new password before anything else.
     PasswordChangeRequired => FORBIDDEN, "set a new password before doing anything else";
     /// Larger than this caller may send in one file. `details.limit_bytes`,
-    /// when the refusal comes from a limit rather than from where it would go.
+    /// when the refusal comes from a limit and not from where the file would go.
     PayloadTooLarge => PAYLOAD_TOO_LARGE, "the request body exceeds the configured limit";
     /// A storage ceiling would be passed. `details.tier`: `account`, `role` or `instance`.
     InsufficientStorage => INSUFFICIENT_STORAGE, "there is no room for more content";
@@ -441,8 +440,8 @@ impl Error {
         error
     }
 
-    /// A value that broke a format rule, named as [`DomainError`](tessera_core::DomainError)
-    /// names one.
+    /// A value that broke a format rule, named the way
+    /// [`DomainError`](tessera_core::DomainError) names one.
     #[must_use]
     pub fn invalid(field: &str, rule: &str) -> Self {
         Self::new(ErrorCode::ValueInvalid)
@@ -493,10 +492,9 @@ impl Error {
 
     /// Client-facing message, in English.
     ///
-    /// Internal failures collapse to the generic message for their code: a
-    /// database or storage error can carry table names, paths and credentials,
-    /// and an anonymous file service hands this body to unauthenticated
-    /// strangers.
+    /// Internal failures collapse to their code's generic message: a database
+    /// or storage error can carry table names, paths and credentials, and an
+    /// anonymous file service sends this body to unauthenticated clients.
     #[must_use]
     pub fn public_message(&self) -> String {
         match self {
@@ -609,8 +607,8 @@ pub enum Tier {
     Role,
     /// `storage.max_total_bytes`, or every backend full.
     Instance,
-    /// No single backend has room for a file this size, though together they
-    /// do. A smaller file fits; so does this one with
+    /// No single backend has room for a file this size, although together they
+    /// do. A smaller file fits, and so does this one with
     /// `storage.split_across_backends` on.
     Backend,
 }
@@ -689,9 +687,9 @@ mod tests {
         assert_eq!(body.details["field"], "code");
     }
 
-    /// The format every code is held to, checked here so a new one cannot
-    /// slip in another shape: `snake_case` on the wire, an English message
-    /// that starts lower-case and ends without a full stop, like the rest.
+    /// The format every code follows, checked so a new one cannot break it:
+    /// `snake_case` on the wire, and an English message starting lower-case
+    /// with no full stop.
     #[test]
     fn every_code_has_one_format() {
         let mut seen = std::collections::HashSet::new();
@@ -727,10 +725,10 @@ mod tests {
         }
     }
 
-    /// Every rule name written anywhere, as a domain error's `rule` field or
-    /// the second argument to [`Error::invalid`], in this crate or the domain
-    /// one, is a name a client translates, so it has the codes' shape too.
-    /// Read off the source so a new rule cannot be added without passing this.
+    /// Every rule name in this crate or the domain crate, whether a domain
+    /// error's `rule` field or the second argument to [`Error::invalid`], is
+    /// something clients translate, so it follows the code format too. Read
+    /// from the source so a new rule cannot skip this check.
     #[test]
     fn every_rule_name_is_snake_case() {
         fn walk(dir: &std::path::Path, found: &mut Vec<(String, String)>) {
@@ -751,8 +749,8 @@ mod tests {
                         found.push((file.clone(), name.to_owned()));
                     }
                     // `Error::invalid("field", "rule")`: the last literal
-                    // before the closing parenthesis.
-                    // This file names the pattern in order to look for it.
+                    // before the closing parenthesis. This file is skipped
+                    // because it names the pattern in order to search for it.
                     if path.ends_with("src/error.rs") {
                         continue;
                     }

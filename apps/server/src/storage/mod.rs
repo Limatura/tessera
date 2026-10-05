@@ -100,7 +100,6 @@ impl core::fmt::Debug for Stores {
         f.debug_struct("Stores")
             .field("multipart", &self.multipart.is_some())
             .field("put_multipart", &self.put_multipart)
-
             // `store` is a trait object with nothing printable behind it.
             .finish_non_exhaustive()
     }

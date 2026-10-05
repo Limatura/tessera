@@ -306,15 +306,15 @@ pub async fn sweep_once(state: &AppState, now: OffsetDateTime) {
     record_the_day(state, now).await;
 }
 
-/// How long the dashboard's trend goes back. A year shows a season; the rows
-/// are a few dozen bytes each, so the bound is about the table not growing for
-/// ever rather than about room.
+/// How far back the dashboard's trend goes. A year shows seasonality; rows are
+/// a few dozen bytes each, so the bound is about not growing forever, not
+/// about space.
 const STATS_HISTORY_DAYS: i64 = 366;
 
 /// Writes today's row of what the instance holds, and drops the oldest.
 ///
 /// Every pass, not once a day. The row is replaced each time, so it ends the
-/// day holding what the last pass saw, and a server restarted mid-day still
+/// day with what the last pass saw, and a server restarted mid-day still
 /// records that day. See `db::repository::stats`.
 async fn record_the_day(state: &AppState, now: OffsetDateTime) {
     let snapshot = async {

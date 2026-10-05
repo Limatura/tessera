@@ -2,23 +2,22 @@
 //!
 //! # Why the server does this and not the page
 //!
-//! Whatever unfurls a link (Discord, Slack, a mail client) fetches the URL and
-//! reads the HTML without running JavaScript, so a single-page app can put
-//! whatever it likes in `document.head` and the preview still shows what the
-//! shipped `index.html` said. The tags have to be in the bytes the server
-//! sends.
+//! Unfurlers (Discord, Slack, mail clients) fetch the URL and read the HTML
+//! without running JavaScript, so whatever a single-page app puts in
+//! `document.head`, the preview shows what the shipped `index.html` said. The
+//! tags must be in the bytes the server sends.
 //!
-//! That does not make this server-side rendering. The page is the same embedded
-//! `index.html` as everywhere else; a handful of `<meta>` elements are inserted
-//! into its `<head>` on the way out, and the app takes over as usual.
+//! This is not server-side rendering. The page is the same embedded
+//! `index.html` as everywhere else; a few `<meta>` elements are inserted into
+//! its `<head>` as it is served, and the app takes over as usual.
 //!
 //! # What it must not do
 //!
-//! - **Spend a retrieval.** An unfurler follows the link the moment it is pasted, before any person
-//!   clicks. Counting that would destroy a one-time share between sending it and reading it.
-//! - **Describe a locked share.** A preview is public by construction, shown to everyone in the
-//!   channel. If a password-protected share announced its file name and size there, the password
-//!   would be decorative.
+//! - **Spend a retrieval.** An unfurler follows the link as soon as it is pasted, before anyone
+//!   clicks. Counting that would use up a one-time share between sending and reading it.
+//! - **Describe a locked share.** A preview is public by nature, shown to everyone in the channel.
+//!   If a password-protected share announced its file name and size there, the password would be
+//!   decorative.
 
 mod words;
 
@@ -30,11 +29,11 @@ use crate::{
     state::AppState,
 };
 
-/// What the picture may draw, decided in the same place as the words.
+/// What the image may show, decided in the same place as the text.
 ///
 /// Both the tags and [`crate::og`] read this instead of each deciding what is
-/// safe to say. A locked share whose description gives nothing away while its
-/// picture names the file is exactly the failure the rule prevents, and two
+/// safe to say. A locked share whose description reveals nothing while its
+/// image names the file is the failure this rule prevents, and two
 /// implementations of one rule is how that happens.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Card {
@@ -45,13 +44,13 @@ pub enum Card {
         /// Short facts beside it: the size, and a file count when there are
         /// several.
         chips: Vec<String>,
-        /// The line along the bottom: when it goes, and how many goes are left.
+        /// The bottom line: when it expires, and how many downloads are left.
         ///
         /// Not the size, which the chips already show.
         footer: String,
-        /// When it goes, alone, for a layout that places it apart.
+        /// The expiry alone, for a layout that places it separately.
         expires: Option<String>,
-        /// The first lines of a text share, coloured. `None` for a file, and
+        /// The first lines of a text share, highlighted. `None` for a file, and
         /// for a note whose body was not read.
         #[cfg(feature = "og-images")]
         snippet: Option<crate::og::code::Snippet>,
@@ -67,7 +66,7 @@ pub enum Card {
     /// Password-protected. Only a title the uploader typed themselves appears.
     Locked {
         /// Whether there was a title. Without one the headline is our own
-        /// stand-in sentence, and the card draws it quietly to say so.
+        /// placeholder sentence, and the card renders it muted to show that.
         named: bool,
     },
     /// Expired, exhausted, or switched off.
@@ -86,7 +85,7 @@ pub struct Preview {
 }
 
 impl Preview {
-    /// What a share should say about itself to a channel full of people, in
+    /// What a share should say about itself to a public channel, in
     /// `language`.
     #[must_use]
     pub fn of(
@@ -103,9 +102,9 @@ impl Preview {
                 said.gone_description.to_owned(),
                 Card::Gone,
             ),
-            // A title is the one thing a locked share may say. The uploader
-            // typed it as a label for other people; the file name came off
-            // their disk, and they never agreed to publish that.
+            // A title is the one thing a locked share may show. The uploader
+            // typed it as a label for others; the file name came from their
+            // disk, and they never agreed to publish it.
             Availability::Available if share.needs_password() => (
                 share
                     .title
@@ -138,9 +137,9 @@ impl Preview {
                         many => (said.shared_files)(many.len()),
                     },
                     ShareKind::Text => said.shared_note.to_owned(),
-                    // Not the address. A link that reaches this page has a
-                    // password or a use limit, and naming where it goes is
-                    // what those are there to hold back.
+                    // Not the URL. A link reaching this page has a password or
+                    // a use limit, and revealing its target is what those
+                    // exist to prevent.
                     ShareKind::Link => said.shared_link.to_owned(),
                 }),
                 facts.description(),
@@ -173,12 +172,12 @@ impl Preview {
         words(self.language)
     }
 
-    /// Attaches the first lines of a note's body, coloured.
+    /// Attaches the first lines of a note's body, highlighted.
     ///
-    /// A no-op unless the share is [`Card::Open`], and that is why it lives
-    /// here. The caller reads a body without knowing whether the
-    /// share may describe itself, and that is already decided here. A locked
-    /// note keeps its code to itself with no caller having to remember.
+    /// A no-op unless the share is [`Card::Open`], which is why it lives here:
+    /// the caller reads a body without knowing whether the share may describe
+    /// itself, and that is decided here, so a locked note stays private without
+    /// any caller having to remember.
     #[cfg(feature = "og-images")]
     #[must_use]
     pub fn with_snippet(mut self, body: &str, language: Option<&str>) -> Self {
@@ -220,7 +219,7 @@ impl Preview {
         };
         field(self.title.as_bytes());
         field(self.description.as_bytes());
-        // The card's own words, which the title and description do not always
+        // The card's own text, which the title and description do not always
         // carry: a locked share's title is the uploader's in every language.
         field(self.words().label_locked.as_bytes());
 
@@ -283,9 +282,9 @@ impl Preview {
     /// The tags, ready to splice into a `<head>`.
     ///
     /// `origin` is where this instance is reachable from outside, without a
-    /// trailing slash; see [`origin`]. Without one the picture is left out
-    /// instead of given a relative path, since `og:image` is read by a crawler
-    /// on another machine where that resolves to nothing.
+    /// trailing slash; see [`origin`]. Without one the image is omitted instead
+    /// of given a relative path, since `og:image` is read by a crawler on
+    /// another machine, where that resolves to nothing.
     #[must_use]
     pub fn to_head_tags(&self, origin: Option<&str>, code: &str, site: &str) -> String {
         let title = escape(&self.title);
@@ -308,9 +307,9 @@ impl Preview {
             )
         });
 
-        // `summary_large_image` only when there is one: the small card is what a
-        // client falls back to, and asking for the large one with no picture
-        // gets a large blank.
+        // `summary_large_image` only with an image: the small card is the
+        // fallback, and asking for the large one without an image gives a
+        // large blank.
         let twitter_card = if origin.is_some() {
             "summary_large_image"
         } else {
@@ -333,7 +332,7 @@ impl Preview {
 
 /// The short facts that sit beside the headline on the picture.
 fn chips(share: &Share, content: &Content, said: &Words) -> Vec<String> {
-    // How long an address is says nothing anyone wants to know.
+    // A URL's length tells no one anything useful.
     if share.kind == ShareKind::Link {
         return Vec::new();
     }
@@ -347,9 +346,9 @@ fn chips(share: &Share, content: &Content, said: &Words) -> Vec<String> {
     chips
 }
 
-/// What can be said about a share besides its name, each part on its own.
+/// What can be said about a share besides its name, part by part.
 ///
-/// Apart because the card and the description want different subsets: the
+/// Separate because the card and the description use different subsets: the
 /// card shows the size as a chip, so its footer leaves it out.
 struct Facts {
     size: Option<String>,
@@ -526,13 +525,13 @@ const CARD_HEIGHT: u32 = 630;
 /// Where this instance is reachable from outside, with no trailing slash.
 ///
 /// The configured value wins. It exists because deriving this is guesswork in
-/// exactly the deployments this is for: a reverse proxy that rewrites `Host`, a
-/// container that only hears `localhost:8080`. When set, nothing about the
-/// request changes the answer, so a forged `Host` header cannot make our page
-/// advertise a picture from elsewhere.
+/// the deployments that most need it: a reverse proxy rewriting `Host`, a
+/// container that only sees `localhost:8080`. When set, nothing in the request
+/// changes the answer, so a forged `Host` header cannot make our page
+/// advertise an image from elsewhere.
 ///
 /// Falling back to the request still beats emitting nothing, since the common
-/// case of one container behind a proxy that passes `Host` through is right
+/// case (one container behind a proxy that passes `Host` through) then works
 /// with no configuration.
 #[must_use]
 pub fn origin(config: &crate::config::Config, headers: &axum::http::HeaderMap) -> Option<String> {
@@ -545,8 +544,8 @@ pub fn origin(config: &crate::config::Config, headers: &axum::http::HeaderMap) -
     if host.is_empty() {
         return None;
     }
-    // A proxy that terminates TLS says so here; without it, assume what we are
-    // actually speaking.
+    // A TLS-terminating proxy says so here; without it, assume the scheme we
+    // are actually speaking.
     let scheme = headers
         .get("x-forwarded-proto")
         .and_then(|value| value.to_str().ok())
@@ -606,9 +605,9 @@ pub mod testing {
 /// Reads the share a `/s/{code}` page is about, without touching its counters.
 ///
 /// Not [`crate::api::gate::open`], which refuses expired shares and counts
-/// misses against the lookup limit. Neither is right here. A
-/// crawler following a dead link should get a page that explains itself, and
-/// should not be able to exhaust a limit meant for people guessing.
+/// misses against the lookup limit. Neither fits here: a crawler following a
+/// dead link should get a page that explains itself, and must not be able to
+/// exhaust a limit meant for code guessing.
 pub async fn lookup(state: &AppState, code: &str) -> Option<(Share, Content)> {
     let code = tessera_core::RetrievalCode::parse(code).ok()?;
     let share = state.shares.find_by_code(&code).await.ok().flatten()?;
@@ -752,8 +751,8 @@ mod tests {
         assert!(said.contains("named: true"));
     }
 
-    /// Expired or collected says nothing about what it was either. "The 24.8 MB
-    /// file has been collected" still tells a channel plenty.
+    /// Expired or collected reveals nothing about what it was either. "The 24.8
+    /// MB file has been collected" still tells a channel plenty.
     #[test]
     fn a_share_that_is_gone_describes_nothing() {
         let mut share = share(ShareKind::File);
@@ -770,7 +769,7 @@ mod tests {
     /// A note's card carries its first lines; a locked note's does not.
     ///
     /// The caller reads the body without knowing whether the share may describe
-    /// itself, so that one place decides. This is that place.
+    /// itself, so one place decides, and this tests it.
     #[cfg(feature = "og-images")]
     #[test]
     fn a_snippet_reaches_an_open_card_and_not_a_locked_one() {
@@ -909,8 +908,8 @@ mod tests {
         }
     }
 
-    /// The whole reason this module exists: an unfurler reads the bytes, so the
-    /// tags have to be in them.
+    /// Why this module exists: an unfurler reads the bytes, so the tags must be
+    /// in them.
     #[test]
     fn tags_land_inside_the_head() {
         let html = "<!doctype html><html><head><title>Tessera</title></head><body></body></html>";
@@ -943,8 +942,8 @@ mod tests {
         );
     }
 
-    /// The title came from whoever made the share and is going into an
-    /// attribute on a page served from this origin.
+    /// The title came from the share's creator and goes into an attribute on a
+    /// page served from this origin.
     #[test]
     fn a_title_cannot_break_out_of_its_attribute() {
         let mut share = share(ShareKind::Text);
@@ -959,10 +958,10 @@ mod tests {
     /// A preview is shown to everyone in the channel. If it described the file,
     /// the password would be decorative.
     ///
-    /// The title is the one deliberate exception: the uploader typed it as a
-    /// label for other people, where the file name came off their disk and they
-    /// never agreed to publish it. The cost is real, since a share titled "Q3
-    /// salaries" announces that in the channel, so the default with no title
+    /// The title is the one intended exception: the uploader typed it as a
+    /// label for others, while the file name came from their disk and they
+    /// never agreed to publish it. The cost is real (a share titled "Q3
+    /// salaries" announces that to the channel), so with no title the default
     /// says nothing.
     #[test]
     fn a_locked_share_describes_nothing_but_its_title() {

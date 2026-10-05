@@ -406,8 +406,8 @@ pub async fn delete_user(
     {
         return Err(Error::NotFound);
     }
-    // `soft_delete` took the sessions, tokens, password and linked accounts
-    // with it, in one transaction.
+    // `soft_delete` removed the sessions, tokens, password and linked accounts
+    // in the same transaction.
 
     tracing::info!(account = %user_id, by = %current.user.id, "an account was removed");
     Ok(StatusCode::NO_CONTENT)
@@ -637,9 +637,9 @@ pub async fn revoke_invite(
 ///
 /// # Why this is not a metrics endpoint
 ///
-/// Numbers an operator can act on: "am I near the quota", "how many people are
-/// on here", "is the sweep keeping up". The dashboard's one trend, a day at a
-/// time, is `/admin/stats/history`; anything finer wants Prometheus.
+/// These are numbers an operator acts on: "am I near the quota", "how many
+/// accounts are there", "is the sweep keeping up". The dashboard's one trend,
+/// per day, is `/admin/stats/history`; anything finer belongs in Prometheus.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct StatsResponse {
     /// How many accounts exist.
@@ -739,8 +739,8 @@ pub async fn stats(
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct StatsHistoryParams {
-    /// The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`, so
-    /// the default is thirty days.
+    /// The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`,
+    /// giving thirty days.
     #[param(example = "2026-09-01")]
     pub from: Option<String>,
     /// The last day, `YYYY-MM-DD` in UTC, included. Defaults to today.
@@ -767,20 +767,19 @@ pub struct StatsDay {
 /// Days of history, oldest first.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct StatsHistoryResponse {
-    /// One per day recorded in the range. A day the server was not running has
+    /// One per recorded day in the range. Days the server was not running have
     /// no entry, and history starts the day this version was first deployed.
     pub data: Vec<StatsDay>,
 }
 
-/// The longest range one request may ask for, which is also how long history is
-/// kept.
+/// The longest range one request may ask for, and how long history is kept.
 const MAX_HISTORY_DAYS: i64 = 366;
 
-/// Reports what this instance held, one day at a time.
+/// Reports what this instance held, per day.
 ///
-/// Recorded by the hourly sweep, so it starts the day this version is first
-/// deployed: what was swept before then is gone, size and all. A day's entry
-/// is the last sweep of that day.
+/// Recorded by the hourly sweep, so history starts when this version is first
+/// deployed: shares swept before then are gone, sizes included. A day's entry
+/// is that day's last sweep.
 ///
 /// # Errors
 ///
@@ -1341,8 +1340,8 @@ pub async fn set_user_roles(
     let wanted = body
         .role
         .as_deref()
-        // A name where an id belongs is a mistake in the request, not a role
-        // that is missing, and the two want different fixes.
+        // A name where an id belongs is a malformed request, not a missing
+        // role, and the two need different fixes.
         .map(|role| RoleId::parse(role).map_err(|_| Error::invalid("role", "not_an_identifier")))
         .transpose()?;
 
@@ -1447,8 +1446,8 @@ pub struct AdminShareResponse {
     /// What the malware scanner said: `pending`, `deferred`, `clean`,
     /// `infected` or `skipped`, or `null` if it was never sent to one.
     ///
-    /// For several files, the one that matters most: `infected` over
-    /// `pending` over `deferred` over `skipped` over `clean`.
+    /// For several files, the most significant one: `infected` over `pending`
+    /// over `deferred` over `skipped` over `clean`.
     #[schema(example = "infected")]
     pub scan_state: Option<String>,
     /// The threat the scanner named for `infected`, or why it was `skipped`
@@ -1467,8 +1466,7 @@ pub struct AdminShareResponse {
 pub enum AdminShareStatus {
     /// A visitor can open it, with the password if it has one.
     Available,
-    /// Switched off, because the malware scanner found a threat in it. See
-    /// `scan_detail`.
+    /// Disabled because the malware scanner found a threat. See `scan_detail`.
     Disabled,
     /// Past its expiry.
     Expired,
@@ -1487,7 +1485,7 @@ impl From<Availability> for AdminShareStatus {
     }
 }
 
-/// The verdict that says most about a share, from every file or note in it.
+/// The most significant verdict across every file or note in a share.
 fn weightiest_scan(content: &Content) -> Option<&Scan> {
     let weight = |scan: &Scan| match scan {
         Scan::Infected(_) => 4,

@@ -3474,7 +3474,7 @@ async fn writing_a_backend_needs_more_than_reading_one() {
     drop(owner);
 }
 
-/// A role named where its id belongs is a malformed request, not a missing
+/// A role name where its id belongs is a malformed request, not a missing
 /// role: the fix is on the client, and a `404` sent the panel looking for a
 /// role that exists.
 #[tokio::test]

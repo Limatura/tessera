@@ -1,7 +1,7 @@
-//! A row a day of what the instance held, for the dashboard's trend.
+//! One row per day of what the instance held, for the dashboard's trend.
 //!
 //! Written by the hourly sweep, read by `GET /admin/stats/history`. See the
-//! migration for why the past has to be recorded rather than computed.
+//! migration for why the past has to be recorded instead of computed.
 
 use sea_orm::{
     ColumnTrait as _, DatabaseConnection, EntityTrait as _, QueryFilter as _, QueryOrder as _, Set,
@@ -42,8 +42,8 @@ impl StatsRepository {
 
     /// Writes `day`'s row, replacing one already written that day.
     ///
-    /// Replaced, not kept, so the row ends the day holding the day's last pass:
-    /// what the instance held when the day was over.
+    /// Replaced, not kept, so by the end of the day the row holds the last
+    /// pass: what the instance held when the day was over.
     ///
     /// # Errors
     ///
@@ -80,8 +80,8 @@ impl StatsRepository {
 
     /// The days from `from` to `to`, both included, oldest first.
     ///
-    /// Only days a pass recorded: one the server was down for all day is
-    /// absent rather than zero, which would draw a drop that never happened.
+    /// Only days a pass recorded. A day the server was down throughout is
+    /// absent, not zero, which would draw a drop that never happened.
     ///
     /// # Errors
     ///
@@ -99,7 +99,7 @@ impl StatsRepository {
             .await?
             .into_iter()
             // A row whose day does not parse was not written here; skipping it
-            // costs one point on a graph.
+            // costs one point on a chart.
             .filter_map(|row| {
                 let day = Date::parse(&row.day, DAY).ok()?;
                 Some((

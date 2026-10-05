@@ -254,10 +254,10 @@ impl Sink {
     ///
     /// # Errors
     ///
-    /// `upload_parts_mismatch` when the store refuses the parts it was given,
-    /// which is the client's list being wrong and leaves the upload open to be
-    /// finished with the right one; [`Error::Storage`] for any other refusal,
-    /// or [`Error::Io`] if the finished file cannot be moved into place.
+    /// `upload_parts_mismatch` when the store rejects the parts it was given,
+    /// meaning the client's list was wrong; the upload stays open to finish
+    /// with the right one. [`Error::Storage`] for any other refusal, or
+    /// [`Error::Io`] if the finished file cannot be moved into place.
     pub async fn complete(&self, key: &str, parts: Vec<TakenPart>) -> Result<()> {
         match self {
             Self::Multipart { store, id } => {
@@ -513,11 +513,11 @@ mod part_rules {
 
 /// Whether the store refused to complete because of the parts it was given.
 ///
-/// Read off the error's text, because `object_store` reports every refusal as
-/// the same `Generic` error and carries the store's own reason only inside it.
-/// These are S3's codes, which GCS's XML API shares: a part that is not there
-/// or whose `ETag` does not match, parts out of order, a part below the minimum.
-/// Anything else, an outage included, stays a server error.
+/// Read from the error text, because `object_store` reports every refusal as
+/// the same `Generic` error with the store's reason only inside it. These are
+/// S3's codes, which GCS's XML API shares: a missing part or one whose `ETag`
+/// does not match, parts out of order, a part below the minimum size. Anything
+/// else, outages included, stays a server error.
 fn refuses_the_parts(error: &object_store::Error) -> bool {
     let text = format!("{error:?}");
     ["InvalidPart", "EntityTooSmall"]

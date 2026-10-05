@@ -6,7 +6,7 @@
 //!
 //! `server.assets_dir` reads from a directory instead. A development
 //! convenience, and the only mode with a filesystem to get wrong; see `load`
-//! for what confines it.
+//! for how it is confined.
 
 use std::path::PathBuf;
 
@@ -124,9 +124,8 @@ fn load(source: &Source, path: &str) -> Option<Asset> {
 fn embedded<B: Embed>(path: &str) -> Option<Asset> {
     B::get(path).map(|file| Asset {
         etag: quoted_etag(&file.metadata.sha256_hash()),
-        // `Cow::Borrowed` is the release-build case: the bytes live in
-        // `.rodata` and the response body borrows them instead of copying
-        // per request.
+        // `Cow::Borrowed` in release builds: the bytes live in `.rodata` and
+        // the response body borrows them instead of copying per request.
         bytes: match file.data {
             std::borrow::Cow::Borrowed(bytes) => Bytes::from_static(bytes),
             std::borrow::Cow::Owned(bytes) => Bytes::from(bytes),
@@ -229,10 +228,10 @@ fn admin_path(path: &str) -> Option<&str> {
 
 /// Serves the admin panel, falling back to its own entry point.
 ///
-/// The same rules as the site: a missing file is a 404, anything else is a
-/// route for the panel's router. The entry point goes out as built. The panel
-/// applies the instance's appearance itself once it has read the settings, and
-/// is seen by few enough people that a repaint costs nothing worth the rewrite.
+/// Same rules as the site: a missing file is a 404, anything else is a route
+/// for the panel's router. The entry point is served as built. The panel
+/// applies the instance's appearance itself after reading the settings, and
+/// has few enough visitors that a repaint is not worth the rewrite.
 fn serve_admin(path: &str) -> Response {
     if !path.is_empty() && path != INDEX {
         if let Some(asset) = embedded::<AdminBundle>(path) {
@@ -450,11 +449,11 @@ async fn serve_share_page(
     let Some((share, content)) = preview_target(state, code).await else {
         return serve_index(state);
     };
-    // A link with nothing to ask goes straight on, through the download route
-    // so that route's checks and access log are the only ones. A password
-    // needs the page to ask for it. A use limit needs a person to click:
-    // whatever unfurls a link follows it the moment it is pasted, and would
-    // spend a one-time link before anyone opened it.
+    // A link with nothing to ask redirects straight away, via the download
+    // route, so that route's checks and access log are the only ones. A
+    // password needs the page to ask for it. A use limit needs a human click:
+    // unfurlers follow a link as soon as it is pasted and would use up a
+    // one-time link before anyone opened it.
     if share.kind == crate::db::repository::share::ShareKind::Link
         && !share.needs_password()
         && share.use_limit.is_none()

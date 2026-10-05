@@ -299,12 +299,12 @@ async fn raw(
     // whether the caller holds a ticket for it, and `permit` is where that is
     // known. See `gate`'s module docs.
     let share = gate::find(&state, &code, &source).await?;
-    // Before authorising, not after: answering "you wanted the other route" is
-    // the caller's mistake, and a mistake must not cost the share one of its
-    // retrievals. Anything that can be refused without looking at the content
-    // belongs on this side of the gate.
-    // A link's address reads as text too, for a client that wants to show
-    // where it goes rather than go there.
+    // Before authorising: asking for the wrong route is the caller's mistake,
+    // and must not use up one of the share's retrievals. Anything refusable
+    // without looking at the content belongs before the gate.
+    //
+    // A link's URL can be read as text too, for a client that wants to show
+    // where it goes instead of following it.
     if !matches!(share.kind, ShareKind::Text | ShareKind::Link) {
         return Err(Error::new(ErrorCode::ShareIsFile));
     }
@@ -394,9 +394,9 @@ async fn download(
     {
         return Ok(redirect);
     }
-    // Plain text leaves as a text file, named so it opens in an editor. An
-    // encrypted note is ciphertext until the browser opens it, so it stays
-    // opaque, and its title and language are sealed anyway.
+    // Plain text is served as a text file, named so it opens in an editor. An
+    // encrypted note stays opaque, since it is ciphertext until the browser
+    // opens it, and its title and language are sealed anyway.
     let (content_type, disposition) = match &content {
         Content::Text(text) if share.encryption.is_none() => (
             "text/plain; charset=utf-8",
@@ -425,23 +425,22 @@ async fn download(
     .await
 }
 
-/// Sends the client to where a link share points.
+/// Redirects the client to a link share's target.
 ///
-/// After `permit`, like everything else a download hands out: the password,
-/// the expiry, the use limit and the access log all apply to a link as they do
-/// to a file.
+/// After `permit`, like everything a download serves: the password, expiry,
+/// use limit and access log apply to a link as to a file.
 ///
-/// `302`, and never cached. A cached redirect would skip every one of those
-/// checks on the next visit, and a permanent one would outlive the share.
-/// Without a referrer, so the page it lands on is not told this share's code.
+/// `302`, never cached. A cached redirect would skip all those checks on the
+/// next visit, and a permanent one would outlive the share. No referrer, so
+/// the destination does not learn this share's code.
 async fn follow(state: &AppState, share: &Share) -> Result<Response> {
     let text = state
         .shares
         .text_of(share.id)
         .await?
         .ok_or(Error::NotFound)?;
-    // Checked when it was stored, so this only fails on a row that was
-    // changed behind the server's back.
+    // Validated when stored, so this only fails on a row edited outside the
+    // server.
     let location = std::str::from_utf8(&text.content)
         .ok()
         .and_then(|address| HeaderValue::from_str(address).ok())
@@ -1046,8 +1045,8 @@ fn content_disposition(content: &Content) -> String {
     attachment(file_name(content))
 }
 
-/// The single file's own name, or the archive's. A share with one file does not
-/// become an archive just because archives exist.
+/// The single file's own name, or the archive's. A one-file share is not
+/// turned into an archive.
 fn file_name(content: &Content) -> &str {
     content
         .single_file()
@@ -1057,20 +1056,20 @@ fn file_name(content: &Content) -> &str {
 
 /// The last component only, after either separator.
 ///
-/// A stored name is what the uploader sent, checked only for length and control
-/// characters, so it can carry the folder it came from or be nothing but
-/// separators. A header naming a path says where on the recipient's disk to put
-/// the file, which RFC 6266 tells us not to try.
+/// A stored name is what the uploader sent, checked only for length and
+/// control characters, so it may include a folder or be nothing but
+/// separators. A header naming a path tells the recipient where on disk to
+/// save it, which RFC 6266 says not to attempt.
 fn last_component(name: Option<&str>) -> Option<&str> {
     name.and_then(|name| name.rsplit(['/', '\\']).next())
         .filter(|last| !last.is_empty())
 }
 
-/// What a note is saved as: its title, or its retrieval code, with the
-/// extension its language implies when the title does not carry one.
+/// The filename a note is saved as: its title, or its retrieval code, plus the
+/// extension its language implies when the title lacks one.
 ///
-/// Without an extension the file opens in nothing useful, which is the whole
-/// complaint about calling it `download`.
+/// Without an extension the file opens in nothing useful, which was the
+/// complaint about naming it `download`.
 fn text_name(title: Option<&str>, code: &str, language: Option<&str>) -> String {
     let stem = last_component(title.map(str::trim)).unwrap_or(code);
     if std::path::Path::new(stem).extension().is_some() {

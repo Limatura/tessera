@@ -219,16 +219,15 @@ pub(super) fn invite_refused() -> Error {
 
 /// Reads the invite a registration came in on, when this instance asks for one.
 ///
-/// # Why the place is not taken here
+/// # Why the invite is not consumed here
 ///
-/// The invite is only looked at. Charging a place here would let one visitor
-/// spend every place on a code by submitting the form five times without ever
-/// confirming an address, with no account to show for it. So the code is
-/// checked now, remembered on the pending row, and charged once an account
-/// exists.
+/// It is only checked. Consuming it here would let one visitor use up every
+/// place on a code by submitting the form five times without confirming an
+/// address, with no account to show for it. So the code is checked now, kept
+/// on the pending row, and consumed once the account exists.
 ///
-/// The check still belongs here. Reporting a bad invite after the password is
-/// chosen and the inbox checked is worse.
+/// The check still belongs here: reporting a bad invite after the password is
+/// chosen and the inbox checked would be worse.
 ///
 /// # Errors
 ///
@@ -241,8 +240,8 @@ pub(super) async fn check_invite(state: &AppState, code: Option<&str>) -> Result
         return Ok(None);
     }
 
-    // Its own code, not the refusal below: nothing is being guessed at, and
-    // the form should ask for a code rather than call one wrong.
+    // A separate code from the refusal below: nothing is being guessed, and the
+    // form should ask for a code instead of calling one wrong.
     let code = code.map(str::trim).filter(|code| !code.is_empty());
     let Some(code) = code else {
         return Err(Error::new(ErrorCode::InviteRequired));
