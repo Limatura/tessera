@@ -493,29 +493,28 @@ impl UserRepository {
         Ok(result.rows_affected == 1)
     }
 
-    /// Removes an account, leaving a row that says one was here.
+    /// Removes an account, leaving a row that records it existed.
     ///
-    /// # What is left and what is not
+    /// # What is left
     ///
-    /// The identifier stays, because `shares.user_id` points at it and a share
-    /// whose uploader is gone differs from one that was uploaded anonymously.
-    /// The name and address are replaced with values that identify no person,
-    /// which also frees the originals.
+    /// The id stays, because `shares.user_id` references it and a share whose
+    /// uploader is gone differs from an anonymous upload. The name and address
+    /// are replaced with values that identify no one, which also frees the
+    /// originals.
     ///
-    /// Everything else that is the person's goes, in the same transaction: the
-    /// password, the linked provider accounts, the preferences, outstanding
-    /// reset and verification links, sign-ins in progress, the sessions and the
-    /// API tokens. The row staying means `ON DELETE CASCADE` never fires, so
-    /// each table is cleared here by name. A table added later that points at
+    /// Everything else belonging to the user is deleted in the same
+    /// transaction: password, linked provider accounts, preferences, pending
+    /// reset and verification links, sign-ins in progress, sessions and API
+    /// tokens. Since the row stays, `ON DELETE CASCADE` never fires, so each
+    /// table is cleared here by name. A table added later that references
     /// `users` belongs in `erase_personal_rows` too.
     ///
-    /// # Why the sessions and tokens go too
+    /// # Why sessions and tokens go too
     ///
-    /// Authentication already refuses a deleted account, so they would not
-    /// work, and a row that cannot work has to be explained. The login history
-    /// goes with them, and that matters: it is the most identifying thing
-    /// this service holds about a person.
-    ///
+    /// Authentication already rejects a deleted account, so they would not
+    /// work, and rows that cannot work need explaining. The login history goes
+    /// with them, which matters: it is the most identifying data this service
+    /// holds about a person.
     /// Returns whether an account was removed.
     ///
     /// # Errors
@@ -556,9 +555,9 @@ impl UserRepository {
     /// Deletes every row in another table that belongs to `id`, for
     /// [`Self::soft_delete`].
     ///
-    /// Not shares and not uploads. A share outlives its uploader by design;
-    /// see above. An upload in progress holds a multipart upload on the store,
-    /// and only the sweep knows to abort it before the row goes.
+    /// Not shares and not uploads. A share outlives its uploader by design (see
+    /// above). An in-progress upload holds a multipart upload on the store, and
+    /// only the sweep knows to abort it before deleting the row.
     async fn erase_personal_rows(
         connection: &impl ConnectionTrait,
         id: UserId,

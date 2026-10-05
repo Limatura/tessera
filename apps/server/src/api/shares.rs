@@ -109,9 +109,9 @@ pub struct ShareBody(
 #[into_params(parameter_in = Query)]
 #[serde(deny_unknown_fields)]
 pub struct CreateShareParams {
-    /// `link` to make a share that sends whoever opens it to the web address in
-    /// the body, an `http` or `https` URL. Omit for a file or a note, which the
-    /// other parameters tell apart.
+    /// `link` to make a share that redirects to the `http` or `https` URL in
+    /// the body. Omit for a file or a note, which the other parameters
+    /// distinguish.
     #[param(example = "link")]
     pub kind: Option<String>,
     /// Original file name. Its presence is what makes this a file share rather
@@ -473,8 +473,8 @@ pub async fn create(
 
 /// The row a note or a link is kept in.
 ///
-/// `body` is always present by the time a share exists: text is its own row,
-/// and `ingest` refuses anything it could not hold.
+/// `body` is always present once a share exists: text is its own row, and
+/// `ingest` refuses anything that would not fit.
 fn written(
     kind: ShareKind,
     language: Option<String>,
@@ -483,8 +483,8 @@ fn written(
 ) -> Result<NewContent> {
     let body = body.unwrap_or_default();
     Ok(if kind == ShareKind::Link {
-        // An address, not content: there is nothing in it for a scanner to
-        // find, and what it points at can change after any verdict.
+        // An address, not content: nothing in it for a scanner to find, and
+        // its target can change after any verdict.
         NewContent::Text {
             language: None,
             body: link_target(&body)?.into_bytes(),
@@ -499,16 +499,15 @@ fn written(
     })
 }
 
-/// The longest web address a link share takes, in bytes. Past two thousand
-/// or so, browsers and servers along the way start refusing it anyway.
+/// The longest URL a link share accepts, in bytes. Beyond about two thousand,
+/// browsers and intermediaries start refusing it anyway.
 const MAX_LINK_BYTES: usize = 2048;
 
-/// The address a link share sends people to, checked: `http` or `https`, with
-/// a host.
+/// The URL a link share redirects to, checked: `http` or `https`, with a host.
 ///
-/// Anything else is refused rather than stored. A `javascript:` or `data:`
-/// address in a `Location` header is at best a broken redirect, and this
-/// server's name on it makes it worth trying.
+/// Anything else is refused, not stored. A `javascript:` or `data:` URL in a
+/// `Location` header is at best a broken redirect, and this server's name on
+/// it makes it attractive to abuse.
 fn link_target(body: &[u8]) -> Result<String> {
     let refused = || {
         Error::invalid("url", "http_url")
@@ -530,13 +529,13 @@ fn link_target(body: &[u8]) -> Result<String> {
     Ok(url.into())
 }
 
-/// The most retrievals a share may allow: what the column holds.
+/// The most retrievals a share may allow: what the column can hold.
 ///
-/// The column is a signed 32-bit integer, so anything larger used to be stored
-/// as this instead, while the contract promised the request would be refused.
+/// The column is a signed 32-bit integer, so larger values used to be stored
+/// as this instead, while the contract promised they would be refused.
 const MAX_USE_LIMIT: u32 = i32::MAX.unsigned_abs();
 
-/// Refuses a use limit the column cannot hold, rather than storing a smaller one.
+/// Refuses a use limit the column cannot hold, instead of storing a smaller one.
 fn within_use_limit(limit: u32) -> Result<u32> {
     if limit > MAX_USE_LIMIT {
         return Err(
@@ -549,8 +548,8 @@ fn within_use_limit(limit: u32) -> Result<u32> {
 
 /// What a new share says about itself, each part checked.
 struct Described {
-    /// `link` if asked for; otherwise a name, sealed or not, is what makes a
-    /// share a file share.
+    /// `link` if requested; otherwise a name, sealed or not, makes a share a
+    /// file share.
     kind: ShareKind,
     filename: Option<String>,
     title: Option<String>,
@@ -572,8 +571,8 @@ fn described(state: &AppState, params: &mut CreateShareParams) -> Result<Describ
         }
     };
     if link {
-        // The server has to read the address to send anyone to it, and there
-        // is nothing to name or highlight.
+        // The server must read the URL to redirect to it, and there is nothing
+        // to name or highlight.
         let unwanted = [
             ("filename", params.filename.is_some()),
             ("sealed_name", params.sealed_name.is_some()),
@@ -1529,10 +1528,10 @@ async fn place_where(
     })
 }
 
-/// Which way the backends fall short of a file that none of them will take.
+/// How the backends fall short for a file none of them will take.
 ///
-/// Full is not the only reason. Two backends with 27 MB and 22 MB left hold
-/// 49 MB between them and still cannot take 38 MB whole, and calling that
+/// Being full is not the only reason. Two backends with 27 MB and 22 MB free
+/// hold 49 MB together but still cannot take 38 MB whole, and calling that
 /// "the instance is full" sends the reader looking for space that exists.
 fn short_of(pool: &[crate::storage::placement::Candidate], size: Option<u64>) -> Tier {
     let Some(size) = size else {
@@ -1999,8 +1998,8 @@ async fn finish(
 
 /// The next piece of a body's data, or `None` at its end.
 ///
-/// Trailers carry no content, so they are skipped, not returned. The
-/// wait is bounded as `next_frame` bounds it.
+/// Trailers carry no content, so they are skipped. The wait is bounded as in
+/// `next_frame`.
 ///
 /// # Errors
 ///

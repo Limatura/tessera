@@ -1,4 +1,4 @@
-//! A row a day of what the instance held, for the dashboard's trend.
+//! One row per day of what the instance held, for the dashboard's trend.
 //!
 //! The SQL lives in `sql/`, and the SQLite file carries the reasoning.
 

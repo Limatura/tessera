@@ -1,11 +1,11 @@
 //! Prepares the directory that `rust-embed` compiles the SPA out of.
 //!
 //! `rust-embed` needs its folder to exist at compile time, but `apps/web/dist` is
-//! a build output that may not have been produced yet (a fresh clone, a
-//! backend-only CI job, `cargo run` during API work). Instead of making every
-//! `cargo build` depend on a pnpm build, this script mirrors the bundle into
-//! `apps/server/assets/` when it exists and drops in a placeholder page when it
-//! does not. The server therefore always compiles, and always serves
+//! a build output that may not exist yet (a fresh clone, a backend-only CI job,
+//! `cargo run` during API work). Instead of making every `cargo build` depend on
+//! a pnpm build, this script mirrors the bundle into `apps/server/assets/` when
+//! it exists and writes a placeholder page when it does not. So the server
+//! always compiles and always serves
 //! *something*.
 //!
 //! Errors are returned, not panicked. Cargo prints the `Err` and fails the

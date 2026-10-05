@@ -3513,10 +3513,10 @@ async fn without_mail_there_is_no_verification() {
     );
 }
 
-// ── 錯誤碼 ────────────────────────────────────────────────────────────────
+// ── error codes ─────────────────────────────────────────────────────
 
-/// The failures a sign-in or account form meets, each with a code of its own
-/// and the details a translated message needs. Before this they were all
+/// The failures a sign-in or account form can hit, each with its own code and
+/// the details a translated message needs. Previously they were all
 /// `unauthorized`, `bad_request` or `conflict`, and a client could only show
 /// the English sentence.
 #[tokio::test]
@@ -3609,7 +3609,7 @@ async fn each_account_failure_has_its_own_code() {
     assert_eq!(no_digit["code"], "value_invalid", "{no_digit}");
     assert_eq!(no_digit["details"]["rule"], "needs_digit");
 
-    // A name somebody else has.
+    // A name another account already has.
     let taken = body_json(
         app.json(
             Method::POST,
@@ -3659,8 +3659,8 @@ async fn each_account_failure_has_its_own_code() {
     assert_eq!(code_of(anonymous), "not_signed_in");
 }
 
-/// No code at all and a code that will not do are different things to tell a
-/// person: one asks for a code, the other says this one is wrong.
+/// A missing code and an unusable one mean different things to the user: the
+/// first asks for a code, the second says this one is wrong.
 #[tokio::test]
 async fn a_missing_invite_is_not_a_wrong_one() {
     let app =
@@ -3705,9 +3705,9 @@ async fn a_missing_invite_is_not_a_wrong_one() {
 }
 
 /// Deleting an account keeps the `users` row as a tombstone, so the foreign
-/// keys' `ON DELETE CASCADE` never fires. Everything else that is the person's
-/// has to be removed by name: the password, the linked provider accounts, the
-/// preferences, the sessions and tokens.
+/// keys' `ON DELETE CASCADE` never fires. Everything else of the user's must
+/// be removed by name: password, linked provider accounts, preferences,
+/// sessions and tokens.
 #[tokio::test]
 async fn deleting_an_account_leaves_nothing_of_the_person() {
     let app = TestApp::ready().await;

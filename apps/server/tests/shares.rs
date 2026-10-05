@@ -3688,7 +3688,7 @@ async fn a_role_can_be_held_below_the_instance_limit() {
         .await,
     )
     .await;
-    // The figure a client needs to say "at most 4 KiB", on both ways in.
+    // The figure a client needs to say "at most 4 KiB", on both upload paths.
     assert_eq!(refused["details"]["limit_bytes"], 4096, "{refused}");
     let resumable = body_json(
         expect_status(
@@ -4268,12 +4268,12 @@ async fn a_file_bigger_than_every_backend_is_refused() {
         )
         .await;
     assert_eq!(refused.status(), StatusCode::INSUFFICIENT_STORAGE);
-    // The room is there, just not in one place: saying the instance is full
-    // would send the reader looking for space that exists.
+    // The space exists, just not in one place: saying the instance is full
+    // would send the reader looking for space that is there.
     let body = body_json(refused).await;
     assert_eq!(body["details"]["tier"], "backend", "{body}");
 
-    // More than both hold together is the instance being full.
+    // More than both hold together means the instance is full.
     let full = body_json(
         app.send(
             Request::builder()
@@ -5922,8 +5922,8 @@ async fn a_local_directory_has_no_segment_listing() {
     }
 }
 
-/// A link share sends whoever opens it to its address, through the same checks
-/// a download goes through.
+/// A link share redirects to its URL, through the same checks a download goes
+/// through.
 #[tokio::test]
 async fn a_link_share_redirects_to_its_address() {
     let app = TestApp::ready().await;
@@ -5931,7 +5931,7 @@ async fn a_link_share_redirects_to_its_address() {
     assert_eq!(share["kind"], "link");
     let code = share["code"].as_str().expect("a code").to_owned();
 
-    // The share page itself goes straight on, by way of the download route.
+    // The share page redirects straight away, via the download route.
     let page = expect_status(app.get(&format!("/s/{code}")).await, StatusCode::FOUND).await;
     assert_eq!(
         page.headers()[header::LOCATION],
@@ -5950,13 +5950,13 @@ async fn a_link_share_redirects_to_its_address() {
     assert_eq!(followed.headers()[header::CACHE_CONTROL], "no-store");
     assert_eq!(followed.headers()[header::REFERRER_POLICY], "no-referrer");
 
-    // The address reads as text too.
+    // The URL can be read as text too.
     let raw = expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
     assert_eq!(body_string(raw).await, "https://example.com/a?b=c");
 }
 
-/// A password is asked for by the page, and a use limit waits for a person:
-/// an unfurler following the link would spend a one-time link on its own.
+/// The page asks for a password, and a use limit waits for a human click: an
+/// unfurler following the link would use up a one-time link by itself.
 #[tokio::test]
 async fn a_guarded_link_waits_for_the_page() {
     let app = TestApp::ready().await;
@@ -6080,8 +6080,8 @@ async fn a_link_must_be_a_web_address() {
     assert_eq!(body_json(refused).await["code"], "value_length");
 }
 
-/// The column holds a signed 32-bit integer and the contract says so; a larger
-/// limit used to be accepted and quietly stored as a smaller one.
+/// The column is a signed 32-bit integer and the contract says so; a larger
+/// limit used to be accepted and silently stored as a smaller one.
 #[tokio::test]
 async fn a_use_limit_past_the_column_is_refused() {
     let app = TestApp::ready().await;

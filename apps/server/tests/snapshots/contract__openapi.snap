@@ -266,7 +266,7 @@ expression: document
             ]
           },
           "scan_state": {
-            "description": "What the malware scanner said: `pending`, `deferred`, `clean`,\n`infected` or `skipped`, or `null` if it was never sent to one.\n\nFor several files, the one that matters most: `infected` over\n`pending` over `deferred` over `skipped` over `clean`.",
+            "description": "What the malware scanner said: `pending`, `deferred`, `clean`,\n`infected` or `skipped`, or `null` if it was never sent to one.\n\nFor several files, the most significant one: `infected` over `pending`\nover `deferred` over `skipped` over `clean`.",
             "example": "infected",
             "type": [
               "string",
@@ -2051,7 +2051,7 @@ expression: document
         "description": "Days of history, oldest first.",
         "properties": {
           "data": {
-            "description": "One per day recorded in the range. A day the server was not running has\nno entry, and history starts the day this version was first deployed.",
+            "description": "One per recorded day in the range. Days the server was not running have\nno entry, and history starts the day this version was first deployed.",
             "items": {
               "$ref": "#/components/schemas/StatsDay"
             },
@@ -2064,7 +2064,7 @@ expression: document
         "type": "object"
       },
       "StatsResponse": {
-        "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nNumbers an operator can act on: \"am I near the quota\", \"how many people are\non here\", \"is the sweep keeping up\". The dashboard's one trend, a day at a\ntime, is `/admin/stats/history`; anything finer wants Prometheus.",
+        "description": "What one instance is holding, at a glance.\n\n# Why this is not a metrics endpoint\n\nThese are numbers an operator acts on: \"am I near the quota\", \"how many\naccounts are there\", \"is the sweep keeping up\". The dashboard's one trend,\nper day, is `/admin/stats/history`; anything finer belongs in Prometheus.",
         "properties": {
           "accounts": {
             "description": "How many accounts exist.",
@@ -3875,11 +3875,11 @@ expression: document
     },
     "/api/v1/admin/stats/history": {
       "get": {
-        "description": "Recorded by the hourly sweep, so it starts the day this version is first\ndeployed: what was swept before then is gone, size and all. A day's entry\nis the last sweep of that day.\n\n# Errors\n\n`400` when a date is not `YYYY-MM-DD`, `from` is after `to`, or the range is\nlonger than 366 days; `401`, `403` and `404` as `/admin/stats`.",
+        "description": "Recorded by the hourly sweep, so history starts when this version is first\ndeployed: shares swept before then are gone, sizes included. A day's entry\nis that day's last sweep.\n\n# Errors\n\n`400` when a date is not `YYYY-MM-DD`, `from` is after `to`, or the range is\nlonger than 366 days; `401`, `403` and `404` as `/admin/stats`.",
         "operationId": "instance_stats_history",
         "parameters": [
           {
-            "description": "The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`, so\nthe default is thirty days.",
+            "description": "The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`,\ngiving thirty days.",
             "example": "2026-09-01",
             "in": "query",
             "name": "from",
@@ -3956,7 +3956,7 @@ expression: document
             "session": []
           }
         ],
-        "summary": "Reports what this instance held, one day at a time.",
+        "summary": "Reports what this instance held, per day.",
         "tags": [
           "admin"
         ]
@@ -5960,7 +5960,7 @@ expression: document
         "operationId": "create_share",
         "parameters": [
           {
-            "description": "`link` to make a share that sends whoever opens it to the web address in\nthe body, an `http` or `https` URL. Omit for a file or a note, which the\nother parameters tell apart.",
+            "description": "`link` to make a share that redirects to the `http` or `https` URL in\nthe body. Omit for a file or a note, which the other parameters\ndistinguish.",
             "example": "link",
             "in": "query",
             "name": "kind",

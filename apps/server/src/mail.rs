@@ -102,10 +102,10 @@ mod smtp {
             let credentials = (!config.username.is_empty())
                 .then(|| Credentials::new(config.username.clone(), config.password.clone()));
 
-            // By default, what the ports mean: 465 is implicit TLS from the
-            // first byte, and submission on 587 opens in clear and upgrades.
-            // Getting this the wrong way round produces a handshake error that
-            // reads as a certificate problem, which is why it can be set.
+            // By default, follow the port: 465 is implicit TLS from the first
+            // byte, and submission on 587 starts in the clear and upgrades.
+            // Getting this backwards gives a handshake error that looks like a
+            // certificate problem, which is why it is configurable.
             let builder = match config.tls.on(config.port) {
                 MailTls::Implicit => AsyncSmtpTransport::<Tokio1Executor>::relay(&config.host),
                 MailTls::None => {
@@ -181,10 +181,10 @@ mod smtp {
     /// Where `host` resolves to, provided every address it resolves to is
     /// private or loopback.
     ///
-    /// Resolved here rather than checked once in configuration, because a
-    /// relay is usually named, `mailpit` or `postfix`, and a name can point
-    /// somewhere else tomorrow. The address checked is the address connected
-    /// to, so it cannot change in between.
+    /// Resolved here instead of checked once in configuration, because relays
+    /// are usually named (`mailpit`, `postfix`) and a name can point elsewhere
+    /// tomorrow. The address checked is the address connected to, so it cannot
+    /// change in between.
     async fn private_address(host: &str, port: u16) -> Result<SocketAddr, MailError> {
         let addresses: Vec<SocketAddr> = tokio::net::lookup_host((host, port))
             .await

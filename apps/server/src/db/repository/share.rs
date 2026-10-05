@@ -118,10 +118,10 @@ pub enum ShareKind {
     Text,
     /// An uploaded file.
     File,
-    /// A web address that opening the share goes to.
+    /// A URL that opening the share redirects to.
     ///
-    /// Stored as a note whose body is the address: the same row, the same
-    /// size accounting, and nothing new to reap.
+    /// Stored as a note whose body is the URL: same row, same size accounting,
+    /// nothing new to reap.
     Link,
 }
 
@@ -1673,17 +1673,13 @@ impl ShareRepository {
             .filter(
                 share::Column::Kind
                     .is_in([ShareKind::Text.as_str(), ShareKind::Link.as_str()])
-                    .or(
-                    share::Column::Id.in_subquery(
+                    .or(share::Column::Id.in_subquery(
                         Query::select()
                             .column(file_share::Column::ShareId)
                             .from(FileShareEntity)
-                            .and_where(
-                                file_share::Column::Storage.ne(StorageLocation::GONE),
-                            )
+                            .and_where(file_share::Column::Storage.ne(StorageLocation::GONE))
                             .to_owned(),
-                    ),
-                ),
+                    )),
             )
             .order_by_asc(share::Column::Id)
             .limit(limit)

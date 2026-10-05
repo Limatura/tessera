@@ -671,8 +671,8 @@ async fn the_wrong_number_of_etags_is_refused_and_the_upload_can_still_finish() 
     );
 }
 
-/// An `ETag` the store does not recognise is the client's list being wrong, not
-/// the server failing: `400`, and the upload stays open for the right list.
+/// An `ETag` the store does not recognise means the client's list is wrong, not
+/// that the server failed: `400`, and the upload stays open for the right list.
 #[tokio::test]
 #[ignore = "needs an object store; see the module docs"]
 async fn a_wrong_etag_is_refused_as_the_clients_mistake() {

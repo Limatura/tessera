@@ -1,9 +1,9 @@
-//! What a preview says, in each language the server writes.
+//! What a preview says, in each language the server supports.
 //!
-//! Kept to the phrases a preview and its card use, in one table per language,
-//! so a missing translation is a compile error rather than an English phrase in
-//! a Chinese card. The wording follows the web app's own messages where they
-//! say the same thing.
+//! Limited to the phrases previews and cards use, one table per language, so
+//! a missing translation is a compile error instead of an English phrase on a
+//! Chinese card. The wording follows the web app's messages where they say the
+//! same thing.
 
 use crate::config::Language;
 

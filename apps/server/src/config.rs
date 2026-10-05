@@ -208,9 +208,9 @@ pub struct SiteConfig {
     /// The language of what the server writes for visitors: a share link's
     /// preview and its card.
     ///
-    /// The instance's, not the request's. Whatever unfurls a link fetches it
-    /// with no language preference of its own, and everyone in the channel
-    /// sees the one preview it made.
+    /// The instance's, not the request's. An unfurler fetches the link with no
+    /// language preference, and everyone in the channel sees the one preview
+    /// it produced.
     pub language: Language,
 }
 
@@ -853,12 +853,12 @@ pub enum MailTls {
     Starttls,
     /// TLS from the first byte.
     Implicit,
-    /// No encryption at all, for a relay on this machine or this network: a
-    /// local postfix on port 25, a relay container, Mailpit.
+    /// No encryption, for a relay on this machine or network: a local postfix
+    /// on port 25, a relay container, Mailpit.
     ///
-    /// Only to private and loopback addresses. The password and every reset
-    /// link would otherwise cross the internet readable, so a host that
-    /// resolves anywhere else is refused when mail is sent.
+    /// Only to private and loopback addresses. Otherwise the password and every
+    /// reset link would cross the internet in the clear, so a host resolving
+    /// anywhere else is refused when mail is sent.
     None,
 }
 
