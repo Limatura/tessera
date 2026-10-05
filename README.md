@@ -31,13 +31,12 @@ The first run creates an administrator and prints its password once, to the log.
 
 ```
 apps/server      the whole backend, Rust — API, storage, auth, the embedded SPA
-apps/web         the app people use, React + TanStack Router
-apps/admin       the operator's console
+apps/web         the app people use and the operator's console at /admin, React + TanStack Router
 apps/tui         a terminal client
 apps/extension   a browser extension
 apps/fumadocs    the documentation site
-packages/ui      shadcn/ui primitives shared by web and admin
-packages/i18n    locale plumbing shared by web and admin
+packages/ui      shared shadcn/ui primitives
+packages/i18n    shared locale plumbing
 packages/config  the shared tsconfig base
 ```
 

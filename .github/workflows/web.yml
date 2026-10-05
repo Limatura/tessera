@@ -10,7 +10,7 @@ name: web
 # marks every app that depends on it, not every app in the repo), so the
 # workflow triggers on every push/PR and lets `--affected` decide per package
 # rather than this file guessing from glob patterns. That is also why a commit
-# touching only `apps/tui` or `apps/extension` no longer runs `web`/`admin`
+# touching only `apps/tui` or `apps/extension` no longer runs `web`
 # work for nothing — those two apps have no `build`/`check-types`/`test` tasks
 # of their own, so `--affected` finds nothing to run for them.
 on:
@@ -104,7 +104,7 @@ jobs:
       - name: Which apps are affected
         id: affected
         run: |
-          for app in web admin; do
+          for app in web; do
             count=$(pnpm turbo query affected --packages "$app" \
               | sed -n '/^{/,$p' \
               | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>process.stdout.write(String(JSON.parse(s).data.affectedPackages.length)))')
@@ -130,53 +130,42 @@ jobs:
       # regardless of which box ran that push.
       #
       # Restored on main pushes too, not only PRs: `--affected` means a push
-      # that only touched `web` never regenerates `admin/main.txt`, and
-      # without this restore the save step below would cache that push's
-      # baseline missing admin entirely, one push after another until admin
-      # happens to be affected again.
+      # that did not touch `web` never regenerates `web/main.txt`, and without
+      # this restore the save step below would cache that push's baseline
+      # missing it entirely.
       - name: Restore main's bundle-size baseline
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             /tmp/tessera-bundle-size/web/main.txt
-            /tmp/tessera-bundle-size/admin/main.txt
           key: bundle-size-main-${{ github.sha }}
           restore-keys: bundle-size-main-
 
-      # Two apps, two rows in one report — `bundle-size.sh` appends, it does
-      # not overwrite. Runs after everything above so a build that fails
-      # type-checking never gets a size reported for it. Each guarded by the
-      # same affected check that gated its build, so a PR touching only one
-      # app reports on that app alone rather than reporting a stale `dist` — or
-      # erroring outright — for the other.
+      # Runs after everything above so a build that fails type-checking never
+      # gets a size reported for it. Guarded by the same affected check that
+      # gated its build, so a PR that did not touch `web` does not report a
+      # stale `dist` — or error outright.
       - name: Measure web
         if: steps.affected.outputs.web == 'true'
         run: .github/scripts/bundle-size.sh web apps/web/dist
-      - name: Measure admin
-        if: steps.affected.outputs.admin == 'true'
-        run: .github/scripts/bundle-size.sh admin apps/admin/dist
       - name: Assemble the bundle-size report
         id: bundle-size
-        if: steps.affected.outputs.web == 'true' || steps.affected.outputs.admin == 'true'
+        if: steps.affected.outputs.web == 'true'
         run: .github/scripts/bundle-size-finalize.sh
 
       # Only main, and only once every check above has passed — the same
-      # reasoning as the server image's baseline, in `rust.yml`. Each copy
-      # guarded the same way: a `main.txt` from an app that did not build this
-      # run must not be overwritten with nothing.
+      # reasoning as the server image's baseline, in `rust.yml`. Guarded the
+      # same way: a `main.txt` from an app that did not build this run must not
+      # be overwritten with nothing.
       - name: Record this build as the baseline
         if: github.ref == 'refs/heads/main' && steps.affected.outputs.web == 'true'
         run: cp /tmp/tessera-bundle-size/web/current.txt /tmp/tessera-bundle-size/web/main.txt
-      - name: Record this build as the baseline (admin)
-        if: github.ref == 'refs/heads/main' && steps.affected.outputs.admin == 'true'
-        run: cp /tmp/tessera-bundle-size/admin/current.txt /tmp/tessera-bundle-size/admin/main.txt
       - name: Save this build as the cached baseline
-        if: github.ref == 'refs/heads/main' && (steps.affected.outputs.web == 'true' || steps.affected.outputs.admin == 'true')
+        if: github.ref == 'refs/heads/main' && steps.affected.outputs.web == 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             /tmp/tessera-bundle-size/web/main.txt
-            /tmp/tessera-bundle-size/admin/main.txt
           key: bundle-size-main-${{ github.sha }}
 
   # Split out for the same reason `image-size-comment` is split out of

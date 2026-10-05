@@ -30,11 +30,10 @@ RUN corepack enable
 WORKDIR /build
 
 # Manifests first, so the install layer survives a source-only change. Every
-# workspace package `web` and `admin` depend on has to be here, or pnpm refuses
-# to resolve `workspace:*`.
+# workspace package `web` depends on has to be here, or pnpm refuses to resolve
+# `workspace:*`.
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json apps/web/
-COPY apps/admin/package.json apps/admin/
 COPY packages/api/package.json packages/api/
 COPY packages/auth/package.json packages/auth/
 COPY packages/ui/package.json packages/ui/
@@ -43,27 +42,25 @@ COPY packages/env/package.json packages/env/
 COPY packages/config/package.json packages/config/
 COPY packages/crypto/package.json packages/crypto/
 
-# `--filter web... --filter admin...` pulls in the two SPAs the binary embeds
-# and everything they depend on, and nothing else: no docs site, no extension.
+# `--filter web...` pulls in the SPA the binary embeds (the admin panel is part
+# of it) and everything it depends on, and nothing else: no docs site, no
+# extension.
 # `--frozen-lockfile` makes an undeclared dependency fail the build instead of
 # quietly resolving.
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
-  pnpm install --frozen-lockfile --filter web... --filter admin...
+  pnpm install --frozen-lockfile --filter web...
 
 COPY packages packages
 COPY apps/web apps/web
-COPY apps/admin apps/admin
 
 # Vite plugins generate paraglide's runtime and TanStack's route tree during
-# this, which is why there is no separate codegen step. The site links to the
-# panel, which this image serves at `/admin/`.
-RUN VITE_ADMIN_URL=/admin pnpm --filter web build && pnpm --filter admin build
+# this, which is why there is no separate codegen step.
+RUN pnpm --filter web build
 
-# Only the two bundles, for CI to measure how much of the binary they are
+# Only the bundle, for CI to measure how much of the binary it is
 # (`image-size.sh`). Never the default target: that is the last stage below.
 FROM scratch AS frontend-dist
 COPY --from=web /build/apps/web/dist web/
-COPY --from=web /build/apps/admin/dist admin/
 
 # ---------------------------------------------------------------------------
 # Stage 2 — compile
@@ -138,7 +135,6 @@ COPY crates crates
 COPY apps/server apps/server
 COPY apps/web apps/web
 COPY --from=web /build/apps/web/dist apps/web/dist
-COPY --from=web /build/apps/admin/dist apps/admin/dist
 
 # `.git` is excluded from the build context, so build.rs cannot resolve the
 # commit on its own. Pass it in to keep `/health` honest:

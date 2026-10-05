@@ -10,7 +10,6 @@ import { Toaster } from "@tessera/ui/components/toast";
 import { useEffect, useSyncExternalStore } from "react";
 
 import { AppearanceSync } from "@/components/appearance-sync";
-import { Header } from "@/components/header";
 import { readSiteAppearance } from "@/lib/appearance";
 import {
   applyDocumentLocale,
@@ -81,7 +80,6 @@ function RootComponent() {
           时任何没提交的表单内容会被清空 —— 这是一个明确、不常发生的操作，可以接受。
         */}
         <div className="grid h-svh grid-rows-[auto_1fr]" key={locale}>
-          <Header />
           <Outlet />
         </div>
         <Toaster />

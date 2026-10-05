@@ -1,8 +1,9 @@
-//! The two SPAs and their fallback routing.
+//! The SPA and its fallback routing.
 //!
-//! Both bundles are compiled into the binary by `rust-embed` (see `build.rs` for
-//! how the directories are populated), so a deployment is one file with no web
-//! server in front of it: the site at `/`, the admin panel at `/admin/`.
+//! The bundle is compiled into the binary by `rust-embed` (see `build.rs` for how
+//! the directory is populated), so a deployment is one file with no web server in
+//! front of it. The admin panel is part of the same SPA, a client-side route
+//! under `/admin/`, so it gets the same fallback and the same spliced-in colours.
 //!
 //! `server.assets_dir` reads from a directory instead. A development
 //! convenience, and the only mode with a filesystem to get wrong; see `load`
@@ -25,20 +26,8 @@ use sha2::{Digest as _, Sha256};
 #[folder = "assets/dist"]
 struct Bundle;
 
-/// The admin panel, mounted under [`ADMIN_PREFIX`].
-///
-/// Always the compiled-in one. `server.assets_dir` is for iterating on the
-/// site; the panel has its own dev server for that.
-#[derive(Embed)]
-#[folder = "assets/admin"]
-struct AdminBundle;
-
 /// Entry point of the SPA.
 const INDEX: &str = "index.html";
-
-/// Where the admin panel is mounted. Its build is told the same, through
-/// vite's `base`, so the paths inside it already carry the prefix.
-const ADMIN_PREFIX: &str = "admin";
 
 /// Where the frontend is read from.
 ///
@@ -187,9 +176,6 @@ pub async fn handler(
     if path.is_empty() {
         return serve_index(&state);
     }
-    if let Some(rest) = admin_path(&path) {
-        return serve_admin(rest);
-    }
 
     if let Some(asset) = load(source, &path) {
         // The entry point is the one asset rewritten on the way out, so it
@@ -214,39 +200,6 @@ pub async fn handler(
         return serve_share_page(&state, &headers, code).await;
     }
     serve_index(&state)
-}
-
-/// The part of `path` inside the admin panel, or `None` when it is the site's.
-///
-/// `admin` and `admin/` both open the panel; `administrator` does not.
-fn admin_path(path: &str) -> Option<&str> {
-    let rest = path.strip_prefix(ADMIN_PREFIX)?;
-    if rest.is_empty() {
-        return Some("");
-    }
-    rest.strip_prefix('/')
-}
-
-/// Serves the admin panel, falling back to its own entry point.
-///
-/// The same rules as the site: a missing file is a 404, anything else is a
-/// route for the panel's router. The entry point goes out as built. The panel
-/// applies the instance's appearance itself once it has read the settings, and
-/// is seen by few enough people that a repaint costs nothing worth the rewrite.
-fn serve_admin(path: &str) -> Response {
-    if !path.is_empty() && path != INDEX {
-        if let Some(asset) = embedded::<AdminBundle>(path) {
-            return respond(&Source::Embedded, path, asset);
-        }
-        let looks_like_a_file = std::path::Path::new(path)
-            .extension()
-            .is_some_and(|ext| !ext.is_empty());
-        if looks_like_a_file {
-            return not_found();
-        }
-    }
-    embedded::<AdminBundle>(INDEX)
-        .map_or_else(not_found, |asset| respond(&Source::Embedded, INDEX, asset))
 }
 
 /// Serves the entry point with the instance's appearance already applied.
@@ -386,7 +339,7 @@ fn with_appearance(html: &str, appearance: crate::config::AppearanceConfig) -> S
 ///
 /// `end` is the offset of its `>`, so an attribute inserted there lands inside
 /// the tag. `None` when the document has no such tag. The placeholder page and
-/// both real bundles have one; a build that did not would lose the colours,
+/// the real bundle have one; a build that did not would lose the colours,
 /// not the page.
 struct HtmlTag {
     end: usize,

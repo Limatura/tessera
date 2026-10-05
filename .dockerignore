@@ -17,7 +17,6 @@
 # Rust build output — several GB, and never useful inside an image layer.
 **/target
 apps/server/assets/dist
-apps/server/assets/admin
 
 **/.wrangler
 **/.alchemy

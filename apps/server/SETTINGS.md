@@ -287,7 +287,7 @@ Provider 決定**誰能登入**，tessera 決定**他能做什麼**（新帳號�
 `GET /api/v1/capabilities` 回報實際生效的結果——SPA 沒辦法從靜態契約看出某個實例開了什麼。
 
 - `accounts: bool` — 註冊、登入、session，預設 `true`。關掉 = 完全沒有帳號，適合「一個人在 VPN 後面只要一個檔案投放點」
-- `admin: bool` — 管理端點，也就是 `apps/admin` 整個前端靠的東西，預設 `true`
+- `admin: bool` — 管理端點，也就是 `/admin` 後台整個靠的東西，預設 `true`
 - `anonymous_upload: bool` — 沒 session 能不能上傳，預設 `true`。**刻意與 `accounts` 獨立**：想要管理面板不等於想強迫所有人註冊
 - `encryption: bool` — 允許端對端加密的分享，預設 `false`。關掉只擋新的，已經加密的分享照樣能下載
 - `docs: bool`（FIXED）— `/docs` 瀏覽介面，預設 `false`。頁面只是幾行 HTML 從 CDN 拉 renderer，**伺服器自己從不抓它**，是瀏覽器抓。這樣省下約 11MB binary（23.8MB → 12.5MB）。`openapi.json` 無論如何都會提供

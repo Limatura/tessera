@@ -18,12 +18,12 @@
 # not a third kind of size — it is the part of that number a Rust change moves,
 # and on this image it is nearly all of it.
 #
-# Under the binary, when `FRONTEND_DIR` holds the two exported bundles: how much
-# of it is the embedded web and admin SPAs, and the rest as the backend.
-# rust-embed stores the files as they are, so the bundles' bytes on disk are
-# what they add to the binary, give or take a few bytes of index per file. That
-# makes the disk figure the frontend and backend together, counted once; adding
-# the frontend bundle report to it would count the SPAs twice.
+# Under the binary, when `FRONTEND_DIR` holds the exported bundle: how much of it
+# is the embedded SPA (site and admin panel together), and the rest as the
+# backend. rust-embed stores the files as they are, so the bundle's bytes on
+# disk are what they add to the binary, give or take a few bytes of index per
+# file. That makes the disk figure the frontend and backend together, counted
+# once; adding the frontend bundle report to it would count the SPA twice.
 #
 # `docker image inspect --format '{{.Size}}'` is deliberately absent. It was in
 # this table once and reported 17.6 MB for an image holding a 34.6 MB binary.
@@ -145,7 +145,7 @@ budget() { awk -v m="$1" 'BEGIN { if (m + 0 == 0) print "—"; else printf "%d M
   echo "| &nbsp;&nbsp;└ 其中執行檔 | $(mb "$binary") | $(mb "$base_binary") | $(delta "$binary" "$base_binary") | $(budget "$BINARY_BUDGET_MB") |"
   if [ -n "$frontend" ]; then
     echo "| &nbsp;&nbsp;&nbsp;&nbsp;├ 後端程式 | $(mb "$backend") | $(mb "$base_backend") | $(delta "$backend" "$base_backend") | — |"
-    echo "| &nbsp;&nbsp;&nbsp;&nbsp;└ 內嵌前端(web + admin) | $(mb "$frontend") | $(mb "$base_frontend") | $(delta "$frontend" "$base_frontend") | — |"
+    echo "| &nbsp;&nbsp;&nbsp;&nbsp;└ 內嵌前端(web) | $(mb "$frontend") | $(mb "$base_frontend") | $(delta "$frontend" "$base_frontend") | — |"
   fi
   echo
   if [ -n "$base_rev" ]; then

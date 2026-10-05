@@ -31,13 +31,12 @@ pnpm server:dev              # http://127.0.0.1:8787
 
 ```
 apps/server      整個後端,Rust —— API、儲存、認證、內嵌的 SPA
-apps/web         使用者用的那個 app,React + TanStack Router
-apps/admin       操作者用的後台主控台
+apps/web         使用者用的那個 app,以及 /admin 底下操作者用的後台,React + TanStack Router
 apps/tui         終端機用戶端
 apps/extension   瀏覽器擴充功能
 apps/fumadocs    文件網站
-packages/ui      web 跟 admin 共用的 shadcn/ui 元件
-packages/i18n    web 跟 admin 共用的多語系機制
+packages/ui      共用的 shadcn/ui 元件
+packages/i18n    共用的多語系機制
 packages/config  共用的 tsconfig base
 ```
 

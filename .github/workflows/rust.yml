@@ -28,11 +28,10 @@ on:
       - "scripts/schema-docs.py"
       - "packages/crypto/src/wasm/**"
       - "scripts/crypto-wasm.sh"
-      # The image embeds both SPAs, so a frontend change moves its size too.
+      # The image embeds the SPA, so a frontend change moves its size too.
       # Only `docker` runs for these; the `changes` filters keep the Rust jobs
       # off.
       - "apps/web/**"
-      - "apps/admin/**"
       - "packages/**"
       - "package.json"
       - "pnpm-lock.yaml"
@@ -117,11 +116,10 @@ jobs:
               - ".github/actions/**"
               - ".github/workflows/**"
             contract: *rust
-            # Both SPAs are embedded in the image.
+            # The SPA is embedded in the image.
             image:
               - "apps/server/**"
               - "apps/web/**"
-              - "apps/admin/**"
               - "packages/**"
               - "package.json"
               - "pnpm-lock.yaml"
