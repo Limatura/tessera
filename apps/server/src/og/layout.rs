@@ -174,10 +174,14 @@ pub enum Refused {
     #[error("the layout nests more than {MAX_DEPTH} deep")]
     TooDeep,
     /// An element that is not on the list.
-    #[error("`<{0}>` is not allowed here; a layout may use `div` and `span`")]
+    #[error(
+        "`<{0}>` is not allowed here; a layout may use `div`, `span` and the drawable part of inline `<svg>`"
+    )]
     Element(String),
     /// An attribute that is not on the list.
-    #[error("the `{0}` attribute is not allowed here; a layout may use `style`")]
+    #[error(
+        "the `{0}` attribute is not allowed here; a layout may use `style`, `tw` and SVG geometry and paint"
+    )]
     Attribute(String),
     /// Something that would name a resource outside this server.
     #[error("a layout cannot reference anything outside this server, and this one has `{0}`")]

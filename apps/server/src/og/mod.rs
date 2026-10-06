@@ -346,9 +346,10 @@ fn layout(preview: &Preview, code: &str) -> String {
     }
 
     let mark = match &preview.card {
-        Card::Open { .. } => document_mark(),
-        Card::Sealed { .. } | Card::Locked { .. } => lock_mark(),
-        Card::Gone => empty_mark(),
+        Card::Open { .. } => mark(ink::ACCENT, icon::DOCUMENT),
+        Card::Sealed { .. } => mark(ink::ACCENT, icon::SEALED),
+        Card::Locked { .. } => mark(ink::ACCENT, icon::LOCK),
+        Card::Gone => mark(ink::FADED, icon::GONE),
     };
 
     format!(
@@ -481,32 +482,32 @@ fn code_block(snippet: &code::Snippet, and_more: &str) -> String {
     )
 }
 
-/// The three marks are drawn from boxes, not an icon font, so the
-/// card needs nothing the binary does not already carry.
-fn document_mark() -> String {
+/// The icon beside the headline, framed.
+///
+/// Inline SVG, not an icon font or an image: takumi rasterises the subtree
+/// itself, so the card still needs nothing the binary does not carry.
+fn mark(colour: &str, shapes: &str) -> String {
     format!(
-        r#"<div style="width:88px;height:88px;border:2px solid {accent};border-radius:16px"></div>"#,
-        accent = ink::ACCENT,
+        r#"<div style="width:88px;height:88px;flex-shrink:0;border:2px solid {colour};border-radius:16px;display:flex;align-items:center;justify-content:center">
+  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="{colour}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{shapes}</svg>
+</div>"#
     )
 }
 
-fn lock_mark() -> String {
-    format!(
-        r#"<div style="width:88px;height:88px;border:2px solid {accent};border-radius:16px;display:flex;align-items:center;justify-content:center">
-  <div style="display:flex;flex-direction:column;align-items:center">
-    <div style="width:22px;height:14px;border:3px solid {accent};border-bottom-width:0;border-top-left-radius:11px;border-top-right-radius:11px"></div>
-    <div style="width:34px;height:24px;background:{accent};border-radius:4px"></div>
-  </div>
-</div>"#,
-        accent = ink::ACCENT,
-    )
-}
-
-fn empty_mark() -> String {
-    format!(
-        r#"<div style="width:88px;height:88px;border:2px solid {faded};border-radius:16px"></div>"#,
-        faded = ink::FADED,
-    )
+/// The shapes inside each mark, on a 24-unit grid.
+///
+/// Lucide's, the set the web app draws with, so the card and the page it
+/// links to speak the same visual language.
+mod icon {
+    /// `file-text`.
+    pub(super) const DOCUMENT: &str = r#"<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>"#;
+    /// `lock`.
+    pub(super) const LOCK: &str = r#"<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>"#;
+    /// `shield-check`. Not the padlock: a sealed share has no password, and
+    /// what it promises is that this server cannot read it.
+    pub(super) const SEALED: &str = r#"<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>"#;
+    /// `file-x`.
+    pub(super) const GONE: &str = r#"<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m14.5 12.5-5 5"/><path d="m9.5 12.5 5 5"/>"#;
 }
 
 /// Escapes text going into the layout.
@@ -541,7 +542,9 @@ mod tests {
     #[test]
     #[ignore = "draws the cards to /tmp for a person to look at"]
     fn draw_the_cards() {
-        use crate::db::repository::share::{Content, FilePart, ShareKind, StorageLocation};
+        use crate::db::repository::share::{
+            Content, Encryption, FilePart, ShareKind, StorageLocation,
+        };
 
         let cards = Cards::new().expect("the fonts");
         let content = Content::Files(vec![FilePart {
@@ -561,17 +564,27 @@ mod tests {
             Some("ts"),
         );
 
+        let file = testing::share(ShareKind::File);
+        let locked = crate::db::repository::share::Share {
+            password_hash: Some("x".to_owned()),
+            ..testing::share(ShareKind::File)
+        };
+        let sealed = crate::db::repository::share::Share {
+            encryption: Some(Encryption::Link),
+            ..testing::share(ShareKind::File)
+        };
+        let gone = crate::db::repository::share::Share {
+            disabled_at: Some(now),
+            ..testing::share(ShareKind::File)
+        };
+        let of = |share| Preview::of(share, &content, now, crate::config::Language::En);
+
         for (name, preview) in [
             ("note", note),
-            (
-                "file",
-                Preview::of(
-                    &testing::share(ShareKind::File),
-                    &content,
-                    now,
-                    crate::config::Language::En,
-                ),
-            ),
+            ("file", of(&file)),
+            ("locked", of(&locked)),
+            ("sealed", of(&sealed)),
+            ("gone", of(&gone)),
         ] {
             let png = cards.draw(&preview, "K3P9XQ2M").expect("a card");
             std::fs::write(format!("/tmp/card-{name}.png"), png).expect("write");

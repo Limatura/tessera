@@ -81,9 +81,9 @@ flowchart TD
 
 ### Allowed
 
-`div`, `span`, and the `style` attribute. Max 8 KB, max 12 levels deep.
+`div`, `span`, and the drawable part of inline `<svg>` (shapes, gradients, clip paths), styled with `style` or `tw`. Max 8 KB, max 12 levels deep.
 
-Rejected: `img`, `svg`, `class`, `tw`, `url()`, `@import`, anything referencing an external resource.
+Rejected: `img`, SVG `image` / `text` / `use` / `foreignObject` / filters, `class`, a `tw` utility takumi does not know, `url()` other than `url(#id)`, `@import`, anything referencing an external resource. The full lists, with a reason per entry, are `ELEMENTS` and `ATTRIBUTES` in `og/layout.rs`.
 
 ### This is not a security boundary
 
@@ -108,6 +108,16 @@ Values come from the same `Card`. A locked share has no size, so `{{size}}` fill
 The card's own words and the tags' fallback titles are written in `site.language` (`en`, `zh-TW` or `ja`; `en` by default). The instance's language, not the request's: a crawler sends no preference of its own, and everyone in the channel sees the one preview it made. A title or file name the uploader chose is shown as it is.
 
 ## Previewing a layout
+
+The editor is `/admin/settings/og`. It draws all four states at once (open,
+locked, sealed, gone) from sample values, because a layout that looks right on
+the operator's own files is exactly the one that breaks on a locked share. It
+does not copy `layout::check`: it asks `POST /admin/settings/preview`, which
+runs the same validation as a save without writing, so the editor's verdict is
+the server's.
+
+The sample values mirror `placeholder_values` and `words`. They live in
+`apps/web/src/lib/admin/og-card.ts`; a change to either side wants the other.
 
 In the browser, with takumi's wasm build, so the editor and the server share an
 engine. `@takumi-rs/wasm` and the `takumi` crate are released under the same
@@ -225,7 +235,5 @@ Both found by rendering and looking, not by reading code.
 
 ## Not built
 
-- sao's icons. The padlock is currently two rounded boxes.
-- The admin editor UI.
 - Per-share layouts. `shares.og_config` is unwritten.
 - Colour emoji. Over budget. The intended answer is letting operators add their own fonts, which needs an admin API that does not exist yet.
