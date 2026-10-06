@@ -79,7 +79,14 @@ function RootComponent() {
           用 key={locale} 强制整棵树 remount 是最直接可靠的做法；代价是切换语言
           时任何没提交的表单内容会被清空 —— 这是一个明确、不常发生的操作，可以接受。
         */}
-        <div className="grid h-svh grid-rows-[auto_1fr]" key={locale}>
+        {/*
+          grid-cols-1 是 minmax(0, 1fr):沒寫的話隱含欄是 auto,會被內容的最小寬度撐開,
+          頁面裡任何 overflow-x-auto 都等不到捲動的機會,整頁直接變寬(#379)。
+        */}
+        <div
+          className="grid h-svh grid-cols-1 grid-rows-[auto_1fr]"
+          key={locale}
+        >
           <Outlet />
         </div>
         <Toaster />

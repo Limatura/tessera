@@ -6,7 +6,7 @@ import { PageHeader, PageShell } from "@/components/page-header";
 import { requireAuth } from "@/lib/route-guard";
 import * as m from "@/paraglide/messages";
 
-import { SharesTable } from "./-components/shares-table";
+import { MyShares } from "./-components/my-shares";
 
 /**
  * 頁碼放 search 而不是路徑,重新整理跟貼給自己的連結都會回到同一頁。
@@ -35,7 +35,7 @@ function SharesPage() {
         title={m.shares_page_title()}
       />
       <div className="mt-6">
-        <SharesTable page={page} />
+        <MyShares page={page} />
       </div>
     </PageShell>
   );
