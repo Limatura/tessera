@@ -31,7 +31,6 @@ export function UploadButton({
       return;
     }
     inputRef.current.webkitdirectory = folderMode;
-    inputRef.current.multiple = folderMode;
     inputRef.current.click();
   };
 
@@ -72,6 +71,7 @@ export function UploadButton({
       <input
         accept="*/*"
         className="hidden"
+        multiple
         onChange={handleInputChange}
         ref={inputRef}
         type="file"
