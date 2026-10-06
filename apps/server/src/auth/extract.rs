@@ -45,6 +45,9 @@ pub enum Credential {
         /// *except this one*, and marking the current entry in a list. A
         /// handler that re-finds its own session by secret can get it wrong.
         id: SessionId,
+        /// When it signed in. Never moved by use, so it says how long ago the
+        /// person last proved who they are; see [`Credential::signed_in_since`].
+        signed_in_at: OffsetDateTime,
     },
     /// A bearer token, from a script, the CLI or a bot.
     ApiToken,
@@ -67,9 +70,20 @@ impl Credential {
     #[must_use]
     pub const fn session_id(self) -> Option<SessionId> {
         match self {
-            Self::Session { id } => Some(id),
+            Self::Session { id, .. } => Some(id),
             Self::ApiToken => None,
         }
+    }
+
+    /// Whether this is a session that signed in at or after `since`.
+    ///
+    /// How an account with no password confirms a sensitive change: by having
+    /// just signed in, at its provider, rather than by typing something. A
+    /// session that has merely been used recently does not count; only the
+    /// sign-in itself does, and that is the one time the provider was asked.
+    #[must_use]
+    pub fn signed_in_since(self, since: OffsetDateTime) -> bool {
+        matches!(self, Self::Session { signed_in_at, .. } if signed_in_at >= since)
     }
 }
 
@@ -271,7 +285,10 @@ async fn authenticate_session(
     let permissions = state.roles.permissions_of(user.id).await?;
     Ok(Some(CurrentUser {
         user,
-        credential: Credential::Session { id: session.id },
+        credential: Credential::Session {
+            id: session.id,
+            signed_in_at: session.created_at,
+        },
         permissions,
     }))
 }

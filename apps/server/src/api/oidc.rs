@@ -86,6 +86,31 @@ pub struct StartQuery {
     /// Kept in the flow row; the provider never sees it.
     #[serde(default)]
     pub invite: Option<String>,
+    /// A path on this site to land on once signed in, such as `/user`.
+    ///
+    /// Anything that is not a plain path here (another origin, `//host`, a
+    /// backslash) is ignored and the browser lands on the home page, so this
+    /// cannot be used to send somebody off-site from our own sign-in.
+    #[serde(default)]
+    pub return_to: Option<String>,
+}
+
+/// Longest `return_to` kept.
+const MAX_RETURN_TO: usize = 512;
+
+/// `value` if it is a path on this site, and nothing otherwise.
+///
+/// The browser resolves a `Location` starting with `//` or `/\` against the
+/// scheme alone, so those name another host; only a single slash followed by
+/// something else stays on this one.
+fn site_path(value: Option<String>) -> Option<String> {
+    value.filter(|path| {
+        path.len() <= MAX_RETURN_TO
+            && path.starts_with('/')
+            && !path.starts_with("//")
+            && !path.contains('\\')
+            && !path.chars().any(char::is_control)
+    })
 }
 
 /// What the provider sends back.
@@ -123,6 +148,9 @@ enum Rejection {
     Disabled,
     /// This provider identity is already linked to another account.
     AlreadyLinked,
+    /// Linking needs a sign-in within the last few minutes, and this session's
+    /// is older. Sign in again, then link.
+    SignInAgain,
 }
 
 impl Rejection {
@@ -138,6 +166,7 @@ impl Rejection {
             Self::AddressTaken => "address_taken",
             Self::Disabled => "disabled",
             Self::AlreadyLinked => "already_linked",
+            Self::SignInAgain => "sign_in_again",
         }
     }
 }
@@ -254,6 +283,7 @@ pub async fn provider(State(state): State<AppState>) -> Result<Response> {
     params(
         ("provider" = String, Path, description = "`oidc`, `github` or `discord`"),
         ("invite" = Option<String>, Query, description = "An invitation to spend on success"),
+        ("return_to" = Option<String>, Query, description = "A path on this site to land on once signed in, such as `/user`; anything else lands on `/`"),
     ),
     responses(
         (status = 303, description = "Redirect to the identity provider"),
@@ -287,6 +317,7 @@ pub async fn start(
                 purpose: flow::Purpose::Login,
                 user_id: None,
                 invite_code: query.invite,
+                return_to: site_path(query.return_to),
                 expires_at: now + time::Duration::minutes(FLOW_TTL_MINUTES),
             },
             now,
@@ -598,7 +629,10 @@ async fn finish(
     Ok((
         axum::http::StatusCode::SEE_OTHER,
         [
-            (header::LOCATION, "/".to_owned()),
+            (
+                header::LOCATION,
+                waiting.return_to.clone().unwrap_or_else(|| "/".to_owned()),
+            ),
             (header::SET_COOKIE, cookie.to_string()),
         ],
     )
@@ -852,6 +886,16 @@ pub async fn link(
     if !current.credential.is_session() {
         return Err(Error::new(ErrorCode::SessionRequired));
     }
+    // A linked provider is a way in that outlasts every session and survives a
+    // password change. Without this, a stolen session cookie could attach the
+    // thief's own GitHub and sign in with it for ever, or sign in with it once
+    // to look freshly signed in and remove the account. A browser follows this
+    // link, so there is no password to ask for; a recent sign-in is the proof,
+    // the same one an account without a password gives everywhere else.
+    let since = OffsetDateTime::now_utc() - crate::api::auth::REAUTHENTICATION_WINDOW;
+    if !current.credential.signed_in_since(since) {
+        return Ok(to(ACCOUNT_PAGE, Some(Rejection::SignInAgain)));
+    }
 
     let config = state.config();
     let Some(provider) = OauthProvider::parse(&name).filter(|it| it.is_configured(&config)) else {
@@ -874,6 +918,7 @@ pub async fn link(
                 purpose: flow::Purpose::Link,
                 user_id: Some(current.user.id),
                 invite_code: None,
+                return_to: None,
                 expires_at: now + time::Duration::minutes(FLOW_TTL_MINUTES),
             },
             now,

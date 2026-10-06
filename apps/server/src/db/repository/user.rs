@@ -224,6 +224,39 @@ impl UserRepository {
             .map(|row| row.password_hash))
     }
 
+    /// Whether this account has a password at all.
+    ///
+    /// An account made through a provider has none until it sets one.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn has_password(&self, id: UserId) -> Result<bool, UserRepositoryError> {
+        Ok(self.password_of(id).await?.is_some())
+    }
+
+    /// Which of `ids` have a password, in one query.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`UserRepositoryError`] if the query fails.
+    pub async fn with_passwords(
+        &self,
+        ids: &[UserId],
+    ) -> Result<std::collections::HashSet<UserId>, UserRepositoryError> {
+        let rows: Vec<String> = CredentialEntity::find()
+            .select_only()
+            .column(credential::Column::UserId)
+            .filter(credential::Column::UserId.is_in(ids.iter().map(ToString::to_string)))
+            .into_tuple()
+            .all(&self.connection)
+            .await?;
+        Ok(rows
+            .iter()
+            .filter_map(|id| UserId::parse(id).ok())
+            .collect())
+    }
+
     /// Writes or replaces this account's password hash.
     async fn set_password_hash(
         &self,

@@ -579,6 +579,7 @@ async fn a_provider_sign_in_round_trips_on_this_dialect() {
         purpose: Purpose::Login,
         user_id: None,
         invite_code: Some("an-invite".to_owned()),
+        return_to: None,
         expires_at: now + time::Duration::minutes(15),
     };
 

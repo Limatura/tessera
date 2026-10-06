@@ -60,6 +60,7 @@
   "api_error_rule_http_url": "Enter an address starting with http:// or https://.",
   "api_error_invalid_credentials": "Wrong username or password.",
   "api_error_current_password_incorrect": "Your current password is incorrect.",
+  "api_error_reauthentication_required": "Sign in again to confirm it's you, then try again.",
   "api_error_password_breached": "This password has appeared in a data breach. Choose a different one.",
   "api_error_registration_closed": "This server isn't accepting new accounts.",
   "api_error_invite_required": "An invite code is required to sign up.",

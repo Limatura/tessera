@@ -397,6 +397,210 @@ async fn a_github_session_records_github() {
 }
 
 /// Which account a cookie belongs to.
+/// Walks the redirect out with a query, and reads the `state` it carried.
+async fn leave_with(app: &TestApp, query: &str) -> String {
+    let response = app
+        .empty(
+            Method::GET,
+            &format!("/api/v1/auth/github/start{query}"),
+            Auth::None,
+        )
+        .await;
+    let url = url::Url::parse(&location(&response)).expect("an absolute redirect");
+    url.query_pairs()
+        .find(|(key, _value)| key == "state")
+        .map(|(_key, value)| value.into_owned())
+        .expect("a state parameter")
+}
+
+/// Makes every session the account has look as if it signed in `minutes` ago.
+async fn signed_in_ago(app: &TestApp, minutes: i64) {
+    use sea_orm::ConnectionTrait as _;
+    let when = time::OffsetDateTime::now_utc() - time::Duration::minutes(minutes);
+    let statement = sea_orm::Statement::from_string(
+        app.state.db.get_database_backend(),
+        format!(
+            "UPDATE sessions SET created_at = '{}'",
+            when.format(&time::format_description::well_known::Rfc3339)
+                .expect("formattable")
+        ),
+    );
+    app.state
+        .db
+        .execute_raw(statement)
+        .await
+        .expect("age the sessions");
+}
+
+async fn session_of(app: &TestApp, cookie: &str) -> serde_json::Value {
+    common::body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(cookie))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await
+}
+
+/// An account made through GitHub has no password to confirm a change with.
+/// It confirms by having just signed in; after that, it is asked to sign in
+/// again, and comes back to the page it left.
+#[tokio::test]
+async fn an_account_without_a_password_confirms_by_signing_in_again() {
+    let github = FakeOauth::start().await;
+    let app = instance(&github).await;
+    // The first account administers the instance and cannot remove itself.
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "first",
+                "email": "first@example.com",
+                "password": "correct horse battery staple",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    github.is(serde_json::json!({ "id": 7, "login": "alice", "name": "Alice" }));
+    github.addresses(serde_json::json!([
+        { "email": "alice@example.com", "primary": true, "verified": true },
+    ]));
+    let cookie = session_cookie(&come_back(&app, &leave(&app).await).await);
+    assert_eq!(session_of(&app, &cookie).await["has_password"], false);
+
+    // Just signed in: nothing to type.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/account",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({ "username": "alice2" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+
+    // Too long ago: every confirming act asks for a fresh sign-in.
+    signed_in_ago(&app, 11).await;
+    for (method, path, body) in [
+        (
+            Method::PATCH,
+            "/api/v1/account",
+            serde_json::json!({ "username": "alice3" }),
+        ),
+        (Method::DELETE, "/api/v1/account", serde_json::json!({})),
+        (
+            Method::PATCH,
+            "/api/v1/auth/password",
+            serde_json::json!({ "new_password": "a brand new passphrase" }),
+        ),
+    ] {
+        let refused = common::body_json(
+            expect_status(
+                app.json(method, path, Auth::Cookie(&cookie), &body).await,
+                StatusCode::UNAUTHORIZED,
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(refused["code"], "reauthentication_required", "{path}");
+    }
+    // Linking another provider is a browser navigation, so it says so in the
+    // redirect instead.
+    let link = app
+        .empty(
+            Method::GET,
+            "/api/v1/auth/github/link",
+            Auth::Cookie(&cookie),
+        )
+        .await;
+    assert_eq!(rejection(&link).as_deref(), Some("sign_in_again"));
+
+    // Signing in again lands back on the page that asked.
+    let again = come_back(&app, &leave_with(&app, "?return_to=/user").await).await;
+    assert_eq!(location(&again), "/user");
+    let fresh = session_cookie(&again);
+
+    // And sets a first password with nothing to confirm but that sign-in.
+    expect_status(
+        app.json(
+            Method::PATCH,
+            "/api/v1/auth/password",
+            Auth::Cookie(&fresh),
+            &serde_json::json!({ "new_password": "a brand new passphrase" }),
+        )
+        .await,
+        StatusCode::OK,
+    )
+    .await;
+}
+
+/// A recent sign-in removes an account with no password.
+#[tokio::test]
+async fn an_account_without_a_password_can_remove_itself() {
+    let github = FakeOauth::start().await;
+    let app = instance(&github).await;
+    expect_status(
+        app.json(
+            Method::POST,
+            "/api/v1/auth/register",
+            Auth::None,
+            &serde_json::json!({
+                "username": "first",
+                "email": "first@example.com",
+                "password": "correct horse battery staple",
+            }),
+        )
+        .await,
+        StatusCode::CREATED,
+    )
+    .await;
+    github.is(serde_json::json!({ "id": 8, "login": "bob", "name": "Bob" }));
+    github.addresses(serde_json::json!([
+        { "email": "bob@example.com", "primary": true, "verified": true },
+    ]));
+    let cookie = session_cookie(&come_back(&app, &leave(&app).await).await);
+    expect_status(
+        app.json(
+            Method::DELETE,
+            "/api/v1/account",
+            Auth::Cookie(&cookie),
+            &serde_json::json!({}),
+        )
+        .await,
+        StatusCode::NO_CONTENT,
+    )
+    .await;
+}
+
+/// Only a path on this site is a place to come back to. Anything a browser
+/// would resolve against another host lands on the home page instead.
+#[tokio::test]
+async fn a_return_path_off_this_site_is_ignored() {
+    let github = FakeOauth::start().await;
+    let app = instance(&github).await;
+    github.is(serde_json::json!({ "id": 9, "login": "carol", "name": "Carol" }));
+    github.addresses(serde_json::json!([
+        { "email": "carol@example.com", "primary": true, "verified": true },
+    ]));
+    for query in [
+        "?return_to=//evil.example/",
+        "?return_to=https://evil.example/",
+        "?return_to=/%5Cevil.example",
+        "?return_to=user",
+    ] {
+        let back = come_back(&app, &leave_with(&app, query).await).await;
+        assert_eq!(location(&back), "/", "{query}");
+    }
+}
+
 async fn id_of(app: &TestApp, cookie: &str) -> serde_json::Value {
     let body = common::body_json(
         expect_status(

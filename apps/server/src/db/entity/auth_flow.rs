@@ -25,6 +25,8 @@ pub struct Model {
     pub user_id: Option<String>,
     /// An invitation to spend once the sign-in succeeds.
     pub invite_code: Option<String>,
+    /// A path on this site to send the browser to on success.
+    pub return_to: Option<String>,
     /// When the browser left.
     pub created_at: TimeDateTimeWithTimeZone,
     /// When this expires.

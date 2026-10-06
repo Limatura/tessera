@@ -495,10 +495,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Reports what this instance held, one day at a time.
-         * @description Recorded by the hourly sweep, so it starts the day this version is first
-         *     deployed: what was swept before then is gone, size and all. A day's entry
-         *     is the last sweep of that day.
+         * Reports what this instance held, per day.
+         * @description Recorded by the hourly sweep, so history starts when this version is first
+         *     deployed: shares swept before then are gone, sizes included. A day's entry
+         *     is that day's last sweep.
          *
          *     # Errors
          *
@@ -1847,6 +1847,15 @@ export interface components {
              */
             email_verified_at?: string | null;
             /**
+             * @description Whether the account has a password.
+             *
+             *     An account made through GitHub, Discord or OIDC has none. It confirms a
+             *     change to itself by having signed in within the last few minutes instead
+             *     of by typing one, so a client shows a password field only when this is
+             *     `true`; see `reauthentication_required`.
+             */
+            has_password: boolean;
+            /**
              * @description Stable identifier.
              * @example 01K1ZQK9V8QF5S3T4M2N6P7R8S
              */
@@ -1991,8 +2000,8 @@ export interface components {
              * @description What the malware scanner said: `pending`, `deferred`, `clean`,
              *     `infected` or `skipped`, or `null` if it was never sent to one.
              *
-             *     For several files, the one that matters most: `infected` over
-             *     `pending` over `deferred` over `skipped` over `clean`.
+             *     For several files, the most significant one: `infected` over `pending`
+             *     over `deferred` over `skipped` over `clean`.
              * @example infected
              */
             scan_state?: string | null;
@@ -2299,8 +2308,11 @@ export interface components {
             /**
              * @description The password in force now. Required even though the caller is signed in:
              *     it is what stops a borrowed, unlocked browser from taking the account.
+             *
+             *     Omitted by an account that has none (`has_password: false`), which is
+             *     setting its first one and confirms it by a recent sign-in instead.
              */
-            current_password: string;
+            current_password?: string | null;
             /** @description The replacement. */
             new_password: string;
         };
@@ -2425,8 +2437,11 @@ export interface components {
         };
         /** @description Body of `DELETE /account`. */
         DeleteAccountRequest: {
-            /** @description The password in force now, for the same reason as above. */
-            current_password: string;
+            /**
+             * @description The password in force now, for the same reason as above, and omitted
+             *     the same way by an account that has none.
+             */
+            current_password?: string | null;
             /**
              * @description Whether to end everything this account uploaded.
              *
@@ -2499,7 +2514,7 @@ export interface components {
          *     change, and `details` carries what a translation needs.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "not_signed_in" | "permission_denied" | "session_required" | "password_change_required" | "payload_too_large" | "insufficient_storage" | "range_not_satisfiable" | "too_many_requests" | "scanning" | "unsupported_media_type" | "timeout" | "unavailable" | "internal" | "invalid_body" | "invalid_query" | "invalid_path" | "body_empty" | "body_incomplete" | "body_length_mismatch" | "value_empty" | "value_length" | "value_invalid" | "value_reserved" | "value_out_of_range" | "conflicting_fields" | "invalid_credentials" | "current_password_incorrect" | "password_breached" | "registration_closed" | "invite_required" | "invite_unusable" | "registration_link_unusable" | "reset_link_unusable" | "verification_link_unusable" | "username_taken" | "email_taken" | "account_exists" | "email_already_verified" | "last_administrator" | "last_sign_in_method" | "unknown_permission" | "role_name_taken" | "builtin_role_immutable" | "share_password_required" | "share_password_incorrect" | "share_expired" | "share_exhausted" | "share_is_file" | "share_encrypted" | "share_password_is_key" | "share_is_text" | "text_too_large" | "code_space_exhausted" | "archive_too_large_for_zip" | "encryption_disabled" | "encryption_invalid" | "upload_offset_mismatch" | "upload_exceeds_length" | "upload_conflict" | "upload_chunk_too_small" | "upload_parts_mismatch" | "upload_not_direct" | "upload_direct_unavailable" | "upload_abandoned" | "resumable_unsupported" | "setting_unknown" | "setting_secret" | "setting_fixed_at_boot" | "setting_invalid" | "confirmation_required" | "provider_insecure" | "provider_unreachable" | "backend_unreachable" | "backend_credential_unreadable" | "backend_in_use" | "invalid_hash_prefix" | "invalid_configuration";
+        ErrorCode: "not_found" | "not_signed_in" | "permission_denied" | "session_required" | "password_change_required" | "payload_too_large" | "insufficient_storage" | "range_not_satisfiable" | "too_many_requests" | "scanning" | "unsupported_media_type" | "timeout" | "unavailable" | "internal" | "invalid_body" | "invalid_query" | "invalid_path" | "body_empty" | "body_incomplete" | "body_length_mismatch" | "value_empty" | "value_length" | "value_invalid" | "value_reserved" | "value_out_of_range" | "conflicting_fields" | "invalid_credentials" | "current_password_incorrect" | "reauthentication_required" | "password_breached" | "registration_closed" | "invite_required" | "invite_unusable" | "registration_link_unusable" | "reset_link_unusable" | "verification_link_unusable" | "username_taken" | "email_taken" | "account_exists" | "email_already_verified" | "last_administrator" | "last_sign_in_method" | "unknown_permission" | "role_name_taken" | "builtin_role_immutable" | "share_password_required" | "share_password_incorrect" | "share_expired" | "share_exhausted" | "share_is_file" | "share_encrypted" | "share_password_is_key" | "share_is_text" | "text_too_large" | "code_space_exhausted" | "archive_too_large_for_zip" | "encryption_disabled" | "encryption_invalid" | "upload_offset_mismatch" | "upload_exceeds_length" | "upload_conflict" | "upload_chunk_too_small" | "upload_parts_mismatch" | "upload_not_direct" | "upload_direct_unavailable" | "upload_abandoned" | "resumable_unsupported" | "setting_unknown" | "setting_secret" | "setting_fixed_at_boot" | "setting_invalid" | "confirmation_required" | "provider_insecure" | "provider_unreachable" | "backend_unreachable" | "backend_credential_unreadable" | "backend_in_use" | "invalid_hash_prefix" | "invalid_configuration";
         /** @description Body of a successful `GET /health`. */
         HealthResponse: {
             /**
@@ -3252,7 +3267,7 @@ export interface components {
         /** @description Days of history, oldest first. */
         StatsHistoryResponse: {
             /**
-             * @description One per day recorded in the range. A day the server was not running has
+             * @description One per recorded day in the range. Days the server was not running have
              *     no entry, and history starts the day this version was first deployed.
              */
             data: components["schemas"]["StatsDay"][];
@@ -3262,9 +3277,9 @@ export interface components {
          *
          *     # Why this is not a metrics endpoint
          *
-         *     Numbers an operator can act on: "am I near the quota", "how many people are
-         *     on here", "is the sweep keeping up". The dashboard's one trend, a day at a
-         *     time, is `/admin/stats/history`; anything finer wants Prometheus.
+         *     These are numbers an operator acts on: "am I near the quota", "how many
+         *     accounts are there", "is the sweep keeping up". The dashboard's one trend,
+         *     per day, is `/admin/stats/history`; anything finer belongs in Prometheus.
          */
         StatsResponse: {
             /**
@@ -3393,8 +3408,11 @@ export interface components {
              *     Required even though the caller is signed in. An unlocked browser left
              *     on a desk is otherwise enough to move the account's address to one the
              *     finder controls, and from there the reset flow hands them the account.
+             *
+             *     Omitted by an account that has none (`has_password: false`); see
+             *     `reauthentication_required`.
              */
-            current_password: string;
+            current_password?: string | null;
             /**
              * Format: email
              * @description A new address, or omitted to keep the current one.
@@ -3581,7 +3599,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Not signed in, or the password is wrong */
+            /** @description Not signed in, the password is wrong, or an account with none signed in too long ago */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -3641,7 +3659,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description Not signed in, or the password is wrong */
+            /** @description Not signed in, the password is wrong, or an account with none signed in too long ago */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -4689,8 +4707,8 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`, so
-                 *     the default is thirty days.
+                 * @description The first day, `YYYY-MM-DD` in UTC. Defaults to 29 days before `to`,
+                 *     giving thirty days.
                  * @example 2026-09-01
                  */
                 from?: string;
@@ -5548,7 +5566,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorBody"];
                 };
             };
-            /** @description The current password is wrong */
+            /** @description The current password is wrong, or an account with none signed in too long ago */
             401: {
                 headers: {
                     [name: string]: unknown;
@@ -5984,6 +6002,8 @@ export interface operations {
             query?: {
                 /** @description An invitation to spend on success */
                 invite?: string;
+                /** @description A path on this site to land on once signed in, such as `/user`; anything else lands on `/` */
+                return_to?: string;
             };
             header?: never;
             path: {
@@ -6281,9 +6301,9 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description `link` to make a share that sends whoever opens it to the web address in
-                 *     the body, an `http` or `https` URL. Omit for a file or a note, which the
-                 *     other parameters tell apart.
+                 * @description `link` to make a share that redirects to the `http` or `https` URL in
+                 *     the body. Omit for a file or a note, which the other parameters
+                 *     distinguish.
                  * @example link
                  */
                 kind?: string;

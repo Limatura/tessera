@@ -26,7 +26,7 @@ CREATE TABLE auth_flows (
     invite_code TEXT,
     created_at  TEXT NOT NULL,
     expires_at  TEXT NOT NULL
-)
+, return_to TEXT)
 ```
 
 </details>
@@ -44,6 +44,7 @@ CREATE TABLE auth_flows (
 | invite_code | TEXT |  | true |  |  |  |
 | created_at | TEXT |  | false |  |  |  |
 | expires_at | TEXT |  | false |  |  |  |
+| return_to | TEXT |  | true |  |  |  |
 
 ## Constraints
 
@@ -77,6 +78,7 @@ erDiagram
   TEXT invite_code
   TEXT created_at
   TEXT expires_at
+  TEXT return_to
 }
 "users" {
   TEXT id PK

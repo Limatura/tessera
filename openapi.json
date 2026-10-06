@@ -103,6 +103,10 @@
               "null"
             ]
           },
+          "has_password": {
+            "description": "Whether the account has a password.\n\nAn account made through GitHub, Discord or OIDC has none. It confirms a\nchange to itself by having signed in within the last few minutes instead\nof by typing one, so a client shows a password field only when this is\n`true`; see `reauthentication_required`.",
+            "type": "boolean"
+          },
           "id": {
             "description": "Stable identifier.",
             "example": "01K1ZQK9V8QF5S3T4M2N6P7R8S",
@@ -160,6 +164,7 @@
           "is_admin",
           "permissions",
           "roles",
+          "has_password",
           "must_change_password"
         ],
         "type": "object"
@@ -600,10 +605,13 @@
         "description": "Body of `PATCH /auth/password`.",
         "properties": {
           "current_password": {
-            "description": "The password in force now. Required even though the caller is signed in:\nit is what stops a borrowed, unlocked browser from taking the account.",
+            "description": "The password in force now. Required even though the caller is signed in:\nit is what stops a borrowed, unlocked browser from taking the account.\n\nOmitted by an account that has none (`has_password: false`), which is\nsetting its first one and confirms it by a recent sign-in instead.",
             "maxLength": 1024,
             "minLength": 8,
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "new_password": {
             "description": "The replacement.",
@@ -613,7 +621,6 @@
           }
         },
         "required": [
-          "current_password",
           "new_password"
         ],
         "type": "object"
@@ -795,19 +802,19 @@
         "description": "Body of `DELETE /account`.",
         "properties": {
           "current_password": {
-            "description": "The password in force now, for the same reason as above.",
+            "description": "The password in force now, for the same reason as above, and omitted\nthe same way by an account that has none.",
             "maxLength": 1024,
             "minLength": 8,
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "delete_shares": {
             "description": "Whether to end everything this account uploaded.\n\nDefaults to ending it. \"Delete my account\" usually means \"and the things\nI sent\"; wanting the handed-out links to keep working is the rarer case,\nworth one explicit `false`.\n\n# What \"delete\" means here\n\nEvery link stops working the moment this returns. The bytes go later,\nwhen the housekeeping pass reaches them, because removing hundreds of\nobjects inside one request times out half way through with no record of\nwhere it got to. Nothing serves the content in the meantime; what\narrives after the answer is the disk space.",
             "type": "boolean"
           }
         },
-        "required": [
-          "current_password"
-        ],
         "type": "object"
       },
       "DiscoveryProbeRequest": {
@@ -914,6 +921,7 @@
           "conflicting_fields",
           "invalid_credentials",
           "current_password_incorrect",
+          "reauthentication_required",
           "password_breached",
           "registration_closed",
           "invite_required",
@@ -2228,10 +2236,13 @@
         "description": "Body of `PATCH /account`.",
         "properties": {
           "current_password": {
-            "description": "The password in force now.\n\nRequired even though the caller is signed in. An unlocked browser left\non a desk is otherwise enough to move the account's address to one the\nfinder controls, and from there the reset flow hands them the account.",
+            "description": "The password in force now.\n\nRequired even though the caller is signed in. An unlocked browser left\non a desk is otherwise enough to move the account's address to one the\nfinder controls, and from there the reset flow hands them the account.\n\nOmitted by an account that has none (`has_password: false`); see\n`reauthentication_required`.",
             "maxLength": 1024,
             "minLength": 8,
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "email": {
             "description": "A new address, or omitted to keep the current one.\n\nChanging it clears the verification: the new address has not been proven\nreachable, and carrying the old flag over would mean an unverified\naddress wearing a verified one's badge.",
@@ -2254,9 +2265,6 @@
             ]
           }
         },
-        "required": [
-          "current_password"
-        ],
         "type": "object"
       },
       "UpdateBackendRequest": {
@@ -2462,7 +2470,7 @@
                 }
               }
             },
-            "description": "Not signed in, or the password is wrong"
+            "description": "Not signed in, the password is wrong, or an account with none signed in too long ago"
           },
           "403": {
             "content": {
@@ -2537,7 +2545,7 @@
                 }
               }
             },
-            "description": "Not signed in, or the password is wrong"
+            "description": "Not signed in, the password is wrong, or an account with none signed in too long ago"
           },
           "403": {
             "content": {
@@ -5005,7 +5013,7 @@
                 }
               }
             },
-            "description": "The current password is wrong"
+            "description": "The current password is wrong, or an account with none signed in too long ago"
           },
           "403": {
             "content": {
@@ -5563,6 +5571,15 @@
             "description": "An invitation to spend on success",
             "in": "query",
             "name": "invite",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "A path on this site to land on once signed in, such as `/user`; anything else lands on `/`",
+            "in": "query",
+            "name": "return_to",
             "required": false,
             "schema": {
               "type": "string"

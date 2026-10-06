@@ -84,6 +84,7 @@ export interface ApiErrorMessages {
 
   api_error_invalid_credentials: Message;
   api_error_current_password_incorrect: Message;
+  api_error_reauthentication_required: Message;
   api_error_password_breached: Message;
   api_error_registration_closed: Message;
   api_error_invite_required: Message;
@@ -394,6 +395,7 @@ export function createApiErrorMessage(m: ApiErrorMessages) {
 
     invalid_credentials: () => m.api_error_invalid_credentials(),
     current_password_incorrect: () => m.api_error_current_password_incorrect(),
+    reauthentication_required: () => m.api_error_reauthentication_required(),
     password_breached: () => m.api_error_password_breached(),
     registration_closed: () => m.api_error_registration_closed(),
     invite_required: () => m.api_error_invite_required(),

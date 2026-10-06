@@ -60,6 +60,7 @@
   "api_error_rule_http_url": "http:// または https:// で始まるアドレスを入力してください。",
   "api_error_invalid_credentials": "ユーザー名またはパスワードが違います。",
   "api_error_current_password_incorrect": "現在のパスワードが正しくありません。",
+  "api_error_reauthentication_required": "本人確認のため再度ログインしてから、もう一度お試しください。",
   "api_error_password_breached": "このパスワードは過去のデータ漏えいで見つかっています。別のパスワードにしてください。",
   "api_error_registration_closed": "現在、新しいアカウントの登録は受け付けていません。",
   "api_error_invite_required": "登録には招待コードが必要です。",
