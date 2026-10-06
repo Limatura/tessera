@@ -192,6 +192,7 @@ erDiagram
   TEXT invite_code
   TEXT created_at
   TEXT expires_at
+  TEXT return_to
 }
 "user_preferences" {
   TEXT user_id PK

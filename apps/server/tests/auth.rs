@@ -3795,3 +3795,38 @@ async fn deleting_an_account_leaves_nothing_of_the_person() {
             .is_some()
     );
 }
+
+/// An account with a password still has to give it; leaving it out is not the
+/// same as having none.
+#[tokio::test]
+async fn an_account_with_a_password_must_still_give_it() {
+    let app = TestApp::ready().await;
+    register(&app, "first").await;
+    let session = register(&app, "alice").await;
+    let account = body_json(
+        expect_status(
+            app.empty(Method::GET, "/api/v1/auth/session", Auth::Cookie(&session))
+                .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(account["has_password"], true);
+
+    let refused = body_json(
+        expect_status(
+            app.json(
+                Method::PATCH,
+                "/api/v1/account",
+                Auth::Cookie(&session),
+                &serde_json::json!({ "username": "alice2" }),
+            )
+            .await,
+            StatusCode::UNAUTHORIZED,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(refused["code"], "current_password_incorrect");
+}

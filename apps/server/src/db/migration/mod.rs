@@ -69,6 +69,7 @@ mod m20260917_000001_encryption;
 mod m20260919_000001_scan;
 mod m20260926_000001_email_verifications;
 mod m20261001_000001_stats_snapshots;
+mod m20261006_000001_auth_flow_return;
 
 use sea_orm_migration::{prelude::*, sea_orm::DbBackend};
 
@@ -128,6 +129,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260919_000001_scan::Migration),
             Box::new(m20260926_000001_email_verifications::Migration),
             Box::new(m20261001_000001_stats_snapshots::Migration),
+            Box::new(m20261006_000001_auth_flow_return::Migration),
         ]
     }
 }

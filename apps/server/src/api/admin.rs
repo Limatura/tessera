@@ -112,9 +112,10 @@ impl AdminUserResponse {
     fn build(
         user: &crate::db::repository::user::User,
         roles: &[crate::db::repository::role::Role],
+        has_password: bool,
     ) -> Self {
         Self {
-            account: AccountResponse::build(user, roles),
+            account: AccountResponse::build(user, roles, has_password),
             state: user.state.into(),
         }
     }
@@ -213,12 +214,14 @@ pub async fn list_users(
     // One query for the whole page. Asking per account would make a list of
     // fifty accounts a hundred and one queries.
     let roles = state.roles.of_users(&users).await?;
+    let ids: Vec<_> = users.iter().map(|user| user.id).collect();
+    let with_passwords = state.users.with_passwords(&ids).await?;
     Ok(Json(AdminUserPage {
         data: users
             .iter()
             .map(|user| {
                 let held = roles.get(&user.id).map_or(&[][..], Vec::as_slice);
-                AdminUserResponse::build(user, held)
+                AdminUserResponse::build(user, held, with_passwords.contains(&user.id))
             })
             .collect(),
         meta: crate::api::shares::PageMeta {
@@ -340,7 +343,12 @@ pub async fn update_user(
         .await?
         .ok_or(Error::NotFound)?;
     let roles = state.roles.of_user(updated.id).await?;
-    Ok(Json(AdminUserResponse::build(&updated, &roles)))
+    let has_password = state.users.has_password(updated.id).await?;
+    Ok(Json(AdminUserResponse::build(
+        &updated,
+        &roles,
+        has_password,
+    )))
 }
 
 /// Removes an account.
@@ -1377,7 +1385,8 @@ pub async fn set_user_roles(
         return Err(Error::NotFound);
     }
     let roles = state.roles.of_user(user_id).await?;
-    Ok(Json(AdminUserResponse::build(&user, &roles)))
+    let has_password = state.users.has_password(user_id).await?;
+    Ok(Json(AdminUserResponse::build(&user, &roles, has_password)))
 }
 
 /// Refuses to hand out a permission the caller does not hold.

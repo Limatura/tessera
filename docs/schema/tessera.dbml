@@ -47,6 +47,7 @@ Table auth_flows {
   invite_code text
   created_at text [not null]
   expires_at text [not null]
+  return_to text
 
   Note: '''A sign-in that has left for a provider and has not come back. Holds the CSRF token, the PKCE secret, and the nonce when the provider issues one, until the callback arrives; then the row is deleted, which is what makes a callback answerable once. A table rather than a signed cookie: a cookie would have to be `SameSite=Lax` exactly, because `Strict` withholds it on the navigation back from the provider and that failure looks like an unrelated error. `nonce` is null for a plain OAuth 2.0 provider, which issues no token to put one in.'''
 }

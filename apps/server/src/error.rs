@@ -255,6 +255,10 @@ error_codes! {
     InvalidCredentials => UNAUTHORIZED, "wrong username or password";
     /// The current password, given to confirm a change, is wrong.
     CurrentPasswordIncorrect => UNAUTHORIZED, "the current password is wrong";
+    /// An account with no password confirms a change by having just signed in,
+    /// and this session signed in too long ago. Sign in again with the
+    /// provider, then repeat the request.
+    ReauthenticationRequired => UNAUTHORIZED, "sign in again to confirm it is you";
     /// The password is in a known breach.
     PasswordBreached => BAD_REQUEST, "this password has appeared in a data breach; choose a different one";
     /// This instance takes no new accounts.

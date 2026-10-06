@@ -43,6 +43,8 @@ pub struct Flow {
     pub user_id: Option<UserId>,
     /// An invitation to spend once the sign-in succeeds.
     pub invite_code: Option<String>,
+    /// A path on this site to send the browser to on success.
+    pub return_to: Option<String>,
     /// When this expires.
     pub expires_at: OffsetDateTime,
 }
@@ -87,6 +89,7 @@ impl OidcRepository {
             purpose: Set(flow.purpose.as_str().to_owned()),
             user_id: Set(flow.user_id.map(|id| id.to_string())),
             invite_code: Set(flow.invite_code.clone()),
+            return_to: Set(flow.return_to.clone()),
             created_at: Set(now),
             expires_at: Set(flow.expires_at),
         };
@@ -136,6 +139,7 @@ impl OidcRepository {
             purpose: Purpose::from_stored(&model.purpose),
             user_id,
             invite_code: model.invite_code,
+            return_to: model.return_to,
             expires_at: model.expires_at,
         }))
     }
@@ -323,6 +327,7 @@ mod tests {
             purpose: Purpose::Login,
             user_id: None,
             invite_code: None,
+            return_to: None,
             expires_at: now() + Duration::minutes(10),
         }
     }

@@ -66,6 +66,13 @@ pub struct AccountResponse {
     /// The roles it is in, by name.
     #[schema(example = json!(["member"]))]
     pub roles: Vec<String>,
+    /// Whether the account has a password.
+    ///
+    /// An account made through GitHub, Discord or OIDC has none. It confirms a
+    /// change to itself by having signed in within the last few minutes instead
+    /// of by typing one, so a client shows a password field only when this is
+    /// `true`; see `reauthentication_required`.
+    pub has_password: bool,
     /// Whether the account must set a new password before doing anything else.
     ///
     /// Set on the administrator generated at first run. A client seeing this
@@ -95,7 +102,7 @@ impl AccountResponse {
     /// `users.is_admin` mirrored this and has been dropped: reading it reported
     /// whatever the column said, not what the account can do.
     #[must_use]
-    pub fn build(user: &User, roles: &[Role]) -> Self {
+    pub fn build(user: &User, roles: &[Role], has_password: bool) -> Self {
         let permissions: PermissionSet = roles
             .iter()
             .flat_map(|role| role.permissions.iter())
@@ -116,6 +123,7 @@ impl AccountResponse {
                 .map(|permission| permission.as_str().to_owned())
                 .collect(),
             roles: roles.iter().map(|role| role.name.clone()).collect(),
+            has_password,
             must_change_password: user.must_change_password,
             quota_bytes: user.quota_bytes,
             email_verified_at: user.email_verified_at,
@@ -186,8 +194,12 @@ pub struct LoginRequest {
 pub struct ChangePasswordRequest {
     /// The password in force now. Required even though the caller is signed in:
     /// it is what stops a borrowed, unlocked browser from taking the account.
+    ///
+    /// Omitted by an account that has none (`has_password: false`), which is
+    /// setting its first one and confirms it by a recent sign-in instead.
     #[schema(min_length = 8, max_length = 1024)]
-    pub current_password: String,
+    #[serde(default)]
+    pub current_password: Option<String>,
     /// The replacement.
     #[schema(min_length = 8, max_length = 1024)]
     pub new_password: String,
@@ -430,6 +442,7 @@ pub async fn register(
         Json(AccountResponse::build(
             &user,
             &state.roles.of_user(user.id).await?,
+            true,
         )),
     )
         .into_response())
@@ -518,6 +531,7 @@ pub async fn login(
         Json(AccountResponse::build(
             &user,
             &state.roles.of_user(user.id).await?,
+            true,
         )),
     )
         .into_response())
@@ -589,7 +603,12 @@ pub async fn session(
     SelfServiceUser(current): SelfServiceUser,
 ) -> Result<Json<AccountResponse>> {
     let roles = state.roles.of_user(current.user.id).await?;
-    Ok(Json(AccountResponse::build(&current.user, &roles)))
+    let has_password = state.users.has_password(current.user.id).await?;
+    Ok(Json(AccountResponse::build(
+        &current.user,
+        &roles,
+        has_password,
+    )))
 }
 
 /// Changes the caller's password.
@@ -610,7 +629,7 @@ pub async fn session(
     responses(
         (status = 200, description = "Changed; other sessions ended", body = AccountResponse),
         (status = 400, description = "The new password fails the policy", body = crate::error::ErrorBody),
-        (status = 401, description = "The current password is wrong", body = crate::error::ErrorBody),
+        (status = 401, description = "The current password is wrong, or an account with none signed in too long ago", body = crate::error::ErrorBody),
         (status = 403, description = "Not permitted with an API token", body = crate::error::ErrorBody),
     ),
     security(("session" = [])),
@@ -628,22 +647,9 @@ pub async fn change_password(
         return Err(Error::new(ErrorCode::SessionRequired));
     }
 
-    // Widest bounds for the password being *presented*, the instance's policy
-    // for the one being *chosen*. Otherwise raising `min_length` would leave
-    // everyone below it unable to log in and unable to fix it.
-    let supplied = Password::parse(body.current_password, PasswordPolicy::widest())
-        .map_err(|_| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
-    // An account with no password cannot confirm one. `Unauthorized`, not a
-    // distinct answer: the caller is signed in, so there is nothing to
-    // enumerate, and the fix is to set a password, not to guess again.
-    let stored = state
-        .users
-        .password_of(current.user.id)
-        .await?
-        .ok_or_else(|| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
-    if !password::verify(supplied, stored).await? {
-        return Err(Error::new(ErrorCode::CurrentPasswordIncorrect));
-    }
+    // An account with a password proves it knows it; one without, which is
+    // setting its first, proves it just signed in.
+    reconfirm(&state, &current, body.current_password).await?;
 
     let replacement = Password::parse(body.new_password, state.config().auth.password)?;
     crate::auth::pwned::refuse_if_breached(&state, &replacement).await?;
@@ -673,7 +679,8 @@ pub async fn change_password(
     )
     .await?;
     let roles = state.roles.of_user(current.user.id).await?;
-    let mut account = AccountResponse::build(&current.user, &roles);
+    // It has one now; this is the request that set it.
+    let mut account = AccountResponse::build(&current.user, &roles, true);
     account.must_change_password = false;
 
     Ok(([(header::SET_COOKIE, cookie.to_string())], Json(account)).into_response())
@@ -1048,6 +1055,7 @@ pub async fn confirm_registration(
         Json(AccountResponse::build(
             &user,
             &state.roles.of_user(user.id).await?,
+            true,
         )),
     )
         .into_response())
@@ -1299,17 +1307,23 @@ pub struct UpdateAccountRequest {
     /// Required even though the caller is signed in. An unlocked browser left
     /// on a desk is otherwise enough to move the account's address to one the
     /// finder controls, and from there the reset flow hands them the account.
+    ///
+    /// Omitted by an account that has none (`has_password: false`); see
+    /// `reauthentication_required`.
     #[schema(min_length = 8, max_length = 1024)]
-    pub current_password: String,
+    #[serde(default)]
+    pub current_password: Option<String>,
 }
 
 /// Body of `DELETE /account`.
 #[derive(Debug, Deserialize, ToSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DeleteAccountRequest {
-    /// The password in force now, for the same reason as above.
+    /// The password in force now, for the same reason as above, and omitted
+    /// the same way by an account that has none.
     #[schema(min_length = 8, max_length = 1024)]
-    pub current_password: String,
+    #[serde(default)]
+    pub current_password: Option<String>,
     /// Whether to end everything this account uploaded.
     ///
     /// Defaults to ending it. "Delete my account" usually means "and the things
@@ -1331,23 +1345,44 @@ const fn delete_shares_by_default() -> bool {
     true
 }
 
-/// Confirms the caller's password, for an act that is worth confirming.
+/// Confirms it is the account's owner, for an act that is worth confirming.
+///
+/// By the password, when the account has one. An account made through a
+/// provider has none, and confirms by having signed in within
+/// [`REAUTHENTICATION_WINDOW`] (the "requires recent login" of Firebase and
+/// Google): a client sends it back to the provider and repeats the request.
 ///
 /// # Errors
 ///
-/// `401` when it is wrong, `403` when the caller used an API token.
-async fn reconfirm(state: &AppState, current: &CurrentUser, supplied: String) -> Result<()> {
+/// `401` `current_password_incorrect` when the password is wrong or missing,
+/// `401` `reauthentication_required` when an account with no password signed
+/// in too long ago, `403` when the caller used an API token.
+async fn reconfirm(
+    state: &AppState,
+    current: &CurrentUser,
+    supplied: Option<String>,
+) -> Result<()> {
     // A leaked API token must not be able to rename or remove the account, for
     // the same reason as changing a password.
     if !current.credential.is_session() {
         return Err(Error::new(ErrorCode::SessionRequired));
     }
-    let supplied = Password::parse(supplied, PasswordPolicy::widest())
-        .map_err(|_| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
-    let stored = state
-        .users
-        .password_of(current.user.id)
-        .await?
+    let Some(stored) = state.users.password_of(current.user.id).await? else {
+        // No password to ask for: the account signs in through a provider. The
+        // proof is having done that just now, which a stolen session cookie
+        // cannot repeat without the person's provider account as well.
+        let since = OffsetDateTime::now_utc() - REAUTHENTICATION_WINDOW;
+        return if current.credential.signed_in_since(since) {
+            Ok(())
+        } else {
+            Err(Error::new(ErrorCode::ReauthenticationRequired))
+        };
+    };
+    // Widest bounds for the password being *presented*, the instance's policy
+    // for the one being *chosen*. Otherwise raising `min_length` would leave
+    // everyone below it unable to log in and unable to fix it.
+    let supplied = supplied
+        .and_then(|supplied| Password::parse(supplied, PasswordPolicy::widest()).ok())
         .ok_or_else(|| Error::new(ErrorCode::CurrentPasswordIncorrect))?;
     if password::verify(supplied, stored).await? {
         Ok(())
@@ -1355,6 +1390,13 @@ async fn reconfirm(state: &AppState, current: &CurrentUser, supplied: String) ->
         Err(Error::new(ErrorCode::CurrentPasswordIncorrect))
     }
 }
+
+/// How recently an account with no password must have signed in to change or
+/// remove itself, set its first password, or link another provider.
+///
+/// Long enough to sign in at the provider and come back to finish; short enough
+/// that a session cookie taken later is not enough on its own.
+pub(crate) const REAUTHENTICATION_WINDOW: time::Duration = time::Duration::minutes(10);
 
 /// Changes the caller's own name or address.
 ///
@@ -1371,7 +1413,7 @@ async fn reconfirm(state: &AppState, current: &CurrentUser, supplied: String) ->
     responses(
         (status = 200, description = "The account as it now stands", body = AccountResponse),
         (status = 400, description = "A value is not usable", body = crate::error::ErrorBody),
-        (status = 401, description = "Not signed in, or the password is wrong", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in, the password is wrong, or an account with none signed in too long ago", body = crate::error::ErrorBody),
         (status = 403, description = "Authenticated with an API token", body = crate::error::ErrorBody),
         (status = 409, description = "The name or address is taken", body = crate::error::ErrorBody),
     ),
@@ -1433,7 +1475,8 @@ pub async fn update_account(
         .await?
         .ok_or(Error::NotFound)?;
     let roles = state.roles.of_user(updated.id).await?;
-    Ok(Json(AccountResponse::build(&updated, &roles)))
+    let has_password = state.users.has_password(updated.id).await?;
+    Ok(Json(AccountResponse::build(&updated, &roles, has_password)))
 }
 
 /// Removes the caller's own account.
@@ -1456,7 +1499,7 @@ pub async fn update_account(
     request_body = DeleteAccountRequest,
     responses(
         (status = 204, description = "The account is gone"),
-        (status = 401, description = "Not signed in, or the password is wrong", body = crate::error::ErrorBody),
+        (status = 401, description = "Not signed in, the password is wrong, or an account with none signed in too long ago", body = crate::error::ErrorBody),
         (status = 403, description = "Authenticated with an API token", body = crate::error::ErrorBody),
         (status = 409, description = "Nobody would be left to administer the instance", body = crate::error::ErrorBody),
     ),
