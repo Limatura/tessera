@@ -5,12 +5,11 @@
  * 瀏覽器都會當成外站，登入成功後直接把人送出去 —— 這是 open redirect，釣魚頁最
  * 愛的起手式。
  *
- * 同源的絕對網址要放行：apps/admin 是另一包 SPA，被反向代理放在同一個網域下，
- * 它送過來的就是完整 URL。
+ * 同源的絕對網址照樣放行，轉成路徑：使用者手動貼上的完整網址也該能用。
  *
  * @param target 網址上帶進來的值，什麼都可能。
  * @param origin 比對的基準，正常呼叫傳 `window.location.origin`。
- * @returns 可以安全交給 `location.assign` 的同源路徑，不安全就是 `null`。
+ * @returns 可以安全交給 router 導航的同源路徑，不安全就是 `null`。
  */
 export function safeRedirect(
   target: string | undefined,

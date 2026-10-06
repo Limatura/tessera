@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**@apps/web** is the React frontend for Tessera, an anonymous file courier service. The app supports two distinct user flows:
+**@apps/web** is the React frontend for Tessera, an anonymous file courier service. The app supports three distinct flows:
 
 1. **Anonymous Mode** (home page `/`) — Users can upload files, code snippets, or links without authentication. They receive a retrieval code, and the payload self-destructs after expiration or reaching the retrieval limit. This is the primary use case.
 
 2. **User Mode** (authenticated `/login/`) — Registered users can log in (email/password or Google OAuth) to access account features like upload history, saved shares, and higher limits. Sign-up is also available.
+
+3. **Admin panel** (`/admin/*`) — The operator console: server configuration (accounts, sign-in providers, mail, appearance, uploads, storage) and monitoring (instance stats, storage trend, recent shares). It used to be a separate app (`apps/admin`); it is now a route subtree of this SPA so moving between the site and the panel is a client-side navigation, not a page load. See **Admin Panel** below.
 
 The app is embedded in the Rust backend binary and served from it — there is no separate deployment layer. All business logic lives in the backend API; this frontend is purely presentation and orchestration.
 
@@ -23,6 +25,7 @@ The app is embedded in the Rust backend binary and served from it — there is n
 - **Zustand** for state management
 - **React Hook Form** + **Zod** for form validation
 - **QRCode** for share link generation
+- **TanStack Table**, **Recharts** (via `@tessera/ui/components/chart`), **dnd-kit** — admin panel only; route-level code splitting keeps them out of the site's bundle
 
 ### Related Packages
 
@@ -35,22 +38,28 @@ The app is embedded in the Rust backend binary and served from it — there is n
 ```
 src/
 ├── routes/                 # TanStack Router file-based routing
-│   ├── __root.tsx         # Root layout (header, theme, locale)
-│   ├── index.tsx          # Anonymous upload mode (no auth required)
-│   ├── login/             # Auth flow (login + sign-up)
-│   ├── s/$code/           # Share link retrieval (unauthenticated access)
-│   └── -components/       # Private route-local components (prefix with -)
+│   ├── __root.tsx         # Root layout (theme, appearance, locale, toaster) — shared by site and admin
+│   ├── _site/             # Pathless layout: everything with the site Header
+│   │   ├── route.tsx      # Renders <Header /> + <Outlet />
+│   │   ├── index.tsx      # Anonymous upload mode (no auth required)
+│   │   ├── login/         # Auth flow (login + sign-up)
+│   │   ├── s/$code/       # Share link retrieval (unauthenticated access)
+│   │   └── -components/   # Private route-local components (prefix with -)
+│   └── admin/             # The operator console at /admin — see "Admin Panel"
+│       └── route.tsx      # Admin layout: page title only; each page renders its own AdminShell
 ├── components/            # Shared app components
-│   ├── header.tsx         # Nav with locale selector and theme toggle
-│   ├── theme-provider.tsx
-│   └── ...
-├── lib/                   # Utilities
-│   ├── upload.ts          # Upload orchestration (INCOMPLETE — see below)
+│   ├── header.tsx         # Site nav with locale selector and theme toggle
+│   └── admin/             # AdminShell, sidebar, nav, pager — admin only
+├── hooks/                 # Query hooks; admin ones under hooks/admin/
+├── lib/                   # Utilities; admin ones under lib/admin/
+│   ├── upload.ts          # Upload orchestration
 │   ├── locale.ts          # Locale subscription + document application
 │   └── ...
 ├── paraglide/             # Generated i18n files (auto-created by Paraglide)
 └── index.css              # Tailwind entry point
 ```
+
+The site's Header lives in the `_site` layout, not in `__root`, because the admin panel has its own sidebar frame. A new site page goes under `routes/_site/`; a new admin page under `routes/admin/`.
 
 **Convention:** Components local to a route use the `-components/` prefix (leading dash) so TanStack Router ignores them when scanning for route files.
 
@@ -59,6 +68,7 @@ src/
 - **`/` (Anonymous Mode)** — The main interface for all users. Three upload tabs: File, Code (syntax highlighting), Link. No authentication gate.
 - **`/login/`** — Login and sign-up form. Supports email/password and Google OAuth. Linked from the sign-up prompt on the home page.
 - **`/s/$code/`** — Public share link retrieval. Any visitor can access this with a valid code; used to download or retrieve the shared content.
+- **`/admin/*`** — The admin panel. Every page gates itself on a permission (see Admin Panel).
 
 ## Development
 
@@ -66,7 +76,7 @@ src/
 
 ```bash
 # From monorepo root
-pnpm dev:web              # Start dev server + watch (localhost:3001)
+pnpm dev:web              # Start dev server + watch (localhost:3001; admin at /admin)
 pnpm check                # Format + lint (Vite+ `vp check`, Ultracite rules)
 pnpm fix                  # Auto-fix linting and formatting issues
 
@@ -83,8 +93,11 @@ pnpm check-types          # Type check + build (catches routing issues)
 - Routes are file-based in `src/routes/`. Filename structure determines routing:
   - `index.tsx` → route segment
   - `__root.tsx` → root layout
+  - `route.tsx` → layout for its directory
+  - `_name/` → pathless layout (groups routes under a layout without adding a URL segment)
   - `$param` → dynamic segment (`:param`)
   - Files starting with `-` are route-local helpers, not routes
+- Define routes with `createFileRoute("/id")({ ... })`, never code-based `createRoute` + `getParentRoute`: the plugin wires the parent, and a hand-written `getParentRoute` points at the wrong layout the moment a file moves. The id includes pathless segments (`"/_site/login/"`), and the plugin rewrites it when a file moves
 - The `.tanstackRouter` Vite plugin auto-generates `src/routeTree.gen.ts` — **do not edit it**
 - Router context is typed via `RouterAppContext` in `__root.tsx`; thread data through context if needed across routes
 
@@ -189,6 +202,67 @@ Currently, the home page doesn't visibly differentiate between logged-in and ano
    - Threaded through router context
    - Or derived from server state on each page load
 5. **Monorepo dependencies**: This app depends on shared packages (`@tessera/ui`, `@tessera/i18n`); changes to those require a rebuild here
+
+## Admin Panel
+
+The operator console, at `/admin/*`. Its code is kept apart from the site's so the boundary stays visible: pages in `routes/admin/`, frame in `components/admin/`, query hooks in `hooks/admin/`, helpers in `lib/admin/`. Admin-only translation keys are in the same `messages/*.json` as the site's; prefix a new one with the page it belongs to (`users_…`, `settings_…`) or `admin_` when it would otherwise collide with a site key.
+
+```
+routes/admin/
+├── route.tsx               # Layout: admin page title; each page renders AdminShell itself
+├── index.tsx               # No UI — redirects to the first page the account may open
+├── shares.tsx              # The caller's own shares — the fallback landing page, auth only
+├── users.tsx               # Accounts, roles, suspend / delete / end their shares (users:read)
+├── all-shares.tsx          # Every share on the instance, delete any (shares:read:any)
+├── invites.tsx             # Invite codes (invites:read)
+├── dashboard/              # Stats, trends, storage locations, current settings, recent shares (stats:read)
+├── roles/                  # Roles and what they permit (roles:read)
+├── settings/               # One route per section, all gated on settings:read; index redirects to account
+└── dnd-demo/               # Dev-only scratch route
+```
+
+**Auth and permissions**
+
+The panel has no login page of its own — it is the same SPA, so `requireAuth` sends an unauthenticated visitor to `/login` with `redirect` set, and the root `requirePasswordChanged` guard covers forced password changes for admin pages too.
+
+Authorization reads `permissions` off `/auth/session`. **Never branch on `is_admin`** — the field still exists for older clients but only reports "holds the admin or owner role", not what the account may actually do. `src/lib/admin/permissions.ts` holds the permission strings (mirroring `crates/tessera-core/src/permission.rs`, which is a fixed enum, not a table). `ADMIN_ENTRY_PERMISSIONS` in `@tessera/auth/permissions` decides whether the site Header shows the admin link at all; `LANDING_ORDER` must stay a subset of it.
+
+Every page gates itself in `beforeLoad` via `requireAuth` (`src/lib/route-guard.ts`) or `requirePermission` (`src/lib/admin/route-guard.ts`). Lacking a permission redirects to the first page that account _can_ open rather than showing a 403 — the order lives in `LANDING_ORDER`. An account that can open none is sent back to `/`. The sidebar filters itself by the same permissions, but that is cosmetic: the route guard and the server are what actually enforce anything.
+
+Roles are database rows and one account holds at most one. An empty `roles` array ("未指派") and the seeded `guest` role are both zero permissions, but they mean different things — nobody has decided yet, versus somebody deliberately chose the most restricted role — so the UI must keep them visually distinct.
+
+Admin query keys start with `"admin"`; `main.tsx` gives that prefix a 30-second `staleTime` so moving between admin pages does not refetch everything. "My shares" is shared with the site (`hooks/use-shares.ts`), so both pages read one cache.
+
+**Settings forms ↔ backend config mapping**
+
+`src/lib/admin/settings-schema.ts` is the source of truth for every settings field. Each schema's comments map its fields back to the dotted keys in **`apps/server/SETTINGS.md`** — that document, not `config.rs`, is what to read first: it lists every key, its default, and what breaks when it is set wrong. Keys are snake_case on the wire and camelCase in the forms.
+
+Three kinds of key are deliberately **not** editable fields, and `lib/admin/settings-schema.ts` says so per section:
+
+- `FIXED_AT_BOOT` (e.g. `server.max_body_bytes`) — `PUT` refuses it. Because the endpoint validates a batch, including one would reject the legitimate keys sent alongside it. Show it with `ReadOnlySetting` instead.
+- `SECRET` (e.g. `scan.authorization`) — never readable, never writable; environment only. `GET` returns `null` for its value, so `ReadOnlySetting` takes `value={null}` and only explains.
+- `SEALED` (`auth.oidc.client_secret`, `auth.github.client_secret`, `auth.discord.client_secret`, `mail.username`, `mail.password`) — writable, never readable. `GET` returns a **boolean** saying whether one is set. Use `SealedField`: the input always starts empty, **blank means leave unchanged**, a value overwrites. Never load-then-edit one, or the first save wipes the stored secret.
+
+Settings are one flat list of dotted keys, not a typed object: `GET /admin/settings` returns every key with its value, where that value came from, and whether this endpoint will change it. `hooks/admin/use-settings.ts` wraps that; `readSetting(data, key)` returns `unknown` because the shape depends on which key you asked for. Writes go through `useUpdateSettings` as `{key: value}` and are validated as a **set** — one bad key rejects the whole batch, so send only the fields that actually changed (see how `routes/admin/settings/-components/account-settings-form.tsx` uses `dirtyFields`), and put keys in the same request only when they need to take effect together.
+
+**Every settings section is wired to that API.** They all go through `useSettingsForm` (`src/hooks/admin/use-settings-form.ts`), which owns the shared half: react-hook-form, the `settings:write` check, and a submit that sends only `dirtyFields` through `collectChanges`. Per-field `encoders` handle the two transforms that exist — `scopes` (form string ↔ server `string[]`) and SEALED fields (blank returns `undefined`, which drops the key from the batch).
+
+Initial values are read once at mount, via `SettingsLoader`, so a background refetch cannot overwrite half-typed input.
+
+The sign-in providers page is three cards, each its own form and its own request — batching them would let a bad OIDC issuer reject an unrelated GitHub change. Two constraints are mirrored client-side so a batch is not rejected server-side: `mail.host`/`mail.from`/`mail.public_url` must be all-set or all-empty, and `share.access_log.retention_days` must be at least 1 while the log is on.
+
+Several of these keys break an instance quietly rather than loudly, so the forms carry the consequence in the UI, not just the field name. The ones that matter: `auth.cookie_secure: always` on anything less than full HTTPS makes login fail **silently** (the browser drops the cookie; no error anywhere); `server.trusted_proxies` set too broadly lets callers pick their own source address, which is what every throttle counts on; a zeroed `auth.throttle.*` pair locks out everyone (`source`) or silently disables the limit; `auth.throttle.lookup` is the only thing making short retrieval codes safe; and **`features.admin` off removes this panel's own API** — a stored setting beats the environment, so only `tessera-server settings reset features.admin` on the server plus a restart brings it back. Turning it (or `features.accounts`) off asks for a typed confirmation that shows that command.
+
+`GuestAnonymousWarning` reads live server values rather than form state on purpose: it describes what this instance is actually configured to do, so it stays true regardless of which forms are wired. The page that owns `auth.default_role` passes its unsaved value in to preview the warning before saving.
+
+**Notes for future work**
+
+1. **Trends come from `GET /admin/stats/history`** (#410/#411): one entry per UTC day, recorded by the hourly sweep from the day that version was deployed, and a day the server was down has no entry. `routes/admin/dashboard/-components/trend-series.ts` fills those gaps with `null` so the chart breaks instead of drawing a straight line through them, and starts at the first recorded day rather than padding the requested range. Each metric (storage / shares / traffic) is its own chart with one y-axis — never put bytes and counts on two axes. Charts use `--primary` for the series that matters and `--muted-foreground` for context: the design system's `--chart-*` tokens are greys and cannot serve as categorical colours
+2. **Dropped for having no backend key**: the 網站資訊 section (site title/description/SEO keywords, admin-entry-on-home) and `upload.allowedFileTypes`. Do not re-add them as editable fields until `settings::keys()` actually lists them — `site.title`/`site.description` are tracked in #278; the other three are a deliberate no, with reasons, in #279.
+3. **dnd-demo route** is a scratch/demo route, shown only in dev: the sidebar hides it and the route redirects to `/admin` in a production build
+4. **Account state comes from `AdminUserResponse.state`** (`active` / `disabled` / `deleted`). The users page offers 停用 or 重新啟用 depending on it and badges suspended accounts; `isDeletedAccount` reads it too. Only `owner_username` on the all-shares page, which carries no state, still falls back to the `gone-` prefix (`isDeletedUsername` in `src/lib/admin/accounts.ts`). Never send `is_admin` on `PATCH /admin/users/{id}` unless changing it — it rewrites the role (`true` → owner, `false` → none)
+5. **Remaining editable keys with no form** — `storage.split_across_backends`, `storage.reconcile_interval_hours`, `storage.reconcile_grace_hours`. Everything else `settings::keys()` offers is now wired. `split_across_backends` needs its own explanatory copy before it ships: turning it on lets a file exceed any single backend, but a split file has no direct download, so the bytes go through this server or are stitched in the browser. Where files actually live is not a `settings::keys()` key at all any more — each backend is a row in `storage_backends`, managed through `/admin/storage/backends` (`StorageBackendsCard` in `storage.tsx`), not through `PUT /admin/settings`. `storage.url`, `storage.capacity_bytes` (now per-backend `capacity_bytes`), and `storage.options` (now per-backend `options`) no longer exist as settings keys.
+6. **No section uses tabs any more.** Each is its own route under the collapsible sidebar group. Add tabs back only when a single section grows enough sub-detail to need them (`auth.hashing.*` and the seven `auth.throttle.*` groups would be the first candidates, under 帳號與註冊)
 
 ## Performance & Accessibility
 
@@ -436,10 +510,8 @@ export function Button({ label }: ButtonProps) {
 TanStack Router 檔案已經是這個形狀,照抄即可——`Route` 物件置頂,`component` 指到下方的具名 function:
 
 ```tsx
-export const Route = createRoute({
+export const Route = createFileRoute("/admin/dashboard/")({
   component: DashboardComponent,
-  getParentRoute: () => rootRoute,
-  path: "/dashboard",
 });
 
 function DashboardComponent() {
@@ -461,7 +533,7 @@ export const Row = memo(function Row({ item }: RowProps) {
 
 ### 這些規則哪些是 lint 會擋的
 
-根目錄 `vite.config.ts` 的 `lint` 針對 `apps/web/src/**`、`apps/admin/src/**` 開了三條:
+根目錄 `vite.config.ts` 的 `lint` 針對 `apps/web/src/**` 開了三條:
 
 - `import/no-default-export` — 擋 default export(app 根目錄的 `vite.config.ts` 等設定檔不在範圍內)。
 - `react/function-component-definition` — 擋 `const Foo = () => <div />`。只看元件定義形式,元件內部的 handler、`map` callback 不受影響。

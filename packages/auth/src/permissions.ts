@@ -48,10 +48,11 @@ export function hasAnyPermission(
 /**
  * 能讓一個帳號在後台找到落腳處的權限。
  *
- * apps/admin 每一頁都要權限，這裡列的是「至少有一個後台頁面進得去」的判準。順序無關 ——
- * 要決定進哪一頁是 apps/admin 自己的事（見它的 `LANDING_ORDER`，那份必須是這裡的子集）。
+ * 後台每一頁都要權限，這裡列的是「至少有一個後台頁面進得去」的判準。順序無關 ——
+ * 要決定進哪一頁是後台自己的事（見 apps/web `lib/admin/permissions.ts` 的
+ * `LANDING_ORDER`，那份必須是這裡的子集）。
  *
- * apps/web 用這個決定要不要顯示後台連結：沒有這些權限的人點進去只會被 admin 的 route
+ * 前台 Header 用這個決定要不要顯示後台連結：沒有這些權限的人點進去只會被後台的 route
  * guard 原地送回來，入口乾脆不出現。
  */
 export const ADMIN_ENTRY_PERMISSIONS = [

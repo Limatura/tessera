@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Measure one app's `vite build` output and append it to the PR's bundle-size
-# report. Called once per app (web, admin, ...) so each gets its own row and
+# report. Called once per app (web, ...) so each gets its own row and
 # its own baseline; the workflow calls this once per app and then hands the
 # accumulated $STATE_DIR/report.md to the comment step.
 #

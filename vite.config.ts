@@ -78,9 +78,9 @@ export default defineConfig({
         },
       },
       {
-        // 「外 function,內 arrow」的機器可檢查部分,只管 web / admin 的 src。
+        // 「外 function,內 arrow」的機器可檢查部分,只管 web 的 src(後台也在裡面)。
         // 不含各 app 根目錄的 vite.config.ts 等設定檔——那些必須 default export。
-        files: ["apps/web/src/**", "apps/admin/src/**"],
+        files: ["apps/web/src/**"],
         rules: {
           "import/no-default-export": "error",
           // 只管「元件」的定義形式:const Foo = () => <div /> 會被抓,
@@ -137,7 +137,7 @@ export default defineConfig({
       // 以下是換成 Vite+(oxlint 1.85、ultracite 7.12)才新出現的檢查,換工具時先關掉,
       // 讓這次只換工具、不動程式碼。要不要打開、怎麼改寫,另外決定。
       //
-      // ultracite 現在預設要求元件寫成 arrow function。web / admin 的 src 在下面
+      // ultracite 現在預設要求元件寫成 arrow function。web 的 src 在下面
       // overrides 裡另有規定(function declaration),其他地方(og/、apps/tui、
       // apps/extension)原本沒有這條。
       "react/function-component-definition": "off",

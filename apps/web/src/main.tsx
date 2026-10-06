@@ -24,6 +24,10 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({ onError: redirectIfPasswordExpired }),
 });
 
+// 後台資料改動頻繁，切回分頁時重抓（預設就會）比看到舊的使用者/角色列表安全；
+// 30 秒內換頁不重抓，免得在幾個管理頁之間切換時每次都閃 loading。
+queryClient.setQueryDefaults(["admin"], { staleTime: 30_000 });
+
 const router = createRouter({
   context: { queryClient },
   defaultPendingComponent: () => <Loader />,

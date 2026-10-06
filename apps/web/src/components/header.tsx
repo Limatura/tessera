@@ -27,7 +27,6 @@ import { cn } from "@tessera/ui/lib/utils";
 import { Logo } from "@/components/logo";
 import { useSession, useLogout } from "@/hooks/use-auth";
 import { getLocale, setLocale } from "@/lib/locale";
-import { adminUrl } from "@/lib/web-url";
 import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";
 
@@ -39,7 +38,7 @@ export function Header() {
 
   // 後台每一頁都要權限，一頁都進不去的人點連結只會被 admin 的 route guard 原地送回來，
   // 所以入口乾脆不出現。真正的授權由 server 擋，這裡只是不要給進不去的門。
-  const adminHref = canAccessAdmin(session) ? adminUrl()?.toString() : null;
+  const showAdmin = canAccessAdmin(session);
 
   // 登出後回首頁,停在需要登入的頁面只會留下一個已經失效的畫面(#363)。
   const handleLogout = () => {
@@ -106,10 +105,10 @@ export function Header() {
                 >
                   {m.user_tab_preferences()}
                 </DropdownMenuItem>
-                {adminHref && (
-                  <DropdownMenuItem
-                    render={<a href={adminHref}>{m.common_admin_console()}</a>}
-                  />
+                {showAdmin && (
+                  <DropdownMenuItem render={<Link to="/admin" />}>
+                    {m.common_admin_console()}
+                  </DropdownMenuItem>
                 )}
                 <DropdownMenuItem variant="destructive" onClick={handleLogout}>
                   {m.common_logout()}
