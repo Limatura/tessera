@@ -52,6 +52,11 @@ export default defineConfig({
         changeOrigin: true,
         target: "http://localhost:8787",
       },
+      // 預覽卡片編輯器要用跟 server 畫卡片同一套字型(見 lib/admin/og-renderer.ts)。
+      "/fonts": {
+        changeOrigin: true,
+        target: "http://localhost:8787",
+      },
       // `/s/:code` 本身是客戶端路由（分享頁面），但它連結到的內容
       // ——原始文字檢視和檔案下載——直接由後端提供，在 `/api` 之外
       // 只有這兩個路徑後綴才送到後端；裸 `/s/:code` 仍然落到 SPA

@@ -554,7 +554,7 @@ export const shareSettingsSchema = z
 
 export type ShareSettingsValues = z.infer<typeof shareSettingsSchema>;
 
-// ---- 功能開關與預覽卡片：features.* / og.layout ----
+// ---- 功能開關：features.* ----
 //
 // `features.docs` 不在這裡：它是 FIXED_AT_BOOT（建路由時決定要不要掛）。
 
@@ -563,8 +563,18 @@ export const featureSettingsSchema = z.object({
   accounts: z.boolean(),
   // features.admin
   admin: z.boolean(),
-  // og.layout —— 只允許 div / span / style，且不能指向本伺服器以外的資源
-  ogLayout: z.string(),
 });
 
 export type FeatureSettingsValues = z.infer<typeof featureSettingsSchema>;
+
+// ---- 預覽卡片：og.layout ----
+//
+// 版面規則(元素、屬性、大小、外部資源)不在這裡驗:只有 server 的 `og::layout::check`
+// 是準的,編輯器打 `POST /admin/settings/preview` 去問它。
+
+export const ogCardSettingsSchema = z.object({
+  // og.layout —— 空 = 內建卡片
+  layout: z.string(),
+});
+
+export type OgCardSettingsValues = z.infer<typeof ogCardSettingsSchema>;

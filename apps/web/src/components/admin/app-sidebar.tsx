@@ -46,6 +46,7 @@ function settingsItems(): NavLink[] {
     { title: m.nav_settings_storage(), url: "/admin/settings/storage" },
     { title: m.nav_settings_site(), url: "/admin/settings/site" },
     { title: m.nav_settings_theme(), url: "/admin/settings/theme" },
+    { title: m.nav_settings_og(), url: "/admin/settings/og" },
     { title: m.nav_settings_features(), url: "/admin/settings/features" },
   ];
 }

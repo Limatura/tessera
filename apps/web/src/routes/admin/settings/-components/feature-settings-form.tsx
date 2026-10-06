@@ -10,16 +10,8 @@ import {
   AlertDialogTitle,
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
-} from "@tessera/ui/components/field";
+import { Field, FieldGroup, FieldLabel } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
-import { Textarea } from "@tessera/ui/components/textarea";
 import { useState } from "react";
 import { Controller, useWatch } from "react-hook-form";
 
@@ -28,7 +20,7 @@ import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
 import { featureSettingsSchema } from "@/lib/admin/settings-schema";
 import type { FeatureSettingsValues } from "@/lib/admin/settings-schema";
-import { asBoolean, asString } from "@/lib/admin/settings-values";
+import { asBoolean } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
 import { SwitchField } from "./form-fields";
@@ -40,7 +32,6 @@ type Settings = components["schemas"]["SettingsResponse"];
 const KEYS = {
   accounts: "features.accounts",
   admin: "features.admin",
-  ogLayout: "og.layout",
 } satisfies SettingsKeyMap<FeatureSettingsValues>;
 
 export function FeatureSettingsForm() {
@@ -57,7 +48,6 @@ function initialValues(settings: Settings): FeatureSettingsValues {
   return {
     accounts: asBoolean(readSetting(settings, KEYS.accounts), true),
     admin: asBoolean(readSetting(settings, KEYS.admin), true),
-    ogLayout: asString(readSetting(settings, KEYS.ogLayout), ""),
   };
 }
 
@@ -140,35 +130,6 @@ function FeatureSettingsFields({
             {m.settings_feature_form_accounts_off_warning()}
           </p>
         )}
-
-        <FieldSeparator />
-
-        <Controller
-          control={form.control}
-          name="ogLayout"
-          render={({ field, fieldState }) => (
-            <Field data-invalid={fieldState.invalid}>
-              <FieldLabel htmlFor="features-og-layout">
-                {m.settings_feature_form_og_layout_label()}
-              </FieldLabel>
-              <Textarea
-                {...field}
-                aria-invalid={fieldState.invalid}
-                className="font-mono text-xs"
-                id="features-og-layout"
-                rows={6}
-              />
-              <FieldDescription>
-                {m.settings_feature_form_og_layout_description_1()}{" "}
-                <code>div</code>、<code>span</code>、<code>style</code>
-                {m.settings_feature_form_og_layout_description_2()}{" "}
-                <code>{"{{size}}"}</code>
-                {m.settings_feature_form_og_layout_description_3()}
-              </FieldDescription>
-              {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
-            </Field>
-          )}
-        />
 
         <SettingsFormFooter
           canWrite={form.canWrite}

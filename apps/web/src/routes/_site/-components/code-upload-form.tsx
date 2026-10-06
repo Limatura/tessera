@@ -32,13 +32,12 @@ import {
   TabsList,
   TabsTrigger,
 } from "@tessera/ui/components/tabs";
-import { cn } from "@tessera/ui/lib/utils";
-import { vscodeDark, vscodeLight } from "@uiw/codemirror-theme-vscode";
-import CodeMirror, { ExternalChange } from "@uiw/react-codemirror";
+import { ExternalChange } from "@uiw/react-codemirror";
 import type { Extension, ViewUpdate } from "@uiw/react-codemirror";
 import { Maximize2, Sparkles } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
+import { CodeEditor } from "@/components/code-editor";
 import {
   EDITOR_DEBOUNCE_MS,
   MermaidDiagram,
@@ -89,12 +88,6 @@ const LANGUAGES: readonly {
 const MERMAID = "mermaid";
 const EXPANDED_EDITOR_HEIGHT = "65vh";
 
-// className 只落在最外層 .cm-theme,但真正被長行撐開的是內層的 .cm-editor
-// (它自己沒有 min-width:0,會被 .cm-content 由內往外推寬),所以外層歸零不夠,
-// 要一路把 .cm-editor 也釘在容器寬度,.cm-scroller 才會接管水平捲動。
-const EDITOR_CLIP =
-  "min-w-0 overflow-hidden [&_.cm-editor]:w-full [&_.cm-editor]:min-w-0 [&_.cm-scroller]:min-w-0";
-
 interface CodeUploadFormProps {
   status: SubmitStatus;
   progress: number;
@@ -118,7 +111,6 @@ export function CodeUploadForm({
   const [wasGuessed, setWasGuessed] = useState(false);
   const [userPickedLanguage, setUserPickedLanguage] = useState(false);
   const [mermaidPane, setMermaidPane] = useState<"edit" | "preview">("edit");
-  const isDark = useIsDarkMode();
 
   const handleLanguageChange = (value: string | null) => {
     setLanguage(value ?? "plaintext");
@@ -150,13 +142,12 @@ export function CodeUploadForm({
   const isMermaid = language === MERMAID;
 
   const renderEditor = (height: string) => (
-    <CodeMirror
-      className={cn(EDITOR_CLIP, "h-full rounded-md border font-mono text-sm")}
+    <CodeEditor
+      className="h-full"
       extensions={extensions}
       height={height}
       onChange={handleCodeChange}
       placeholder={m.upload_code_placeholder()}
-      theme={isDark ? vscodeDark : vscodeLight}
       value={code}
     />
   );
@@ -229,13 +220,11 @@ export function CodeUploadForm({
           </Button>
         </div>
       </div>
-      <CodeMirror
-        className={cn(EDITOR_CLIP, "rounded-md border font-mono text-sm")}
+      <CodeEditor
         extensions={extensions}
         height="300px"
         onChange={handleCodeChange}
         placeholder={m.upload_code_placeholder()}
-        theme={isDark ? vscodeDark : vscodeLight}
         value={code}
       />
       <div className="flex justify-end">
@@ -321,23 +310,4 @@ export function CodeUploadForm({
       </Dialog>
     </div>
   );
-}
-
-function useIsDarkMode() {
-  const [isDark, setIsDark] = useState(
-    () =>
-      typeof document !== "undefined" &&
-      document.documentElement.classList.contains("dark")
-  );
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const observer = new MutationObserver(() => {
-      setIsDark(root.classList.contains("dark"));
-    });
-    observer.observe(root, { attributeFilter: ["class"], attributes: true });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
 }
