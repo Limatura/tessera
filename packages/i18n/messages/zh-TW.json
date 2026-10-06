@@ -60,6 +60,7 @@
   "api_error_rule_http_url": "請輸入以 http:// 或 https:// 開頭的網址。",
   "api_error_invalid_credentials": "使用者名稱或密碼錯誤。",
   "api_error_current_password_incorrect": "目前的密碼不正確。",
+  "api_error_reauthentication_required": "請重新登入確認是你本人，再試一次。",
   "api_error_password_breached": "這組密碼曾出現在外洩資料中，請換一組。",
   "api_error_registration_closed": "目前不開放註冊新帳號。",
   "api_error_invite_required": "需要邀請碼才能註冊。",
