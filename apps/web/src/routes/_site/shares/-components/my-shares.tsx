@@ -3,13 +3,16 @@ import {
   IconChevronRight,
   IconInbox,
 } from "@tabler/icons-react";
-import { Link } from "@tanstack/react-router";
+import { Link, Navigate } from "@tanstack/react-router";
 import { buttonVariants } from "@tessera/ui/components/button";
 import { cn } from "@tessera/ui/lib/utils";
+import { useState } from "react";
 
 import { SHARES_PAGE_SIZE, useMyShares } from "@/hooks/use-shares";
 import * as m from "@/paraglide/messages";
 
+import { DeleteShareDialog } from "./delete-share-dialog";
+import type { Share } from "./share-fields";
 import { SharesList } from "./shares-list";
 import { SharesTable } from "./shares-table";
 
@@ -22,6 +25,7 @@ import { SharesTable } from "./shares-table";
 export function MyShares({ page }: { page: number }) {
   const offset = (page - 1) * SHARES_PAGE_SIZE;
   const shares = useMyShares(offset);
+  const [deleting, setDeleting] = useState<Share | null>(null);
 
   if (shares.isPending) {
     return (
@@ -36,6 +40,17 @@ export function MyShares({ page }: { page: number }) {
   const rows = shares.data.data;
   const { total } = shares.data.meta;
 
+  // 刪掉最後一頁的最後一筆,這一頁就空了 —— 退回現在的最後一頁,而不是顯示「還沒有任何分享」。
+  if (rows.length === 0 && page > 1) {
+    return (
+      <Navigate
+        replace
+        search={{ page: Math.max(1, Math.ceil(total / SHARES_PAGE_SIZE)) }}
+        to="/shares"
+      />
+    );
+  }
+
   if (rows.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-6 py-10 text-muted-foreground text-sm">
@@ -48,13 +63,22 @@ export function MyShares({ page }: { page: number }) {
   return (
     <div className="space-y-4">
       <div className="md:hidden">
-        <SharesList shares={rows} />
+        <SharesList onDelete={setDeleting} shares={rows} />
       </div>
       <div className="hidden md:block">
-        <SharesTable shares={rows} />
+        <SharesTable onDelete={setDeleting} shares={rows} />
       </div>
 
       <SharesPagination offset={offset} page={page} total={total} />
+
+      <DeleteShareDialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleting(null);
+          }
+        }}
+        share={deleting}
+      />
     </div>
   );
 }

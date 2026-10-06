@@ -1,7 +1,9 @@
 import {
   keepPreviousData,
   queryOptions,
+  useMutation,
   useQuery,
+  useQueryClient,
 } from "@tanstack/react-query";
 import { api } from "@tessera/api";
 
@@ -33,4 +35,25 @@ export function sharesQueryOptions(offset: number) {
 
 export function useMyShares(offset: number) {
   return useQuery(sharesQueryOptions(offset));
+}
+
+/**
+ * 刪自己的分享。登入者是擁有者就夠,不需要管理 token(那是匿名上傳用的)。
+ * 刪完整個 `["shares", "mine"]` 前綴都失效:總數變了,後面每一頁的內容也會往前補。
+ */
+export function useDeleteMyShare() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (code: string) => {
+      const { error } = await api.DELETE("/api/v1/shares/{code}", {
+        params: { path: { code } },
+      });
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shares", "mine"] });
+    },
+  });
 }

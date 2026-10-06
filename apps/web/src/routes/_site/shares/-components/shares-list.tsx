@@ -4,25 +4,32 @@ import { Link } from "@tanstack/react-router";
 import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 
+import { DeleteShareButton } from "./delete-share-button";
 import { ShareBadges, createDateFormatter } from "./share-fields";
 import type { Share } from "./share-fields";
 
 /**
- * 窄螢幕的版面:一筆一列,整列都是連結。
+ * 窄螢幕的版面:一筆一列,整列都是連結(刪除鈕是列旁邊的獨立按鈕,不能放進 `<a>` 裡)。
  *
  * 表格那邊只有取件碼能點,在手機上那是一個很小的目標;這裡整列都能點,
  * 右邊的箭頭說明它會開到哪裡去。時間欄改成標籤＋值的兩欄,到期放第一個 ——
  * 在手機上回來看清單,多半是想知道哪些還活著。
  */
-export function SharesList({ shares }: { shares: Share[] }) {
+export function SharesList({
+  shares,
+  onDelete,
+}: {
+  shares: Share[];
+  onDelete: (share: Share) => void;
+}) {
   const formatDate = createDateFormatter(getLocale());
 
   return (
     <ul className="divide-y overflow-hidden rounded-lg border">
       {shares.map((share) => (
-        <li key={share.id}>
+        <li className="flex items-center" key={share.id}>
           <Link
-            className="flex items-center gap-3 p-4 outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/60"
+            className="flex min-w-0 flex-1 items-center gap-3 p-4 outline-none transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset active:bg-muted/60"
             params={{ code: share.code }}
             to="/s/$code"
           >
@@ -53,6 +60,9 @@ export function SharesList({ shares }: { shares: Share[] }) {
               size={16}
             />
           </Link>
+          <div className="shrink-0 pr-2">
+            <DeleteShareButton onDelete={onDelete} share={share} />
+          </div>
         </li>
       ))}
     </ul>

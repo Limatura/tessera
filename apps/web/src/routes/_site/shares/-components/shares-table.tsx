@@ -11,11 +11,18 @@ import {
 import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 
+import { DeleteShareButton } from "./delete-share-button";
 import { ShareBadges, createDateFormatter } from "./share-fields";
 import type { Share } from "./share-fields";
 
 /** 寬螢幕的版面。五欄在手機上排不下,窄螢幕改用 `SharesList`。 */
-export function SharesTable({ shares }: { shares: Share[] }) {
+export function SharesTable({
+  shares,
+  onDelete,
+}: {
+  shares: Share[];
+  onDelete: (share: Share) => void;
+}) {
   const formatDate = createDateFormatter(getLocale());
 
   return (
@@ -27,6 +34,7 @@ export function SharesTable({ shares }: { shares: Share[] }) {
           <TableHead>{m.shares_col_created()}</TableHead>
           <TableHead>{m.shares_col_accessed()}</TableHead>
           <TableHead>{m.shares_col_expires()}</TableHead>
+          <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -54,6 +62,9 @@ export function SharesTable({ shares }: { shares: Share[] }) {
               {share.expires_at
                 ? formatDate(share.expires_at)
                 : m.shares_never_expires()}
+            </TableCell>
+            <TableCell>
+              <DeleteShareButton onDelete={onDelete} share={share} />
             </TableCell>
           </TableRow>
         ))}
