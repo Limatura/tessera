@@ -15,7 +15,7 @@ TESSERA_SERVER__PORT=8788 TESSERA_SERVER__DATA_DIR=/tmp/tessera-e2e \
 TESSERA_API_ORIGIN=http://127.0.0.1:8788 pnpm --filter web test:e2e
 ```
 
-CI 是 `.github/workflows/web.yml` 的 `e2e` job:`web` 被動到才跑,每次用空的資料目錄起一台後端,跑 `pnpm turbo run test:e2e --filter=web`,不管成敗都把 `playwright-report/`(含後端 log)上傳成 artifact。
+CI 的 job 寫好在 `.github/workflows/web.yml`(`e2e`),但**目前註解掉**:現在的自架 runner 沒有 Chromium 要的系統函式庫。之後改用 GitHub 的 hosted runner 時再打開,要一起改哪些寫在那段註解上方。
 
 [ref]: https://github.com/nelsonlaidev/nelsonlai.dev
 
@@ -56,6 +56,6 @@ CI 是 `.github/workflows/web.yml` 的 `e2e` job:`web` 被動到才跑,每次用
 
 **要不要分 authenticated / unauthenticated 兩個 project?** 他們用 `projects` + `dependencies` 把登入狀態準備好一次給多個測試共用。這裡大部分功能 (上傳、分享、瀏覽)匿名就能用,所以先寫成單一 project 就好;等真的有多個需要登入的測試再拆。
 
-> 注意:Playwright 的 chromium 需要 `libnspr4`、`libnss3`、`libcups2` 等系統函式庫,缺的話先跑 `playwright install --with-deps chromium`;那份清單沒涵蓋到的發行版(例如 Ubuntu 26.04)就用 `ldd ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | grep "not found"` 看缺什麼,自己 apt 裝。CI 的 job 不跑 `--with-deps`(那要 sudo),缺函式庫時會直接列出來並失敗。
+> 注意:Playwright 的 chromium 需要 `libnspr4`、`libnss3`、`libcups2` 等系統函式庫,缺的話先跑 `playwright install --with-deps chromium`;那份清單沒涵蓋到的發行版(例如 Ubuntu 26.04)就用 `ldd ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | grep "not found"` 看缺什麼,自己 apt 裝。
 >
 > 設定裡的 `channel: "chromium"` 不要拿掉:預設的 chrome-headless-shell 會把 `container-type: inline-size` 底下的 grid 列高算成 0,`CardHeader` 整塊塌掉,所有卡片標題都被判成 hidden。CI 裝的時候也就不能用 `--only-shell`。

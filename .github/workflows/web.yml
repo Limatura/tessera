@@ -34,10 +34,11 @@ jobs:
     timeout-minutes: 30
     if: >-
       github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    # `report` is read by `bundle-size-comment`, `web` by `e2e`.
+    # `report` is read by `bundle-size-comment`. `web` is for the `e2e` job
+    # below, paused until the move to GitHub-hosted runners.
     outputs:
       report: ${{ steps.bundle-size.outputs.report }}
-      web: ${{ steps.affected.outputs.web }}
+      # web: ${{ steps.affected.outputs.web }}
     steps:
       # `fetch-depth: 0` — full history, not the default shallow clone.
       # `--affected` below works by asking git for the merge base against
@@ -176,124 +177,141 @@ jobs:
   # 的 PR 不會跑這條 —— 後端自己的行為由 rust.yml 的測試守;這條守的是前端。
   #
   # `needs: check`:型別或 lint 沒過就不值得花時間編後端、開瀏覽器。
-  e2e:
-    name: e2e
-    runs-on: [self-hosted, Linux, X64]
-    timeout-minutes: 30
-    needs: check
-    if: needs.check.outputs.web == 'true'
-    # 跟 rust.yml 的 workflow-level env 一字不差。同一台 runner 上兩邊共用
-    # `../.cargo-target`,任何一個值不同(flags、profile、features)cargo 就
-    # 認為是另一份產物,兩條 workflow 會互相把對方的快取蓋掉重編。
-    env:
-      CARGO_TERM_COLOR: always
-      CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
-      CARGO_INCREMENTAL: "0"
-      CARGO_BUILD_JOBS: "4"
-      CARGO_PROFILE_DEV_DEBUG: line-tables-only
-      RUSTFLAGS: -D warnings
-      # 固定路徑:被取消的 run 留下的後端,下一次 run 靠它找到並收掉。
-      SERVER_PID_FILE: /tmp/tessera-e2e-server.pid
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      # 自架 runner 上沒人會替被取消的 run 收拾:上一次留下的後端還佔著
-      # :8787 的話,這次的會綁不上去,而測試會打到那台舊的。
-      - name: Stop a server an earlier run left behind
-        run: |
-          if [ -f "$SERVER_PID_FILE" ]; then
-            kill "$(cat "$SERVER_PID_FILE")" 2>/dev/null || true
-            rm -f "$SERVER_PID_FILE"
-          fi
-
-      - uses: ./.github/actions/rust
-
-      # `--all-features` 跟 rust.yml 的 test job 一樣,才吃得到同一份快取。
-      # 不先 build web:`dist` 不存在時 build.rs 放一頁 placeholder,後端照樣編得
-      # 過;頁面由下面 Playwright 起的 vite dev 提供,前端改動不會讓後端重編。
-      - run: cargo build --locked --bin tessera-server --all-features
-
-      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-
-      # 完整 Chromium,不是 `--only-shell`:headless shell 會把
-      # `container-type: inline-size` 底下的 grid 列高算成 0(見 e2e 的 README)。
-      # 瀏覽器在 ~/.cache/ms-playwright,自架 runner 留著,只有換版本時才會真的下載。
-      #
-      # 系統函式庫不用 `--with-deps`:那要 sudo apt,而這台機器裝了什麼不歸
-      # workflow 管。缺的話直接列出來讓人去裝,比 apt 在 job 中途失敗好懂。
-      - name: Install Chromium for Playwright
-        run: |
-          pnpm --filter web exec playwright install chromium
-          chrome=$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | sort -V | tail -1)
-          missing=$(ldd "$chrome" | grep "not found" || true)
-          if [ -n "$missing" ]; then
-            echo "::error::Chromium is missing system libraries; run 'pnpm --filter web exec playwright install-deps chromium' on the runner once"
-            echo "$missing"
-            exit 1
-          fi
-
-      # 每次都是空的資料目錄:測試的斷言不該依賴上一次留下的分享或設定。
-      # 全部預設值 —— 匿名上傳預設就開著,不需要額外設定。
-      - name: Start the server
-        run: |
-          # 下面的健康檢查只看 :8787 有沒有回應,分不出是不是這次起的那台。
-          # 有別的東西已經在答(上一步沒收到的殘留),測試就會打到它,所以先擋。
-          if curl -sf -o /dev/null http://127.0.0.1:8787/api/v1/health; then
-            echo "::error::something is already answering on :8787; stop it before running e2e"
-            exit 1
-          fi
-          data="$RUNNER_TEMP/tessera-e2e"
-          rm -rf "$data" && mkdir -p "$data"
-          TESSERA_SERVER__DATA_DIR="$data" \
-          TESSERA_DATABASE__URL="sqlite://$data/tessera.db" \
-            nohup "$CARGO_TARGET_DIR/debug/tessera-server" > "$RUNNER_TEMP/tessera-e2e-server.log" 2>&1 &
-          echo $! > "$SERVER_PID_FILE"
-          for _ in $(seq 1 60); do
-            if curl -sf -o /dev/null http://127.0.0.1:8787/api/v1/health; then
-              exit 0
-            fi
-            if ! kill -0 "$(cat "$SERVER_PID_FILE")" 2>/dev/null; then
-              echo "::error::tessera-server exited during start-up"
-              cat "$RUNNER_TEMP/tessera-e2e-server.log"
-              exit 1
-            fi
-            sleep 1
-          done
-          echo "::error::tessera-server did not answer /api/v1/health within 60 seconds"
-          cat "$RUNNER_TEMP/tessera-e2e-server.log"
-          exit 1
-
-      # vite dev 由 playwright.config.ts 的 webServer 起,把 /api 代理到上面那台。
-      - run: pnpm turbo run test:e2e --filter=web
-
-      - name: Collect the server log
-        if: ${{ !cancelled() }}
-        run: cp "$RUNNER_TEMP/tessera-e2e-server.log" apps/web/playwright-report/server.log 2>/dev/null || true
-
-      # trace/截圖/錄影只有失敗的測試才留(見 playwright.config.ts),成功時這包很小。
-      - name: Upload the Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: playwright-report
-          path: apps/web/playwright-report/
-          retention-days: 14
-          if-no-files-found: ignore
-
-      - name: Stop the server
-        if: always()
-        run: |
-          if [ -f "$SERVER_PID_FILE" ]; then
-            kill "$(cat "$SERVER_PID_FILE")" 2>/dev/null || true
-            rm -f "$SERVER_PID_FILE"
-          fi
+  # ── 暫停中 ────────────────────────────────────────────────────────────
+  # 現在的自架 runner 沒有 Chromium 要的系統函式庫(libnss3、libnspr4…),
+  # 而這台機器裝什麼不歸 workflow 管。之後改用 GitHub 的 hosted runner 時再打開,
+  # 打開時要一起改的:
+  #
+  # - 取消註解上面 `check` 的 `web` output,這條靠它判斷要不要跑
+  # - `runs-on: ubuntu-latest`
+  # - Chromium 改成 `playwright install --with-deps chromium`(hosted runner 有
+  #   免密碼 sudo),拿掉 ldd 檢查那段
+  # - cargo:hosted runner 每次都是新機器,沒有可共用的 `../.cargo-target`。
+  #   拿掉 CARGO_TARGET_DIR 跟 `./.github/actions/rust`(那是為自架機寫的),
+  #   改用 Swatinem/rust-cache(rust-scheduled.yml 已經 pin 了版本)
+  # - 收殘留後端的那兩步在全新 VM 上用不到,留著無害
+  #
+  # 本機照樣能跑:見 apps/web/src/tests/e2e/README.md。
+  # ──────────────────────────────────────────────────────────────────
+  #
+  # e2e:
+  #   name: e2e
+  #   runs-on: [self-hosted, Linux, X64]
+  #   timeout-minutes: 30
+  #   needs: check
+  #   if: needs.check.outputs.web == 'true'
+  #   # 跟 rust.yml 的 workflow-level env 一字不差。同一台 runner 上兩邊共用
+  #   # `../.cargo-target`,任何一個值不同(flags、profile、features)cargo 就
+  #   # 認為是另一份產物,兩條 workflow 會互相把對方的快取蓋掉重編。
+  #   env:
+  #     CARGO_TERM_COLOR: always
+  #     CARGO_TARGET_DIR: ${{ github.workspace }}/../.cargo-target
+  #     CARGO_INCREMENTAL: "0"
+  #     CARGO_BUILD_JOBS: "4"
+  #     CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  #     RUSTFLAGS: -D warnings
+  #     # 固定路徑:被取消的 run 留下的後端,下一次 run 靠它找到並收掉。
+  #     SERVER_PID_FILE: /tmp/tessera-e2e-server.pid
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #       with:
+  #         persist-credentials: false
+  #
+  #     # 自架 runner 上沒人會替被取消的 run 收拾:上一次留下的後端還佔著
+  #     # :8787 的話,這次的會綁不上去,而測試會打到那台舊的。
+  #     - name: Stop a server an earlier run left behind
+  #       run: |
+  #         if [ -f "$SERVER_PID_FILE" ]; then
+  #           kill "$(cat "$SERVER_PID_FILE")" 2>/dev/null || true
+  #           rm -f "$SERVER_PID_FILE"
+  #         fi
+  #
+  #     - uses: ./.github/actions/rust
+  #
+  #     # `--all-features` 跟 rust.yml 的 test job 一樣,才吃得到同一份快取。
+  #     # 不先 build web:`dist` 不存在時 build.rs 放一頁 placeholder,後端照樣編得
+  #     # 過;頁面由下面 Playwright 起的 vite dev 提供,前端改動不會讓後端重編。
+  #     - run: cargo build --locked --bin tessera-server --all-features
+  #
+  #     - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+  #     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+  #       with:
+  #         node-version: 24
+  #         cache: pnpm
+  #     - run: pnpm install --frozen-lockfile
+  #
+  #     # 完整 Chromium,不是 `--only-shell`:headless shell 會把
+  #     # `container-type: inline-size` 底下的 grid 列高算成 0(見 e2e 的 README)。
+  #     # 瀏覽器在 ~/.cache/ms-playwright,自架 runner 留著,只有換版本時才會真的下載。
+  #     #
+  #     # 系統函式庫不用 `--with-deps`:那要 sudo apt,而這台機器裝了什麼不歸
+  #     # workflow 管。缺的話直接列出來讓人去裝,比 apt 在 job 中途失敗好懂。
+  #     - name: Install Chromium for Playwright
+  #       run: |
+  #         pnpm --filter web exec playwright install chromium
+  #         chrome=$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | sort -V | tail -1)
+  #         missing=$(ldd "$chrome" | grep "not found" || true)
+  #         if [ -n "$missing" ]; then
+  #           echo "::error::Chromium is missing system libraries; run 'pnpm --filter web exec playwright install-deps chromium' on the runner once"
+  #           echo "$missing"
+  #           exit 1
+  #         fi
+  #
+  #     # 每次都是空的資料目錄:測試的斷言不該依賴上一次留下的分享或設定。
+  #     # 全部預設值 —— 匿名上傳預設就開著,不需要額外設定。
+  #     - name: Start the server
+  #       run: |
+  #         # 下面的健康檢查只看 :8787 有沒有回應,分不出是不是這次起的那台。
+  #         # 有別的東西已經在答(上一步沒收到的殘留),測試就會打到它,所以先擋。
+  #         if curl -sf -o /dev/null http://127.0.0.1:8787/api/v1/health; then
+  #           echo "::error::something is already answering on :8787; stop it before running e2e"
+  #           exit 1
+  #         fi
+  #         data="$RUNNER_TEMP/tessera-e2e"
+  #         rm -rf "$data" && mkdir -p "$data"
+  #         TESSERA_SERVER__DATA_DIR="$data" \
+  #         TESSERA_DATABASE__URL="sqlite://$data/tessera.db" \
+  #           nohup "$CARGO_TARGET_DIR/debug/tessera-server" > "$RUNNER_TEMP/tessera-e2e-server.log" 2>&1 &
+  #         echo $! > "$SERVER_PID_FILE"
+  #         for _ in $(seq 1 60); do
+  #           if curl -sf -o /dev/null http://127.0.0.1:8787/api/v1/health; then
+  #             exit 0
+  #           fi
+  #           if ! kill -0 "$(cat "$SERVER_PID_FILE")" 2>/dev/null; then
+  #             echo "::error::tessera-server exited during start-up"
+  #             cat "$RUNNER_TEMP/tessera-e2e-server.log"
+  #             exit 1
+  #           fi
+  #           sleep 1
+  #         done
+  #         echo "::error::tessera-server did not answer /api/v1/health within 60 seconds"
+  #         cat "$RUNNER_TEMP/tessera-e2e-server.log"
+  #         exit 1
+  #
+  #     # vite dev 由 playwright.config.ts 的 webServer 起,把 /api 代理到上面那台。
+  #     - run: pnpm turbo run test:e2e --filter=web
+  #
+  #     - name: Collect the server log
+  #       if: ${{ !cancelled() }}
+  #       run: cp "$RUNNER_TEMP/tessera-e2e-server.log" apps/web/playwright-report/server.log 2>/dev/null || true
+  #
+  #     # trace/截圖/錄影只有失敗的測試才留(見 playwright.config.ts),成功時這包很小。
+  #     - name: Upload the Playwright report
+  #       if: ${{ !cancelled() }}
+  #       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+  #       with:
+  #         name: playwright-report
+  #         path: apps/web/playwright-report/
+  #         retention-days: 14
+  #         if-no-files-found: ignore
+  #
+  #     - name: Stop the server
+  #       if: always()
+  #       run: |
+  #         if [ -f "$SERVER_PID_FILE" ]; then
+  #           kill "$(cat "$SERVER_PID_FILE")" 2>/dev/null || true
+  #           rm -f "$SERVER_PID_FILE"
+  #         fi
 
   # Split out for the same reason `image-size-comment` is split out of
   # `docker` in rust.yml: `check` runs no third-party action that could abuse
