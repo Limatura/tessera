@@ -167,15 +167,15 @@ function CreateInviteForm({
 }
 
 function CreatedInvite({ code, onDone }: { code: string; onDone: () => void }) {
-  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  const link = registerLink(code);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // 不是 https、或使用者拒絕了剪貼簿權限。邀請碼本身還在畫面上，選取複製就行。
+  // 複製失敗就不關：關掉之後邀請碼再也拿不回來，要留在畫面上讓人手動選取。
+  const handleCopyAndClose = async () => {
+    if (await copyText(link)) {
+      onDone();
+    } else {
+      setCopyFailed(true);
     }
   };
 
@@ -186,21 +186,92 @@ function CreatedInvite({ code, onDone }: { code: string; onDone: () => void }) {
         <DialogDescription>{m.invites_created_description()}</DialogDescription>
       </DialogHeader>
 
-      <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 select-all break-all rounded-md bg-muted px-3 py-2 font-mono text-sm">
-          {code}
-        </code>
-        <Button onClick={handleCopy} size="sm" type="button" variant="outline">
-          {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-          {copied ? m.invites_created_copied() : m.invites_created_copy()}
-        </Button>
+      <div className="space-y-4">
+        <CopyField
+          label={m.invites_created_link_label()}
+          onCopyFailed={() => setCopyFailed(true)}
+          value={link}
+        />
+        <CopyField
+          label={m.invites_created_code_label()}
+          onCopyFailed={() => setCopyFailed(true)}
+          value={code}
+        />
       </div>
 
+      {copyFailed && (
+        <p className="text-destructive text-sm" role="alert">
+          {m.invites_created_copy_failed()}
+        </p>
+      )}
+
       <DialogFooter>
-        <Button onClick={onDone} type="button">
-          {m.invites_created_done()}
+        <Button onClick={onDone} type="button" variant="outline">
+          {m.invites_created_close()}
+        </Button>
+        <Button onClick={handleCopyAndClose} type="button">
+          <IconCopy />
+          {m.invites_created_copy_and_close()}
         </Button>
       </DialogFooter>
     </>
   );
+}
+
+function CopyField({
+  label,
+  value,
+  onCopyFailed,
+}: {
+  label: string;
+  value: string;
+  onCopyFailed: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (await copyText(value)) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } else {
+      onCopyFailed();
+    }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      <span className="font-medium text-sm">{label}</span>
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 select-all break-all rounded-md bg-muted px-3 py-2 font-mono text-sm">
+          {value}
+        </code>
+        <Button
+          aria-label={m.invites_created_copy_aria({ label })}
+          onClick={handleCopy}
+          size="icon"
+          type="button"
+          variant="outline"
+        >
+          {copied ? <IconCheck /> : <IconCopy />}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** 註冊頁讀 `?invite=` 預先填好邀請碼，對方點開就能直接註冊。 */
+function registerLink(code: string): string {
+  const url = new URL("/register", window.location.origin);
+  url.searchParams.set("invite", code);
+  return url.toString();
+}
+
+/** 不是 https、或使用者拒絕了剪貼簿權限時回 `false`。 */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
