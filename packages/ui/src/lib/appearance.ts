@@ -48,7 +48,7 @@ export interface SiteAppearance {
 
 /** 三份清單都拿不到值時的最後防線,跟後端 `Config::default()` 相同。 */
 export const FALLBACK_APPEARANCE: SiteAppearance = {
-  accent: "violet",
+  accent: "orange",
   mode: "system",
   theme: "default",
 };
