@@ -8,6 +8,7 @@ import type * as React from "react";
 
 import { ProviderIcon } from "@/components/provider-icon";
 import { SignInAgain } from "@/components/sign-in-again";
+import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import type { Identity } from "@/hooks/use-identity-providers";
 import {
   useIdentities,
@@ -16,10 +17,7 @@ import {
 } from "@/hooks/use-identity-providers";
 import { apiErrorMessage } from "@/lib/api-error";
 import { oidcErrorMessage, startLink } from "@/lib/api/identity-provider";
-import { createDateTimeFormatter } from "@/lib/format";
-import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
-import { useAppearanceStore } from "@/stores/appearance";
 
 import { EmptyBox, Section } from "./section";
 
@@ -44,9 +42,7 @@ export function IdentitiesSection() {
   const providers = useProviders();
   const identities = useIdentities();
   const unlink = useUnlinkIdentity();
-  const timeFormat = useAppearanceStore((state) => state.timeFormat);
-  // locale 一變 root 會 remount，直接讀就好（跟 sessions-section 同一個理由）。
-  const formatDate = createDateTimeFormatter(getLocale(), timeFormat);
+  const formatDate = useDateTimeFormatter();
 
   const handleUnlink = (provider: string) => {
     unlink.mutate(provider, {

@@ -7,12 +7,10 @@ import {
 import { Skeleton } from "@tessera/ui/components/skeleton";
 import { toast } from "@tessera/ui/components/toast";
 
+import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import type { Session } from "@/hooks/use-sessions";
 import { useRevokeSession, useSessions } from "@/hooks/use-sessions";
-import { createDateTimeFormatter } from "@/lib/format";
-import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
-import { useAppearanceStore } from "@/stores/appearance";
 
 import { EmptyBox, Section } from "./section";
 import { SessionRow } from "./session-row";
@@ -24,9 +22,7 @@ import { SessionRow } from "./session-row";
 export function SessionsSection() {
   const sessions = useSessions();
   const revokeOne = useRevokeSession();
-  const timeFormat = useAppearanceStore((state) => state.timeFormat);
-  // locale 一變 root 會 remount,所以直接讀就好(跟 shares-table 同一個理由)。
-  const formatDate = createDateTimeFormatter(getLocale(), timeFormat);
+  const formatDate = useDateTimeFormatter();
 
   const handleRevoke = (id: string) => {
     revokeOne.mutate(id, {

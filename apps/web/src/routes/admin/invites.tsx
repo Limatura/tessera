@@ -24,6 +24,7 @@ import { useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { useInvites } from "@/hooks/admin/use-admin";
 import { useSession } from "@/hooks/use-auth";
+import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
@@ -43,17 +44,6 @@ export const Route = createFileRoute("/admin/invites")({
   component: InvitesComponent,
 });
 
-const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function formatDate(value: string | null | undefined): string {
-  return value
-    ? dateFormatter.format(new Date(value))
-    : m.common_never_expires();
-}
-
 /** 邀請碼本身讀不回來，表格跟撤銷對話框只能靠備註認出是哪一組。 */
 function inviteLabel(invite: Invite): string {
   return invite.note ?? m.invites_unnamed();
@@ -61,6 +51,7 @@ function inviteLabel(invite: Invite): string {
 
 function InvitesComponent() {
   const invites = useInvites();
+  const formatDate = useDateTimeFormatter();
   const { data: account } = useSession();
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<Invite | null>(null);
@@ -125,7 +116,9 @@ function InvitesComponent() {
                       {invite.used} / {invite.max_uses}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {formatDate(invite.expires_at)}
+                      {invite.expires_at
+                        ? formatDate(invite.expires_at)
+                        : m.common_never_expires()}
                     </TableCell>
                     {canRevoke && (
                       <TableCell>

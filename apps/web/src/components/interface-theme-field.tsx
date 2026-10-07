@@ -8,10 +8,9 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@tessera/ui/components/tabs";
 import { useTheme } from "next-themes";
 
+import { useAppearancePreference } from "@/hooks/use-appearance-preference";
 import type { AppearanceMode } from "@/lib/appearance";
 import * as m from "@/paraglide/messages";
-
-import { useAppearancePreference } from "./use-appearance-preference";
 
 /**
  * 明暗。兩邊都要寫:

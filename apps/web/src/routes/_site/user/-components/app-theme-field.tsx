@@ -1,9 +1,8 @@
 import { ThemePicker } from "@tessera/ui/components/theme-picker";
 
+import { useAppearancePreference } from "@/hooks/use-appearance-preference";
 import type { AppTheme } from "@/lib/appearance";
 import * as m from "@/paraglide/messages";
-
-import { useAppearancePreference } from "./use-appearance-preference";
 
 /**
  * 整體色盤。選了就存到伺服器,`AppearanceSync` 會把 `data-theme` 寫回 `<html>`,

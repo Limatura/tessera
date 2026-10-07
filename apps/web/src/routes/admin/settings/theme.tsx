@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Separator } from "@tessera/ui/components/separator";
 
+import { InterfaceThemeField } from "@/components/interface-theme-field";
 import { PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
 import { AppearanceSettingsForm } from "./-components/appearance-settings-form";
-import { InterfaceThemeField } from "./-components/interface-theme-field";
 import { SettingsPage } from "./-components/settings-page";
 
 export const Route = createFileRoute("/admin/settings/theme")({

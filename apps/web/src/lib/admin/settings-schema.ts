@@ -5,6 +5,10 @@ import {
 } from "@tessera/ui/lib/appearance";
 import { z } from "zod";
 
+import {
+  PASSWORD_MAX_CEILING,
+  PASSWORD_MIN_FLOOR,
+} from "@/lib/api/password-policy";
 import * as m from "@/paraglide/messages";
 
 /**
@@ -431,11 +435,8 @@ export type ThrottleSettingsValues = z.infer<typeof throttleSettingsSchema>;
 
 // ---- 密碼與雜湊：auth.password.* / auth.hashing.* / auth.pwned.* ----
 
-/** `auth.password.min_length` 的下限（`PasswordPolicy::FLOOR`）。 */
-export const PASSWORD_MIN_FLOOR = 8;
-
-/** `auth.password.max_length` 的上限（`PasswordPolicy::CEILING`）。 */
-export const PASSWORD_MAX_CEILING = 1024;
+// `auth.password.min_length` 的下限、`auth.password.max_length` 的上限，跟註冊／
+// 改密碼表單驗的是同一組（`PasswordPolicy::FLOOR` / `CEILING`），只定義在一處。
 
 export const passwordSettingsSchema = z
   // oxlint-disable-next-line sort-keys -- 長度規則先，雜湊成本後

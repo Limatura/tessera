@@ -1,9 +1,8 @@
 import { AccentPicker } from "@tessera/ui/components/theme-picker";
 
+import { useAppearancePreference } from "@/hooks/use-appearance-preference";
 import { APPEARANCE_ACCENTS } from "@/lib/appearance";
 import * as m from "@/paraglide/messages";
-
-import { useAppearancePreference } from "./use-appearance-preference";
 
 /**
  * 強調色。色票由 `@tessera/ui` 的 `AccentPicker` 畫,每顆自己帶 `data-accent`

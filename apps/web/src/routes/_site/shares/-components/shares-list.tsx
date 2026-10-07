@@ -1,11 +1,11 @@
 import { IconChevronRight } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 
-import { getLocale } from "@/lib/locale";
+import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import * as m from "@/paraglide/messages";
 
 import { DeleteShareButton } from "./delete-share-button";
-import { ShareBadges, createDateFormatter } from "./share-fields";
+import { ShareBadges } from "./share-fields";
 import type { Share } from "./share-fields";
 
 /**
@@ -22,7 +22,7 @@ export function SharesList({
   shares: Share[];
   onDelete: (share: Share) => void;
 }) {
-  const formatDate = createDateFormatter(getLocale());
+  const formatDate = useDateTimeFormatter();
 
   return (
     <ul className="divide-y overflow-hidden rounded-lg border">
