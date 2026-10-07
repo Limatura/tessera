@@ -15,8 +15,13 @@ services:
     init: true
     ports:
       - "8787:8787"
+    # A named volume, not a directory here. The image runs as `nonroot` (uid
+    # 65532), and a bind-mounted `./data` belongs to whoever made it, or to root
+    # when Docker makes it, so the server could not write its database:
+    # "attempt to write a readonly database". A named volume starts out owned
+    # by the image's `/data`, which `nonroot` can write.
     volumes:
-      - ./data:/data
+      - tessera-data:/data
     environment:
       # Inside a container the loopback address would only be reachable from
       # inside the container.
@@ -27,3 +32,6 @@ services:
     # binary with `--health-check` so the probe reads the same configuration and
     # therefore always targets the port the server actually listens on.
     restart: unless-stopped
+
+volumes:
+  tessera-data:

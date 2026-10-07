@@ -12,7 +12,7 @@
 
 ```bash
 docker build -f apps/server/Dockerfile -t tessera .
-docker run -p 8787:8787 -v ./data:/data tessera
+docker run -p 8787:8787 -v tessera-data:/data tessera
 ```
 
 image 建置時就會把前端一起編譯進去,所以這就是全部步驟——沒有額外階段,主機上除了 Docker 也不用裝任何東西。

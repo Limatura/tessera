@@ -12,7 +12,7 @@ Self-hosted, one binary. The frontend is embedded in it, so there is nothing to 
 
 ```bash
 docker build -f apps/server/Dockerfile -t tessera .
-docker run -p 8787:8787 -v ./data:/data tessera
+docker run -p 8787:8787 -v tessera-data:/data tessera
 ```
 
 The image build compiles the frontend itself, so that is the whole of it — there is no separate step and nothing to install on the host beyond Docker.
