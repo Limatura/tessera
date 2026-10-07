@@ -210,6 +210,8 @@ export function createApiErrorMessage(m: ApiErrorMessages) {
       case "language": {
         return m.api_error_field_language();
       }
+      // 建立邀請碼的 `uses` 跟列表上的 `max_uses` 是同一件事。
+      case "uses":
       case "max_uses": {
         return m.api_error_field_max_uses();
       }
