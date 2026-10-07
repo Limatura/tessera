@@ -6102,3 +6102,52 @@ async fn a_use_limit_past_the_column_is_refused() {
 
     upload(&app, "?max_uses=2147483647", b"hello").await;
 }
+
+/// serde builds a struct from an array too, so a request whose fields are all
+/// optional used to take `[]` as "change nothing". The contract says object.
+#[tokio::test]
+async fn a_request_body_must_be_an_object() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"hello").await;
+    let code = share["code"].as_str().expect("a code");
+    let token = share["management_token"].as_str().expect("a token");
+
+    for body in ["[]", "[null]", "3", "\"x\"", "null"] {
+        let refused = expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/api/v1/shares/{code}"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header("x-share-management-token", token),
+                Body::from(body),
+            )
+            .await,
+            StatusCode::BAD_REQUEST,
+        )
+        .await;
+        assert_eq!(body_json(refused).await["code"], "invalid_body", "{body}");
+    }
+
+    // An object of the wrong shape still says which field.
+    let refused = expect_status(
+        app.send(
+            Request::builder()
+                .method(Method::PATCH)
+                .uri(format!("/api/v1/shares/{code}"))
+                .header(header::CONTENT_TYPE, "application/json")
+                .header("x-share-management-token", token),
+            Body::from(r#"{"max_uses":"many"}"#),
+        )
+        .await,
+        StatusCode::BAD_REQUEST,
+    )
+    .await;
+    let refused = body_json(refused).await;
+    assert!(
+        refused["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("max_uses")),
+        "{refused}"
+    );
+}
