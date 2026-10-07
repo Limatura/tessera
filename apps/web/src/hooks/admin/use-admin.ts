@@ -11,6 +11,7 @@ import type { components } from "@tessera/api/schema";
 type RoleRequest = components["schemas"]["RoleRequest"];
 type BackendRequest = components["schemas"]["BackendRequest"];
 type UpdateBackendRequest = components["schemas"]["UpdateBackendRequest"];
+type CreateInviteRequest = components["schemas"]["CreateInviteRequest"];
 
 export const rolesQueryOptions = queryOptions({
   queryFn: async () => {
@@ -354,6 +355,43 @@ export function useDeleteShare() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ALL_SHARES_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["shares", "mine"] });
+    },
+  });
+}
+
+/** 回應裡的 `code` 只有這一次拿得到 —— server 只存它的雜湊，之後誰都讀不回來。 */
+export function useCreateInvite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: CreateInviteRequest) => {
+      const { data, error } = await api.POST("/api/v1/admin/invites", {
+        body,
+      });
+      if (error) {
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invitesQueryOptions.queryKey });
+    },
+  });
+}
+
+/** 撤銷只是讓邀請碼不能再用，已經靠它註冊的帳號不受影響。 */
+export function useRevokeInvite() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE("/api/v1/admin/invites/{id}", {
+        params: { path: { id } },
+      });
+      if (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: invitesQueryOptions.queryKey });
     },
   });
 }

@@ -2,11 +2,22 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@tessera/api";
 import type { components } from "@tessera/api/schema";
 
-import { sessionQueryOptions } from "@/hooks/use-auth";
+import { sessionQueryOptions, useSession } from "@/hooks/use-auth";
 
 type UpdateAccountRequest = components["schemas"]["UpdateAccountRequest"];
 type DeleteAccountRequest = components["schemas"]["DeleteAccountRequest"];
 type ErrorBody = components["schemas"]["ErrorBody"];
+
+/**
+ * 這個帳號有沒有密碼。只用 GitHub / Discord / OIDC 註冊的沒有,改名、改 email、
+ * 刪帳號、設密碼時不用打目前密碼,改靠「10 分鐘內登入過」確認(#427)。
+ *
+ * 舊版 server 沒這個欄位;那時候每個帳號都要打密碼,所以缺值當有。
+ */
+export function useHasPassword(): boolean {
+  const { data: session } = useSession();
+  return session?.has_password ?? true;
+}
 
 /**
  * 改自己的名稱或 email。回應就是改完的帳號,直接蓋掉 session 快取 ——

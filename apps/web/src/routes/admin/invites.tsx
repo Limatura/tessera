@@ -1,7 +1,11 @@
+import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { createFileRoute } from "@tanstack/react-router";
+import type { components } from "@tessera/api/schema";
 import { Badge } from "@tessera/ui/components/badge";
+import { Button } from "@tessera/ui/components/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -15,12 +19,19 @@ import {
   TableHeader,
   TableRow,
 } from "@tessera/ui/components/table";
+import { useState } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 import { useInvites } from "@/hooks/admin/use-admin";
-import { PERMISSIONS } from "@/lib/admin/permissions";
+import { useSession } from "@/hooks/use-auth";
+import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
+
+import { CreateInviteDialog } from "./invites/-components/create-invite-dialog";
+import { RevokeInviteDialog } from "./invites/-components/revoke-invite-dialog";
+
+type Invite = components["schemas"]["InviteResponse"];
 
 export const Route = createFileRoute("/admin/invites")({
   beforeLoad: ({ context, location }) =>
@@ -43,8 +54,19 @@ function formatDate(value: string | null | undefined): string {
     : m.common_never_expires();
 }
 
+/** 邀請碼本身讀不回來，表格跟撤銷對話框只能靠備註認出是哪一組。 */
+function inviteLabel(invite: Invite): string {
+  return invite.note ?? m.invites_unnamed();
+}
+
 function InvitesComponent() {
   const invites = useInvites();
+  const { data: account } = useSession();
+  const [creating, setCreating] = useState(false);
+  const [revoking, setRevoking] = useState<Invite | null>(null);
+
+  const canCreate = hasPermission(account, PERMISSIONS.invitesCreate);
+  const canRevoke = hasPermission(account, PERMISSIONS.invitesDelete);
 
   return (
     <AdminShell title={m.invites_page_title()}>
@@ -52,6 +74,14 @@ function InvitesComponent() {
         <CardHeader>
           <CardTitle>{m.invites_card_title()}</CardTitle>
           <CardDescription>{m.invites_card_description()}</CardDescription>
+          {canCreate && (
+            <CardAction>
+              <Button onClick={() => setCreating(true)} type="button">
+                <IconPlus />
+                {m.invites_create_button()}
+              </Button>
+            </CardAction>
+          )}
         </CardHeader>
         <CardContent>
           {invites.isPending && (
@@ -62,7 +92,10 @@ function InvitesComponent() {
           {invites.isError && (
             <p className="text-sm text-destructive">{m.invites_load_error()}</p>
           )}
-          {invites.data && (
+          {invites.data?.length === 0 && (
+            <p className="text-sm text-muted-foreground">{m.invites_empty()}</p>
+          )}
+          {invites.data && invites.data.length > 0 && (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -72,13 +105,14 @@ function InvitesComponent() {
                     {m.invites_col_usage()}
                   </TableHead>
                   <TableHead>{m.invites_col_expires()}</TableHead>
+                  {canRevoke && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {invites.data.map((invite) => (
                   <TableRow key={invite.id}>
                     <TableCell className="font-medium">
-                      {invite.note ?? m.common_dash_placeholder()}
+                      {inviteLabel(invite)}
                     </TableCell>
                     <TableCell>
                       <Badge variant={invite.active ? "secondary" : "outline"}>
@@ -93,6 +127,22 @@ function InvitesComponent() {
                     <TableCell className="text-muted-foreground">
                       {formatDate(invite.expires_at)}
                     </TableCell>
+                    {canRevoke && (
+                      <TableCell>
+                        {/* 已失效的也給：撤銷是刪掉這一列，用完次數的不會被自動清掉。 */}
+                        <Button
+                          aria-label={m.invites_revoke_aria({
+                            label: inviteLabel(invite),
+                          })}
+                          onClick={() => setRevoking(invite)}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <IconTrash />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -100,6 +150,21 @@ function InvitesComponent() {
           )}
         </CardContent>
       </Card>
+
+      {canCreate && (
+        <CreateInviteDialog onOpenChange={setCreating} open={creating} />
+      )}
+      {canRevoke && (
+        <RevokeInviteDialog
+          invite={revoking}
+          label={revoking ? inviteLabel(revoking) : ""}
+          onOpenChange={(open) => {
+            if (!open) {
+              setRevoking(null);
+            }
+          }}
+        />
+      )}
     </AdminShell>
   );
 }
