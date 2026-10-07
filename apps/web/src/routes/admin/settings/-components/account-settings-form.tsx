@@ -204,7 +204,9 @@ function DefaultRoleField({
         <SelectTrigger id="account-default-role">
           <SelectValue
             placeholder={m.settings_account_form_default_role_placeholder()}
-          />
+          >
+            {(name: string) => roleLabel(name)}
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>

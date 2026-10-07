@@ -156,7 +156,12 @@ export function SelectField<TValues extends FieldValues>({
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select onValueChange={field.onChange} value={field.value}>
         <SelectTrigger id={id}>
-          <SelectValue placeholder={placeholder} />
+          {/* 觸發按鈕預設顯示 raw value，要換回翻譯過的 label。 */}
+          <SelectValue placeholder={placeholder}>
+            {(value: string) =>
+              options.find((option) => option.value === value)?.label ?? value
+            }
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
