@@ -7,6 +7,7 @@ import { toast } from "@tessera/ui/components/toast";
 import type * as React from "react";
 
 import { ProviderIcon } from "@/components/provider-icon";
+import { SignInAgain } from "@/components/sign-in-again";
 import type { Identity } from "@/hooks/use-identity-providers";
 import {
   useIdentities,
@@ -40,7 +41,6 @@ function errorMessage(error: unknown): string {
  * 一個帳號可以同時綁多家，所以這是清單而不是單選。
  */
 export function IdentitiesSection() {
-  const search = routeApi.useSearch();
   const providers = useProviders();
   const identities = useIdentities();
   const unlink = useUnlinkIdentity();
@@ -62,17 +62,9 @@ export function IdentitiesSection() {
     });
   };
 
-  /*
-   * 綁定失敗時後端把人送回這頁並帶上代碼。放在這一區而不是頁首：這是「剛才按的
-   * 綁定沒成功」，訊息離那顆按鈕愈近愈好。認不得的代碼退回一句通用的。
-   */
-  const linkError = search.oidc_error
-    ? (oidcErrorMessage(search.oidc_error) ?? m.oidc_error_generic())
-    : null;
-
   if (providers.isPending || identities.isPending) {
     return (
-      <IdentitiesShell error={linkError}>
+      <IdentitiesShell>
         <div className="space-y-3">
           <Skeleton className="h-16 w-full" />
           <Skeleton className="h-16 w-full" />
@@ -83,7 +75,7 @@ export function IdentitiesSection() {
 
   if (providers.isError || identities.isError) {
     return (
-      <IdentitiesShell error={linkError}>
+      <IdentitiesShell>
         <p className="text-destructive text-sm">{m.user_identities_error()}</p>
       </IdentitiesShell>
     );
@@ -104,7 +96,7 @@ export function IdentitiesSection() {
 
   if (enabled.length === 0 && orphaned.length === 0) {
     return (
-      <IdentitiesShell error={linkError}>
+      <IdentitiesShell>
         <EmptyBox icon={<IconLink size={20} />}>
           {m.user_identities_none_configured()}
         </EmptyBox>
@@ -113,7 +105,7 @@ export function IdentitiesSection() {
   }
 
   return (
-    <IdentitiesShell error={linkError}>
+    <IdentitiesShell>
       <ul className="space-y-3">
         {enabled.map((provider) => (
           <IdentityRow
@@ -149,19 +141,28 @@ export function IdentitiesSection() {
 /**
  * 標題、說明，還有失敗訊息 —— 三個 return 分支都要，所以抽出來，
  * 免得訊息只在某一種狀態下看得到。
+ *
+ * 綁定失敗時後端把人送回這頁並帶上代碼。放在這一區而不是頁首：這是「剛才按的
+ * 綁定沒成功」，訊息離那顆按鈕愈近愈好。認不得的代碼退回一句通用的。
+ *
+ * `sign_in_again` 不算失敗：綁定要 10 分鐘內登入過（#435），補救是再登入一次，
+ * 所以附上按鈕而不是只給一行紅字。回來後再按一次綁定就會成功。
  */
-function IdentitiesShell({
-  error,
-  children,
-}: {
-  error: string | null;
-  children: React.ReactNode;
-}) {
+function IdentitiesShell({ children }: { children: React.ReactNode }) {
+  const { oidc_error: code } = routeApi.useSearch();
+  const error =
+    code && code !== "sign_in_again"
+      ? (oidcErrorMessage(code) ?? m.oidc_error_generic())
+      : null;
+
   return (
     <Section
       description={m.user_identities_description()}
       title={m.user_identities_title()}
     >
+      {code === "sign_in_again" ? (
+        <SignInAgain message={m.oidc_error_sign_in_again()} />
+      ) : null}
       {error ? (
         <p
           className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm"

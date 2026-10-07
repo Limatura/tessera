@@ -189,7 +189,15 @@ export function LoginForm({
                             : m.auth_sign_in()}
                         </Button>
                       </motion.div>
-                      <ProviderButtons invite={search.invite} />
+                      <ProviderButtons
+                        invite={search.invite}
+                        returnTo={
+                          safeRedirect(
+                            search.redirect,
+                            window.location.origin
+                          ) ?? undefined
+                        }
+                      />
                       {/*
                         註冊關著就不要指一條走不通的路。讀不到 capabilities 時
                         照常顯示 —— 少一個連結比多一個難發現。

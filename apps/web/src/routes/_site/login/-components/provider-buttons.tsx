@@ -14,7 +14,14 @@ import * as m from "@/paraglide/messages";
  * 查詢失敗（含帳號功能關掉時的 404）就什麼都不畫 —— 密碼登入本來就還在，
  * 在這裡擺一句錯誤只會讓人以為整頁壞了。
  */
-export function ProviderButtons({ invite }: { invite?: string }) {
+export function ProviderButtons({
+  invite,
+  returnTo,
+}: {
+  invite?: string;
+  /** 登入成功後要回去的本站路徑，跟密碼登入的 `?redirect=` 是同一個。 */
+  returnTo?: string;
+}) {
   const { data, isPending } = useProviders();
 
   if (isPending) {
@@ -46,7 +53,9 @@ export function ProviderButtons({ invite }: { invite?: string }) {
             <Button
               className="w-full"
               // 導頁而不是送出表單：後端回 303 要瀏覽器自己跟到 provider 去。
-              onClick={() => startSignIn(provider.provider, invite)}
+              onClick={() =>
+                startSignIn(provider.provider, { invite, returnTo })
+              }
               type="button"
               variant="outline"
             >
