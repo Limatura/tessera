@@ -1,10 +1,10 @@
 import { IconAlertCircle, IconLogout, IconRefresh } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useLogout } from "@tessera/auth/hooks";
 import { Button } from "@tessera/ui/components/button";
 import { toast } from "@tessera/ui/components/toast";
 import type * as React from "react";
 
-import { useLogout } from "@/hooks/use-auth";
 import { useRevokeOtherSessions } from "@/hooks/use-sessions";
 import * as m from "@/paraglide/messages";
 

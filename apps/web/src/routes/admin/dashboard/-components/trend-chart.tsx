@@ -22,6 +22,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@tessera/ui/components/toggle-group";
+import { formatBytes, formatNumber } from "@tessera/ui/lib/format";
 import { useState } from "react";
 import {
   Area,
@@ -33,7 +34,6 @@ import {
 } from "recharts";
 
 import { useStats, useStatsHistory } from "@/hooks/admin/use-admin";
-import { formatBytes, formatNumber } from "@/lib/format";
 import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 

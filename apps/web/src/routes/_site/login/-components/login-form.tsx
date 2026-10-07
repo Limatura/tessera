@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
+import { useLogin } from "@tessera/auth/hooks";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -20,7 +21,6 @@ import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import { Controller, useForm } from "react-hook-form";
 
-import { useLogin } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
 import { apiErrorMessage } from "@/lib/api-error";
 import { loginSchema } from "@/lib/api/auth-schema";

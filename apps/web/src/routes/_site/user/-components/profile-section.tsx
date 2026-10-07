@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconDeviceFloppy, IconX } from "@tabler/icons-react";
 import type { components } from "@tessera/api/schema";
+import { useSession } from "@tessera/auth/hooks";
 import { Avatar, AvatarFallback } from "@tessera/ui/components/avatar";
 import { Button } from "@tessera/ui/components/button";
 import {
@@ -19,7 +20,6 @@ import { z } from "zod";
 
 import { SignInAgain } from "@/components/sign-in-again";
 import { useHasPassword, useUpdateAccount } from "@/hooks/use-account";
-import { useSession } from "@/hooks/use-auth";
 import { apiErrorCode, apiErrorMessage } from "@/lib/api-error";
 import { usernameSchema } from "@/lib/api/auth-schema";
 import * as m from "@/paraglide/messages";

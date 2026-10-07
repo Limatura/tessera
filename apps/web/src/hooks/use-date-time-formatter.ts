@@ -1,4 +1,5 @@
-import { createDateTimeFormatter } from "@/lib/format";
+import { createDateTimeFormatter } from "@tessera/ui/lib/format";
+
 import { getLocale } from "@/lib/locale";
 import { useAppearanceStore } from "@/stores/appearance";
 

@@ -2,18 +2,8 @@ import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
 import { buttonVariants } from "@tessera/ui/components/button";
 import { cn } from "@tessera/ui/lib/utils";
-import { z } from "zod";
 
 import * as m from "@/paraglide/messages";
-
-/**
- * 頁碼放 search 而不是路徑,重新整理跟複製網址都會回到同一頁。
- * 用 1-based 的 `page` 而不是 `offset`,網址對人來說才讀得懂。
- */
-export const pageSearchSchema = z.object({
-  // oxlint-disable-next-line promise/prefer-await-to-then -- zod 的 catch,不是 Promise 的
-  page: z.coerce.number().int().min(1).catch(1),
-});
 
 type PagedRoute = "/admin/all-shares" | "/admin/shares" | "/admin/users";
 

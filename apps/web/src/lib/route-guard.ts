@@ -1,7 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { redirect } from "@tanstack/react-router";
-
-import { sessionQueryOptions } from "@/hooks/use-auth";
+import { sessionQueryOptions } from "@tessera/auth/hooks";
 
 /** 強制改密碼時唯一放行的頁面。 */
 export const CHANGE_PASSWORD_PATH = "/change-password";

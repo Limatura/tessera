@@ -1,6 +1,7 @@
 import { IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
+import { useSession } from "@tessera/auth/hooks";
 import { hasPermission, PERMISSIONS } from "@tessera/auth/permissions";
 import {
   AlertDialog,
@@ -25,7 +26,6 @@ import { useState } from "react";
 
 import { SignInAgain } from "@/components/sign-in-again";
 import { useDeleteAccount, useHasPassword } from "@/hooks/use-account";
-import { useSession } from "@/hooks/use-auth";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 

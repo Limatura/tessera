@@ -1,5 +1,6 @@
 import { IconDotsVertical, IconHome, IconLogout } from "@tabler/icons-react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useLogout, useSession } from "@tessera/auth/hooks";
 import {
   Avatar,
   AvatarFallback,
@@ -30,7 +31,6 @@ import {
   useSidebar,
 } from "@tessera/ui/components/sidebar";
 
-import { useLogout, useSession } from "@/hooks/use-auth";
 import { accountRoleLabel, isUnassigned } from "@/lib/admin/permissions";
 import { getLocale, setLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";

@@ -1,10 +1,10 @@
 import { IconLogin2 } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useLogout } from "@tessera/auth/hooks";
 import { Button } from "@tessera/ui/components/button";
 
 import { ProviderIcon } from "@/components/provider-icon";
 import { useHasPassword } from "@/hooks/use-account";
-import { useLogout } from "@/hooks/use-auth";
 import {
   useEnabledProviders,
   useIdentities,

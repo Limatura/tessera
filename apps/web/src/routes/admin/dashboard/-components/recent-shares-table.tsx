@@ -17,12 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@tessera/ui/components/table";
+import { formatBytes } from "@tessera/ui/lib/format";
 
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { useRecentShares } from "@/hooks/admin/use-admin";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { ownerLabel, shareLabel } from "@/lib/admin/admin-shares";
-import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
 
 /**

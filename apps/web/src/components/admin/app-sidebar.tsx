@@ -1,5 +1,4 @@
 import {
-  IconArrowsSort,
   IconDashboard,
   IconDatabase,
   IconFiles,
@@ -10,6 +9,7 @@ import {
   IconUsers,
 } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
+import { useSession } from "@tessera/auth/hooks";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +24,6 @@ import type * as React from "react";
 import type { NavEntry, NavLink } from "@/components/admin/nav-main";
 import { NavMain } from "@/components/admin/nav-main";
 import { NavUser } from "@/components/admin/nav-user";
-import { useSession } from "@/hooks/use-auth";
 import type { Permission } from "@/lib/admin/permissions";
 import { PERMISSIONS, hasPermission } from "@/lib/admin/permissions";
 import * as m from "@/paraglide/messages";
@@ -103,16 +102,6 @@ function navItems(): (NavEntry & { permission?: Permission })[] {
   ];
 }
 
-function devItems() {
-  return [
-    {
-      icon: <IconArrowsSort />,
-      title: m.nav_dnd_demo(),
-      url: "/admin/dnd-demo",
-    },
-  ];
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: account } = useSession();
 
@@ -139,10 +128,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={items} />
-        {/* 開發工具只在 dev 顯示，正式 build 不出現（#370）。 */}
-        {import.meta.env.DEV && (
-          <NavMain items={devItems()} label={m.nav_dev_tools()} />
-        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
+import { useSession } from "@tessera/auth/hooks";
 import { buttonVariants } from "@tessera/ui/components/button";
 import {
   Card,
@@ -12,7 +13,6 @@ import { motion } from "motion/react";
 import { useEffect, useRef } from "react";
 
 import { useConfirmEmailVerification } from "@/hooks/use-account";
-import { useSession } from "@/hooks/use-auth";
 import { apiErrorMessage } from "@/lib/api-error";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";

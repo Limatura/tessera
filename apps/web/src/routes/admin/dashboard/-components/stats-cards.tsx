@@ -12,9 +12,9 @@ import {
   CardTitle,
 } from "@tessera/ui/components/card";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import { formatBytes, formatNumber } from "@tessera/ui/lib/format";
 
 import { useStats } from "@/hooks/admin/use-admin";
-import { formatBytes, formatNumber } from "@/lib/format";
 import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 

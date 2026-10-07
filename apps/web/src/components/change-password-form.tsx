@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { IconDeviceFloppy } from "@tabler/icons-react";
+import { useChangePassword } from "@tessera/auth/hooks";
 import { Button } from "@tessera/ui/components/button";
 import { Field, FieldError, FieldLabel } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
@@ -12,7 +13,6 @@ import { z } from "zod";
 import { PasswordRequirements } from "@/components/password-requirements";
 import { SignInAgain } from "@/components/sign-in-again";
 import { useHasPassword } from "@/hooks/use-account";
-import { useChangePassword } from "@/hooks/use-auth";
 import { usePasswordBreach } from "@/hooks/use-password-breach";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";
 import { apiErrorCode, apiErrorMessage } from "@/lib/api-error";
