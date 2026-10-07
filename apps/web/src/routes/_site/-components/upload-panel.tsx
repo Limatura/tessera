@@ -5,6 +5,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@tessera/ui/components/card";
+import { Skeleton } from "@tessera/ui/components/skeleton";
 import {
   Tabs,
   TabsContent,
@@ -12,7 +13,7 @@ import {
   TabsTrigger,
 } from "@tessera/ui/components/tabs";
 import { AnimatePresence, motion } from "motion/react";
-import { useRef } from "react";
+import { Suspense, lazy, useRef } from "react";
 
 import { GlassBackground } from "@/components/glass-background";
 import type { FileEntry } from "@/lib/upload";
@@ -20,11 +21,20 @@ import { upload } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
 import { BlobBackground } from "./blob-background";
-import { CodeUploadForm } from "./code-upload-form";
 import { LinkUploadForm } from "./link-upload-form";
 import { UploadButton } from "./upload-button";
 import { UploadResult } from "./upload-result";
 import { useSubmitTransition } from "./use-submit-transition";
+
+// 程式碼分頁帶著 CodeMirror(~200KB gzip),但首頁預設停在「檔案」,大部分人
+// 根本不會點過去。拆成獨立 chunk,滑到或 focus 到分頁標籤時才開始抓,點下去
+// 通常已經抓完了。
+const loadCodeUploadForm = () => import("./code-upload-form");
+
+const CodeUploadForm = lazy(async () => {
+  const { CodeUploadForm: component } = await loadCodeUploadForm();
+  return { default: component };
+});
 
 export function UploadPanel() {
   const { status, progress, origin, expanded, result, start, reset } =
@@ -79,7 +89,12 @@ export function UploadPanel() {
                 <TabsTrigger className="flex-1" value="file">
                   {m.upload_tab_file()}
                 </TabsTrigger>
-                <TabsTrigger className="flex-1" value="code">
+                <TabsTrigger
+                  className="flex-1"
+                  onFocus={loadCodeUploadForm}
+                  onPointerEnter={loadCodeUploadForm}
+                  value="code"
+                >
                   {m.upload_tab_code()}
                 </TabsTrigger>
                 <TabsTrigger className="flex-1" value="link">
@@ -98,11 +113,13 @@ export function UploadPanel() {
                 </div>
               </TabsContent>
               <TabsContent className="py-2" value="code">
-                <CodeUploadForm
-                  onSubmit={handleSubmitCode}
-                  progress={progress}
-                  status={status}
-                />
+                <Suspense fallback={<CodeUploadFormSkeleton />}>
+                  <CodeUploadForm
+                    onSubmit={handleSubmitCode}
+                    progress={progress}
+                    status={status}
+                  />
+                </Suspense>
               </TabsContent>
               <TabsContent className="py-2" value="link">
                 <LinkUploadForm
@@ -150,5 +167,21 @@ export function UploadPanel() {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/** 跟 CodeUploadForm 同樣的骨架高度,載完換上去時卡片不會跳。 */
+function CodeUploadFormSkeleton() {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-7 w-32" />
+      </div>
+      <Skeleton className="h-[300px] w-full" />
+      <div className="flex justify-end">
+        <Skeleton className="h-9 w-32" />
+      </div>
+    </div>
   );
 }
