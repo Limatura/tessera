@@ -102,9 +102,18 @@ runs:
     # self-hosted runner is whatever somebody installed on it, and a job that
     # fails with `rustup: command not found` sends the reader to look at the
     # workflow rather than at the machine.
+    #
+    # Look in `~/.cargo/bin` before asking PATH. That is where rustup puts
+    # itself, and the job's PATH does not include it until the
+    # `$GITHUB_PATH` line below has run — so `command -v` alone answered "no
+    # rustup" on a machine that had one, and every job spent about eight
+    # minutes re-running the installer over the top of it (7.5–8.3 min per job
+    # measured on 2026-10-07; the log shows the installer warning about an
+    # existing `~/.rustup/settings.toml`).
     - name: Install rustup if the machine has none
       shell: bash
       run: |
+        export PATH="$HOME/.cargo/bin:$PATH"
         if command -v rustup > /dev/null; then
           echo "rustup is already here"
         else
