@@ -5,6 +5,10 @@ import react from "@vitejs/plugin-react";
 import { visualizer } from "rollup-plugin-visualizer";
 import { defineConfig, lazyPlugins } from "vite-plus";
 
+// dev server 把 API 代理到哪個後端。預設是 `pnpm server:dev` 的 :8787;
+// e2e 想打一台全新的拋棄式後端、又不想停掉手上那台時,設這個指過去。
+const apiOrigin = process.env.TESSERA_API_ORIGIN ?? "http://localhost:8787";
+
 export default defineConfig({
   test: {
     // Vitest v4 compatibility: preserve mock call history.
@@ -50,12 +54,12 @@ export default defineConfig({
     proxy: {
       "/api": {
         changeOrigin: true,
-        target: "http://localhost:8787",
+        target: apiOrigin,
       },
       // 預覽卡片編輯器要用跟 server 畫卡片同一套字型(見 lib/admin/og-renderer.ts)。
       "/fonts": {
         changeOrigin: true,
-        target: "http://localhost:8787",
+        target: apiOrigin,
       },
       // `/s/:code` 本身是客戶端路由（分享頁面），但它連結到的內容
       // ——原始文字檢視和檔案下載——直接由後端提供，在 `/api` 之外
@@ -63,7 +67,7 @@ export default defineConfig({
       // （在生產環境中沒有開發伺服器：兩者都是同一個嵌入二進位檔，這種分割不存在）
       "^/s/[^/]+/(raw|download)": {
         changeOrigin: true,
-        target: "http://localhost:8787",
+        target: apiOrigin,
       },
     },
   },

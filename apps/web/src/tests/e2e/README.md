@@ -7,7 +7,15 @@ pnpm server:dev                    # 先起後端(:8787)
 pnpm --filter web test:e2e         # Playwright 會自己起 vite dev(:3001),已經在跑就沿用
 ```
 
-還沒做的:`turbo.json` 的 `test:e2e` task、CI job(見文末「還要補的三個地方」)。
+不想停掉手上那台後端的話,另外起一台拋棄式的,用 `TESSERA_API_ORIGIN` 把 vite 的代理指過去:
+
+```bash
+TESSERA_SERVER__PORT=8788 TESSERA_SERVER__DATA_DIR=/tmp/tessera-e2e \
+  TESSERA_DATABASE__URL=sqlite:///tmp/tessera-e2e/tessera.db target/debug/tessera-server &
+TESSERA_API_ORIGIN=http://127.0.0.1:8788 pnpm --filter web test:e2e
+```
+
+CI 是 `.github/workflows/web.yml` 的 `e2e` job:`web` 被動到才跑,每次用空的資料目錄起一台後端,跑 `pnpm turbo run test:e2e --filter=web`,不管成敗都把 `playwright-report/`(含後端 log)上傳成 artifact。
 
 [ref]: https://github.com/nelsonlaidev/nelsonlai.dev
 
@@ -48,11 +56,6 @@ pnpm --filter web test:e2e         # Playwright 會自己起 vite dev(:3001),已
 
 **要不要分 authenticated / unauthenticated 兩個 project?** 他們用 `projects` + `dependencies` 把登入狀態準備好一次給多個測試共用。這裡大部分功能 (上傳、分享、瀏覽)匿名就能用,所以先寫成單一 project 就好;等真的有多個需要登入的測試再拆。
 
-## 還要補的
-
-- `turbo.json` 加一個 `test:e2e` task(`"cache": false`,因為會碰真的伺服器)
-- `.github/workflows/web.yml` 加一個 job:裝 Playwright(`--with-deps chromium`,不能 `--only-shell`,原因見下面)、起後端、跑測試,失敗時用 `actions/upload-artifact` 把 `playwright-report/` 存起來(`if: always()`)
-
-> 本機注意:Playwright 的 chromium 需要 `libnspr4`、`libnss3`、`libcups2` 等系統函式庫,缺的話先跑 `playwright install --with-deps chromium`;那份清單沒涵蓋到的發行版(例如 Ubuntu 26.04)就用 `ldd ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | grep "not found"` 看缺什麼,自己 apt 裝。
+> 注意:Playwright 的 chromium 需要 `libnspr4`、`libnss3`、`libcups2` 等系統函式庫,缺的話先跑 `playwright install --with-deps chromium`;那份清單沒涵蓋到的發行版(例如 Ubuntu 26.04)就用 `ldd ~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | grep "not found"` 看缺什麼,自己 apt 裝。CI 的 job 不跑 `--with-deps`(那要 sudo),缺函式庫時會直接列出來並失敗。
 >
 > 設定裡的 `channel: "chromium"` 不要拿掉:預設的 chrome-headless-shell 會把 `container-type: inline-size` 底下的 grid 列高算成 0,`CardHeader` 整塊塌掉,所有卡片標題都被判成 hidden。CI 裝的時候也就不能用 `--only-shell`。

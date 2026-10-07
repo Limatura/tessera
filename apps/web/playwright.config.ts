@@ -9,7 +9,8 @@ export default defineConfig({
   forbidOnly: isCI,
   // CI 上不平行、失敗重試兩次;本機相反,要快。
   fullyParallel: !isCI,
-  reporter: "html",
+  // CI 的 log 要看得到哪條在跑、哪條紅;html 報告另外當 artifact 上傳。
+  reporter: isCI ? [["list"], ["html", { open: "never" }]] : "html",
   retries: isCI ? 2 : 0,
   testDir: "./src/tests/e2e",
   testMatch: "**/*.spec.ts",
