@@ -1378,7 +1378,8 @@ export interface paths {
          *
          *     `400` for a value the instance will not accept, `404` when no share of the
          *     caller's has that code. The same answer as one belonging to another account,
-         *     because telling them apart would confirm which codes exist.
+         *     because telling them apart would confirm which codes exist. `410` when the
+         *     change would revive a share whose content the sweep has already removed.
          */
         patch: operations["update_share"];
         trace?: never;
@@ -2514,7 +2515,7 @@ export interface components {
          *     change, and `details` carries what a translation needs.
          * @enum {string}
          */
-        ErrorCode: "not_found" | "not_signed_in" | "permission_denied" | "session_required" | "password_change_required" | "payload_too_large" | "insufficient_storage" | "range_not_satisfiable" | "too_many_requests" | "scanning" | "unsupported_media_type" | "timeout" | "unavailable" | "internal" | "invalid_body" | "invalid_query" | "invalid_path" | "body_empty" | "body_incomplete" | "body_length_mismatch" | "value_empty" | "value_length" | "value_invalid" | "value_reserved" | "value_out_of_range" | "conflicting_fields" | "invalid_credentials" | "current_password_incorrect" | "reauthentication_required" | "password_breached" | "registration_closed" | "invite_required" | "invite_unusable" | "registration_link_unusable" | "reset_link_unusable" | "verification_link_unusable" | "username_taken" | "email_taken" | "account_exists" | "email_already_verified" | "last_administrator" | "last_sign_in_method" | "unknown_permission" | "role_name_taken" | "builtin_role_immutable" | "share_password_required" | "share_password_incorrect" | "share_expired" | "share_exhausted" | "share_is_file" | "share_encrypted" | "share_password_is_key" | "share_is_text" | "text_too_large" | "code_space_exhausted" | "archive_too_large_for_zip" | "encryption_disabled" | "encryption_invalid" | "upload_offset_mismatch" | "upload_exceeds_length" | "upload_conflict" | "upload_chunk_too_small" | "upload_parts_mismatch" | "upload_not_direct" | "upload_direct_unavailable" | "upload_abandoned" | "resumable_unsupported" | "setting_unknown" | "setting_secret" | "setting_fixed_at_boot" | "setting_invalid" | "confirmation_required" | "provider_insecure" | "provider_unreachable" | "backend_unreachable" | "backend_credential_unreadable" | "backend_in_use" | "invalid_hash_prefix" | "invalid_configuration";
+        ErrorCode: "not_found" | "not_signed_in" | "permission_denied" | "session_required" | "password_change_required" | "payload_too_large" | "insufficient_storage" | "range_not_satisfiable" | "too_many_requests" | "scanning" | "unsupported_media_type" | "timeout" | "unavailable" | "internal" | "invalid_body" | "invalid_query" | "invalid_path" | "body_empty" | "body_incomplete" | "body_length_mismatch" | "value_empty" | "value_length" | "value_invalid" | "value_reserved" | "value_out_of_range" | "conflicting_fields" | "invalid_credentials" | "current_password_incorrect" | "reauthentication_required" | "password_breached" | "registration_closed" | "invite_required" | "invite_unusable" | "registration_link_unusable" | "reset_link_unusable" | "verification_link_unusable" | "username_taken" | "email_taken" | "account_exists" | "email_already_verified" | "last_administrator" | "last_sign_in_method" | "unknown_permission" | "role_name_taken" | "builtin_role_immutable" | "share_password_required" | "share_password_incorrect" | "share_expired" | "share_exhausted" | "share_content_removed" | "share_is_file" | "share_encrypted" | "share_password_is_key" | "share_is_text" | "text_too_large" | "code_space_exhausted" | "archive_too_large_for_zip" | "encryption_disabled" | "encryption_invalid" | "upload_offset_mismatch" | "upload_exceeds_length" | "upload_conflict" | "upload_chunk_too_small" | "upload_parts_mismatch" | "upload_not_direct" | "upload_direct_unavailable" | "upload_abandoned" | "resumable_unsupported" | "setting_unknown" | "setting_secret" | "setting_fixed_at_boot" | "setting_invalid" | "confirmation_required" | "provider_insecure" | "provider_unreachable" | "backend_unreachable" | "backend_credential_unreadable" | "backend_in_use" | "invalid_hash_prefix" | "invalid_configuration";
         /** @description Body of a successful `GET /health`. */
         HealthResponse: {
             /**
@@ -2697,10 +2698,12 @@ export interface components {
             expires_in_minutes?: number | null;
             /**
              * Format: int32
-             * @description How many more times it may be retrieved. `null` means unlimited.
+             * @description How many more times it may be retrieved, counting from now. `null` means
+             *     unlimited.
              *
-             *     Counted against the retrievals it has already had, so lowering this
-             *     below `use_count` retires the share instead of reviving it.
+             *     Not a total: `1` on a share already retrieved three times allows one
+             *     more, the fourth, whoever gets there first. The response's
+             *     `uses_remaining` says the same number back.
              * @example 1
              */
             max_uses?: number | null;
@@ -6589,6 +6592,15 @@ export interface operations {
             };
             /** @description No share of yours has that code */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Its content has already been removed, so it cannot be extended or given more uses */
+            410: {
                 headers: {
                     [name: string]: unknown;
                 };

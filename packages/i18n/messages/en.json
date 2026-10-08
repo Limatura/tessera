@@ -81,6 +81,7 @@
   "api_error_share_password_incorrect": "That isn't this share's password.",
   "api_error_share_expired": "This share has expired.",
   "api_error_share_exhausted": "This share has reached its retrieval limit.",
+  "api_error_share_content_removed": "This share's content has already been removed, so it can't be extended or given more retrievals.",
   "api_error_share_is_file": "This share is a file and can't be opened as text.",
   "api_error_share_encrypted": "This share is end-to-end encrypted and needs its key to open.",
   "api_error_share_password_is_key": "This share's key comes from its password, so the password can't be changed or removed.",

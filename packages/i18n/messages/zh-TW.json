@@ -81,6 +81,7 @@
   "api_error_share_password_incorrect": "分享密碼不正確。",
   "api_error_share_expired": "這個分享已經過期。",
   "api_error_share_exhausted": "這個分享已達取件次數上限。",
+  "api_error_share_content_removed": "這個分享的內容已經被清除，無法再延長期限或增加取件次數。",
   "api_error_share_is_file": "這個分享是檔案，無法以文字開啟。",
   "api_error_share_encrypted": "這個分享經過端對端加密，需要用金鑰開啟。",
   "api_error_share_password_is_key": "這個分享的金鑰由密碼產生，無法變更或移除密碼。",

@@ -81,6 +81,7 @@
   "api_error_share_password_incorrect": "共有のパスワードが違います。",
   "api_error_share_expired": "この共有は期限切れです。",
   "api_error_share_exhausted": "この共有は受け取り回数の上限に達しました。",
+  "api_error_share_content_removed": "この共有の内容はすでに削除されているため、期限の延長や受け取り回数の追加はできません。",
   "api_error_share_is_file": "この共有はファイルのため、テキストとして開けません。",
   "api_error_share_encrypted": "この共有はエンドツーエンド暗号化されているため、開くには鍵が必要です。",
   "api_error_share_password_is_key": "この共有の鍵はパスワードから作られているため、パスワードを変更・削除できません。",
