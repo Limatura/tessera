@@ -1,6 +1,5 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
-import { AdminShell } from "@/components/admin/admin-shell";
 import { PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
@@ -8,10 +7,10 @@ import * as m from "@/paraglide/messages";
 import { SettingsNav } from "./-components/settings-nav";
 
 /**
- * 所有設定分頁共用的外框：左邊分組選單、右邊目前這一頁。
+ * 所有設定分頁共用的版面：左邊分組選單、右邊目前這一頁。側欄外框在上一層
+ * `admin/route.tsx`，這層只管設定自己的選單。
  *
- * 外框放在 layout 而不是每頁自己畫，切換分頁時側欄跟選單不會重新掛載。權限也在這層
- * 擋一次 —— 整組設定都只要 `settings:read`。
+ * 權限也在這層擋一次 —— 整組設定都只要 `settings:read`;標題列也都是「系統設定」。
  */
 export const Route = createFileRoute("/admin/settings")({
   beforeLoad: ({ context, location }) =>
@@ -21,6 +20,7 @@ export const Route = createFileRoute("/admin/settings")({
       PERMISSIONS.settingsRead
     ),
   component: SettingsLayout,
+  staticData: { title: m.settings_page_shell_title },
 });
 
 /**
@@ -29,13 +29,11 @@ export const Route = createFileRoute("/admin/settings")({
  */
 function SettingsLayout() {
   return (
-    <AdminShell title={m.settings_page_shell_title()}>
-      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
-        <SettingsNav />
-        <div className="min-w-0">
-          <Outlet />
-        </div>
+    <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[12rem_minmax(0,1fr)] lg:gap-10">
+      <SettingsNav />
+      <div className="min-w-0">
+        <Outlet />
       </div>
-    </AdminShell>
+    </div>
   );
 }

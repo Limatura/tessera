@@ -21,7 +21,6 @@ import {
 } from "@tessera/ui/components/table";
 import { useState } from "react";
 
-import { AdminShell } from "@/components/admin/admin-shell";
 import { usePermissions, useRoles } from "@/hooks/admin/use-admin";
 import { PERMISSIONS, hasPermission, roleLabel } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
@@ -40,6 +39,7 @@ export const Route = createFileRoute("/admin/roles/")({
       PERMISSIONS.rolesRead
     ),
   component: RolesComponent,
+  staticData: { title: m.roles_page_title },
 });
 
 function RolesComponent() {
@@ -69,7 +69,7 @@ function RolesComponent() {
   };
 
   return (
-    <AdminShell title={m.roles_page_title()}>
+    <>
       <Card className="ring-foreground/10">
         <CardHeader>
           <CardTitle>{m.roles_card_title()}</CardTitle>
@@ -199,6 +199,6 @@ function RolesComponent() {
           role={deleting}
         />
       )}
-    </AdminShell>
+    </>
   );
 }

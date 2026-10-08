@@ -64,7 +64,10 @@ const FLOW_TTL_MINUTES: i64 = 15;
 const SIGN_IN_PAGE: &str = "/login";
 
 /// Where a link attempt is sent when it comes back, signed in already.
-const ACCOUNT_PAGE: &str = "/account";
+///
+/// The web app's account page. `tab` is left off: that page opens on its
+/// account tab by default, which is where the linked identities are listed.
+const ACCOUNT_PAGE: &str = "/user";
 
 /// One provider a sign-in page may offer.
 #[derive(Debug, Serialize, ToSchema)]

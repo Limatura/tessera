@@ -20,7 +20,6 @@ import {
 import { formatBytes } from "@tessera/ui/lib/format";
 import { useState } from "react";
 
-import { AdminShell } from "@/components/admin/admin-shell";
 import { Pager } from "@/components/admin/pager";
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { PAGE_SIZE, useAllShares } from "@/hooks/admin/use-admin";
@@ -32,13 +31,13 @@ import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
-import { DeleteShareDialog } from "./all-shares/-components/delete-share-dialog";
+import { DeleteShareDialog } from "./-components/delete-share-dialog";
 
 /**
  * 全站的分享,用來找出該清掉的東西。跟「我的分享」不同:這裡看不到取件碼 ——
  * 能讀每一份的取件碼等於能打開每一份,那是另一種權力(見 AdminShareResponse)。
  */
-export const Route = createFileRoute("/admin/all-shares")({
+export const Route = createFileRoute("/admin/all-shares/")({
   beforeLoad: ({ context, location }) =>
     requirePermission(
       context.queryClient,
@@ -46,6 +45,7 @@ export const Route = createFileRoute("/admin/all-shares")({
       PERMISSIONS.sharesReadAny
     ),
   component: AllSharesComponent,
+  staticData: { title: m.all_shares_page_title },
   validateSearch: pageSearchSchema,
 });
 
@@ -60,7 +60,7 @@ function AllSharesComponent() {
   const rows = shares.data?.data;
 
   return (
-    <AdminShell title={m.all_shares_page_title()}>
+    <>
       <Card className="ring-foreground/10">
         <CardHeader>
           <CardTitle>{m.all_shares_card_title()}</CardTitle>
@@ -168,6 +168,6 @@ function AllSharesComponent() {
           share={deleting}
         />
       )}
-    </AdminShell>
+    </>
   );
 }

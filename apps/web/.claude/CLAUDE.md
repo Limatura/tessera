@@ -45,7 +45,7 @@ src/
 │   │   ├── s/$code/       # Share link retrieval (unauthenticated access)
 │   │   └── -components/   # Private route-local components (prefix with -)
 │   └── admin/             # The operator console at /admin — see "Admin Panel"
-│       └── route.tsx      # Admin layout: page title only; each page renders its own AdminShell (settings/ has its own layout)
+│       └── route.tsx      # Admin layout: requireAuth + AdminShell; pages set `staticData.title`
 ├── components/            # Shared app components
 │   ├── header.tsx         # Site nav with locale selector and theme toggle
 │   └── admin/             # AdminShell, sidebar, nav, pager — admin only
@@ -208,16 +208,19 @@ The operator console, at `/admin/*`. Its code is kept apart from the site's so t
 
 ```
 routes/admin/
-├── route.tsx               # Layout: admin page title; each page renders AdminShell itself (except settings/, whose own layout does)
+├── route.tsx               # Layout: requireAuth, AdminShell around <Outlet />, header title from staticData
 ├── index.tsx               # No UI — redirects to the first page the account may open
-├── shares.tsx              # The caller's own shares — the fallback landing page, auth only
-├── users.tsx               # Accounts, roles, suspend / delete / end their shares (users:read)
-├── all-shares.tsx          # Every share on the instance, delete any (shares:read:any)
-├── invites.tsx             # Invite codes (invites:read)
+├── users/                  # Accounts, roles, suspend / delete / end their shares (users:read)
+├── all-shares/             # Every share on the instance, delete any (shares:read:any)
+├── invites/                # Invite codes (invites:read)
 ├── dashboard/              # Stats, trends, storage locations, current settings, recent shares (stats:read)
 ├── roles/                  # Roles and what they permit (roles:read)
-└── settings/               # route.tsx = shared layout (AdminShell + grouped nav, gates settings:read once); one route per section; index redirects to site
+└── settings/               # route.tsx = grouped nav layout + sets the title, gates settings:read once; one route per section; index redirects to site
 ```
+
+**Frame and titles**
+
+`AdminShell` (sidebar + header + content padding) is rendered once by `routes/admin/route.tsx`, so moving between admin pages re-renders only the content, never the sidebar. A page does not render `AdminShell`; it sets `staticData: { title: m.some_title }` — the message **function**, not its result, because `staticData` is evaluated once at module load and a string would not follow a locale switch. The header shows the deepest match's title, so settings sub-pages inherit 系統設定 from `settings/route.tsx`. The type is declared on `StaticDataRouteOption` in `main.tsx`.
 
 **Auth and permissions**
 
@@ -225,11 +228,11 @@ The panel has no login page of its own — it is the same SPA, so `requireAuth` 
 
 Authorization reads `permissions` off `/auth/session`. **Never branch on `is_admin`** — the field still exists for older clients but only reports "holds the admin or owner role", not what the account may actually do. `src/lib/admin/permissions.ts` holds the permission strings (mirroring `crates/tessera-core/src/permission.rs`, which is a fixed enum, not a table). `ADMIN_ENTRY_PERMISSIONS` in `@tessera/auth/permissions` decides whether the site Header shows the admin link at all; `LANDING_ORDER` must stay a subset of it.
 
-Every page gates itself in `beforeLoad` via `requireAuth` (`src/lib/route-guard.ts`) or `requirePermission` (`src/lib/admin/route-guard.ts`). Lacking a permission redirects to the first page that account _can_ open rather than showing a 403 — the order lives in `LANDING_ORDER`. An account that can open none is sent back to `/`. The sidebar filters itself by the same permissions, but that is cosmetic: the route guard and the server are what actually enforce anything.
+`routes/admin/route.tsx` requires sign-in for the whole subtree (`requireAuth`, `src/lib/route-guard.ts`); each page then gates its own permission in `beforeLoad` via `requirePermission` (`src/lib/admin/route-guard.ts`), except the settings pages, which share one check in `settings/route.tsx`. Lacking a permission redirects to the first page that account _can_ open rather than showing a 403 — the order lives in `LANDING_ORDER`. An account that can open none is sent back to `/`. The sidebar filters itself by the same permissions, but that is cosmetic: the route guard and the server are what actually enforce anything.
 
 Roles are database rows and one account holds at most one. An empty `roles` array ("未指派") and the seeded `guest` role are both zero permissions, but they mean different things — nobody has decided yet, versus somebody deliberately chose the most restricted role — so the UI must keep them visually distinct.
 
-Admin query keys start with `"admin"`; `main.tsx` gives that prefix a 30-second `staleTime` so moving between admin pages does not refetch everything. "My shares" is shared with the site (`hooks/use-shares.ts`), so both pages read one cache.
+Admin query keys start with `"admin"`; `main.tsx` gives that prefix a 30-second `staleTime` so moving between admin pages does not refetch everything.
 
 **Settings forms ↔ backend config mapping**
 
@@ -249,7 +252,7 @@ Initial values are read once at mount, via `SettingsLoader`, so a background ref
 
 **Settings page building blocks** (all in `routes/admin/settings/-components/`). Use these instead of hand-rolling layout, so every section reads the same:
 
-- `settings/route.tsx` is the only place that renders `AdminShell` and the guard for the subtree. The left nav groups live in `settingsNavGroups()` (`settings-nav.tsx`) — grouped by what an operator wants to change, not by key prefix (`share.default_expiry_hours` sits on the uploads page). Under `lg` the nav collapses into a select. The main sidebar has a single "系統設定" link.
+- `settings/route.tsx` is the guard for the subtree, sets the 系統設定 title, and renders the grouped settings nav beside the `<Outlet />`. The left nav groups live in `settingsNavGroups()` (`settings-nav.tsx`) — grouped by what an operator wants to change, not by key prefix (`share.default_expiry_hours` sits on the uploads page). Under `lg` the nav collapses into a select. The main sidebar has a single "系統設定" link.
 - `SettingsPage` = page title + one-line description; `SettingsCard` = one section with a title, an optional one-line description and an optional header `action`. A page is a stack of cards; one form may span several cards.
 - Fields: `SettingRow` (label + description left, narrow control right, stacks on narrow cards — needs a `FieldGroup` parent for the container query), `NumberField` (takes a `unit`: bytes/kib/seconds/minutes/hours/days/times; shows the unit inside the input and a readable conversion such as "= 7 天"), `NumberInput` (just the input, for two-per-row like throttle counters), `SwitchField`, `SelectField`, `TextField`/`SealedField` (full width — URLs need the room), `SettingsNotice` (info/warning/danger callouts; don't hand-roll amber boxes).
 - `SettingsFormFooter form={form}` is a sticky save bar: status on the left, 捨棄/儲存 on the right, and a `useBlocker` confirm when leaving with unsaved changes. Pass `surface="card"` when the form lives inside a card.
@@ -520,10 +523,11 @@ TanStack Router 檔案已經是這個形狀,照抄即可——`Route` 物件置�
 ```tsx
 export const Route = createFileRoute("/admin/dashboard/")({
   component: DashboardComponent,
+  staticData: { title: m.dashboard_title },
 });
 
 function DashboardComponent() {
-  return <AdminShell title="儀表板">...</AdminShell>;
+  return <StatsCards />;
 }
 ```
 

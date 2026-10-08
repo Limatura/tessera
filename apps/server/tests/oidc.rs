@@ -901,7 +901,7 @@ async fn a_password_account_can_attach_a_provider_and_detach_it() {
     let response = come_back(&app, &provider, &state).await;
     // Already signed in, so no session is issued and the account page is the
     // destination.
-    assert_eq!(location(&response), "/account");
+    assert_eq!(location(&response), "/user");
     assert!(!response.headers().contains_key(header::SET_COOKIE));
 
     let attached = identities(&app, &cookie).await;

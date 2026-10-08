@@ -5,7 +5,7 @@ import { cn } from "@tessera/ui/lib/utils";
 
 import * as m from "@/paraglide/messages";
 
-type PagedRoute = "/admin/all-shares" | "/admin/shares" | "/admin/users";
+type PagedRoute = "/admin/all-shares" | "/admin/users";
 
 /**
  * 上一頁／下一頁用 `Link` 而不是 button,中鍵開新分頁、複製連結都能用,

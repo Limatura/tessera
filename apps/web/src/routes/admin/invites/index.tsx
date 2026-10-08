@@ -22,19 +22,18 @@ import {
 } from "@tessera/ui/components/table";
 import { useState } from "react";
 
-import { AdminShell } from "@/components/admin/admin-shell";
 import { useInvites } from "@/hooks/admin/use-admin";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
-import { CreateInviteDialog } from "./invites/-components/create-invite-dialog";
-import { RevokeInviteDialog } from "./invites/-components/revoke-invite-dialog";
+import { CreateInviteDialog } from "./-components/create-invite-dialog";
+import { RevokeInviteDialog } from "./-components/revoke-invite-dialog";
 
 type Invite = components["schemas"]["InviteResponse"];
 
-export const Route = createFileRoute("/admin/invites")({
+export const Route = createFileRoute("/admin/invites/")({
   beforeLoad: ({ context, location }) =>
     requirePermission(
       context.queryClient,
@@ -42,6 +41,7 @@ export const Route = createFileRoute("/admin/invites")({
       PERMISSIONS.invitesRead
     ),
   component: InvitesComponent,
+  staticData: { title: m.invites_page_title },
 });
 
 /** 邀請碼本身讀不回來，表格跟撤銷對話框只能靠備註認出是哪一組。 */
@@ -60,7 +60,7 @@ function InvitesComponent() {
   const canRevoke = hasPermission(account, PERMISSIONS.invitesDelete);
 
   return (
-    <AdminShell title={m.invites_page_title()}>
+    <>
       <Card className="ring-foreground/10">
         <CardHeader>
           <CardTitle>{m.invites_card_title()}</CardTitle>
@@ -158,6 +158,6 @@ function InvitesComponent() {
           }}
         />
       )}
-    </AdminShell>
+    </>
   );
 }
