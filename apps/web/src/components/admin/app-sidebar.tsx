@@ -1,7 +1,6 @@
 import {
   IconDashboard,
   IconDatabase,
-  IconFiles,
   IconInnerShadowTop,
   IconKey,
   IconSettings,
@@ -51,23 +50,18 @@ function settingsItems(): NavLink[] {
 }
 
 /**
- * `permission` 為 undefined 代表只要登入就看得到。
+ * 後台每一頁都要權限，所以每一項都有 `permission`。
  *
  * 這裡藏起來的項目只是不讓人點進一個會被轉走的頁面，真正的授權是每個路由的
  * `beforeLoad` 加上 server 端的檢查。
  */
-function navItems(): (NavEntry & { permission?: Permission })[] {
+function navItems(): (NavEntry & { permission: Permission })[] {
   return [
     {
       icon: <IconDashboard />,
       permission: PERMISSIONS.statsRead,
       title: m.nav_dashboard(),
       url: "/admin/dashboard",
-    },
-    {
-      icon: <IconFiles />,
-      title: m.nav_my_shares(),
-      url: "/admin/shares",
     },
     {
       icon: <IconUsers />,
@@ -105,8 +99,8 @@ function navItems(): (NavEntry & { permission?: Permission })[] {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { data: account } = useSession();
 
-  const items: NavEntry[] = navItems().filter(
-    (item) => !item.permission || hasPermission(account, item.permission)
+  const items: NavEntry[] = navItems().filter((item) =>
+    hasPermission(account, item.permission)
   );
 
   return (

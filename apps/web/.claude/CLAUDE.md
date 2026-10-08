@@ -210,7 +210,6 @@ The operator console, at `/admin/*`. Its code is kept apart from the site's so t
 routes/admin/
 ├── route.tsx               # Layout: admin page title; each page renders AdminShell itself
 ├── index.tsx               # No UI — redirects to the first page the account may open
-├── shares.tsx              # The caller's own shares — the fallback landing page, auth only
 ├── users.tsx               # Accounts, roles, suspend / delete / end their shares (users:read)
 ├── all-shares.tsx          # Every share on the instance, delete any (shares:read:any)
 ├── invites.tsx             # Invite codes (invites:read)
@@ -229,7 +228,7 @@ Every page gates itself in `beforeLoad` via `requireAuth` (`src/lib/route-guard.
 
 Roles are database rows and one account holds at most one. An empty `roles` array ("未指派") and the seeded `guest` role are both zero permissions, but they mean different things — nobody has decided yet, versus somebody deliberately chose the most restricted role — so the UI must keep them visually distinct.
 
-Admin query keys start with `"admin"`; `main.tsx` gives that prefix a 30-second `staleTime` so moving between admin pages does not refetch everything. "My shares" is shared with the site (`hooks/use-shares.ts`), so both pages read one cache.
+Admin query keys start with `"admin"`; `main.tsx` gives that prefix a 30-second `staleTime` so moving between admin pages does not refetch everything.
 
 **Settings forms ↔ backend config mapping**
 
