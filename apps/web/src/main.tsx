@@ -60,6 +60,11 @@ declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router;
   }
+
+  interface StaticDataRouteOption {
+    /** 後台標題列的文字，見 `routes/admin/route.tsx`。存翻譯函式，切語言才會跟著變。 */
+    title?: () => string;
+  }
 }
 
 const rootElement = document.querySelector("#app");

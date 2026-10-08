@@ -1,8 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { AdminShell } from "@/components/admin/admin-shell";
-import { PERMISSIONS } from "@/lib/admin/permissions";
-import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
 import { OauthProviderCard } from "./-components/oauth-provider-card";
@@ -10,12 +7,6 @@ import { OidcProviderCard } from "./-components/oidc-provider-card";
 import { SettingsLoader } from "./-components/settings-loader";
 
 export const Route = createFileRoute("/admin/settings/auth-providers")({
-  beforeLoad: ({ context, location }) =>
-    requirePermission(
-      context.queryClient,
-      location.href,
-      PERMISSIONS.settingsRead
-    ),
   component: AuthProvidersRoute,
 });
 
@@ -27,29 +18,27 @@ export const Route = createFileRoute("/admin/settings/auth-providers")({
  */
 function AuthProvidersRoute() {
   return (
-    <AdminShell title={m.settings_auth_providers_shell_title()}>
-      <SettingsLoader>
-        {(settings) => (
-          <>
-            <OidcProviderCard settings={settings} />
-            <OauthProviderCard
-              baseUrlHint={m.settings_auth_providers_github_base_url_hint()}
-              description={m.settings_auth_providers_github_description()}
-              provider="auth.github"
-              scopesHint={m.settings_auth_providers_github_scopes_hint()}
-              settings={settings}
-              title={m.settings_auth_providers_github_title()}
-            />
-            <OauthProviderCard
-              description={m.settings_auth_providers_discord_description()}
-              provider="auth.discord"
-              scopesHint={m.settings_auth_providers_discord_scopes_hint()}
-              settings={settings}
-              title={m.settings_auth_providers_discord_title()}
-            />
-          </>
-        )}
-      </SettingsLoader>
-    </AdminShell>
+    <SettingsLoader>
+      {(settings) => (
+        <>
+          <OidcProviderCard settings={settings} />
+          <OauthProviderCard
+            baseUrlHint={m.settings_auth_providers_github_base_url_hint()}
+            description={m.settings_auth_providers_github_description()}
+            provider="auth.github"
+            scopesHint={m.settings_auth_providers_github_scopes_hint()}
+            settings={settings}
+            title={m.settings_auth_providers_github_title()}
+          />
+          <OauthProviderCard
+            description={m.settings_auth_providers_discord_description()}
+            provider="auth.discord"
+            scopesHint={m.settings_auth_providers_discord_scopes_hint()}
+            settings={settings}
+            title={m.settings_auth_providers_discord_title()}
+          />
+        </>
+      )}
+    </SettingsLoader>
   );
 }

@@ -22,7 +22,7 @@ import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import * as m from "@/paraglide/messages";
 
 import { DeleteStorageBackendDialog } from "./delete-storage-backend-dialog";
-import { SettingsCard } from "./settings-page";
+import { SettingsCard } from "./settings-card";
 import { StorageBackendEditorDialog } from "./storage-backend-editor-dialog";
 
 type Backend = components["schemas"]["BackendResponse"];

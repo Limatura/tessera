@@ -21,8 +21,8 @@ import * as m from "@/paraglide/messages";
 import { SealedField, SwitchField, TextField } from "./form-fields";
 import { ProviderCallbackUrls } from "./provider-callback-urls";
 import { ProviderRegistrationNote } from "./provider-registration-note";
+import { SettingsCard } from "./settings-card";
 import { SettingsFormFooter } from "./settings-form-footer";
-import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 

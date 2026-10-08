@@ -15,9 +15,9 @@ import { asNumber } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
 import { NumberField } from "./number-field";
+import { SettingsCard } from "./settings-card";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
-import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
