@@ -9,20 +9,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@tessera/ui/components/dialog";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@tessera/ui/components/field";
+import { Field, FieldGroup, FieldLabel } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
 
 import { ByteLimitField } from "@/components/admin/byte-limit-field";
-import { roleLabel } from "@/lib/admin/permissions";
+import { defaultRoleDescription, roleLabel } from "@/lib/admin/permissions";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";
 
-import { PermissionPicker } from "./permission-picker";
+import { PermissionList, PermissionPicker } from "./permission-picker";
 import { useRoleForm } from "./use-role-form";
 
 type Role = components["schemas"]["RoleResponse"];
@@ -119,7 +114,10 @@ function RoleEditorForm({
             <Input
               id="role-description"
               onChange={(event) => form.setDescription(event.target.value)}
-              placeholder={m.roles_editor_description_placeholder()}
+              placeholder={
+                (role && defaultRoleDescription(role)) ??
+                m.roles_editor_description_placeholder()
+              }
               value={form.description}
             />
           </Field>
@@ -151,18 +149,21 @@ function RoleEditorForm({
 
           <Field>
             <FieldLabel>{m.roles_editor_permissions_label()}</FieldLabel>
-            {form.isSystem && (
-              <FieldDescription>
-                {m.roles_editor_permissions_system_note()}
-              </FieldDescription>
+            {form.isSystem ? (
+              <PermissionList
+                permissions={allPermissions
+                  .map((permission) => permission.name)
+                  .filter((permission) => form.selected.has(permission))}
+              />
+            ) : (
+              <PermissionPicker
+                allPermissions={allPermissions}
+                disabled={form.pending}
+                grantable={grantable}
+                onToggle={form.toggle}
+                selected={form.selected}
+              />
             )}
-            <PermissionPicker
-              allPermissions={allPermissions}
-              frozen={form.isSystem || form.pending}
-              grantable={grantable}
-              onToggle={form.toggle}
-              selected={form.selected}
-            />
           </Field>
 
           {form.blocked && (

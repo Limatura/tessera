@@ -4,6 +4,7 @@ import { useState } from "react";
 import { modeOf, toBytes, toMib } from "@/components/admin/byte-limit-field";
 import type { ByteLimitMode } from "@/components/admin/byte-limit-field";
 import { useCreateRole, useUpdateRole } from "@/hooks/admin/use-admin";
+import { hasDefaultRoleDescription } from "@/lib/admin/permissions";
 
 type Role = components["schemas"]["RoleResponse"];
 type ErrorBody = components["schemas"]["ErrorBody"];
@@ -27,7 +28,11 @@ export function useRoleForm({
   const updateRole = useUpdateRole();
 
   const [name, setName] = useState(role?.name ?? "");
-  const [description, setDescription] = useState(role?.description ?? "");
+  // 內建角色還是後端寫的英文預設說明時，欄位留空、placeholder 顯示翻譯；
+  // 存檔會變成 null，畫面就一直跟著語系顯示（#376）。
+  const [description, setDescription] = useState(
+    role && hasDefaultRoleDescription(role) ? "" : (role?.description ?? "")
+  );
   const [selected, setSelected] = useState<ReadonlySet<string>>(
     new Set(role?.permissions)
   );
