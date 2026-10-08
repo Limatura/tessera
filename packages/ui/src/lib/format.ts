@@ -32,7 +32,8 @@ export function splitBytes(bytes: number): {
 
   return {
     fractionDigits: exponent === 0 ? 0 : 1,
-    unit: BYTE_UNITS[exponent],
+    // exponent 已夾在 0..length-1，`??` 只是讓 noUncheckedIndexedAccess 收窄型別。
+    unit: BYTE_UNITS[exponent] ?? "B",
     value: bytes / BYTES_PER_UNIT ** exponent,
   };
 }
