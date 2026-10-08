@@ -4,9 +4,9 @@ import {
   ChartTooltipContent,
 } from "@tessera/ui/components/chart";
 import type { ChartConfig } from "@tessera/ui/components/chart";
+import { formatBytes } from "@tessera/ui/lib/format";
 import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts";
 
-import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
 
 /** 內容放在哪裡：一個 backend，或資料庫本身。 */

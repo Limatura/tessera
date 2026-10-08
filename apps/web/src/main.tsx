@@ -5,10 +5,10 @@ import {
   QueryClientProvider,
 } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { sessionQueryOptions } from "@tessera/auth/hooks";
 import { Loader } from "@tessera/ui/components/loader";
 import ReactDOM from "react-dom/client";
 
-import { sessionQueryOptions } from "@/hooks/use-auth";
 import { apiErrorCode } from "@/lib/api-error";
 import { CHANGE_PASSWORD_PATH } from "@/lib/route-guard";
 

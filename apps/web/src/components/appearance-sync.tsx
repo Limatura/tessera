@@ -1,7 +1,7 @@
+import { useSession } from "@tessera/auth/hooks";
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
 
-import { useSession } from "@/hooks/use-auth";
 import { usePreferences } from "@/hooks/use-preferences";
 import {
   applyAppearance,

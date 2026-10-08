@@ -1,5 +1,6 @@
 import { IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 import type { components } from "@tessera/api/schema";
+import { useSession } from "@tessera/auth/hooks";
 import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
 import {
@@ -10,15 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@tessera/ui/components/table";
+import { formatBytes } from "@tessera/ui/lib/format";
 import { useState } from "react";
 
 import {
   useSetDefaultStorageBackend,
   useStorageBackends,
 } from "@/hooks/admin/use-admin";
-import { useSession } from "@/hooks/use-auth";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
-import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
 
 import { DeleteStorageBackendDialog } from "./delete-storage-backend-dialog";

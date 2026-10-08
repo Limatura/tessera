@@ -1,8 +1,8 @@
+import { useSession } from "@tessera/auth/hooks";
 import type { DefaultValues, FieldValues, UseFormProps } from "react-hook-form";
 import { useForm } from "react-hook-form";
 
 import { useUpdateSettings } from "@/hooks/admin/use-settings";
-import { useSession } from "@/hooks/use-auth";
 import { PERMISSIONS, hasPermission } from "@/lib/admin/permissions";
 import { apiErrorMessage } from "@/lib/api-error";
 import * as m from "@/paraglide/messages";

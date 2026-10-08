@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useSession } from "@tessera/auth/hooks";
 
 import { AdminShell } from "@/components/admin/admin-shell";
-import { useSession } from "@/hooks/use-auth";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";

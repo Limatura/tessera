@@ -23,7 +23,7 @@ import "../index.css";
 
 /**
  * Carries the QueryClient so route `beforeLoad`/`loader` hooks can read or
- * prefetch query state — e.g. the session query from `@/hooks/use-auth`, to
+ * prefetch query state — e.g. the session query from `@tessera/auth/hooks`, to
  * gate a route on `isAuthenticated` without a separate auth store.
  */
 export interface RouterAppContext {

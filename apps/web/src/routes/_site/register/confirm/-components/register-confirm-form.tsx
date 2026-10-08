@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
+import { useConfirmRegistration } from "@tessera/auth/hooks";
 import { buttonVariants } from "@tessera/ui/components/button";
 import {
   Card,
@@ -12,7 +13,6 @@ import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import { useEffect, useMemo, useRef } from "react";
 
-import { useConfirmRegistration } from "@/hooks/use-auth";
 import { containerVariants, itemVariants } from "@/lib/motion";
 import * as m from "@/paraglide/messages";
 

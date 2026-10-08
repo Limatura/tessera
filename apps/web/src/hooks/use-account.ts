@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@tessera/api";
 import type { components } from "@tessera/api/schema";
-
-import { sessionQueryOptions, useSession } from "@/hooks/use-auth";
+import { sessionQueryOptions, useSession } from "@tessera/auth/hooks";
 
 type UpdateAccountRequest = components["schemas"]["UpdateAccountRequest"];
 type DeleteAccountRequest = components["schemas"]["DeleteAccountRequest"];

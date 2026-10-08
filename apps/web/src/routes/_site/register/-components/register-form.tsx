@@ -1,5 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, getRouteApi, useNavigate } from "@tanstack/react-router";
+import { useRegister } from "@tessera/auth/hooks";
 import { Button, buttonVariants } from "@tessera/ui/components/button";
 import {
   Card,
@@ -22,7 +23,6 @@ import { useMemo, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { PasswordRequirements } from "@/components/password-requirements";
-import { useRegister } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
 import { usePasswordBreach } from "@/hooks/use-password-breach";
 import { usePasswordPolicy } from "@/hooks/use-password-policy";

@@ -25,13 +25,12 @@ The app is embedded in the Rust backend binary and served from it — there is n
 - **Zustand** for state management
 - **React Hook Form** + **Zod** for form validation
 - **QRCode** for share link generation
-- **TanStack Table**, **Recharts** (via `@tessera/ui/components/chart`), **dnd-kit** — admin panel only; route-level code splitting keeps them out of the site's bundle
+- **Recharts** (via `@tessera/ui/components/chart`) — admin panel only; route-level code splitting keeps it out of the site's bundle
 
 ### Related Packages
 
 - `@tessera/ui` — shared shadcn/ui component library
 - `@tessera/i18n` — i18n utilities and message definitions
-- `@tessera/env` — environment variable schemas
 
 ## Project Structure
 
@@ -217,8 +216,7 @@ routes/admin/
 ├── invites.tsx             # Invite codes (invites:read)
 ├── dashboard/              # Stats, trends, storage locations, current settings, recent shares (stats:read)
 ├── roles/                  # Roles and what they permit (roles:read)
-├── settings/               # One route per section, all gated on settings:read; index redirects to account
-└── dnd-demo/               # Dev-only scratch route
+└── settings/               # One route per section, all gated on settings:read; index redirects to account
 ```
 
 **Auth and permissions**
@@ -259,10 +257,9 @@ Several of these keys break an instance quietly rather than loudly, so the forms
 
 1. **Trends come from `GET /admin/stats/history`** (#410/#411): one entry per UTC day, recorded by the hourly sweep from the day that version was deployed, and a day the server was down has no entry. `routes/admin/dashboard/-components/trend-series.ts` fills those gaps with `null` so the chart breaks instead of drawing a straight line through them, and starts at the first recorded day rather than padding the requested range. Each metric (storage / shares / traffic) is its own chart with one y-axis — never put bytes and counts on two axes. Charts use `--primary` for the series that matters and `--muted-foreground` for context: the design system's `--chart-*` tokens are greys and cannot serve as categorical colours
 2. **Dropped for having no backend key**: the 網站資訊 section (site title/description/SEO keywords, admin-entry-on-home) and `upload.allowedFileTypes`. Do not re-add them as editable fields until `settings::keys()` actually lists them — `site.title`/`site.description` are tracked in #278; the other three are a deliberate no, with reasons, in #279.
-3. **dnd-demo route** is a scratch/demo route, shown only in dev: the sidebar hides it and the route redirects to `/admin` in a production build
-4. **Account state comes from `AdminUserResponse.state`** (`active` / `disabled` / `deleted`). The users page offers 停用 or 重新啟用 depending on it and badges suspended accounts; `isDeletedAccount` reads it too. Only `owner_username` on the all-shares page, which carries no state, still falls back to the `gone-` prefix (`isDeletedUsername` in `src/lib/admin/accounts.ts`). Never send `is_admin` on `PATCH /admin/users/{id}` unless changing it — it rewrites the role (`true` → owner, `false` → none)
-5. **Remaining editable keys with no form** — `storage.split_across_backends`, `storage.reconcile_interval_hours`, `storage.reconcile_grace_hours`. Everything else `settings::keys()` offers is now wired. `split_across_backends` needs its own explanatory copy before it ships: turning it on lets a file exceed any single backend, but a split file has no direct download, so the bytes go through this server or are stitched in the browser. Where files actually live is not a `settings::keys()` key at all any more — each backend is a row in `storage_backends`, managed through `/admin/storage/backends` (`StorageBackendsCard` in `storage.tsx`), not through `PUT /admin/settings`. `storage.url`, `storage.capacity_bytes` (now per-backend `capacity_bytes`), and `storage.options` (now per-backend `options`) no longer exist as settings keys.
-6. **No section uses tabs any more.** Each is its own route under the collapsible sidebar group. Add tabs back only when a single section grows enough sub-detail to need them (`auth.hashing.*` and the seven `auth.throttle.*` groups would be the first candidates, under 帳號與註冊)
+3. **Account state comes from `AdminUserResponse.state`** (`active` / `disabled` / `deleted`). The users page offers 停用 or 重新啟用 depending on it and badges suspended accounts; `isDeletedAccount` reads it too. Only `owner_username` on the all-shares page, which carries no state, still falls back to the `gone-` prefix (`isDeletedUsername` in `src/lib/admin/accounts.ts`). Never send `is_admin` on `PATCH /admin/users/{id}` unless changing it — it rewrites the role (`true` → owner, `false` → none)
+4. **Remaining editable keys with no form** — `storage.split_across_backends`, `storage.reconcile_interval_hours`, `storage.reconcile_grace_hours`. Everything else `settings::keys()` offers is now wired. `split_across_backends` needs its own explanatory copy before it ships: turning it on lets a file exceed any single backend, but a split file has no direct download, so the bytes go through this server or are stitched in the browser. Where files actually live is not a `settings::keys()` key at all any more — each backend is a row in `storage_backends`, managed through `/admin/storage/backends` (`StorageBackendsCard` in `storage.tsx`), not through `PUT /admin/settings`. `storage.url`, `storage.capacity_bytes` (now per-backend `capacity_bytes`), and `storage.options` (now per-backend `options`) no longer exist as settings keys.
+5. **No section uses tabs any more.** Each is its own route under the collapsible sidebar group. Add tabs back only when a single section grows enough sub-detail to need them (`auth.hashing.*` and the seven `auth.throttle.*` groups would be the first candidates, under 帳號與註冊)
 
 ## Performance & Accessibility
 

@@ -1,4 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { PasswordResetRequestError } from "@tessera/auth/hooks";
+import { useRequestPasswordReset } from "@tessera/auth/hooks";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -19,8 +21,6 @@ import { cn } from "@tessera/ui/lib/utils";
 import { motion } from "motion/react";
 import { Controller, useForm } from "react-hook-form";
 
-import type { PasswordResetRequestError } from "@/hooks/use-auth";
-import { useRequestPasswordReset } from "@/hooks/use-auth";
 import { useCapabilities } from "@/hooks/use-capabilities";
 import { apiErrorMessage } from "@/lib/api-error";
 import type { ForgotPasswordFormValues } from "@/lib/api/auth-schema";

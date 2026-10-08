@@ -7,6 +7,7 @@ import {
   IconTrashX,
 } from "@tabler/icons-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useSession } from "@tessera/auth/hooks";
 import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
 import {
@@ -39,16 +40,16 @@ import { useState } from "react";
 import { z } from "zod";
 
 import { AdminShell } from "@/components/admin/admin-shell";
-import { Pager, pageSearchSchema } from "@/components/admin/pager";
+import { Pager } from "@/components/admin/pager";
 import {
   PAGE_SIZE,
   useRoles,
   useSetUserState,
   useUsers,
 } from "@/hooks/admin/use-admin";
-import { useSession } from "@/hooks/use-auth";
 import type { AdminUser } from "@/lib/admin/accounts";
 import { isDeletedAccount } from "@/lib/admin/accounts";
+import { pageSearchSchema } from "@/lib/admin/page-search";
 import {
   accountRoleLabel,
   hasPermission,

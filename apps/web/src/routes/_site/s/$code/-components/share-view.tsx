@@ -11,6 +11,7 @@ import {
 import { Field, FieldError, FieldGroup } from "@tessera/ui/components/field";
 import { Input } from "@tessera/ui/components/input";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import { formatBytes } from "@tessera/ui/lib/format";
 import {
   Download,
   ExternalLink,
@@ -29,7 +30,6 @@ import { useEffect, useState } from "react";
 
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { buildTransferUrl, useShare, useShareTicket } from "@/lib/api/share";
-import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
 import { resolveFilePreview } from "@/routes/_site/s/$code/-components/file-previews/registry";
 import type { FilePreviewComponent } from "@/routes/_site/s/$code/-components/file-previews/types";

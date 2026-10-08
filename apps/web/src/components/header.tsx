@@ -1,5 +1,6 @@
 import { IconLogin } from "@tabler/icons-react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useSession, useLogout } from "@tessera/auth/hooks";
 import { canAccessAdmin } from "@tessera/auth/permissions";
 import { AnimatedThemeToggler } from "@tessera/ui/components/animated-theme-toggler";
 import {
@@ -25,7 +26,6 @@ import {
 import { cn } from "@tessera/ui/lib/utils";
 
 import { Logo } from "@/components/logo";
-import { useSession, useLogout } from "@/hooks/use-auth";
 import { getLocale, setLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";

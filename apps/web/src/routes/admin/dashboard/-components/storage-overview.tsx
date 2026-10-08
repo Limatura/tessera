@@ -11,11 +11,11 @@ import {
   CardTitle,
 } from "@tessera/ui/components/card";
 import { Skeleton } from "@tessera/ui/components/skeleton";
+import { formatBytes } from "@tessera/ui/lib/format";
 import type { ReactNode } from "react";
 
 import { useStats, useStorageBackends } from "@/hooks/admin/use-admin";
 import { readSetting, useSettings } from "@/hooks/admin/use-settings";
-import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
 
 import { StorageLocationChart } from "./storage-location-chart";

@@ -1,5 +1,6 @@
 import { IconTrash } from "@tabler/icons-react";
 import { createFileRoute } from "@tanstack/react-router";
+import { useSession } from "@tessera/auth/hooks";
 import { Button } from "@tessera/ui/components/button";
 import {
   Card,
@@ -16,19 +17,19 @@ import {
   TableHeader,
   TableRow,
 } from "@tessera/ui/components/table";
+import { formatBytes } from "@tessera/ui/lib/format";
 import { useState } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
-import { Pager, pageSearchSchema } from "@/components/admin/pager";
+import { Pager } from "@/components/admin/pager";
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { PAGE_SIZE, useAllShares } from "@/hooks/admin/use-admin";
-import { useSession } from "@/hooks/use-auth";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { ownerLabel, shareLabel } from "@/lib/admin/admin-shares";
 import type { AdminShare } from "@/lib/admin/admin-shares";
+import { pageSearchSchema } from "@/lib/admin/page-search";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
-import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
 
 import { DeleteShareDialog } from "./all-shares/-components/delete-share-dialog";

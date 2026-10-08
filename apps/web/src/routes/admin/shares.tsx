@@ -17,8 +17,9 @@ import {
 } from "@tessera/ui/components/table";
 
 import { AdminShell } from "@/components/admin/admin-shell";
-import { Pager, pageSearchSchema } from "@/components/admin/pager";
+import { Pager } from "@/components/admin/pager";
 import { SHARES_PAGE_SIZE, useMyShares } from "@/hooks/use-shares";
+import { pageSearchSchema } from "@/lib/admin/page-search";
 import { requireAuth } from "@/lib/route-guard";
 import * as m from "@/paraglide/messages";
 

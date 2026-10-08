@@ -1,6 +1,7 @@
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { createFileRoute } from "@tanstack/react-router";
 import type { components } from "@tessera/api/schema";
+import { useSession } from "@tessera/auth/hooks";
 import { Badge } from "@tessera/ui/components/badge";
 import { Button } from "@tessera/ui/components/button";
 import {
@@ -23,7 +24,6 @@ import { useState } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
 import { useInvites } from "@/hooks/admin/use-admin";
-import { useSession } from "@/hooks/use-auth";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
