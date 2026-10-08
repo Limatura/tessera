@@ -23,6 +23,7 @@ import { Pager, pageSearchSchema } from "@/components/admin/pager";
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { PAGE_SIZE, useAllShares } from "@/hooks/admin/use-admin";
 import { useSession } from "@/hooks/use-auth";
+import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { ownerLabel, shareLabel } from "@/lib/admin/admin-shares";
 import type { AdminShare } from "@/lib/admin/admin-shares";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
@@ -47,15 +48,11 @@ export const Route = createFileRoute("/admin/all-shares")({
   validateSearch: pageSearchSchema,
 });
 
-const dateFormatter = new Intl.DateTimeFormat("zh-TW", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 function AllSharesComponent() {
   const { page } = Route.useSearch();
   const shares = useAllShares((page - 1) * PAGE_SIZE);
   const { data: account } = useSession();
+  const formatDate = useDateTimeFormatter();
   const [deleting, setDeleting] = useState<AdminShare | null>(null);
 
   const canDelete = hasPermission(account, PERMISSIONS.sharesDeleteAny);
@@ -123,7 +120,7 @@ function AllSharesComponent() {
                       {formatBytes(share.bytes_served)}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {dateFormatter.format(new Date(share.created_at))}
+                      {formatDate(share.created_at)}
                     </TableCell>
                     <TableCell>
                       <ShareStatusBadge status={share.status} />

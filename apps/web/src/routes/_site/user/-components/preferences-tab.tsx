@@ -14,6 +14,7 @@ import {
 } from "@tessera/ui/components/select";
 import { Separator } from "@tessera/ui/components/separator";
 
+import { InterfaceThemeField } from "@/components/interface-theme-field";
 import { getLocale, setLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 import { locales } from "@/paraglide/runtime.js";
@@ -23,7 +24,6 @@ import { useAppearanceStore } from "@/stores/appearance";
 
 import { AccentColorField } from "./accent-color-field";
 import { AppThemeField } from "./app-theme-field";
-import { InterfaceThemeField } from "./interface-theme-field";
 
 const LOCALE_LABELS: Record<Locale, string> = {
   en: "English",

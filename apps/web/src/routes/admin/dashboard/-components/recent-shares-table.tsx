@@ -20,9 +20,9 @@ import {
 
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { useRecentShares } from "@/hooks/admin/use-admin";
+import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { ownerLabel, shareLabel } from "@/lib/admin/admin-shares";
-import { createDateTimeFormatter, formatBytes } from "@/lib/format";
-import { getLocale } from "@/lib/locale";
+import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
 
 /**
@@ -31,7 +31,7 @@ import * as m from "@/paraglide/messages";
  */
 export function RecentSharesTable() {
   const shares = useRecentShares();
-  const formatDate = createDateTimeFormatter(getLocale(), "auto");
+  const formatDate = useDateTimeFormatter();
   const rows = shares.data?.data;
 
   return (

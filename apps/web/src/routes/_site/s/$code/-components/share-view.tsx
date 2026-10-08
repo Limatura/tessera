@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import { buildTransferUrl, useShare, useShareTicket } from "@/lib/api/share";
 import { formatBytes } from "@/lib/format";
 import * as m from "@/paraglide/messages";
@@ -400,6 +401,7 @@ function ShareMeta({
   sizeBytes?: number | null;
   usesRemaining?: number | null;
 }) {
+  const formatDate = useDateTimeFormatter();
   const parts = [
     sizeBytes === null || sizeBytes === undefined
       ? null
@@ -408,7 +410,7 @@ function ShareMeta({
       ? m.share_uses_unlimited()
       : m.share_uses_remaining({ count: usesRemaining }),
     expiresAt
-      ? m.share_expires_at({ date: new Date(expiresAt).toLocaleString() })
+      ? m.share_expires_at({ date: formatDate(expiresAt) })
       : m.share_never_expires(),
   ].filter(Boolean);
 

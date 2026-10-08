@@ -17,16 +17,6 @@ export function ShareBadges({ share }: { share: Share }) {
   );
 }
 
-/** 跟著介面語言走,不是寫死 zh-TW。locale 一變 root 會 remount,所以呼叫端直接讀 `getLocale()` 就好。 */
-export function createDateFormatter(locale: string) {
-  const formatter = new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
-  return (value: string | null | undefined) =>
-    value ? formatter.format(new Date(value)) : "—";
-}
-
 /** API 的 `kind` 是英文代碼,顯示前翻成介面語言;未知值原樣顯示,後端加新類型時不會空白。 */
 function shareKindLabel(kind: string): string {
   switch (kind) {

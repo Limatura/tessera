@@ -6,13 +6,13 @@ import { Controller } from "react-hook-form";
 import { readSetting } from "@/hooks/admin/use-settings";
 import { useSettingsForm } from "@/hooks/admin/use-settings-form";
 import type { SettingsKeyMap } from "@/hooks/admin/use-settings-form";
+import { passwordSettingsSchema } from "@/lib/admin/settings-schema";
+import type { PasswordSettingsValues } from "@/lib/admin/settings-schema";
+import { asBoolean, asNumber, asString } from "@/lib/admin/settings-values";
 import {
   PASSWORD_MAX_CEILING,
   PASSWORD_MIN_FLOOR,
-  passwordSettingsSchema,
-} from "@/lib/admin/settings-schema";
-import type { PasswordSettingsValues } from "@/lib/admin/settings-schema";
-import { asBoolean, asNumber, asString } from "@/lib/admin/settings-values";
+} from "@/lib/api/password-policy";
 import * as m from "@/paraglide/messages";
 
 import { SwitchField, TextField } from "./form-fields";
