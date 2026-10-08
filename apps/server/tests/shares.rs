@@ -6235,3 +6235,88 @@ async fn a_lifetime_in_minutes_has_the_same_bounds() {
     let both = refuse("?expires_in_minutes=30&expires_in_hours=1".to_owned()).await;
     assert_eq!(both["code"], "conflicting_fields");
 }
+
+/// `PATCH max_uses` counts from now. Switching on burn-after-reading as `1` for
+/// a share already opened once used to set the total to 1, retiring it on the
+/// spot before the recipient saw it.
+#[tokio::test]
+async fn max_uses_counts_from_now() {
+    let app = TestApp::ready().await;
+    let share = upload(&app, "", b"hello").await;
+    let code = share["code"].as_str().expect("a code").to_owned();
+    let token = share["management_token"]
+        .as_str()
+        .expect("a token")
+        .to_owned();
+    expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+
+    let patched = body_json(
+        expect_status(
+            app.send(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/api/v1/shares/{code}"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header("x-share-management-token", &token),
+                Body::from(r#"{"max_uses": 1}"#),
+            )
+            .await,
+            StatusCode::OK,
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(patched["uses_remaining"], 1);
+    assert_eq!(patched["use_count"], 1);
+
+    // One more, then it is used up.
+    expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::OK).await;
+    expect_status(app.get(&format!("/s/{code}/raw")).await, StatusCode::GONE).await;
+}
+
+/// Once the sweep has removed what a dead share held, extending it or lifting
+/// its limit would make a live link to nothing. Refused instead.
+#[tokio::test]
+async fn a_share_whose_content_was_removed_cannot_be_revived() {
+    let app = TestApp::ready().await;
+    for (query, body) in [
+        ("?max_uses=1", &b"a note"[..]),
+        ("?max_uses=1&filename=a.bin", b"a file"),
+    ] {
+        let share = upload(&app, query, body).await;
+        let code = share["code"].as_str().expect("a code").to_owned();
+        let token = share["management_token"]
+            .as_str()
+            .expect("a token")
+            .to_owned();
+        let route = if query.contains("filename") {
+            "download"
+        } else {
+            "raw"
+        };
+        expect_status(app.get(&format!("/s/{code}/{route}")).await, StatusCode::OK).await;
+        tessera_server::maintenance::sweep_once(&app.state, OffsetDateTime::now_utc()).await;
+
+        let patch = async |body: &'static str| {
+            app.send(
+                Request::builder()
+                    .method(Method::PATCH)
+                    .uri(format!("/api/v1/shares/{code}"))
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .header("x-share-management-token", &token),
+                Body::from(body),
+            )
+            .await
+        };
+        for change in [
+            r#"{"max_uses": null}"#,
+            r#"{"max_uses": 3}"#,
+            r#"{"expires_in_hours": 24}"#,
+            r#"{"expires_in_minutes": 30}"#,
+        ] {
+            let refused =
+                body_json(expect_status(patch(change).await, StatusCode::GONE).await).await;
+            assert_eq!(refused["code"], "share_content_removed", "{query} {change}");
+        }
+    }
+}

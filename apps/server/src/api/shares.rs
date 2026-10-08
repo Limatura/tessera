@@ -871,10 +871,12 @@ pub struct PatchShareRequest {
     #[schema(value_type = Option<u64>, example = 30)]
     pub expires_in_minutes: Patch<u64>,
 
-    /// How many more times it may be retrieved. `null` means unlimited.
+    /// How many more times it may be retrieved, counting from now. `null` means
+    /// unlimited.
     ///
-    /// Counted against the retrievals it has already had, so lowering this
-    /// below `use_count` retires the share instead of reviving it.
+    /// Not a total: `1` on a share already retrieved three times allows one
+    /// more, the fourth, whoever gets there first. The response's
+    /// `uses_remaining` says the same number back.
     #[serde(default, deserialize_with = "patched")]
     #[schema(value_type = Option<u32>, example = 1)]
     pub max_uses: Patch<u32>,
@@ -907,7 +909,8 @@ pub struct PatchShareRequest {
 ///
 /// `400` for a value the instance will not accept, `404` when no share of the
 /// caller's has that code. The same answer as one belonging to another account,
-/// because telling them apart would confirm which codes exist.
+/// because telling them apart would confirm which codes exist. `410` when the
+/// change would revive a share whose content the sweep has already removed.
 #[utoipa::path(
     patch,
     path = "/shares/{code}",
@@ -924,6 +927,7 @@ pub struct PatchShareRequest {
         (status = 400, description = "A setting the instance will not accept", body = crate::error::ErrorBody),
         (status = 401, description = "Not signed in", body = crate::error::ErrorBody),
         (status = 404, description = "No share of yours has that code", body = crate::error::ErrorBody),
+        (status = 410, description = "Its content has already been removed, so it cannot be extended or given more uses", body = crate::error::ErrorBody),
     ),
     security((), ("session" = []), ("bearer" = [])),
 )]
@@ -974,6 +978,16 @@ pub async fn patch(
         ));
     }
 
+    // A share whose content the sweep removed is finished. Extending it or
+    // lifting its limit would make a live link to nothing: the visitor gets
+    // past the gate and then finds no bytes.
+    let reviving = body.expires_in_hours.is_some()
+        || body.expires_in_minutes.is_some()
+        || body.max_uses.is_some();
+    if reviving && state.shares.content_of(&share).await?.is_removed() {
+        return Err(Error::new(ErrorCode::ShareContentRemoved));
+    }
+
     let now = OffsetDateTime::now_utc();
     // Either field, the one that was sent; both is refused rather than one
     // silently winning.
@@ -1006,7 +1020,7 @@ pub async fn patch(
         Some(Some(lifetime)) => Change::Set(resolve_expiry(&state, Some(lifetime), now)?),
     };
 
-    let use_limit = match body.max_uses {
+    let uses_left = match body.max_uses {
         None => Change::Keep,
         Some(None) => Change::Set(None),
         Some(Some(0)) => {
@@ -1030,7 +1044,7 @@ pub async fn patch(
 
     state
         .shares
-        .update_settings(share.id, expires_at, use_limit, password_hash, now)
+        .update_settings(share.id, expires_at, uses_left, password_hash, now)
         .await?;
 
     // Read back instead of patching the copy in hand, so the response reports

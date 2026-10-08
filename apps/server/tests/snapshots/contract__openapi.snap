@@ -946,6 +946,7 @@ expression: document
           "share_password_incorrect",
           "share_expired",
           "share_exhausted",
+          "share_content_removed",
           "share_is_file",
           "share_encrypted",
           "share_password_is_key",
@@ -1235,7 +1236,7 @@ expression: document
             ]
           },
           "max_uses": {
-            "description": "How many more times it may be retrieved. `null` means unlimited.\n\nCounted against the retrievals it has already had, so lowering this\nbelow `use_count` retires the share instead of reviving it.",
+            "description": "How many more times it may be retrieved, counting from now. `null` means\nunlimited.\n\nNot a total: `1` on a share already retrieved three times allows one\nmore, the fourth, whoever gets there first. The response's\n`uses_remaining` says the same number back.",
             "example": 1,
             "format": "int32",
             "minimum": 0,
@@ -6346,7 +6347,7 @@ expression: document
         ]
       },
       "patch": {
-        "description": "# Why this exists\n\nThis replaces deciding everything at creation, which does not survive\ncontact with how people share a file. The link goes out, and then the\nmeeting moves, or the recipient asks for another day, or the wrong person\nwas in the thread and the password has to change now.\n\n# Who may\n\nThe same two answers as `DELETE`: the owning account, or the holder of the\nmanagement token an anonymous upload was given. The permission checked is\n`shares:delete`. There is no `shares:update` today, and gating a change\nbehind the right to delete outright is the conservative reading.\n\n# Errors\n\n`400` for a value the instance will not accept, `404` when no share of the\ncaller's has that code. The same answer as one belonging to another account,\nbecause telling them apart would confirm which codes exist.",
+        "description": "# Why this exists\n\nThis replaces deciding everything at creation, which does not survive\ncontact with how people share a file. The link goes out, and then the\nmeeting moves, or the recipient asks for another day, or the wrong person\nwas in the thread and the password has to change now.\n\n# Who may\n\nThe same two answers as `DELETE`: the owning account, or the holder of the\nmanagement token an anonymous upload was given. The permission checked is\n`shares:delete`. There is no `shares:update` today, and gating a change\nbehind the right to delete outright is the conservative reading.\n\n# Errors\n\n`400` for a value the instance will not accept, `404` when no share of the\ncaller's has that code. The same answer as one belonging to another account,\nbecause telling them apart would confirm which codes exist. `410` when the\nchange would revive a share whose content the sweep has already removed.",
         "operationId": "update_share",
         "parameters": [
           {
@@ -6433,6 +6434,16 @@ expression: document
               }
             },
             "description": "No share of yours has that code"
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Its content has already been removed, so it cannot be extended or given more uses"
           }
         },
         "security": [

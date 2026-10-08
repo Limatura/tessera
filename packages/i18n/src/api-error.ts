@@ -107,6 +107,7 @@ export interface ApiErrorMessages {
   api_error_share_password_incorrect: Message;
   api_error_share_expired: Message;
   api_error_share_exhausted: Message;
+  api_error_share_content_removed: Message;
   api_error_share_is_file: Message;
   api_error_share_encrypted: Message;
   api_error_share_password_is_key: Message;
@@ -420,6 +421,7 @@ export function createApiErrorMessage(m: ApiErrorMessages) {
     share_password_incorrect: () => m.api_error_share_password_incorrect(),
     share_expired: () => m.api_error_share_expired(),
     share_exhausted: () => m.api_error_share_exhausted(),
+    share_content_removed: () => m.api_error_share_content_removed(),
     share_is_file: () => m.api_error_share_is_file(),
     share_encrypted: () => m.api_error_share_encrypted(),
     share_password_is_key: () => m.api_error_share_password_is_key(),

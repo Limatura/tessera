@@ -303,6 +303,9 @@ error_codes! {
     ShareExpired => GONE, "this share has expired";
     /// Retrieved as many times as it allowed.
     ShareExhausted => GONE, "this share has been retrieved as many times as it was allowed to be";
+    /// The share ended and the sweep has since removed what it held, so no
+    /// change to its expiry or use limit can make it work again.
+    ShareContentRemoved => GONE, "this share's content has been removed and cannot be restored";
     /// A file share, asked for as text.
     ShareIsFile => BAD_REQUEST, "this share is a file; use /download instead";
     /// An end-to-end encrypted share, asked for in a way that needs the plaintext.

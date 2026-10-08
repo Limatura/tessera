@@ -388,6 +388,22 @@ impl Content {
         }
     }
 
+    /// Whether the content has been removed, by the sweep after the share
+    /// expired or ran out.
+    ///
+    /// A file share keeps its rows with their storage marked gone; a note's row
+    /// is deleted. Either way nothing can be handed out again.
+    #[must_use]
+    pub fn is_removed(&self) -> bool {
+        match self {
+            Self::Files(files) => files
+                .iter()
+                .any(|file| matches!(file.storage, StorageLocation::Gone)),
+            Self::Text(_) => false,
+            Self::Gone => true,
+        }
+    }
+
     /// Whether anything here still awaits a verdict, which keeps the share from
     /// being served. See [`Scan::holds`].
     #[must_use]
@@ -1466,6 +1482,15 @@ impl ShareRepository {
     /// Returns whether a row matched, so a caller can tell "changed nothing"
     /// from "no such share".
     ///
+    /// # `uses_left`
+    ///
+    /// How many more retrievals from now, not a new total. Written as
+    /// `use_count + uses_left` inside the same statement, so a retrieval landing
+    /// between the owner reading the count and saving cannot use up the share
+    /// on the spot. A total would: switching on burn-after-reading as `1` for a
+    /// share already opened once retired it before anyone else saw it, and the
+    /// sweep then removed its content.
+    ///
     /// # Errors
     ///
     /// Returns [`ShareRepositoryError`] if the update fails.
@@ -1473,7 +1498,7 @@ impl ShareRepository {
         &self,
         id: ShareId,
         expires_at: Change<OffsetDateTime>,
-        use_limit: Change<u32>,
+        uses_left: Change<u32>,
         password_hash: Change<String>,
         now: OffsetDateTime,
     ) -> Result<bool, ShareRepositoryError> {
@@ -1483,13 +1508,26 @@ impl ShareRepository {
         if let Change::Set(value) = expires_at {
             update = update.col_expr(share::Column::ExpiresAt, value.into());
         }
-        if let Change::Set(value) = use_limit {
-            update = update.col_expr(
-                share::Column::UseLimit,
-                value
-                    .map(|limit| i32::try_from(limit).unwrap_or(i32::MAX))
+        match uses_left {
+            Change::Keep => {}
+            Change::Set(None) => {
+                update = update.col_expr(share::Column::UseLimit, Option::<i32>::None.into());
+            }
+            Change::Set(Some(left)) => {
+                let left = i32::try_from(left).unwrap_or(i32::MAX);
+                // Capped at what the column holds, in SQL every dialect reads
+                // the same way, rather than overflowing for a share already
+                // retrieved close to two billion times.
+                update = update.col_expr(
+                    share::Column::UseLimit,
+                    Expr::case(
+                        Expr::col(share::Column::UseCount).gt(i32::MAX - left),
+                        i32::MAX,
+                    )
+                    .finally(Expr::col(share::Column::UseCount).add(left))
                     .into(),
-            );
+                );
+            }
         }
         if let Change::Set(value) = password_hash {
             update = update.col_expr(share::Column::PasswordHash, value.into());
