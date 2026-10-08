@@ -96,14 +96,14 @@ export function Header() {
                   {m.user_tab_account()}
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  render={<Link search={{ page: 1 }} to="/shares" />}
-                >
-                  {m.shares_page_title()}
-                </DropdownMenuItem>
-                <DropdownMenuItem
                   render={<Link to="/user" search={{ tab: "preferences" }} />}
                 >
                   {m.user_tab_preferences()}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  render={<Link search={{ page: 1 }} to="/shares" />}
+                >
+                  {m.shares_page_title()}
                 </DropdownMenuItem>
                 {showAdmin && (
                   <DropdownMenuItem render={<Link to="/admin" />}>
