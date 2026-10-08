@@ -58,9 +58,9 @@ import {
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
-import { SetUserRoleDialog } from "./users/-components/set-user-role-dialog";
-import type { UserAction } from "./users/-components/user-action-dialog";
-import { UserActionDialog } from "./users/-components/user-action-dialog";
+import { SetUserRoleDialog } from "./-components/set-user-role-dialog";
+import type { UserAction } from "./-components/user-action-dialog";
+import { UserActionDialog } from "./-components/user-action-dialog";
 
 type Account = AdminUser;
 
@@ -69,7 +69,7 @@ const usersSearchSchema = pageSearchSchema.extend({
   deleted: z.boolean().optional().catch(false),
 });
 
-export const Route = createFileRoute("/admin/users")({
+export const Route = createFileRoute("/admin/users/")({
   beforeLoad: ({ context, location }) =>
     requirePermission(
       context.queryClient,

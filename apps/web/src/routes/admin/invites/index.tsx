@@ -28,12 +28,12 @@ import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
-import { CreateInviteDialog } from "./invites/-components/create-invite-dialog";
-import { RevokeInviteDialog } from "./invites/-components/revoke-invite-dialog";
+import { CreateInviteDialog } from "./-components/create-invite-dialog";
+import { RevokeInviteDialog } from "./-components/revoke-invite-dialog";
 
 type Invite = components["schemas"]["InviteResponse"];
 
-export const Route = createFileRoute("/admin/invites")({
+export const Route = createFileRoute("/admin/invites/")({
   beforeLoad: ({ context, location }) =>
     requirePermission(
       context.queryClient,

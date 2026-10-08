@@ -31,13 +31,13 @@ import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
-import { DeleteShareDialog } from "./all-shares/-components/delete-share-dialog";
+import { DeleteShareDialog } from "./-components/delete-share-dialog";
 
 /**
  * 全站的分享,用來找出該清掉的東西。跟「我的分享」不同:這裡看不到取件碼 ——
  * 能讀每一份的取件碼等於能打開每一份,那是另一種權力(見 AdminShareResponse)。
  */
-export const Route = createFileRoute("/admin/all-shares")({
+export const Route = createFileRoute("/admin/all-shares/")({
   beforeLoad: ({ context, location }) =>
     requirePermission(
       context.queryClient,

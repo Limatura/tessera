@@ -210,9 +210,9 @@ The operator console, at `/admin/*`. Its code is kept apart from the site's so t
 routes/admin/
 ├── route.tsx               # Layout: requireAuth, AdminShell around <Outlet />, header title from staticData
 ├── index.tsx               # No UI — redirects to the first page the account may open
-├── users.tsx               # Accounts, roles, suspend / delete / end their shares (users:read)
-├── all-shares.tsx          # Every share on the instance, delete any (shares:read:any)
-├── invites.tsx             # Invite codes (invites:read)
+├── users/                  # Accounts, roles, suspend / delete / end their shares (users:read)
+├── all-shares/             # Every share on the instance, delete any (shares:read:any)
+├── invites/                # Invite codes (invites:read)
 ├── dashboard/              # Stats, trends, storage locations, current settings, recent shares (stats:read)
 ├── roles/                  # Roles and what they permit (roles:read)
 └── settings/               # route.tsx gates settings:read once and sets the title; one route per section; index redirects to account
