@@ -775,7 +775,7 @@
   "settings_password_form_memory_kib_label": "メモリ使用量",
   "settings_password_form_min_length_description": "既定は 8。これより短くはできません。",
   "settings_password_form_min_length_label": "最小の長さ",
-  "settings_password_form_pwned_enabled_description": "Have I Been Pwned を使います。サービスに接続できないときは許可し、登録を妨げません。",
+  "settings_password_form_pwned_enabled_description": "オンにすると、登録・パスワード変更・再設定のときに Have I Been Pwned の漏洩リストにあるパスワードを拒否します。サービスに接続できないときだけチェックを省略します。",
   "settings_password_form_pwned_enabled_label": "漏洩パスワードをチェック",
   "settings_password_form_pwned_url_description": "既定は公式サービスです。自前のサーバーを指定することもできます。",
   "settings_password_form_pwned_url_label": "サービスの URL",

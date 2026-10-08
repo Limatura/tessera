@@ -775,7 +775,7 @@
   "settings_password_form_memory_kib_label": "Memory",
   "settings_password_form_min_length_description": "Defaults to 8, and can't go lower.",
   "settings_password_form_min_length_label": "Minimum length",
-  "settings_password_form_pwned_enabled_description": "Uses Have I Been Pwned. If the service can't be reached, the password is allowed so sign-up isn't blocked.",
+  "settings_password_form_pwned_enabled_description": "When on, sign-up, password changes, and resets refuse any password found in Have I Been Pwned. The check is only skipped if the service can't be reached.",
   "settings_password_form_pwned_enabled_label": "Check for breached passwords",
   "settings_password_form_pwned_url_description": "Defaults to the official service. You can point it at a self-hosted copy.",
   "settings_password_form_pwned_url_label": "Service URL",
