@@ -11,16 +11,18 @@ import {
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import * as m from "@/paraglide/messages";
 
-import { DeleteShareButton } from "./delete-share-button";
 import { ShareBadges } from "./share-fields";
 import type { Share } from "./share-fields";
+import { ShareRowActions } from "./share-row-actions";
 
 /** 寬螢幕的版面。五欄在手機上排不下,窄螢幕改用 `SharesList`。 */
 export function SharesTable({
   shares,
+  onManage,
   onDelete,
 }: {
   shares: Share[];
+  onManage: (share: Share) => void;
   onDelete: (share: Share) => void;
 }) {
   const formatDate = useDateTimeFormatter();
@@ -34,7 +36,7 @@ export function SharesTable({
           <TableHead>{m.shares_col_created()}</TableHead>
           <TableHead>{m.shares_col_accessed()}</TableHead>
           <TableHead>{m.shares_col_expires()}</TableHead>
-          <TableHead className="w-12" />
+          <TableHead className="w-24" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -64,7 +66,11 @@ export function SharesTable({
                 : m.shares_never_expires()}
             </TableCell>
             <TableCell>
-              <DeleteShareButton onDelete={onDelete} share={share} />
+              <ShareRowActions
+                onDelete={onDelete}
+                onManage={onManage}
+                share={share}
+              />
             </TableCell>
           </TableRow>
         ))}

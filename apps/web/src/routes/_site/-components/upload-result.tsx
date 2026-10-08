@@ -10,22 +10,20 @@ import {
   AlertDialogTrigger,
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
-import { Label } from "@tessera/ui/components/label";
-import { Switch } from "@tessera/ui/components/switch";
 import { toast } from "@tessera/ui/components/toast";
-import { Check, Copy, Flame, RotateCcw, Trash2 } from "lucide-react";
+import { Check, Copy, RotateCcw, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { useCapabilities } from "@/hooks/use-capabilities";
 import { apiErrorMessage } from "@/lib/api-error";
-import { deleteShare, updateShare } from "@/lib/upload";
-import type { ShareSettings, UploadResultData } from "@/lib/upload";
+import { deleteShare } from "@/lib/upload";
+import type { UploadResultData } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
+import { useRecentSharesStore } from "@/stores/recent-shares";
 
-import { ShareExpiryField } from "./share-expiry-field";
-import { SharePasswordField } from "./share-password-field";
+import { ShareSettingsPanel, expiresAtFrom } from "./share-settings-panel";
+import type { ShareSettingsSnapshot } from "./share-settings-panel";
 
 /**
  * 覆蓋層上的區塊底色。這層的底是 --melt 而不是 background/card,
@@ -44,44 +42,34 @@ interface UploadResultProps {
 export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const capabilities = useCapabilities();
-  const [expiresInMinutes, setExpiresInMinutes] = useState(
-    result.expiresInMinutes
-  );
-  const [burnAfterReading, setBurnAfterReading] = useState(
-    result.maxUses === 1
-  );
+  const remember = useRecentSharesStore((state) => state.remember);
+  const updateRecent = useRecentSharesStore((state) => state.update);
+  const forgetRecent = useRecentSharesStore((state) => state.forget);
 
-  const applySettings = async (
-    settings: ShareSettings,
-    rollback: () => void
-  ) => {
-    try {
-      await updateShare(result.code, settings, result.managementToken);
-    } catch (error) {
-      rollback();
-      toast.add({
-        description: apiErrorMessage(error, m.common_try_again()),
-        title: m.upload_result_update_failed(),
-        type: "error",
-      });
+  // 匿名上傳的管理 token 只在這個畫面拿得到,關掉就沒了 —— 記進這台瀏覽器的
+  // 「最近上傳」,之後還能從首頁回來改(#364)。登入者的分享沒有 token,歸帳號管。
+  useEffect(() => {
+    if (!result.managementToken) {
+      return;
     }
-  };
+    remember({
+      code: result.code,
+      createdAt: new Date().toISOString(),
+      expiresAt: expiresAtFrom(result.expiresInMinutes),
+      fileName: result.fileName,
+      hasPassword: result.hasPassword,
+      managementToken: result.managementToken,
+      shortUrl: result.shortUrl,
+      usesRemaining: result.maxUses ?? null,
+    });
+  }, [result, remember]);
 
-  const handleExpiryChange = (next: number | undefined) => {
-    const previous = expiresInMinutes;
-    setExpiresInMinutes(next);
-    applySettings({ expiresInMinutes: next }, () =>
-      setExpiresInMinutes(previous)
-    );
-  };
-
-  // `max_uses` 是「從現在起還能取幾次」,分享被開過之後才打開也是再一次。
-  const handleBurnAfterReadingChange = (checked: boolean) => {
-    setBurnAfterReading(checked);
-    applySettings({ maxUses: checked ? 1 : undefined }, () =>
-      setBurnAfterReading(!checked)
-    );
+  const handleSettingsChange = (snapshot: ShareSettingsSnapshot) => {
+    updateRecent(result.code, {
+      expiresAt: expiresAtFrom(snapshot.expiresInMinutes),
+      hasPassword: snapshot.hasPassword,
+      usesRemaining: snapshot.burnAfterReading ? 1 : null,
+    });
   };
 
   const handleCopy = async () => {
@@ -94,6 +82,7 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
     setDeleting(true);
     try {
       await deleteShare(result.code, result.managementToken);
+      forgetRecent(result.code);
       onReset();
     } catch (error) {
       toast.add({
@@ -150,32 +139,16 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
         </Button>
       </div>
 
-      <div className={`flex w-full flex-col gap-3 p-3 text-left ${PANEL}`}>
-        <ShareExpiryField
-          maxHours={capabilities.data?.max_expiry_hours}
-          minutes={expiresInMinutes}
-          onChange={handleExpiryChange}
-        />
-
-        <div className="flex items-center justify-between gap-2">
-          <Label
-            className="text-current"
-            htmlFor="share-result-burn-after-reading"
-          >
-            <Flame className="size-3.5" />
-            {m.upload_settings_burn_after_reading()}
-          </Label>
-          <Switch
-            checked={burnAfterReading}
-            id="share-result-burn-after-reading"
-            onCheckedChange={handleBurnAfterReadingChange}
-          />
-        </div>
-
-        <SharePasswordField
+      <div className={`w-full p-3 text-left ${PANEL}`}>
+        <ShareSettingsPanel
           code={result.code}
-          initialHasPassword={result.hasPassword}
+          initial={{
+            burnAfterReading: result.maxUses === 1,
+            expiresInMinutes: result.expiresInMinutes,
+            hasPassword: result.hasPassword,
+          }}
           managementToken={result.managementToken}
+          onChange={handleSettingsChange}
         />
       </div>
 

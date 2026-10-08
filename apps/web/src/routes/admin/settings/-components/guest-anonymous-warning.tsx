@@ -4,6 +4,8 @@ import { Link } from "@tanstack/react-router";
 import { readSetting, useSettings } from "@/hooks/admin/use-settings";
 import * as m from "@/paraglide/messages";
 
+import { SettingsNotice } from "./form-fields";
+
 const GUEST_ROLE = "guest";
 
 /**
@@ -59,21 +61,19 @@ export function GuestAnonymousWarning({
   const target = fixTargets()[fixAt];
 
   return (
-    <div
-      className="flex gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
-      role="alert"
+    <SettingsNotice
+      icon={<IconAlertTriangle />}
+      title={m.settings_guest_warning_title()}
+      tone="warning"
     >
-      <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
-      <div className="space-y-1">
-        <p className="font-medium">{m.settings_guest_warning_title()}</p>
-        <p className="text-muted-foreground">
-          {m.settings_guest_warning_body_before()}
-          <Link className="mx-1 underline underline-offset-4" to={target.to}>
-            {target.label}
-          </Link>
-          {m.settings_guest_warning_body_after({ action: target.action })}
-        </p>
-      </div>
-    </div>
+      {m.settings_guest_warning_body_before()}
+      <Link
+        className="mx-1 underline underline-offset-4 hover:text-foreground"
+        to={target.to}
+      >
+        {target.label}
+      </Link>
+      {m.settings_guest_warning_body_after({ action: target.action })}
+    </SettingsNotice>
   );
 }

@@ -27,6 +27,7 @@ import { AppearancePreview } from "./appearance-preview";
 import { SelectField } from "./form-fields";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -154,85 +155,84 @@ function AppearanceSettingsFields({
   const preview = { ...defaultValues, ...watched };
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <Controller
-          control={form.control}
-          name="mode"
-          render={({ field, fieldState }) => (
-            <SelectField
-              description={m.settings_appearance_form_mode_description()}
-              field={field}
-              fieldState={fieldState}
-              id="appearance-mode"
-              label={m.settings_appearance_form_mode_label()}
-              options={modeOptions()}
-            />
-          )}
-        />
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      <SettingsCard
+        description={m.settings_appearance_card_description()}
+        title={m.settings_appearance_card_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="mode"
+            render={({ field, fieldState }) => (
+              <SelectField
+                description={m.settings_appearance_form_mode_description()}
+                field={field}
+                fieldState={fieldState}
+                id="appearance-mode"
+                label={m.settings_appearance_form_mode_label()}
+                options={modeOptions()}
+              />
+            )}
+          />
 
-        {/*
+          {/*
           色盤和強調色用跟前台個人偏好同一組選擇器（`@tessera/ui` 的 ThemePicker /
           AccentPicker）：兩邊選的是同一組值，看得到顏色也比讀下拉選單的文字快。
 
           走 Controller 而不是自己接 state，`field.onChange` 才會讓 RHF 記下
           dirty —— 送出時只送真正改過的 key（見 useSettingsForm）。
         */}
-        <Controller
-          control={form.control}
-          name="theme"
-          render={({ field }) => (
-            <Field>
-              <FieldContent>
-                <FieldLabel>
-                  {m.settings_appearance_form_theme_label()}
-                </FieldLabel>
-                <FieldDescription>
-                  {m.settings_appearance_form_theme_description()}
-                </FieldDescription>
-              </FieldContent>
-              <ThemePicker
-                onSelect={field.onChange}
-                options={themeOptions()}
-                value={field.value}
-              />
-            </Field>
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="theme"
+            render={({ field }) => (
+              <Field>
+                <FieldContent>
+                  <FieldLabel>
+                    {m.settings_appearance_form_theme_label()}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {m.settings_appearance_form_theme_description()}
+                  </FieldDescription>
+                </FieldContent>
+                <ThemePicker
+                  onSelect={field.onChange}
+                  options={themeOptions()}
+                  value={field.value}
+                />
+              </Field>
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="accent"
-          render={({ field }) => (
-            <Field>
-              <FieldContent>
-                <FieldLabel>
-                  {m.settings_appearance_form_accent_label()}
-                </FieldLabel>
-                <FieldDescription>
-                  {m.settings_appearance_form_accent_description()}
-                </FieldDescription>
-              </FieldContent>
-              <AccentPicker
-                onSelect={field.onChange}
-                options={accentOptions()}
-                value={field.value}
-              />
-            </Field>
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="accent"
+            render={({ field }) => (
+              <Field>
+                <FieldContent>
+                  <FieldLabel>
+                    {m.settings_appearance_form_accent_label()}
+                  </FieldLabel>
+                  <FieldDescription>
+                    {m.settings_appearance_form_accent_description()}
+                  </FieldDescription>
+                </FieldContent>
+                <AccentPicker
+                  onSelect={field.onChange}
+                  options={accentOptions()}
+                  value={field.value}
+                />
+              </Field>
+            )}
+          />
 
-        {/* 三個值是一起看的,所以預覽讀表單當下的值而不是已儲存的值。 */}
-        <AppearancePreview values={preview} />
+          {/* 三個值是一起看的,所以預覽讀表單當下的值而不是已儲存的值。 */}
+          <AppearancePreview values={preview} />
+        </FieldGroup>
+      </SettingsCard>
 
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
   );
 }

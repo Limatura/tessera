@@ -22,6 +22,7 @@ import * as m from "@/paraglide/messages";
 
 import { BlobBackground } from "./blob-background";
 import { LinkUploadForm } from "./link-upload-form";
+import { RecentShares } from "./recent-shares";
 import { UploadButton } from "./upload-button";
 import { UploadResult } from "./upload-result";
 import { useSubmitTransition } from "./use-submit-transition";
@@ -131,6 +132,7 @@ export function UploadPanel() {
             </Tabs>
           </CardContent>
         </Card>
+        <RecentShares />
       </div>
 
       <AnimatePresence>

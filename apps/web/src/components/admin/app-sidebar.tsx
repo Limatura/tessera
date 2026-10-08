@@ -21,34 +21,12 @@ import {
 } from "@tessera/ui/components/sidebar";
 import type * as React from "react";
 
-import type { NavEntry, NavLink } from "@/components/admin/nav-main";
+import type { NavEntry } from "@/components/admin/nav-main";
 import { NavMain } from "@/components/admin/nav-main";
 import { NavUser } from "@/components/admin/nav-user";
 import type { Permission } from "@/lib/admin/permissions";
 import { PERMISSIONS, hasPermission } from "@/lib/admin/permissions";
 import * as m from "@/paraglide/messages";
-
-/** 設定的各個分頁。整組共用 `settings:read`，所以只在外層擋一次。 */
-function settingsItems(): NavLink[] {
-  return [
-    { title: m.nav_settings_account(), url: "/admin/settings/account" },
-    {
-      title: m.nav_settings_auth_providers(),
-      url: "/admin/settings/auth-providers",
-    },
-    { title: m.nav_settings_password(), url: "/admin/settings/password" },
-    { title: m.nav_settings_throttle(), url: "/admin/settings/throttle" },
-    { title: m.nav_settings_mail(), url: "/admin/settings/mail" },
-    { title: m.nav_settings_network(), url: "/admin/settings/network" },
-    { title: m.nav_settings_share(), url: "/admin/settings/share" },
-    { title: m.nav_settings_upload(), url: "/admin/settings/upload" },
-    { title: m.nav_settings_storage(), url: "/admin/settings/storage" },
-    { title: m.nav_settings_site(), url: "/admin/settings/site" },
-    { title: m.nav_settings_theme(), url: "/admin/settings/theme" },
-    { title: m.nav_settings_og(), url: "/admin/settings/og" },
-    { title: m.nav_settings_features(), url: "/admin/settings/features" },
-  ];
-}
 
 /**
  * `permission` 為 undefined 代表只要登入就看得到。
@@ -93,11 +71,12 @@ function navItems(): (NavEntry & { permission?: Permission })[] {
       title: m.nav_roles(),
       url: "/admin/roles",
     },
+    // 設定的十幾個分頁不攤在這裡，進去之後由頁面左側的分組選單切換。
     {
       icon: <IconSettings />,
-      items: settingsItems(),
       permission: PERMISSIONS.settingsRead,
       title: m.nav_settings(),
+      url: "/admin/settings",
     },
   ];
 }

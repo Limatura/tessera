@@ -1,11 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@tessera/api/schema";
-import {
-  FieldGroup,
-  FieldLegend,
-  FieldSeparator,
-  FieldSet,
-} from "@tessera/ui/components/field";
+import { FieldGroup } from "@tessera/ui/components/field";
 import { Controller } from "react-hook-form";
 import type { Control } from "react-hook-form";
 
@@ -24,71 +19,113 @@ import type {
 import { asNumber } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { NumberField } from "./number-field";
+import { SettingRow } from "./form-fields";
+import { NumberField, NumberInput, formatSeconds } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
 const DEFAULT_MAX_TRACKED_KEYS = 10_000;
 
-/** 每組計數器的預設值。 */
+const MINUTE = 60;
+const HOUR = 60 * MINUTE;
+
+/**
+ * 每組計數器的預設值，對應 `crate::auth::throttle` 的常數：MAX_ATTEMPTS / WINDOW、
+ * SOURCE_*、LOOKUP_MAX_ATTEMPTS、RESET_*、SPEED_MAX_TESTS、PWNED_MAX_LOOKUPS。
+ */
 const COUNTER_DEFAULTS: Record<
   ThrottleCounter,
   { maxAttempts: number; windowSecs: number }
 > = {
-  // 對應 `crate::auth::throttle` 的常數：MAX_ATTEMPTS / WINDOW、SOURCE_*、
-  // LOOKUP_MAX_ATTEMPTS（視窗沿用 SOURCE_WINDOW）、RESET_*。
-  login: { maxAttempts: 10, windowSecs: 15 * 60 },
-  lookup: { maxAttempts: 60, windowSecs: 60 },
-  registration: { maxAttempts: 3, windowSecs: 60 * 60 },
-  reset: { maxAttempts: 3, windowSecs: 60 * 60 },
-  share: { maxAttempts: 10, windowSecs: 15 * 60 },
-  source: { maxAttempts: 120, windowSecs: 60 },
+  login: { maxAttempts: 10, windowSecs: 15 * MINUTE },
+  lookup: { maxAttempts: 60, windowSecs: MINUTE },
+  pwned: { maxAttempts: 30, windowSecs: MINUTE },
+  registration: { maxAttempts: 3, windowSecs: HOUR },
+  reset: { maxAttempts: 3, windowSecs: HOUR },
+  share: { maxAttempts: 10, windowSecs: 15 * MINUTE },
+  source: { maxAttempts: 120, windowSecs: MINUTE },
+  speed: { maxAttempts: 5, windowSecs: HOUR },
+  verification: { maxAttempts: 3, windowSecs: HOUR },
 };
 
 /**
- * 每組計數器在畫面上的說明。
+ * 畫面上的分組：先是影響整台機器的總量限制，再依「保護什麼」分。
  *
- * 「計數依據」是重點 —— 同樣一個 5 次,以帳號計跟以來源位址計是完全不同的影響範圍。
- *
- * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale,
+ * 是函式而不是 module-level const —— 裡面呼叫的 `m.xxx()` 要在渲染當下讀 locale，
  * 包成 const 只會在模組第一次載入時凍住語系。
  */
+function counterGroups(): {
+  title: string;
+  description: string;
+  counters: ThrottleCounter[];
+}[] {
+  return [
+    {
+      counters: ["source"],
+      description: m.settings_throttle_group_source_description(),
+      title: m.settings_throttle_group_source_title(),
+    },
+    {
+      counters: ["login", "share", "lookup"],
+      description: m.settings_throttle_group_guessing_description(),
+      title: m.settings_throttle_group_guessing_title(),
+    },
+    {
+      counters: ["reset", "registration", "verification"],
+      description: m.settings_throttle_group_mail_description(),
+      title: m.settings_throttle_group_mail_title(),
+    },
+    {
+      counters: ["speed", "pwned"],
+      description: m.settings_throttle_group_other_description(),
+      title: m.settings_throttle_group_other_title(),
+    },
+  ];
+}
+
 function counterCopy(): Record<
   ThrottleCounter,
-  { title: string; keyedOn: string; protects: string }
+  { title: string; description: string }
 > {
   return {
     login: {
-      keyedOn: m.settings_throttle_form_login_keyed_on(),
-      protects: m.settings_throttle_form_login_protects(),
+      description: m.settings_throttle_form_login_protects(),
       title: m.settings_throttle_form_login_title(),
     },
     lookup: {
-      keyedOn: m.settings_throttle_form_lookup_keyed_on(),
-      protects: m.settings_throttle_form_lookup_protects(),
+      description: m.settings_throttle_form_lookup_protects(),
       title: m.settings_throttle_form_lookup_title(),
     },
+    pwned: {
+      description: m.settings_throttle_form_pwned_protects(),
+      title: m.settings_throttle_form_pwned_title(),
+    },
     registration: {
-      keyedOn: m.settings_throttle_form_registration_keyed_on(),
-      protects: m.settings_throttle_form_registration_protects(),
+      description: m.settings_throttle_form_registration_protects(),
       title: m.settings_throttle_form_registration_title(),
     },
     reset: {
-      keyedOn: m.settings_throttle_form_reset_keyed_on(),
-      protects: m.settings_throttle_form_reset_protects(),
+      description: m.settings_throttle_form_reset_protects(),
       title: m.settings_throttle_form_reset_title(),
     },
     share: {
-      keyedOn: m.settings_throttle_form_share_keyed_on(),
-      protects: m.settings_throttle_form_share_protects(),
+      description: m.settings_throttle_form_share_protects(),
       title: m.settings_throttle_form_share_title(),
     },
     source: {
-      keyedOn: m.settings_throttle_form_source_keyed_on(),
-      protects: m.settings_throttle_form_source_protects(),
+      description: m.settings_throttle_form_source_protects(),
       title: m.settings_throttle_form_source_title(),
+    },
+    speed: {
+      description: m.settings_throttle_form_speed_protects(),
+      title: m.settings_throttle_form_speed_title(),
+    },
+    verification: {
+      description: m.settings_throttle_form_verification_protects(),
+      title: m.settings_throttle_form_verification_title(),
     },
   };
 }
@@ -99,6 +136,8 @@ const KEYS = {
   lookupMaxAttempts: "auth.throttle.lookup.max_attempts",
   lookupWindowSecs: "auth.throttle.lookup.window_secs",
   maxTrackedKeys: "auth.throttle.max_tracked_keys",
+  pwnedMaxAttempts: "auth.throttle.pwned.max_attempts",
+  pwnedWindowSecs: "auth.throttle.pwned.window_secs",
   registrationMaxAttempts: "auth.throttle.registration.max_attempts",
   registrationWindowSecs: "auth.throttle.registration.window_secs",
   resetMaxAttempts: "auth.throttle.reset.max_attempts",
@@ -107,6 +146,10 @@ const KEYS = {
   shareWindowSecs: "auth.throttle.share.window_secs",
   sourceMaxAttempts: "auth.throttle.source.max_attempts",
   sourceWindowSecs: "auth.throttle.source.window_secs",
+  speedMaxAttempts: "auth.throttle.speed.max_attempts",
+  speedWindowSecs: "auth.throttle.speed.window_secs",
+  verificationMaxAttempts: "auth.throttle.verification.max_attempts",
+  verificationWindowSecs: "auth.throttle.verification.window_secs",
 } satisfies SettingsKeyMap<ThrottleSettingsValues>;
 
 export function ThrottleSettingsForm() {
@@ -163,51 +206,58 @@ function ThrottleSettingsFields({
   });
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <p className="text-muted-foreground text-sm">
-          {m.settings_throttle_form_intro()}
-        </p>
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      {counterGroups().map((group) => (
+        <SettingsCard
+          description={group.description}
+          key={group.title}
+          title={group.title}
+        >
+          <FieldGroup>
+            {group.counters.map((counter) => (
+              <CounterRow
+                control={form.control}
+                counter={counter}
+                key={counter}
+              />
+            ))}
+          </FieldGroup>
+        </SettingsCard>
+      ))}
 
-        {THROTTLE_COUNTERS.map((counter) => (
-          <CounterFields
+      <SettingsCard
+        description={m.settings_throttle_group_advanced_description()}
+        title={m.settings_throttle_group_advanced_title()}
+      >
+        <FieldGroup>
+          <Controller
             control={form.control}
-            counter={counter}
-            key={counter}
+            name="maxTrackedKeys"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_throttle_form_max_tracked_keys_description()}
+                field={field}
+                fieldState={fieldState}
+                id="throttle-max-tracked-keys"
+                label={m.settings_throttle_form_max_tracked_keys_label()}
+                max={MAX_TRACKED_KEYS_CEILING}
+                min={1}
+              />
+            )}
           />
-        ))}
+        </FieldGroup>
+      </SettingsCard>
 
-        <FieldSeparator />
-
-        <Controller
-          control={form.control}
-          name="maxTrackedKeys"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_throttle_form_max_tracked_keys_description()}
-              field={field}
-              fieldState={fieldState}
-              id="throttle-max-tracked-keys"
-              label={m.settings_throttle_form_max_tracked_keys_label()}
-              max={MAX_TRACKED_KEYS_CEILING}
-              min={1}
-            />
-          )}
-        />
-
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
   );
 }
 
-function CounterFields({
+/**
+ * 一組計數器佔一列：左邊它保護什麼，右邊「幾次 / 多久」兩格並排。兩格的錯誤都掛在
+ * 左邊說明底下，跟其他設定列的錯誤位置一致。
+ */
+function CounterRow({
   control,
   counter,
 }: {
@@ -215,44 +265,60 @@ function CounterFields({
   counter: ThrottleCounter;
 }) {
   const copy = counterCopy()[counter];
+  const defaults = COUNTER_DEFAULTS[counter];
 
   return (
-    <FieldSet>
-      <FieldLegend variant="label">
-        {copy.title}
-        <span className="ml-2 font-normal text-muted-foreground">
-          {m.settings_throttle_form_keyed_on_suffix({ keyedOn: copy.keyedOn })}
-        </span>
-      </FieldLegend>
-      <p className="text-muted-foreground text-sm">{copy.protects}</p>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Controller
-          control={control}
-          name={attemptsField(counter)}
-          render={({ field, fieldState }) => (
-            <NumberField
-              field={field}
-              fieldState={fieldState}
-              id={`throttle-${counter}-attempts`}
-              label={m.settings_throttle_form_attempts_label()}
-              min={1}
-            />
-          )}
-        />
+    <Controller
+      control={control}
+      name={attemptsField(counter)}
+      render={({ field: attempts, fieldState: attemptsState }) => (
         <Controller
           control={control}
           name={windowField(counter)}
-          render={({ field, fieldState }) => (
-            <NumberField
-              field={field}
-              fieldState={fieldState}
-              id={`throttle-${counter}-window`}
-              label={m.settings_throttle_form_window_label()}
-              min={1}
-            />
+          render={({ field: window, fieldState: windowState }) => (
+            <SettingRow
+              controlClassName="@md/field-group:w-72"
+              description={
+                <>
+                  {copy.description}{" "}
+                  <span className="whitespace-nowrap">
+                    {m.settings_throttle_form_default({
+                      attempts: defaults.maxAttempts,
+                      window: formatSeconds(defaults.windowSecs),
+                    })}
+                  </span>
+                </>
+              }
+              error={attemptsState.error ?? windowState.error}
+              id={`throttle-${counter}-attempts`}
+              label={copy.title}
+            >
+              <div className="grid grid-cols-2 gap-2">
+                <NumberInput
+                  ariaLabel={m.settings_throttle_form_attempts_aria({
+                    name: copy.title,
+                  })}
+                  field={attempts}
+                  id={`throttle-${counter}-attempts`}
+                  invalid={attemptsState.invalid}
+                  min={1}
+                  unit="times"
+                />
+                <NumberInput
+                  ariaLabel={m.settings_throttle_form_window_aria({
+                    name: copy.title,
+                  })}
+                  field={window}
+                  id={`throttle-${counter}-window`}
+                  invalid={windowState.invalid}
+                  min={1}
+                  unit="seconds"
+                />
+              </div>
+            </SettingRow>
           )}
         />
-      </div>
-    </FieldSet>
+      )}
+    />
   );
 }

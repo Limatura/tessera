@@ -3,14 +3,18 @@ import {
   IconChevronRight,
   IconInbox,
 } from "@tabler/icons-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link, Navigate } from "@tanstack/react-router";
 import { buttonVariants } from "@tessera/ui/components/button";
 import { cn } from "@tessera/ui/lib/utils";
 import { useState } from "react";
 
 import { SHARES_PAGE_SIZE, useMyShares } from "@/hooks/use-shares";
+import { toResult } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
+import { ManageShareDialog } from "../../-components/manage-share-dialog";
+import type { ManagedShare } from "../../-components/manage-share-dialog";
 import { DeleteShareDialog } from "./delete-share-dialog";
 import type { Share } from "./share-fields";
 import { SharesList } from "./shares-list";
@@ -26,6 +30,18 @@ export function MyShares({ page }: { page: number }) {
   const offset = (page - 1) * SHARES_PAGE_SIZE;
   const shares = useMyShares(offset);
   const [deleting, setDeleting] = useState<Share | null>(null);
+  const [managing, setManaging] = useState<ManagedShare | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  // 期限、次數一改,列表上的「到期」那欄就舊了;刪掉的話總數跟分頁也變了。
+  const refresh = () =>
+    queryClient.invalidateQueries({ queryKey: ["shares", "mine"] });
+
+  const handleManage = (share: Share) => {
+    setManaging(toManaged(share));
+    setManageOpen(true);
+  };
 
   if (shares.isPending) {
     return (
@@ -63,10 +79,18 @@ export function MyShares({ page }: { page: number }) {
   return (
     <div className="space-y-4">
       <div className="md:hidden">
-        <SharesList onDelete={setDeleting} shares={rows} />
+        <SharesList
+          onDelete={setDeleting}
+          onManage={handleManage}
+          shares={rows}
+        />
       </div>
       <div className="hidden md:block">
-        <SharesTable onDelete={setDeleting} shares={rows} />
+        <SharesTable
+          onDelete={setDeleting}
+          onManage={handleManage}
+          shares={rows}
+        />
       </div>
 
       <SharesPagination offset={offset} page={page} total={total} />
@@ -79,8 +103,31 @@ export function MyShares({ page }: { page: number }) {
         }}
         share={deleting}
       />
+
+      <ManageShareDialog
+        onDeleted={refresh}
+        onOpenChange={setManageOpen}
+        onSettingsChange={refresh}
+        open={manageOpen}
+        share={managing}
+      />
     </div>
   );
+}
+
+/** 列表裡的資料就是 server 剛給的,不用再問一次。登入者靠 session 授權,不帶 token。 */
+function toManaged(share: Share): ManagedShare {
+  const result = toResult(share);
+  return {
+    code: share.code,
+    initial: {
+      burnAfterReading: share.uses_remaining === 1,
+      expiresInMinutes: result.expiresInMinutes,
+      hasPassword: share.has_password,
+    },
+    shortUrl: result.shortUrl,
+    title: result.fileName,
+  };
 }
 
 /**

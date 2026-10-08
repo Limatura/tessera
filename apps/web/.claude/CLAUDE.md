@@ -45,7 +45,7 @@ src/
 │   │   ├── s/$code/       # Share link retrieval (unauthenticated access)
 │   │   └── -components/   # Private route-local components (prefix with -)
 │   └── admin/             # The operator console at /admin — see "Admin Panel"
-│       └── route.tsx      # Admin layout: page title only; each page renders its own AdminShell
+│       └── route.tsx      # Admin layout: page title only; each page renders its own AdminShell (settings/ has its own layout)
 ├── components/            # Shared app components
 │   ├── header.tsx         # Site nav with locale selector and theme toggle
 │   └── admin/             # AdminShell, sidebar, nav, pager — admin only
@@ -208,7 +208,7 @@ The operator console, at `/admin/*`. Its code is kept apart from the site's so t
 
 ```
 routes/admin/
-├── route.tsx               # Layout: admin page title; each page renders AdminShell itself
+├── route.tsx               # Layout: admin page title; each page renders AdminShell itself (except settings/, whose own layout does)
 ├── index.tsx               # No UI — redirects to the first page the account may open
 ├── shares.tsx              # The caller's own shares — the fallback landing page, auth only
 ├── users.tsx               # Accounts, roles, suspend / delete / end their shares (users:read)
@@ -216,7 +216,7 @@ routes/admin/
 ├── invites.tsx             # Invite codes (invites:read)
 ├── dashboard/              # Stats, trends, storage locations, current settings, recent shares (stats:read)
 ├── roles/                  # Roles and what they permit (roles:read)
-└── settings/               # One route per section, all gated on settings:read; index redirects to account
+└── settings/               # route.tsx = shared layout (AdminShell + grouped nav, gates settings:read once); one route per section; index redirects to site
 ```
 
 **Auth and permissions**
@@ -247,6 +247,15 @@ Settings are one flat list of dotted keys, not a typed object: `GET /admin/setti
 
 Initial values are read once at mount, via `SettingsLoader`, so a background refetch cannot overwrite half-typed input.
 
+**Settings page building blocks** (all in `routes/admin/settings/-components/`). Use these instead of hand-rolling layout, so every section reads the same:
+
+- `settings/route.tsx` is the only place that renders `AdminShell` and the guard for the subtree. The left nav groups live in `settingsNavGroups()` (`settings-nav.tsx`) — grouped by what an operator wants to change, not by key prefix (`share.default_expiry_hours` sits on the uploads page). Under `lg` the nav collapses into a select. The main sidebar has a single "系統設定" link.
+- `SettingsPage` = page title + one-line description; `SettingsCard` = one section with a title, an optional one-line description and an optional header `action`. A page is a stack of cards; one form may span several cards.
+- Fields: `SettingRow` (label + description left, narrow control right, stacks on narrow cards — needs a `FieldGroup` parent for the container query), `NumberField` (takes a `unit`: bytes/kib/seconds/minutes/hours/days/times; shows the unit inside the input and a readable conversion such as "= 7 天"), `NumberInput` (just the input, for two-per-row like throttle counters), `SwitchField`, `SelectField`, `TextField`/`SealedField` (full width — URLs need the room), `SettingsNotice` (info/warning/danger callouts; don't hand-roll amber boxes).
+- `SettingsFormFooter form={form}` is a sticky save bar: status on the left, 捨棄/儲存 on the right, and a `useBlocker` confirm when leaving with unsaved changes. Pass `surface="card"` when the form lives inside a card.
+
+**Copy rules for settings** (#352): one or two sentences — what it does, the default, what raising/lowering it does. No code nouns (row, ticket, session, dotted keys) in the UI; the reasoning lives in `apps/server/SETTINGS.md`. Units go in the input, not the label.
+
 The sign-in providers page is three cards, each its own form and its own request — batching them would let a bad OIDC issuer reject an unrelated GitHub change. Two constraints are mirrored client-side so a batch is not rejected server-side: `mail.host`/`mail.from`/`mail.public_url` must be all-set or all-empty, and `share.access_log.retention_days` must be at least 1 while the log is on.
 
 Several of these keys break an instance quietly rather than loudly, so the forms carry the consequence in the UI, not just the field name. The ones that matter: `auth.cookie_secure: always` on anything less than full HTTPS makes login fail **silently** (the browser drops the cookie; no error anywhere); `server.trusted_proxies` set too broadly lets callers pick their own source address, which is what every throttle counts on; a zeroed `auth.throttle.*` pair locks out everyone (`source`) or silently disables the limit; `auth.throttle.lookup` is the only thing making short retrieval codes safe; and **`features.admin` off removes this panel's own API** — a stored setting beats the environment, so only `tessera-server settings reset features.admin` on the server plus a restart brings it back. Turning it (or `features.accounts`) off asks for a typed confirmation that shows that command.
@@ -258,8 +267,10 @@ Several of these keys break an instance quietly rather than loudly, so the forms
 1. **Trends come from `GET /admin/stats/history`** (#410/#411): one entry per UTC day, recorded by the hourly sweep from the day that version was deployed, and a day the server was down has no entry. `routes/admin/dashboard/-components/trend-series.ts` fills those gaps with `null` so the chart breaks instead of drawing a straight line through them, and starts at the first recorded day rather than padding the requested range. Each metric (storage / shares / traffic) is its own chart with one y-axis — never put bytes and counts on two axes. Charts use `--primary` for the series that matters and `--muted-foreground` for context: the design system's `--chart-*` tokens are greys and cannot serve as categorical colours
 2. **Dropped for having no backend key**: the 網站資訊 section (site title/description/SEO keywords, admin-entry-on-home) and `upload.allowedFileTypes`. Do not re-add them as editable fields until `settings::keys()` actually lists them — `site.title`/`site.description` are tracked in #278; the other three are a deliberate no, with reasons, in #279.
 3. **Account state comes from `AdminUserResponse.state`** (`active` / `disabled` / `deleted`). The users page offers 停用 or 重新啟用 depending on it and badges suspended accounts; `isDeletedAccount` reads it too. Only `owner_username` on the all-shares page, which carries no state, still falls back to the `gone-` prefix (`isDeletedUsername` in `src/lib/admin/accounts.ts`). Never send `is_admin` on `PATCH /admin/users/{id}` unless changing it — it rewrites the role (`true` → owner, `false` → none)
-4. **Remaining editable keys with no form** — `storage.split_across_backends`, `storage.reconcile_interval_hours`, `storage.reconcile_grace_hours`. Everything else `settings::keys()` offers is now wired. `split_across_backends` needs its own explanatory copy before it ships: turning it on lets a file exceed any single backend, but a split file has no direct download, so the bytes go through this server or are stitched in the browser. Where files actually live is not a `settings::keys()` key at all any more — each backend is a row in `storage_backends`, managed through `/admin/storage/backends` (`StorageBackendsCard` in `storage.tsx`), not through `PUT /admin/settings`. `storage.url`, `storage.capacity_bytes` (now per-backend `capacity_bytes`), and `storage.options` (now per-backend `options`) no longer exist as settings keys.
-5. **No section uses tabs any more.** Each is its own route under the collapsible sidebar group. Add tabs back only when a single section grows enough sub-detail to need them (`auth.hashing.*` and the seven `auth.throttle.*` groups would be the first candidates, under 帳號與註冊)
+4. **Storage page** — `storage.split_across_backends` and `storage.reconcile_*` are wired (#366); turning splitting on shows a warning that split files have no direct download. Keys with no form yet are tracked in their own issues: `speed.*` (#306), `scan.*` (#297), `features.encryption` (#292), OIDC `link_by_email` (#317) and per-provider `allow_registration` (#325). Where files actually live is not a `settings::keys()` key at all any more — each backend is a row in `storage_backends`, managed through `/admin/storage/backends` (`StorageBackendsCard` in `storage.tsx`), not through `PUT /admin/settings`. `storage.url`, `storage.capacity_bytes` (now per-backend `capacity_bytes`), and `storage.options` (now per-backend `options`) no longer exist as settings keys.
+5. **No section uses tabs.** Each is its own route under the grouped settings nav; a long page is split into `SettingsCard`s instead. The throttle page shows all nine `auth.throttle.*` counters, with `source` first and labelled as the per-IP overall limit (#387) — it used to sit on the uploads page and read like an upload-only limit.
+6. **Per-account quota** (#373) is the users page's 設定配額 dialog (`PATCH /admin/users/{id}` with `quota_bytes` / `max_file_bytes`; `null` = use the role's, `0` = unlimited). `AdminUserResponse` doesn't return `max_file_bytes`, so that field starts at 「不變更」 and is only sent when changed — tracked in #454.
+7. **Managing a share after upload** (#364): `ManageShareDialog` (`routes/_site/-components/`) is shared by 我的分享 (session auth) and the home page's 最近上傳 list (anonymous, management token). Anonymous tokens are kept in `stores/recent-shares.ts` (localStorage) — that list is the keys to those shares, which is the trade-off for being able to come back to them.
 
 ## Performance & Accessibility
 

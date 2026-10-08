@@ -1,21 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { AdminShell } from "@/components/admin/admin-shell";
-import { PERMISSIONS } from "@/lib/admin/permissions";
-import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
 import { OauthProviderCard } from "./-components/oauth-provider-card";
 import { OidcProviderCard } from "./-components/oidc-provider-card";
+import { ProviderRegistrationNote } from "./-components/provider-registration-note";
 import { SettingsLoader } from "./-components/settings-loader";
+import { SettingsPage } from "./-components/settings-page";
 
 export const Route = createFileRoute("/admin/settings/auth-providers")({
-  beforeLoad: ({ context, location }) =>
-    requirePermission(
-      context.queryClient,
-      location.href,
-      PERMISSIONS.settingsRead
-    ),
   component: AuthProvidersRoute,
 });
 
@@ -27,10 +20,14 @@ export const Route = createFileRoute("/admin/settings/auth-providers")({
  */
 function AuthProvidersRoute() {
   return (
-    <AdminShell title={m.settings_auth_providers_shell_title()}>
+    <SettingsPage
+      description={m.settings_auth_providers_description()}
+      title={m.settings_auth_providers_title()}
+    >
       <SettingsLoader>
         {(settings) => (
           <>
+            <ProviderRegistrationNote />
             <OidcProviderCard settings={settings} />
             <OauthProviderCard
               baseUrlHint={m.settings_auth_providers_github_base_url_hint()}
@@ -50,6 +47,6 @@ function AuthProvidersRoute() {
           </>
         )}
       </SettingsLoader>
-    </AdminShell>
+    </SettingsPage>
   );
 }

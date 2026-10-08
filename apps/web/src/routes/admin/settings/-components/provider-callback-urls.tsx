@@ -1,8 +1,11 @@
 import { IconAlertTriangle, IconCheck, IconCopy } from "@tabler/icons-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@tessera/ui/components/button";
 import { useState } from "react";
 
 import * as m from "@/paraglide/messages";
+
+import { SettingsNotice } from "./form-fields";
 
 /**
  * 要貼進 provider 後台的那幾個位址。
@@ -63,22 +66,19 @@ export function ProviderCallbackUrls({
  */
 function NoPublicUrl() {
   return (
-    <div
-      className="flex gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm"
-      role="alert"
+    <SettingsNotice
+      icon={<IconAlertTriangle />}
+      title={m.settings_provider_callback_no_public_url_title()}
+      tone="warning"
     >
-      <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-500" />
-      <div className="space-y-1">
-        <p className="font-medium">
-          {m.settings_provider_callback_no_public_url_title()}
-        </p>
-        <p className="text-muted-foreground">
-          {m.settings_provider_callback_no_public_url_description_1()}{" "}
-          <code>server.public_url</code>{" "}
-          {m.settings_provider_callback_no_public_url_description_2()}
-        </p>
-      </div>
-    </div>
+      {m.settings_provider_callback_no_public_url_description()}{" "}
+      <Link
+        className="underline underline-offset-4 hover:text-foreground"
+        to="/admin/settings/network"
+      >
+        {m.nav_settings_network()}
+      </Link>
+    </SettingsNotice>
   );
 }
 

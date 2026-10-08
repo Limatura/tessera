@@ -1,10 +1,9 @@
 import type { components } from "@tessera/api/schema";
 import { useState } from "react";
 
+import { modeOf, toBytes, toMib } from "@/components/admin/byte-limit-field";
+import type { ByteLimitMode } from "@/components/admin/byte-limit-field";
 import { useCreateRole, useUpdateRole } from "@/hooks/admin/use-admin";
-
-import { modeOf, toBytes, toMib } from "./byte-limit-field";
-import type { ByteLimitMode } from "./byte-limit-field";
 
 type Role = components["schemas"]["RoleResponse"];
 type ErrorBody = components["schemas"]["ErrorBody"];

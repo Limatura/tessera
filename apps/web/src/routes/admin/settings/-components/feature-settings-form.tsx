@@ -23,9 +23,10 @@ import type { FeatureSettingsValues } from "@/lib/admin/settings-schema";
 import { asBoolean } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SwitchField } from "./form-fields";
+import { SettingsNotice, SwitchField } from "./form-fields";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -82,7 +83,7 @@ function FeatureSettingsFields({
   };
 
   return (
-    <form onSubmit={onSubmit}>
+    <form className="flex flex-col gap-6" onSubmit={onSubmit}>
       <LockoutConfirmDialog
         keys={lockingOut}
         onConfirm={() => {
@@ -92,53 +93,51 @@ function FeatureSettingsFields({
         onOpenChange={setConfirmOpen}
         open={confirmOpen}
       />
-      <FieldGroup>
-        <p className="text-muted-foreground text-sm">
-          {m.settings_feature_form_intro()}
-        </p>
 
-        {!admin && <AdminLockoutWarning />}
+      <SettingsCard
+        description={m.settings_feature_card_description()}
+        title={m.settings_feature_card_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="accounts"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_feature_form_accounts_description()}
+                field={field}
+                id="features-accounts"
+                label={m.settings_feature_form_accounts_label()}
+              />
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="admin"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_feature_form_admin_description()}
-              field={field}
-              id="features-admin"
-              label={m.settings_feature_form_admin_label()}
+          {!accounts && admin && (
+            <SettingsNotice
+              icon={<IconAlertTriangle />}
+              title={m.settings_feature_form_accounts_off_warning()}
+              tone="warning"
             />
           )}
-        />
 
-        <Controller
-          control={form.control}
-          name="accounts"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_feature_form_accounts_description()}
-              field={field}
-              id="features-accounts"
-              label={m.settings_feature_form_accounts_label()}
-            />
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="admin"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_feature_form_admin_description()}
+                field={field}
+                id="features-admin"
+                label={m.settings_feature_form_admin_label()}
+              />
+            )}
+          />
 
-        {!accounts && admin && (
-          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-            {m.settings_feature_form_accounts_off_warning()}
-          </p>
-        )}
+          {!admin && <AdminLockoutWarning />}
+        </FieldGroup>
+      </SettingsCard>
 
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
   );
 }
@@ -151,25 +150,19 @@ function FeatureSettingsFields({
  */
 function AdminLockoutWarning() {
   return (
-    <div
-      className="flex gap-3 rounded-md border-2 border-destructive/50 bg-destructive/10 p-3 text-sm"
-      role="alert"
+    <SettingsNotice
+      icon={<IconAlertTriangle />}
+      title={m.settings_feature_form_admin_lockout_title()}
+      tone="danger"
     >
-      <IconAlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
-      <div className="space-y-1">
-        <p className="font-medium">
-          {m.settings_feature_form_admin_lockout_title()}
-        </p>
-        <p className="text-muted-foreground">
-          {m.settings_feature_form_admin_lockout_description_1()}{" "}
-          <code>tessera-server settings reset features.admin</code>{" "}
-          {m.settings_feature_form_admin_lockout_description_2()}
-        </p>
-        <p className="text-muted-foreground">
-          {m.settings_feature_form_lockout_docker_hint()}
-        </p>
-      </div>
-    </div>
+      <p>
+        {m.settings_feature_form_admin_lockout_description()}{" "}
+        <code className="break-all">
+          tessera-server settings reset features.admin
+        </code>
+      </p>
+      <p className="mt-1">{m.settings_feature_form_lockout_docker_hint()}</p>
+    </SettingsNotice>
   );
 }
 

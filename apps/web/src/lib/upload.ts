@@ -259,7 +259,7 @@ function uploadLink(
   }));
 }
 
-function toResult(share: ShareResponse): UploadResultData {
+export function toResult(share: ShareResponse): UploadResultData {
   return {
     code: share.code,
     expiresInMinutes: minutesUntil(share.expires_at),
@@ -274,7 +274,7 @@ function toResult(share: ShareResponse): UploadResultData {
   };
 }
 
-function minutesUntil(
+export function minutesUntil(
   expiresAt: string | null | undefined
 ): number | undefined {
   if (!expiresAt) {

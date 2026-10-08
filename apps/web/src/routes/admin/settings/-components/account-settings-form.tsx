@@ -1,11 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@tessera/api/schema";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from "@tessera/ui/components/field";
+import { FieldGroup } from "@tessera/ui/components/field";
 import {
   Select,
   SelectContent,
@@ -29,11 +24,12 @@ import type { AccountSettingsValues } from "@/lib/admin/settings-schema";
 import { asEnum, asNumber, asString } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SelectField } from "./form-fields";
+import { SelectField, SettingRow } from "./form-fields";
 import { GuestAnonymousWarning } from "./guest-anonymous-warning";
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -102,76 +98,84 @@ function AccountSettingsFields({
   const defaultRole = useWatch({ control: form.control, name: "defaultRole" });
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <GuestAnonymousWarning defaultRole={defaultRole} fixAt="upload" />
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      <GuestAnonymousWarning defaultRole={defaultRole} fixAt="upload" />
 
-        <Controller
-          control={form.control}
-          name="registration"
-          render={({ field, fieldState }) => (
-            <SelectField
-              description={m.settings_account_form_registration_description()}
-              field={field}
-              fieldState={fieldState}
-              id="account-registration"
-              label={m.settings_account_form_registration_label()}
-              options={registrationOptions()}
-              placeholder={m.settings_account_form_registration_placeholder()}
-            />
-          )}
-        />
+      <SettingsCard
+        description={m.settings_account_signup_description()}
+        title={m.settings_account_signup_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="registration"
+            render={({ field, fieldState }) => (
+              <SelectField
+                description={m.settings_account_form_registration_description()}
+                field={field}
+                fieldState={fieldState}
+                id="account-registration"
+                label={m.settings_account_form_registration_label()}
+                options={registrationOptions()}
+                placeholder={m.settings_account_form_registration_placeholder()}
+              />
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="defaultRole"
-          render={({ field, fieldState }) => (
-            <DefaultRoleField
-              invalid={fieldState.invalid}
-              onChange={field.onChange}
-              value={field.value}
-            />
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="defaultRole"
+            render={({ field, fieldState }) => (
+              <DefaultRoleField
+                error={fieldState.invalid ? fieldState.error : undefined}
+                onChange={field.onChange}
+                value={field.value}
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="sessionTtlHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_account_form_session_ttl_description()}
-              field={field}
-              fieldState={fieldState}
-              id="account-session-ttl"
-              label={m.settings_account_form_session_ttl_label()}
-              min={1}
-            />
-          )}
-        />
+      <SettingsCard
+        description={m.settings_account_sessions_description()}
+        title={m.settings_account_sessions_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="sessionTtlHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_account_form_session_ttl_description()}
+                field={field}
+                fieldState={fieldState}
+                id="account-session-ttl"
+                label={m.settings_account_form_session_ttl_label()}
+                min={1}
+                unit="hours"
+              />
+            )}
+          />
 
-        <Controller
-          control={form.control}
-          name="loginHistoryDays"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_account_form_login_history_description()}
-              field={field}
-              fieldState={fieldState}
-              id="account-login-history-days"
-              label={m.settings_account_form_login_history_label()}
-              min={1}
-            />
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="loginHistoryDays"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_account_form_login_history_description()}
+                field={field}
+                fieldState={fieldState}
+                id="account-login-history-days"
+                label={m.settings_account_form_login_history_label()}
+                min={1}
+                unit="days"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
   );
 }
@@ -185,30 +189,38 @@ function AccountSettingsFields({
 function DefaultRoleField({
   value,
   onChange,
-  invalid,
+  error,
 }: {
   value: string;
   onChange: (value: string) => void;
-  invalid: boolean;
+  error?: { message?: string };
 }) {
   const roles = useRoles();
   const names = roles.data?.map((role) => role.name) ?? [];
   const options = names.includes(value) ? names : [value, ...names];
 
   return (
-    <Field data-invalid={invalid}>
-      <FieldLabel htmlFor="account-default-role">
-        {m.settings_account_form_default_role_label()}
-      </FieldLabel>
+    <SettingRow
+      controlClassName="@md/field-group:w-60"
+      description={
+        <>
+          {m.settings_account_form_default_role_description()}
+          {roles.isError && ` ${m.settings_account_form_roles_error()}`}
+        </>
+      }
+      error={error}
+      id="account-default-role"
+      label={m.settings_account_form_default_role_label()}
+    >
       <Select onValueChange={(next) => onChange(next ?? "")} value={value}>
-        <SelectTrigger id="account-default-role">
+        <SelectTrigger className="w-full" id="account-default-role">
           <SelectValue
             placeholder={m.settings_account_form_default_role_placeholder()}
           >
             {(name: string) => roleLabel(name)}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent alignItemWithTrigger={false}>
           <SelectGroup>
             {options.map((name) => (
               <SelectItem key={name} value={name}>
@@ -218,10 +230,6 @@ function DefaultRoleField({
           </SelectGroup>
         </SelectContent>
       </Select>
-      <FieldDescription>
-        {m.settings_account_form_default_role_description()}
-        {roles.isError && m.settings_account_form_roles_error()}
-      </FieldDescription>
-    </Field>
+    </SettingRow>
   );
 }

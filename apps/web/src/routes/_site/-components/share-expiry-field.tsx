@@ -180,16 +180,32 @@ export function ShareExpiryField({
   );
 }
 
-/** 時長用介面語言顯示(「7 天」而不是 10080),挑能整除的最大單位。 */
+/**
+ * 時長用介面語言顯示(「7 天」而不是 10080),挑能整除的最大單位。
+ *
+ * 事後回來改設定時,剩下的時間幾乎不會剛好整除(2879 分鐘),這時改用最大的單位
+ * 取一位小數、前面標 ≈ —— 要人讀「2,879 分鐘」等於叫他自己換算。
+ */
 function formatMinutes(minutes: number): string {
+  const exact = UNITS.toReversed().find(
+    (option) => minutes % MINUTES_PER[option] === 0
+  );
+  if (exact && (exact !== "minute" || minutes < MINUTES_PER.hour)) {
+    return unitFormat(exact).format(minutes / MINUTES_PER[exact]);
+  }
   const unit =
-    UNITS.toReversed().find((option) => minutes % MINUTES_PER[option] === 0) ??
+    UNITS.toReversed().find((option) => minutes >= MINUTES_PER[option]) ??
     "minute";
+  return `≈ ${unitFormat(unit).format(minutes / MINUTES_PER[unit])}`;
+}
+
+function unitFormat(unit: Unit): Intl.NumberFormat {
   return new Intl.NumberFormat(getLocale(), {
+    maximumFractionDigits: 1,
     style: "unit",
     unit,
     unitDisplay: "long",
-  }).format(minutes / MINUTES_PER[unit]);
+  });
 }
 
 function unitLabel(unit: Unit): string {

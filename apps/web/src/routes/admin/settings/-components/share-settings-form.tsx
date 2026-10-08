@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { components } from "@tessera/api/schema";
-import { FieldGroup, FieldSeparator } from "@tessera/ui/components/field";
+import { FieldGroup } from "@tessera/ui/components/field";
 import { Controller, useWatch } from "react-hook-form";
 
 import { readSetting } from "@/hooks/admin/use-settings";
@@ -15,10 +15,11 @@ import type { ShareSettingsValues } from "@/lib/admin/settings-schema";
 import { asBoolean, asNumber } from "@/lib/admin/settings-values";
 import * as m from "@/paraglide/messages";
 
-import { SwitchField } from "./form-fields";
+import { SettingsNotice, SwitchField } from "./form-fields";
 import { NumberField } from "./number-field";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsLoader } from "./settings-loader";
+import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 
@@ -111,163 +112,183 @@ function ShareSettingsFields({
   });
 
   return (
-    <form onSubmit={form.submit}>
-      <FieldGroup>
-        <Controller
-          control={form.control}
-          name="codeLength"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_code_length_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-code-length"
-              label={m.settings_share_form_code_length_label()}
-              max={CODE_LENGTH_MAX}
-              min={CODE_LENGTH_MIN}
-            />
+    <form className="flex flex-col gap-6" onSubmit={form.submit}>
+      <SettingsCard
+        description={m.settings_share_code_description()}
+        title={m.settings_share_code_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="codeLength"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_code_length_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-code-length"
+                label={m.settings_share_form_code_length_label()}
+                max={CODE_LENGTH_MAX}
+                min={CODE_LENGTH_MIN}
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_share_text_description()}
+        title={m.settings_share_text_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="maxTextBytes"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_max_text_bytes_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-max-text-bytes"
+                label={m.settings_share_form_max_text_bytes_label()}
+                min={1}
+                unit="bytes"
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="inlineThresholdBytes"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_inline_threshold_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-inline-threshold"
+                label={m.settings_share_form_inline_threshold_label()}
+                min={0}
+                unit="bytes"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_share_lifecycle_description()}
+        title={m.settings_share_lifecycle_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="ticketTtlHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_ticket_ttl_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-ticket-ttl"
+                label={m.settings_share_form_ticket_ttl_label()}
+                min={1}
+                unit="hours"
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="ticketIdleHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_ticket_idle_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-ticket-idle"
+                label={m.settings_share_form_ticket_idle_label()}
+                min={1}
+                unit="hours"
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="uploadSessionTtlHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_upload_session_ttl_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-upload-session-ttl"
+                label={m.settings_share_form_upload_session_ttl_label()}
+                min={1}
+                unit="hours"
+              />
+            )}
+          />
+
+          <Controller
+            control={form.control}
+            name="retainAfterDeathHours"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_retain_after_death_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-retain-after-death"
+                label={m.settings_share_form_retain_after_death_label()}
+                min={0}
+                unit="hours"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
+
+      <SettingsCard
+        description={m.settings_share_access_log_description()}
+        title={m.settings_share_access_log_title()}
+      >
+        <FieldGroup>
+          <Controller
+            control={form.control}
+            name="accessLogEnabled"
+            render={({ field }) => (
+              <SwitchField
+                description={m.settings_share_form_access_log_enabled_description()}
+                field={field}
+                id="share-access-log-enabled"
+                label={m.settings_share_form_access_log_enabled_label()}
+              />
+            )}
+          />
+
+          {accessLogEnabled && (
+            <SettingsNotice tone="info">
+              {m.settings_share_form_access_log_notice()}
+            </SettingsNotice>
           )}
-        />
 
-        <Controller
-          control={form.control}
-          name="maxTextBytes"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_max_text_bytes_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-max-text-bytes"
-              label={m.settings_share_form_max_text_bytes_label()}
-              min={1}
-            />
-          )}
-        />
+          <Controller
+            control={form.control}
+            name="accessLogRetentionDays"
+            render={({ field, fieldState }) => (
+              <NumberField
+                description={m.settings_share_form_access_log_retention_description()}
+                field={field}
+                fieldState={fieldState}
+                id="share-access-log-retention"
+                label={m.settings_share_form_access_log_retention_label()}
+                min={0}
+                unit="days"
+              />
+            )}
+          />
+        </FieldGroup>
+      </SettingsCard>
 
-        <Controller
-          control={form.control}
-          name="inlineThresholdBytes"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_inline_threshold_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-inline-threshold"
-              label={m.settings_share_form_inline_threshold_label()}
-              min={0}
-            />
-          )}
-        />
-
-        <FieldSeparator />
-
-        <Controller
-          control={form.control}
-          name="ticketTtlHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_ticket_ttl_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-ticket-ttl"
-              label={m.settings_share_form_ticket_ttl_label()}
-              min={1}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="ticketIdleHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_ticket_idle_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-ticket-idle"
-              label={m.settings_share_form_ticket_idle_label()}
-              min={1}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="uploadSessionTtlHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_upload_session_ttl_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-upload-session-ttl"
-              label={m.settings_share_form_upload_session_ttl_label()}
-              min={1}
-            />
-          )}
-        />
-
-        <Controller
-          control={form.control}
-          name="retainAfterDeathHours"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_retain_after_death_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-retain-after-death"
-              label={m.settings_share_form_retain_after_death_label()}
-              min={0}
-            />
-          )}
-        />
-
-        <FieldSeparator />
-
-        <Controller
-          control={form.control}
-          name="accessLogEnabled"
-          render={({ field }) => (
-            <SwitchField
-              description={m.settings_share_form_access_log_enabled_description()}
-              field={field}
-              id="share-access-log-enabled"
-              label={m.settings_share_form_access_log_enabled_label()}
-            />
-          )}
-        />
-
-        {accessLogEnabled && (
-          <p className="rounded-md border border-border bg-muted/40 p-3 text-muted-foreground text-sm">
-            {m.settings_share_form_access_log_notice_1()}
-            <strong className="font-medium text-foreground">
-              {m.settings_share_form_access_log_notice_2()}
-            </strong>
-          </p>
-        )}
-
-        <Controller
-          control={form.control}
-          name="accessLogRetentionDays"
-          render={({ field, fieldState }) => (
-            <NumberField
-              description={m.settings_share_form_access_log_retention_description()}
-              field={field}
-              fieldState={fieldState}
-              id="share-access-log-retention"
-              label={m.settings_share_form_access_log_retention_label()}
-              min={0}
-            />
-          )}
-        />
-
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
-      </FieldGroup>
+      <SettingsFormFooter form={form} />
     </form>
   );
 }

@@ -20,7 +20,6 @@ import * as m from "@/paraglide/messages";
 
 import { SealedField, SwitchField, TextField } from "./form-fields";
 import { ProviderCallbackUrls } from "./provider-callback-urls";
-import { ProviderRegistrationNote } from "./provider-registration-note";
 import { SettingsFormFooter } from "./settings-form-footer";
 import { SettingsCard } from "./settings-page";
 
@@ -140,8 +139,6 @@ function OauthProviderFields({
         {/* idPrefix 就是路徑裡的那一段：`github` / `discord`。 */}
         <ProviderCallbackUrls provider={idPrefix} publicUrl={publicUrl} />
 
-        <ProviderRegistrationNote />
-
         <Controller
           control={form.control}
           name="clientId"
@@ -230,13 +227,7 @@ function OauthProviderFields({
           )}
         />
 
-        <SettingsFormFooter
-          canWrite={form.canWrite}
-          errorMessage={form.errorMessage}
-          isDirty={form.isDirty}
-          isPending={form.isPending}
-          isSaved={form.isSaved}
-        />
+        <SettingsFormFooter form={form} surface="card" />
       </FieldGroup>
     </form>
   );

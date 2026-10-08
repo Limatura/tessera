@@ -4,9 +4,9 @@ import { Link } from "@tanstack/react-router";
 import { useDateTimeFormatter } from "@/hooks/use-date-time-formatter";
 import * as m from "@/paraglide/messages";
 
-import { DeleteShareButton } from "./delete-share-button";
 import { ShareBadges } from "./share-fields";
 import type { Share } from "./share-fields";
+import { ShareRowActions } from "./share-row-actions";
 
 /**
  * 窄螢幕的版面:一筆一列,整列都是連結(刪除鈕是列旁邊的獨立按鈕,不能放進 `<a>` 裡)。
@@ -17,9 +17,11 @@ import type { Share } from "./share-fields";
  */
 export function SharesList({
   shares,
+  onManage,
   onDelete,
 }: {
   shares: Share[];
+  onManage: (share: Share) => void;
   onDelete: (share: Share) => void;
 }) {
   const formatDate = useDateTimeFormatter();
@@ -61,7 +63,11 @@ export function SharesList({
             />
           </Link>
           <div className="shrink-0 pr-2">
-            <DeleteShareButton onDelete={onDelete} share={share} />
+            <ShareRowActions
+              onDelete={onDelete}
+              onManage={onManage}
+              share={share}
+            />
           </div>
         </li>
       ))}

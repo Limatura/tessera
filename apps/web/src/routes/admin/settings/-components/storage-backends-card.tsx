@@ -1,4 +1,4 @@
-import { IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconStar, IconTrash } from "@tabler/icons-react";
 import type { components } from "@tessera/api/schema";
 import { useSession } from "@tessera/auth/hooks";
 import { Badge } from "@tessera/ui/components/badge";
@@ -60,20 +60,22 @@ export function StorageBackendsCard() {
 
   return (
     <SettingsCard
+      action={
+        canWrite && (
+          <Button
+            onClick={() => openEditor(null)}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <IconPlus />
+            {m.settings_storage_backends_add()}
+          </Button>
+        )
+      }
       description={m.settings_storage_backends_card_description()}
       title={m.settings_storage_backends_card_title()}
     >
-      {canWrite && (
-        <Button
-          className="w-fit"
-          onClick={() => openEditor(null)}
-          type="button"
-        >
-          <IconPlus />
-          {m.settings_storage_backends_add()}
-        </Button>
-      )}
-
       {backends.isPending && (
         <p className="text-muted-foreground text-sm">{m.common_loading()}</p>
       )}
@@ -94,7 +96,7 @@ export function StorageBackendsCard() {
               <TableHead className="text-right">
                 {m.settings_storage_backends_col_capacity()}
               </TableHead>
-              {canWrite && <TableHead className="w-24" />}
+              {canWrite && <TableHead className="w-32" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -155,6 +157,17 @@ export function StorageBackendsCard() {
                           <IconStar />
                         </Button>
                       )}
+                      <Button
+                        aria-label={m.settings_storage_backends_edit_aria({
+                          name: backend.name,
+                        })}
+                        onClick={() => openEditor(backend)}
+                        size="icon"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <IconPencil />
+                      </Button>
                       <Button
                         aria-label={m.settings_storage_backends_delete_aria({
                           name: backend.name,

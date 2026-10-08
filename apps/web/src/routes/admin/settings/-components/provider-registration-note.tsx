@@ -4,13 +4,15 @@ import { Link } from "@tanstack/react-router";
 import { readSetting, useSettings } from "@/hooks/admin/use-settings";
 import * as m from "@/paraglide/messages";
 
+import { SettingsNotice } from "./form-fields";
+
 /**
  * 第三方登入遇到「這個人這裡還沒有帳號」時會怎麼做。
  *
  * 決定權在 `auth.registration` —— 同一個設定同時管密碼註冊跟第三方登入建帳號
  * （見 `api/oidc.rs` 的 `register`）。但它在另一頁，而且那頁的說明只講密碼，
  * 所以在這裡設 provider 的人沒有任何線索知道「關了註冊之後，第三方登入只剩
- * 現有帳號能用」。這一段就是補那條線索。
+ * 現有帳號能用」。這一段就是補那條線索。三個 provider 都適用，所以整頁只放一份。
  *
  * 值一律讀 server 上實際生效的設定，不是表單狀態 —— 它講的是這台 instance 現在
  * 的行為（跟 `GuestAnonymousWarning` 同一個理由）。
@@ -20,23 +22,20 @@ export function ProviderRegistrationNote() {
   const registration = readSetting(data, "auth.registration");
 
   return (
-    <div className="flex gap-3 rounded-md border bg-muted/40 p-3 text-sm">
-      <IconInfoCircle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-      <div className="space-y-1">
-        <p className="font-medium">{headline(registration)}</p>
-        <p className="text-muted-foreground">
-          {detail(registration)}
-          {m.settings_provider_registration_change_before()}
-          <Link
-            className="mx-1 underline underline-offset-4"
-            to="/admin/settings/account"
-          >
-            {m.settings_provider_registration_link_label()}
-          </Link>
-          {m.settings_provider_registration_change_after()}
-        </p>
-      </div>
-    </div>
+    <SettingsNotice
+      icon={<IconInfoCircle />}
+      title={headline(registration)}
+      tone="info"
+    >
+      {detail(registration)} {m.settings_provider_registration_change_before()}
+      <Link
+        className="mx-1 underline underline-offset-4 hover:text-foreground"
+        to="/admin/settings/account"
+      >
+        {m.settings_provider_registration_link_label()}
+      </Link>
+      {m.settings_provider_registration_change_after()}
+    </SettingsNotice>
   );
 }
 

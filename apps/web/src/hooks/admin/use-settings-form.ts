@@ -110,6 +110,11 @@ export function useSettingsForm<TValues extends FieldValues>({
   return {
     canWrite: hasPermission(account, PERMISSIONS.settingsWrite),
     control: form.control,
+    /** 回到上次存好的值，連同上次送出的錯誤一起清掉。 */
+    discard: () => {
+      form.reset();
+      update.reset();
+    },
     errorMessage: settingsErrorMessage(update.error),
     isDirty,
     isPending: update.isPending,
