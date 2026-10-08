@@ -2037,6 +2037,16 @@ export interface components {
          *     as anything but active, since a disabled account cannot sign in to ask.
          */
         AdminUserResponse: components["schemas"]["AccountResponse"] & {
+            /**
+             * Format: int64
+             * @description Largest single file set on this one account, overriding its role's.
+             *
+             *     `null` means the role's applies; `0` means this account has no limit
+             *     of its own. Only administrators see it; what a user may actually send
+             *     is `max_upload_bytes` on `/capabilities`.
+             * @example 5368709120
+             */
+            max_file_bytes?: number | null;
             /** @description Whether it may sign in, or has been deleted. */
             state: components["schemas"]["UserState"];
         };

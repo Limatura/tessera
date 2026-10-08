@@ -14,6 +14,7 @@
     "test:coverage": "vp test run --coverage",
     "dev:web": "turbo run dev -F web",
     "dev:tui": "turbo run dev -F tui",
+    "build:web": "turbo run build -F web",
     "server:dev": "set -a; [ -f ./.dev/local.env ] && . ./.dev/local.env; set +a; cargo run --bin tessera-server",
     "dev:fakes": "cargo run -q -p tessera-dev",
     "server:dev:fakes": "set -a; . ./.dev/fakes.env; [ -f ./.dev/local.env ] && . ./.dev/local.env; set +a; cargo run --bin tessera-server",

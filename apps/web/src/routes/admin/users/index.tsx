@@ -263,6 +263,7 @@ function UsersComponent() {
                           </span>
                         )}
                         <QuotaBadge quotaBytes={user.quota_bytes} />
+                        <FileLimitBadge maxFileBytes={user.max_file_bytes} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {user.permissions.length}
@@ -339,6 +340,19 @@ function QuotaBadge({ quotaBytes }: { quotaBytes?: number | null }) {
       {quotaBytes === 0
         ? m.users_quota_badge_unlimited()
         : m.users_quota_badge({ amount: formatBytes(quotaBytes) })}
+    </Badge>
+  );
+}
+
+function FileLimitBadge({ maxFileBytes }: { maxFileBytes?: number | null }) {
+  if (maxFileBytes === null || maxFileBytes === undefined) {
+    return null;
+  }
+  return (
+    <Badge className="ml-2" variant="outline">
+      {maxFileBytes === 0
+        ? m.users_file_badge_unlimited()
+        : m.users_file_badge({ amount: formatBytes(maxFileBytes) })}
     </Badge>
   );
 }

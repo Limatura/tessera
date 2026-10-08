@@ -106,6 +106,13 @@ pub struct AdminUserResponse {
     pub account: AccountResponse,
     /// Whether it may sign in, or has been deleted.
     pub state: UserState,
+    /// Largest single file set on this one account, overriding its role's.
+    ///
+    /// `null` means the role's applies; `0` means this account has no limit
+    /// of its own. Only administrators see it; what a user may actually send
+    /// is `max_upload_bytes` on `/capabilities`.
+    #[schema(example = 5_368_709_120_u64)]
+    pub max_file_bytes: Option<u64>,
 }
 
 impl AdminUserResponse {
@@ -117,6 +124,7 @@ impl AdminUserResponse {
         Self {
             account: AccountResponse::build(user, roles, has_password),
             state: user.state.into(),
+            max_file_bytes: user.max_file_bytes,
         }
     }
 }
