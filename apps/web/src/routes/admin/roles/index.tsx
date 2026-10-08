@@ -22,7 +22,14 @@ import {
 import { useState } from "react";
 
 import { usePermissions, useRoles } from "@/hooks/admin/use-admin";
-import { PERMISSIONS, hasPermission, roleLabel } from "@/lib/admin/permissions";
+import {
+  HIGH_RISK_PERMISSIONS,
+  PERMISSIONS,
+  hasPermission,
+  permissionLabel,
+  roleDescription,
+  roleLabel,
+} from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
@@ -54,9 +61,6 @@ function RolesComponent() {
 
   const canWrite = hasPermission(account, PERMISSIONS.rolesWrite);
   const grantable = new Set(account?.permissions);
-  const privileged = new Set(
-    permissions.data?.filter((p) => p.privileged).map((p) => p.name)
-  );
 
   const openEditor = (role: Role | null) => {
     setEditing(role);
@@ -121,7 +125,7 @@ function RolesComponent() {
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {role.description ?? m.common_dash_placeholder()}
+                      {roleDescription(role) ?? m.common_dash_placeholder()}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {role.members}
@@ -136,13 +140,14 @@ function RolesComponent() {
                           {role.permissions.map((permission) => (
                             <Badge
                               key={permission}
+                              title={permission}
                               variant={
-                                privileged.has(permission)
+                                HIGH_RISK_PERMISSIONS.has(permission)
                                   ? "destructive"
                                   : "secondary"
                               }
                             >
-                              {permission}
+                              {permissionLabel(permission)}
                             </Badge>
                           ))}
                         </span>
