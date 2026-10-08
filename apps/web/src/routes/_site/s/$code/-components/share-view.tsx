@@ -18,6 +18,7 @@ import {
   EyeOff,
   FileIcon,
   FileText,
+  Flame,
   Home,
   Link2,
   Lock,
@@ -267,9 +268,23 @@ function isApiError(error: unknown): error is ApiError {
   return typeof error === "object" && error !== null && "status" in error;
 }
 
+/**
+ * 這次就是最後一次可以提取的機會(下載即焚,或次數只剩一次)。
+ *
+ * 預覽要先拿票券,拿票券就花掉一次提取;自動預覽等於一打開頁面就把它用掉,
+ * 而預覽出來的圖片右鍵就能另存,「下載一次」形同虛設。所以這種分享不自動預覽,
+ * 等人明確按下去才花。
+ */
+function isLastRetrieval(data: PublicShare): boolean {
+  return data.uses_remaining === 1;
+}
+
 function resolvePreviewPlan(data: PublicShare): PreviewPlan {
   if (data.kind === "text") {
     return { type: "text" };
+  }
+  if (isLastRetrieval(data)) {
+    return { type: "none" };
   }
   const filename = data.files[0]?.filename;
   const Component = filename ? resolveFilePreview(filename) : null;
@@ -427,12 +442,16 @@ function RevealedShare({
   password?: string;
 }) {
   const plan = resolvePreviewPlan(data);
+  const oneTime = isLastRetrieval(data);
   const [manualRequested, setManualRequested] = useState(false);
   const ticket = useShareTicket(
     code,
     password,
-    plan.type !== "none" || manualRequested
+    (plan.type !== "none" && !oneTime) || manualRequested
   );
+  // 一次性的文字要等人按「檢視文字」才拿票券,在那之前不給下載鈕——
+  // 按下載同樣會花掉這一次,卻什麼都看不到。
+  const textHidden = plan.type === "text" && oneTime && !manualRequested;
 
   useEffect(() => {
     if (plan.type === "none" && manualRequested && ticket.data) {
@@ -458,7 +477,21 @@ function RevealedShare({
 
   return (
     <div className="flex flex-col gap-4">
+      {textHidden && (
+        <div className="flex flex-col items-center gap-3 rounded-md border border-border/60 bg-muted/20 p-8 text-center">
+          <Flame className="size-8 text-muted-foreground" />
+          <p className="text-muted-foreground text-sm">
+            {m.share_one_time_text()}
+          </p>
+          <Button onClick={() => setManualRequested(true)} type="button">
+            <Eye />
+            {m.share_view_text()}
+          </Button>
+        </div>
+      )}
+
       {plan.type === "text" &&
+        !textHidden &&
         (ticket.data ? (
           <TextPreview
             language={data.language}
@@ -480,23 +513,29 @@ function RevealedShare({
         ))}
 
       {plan.type === "none" && (
-        <div className="flex flex-col items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-8">
-          <FileIcon className="size-8 text-muted-foreground" />
+        <div className="flex flex-col items-center gap-2 rounded-md border border-border/60 bg-muted/20 p-8 text-center">
+          {oneTime ? (
+            <Flame className="size-8 text-muted-foreground" />
+          ) : (
+            <FileIcon className="size-8 text-muted-foreground" />
+          )}
           <p className="text-muted-foreground text-sm">
-            {m.share_no_preview()}
+            {oneTime ? m.share_one_time_file() : m.share_no_preview()}
           </p>
         </div>
       )}
 
-      <Button
-        className="w-full"
-        disabled={ticket.isFetching}
-        onClick={handleDownloadClick}
-        type="button"
-      >
-        <Download />
-        {ticket.isFetching ? m.share_preparing() : m.share_download()}
-      </Button>
+      {!textHidden && (
+        <Button
+          className="w-full"
+          disabled={ticket.isFetching}
+          onClick={handleDownloadClick}
+          type="button"
+        >
+          <Download />
+          {ticket.isFetching ? m.share_preparing() : m.share_download()}
+        </Button>
+      )}
     </div>
   );
 }

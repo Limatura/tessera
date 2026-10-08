@@ -1,4 +1,3 @@
-import { IconClock } from "@tabler/icons-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,13 +11,6 @@ import {
 } from "@tessera/ui/components/alert-dialog";
 import { Button } from "@tessera/ui/components/button";
 import { Label } from "@tessera/ui/components/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@tessera/ui/components/select";
 import { Switch } from "@tessera/ui/components/switch";
 import { toast } from "@tessera/ui/components/toast";
 import { Check, Copy, Flame, RotateCcw, Trash2 } from "lucide-react";
@@ -26,19 +18,14 @@ import { motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 
+import { useCapabilities } from "@/hooks/use-capabilities";
 import { apiErrorMessage } from "@/lib/api-error";
 import { deleteShare, updateShare } from "@/lib/upload";
 import type { ShareSettings, UploadResultData } from "@/lib/upload";
 import * as m from "@/paraglide/messages";
 
+import { ShareExpiryField } from "./share-expiry-field";
 import { SharePasswordField } from "./share-password-field";
-
-const EXPIRY_OPTIONS = [
-  { hours: 1, label: () => m.upload_settings_expiry_1h() },
-  { hours: 24, label: () => m.upload_settings_expiry_24h() },
-  { hours: 24 * 7, label: () => m.upload_settings_expiry_7d() },
-  { hours: 0, label: () => m.upload_settings_expiry_never() },
-] as const;
 
 /**
  * 覆蓋層上的區塊底色。這層的底是 --melt 而不是 background/card,
@@ -57,7 +44,10 @@ interface UploadResultProps {
 export function UploadResult({ onReset, result, visible }: UploadResultProps) {
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [expiresInHours, setExpiresInHours] = useState(result.expiresInHours);
+  const capabilities = useCapabilities();
+  const [expiresInMinutes, setExpiresInMinutes] = useState(
+    result.expiresInMinutes
+  );
   const [burnAfterReading, setBurnAfterReading] = useState(
     result.maxUses === 1
   );
@@ -78,14 +68,15 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
     }
   };
 
-  const handleExpiryChange = (value: string | null) => {
-    const previous = expiresInHours;
-    const hours = Number(value ?? 24);
-    const next = hours === 0 ? undefined : hours;
-    setExpiresInHours(next);
-    applySettings({ expiresInHours: next }, () => setExpiresInHours(previous));
+  const handleExpiryChange = (next: number | undefined) => {
+    const previous = expiresInMinutes;
+    setExpiresInMinutes(next);
+    applySettings({ expiresInMinutes: next }, () =>
+      setExpiresInMinutes(previous)
+    );
   };
 
+  // `max_uses` 是「從現在起還能取幾次」,分享被開過之後才打開也是再一次。
   const handleBurnAfterReadingChange = (checked: boolean) => {
     setBurnAfterReading(checked);
     applySettings({ maxUses: checked ? 1 : undefined }, () =>
@@ -160,27 +151,11 @@ export function UploadResult({ onReset, result, visible }: UploadResultProps) {
       </div>
 
       <div className={`flex w-full flex-col gap-3 p-3 text-left ${PANEL}`}>
-        <div className="flex items-center justify-between gap-2">
-          <Label className="text-current" htmlFor="share-result-expiry">
-            <IconClock className="size-3.5" />
-            {m.upload_settings_expiry_label()}
-          </Label>
-          <Select
-            onValueChange={handleExpiryChange}
-            value={String(expiresInHours ?? 0)}
-          >
-            <SelectTrigger id="share-result-expiry" size="sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {EXPIRY_OPTIONS.map((option) => (
-                <SelectItem key={option.hours} value={String(option.hours)}>
-                  {option.label()}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <ShareExpiryField
+          maxHours={capabilities.data?.max_expiry_hours}
+          minutes={expiresInMinutes}
+          onChange={handleExpiryChange}
+        />
 
         <div className="flex items-center justify-between gap-2">
           <Label
