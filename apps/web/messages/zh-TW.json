@@ -775,7 +775,7 @@
   "settings_password_form_memory_kib_label": "記憶體用量",
   "settings_password_form_min_length_description": "預設 8，不能更低。",
   "settings_password_form_min_length_label": "最短長度",
-  "settings_password_form_pwned_enabled_description": "開啟後，註冊、改密碼、重設密碼時，出現在 Have I Been Pwned 外洩名單上的密碼會被拒絕。查詢服務連不上時才會略過檢查。",
+  "settings_password_form_pwned_enabled_description": "密碼若出現在外洩名單上就拒絕。",
   "settings_password_form_pwned_enabled_label": "檢查外洩密碼",
   "settings_password_form_pwned_url_description": "預設是官方服務，也可以指向自架的版本。",
   "settings_password_form_pwned_url_label": "服務網址",
