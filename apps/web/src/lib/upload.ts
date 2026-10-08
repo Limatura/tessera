@@ -4,7 +4,8 @@ export interface UploadResultData {
   code: string;
   fileName: string;
   shortUrl: string;
-  expiresInHours?: number;
+  /** 從現在起還剩幾分鐘;`undefined` 是永不過期 */
+  expiresInMinutes?: number;
   maxUses?: number;
   hasPassword: boolean;
   /** Only present for an anonymous upload; lets the uploader delete it back. */
@@ -12,9 +13,9 @@ export interface UploadResultData {
 }
 
 export interface ShareSettings {
-  /** Omit/undefined to use the instance default; `0` never expires. */
-  expiresInHours?: number;
-  /** `1` is burn-after-reading. Omit for unlimited. */
+  /** Minutes from now. `undefined` or `0` never expires. */
+  expiresInMinutes?: number;
+  /** Retrievals allowed from now on; `1` is burn-after-reading. Omit for unlimited. */
   maxUses?: number;
   password?: string;
 }
@@ -261,7 +262,7 @@ function uploadLink(
 function toResult(share: ShareResponse): UploadResultData {
   return {
     code: share.code,
-    expiresInHours: hoursUntil(share.expires_at),
+    expiresInMinutes: minutesUntil(share.expires_at),
     fileName: share.files[0]?.filename ?? share.title ?? share.code,
     hasPassword: share.has_password,
     managementToken: share.management_token ?? undefined,
@@ -273,12 +274,14 @@ function toResult(share: ShareResponse): UploadResultData {
   };
 }
 
-function hoursUntil(expiresAt: string | null | undefined): number | undefined {
+function minutesUntil(
+  expiresAt: string | null | undefined
+): number | undefined {
   if (!expiresAt) {
     return;
   }
   const ms = new Date(expiresAt).getTime() - Date.now();
-  return Math.max(0, Math.round(ms / (60 * 60 * 1000)));
+  return Math.max(0, Math.round(ms / (60 * 1000)));
 }
 
 interface ShareQuery {
@@ -333,12 +336,12 @@ export async function updateShare(
   managementToken?: string
 ): Promise<void> {
   const body: PatchShareRequest = {};
-  if ("expiresInHours" in settings) {
-    // 0 小時在建立時代表「永不過期」,PATCH 這邊要用 null 表達。
-    body.expires_in_hours =
-      settings.expiresInHours === undefined || settings.expiresInHours === 0
+  if ("expiresInMinutes" in settings) {
+    // 0 在建立時代表「永不過期」,PATCH 這邊要用 null 表達。
+    body.expires_in_minutes =
+      settings.expiresInMinutes === undefined || settings.expiresInMinutes === 0
         ? null
-        : settings.expiresInHours;
+        : settings.expiresInMinutes;
   }
   if ("maxUses" in settings) {
     body.max_uses = settings.maxUses ?? null;

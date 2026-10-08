@@ -54,11 +54,11 @@ describe("updateShare", () => {
   });
 
   it("過期時間 0 或 undefined 都送 null(代表不再過期)", async () => {
-    await updateShare("abc", { expiresInHours: 0 });
-    expect(lastRequest().body).toEqual({ expires_in_hours: null });
+    await updateShare("abc", { expiresInMinutes: 0 });
+    expect(lastRequest().body).toEqual({ expires_in_minutes: null });
 
-    await updateShare("abc", { expiresInHours: undefined });
-    expect(lastRequest().body).toEqual({ expires_in_hours: null });
+    await updateShare("abc", { expiresInMinutes: undefined });
+    expect(lastRequest().body).toEqual({ expires_in_minutes: null });
   });
 
   it("設定密碼走 header,body 不帶 remove_password", async () => {
@@ -77,12 +77,12 @@ describe("updateShare", () => {
 
   it("body 只會出現後端認得的 key", async () => {
     await updateShare("abc", {
-      expiresInHours: 24,
+      expiresInMinutes: 30,
       maxUses: 2,
       password: undefined,
     });
     expect(Object.keys(lastRequest().body).toSorted()).toEqual([
-      "expires_in_hours",
+      "expires_in_minutes",
       "max_uses",
       "remove_password",
     ]);
