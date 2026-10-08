@@ -627,7 +627,6 @@
   "settings_auth_providers_github_description": "GitHub は OIDC プロバイダーではなく（id_token を発行しない）、エンドポイントはアダプター内にハードコードされています。そのためここにあるのは、本サイトの身元を GitHub に伝えるための値のみです。",
   "settings_auth_providers_github_scopes_hint": "スペース区切りで指定します。user:email がないと GitHub は確認済みメールアドレスを返さず、ログインのたびに no_address で失敗します。",
   "settings_auth_providers_github_title": "GitHub",
-  "settings_auth_providers_shell_title": "システム設定",
   "settings_feature_form_accounts_description": "登録、サインイン、セッションに関する機能です。オフにするとアカウント自体が存在しなくなり、「VPN の内側で一人がファイルの受け渡し場所として使う」用途に適しています。匿名アップロードとは意図的に独立しています —— 管理画面が欲しいからといって、全員に登録を強制したいわけではありません。",
   "settings_feature_form_accounts_label": "アカウント機能",
   "settings_feature_form_accounts_off_warning": "アカウント機能をオフにするとサインインできなくなり、この管理画面に入るにはセッションが必要です —— 次に再読み込みすると締め出されます。",

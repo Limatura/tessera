@@ -16,6 +16,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@tessera/ui/components/sidebar";
+import { useState } from "react";
 
 export interface NavLink {
   title: string;
@@ -88,8 +89,9 @@ function NavLinkItem({ item }: { item: NavLink }) {
 /**
  * 一組收在下拉裡的頁面。
  *
- * 目前在哪一個子頁就預設展開，否則點進設定的某一頁、重整之後會看到群組是收起來的，
- * 得再點一次才知道自己在哪。
+ * 換到群組裡的某一頁時自動展開，否則從儀表板的連結跳進設定、或重整之後，會看到群組是
+ * 收起來的，得再點一次才知道自己在哪。離開群組時不自動收 —— 側欄在後台 layout 裡、
+ * 換頁不會重掛，使用者自己展開或收起的狀態要留著。
  */
 function NavGroupItem({
   item,
@@ -99,11 +101,21 @@ function NavGroupItem({
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
-  const open = item.items.some((sub) => pathname.startsWith(sub.url));
+  const active = item.items.some((sub) => pathname.startsWith(sub.url));
+  const [open, setOpen] = useState(active);
+  // 只在「剛進入群組」那一刻展開，所以要記上一次是不是在裡面;在 render 裡調整而不是
+  // 用 effect,免得先畫出收起的群組再跳開。
+  const [wasActive, setWasActive] = useState(active);
+  if (active !== wasActive) {
+    setWasActive(active);
+    if (active) {
+      setOpen(true);
+    }
+  }
 
   return (
     <SidebarMenuItem>
-      <Collapsible defaultOpen={open}>
+      <Collapsible onOpenChange={setOpen} open={open}>
         <SidebarMenuButton
           className="group/collapsible w-full"
           render={<CollapsibleTrigger />}

@@ -627,7 +627,6 @@
   "settings_auth_providers_github_description": "GitHub is not an OIDC provider (it doesn't issue an id_token) — its endpoints are hardcoded in the adapter, so the only values here are the ones that identify this site to GitHub.",
   "settings_auth_providers_github_scopes_hint": "Space-separated. Without user:email, GitHub won't provide a verified email address, and every sign-in will fail with no_address.",
   "settings_auth_providers_github_title": "GitHub",
-  "settings_auth_providers_shell_title": "System Settings",
   "settings_feature_form_accounts_description": "Registration, sign-in, and sessions. Turning it off means no accounts at all, suited to \"one person behind a VPN who just wants a file drop point\". Deliberately independent of anonymous uploads — wanting an admin panel doesn't mean wanting to force everyone to register.",
   "settings_feature_form_accounts_label": "Account features",
   "settings_feature_form_accounts_off_warning": "With account features off, no one can sign in, and this panel requires a session to enter — the next reload will lock you out.",

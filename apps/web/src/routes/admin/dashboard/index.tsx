@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useSession } from "@tessera/auth/hooks";
 
-import { AdminShell } from "@/components/admin/admin-shell";
 import { hasPermission, PERMISSIONS } from "@/lib/admin/permissions";
 import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
@@ -20,6 +19,7 @@ export const Route = createFileRoute("/admin/dashboard/")({
       PERMISSIONS.statsRead
     ),
   component: DashboardComponent,
+  staticData: { title: m.dashboard_title },
 });
 
 /**
@@ -35,7 +35,7 @@ function DashboardComponent() {
   const bothLower = canReadSettings && canReadShares;
 
   return (
-    <AdminShell title={m.dashboard_title()}>
+    <>
       <StatsCards />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <div className="xl:col-span-3">
@@ -59,6 +59,6 @@ function DashboardComponent() {
           )}
         </div>
       )}
-    </AdminShell>
+    </>
   );
 }

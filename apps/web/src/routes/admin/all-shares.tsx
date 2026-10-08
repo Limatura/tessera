@@ -20,7 +20,6 @@ import {
 import { formatBytes } from "@tessera/ui/lib/format";
 import { useState } from "react";
 
-import { AdminShell } from "@/components/admin/admin-shell";
 import { Pager } from "@/components/admin/pager";
 import { ShareStatusBadge } from "@/components/admin/share-status-badge";
 import { PAGE_SIZE, useAllShares } from "@/hooks/admin/use-admin";
@@ -46,6 +45,7 @@ export const Route = createFileRoute("/admin/all-shares")({
       PERMISSIONS.sharesReadAny
     ),
   component: AllSharesComponent,
+  staticData: { title: m.all_shares_page_title },
   validateSearch: pageSearchSchema,
 });
 
@@ -60,7 +60,7 @@ function AllSharesComponent() {
   const rows = shares.data?.data;
 
   return (
-    <AdminShell title={m.all_shares_page_title()}>
+    <>
       <Card className="ring-foreground/10">
         <CardHeader>
           <CardTitle>{m.all_shares_card_title()}</CardTitle>
@@ -168,6 +168,6 @@ function AllSharesComponent() {
           share={deleting}
         />
       )}
-    </AdminShell>
+    </>
   );
 }

@@ -23,8 +23,8 @@ import { SealedField, SwitchField, TextField } from "./form-fields";
 import { OidcDiscoveryField } from "./oidc-discovery-field";
 import { ProviderCallbackUrls } from "./provider-callback-urls";
 import { ProviderRegistrationNote } from "./provider-registration-note";
+import { SettingsCard } from "./settings-card";
 import { SettingsFormFooter } from "./settings-form-footer";
-import { SettingsCard } from "./settings-page";
 
 type Settings = components["schemas"]["SettingsResponse"];
 

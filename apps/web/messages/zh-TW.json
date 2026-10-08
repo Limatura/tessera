@@ -627,7 +627,6 @@
   "settings_auth_providers_github_description": "GitHub 不是 OIDC provider（不發 id_token），端點寫死在 adapter 裡，所以這裡只有向 GitHub 表明本站身分的那組值。",
   "settings_auth_providers_github_scopes_hint": "以空白分隔。沒有 user:email 的話 GitHub 不給已驗證信箱，每次登入都會以 no_address 失敗。",
   "settings_auth_providers_github_title": "GitHub",
-  "settings_auth_providers_shell_title": "系統設定",
   "settings_feature_form_accounts_description": "註冊、登入與 session。關掉等於完全沒有帳號，適合「一個人在 VPN 後面只要一個檔案投放點」。與匿名上傳刻意獨立 —— 想要管理面板不等於想強迫所有人註冊。",
   "settings_feature_form_accounts_label": "帳號功能",
   "settings_feature_form_accounts_off_warning": "關掉帳號功能後就無法登入，而這個後台要 session 才進得來 —— 下次重新載入就會被擋在外面。",

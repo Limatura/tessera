@@ -1,29 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { PERMISSIONS } from "@/lib/admin/permissions";
-import { requirePermission } from "@/lib/admin/route-guard";
 import * as m from "@/paraglide/messages";
 
 import { NetworkSettingsForm } from "./-components/network-settings-form";
-import { SettingsPage } from "./-components/settings-page";
+import { SettingsCard } from "./-components/settings-card";
 
 export const Route = createFileRoute("/admin/settings/network")({
-  beforeLoad: ({ context, location }) =>
-    requirePermission(
-      context.queryClient,
-      location.href,
-      PERMISSIONS.settingsRead
-    ),
   component: NetworkSettingsRoute,
 });
 
 function NetworkSettingsRoute() {
   return (
-    <SettingsPage
+    <SettingsCard
       description={m.settings_network_description()}
       title={m.settings_network_title()}
     >
       <NetworkSettingsForm />
-    </SettingsPage>
+    </SettingsCard>
   );
 }
