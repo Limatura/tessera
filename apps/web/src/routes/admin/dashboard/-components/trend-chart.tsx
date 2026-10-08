@@ -23,6 +23,7 @@ import {
   ToggleGroupItem,
 } from "@tessera/ui/components/toggle-group";
 import { formatBytes, formatNumber } from "@tessera/ui/lib/format";
+import { useReducedMotion } from "motion/react";
 import { useState } from "react";
 import {
   Area,
@@ -34,6 +35,7 @@ import {
 } from "recharts";
 
 import { useStats, useStatsHistory } from "@/hooks/admin/use-admin";
+import { CHART_ANIMATION } from "@/lib/admin/motion";
 import { getLocale } from "@/lib/locale";
 import * as m from "@/paraglide/messages";
 
@@ -169,6 +171,7 @@ function TrendPlot({
   metric: Metric;
 }) {
   const quotaBytes = useStats().data?.quota_bytes ?? null;
+  const reduceMotion = useReducedMotion();
   const spec = METRIC_SPECS[metric];
   const { points, hasGaps } = buildTrendPoints(days);
   const [lead] = spec.series;
@@ -257,7 +260,8 @@ function TrendPlot({
               connectNulls={false}
               dataKey={series.key}
               fill={series.key === lead?.key ? "url(#fillTrendLead)" : "none"}
-              isAnimationActive={false}
+              {...CHART_ANIMATION}
+              isAnimationActive={!reduceMotion}
               stroke={`var(--color-${series.key})`}
               strokeDasharray={series.key === lead?.key ? undefined : "4 4"}
               strokeWidth={2}
