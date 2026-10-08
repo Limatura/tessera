@@ -66,18 +66,17 @@ function UserQuotaForm({
   const [quotaMode, setQuotaMode] = useState<ByteLimitMode>(initialQuotaMode);
   const [quotaMib, setQuotaMib] = useState(initialQuotaMib);
 
-  /*
-   * 帳號的單檔上限 API 讀不回來（`AdminUserResponse` 沒有這個欄位，#454），
-   * 所以從「不變更」開始，選了別的才送。假裝它是「沿用角色」的話，只改配額也會把
-   * 原本設好的單檔上限清掉。
-   */
-  const [fileMode, setFileMode] = useState<ByteLimitMode>("keep");
-  const [fileMib, setFileMib] = useState(0);
+  const initialFileMode = modeOf(account.max_file_bytes);
+  const initialFileMib = toMib(account.max_file_bytes);
+  const [fileMode, setFileMode] = useState<ByteLimitMode>(initialFileMode);
+  const [fileMib, setFileMib] = useState(initialFileMib);
 
   const quotaChanged =
     quotaMode !== initialQuotaMode ||
     (quotaMode === "custom" && quotaMib !== initialQuotaMib);
-  const fileChanged = fileMode !== "keep";
+  const fileChanged =
+    fileMode !== initialFileMode ||
+    (fileMode === "custom" && fileMib !== initialFileMib);
   const invalid =
     (quotaMode === "custom" && !(quotaMib > 0)) ||
     (fileMode === "custom" && !(fileMib > 0));
@@ -126,7 +125,6 @@ function UserQuotaForm({
             id="user-max-file"
             inheritDescription={m.users_quota_inherit_description()}
             inheritLabel={m.users_quota_inherit()}
-            keepLabel={m.users_quota_keep()}
             label={m.users_quota_file_label()}
             mib={fileMib}
             mode={fileMode}
